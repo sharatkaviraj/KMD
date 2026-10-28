@@ -1,11 +1,11 @@
 # One central store in the school's Google Drive (D-333, D-334)
 
 Status on 28 October 2026: see "Where it stands" at the end. In short: the
-code is deployed; Drive is the store for two pilot accounts (the owner and
-QA Office), and only the owner's has uploaded; the first backup into Drive ran
-and was restored with the school's key; the 11 bucket documents were copied
-in, originals kept; the rollout to every role still waits for one upload from
-the office account.
+code is deployed; since 09:10 UTC on 28 Oct Drive is the store for every
+account that may add documents (admin and office), by the owner's decision to
+roll out without the office-account pilot; the first backup into Drive ran and
+was restored with the school's key; the 11 bucket documents were copied in,
+originals kept.
 
 ## The central store
 
@@ -294,7 +294,7 @@ where id = 1;
 -- 2. Pilot: only these staff upload to Drive.
 update vppsone.file_storage_settings set drive_pilot_staff_ids = array['<staff id>']::uuid[] where id = 1;
 
--- 3. Everyone (only after the pilot report and approval).
+-- 3. Everyone (done 28 Oct 09:10 UTC, by the owner's decision).
 update vppsone.file_storage_settings set documents_provider = 'gdrive' where id = 1;
 
 -- Back out at any stage: new uploads return to the bucket at once.
@@ -462,16 +462,18 @@ their bucket originals.
 
 | | State | Evidence |
 |---|---|---|
-| Code deployed | **Yes**: PRs 122, 123, 124, 126, 127 (125 the bucket fix), production commit `9537e7c` | Vercel production deployment, CI green |
-| Central storage enabled | **For two pilot accounts only**: the owner (uploaded 9 files) and QA Office (office role; has not uploaded yet). `documents_provider` is still `supabase` for everyone else | `file_storage_settings` |
-| Non-admin pilot | **Not done.** It needs someone signed in as QA Office to upload one synthetic file; Claude does not sign in to the live app with a password, and the QA day-run pairing expired on 19 Oct | — |
-| Rollout to every role | **Not done**, by the brief's rule: only after both pilots | — |
+| Code deployed | **Yes**: code in PRs 122, 123, 127 (125 the bucket fix); docs 124, 126, 128 | Vercel production deployment, CI green |
+| Central storage enabled | **For everyone, since 28 Oct 09:10 UTC**: `documents_provider = 'gdrive'`. Every active account that may add documents uploads to Drive: 3 admin, 2 office. Teachers hold no document permission | `file_storage_settings` and its history row (`supabase` → `gdrive`) |
+| Non-admin pilot | **Skipped by the owner's decision** (28 Oct): it needed a person signed in as QA Office, which Claude does not do with a password. The office path differs from the admin one only in the permission check (`documents:manage`, held by both roles); the Drive calls are the same. The first real office upload is the first non-admin evidence: check its row | — |
+| Rollout to every role | **Done**, 28 Oct 09:10 UTC. Back out with the one statement in "Settings and the switch"; Drive documents keep opening | — |
 | Migration | **Done** for the 11 bucket documents, copy-only, originals kept | table above |
 | Backups scheduled | **Yes**: `document-backup` 21:30 UTC (sealed copies to Supabase) and `drive-backup` 22:00 UTC (snapshot, file copies, move) every night | `vercel.json` |
 | Latest backup | `drive-backup` 28 Oct 04:35 UTC (manual): snapshot of 204 tables / 49,644 rows, 13 file copies, 11 moved; `document-backup` 27 Oct 22:06 UTC: 1 sealed copy | `job_runs` |
 | Restore verified | **Yes, for what was backed up**: snapshot 204/204 tables; one file copy from Drive; one sealed copy from Supabase. **Not** a full rebuild into an empty database | above |
 | Retention | Keep everything (owner's choice, 28 Oct) | — |
 
-To finish: sign in as QA Office (any browser), upload a synthetic PDF to a
-synthetic student, open it; then check its row (`uploaded_by` = QA Office,
-`storage_provider = 'gdrive'`, `stored`) and run step 3 of the settings above.
+Still open: a full rebuild rehearsal from a snapshot into a scratch project;
+an independent copy outside Google (needs the owner's approval); the
+Supabase Free plan's 1 GB once real documents accumulate (their sealed
+copies go there). After the first office upload, check its row:
+`uploaded_by` an office account, `storage_provider = 'gdrive'`, `stored`.
