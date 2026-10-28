@@ -50,6 +50,13 @@ try {
   const exported = (await db.query("select vppsone.backup_public_table_export('receipts') as e")).rows[0].e;
   results.push(`fee export: count=${exported.count}, money kept as text: ${exported.rows.includes("0.50")}`);
   await run("export of something that is not a fee table", "select vppsone.backup_public_table_export('pg_class')", true);
+  const oneCall = (await db.query("select table_name, row_count, md5 from vppsone.backup_schema_export('public')")).rows;
+  const perTable = (await db.query("select vppsone.backup_public_table_export('receipts') as e")).rows[0].e;
+  results.push(
+    `one-call export of the fee schema: ${JSON.stringify(oneCall.map((row) => [row.table_name, Number(row.row_count)]))}; ` +
+      `same digest as the per-table export: ${oneCall[0].md5 === perTable.md5}`,
+  );
+  await run("one-call export of a schema that is not backed up", "select * from vppsone.backup_schema_export('auth')", true);
   const objects = (await db.query("select bucket, name from vppsone.backup_object_listing()")).rows;
   results.push(`objects the copy step sees: ${JSON.stringify(objects)} (generated receipts excluded)`);
 
@@ -64,8 +71,12 @@ try {
     "begin; set local vppsone.confirm_storage_move = 'yes'; update vppsone.file_storage_settings set root_folder_id = '1SomewhereElse000000000' where id = 1; commit;");
   await run("a routine health-check update, unconfirmed",
     "update vppsone.file_storage_settings set last_check_ok = true, last_check_at = now() where id = 1");
-  const history = (await db.query("select count(*)::int as n, bool_and(not (new_row ? 'recovery_public_key')) as no_key from vppsone.file_storage_settings_history")).rows[0];
-  results.push(`settings history rows: ${history.n}, recovery key left out of every one: ${history.no_key}`);
+  const history = (await db.query("select count(*)::int as n, bool_and(not (new_row ? 'recovery_public_key')) as no_key, min(changed_by) as who from vppsone.file_storage_settings_history")).rows[0];
+  results.push(`settings history rows: ${history.n}, recovery key left out of every one: ${history.no_key}, recorded as: ${history.who}`);
+  await run("deleting the settings row", "delete from vppsone.file_storage_settings", true);
+  await run("truncating the settings table", "truncate vppsone.file_storage_settings", true);
+  await run("parking a document whose move failed, with why",
+    "update vppsone.student_documents set migration_failed_at = now(), migration_note = 'synthetic: bucket bytes differ' where storage_path = 'gdrive/x'");
 
   await run("a migrated row whose storage_path no longer names the bucket original",
     "update vppsone.student_documents set migrated_at = now() where storage_path = 'gdrive/x'", true);

@@ -152,14 +152,16 @@ export async function signedDocumentUrl(document: OpenableDocument): Promise<str
  *
  * Only one the person may see: it is looked up as them first.
  *
- * In the Supabase bucket, file and row go, object first: a row with no file is
- * a broken link on a screen, and a file with no row is a byte nobody can
- * reach — of the two failure modes, the second is the one that does not
- * confuse anybody.
- *
  * In Drive, the row is hidden and the file is kept (D-333). The app never
  * deletes from the school's Drive; a removed document can be brought back by
  * clearing `removed_at`.
+ *
+ * In the Supabase bucket, row and file go — but only while it is still a
+ * bucket row: the nightly move (D-334) may have pointed it at Drive in the
+ * meantime, and then it is hidden like any Drive document and the bucket
+ * original, its rollback, is kept. The row goes first and the object only if
+ * a row went; a file with no row is a byte nobody can reach, the failure mode
+ * that confuses nobody.
  */
 export async function deleteDocument(id: string): Promise<void> {
   const actor = await assertPermission("documents:manage");
@@ -168,21 +170,28 @@ export async function deleteDocument(id: string): Promise<void> {
   if (!document) return;
 
   const admin = createAdminClient();
-
-  if (document.provider === "gdrive") {
+  const hide = async () => {
     const { error } = await admin
       .from("student_documents")
       .update({ removed_at: new Date().toISOString(), removed_by: actor.id })
       .eq("id", id)
       .is("removed_at", null);
     if (error) throw error;
-    return;
-  }
+  };
+
+  if (document.provider === "gdrive") return hide();
+
+  const { data: deleted, error } = await admin
+    .from("student_documents")
+    .delete()
+    .eq("id", id)
+    .eq("storage_provider", "supabase")
+    .is("migrated_at", null)
+    .select("storage_path");
+  if (error) throw error;
+  if (!deleted || deleted.length === 0) return hide();
 
   await admin.storage.from(DOCUMENTS_BUCKET).remove([document.storagePath]);
-
-  const { error } = await admin.from("student_documents").delete().eq("id", id);
-  if (error) throw error;
 }
 
 /** What VPPS One has accepted about one child, for the student card. */

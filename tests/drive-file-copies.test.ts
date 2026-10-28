@@ -69,7 +69,7 @@ describe("file copies into Drive", () => {
     const photo = syntheticFile("jpeg", 4000);
     const { deps, reads } = world(
       [{ bucket: "vppsone-photos", name: "p.jpg", size: photo.byteLength, updatedAt: "2026-10-20T00:00:00Z", bytes: photo }],
-      [{ bucket: "vppsone-photos", name: "p.jpg", sha256: sha(photo), bytes: photo.byteLength, copiedAt: "2026-10-21T00:00:00Z" }],
+      [{ bucket: "vppsone-photos", name: "p.jpg", sha256: sha(photo), bytes: photo.byteLength, copiedAt: "2026-10-21T00:00:00Z", keyFingerprint: fingerprint }],
     );
     const summary = await copyObjectsToDrive(deps, { recoveryPublicKey: school.publicKey, keyFingerprint: fingerprint, deadline: Infinity });
     expect(summary).toMatchObject({ copied: 0, unchanged: 1 });
@@ -80,28 +80,42 @@ describe("file copies into Drive", () => {
     const newer = syntheticFile("jpeg", 5000);
     const { deps, recorded } = world(
       [{ bucket: "vppsone-photos", name: "p.jpg", size: newer.byteLength, updatedAt: "2026-10-28T00:00:00Z", bytes: newer }],
-      [{ bucket: "vppsone-photos", name: "p.jpg", sha256: "e".repeat(64), bytes: 4000, copiedAt: "2026-10-21T00:00:00Z" }],
+      [{ bucket: "vppsone-photos", name: "p.jpg", sha256: "e".repeat(64), bytes: 4000, copiedAt: "2026-10-21T00:00:00Z", keyFingerprint: fingerprint }],
     );
     await copyObjectsToDrive(deps, { recoveryPublicKey: school.publicKey, keyFingerprint: fingerprint, deadline: Infinity });
     expect(recorded).toHaveLength(1);
     expect(recorded[0]!.sha256).toBe(sha(newer));
   });
 
-  it("names copies without a person's name", () => {
-    expect(objectCopyName("vppsone-documents", "2026-27/s1/d1.pdf", "a".repeat(64))).toBe(
-      "vppsone-documents__2026-27__s1__d1.pdf__aaaaaaaaaaaa.sealed",
+  it("seals every file again for a new recovery key, without reading unchanged ones twice", async () => {
+    const photo = syntheticFile("jpeg", 4000);
+    const { deps, recorded } = world(
+      [{ bucket: "vppsone-photos", name: "p.jpg", size: photo.byteLength, updatedAt: "2026-10-20T00:00:00Z", bytes: photo }],
+      [{ bucket: "vppsone-photos", name: "p.jpg", sha256: sha(photo), bytes: photo.byteLength, copiedAt: "2026-10-21T00:00:00Z", keyFingerprint: "0".repeat(64) }],
     );
+    await copyObjectsToDrive(deps, { recoveryPublicKey: school.publicKey, keyFingerprint: fingerprint, deadline: Infinity });
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]!.keyFingerprint).toBe(fingerprint);
+  });
+
+  it("names copies opaquely: no student id, no bucket path", () => {
+    const name = objectCopyName("defaulter-voice-notes", "00000000-0000-4000-8000-0000000000c1/note.webm", "a".repeat(64));
+    expect(name).toMatch(/^copy-[0-9a-f]{24}-aaaaaaaaaaaa\.sealed$/);
+    expect(name).not.toContain("0000000000c1");
   });
 });
 
 describe("the copy-only move of bucket documents", () => {
   function world(documents: (BucketDocument & { bytes: Uint8Array })[], options: { driveCorrupts?: boolean } = {}) {
     const flipped = new Map<string, { driveFileId: string; sha256: string }>();
+    const parked = new Map<string, string>();
     const drive = new Map<string, Uint8Array>();
     return {
       flipped,
+      parked,
       drive,
       deps: {
+        park: async (id: string, note: string) => void parked.set(id, note),
         pending: async () => documents.filter((document) => !flipped.has(document.id)),
         download: async (path: string) => documents.find((document) => document.storagePath === path)!.bytes,
         folderFor: async (session: string) => `1SyntheticFolder${session.replace(/[^0-9]/g, "")}`,
@@ -144,20 +158,28 @@ describe("the copy-only move of bucket documents", () => {
 
   it("leaves a document in the bucket when its bytes do not match the record", async () => {
     const bytes = syntheticFile("pdf", 20_000);
-    const { deps, flipped } = world([
+    const { deps, flipped, parked, drive } = world([
       document(2, bytes, { sha256: "0".repeat(64) }),
       document(3, bytes, { byteSize: 1 }),
       document(4, syntheticFile("html", 20_000)),
     ]);
     expect(await migrateBucketDocuments(deps, { deadline: Infinity })).toMatchObject({ migrated: 0, mismatched: 3 });
     expect(flipped.size).toBe(0);
+    // Parked with why, and nothing was uploaded for them.
+    expect([...parked.values()]).toEqual([
+      "bucket bytes differ from the recorded sha256",
+      "bucket bytes 20000, row says 1",
+      "bucket bytes are not the recorded type",
+    ]);
+    expect(drive.size).toBe(0);
   });
 
   it("does not point at a Drive copy that came back different", async () => {
     const bytes = syntheticFile("pdf", 20_000);
-    const { deps, flipped } = world([document(5, bytes)], { driveCorrupts: true });
+    const { deps, flipped, parked } = world([document(5, bytes)], { driveCorrupts: true });
     expect(await migrateBucketDocuments(deps, { deadline: Infinity })).toMatchObject({ migrated: 0, driveMismatch: 1 });
     expect(flipped.size).toBe(0);
+    expect([...parked.values()][0]).toMatch(/different sha256; not used/);
   });
 
   it("moves an old row with no recorded checksum on size, type and Drive's read-back, and says so", async () => {

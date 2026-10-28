@@ -34,19 +34,28 @@
 --
 -- Rollback (nothing depends on these but the backup job):
 --   drop trigger file_storage_settings_guard on vppsone.file_storage_settings;
+--   drop trigger file_storage_settings_no_truncate on vppsone.file_storage_settings;
 --   drop function vppsone.file_storage_settings_guard();
+--   drop function vppsone.backup_schema_export(text);
 --   drop table vppsone.file_storage_settings_history;
 --   drop function vppsone.backup_object_listing();
 --   drop function vppsone.backup_public_table_export(text);
 --   drop function vppsone.backup_public_tables();
 --   drop table vppsone.drive_object_copies; drop table vppsone.drive_snapshots;
 --   alter table vppsone.file_storage_settings drop column bucket_migration_approved_at;
+--   alter table vppsone.student_documents drop constraint student_documents_migrated_kept,
+--     drop column migration_note, drop column migration_failed_at;
 --   (student_documents.migrated_at: first put migrated rows back with
 --    update vppsone.student_documents set storage_provider = 'supabase',
 --      drive_file_id = null, migrated_at = null where migrated_at is not null;)
 
 alter table vppsone.student_documents
   add column migrated_at timestamptz,
+  -- A move that did not match or failed is parked, with why, and not tried
+  -- again until somebody clears it: a stuck row must not be re-read and
+  -- re-uploaded every night.
+  add column migration_failed_at timestamptz,
+  add column migration_note text check (migration_note is null or char_length(migration_note) <= 300),
   add constraint student_documents_migrated_kept check (
     migrated_at is null or (storage_provider = 'gdrive' and storage_path not like 'gdrive/%')
   );
@@ -88,7 +97,8 @@ create table vppsone.drive_object_copies (
   sealed_sha256 text not null check (sealed_sha256 ~ '^[0-9a-f]{64}$'),
   key_fingerprint text not null check (key_fingerprint ~ '^[0-9a-f]{64}$'),
   copied_at timestamptz not null default now(),
-  primary key (bucket, object_name, sha256)
+  -- Per key: a new recovery key re-seals every file, and the old copies stay.
+  primary key (bucket, object_name, sha256, key_fingerprint)
 );
 
 comment on table vppsone.drive_object_copies is
@@ -144,6 +154,43 @@ begin
 end;
 $$;
 
+-- Every table of one schema in ONE statement, so all of them come from the
+-- same moment: a STABLE function's queries share the calling query's
+-- snapshot. Ordinary tables only (relkind 'r'), so a partitioned table is
+-- exported once, through its partitions. The per-table export above stays as
+-- the fallback if this one call is ever too big or too slow.
+create or replace function vppsone.backup_schema_export(p_schema text)
+returns table (table_name text, row_count bigint, md5 text, rows text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_table text;
+begin
+  if p_schema not in ('vppsone', 'public') then
+    raise exception 'not a backed-up schema: %', p_schema;
+  end if;
+  for v_table in
+    select c.relname::text
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = p_schema and c.relkind = 'r'
+      and not (p_schema = 'vppsone' and c.relname = 'rate_limits')
+    order by 1
+  loop
+    return query execute format(
+      'select %L::text, count(*), '
+      || 'md5(coalesce(string_agg(to_jsonb(t)::text, E''\n'' order by to_jsonb(t)::text), '''')), '
+      || 'coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text), ''[]''::jsonb)::text '
+      || 'from %I.%I t',
+      v_table, p_schema, v_table
+    );
+  end loop;
+end;
+$$;
+
 create or replace function vppsone.backup_object_listing()
 returns table (bucket text, name text, size bigint, mimetype text, updated_at timestamptz)
 language sql
@@ -158,13 +205,18 @@ as $$
   order by o.bucket_id, o.name;
 $$;
 
+-- Not SECURITY DEFINER: it must record who ran the change, and every writer
+-- of this table already holds the grants it uses.
 create or replace function vppsone.file_storage_settings_guard()
 returns trigger
 language plpgsql
-security definer
 set search_path = ''
 as $$
 begin
+  if tg_op in ('DELETE', 'TRUNCATE') then
+    raise exception 'The document storage settings row is never deleted (D-334); change its values instead.';
+  end if;
+
   if (
     (old.shared_drive_id is not null and new.shared_drive_id is distinct from old.shared_drive_id)
     or (old.root_folder_id is not null and new.root_folder_id is distinct from old.root_folder_id)
@@ -176,19 +228,29 @@ begin
   and exists (select 1 from vppsone.student_documents where storage_provider = 'gdrive')
   and coalesce(current_setting('vppsone.confirm_storage_move', true), '') <> 'yes'
   then
-    raise exception 'Changing the document storage destination needs explicit confirmation (D-334): copy every Drive document first, then run the change with set local vppsone.confirm_storage_move = ''yes''.';
+    raise exception 'Changing the document storage destination needs explicit confirmation (D-334): copy every Drive document first, then, in one transaction, set local vppsone.confirm_storage_move = ''yes'', change the row and delete from vppsone.drive_folders (its folders belong to the old destination).';
   end if;
 
   new.updated_at := now();
-  insert into vppsone.file_storage_settings_history (old_row, new_row)
-  values (to_jsonb(old) - 'recovery_public_key', to_jsonb(new) - 'recovery_public_key');
+  insert into vppsone.file_storage_settings_history (changed_by, old_row, new_row)
+  values (
+    -- Bracketed: `||` and `->>` share a precedence, and unbracketed this
+    -- read ' as ' as JSON and refused every update (found by the dry run).
+    session_user || coalesce(' as ' || ((nullif(current_setting('request.jwt.claims', true), ''))::jsonb ->> 'role'), ''),
+    to_jsonb(old) - 'recovery_public_key',
+    to_jsonb(new) - 'recovery_public_key'
+  );
   return new;
 end;
 $$;
 
 create trigger file_storage_settings_guard
-  before update on vppsone.file_storage_settings
+  before update or delete on vppsone.file_storage_settings
   for each row execute function vppsone.file_storage_settings_guard();
+
+create trigger file_storage_settings_no_truncate
+  before truncate on vppsone.file_storage_settings
+  for each statement execute function vppsone.file_storage_settings_guard();
 
 alter table vppsone.drive_snapshots enable row level security;
 alter table vppsone.drive_object_copies enable row level security;
@@ -207,6 +269,8 @@ grant usage on sequence vppsone.file_storage_settings_history_id_seq to service_
 revoke all on function vppsone.backup_public_tables() from public, anon, authenticated;
 revoke all on function vppsone.backup_public_table_export(text) from public, anon, authenticated;
 revoke all on function vppsone.backup_object_listing() from public, anon, authenticated;
+revoke all on function vppsone.backup_schema_export(text) from public, anon, authenticated;
+grant execute on function vppsone.backup_schema_export(text) to service_role;
 revoke all on function vppsone.file_storage_settings_guard() from public, anon, authenticated;
 grant execute on function vppsone.backup_public_tables() to service_role;
 grant execute on function vppsone.backup_public_table_export(text) to service_role;

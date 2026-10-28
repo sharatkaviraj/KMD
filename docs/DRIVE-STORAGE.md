@@ -146,40 +146,75 @@ lost, and a second folder in the same Drive is not a second copy.
 The nightly `drive-backup` job (22:00 UTC, 03:30 IST; also Jobs → Run now)
 writes into `VPPS One documents/backups/`:
 
-1. **File copies** (`backups/file copies/`): a sealed copy of every object
+1. **The snapshot, first**: every `vppsone` table and every fee (`public`)
+   table as Postgres's canonical JSON, with row counts and digests. Each
+   schema is read in one statement (`backup_schema_export`), so its tables
+   are one moment; if that call is ever too big or slow, tables are read one
+   by one and the summary says `oneMoment: no`. The bundle
+   `snapshot-<time>.jsonl.gz.sealed` starts with a sealed manifest (digests,
+   checksums, the list of every stored file and its copy), then one line per
+   table; gzipped, sealed, read back by sha256 after upload. Beside it,
+   `snapshot-<time>.summary.json` in plain text says only when, which schema
+   version and app commit, how many rows in which tables, and the bundle's
+   checksum — no row, no file name, no row digest. Catalogue:
+   `vppsone.drive_snapshots`.
+2. **File copies** (`backups/file copies/`): a sealed copy of every object
    in `vppsone-documents`, `vppsone-photos`, `student-photos` and
-   `defaulter-voice-notes`, once per version (a file is read again only if it
-   changed since its copy). Catalogue: `vppsone.drive_object_copies`.
-2. **The copy-only move**, only while `bucket_migration_approved_at` is set:
+   `defaulter-voice-notes`, once per version and per recovery key (a file is
+   read again only if it changed since its copy, or the key changed). Names
+   are opaque (`copy-<hash>-<hash>.sealed`): a path can carry a student id,
+   and a voice-note path says that family owes fees. Catalogue:
+   `vppsone.drive_object_copies`.
+3. **The copy-only move**, only while `bucket_migration_approved_at` is set:
    each stored bucket document is read, checked against its size, type and
    recorded sha256, written into the session folder, read back by Drive's own
-   sha256, and only then pointed at Drive (`migrated_at`); the bucket
-   original is kept. Anything that does not match stays in the bucket and
-   fails the run visibly.
-3. **The snapshot**: every `vppsone` table and every fee (`public`) table as
-   Postgres's canonical JSON, with row counts and digests, one line per
-   table, gzipped and sealed: `snapshot-<time>.jsonl.gz.sealed`, read back by
-   sha256 after upload. Beside it, `snapshot-<time>.manifest.json` in plain
-   text: table names, counts, digests, checksums, the list of every stored
-   file with its checksum and copy, the schema version and the app commit —
-   no row. Catalogue: `vppsone.drive_snapshots`.
+   sha256, and only then pointed at Drive (`migrated_at`) — and only if the
+   row was not removed or changed meanwhile. The bucket original is kept.
+   Anything that does not match is **parked** (`migration_failed_at`,
+   `migration_note` says why, and names any unused Drive file) and is not
+   tried again until somebody clears it.
 
-The run fails, where it is read on the Jobs screen, if Drive is not set up,
-if no valid recovery key is set (nothing is ever written unsealed), or if any
-copy or move failed or did not match; the snapshot is written first in that
-case, so one bad file never costs the night's database copy.
+Steps 2 and 3 run by deadline within the job's five minutes, cannot stop
+each other or the snapshot, and carry on the next night. The run fails, where
+it is read on the Jobs screen, if Drive is not set up, if no valid recovery
+key is set (nothing is ever written unsealed), if the snapshot fails, or if
+any copy or move failed or was parked; each is named in the function log
+(`vppsone.backup` lines, ids only).
 
 **Retention**: none decided. The owner chose on 28 Oct to keep every backup
 for now; the service account cannot delete anything in Drive, so pruning is
 the owner's, as the drive's manager. Growth is the snapshot size per night
 (see the first run's `snapshotKB` on the Jobs screen) plus changed files.
 
-**Restoring from Drive.** Download a snapshot and its manifest from
+**Restoring from Drive.** Download a snapshot and its summary from
 `backups/` (as raj@vpps.co.in), then
-`npm run recovery -- snapshot --key <private.pem> --bundle <….sealed> --manifest <….manifest.json>`
-checks every table; add `--out <folder>` to write the table files the steps
-in `docs/ARCHIVE.md` load (they hold children's records: a computer you
-control, deleted afterwards). File copies open with `npm run recovery -- open`.
+`npm run recovery -- snapshot --key <private.pem> --bundle <….sealed> --summary <….summary.json>`
+checks every table; add `--out <folder>` to write one `<schema>.<table>.json`
+per table (they hold children's records: a computer you control, deleted
+afterwards). File copies open with `npm run recovery -- open`.
+
+Loading those files into an empty database at the snapshot's schema version
+(apply the migrations first), per table, in dependency order (staff, fields
+and classes before what points at them), for both schemas:
+
+```sql
+insert into <schema>.<table> (<every column except generated ones>)
+overriding system value
+select <the same columns> from jsonb_populate_recordset(null::<schema>.<table>, '<file contents>'::jsonb);
+-- then, for each identity or serial column:
+select setval(pg_get_serial_sequence('<schema>.<table>', '<column>'), coalesce(max(<column>), 1)) from <schema>.<table>;
+```
+
+`overriding system value` is needed for `generated always as identity`
+columns; generated (computed) columns are left out and recompute themselves;
+`setval` puts sequences past the restored rows. Sign-in accounts are not in
+the snapshot: staff are invited again and matched to their restored
+`staff_profiles`. **This full rebuild has not been rehearsed**: what is
+proved is that a snapshot opens with the key and every table's count,
+Postgres digest and checksum match (synthetic test and the tool), and that
+the per-table export format reloads to the same digest (the existing archive
+drill). A rehearsal into a scratch project is the next step before relying
+on it alone.
 
 **What a single account cannot protect against.** Everything above lives in
 one Shared Drive managed by one account. If that drive is deleted, or the
@@ -254,6 +289,14 @@ update vppsone.file_storage_settings set documents_provider = 'gdrive' where id 
 
 -- Back out at any stage: new uploads return to the bucket at once.
 update vppsone.file_storage_settings set documents_provider = 'supabase', drive_pilot_staff_ids = '{}' where id = 1;
+
+-- Copy-only move of bucket documents (approved 28 Oct for the 11 synthetic files):
+update vppsone.file_storage_settings set bucket_migration_approved_at = now() where id = 1;
+-- ...and its rollback: every moved row points at its kept bucket original again.
+update vppsone.student_documents set storage_provider = 'supabase', drive_file_id = null, migrated_at = null
+where migrated_at is not null;
+-- A parked document is tried again once its cause is understood:
+update vppsone.student_documents set migration_failed_at = null, migration_note = null where id = '<id>';
 ```
 
 Backing out never strands a document: Drive rows keep opening from Drive
@@ -289,9 +332,13 @@ gcloud iam service-accounts add-iam-policy-binding vppsone-drive@vpps-one-files.
 ```
 
 Revoking the app's access, from the most to the least drastic: disable the
-service account; remove the binding above; remove the account from the
-Shared Drive; or set `documents_provider = 'supabase'` and clear the Drive
-identifiers in the settings row.
+service account; remove the binding above; remove its access to the folder;
+or set `documents_provider = 'supabase'` (new uploads stop going to Drive).
+Clearing or changing the Drive identifiers in the settings row is refused
+while documents live in Drive (D-334); a deliberate move uses
+`set local vppsone.confirm_storage_move = 'yes'` and also empties
+`vppsone.drive_folders` in the same transaction, after every Drive document
+has been copied to the new place.
 
 Then, in Drive as raj@vpps.co.in (done 27 Oct through the Drive connector,
 because Chrome is policy-blocked on drive.google.com): a folder
