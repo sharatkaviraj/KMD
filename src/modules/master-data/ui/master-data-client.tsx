@@ -10,6 +10,7 @@ import type { ClassStatus } from "@/platform/db/types";
 import type { MasterDataActionState } from "@/app/(app)/fees/master-data/actions";
 
 import { useActionFeedbackMany } from "@/ui/hooks/use-action-feedback";
+import { AddRow, EditRow } from "@/ui/primitives/edit-row";
 const selectClassName =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
@@ -99,6 +100,19 @@ function ActionMessage({ state }: { state: MasterDataActionState }) {
       {state.message}
     </div>
   );
+}
+
+const STATUS_LABELS: Record<ClassStatus, string> = {
+  active: "Active",
+  inactive: "Inactive",
+  archived: "Archived",
+};
+
+/** Deleting a class, route or fee head used to happen on one tap. */
+function confirmDelete(what: string) {
+  return (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!window.confirm(`Delete ${what}? This cannot be undone.`)) event.preventDefault();
+  };
 }
 
 function SessionStatusSelect({ name, value }: { name: string; value: ClassStatus }) {
@@ -236,62 +250,24 @@ export function MasterDataClient({
 
   return (
     <div className="space-y-8">
-      <section className="rounded-3xl border border-border bg-card/95 p-4 shadow-sm backdrop-blur">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Supporting lists overview
-            </p>
-            <h2 className="mt-2 font-heading text-xl font-semibold text-foreground">
-              Keep sessions, classes, routes, and fee catalogs moving fast
-            </h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Use the compact controls below to add or adjust master data without losing the main
-              fee setup workflow.
-            </p>
-          </div>
-          {/* Phone: a scrolling chip rail rather than a wrapped block of five
-              outline buttons. The design uses pills for exactly this, and at
-              375px these wrapped into three ragged rows. */}
-          <div className="snap-x-strip -mx-1 items-center gap-2 px-1 md:mx-0 md:flex md:flex-wrap md:px-0">
-            {[
-              ["sessions", "Sessions"],
-              ["classes", "Classes"],
-              ["routes", "Routes"],
-              ["fee-heads", "Fee heads"],
-              ["payment-modes", "Payment modes"],
-            ].map(([anchor, label]) => (
-              <Button
-                key={anchor}
-                asChild
-                variant="outline"
-                size="sm"
-                className="shrink-0 rounded-full md:rounded-md"
-              >
-                <a href={`#master-data-${anchor}`}>{label}</a>
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-foreground">
-            Sessions: <strong className="text-foreground">{sessions.length}</strong>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-foreground">
-            Classes: <strong className="text-foreground">{classes.length}</strong>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-foreground">
-            Routes: <strong className="text-foreground">{routes.length}</strong>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-foreground">
-            Fee heads: <strong className="text-foreground">{feeHeads.length}</strong>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-foreground">
-            Payment modes: <strong className="text-foreground">{paymentModes.length}</strong>
-          </div>
-        </div>
-      </section>
+      {/* One row of jump links with their counts. This used to be a card of
+          explanation plus five separate count boxes: a full phone screen before
+          the first list. */}
+      <nav aria-label="Lists on this page" className="snap-x-strip -mx-1 items-center gap-2 px-1 md:mx-0 md:flex md:flex-wrap md:px-0">
+        {[
+          ["sessions", "Sessions", sessions.length],
+          ["classes", "Classes", classes.length],
+          ["routes", "Routes", routes.length],
+          ["fee-heads", "Fee heads", feeHeads.length],
+          ["payment-modes", "Payment modes", paymentModes.length],
+        ].map(([anchor, label, count]) => (
+          <Button key={anchor} asChild variant="outline" size="sm" className="shrink-0 rounded-full">
+            <a href={`#master-data-${anchor}`}>
+              {label} <span className="text-muted-foreground">{count}</span>
+            </a>
+          </Button>
+        ))}
+      </nav>
 
       <section id="master-data-sessions" className="space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
         <h2 className="text-lg font-semibold text-foreground">Academic Sessions</h2>
@@ -300,23 +276,25 @@ export function MasterDataClient({
         <ActionMessage state={sessionDeleteState} />
         <ActionMessage state={setLiveSessionState} />
 
-        <form action={createSessionFormAction} className="grid gap-3 rounded-xl border border-border p-3 md:grid-cols-5">
-          <div className="md:col-span-2">
-            <Label htmlFor="newSessionLabel">Session label</Label>
-            <Input id="newSessionLabel" name="sessionLabel" placeholder="2026-27" className="mt-1" required />
-          </div>
-          <div>
-            <Label>Status</Label>
-            <SessionStatusSelect name="sessionStatus" value="active" />
-          </div>
-          <div className="md:col-span-5">
-            <Label htmlFor="newSessionNotes">Notes</Label>
-            <Input id="newSessionNotes" name="sessionNotes" className="mt-1" />
-          </div>
-          <PendingSubmitButton className="md:col-span-5 w-fit">Add session</PendingSubmitButton>
-        </form>
+        <AddRow label="Add session">
+          <form action={createSessionFormAction} className="grid gap-3 md:grid-cols-5">
+            <div className="md:col-span-2">
+              <Label htmlFor="newSessionLabel">Session label</Label>
+              <Input id="newSessionLabel" name="sessionLabel" placeholder="2026-27" className="mt-1" required />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <SessionStatusSelect name="sessionStatus" value="active" />
+            </div>
+            <div className="md:col-span-5">
+              <Label htmlFor="newSessionNotes">Notes</Label>
+              <Input id="newSessionNotes" name="sessionNotes" className="mt-1" />
+            </div>
+            <PendingSubmitButton className="md:col-span-5 w-fit">Add session</PendingSubmitButton>
+          </form>
+        </AddRow>
 
-        <div className="max-h-[28rem] space-y-3 overflow-auto pr-1">
+        <div className="space-y-2">
           {sessions.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border-strong bg-surface-2 px-4 py-6 text-sm text-muted-foreground">
               No academic sessions saved yet. Add the active session before configuring
@@ -324,7 +302,19 @@ export function MasterDataClient({
             </div>
           ) : (
             sessions.map((session) => (
-              <div key={session.id} className="rounded-xl border border-border p-3">
+              <EditRow
+                key={session.id}
+                title={session.session_label}
+                subtitle={`${STATUS_LABELS[session.status]}${session.notes ? ` · ${session.notes}` : ""}`}
+                badge={
+                  session.is_current ? (
+                    <span className="rounded-md border border-success/30 bg-success-soft px-2 py-0.5 text-xs font-semibold text-success-soft-foreground">
+                      Live now
+                    </span>
+                  ) : null
+                }
+                editLabel="Edit"
+              >
                 <form action={updateSessionFormAction} className="grid gap-3 md:grid-cols-5">
                   <input type="hidden" name="sessionId" value={session.id} />
                   <div className="md:col-span-2">
@@ -399,7 +389,7 @@ export function MasterDataClient({
                     <PendingSubmitButton variant="outline">Make this the live session</PendingSubmitButton>
                   </form>
                 ) : null}
-              </div>
+              </EditRow>
             ))
           )}
         </div>
@@ -411,7 +401,7 @@ export function MasterDataClient({
           <div>
             <h2 className="text-lg font-semibold text-foreground">Classes</h2>
             <p className="text-sm text-muted-foreground">
-              Search the class list, then edit rows inline. Delete actions stay on the same row.
+              Tap a class to change or delete it.
             </p>
           </div>
           <div className="w-full max-w-sm">
@@ -432,7 +422,8 @@ export function MasterDataClient({
         <ActionMessage state={classUpdateState} />
         <ActionMessage state={classDeleteState} />
 
-        <form action={createClassFormAction} className="grid gap-3 rounded-xl border border-border p-3 md:grid-cols-6">
+        <AddRow label="Add class">
+        <form action={createClassFormAction} className="grid gap-3 md:grid-cols-6">
           <div>
             <Label>Session</Label>
             <select name="sessionLabel" className={selectClassName} required>
@@ -470,15 +461,21 @@ export function MasterDataClient({
           </div>
           <PendingSubmitButton className="md:col-span-6 w-fit">Add class</PendingSubmitButton>
         </form>
+        </AddRow>
 
-        <div className="max-h-[32rem] space-y-3 overflow-auto pr-1">
+        <div className="space-y-2">
           {filteredClasses.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border-strong bg-surface-2 px-4 py-6 text-sm text-muted-foreground">
               No matching classes found. Clear the search or add a new class row.
             </div>
           ) : (
             filteredClasses.map((item) => (
-              <div key={item.id} className="rounded-xl border border-border p-3">
+              <EditRow
+                key={item.id}
+                title={[item.class_name, item.section, item.stream_name].filter(Boolean).join(" · ")}
+                subtitle={`${item.session_label} · ${STATUS_LABELS[item.status]}`}
+                editLabel="Edit"
+              >
                 <form action={updateClassFormAction} className="grid gap-3 md:grid-cols-6">
                   <input type="hidden" name="classId" value={item.id} />
                   <div>
@@ -517,12 +514,16 @@ export function MasterDataClient({
                   </div>
                   <div className="flex flex-wrap gap-2 md:col-span-6">
                     <PendingSubmitButton>Save class</PendingSubmitButton>
-                    <PendingSubmitButton variant="outline" formAction={deleteClassFormAction}>
+                    <PendingSubmitButton
+                      variant="outline"
+                      formAction={deleteClassFormAction}
+                      onClick={confirmDelete(`the class ${item.class_name}`)}
+                    >
                       Delete class
                     </PendingSubmitButton>
                   </div>
                 </form>
-              </div>
+              </EditRow>
             ))
           )}
         </div>
@@ -533,7 +534,7 @@ export function MasterDataClient({
           <div>
             <h2 className="text-lg font-semibold text-foreground">Transport Routes</h2>
             <p className="text-sm text-muted-foreground">
-              Search the route list, then edit route fee rows inline.
+              Tap a route to change its fee or delete it.
             </p>
           </div>
           <div className="w-full max-w-sm">
@@ -554,7 +555,8 @@ export function MasterDataClient({
         <ActionMessage state={routeUpdateState} />
         <ActionMessage state={routeDeleteState} />
 
-        <form action={createRouteFormAction} className="grid gap-3 rounded-xl border border-border p-3 md:grid-cols-5">
+        <AddRow label="Add route">
+        <form action={createRouteFormAction} className="grid gap-3 md:grid-cols-5">
           <div>
             <Label>Route code</Label>
             <Input name="routeCode" className="mt-1" />
@@ -580,15 +582,27 @@ export function MasterDataClient({
           </div>
           <PendingSubmitButton className="md:col-span-5 w-fit">Add route</PendingSubmitButton>
         </form>
+        </AddRow>
 
-        <div className="max-h-[32rem] space-y-3 overflow-auto pr-1">
+        <div className="space-y-2">
           {filteredRoutes.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border-strong bg-surface-2 px-4 py-6 text-sm text-muted-foreground">
               No matching routes found. Clear the search or add a new route row.
             </div>
           ) : (
             filteredRoutes.map((item) => (
-              <div key={item.id} className="rounded-xl border border-border p-3">
+              <EditRow
+                key={item.id}
+                title={item.route_name}
+                subtitle={[
+                  item.route_code,
+                  `₹${item.default_installment_amount.toLocaleString("en-IN")} per installment`,
+                  item.is_active ? null : "Inactive",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                editLabel="Edit"
+              >
                 <form action={updateRouteFormAction} className="grid gap-3 md:grid-cols-5">
                   <input type="hidden" name="routeId" value={item.id} />
                   <div>
@@ -627,12 +641,16 @@ export function MasterDataClient({
                   </div>
                   <div className="flex flex-wrap gap-2 md:col-span-5">
                     <PendingSubmitButton>Save route</PendingSubmitButton>
-                    <PendingSubmitButton variant="outline" formAction={deleteRouteFormAction}>
+                    <PendingSubmitButton
+                      variant="outline"
+                      formAction={deleteRouteFormAction}
+                      onClick={confirmDelete(`the route ${item.route_name}`)}
+                    >
                       Delete route
                     </PendingSubmitButton>
                   </div>
                 </form>
-              </div>
+              </EditRow>
             ))
           )}
         </div>
@@ -645,24 +663,24 @@ export function MasterDataClient({
           <div>
             <h2 className="text-lg font-semibold text-foreground">Custom fee heads</h2>
             <p className="text-sm text-muted-foreground">
-              Define the named fee-head catalog here, then use the live fee setup rows to assign
-              amounts where needed.
+              Extra named fees beyond tuition, transport and books. Set their amounts in Fee setup.
             </p>
           </div>
-          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Editable</span>
         </div>
 
         <ActionMessage state={feeHeadCreateState} />
         <ActionMessage state={feeHeadUpdateState} />
         <ActionMessage state={feeHeadDeleteState} />
 
-        <form action={createFeeHeadFormAction} className="flex flex-col gap-3 rounded-xl border border-border p-3 md:flex-row md:items-end">
-          <div className="flex-1">
-            <Label htmlFor="feeHeadLabel">Fee head label</Label>
-            <Input id="feeHeadLabel" name="feeHeadLabel" className="mt-1" placeholder="Lab fee" required />
-          </div>
-          <PendingSubmitButton className="w-fit">Add fee head</PendingSubmitButton>
-        </form>
+        <AddRow label="Add fee head">
+          <form action={createFeeHeadFormAction} className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="flex-1">
+              <Label htmlFor="feeHeadLabel">Fee head label</Label>
+              <Input id="feeHeadLabel" name="feeHeadLabel" className="mt-1" placeholder="Lab fee" required />
+            </div>
+            <PendingSubmitButton className="w-fit">Add fee head</PendingSubmitButton>
+          </form>
+        </AddRow>
 
         {feeHeads.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border-strong bg-surface-2 px-4 py-6 text-sm text-muted-foreground">
@@ -670,9 +688,14 @@ export function MasterDataClient({
             named fee type beyond tuition, transport, books, or admission/activity/misc.
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {feeHeads.map((item) => (
-              <div key={item.id} className="rounded-xl border border-border p-3">
+              <EditRow
+                key={item.id}
+                title={item.label}
+                subtitle={item.isActive ? "Active" : "Inactive"}
+                editLabel="Edit"
+              >
                 <form action={updateFeeHeadFormAction} className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
                   <input type="hidden" name="feeHeadId" value={item.id} />
                   <div>
@@ -696,9 +719,11 @@ export function MasterDataClient({
                 </form>
                 <form action={deleteFeeHeadFormAction} className="mt-2">
                   <input type="hidden" name="feeHeadId" value={item.id} />
-                  <PendingSubmitButton variant="outline">Delete</PendingSubmitButton>
+                  <PendingSubmitButton variant="outline" onClick={confirmDelete(`the fee head ${item.label}`)}>
+                    Delete
+                  </PendingSubmitButton>
                 </form>
-              </div>
+              </EditRow>
             ))}
           </div>
         )}
@@ -709,10 +734,9 @@ export function MasterDataClient({
           <div>
             <h2 className="text-lg font-semibold text-foreground">Accepted payment modes</h2>
             <p className="text-sm text-muted-foreground">
-              Keep the accepted payment modes aligned with the live collection desk.
+              Which ways of paying the fee desk accepts.
             </p>
           </div>
-          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Editable</span>
         </div>
 
         <ActionMessage state={paymentModeState} />

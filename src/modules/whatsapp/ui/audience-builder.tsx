@@ -334,10 +334,27 @@ export function AudienceBuilder({
         <p className="text-[12.5px] font-semibold leading-snug text-foreground">
           {sentence.claim}
         </p>
+        {/* The reconciliation runs to a paragraph of figures; it answers "why
+            this number" when somebody asks, so it waits to be opened. */}
         {notes.length > 0 ? (
-          <p className="text-[11.5px] leading-snug text-muted-foreground">
-            {notes.join(" ")}
-          </p>
+          <details className="group text-[11.5px] leading-snug text-muted-foreground">
+            <summary className="focus-ring inline-flex min-h-8 cursor-pointer list-none items-center gap-1 rounded font-semibold text-accent [&::-webkit-details-marker]:hidden">
+              How this number is worked out
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="size-3.5 transition-transform group-open:rotate-180"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <p className="mt-1">{notes.join(" ")}</p>
+          </details>
         ) : null}
       </div>
 

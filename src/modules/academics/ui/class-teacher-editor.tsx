@@ -171,6 +171,12 @@ function ClassTeacherRow({
                 {flat(m.classTeacherReplaceHint, language)}
               </p>
             ) : null}
+
+            {changing ? (
+              <Button type="button" variant="ghost" size="sm" fullWidth onClick={() => setChangingFrom(null)}>
+                {primary(m.cancel, language)}
+              </Button>
+            ) : null}
           </div>
         ) : null}
 
