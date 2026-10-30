@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { isUuid } from "@/platform/helpers/uuid";
 import { getFamilyWorkspaceData } from "@/modules/students-fees/data/workspace";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertFamilyVisible, refusalResponse } from "@/platform/auth/test-session-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export async function GET(
   }
   try {
     await requireStaffPermission("students:view");
+    const refused = await refusalResponse(() => assertFamilyVisible(null, familyGroupId));
+    if (refused) return refused;
 
     const { familyGroup, students } = await getFamilyWorkspaceData(familyGroupId, { skipCache: true });
     const { renderFeeStatementPdf, toFeePdfStudent } = await import(

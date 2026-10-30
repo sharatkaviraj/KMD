@@ -23,6 +23,7 @@ import { schoolToday } from "@/vx/format";
 import { decideWriteOffRequests, insertPromise, insertWriteOffRequest } from "@/vx/screens/dues/data";
 import { insertBatch } from "@/vx/screens/reminders/data";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 export type DuesActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -54,6 +55,7 @@ export async function logCallAction(input: {
 }): Promise<DuesActionResult> {
   try {
     const staff = await assertPermission("fees:view");
+    await assertSessionWritable(staff, input.sessionLabel);
     await assertNotPreviewing();
     const ids = cleanIds(input.studentIds);
     if (ids.length === 0) return { ok: false, error: "Pick a family first." };
@@ -122,6 +124,7 @@ export async function queueFamilyReminderAction(input: {
 }): Promise<DuesActionResult> {
   try {
     const staff = await assertPermission("fees:view");
+    await assertSessionWritable(staff, input.sessionLabel);
     await assertNotPreviewing();
     const ids = cleanIds(input.studentIds);
     if (ids.length === 0) return { ok: false, error: "Pick a family first." };
@@ -198,6 +201,7 @@ function checkPlanInput(input: { studentId: string; parts: number; firstDueDate:
 export async function previewPlanAction(input: { studentId: string; sessionLabel: string; scope: string; parts: number; firstDueDate: string }): Promise<PlanPreview> {
   try {
     await assertPermission("fees:view");
+    await assertSessionWritable(null, input.sessionLabel);
     const bad = checkPlanInput(input);
     if (bad) return { ok: false, error: bad };
     return await buildPreview(input.studentId, input.sessionLabel, input.scope, input.parts, input.firstDueDate);
@@ -218,6 +222,7 @@ export async function activatePlanAction(input: {
 }): Promise<{ ok: true; planId: string | null; message: string } | { ok: false; error: string }> {
   try {
     await assertPermission("fees:manage");
+    await assertSessionWritable(null, input.sessionLabel);
     await assertNotPreviewing();
     const bad = checkPlanInput(input);
     if (bad) return { ok: false, error: bad };
@@ -247,6 +252,7 @@ export async function activatePlanAction(input: {
 export async function undoPlanAction(input: { planId: string; studentId: string; sessionLabel: string }): Promise<DuesActionResult> {
   try {
     await assertPermission("fees:manage");
+    await assertSessionWritable(null, input.sessionLabel);
     await assertNotPreviewing();
     const form = new FormData();
     form.set("planId", input.planId);
@@ -266,6 +272,7 @@ export async function undoPlanAction(input: { planId: string; studentId: string;
 export async function requestWriteOffAction(input: { studentId: string; sessionLabel: string; amount: number; reasonCode: string; note: string }): Promise<DuesActionResult> {
   try {
     const staff = await assertPermission("fees:view");
+    await assertSessionWritable(staff, input.sessionLabel);
     await assertNotPreviewing();
     if (!isWriteOffReason(input.reasonCode)) return { ok: false, error: "Choose why." };
     const left = (await loadLeftOwing()).find((l) => l.studentId === input.studentId);
@@ -311,6 +318,7 @@ export async function decideWriteOffAction(input: {
 }): Promise<DuesActionResult> {
   try {
     const staff = await assertPermission("fees:view");
+    await assertSessionWritable(staff, input.sessionLabel);
     await assertNotPreviewing();
     if (!feePermissionsFor(staff.role).includes("finance:write")) return { ok: false, error: "Only an admin can decide a write-off." };
     if (!UUID.test(input.studentId)) return { ok: false, error: "Pick a child." };

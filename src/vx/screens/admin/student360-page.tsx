@@ -24,6 +24,7 @@ import { Student360, Student360Missing, type Student360Fees } from "@/vx/screens
 import { studentReturnHref } from "@/vx/screens/admin/students-logic";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -42,6 +43,8 @@ export async function Student360Content({ id, search }: { id: string; search: Re
   const language = staff.language;
   const returnTo = studentReturnHref(typeof search.returnTo === "string" ? search.returnTo : null);
   const sessionLabel = await resolveSessionLabel();
+  // A child in a session this viewer cannot open reads as not found (Phase 3).
+  if (UUID.test(id)) await notFoundUnlessVisible(() => assertStudentVisible(staff, id));
 
   const valid = UUID.test(id) && Boolean(sessionLabel);
   const seesMoney = can(staff, "fees:view");

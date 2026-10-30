@@ -20,6 +20,7 @@ import {
   MAX_FEE_HEAD_LABEL_LENGTH,
   type StudentFeePlanActionState,
 } from "./fee-plan-action-state";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 type OverrideRow = {
   custom_books_fee_amount: number | null;
@@ -158,6 +159,7 @@ export async function saveStudentFeePlanAction(
 
     const studentId = (formData.get("studentId") ?? "").toString().trim();
     const sessionLabel = (formData.get("sessionLabel") ?? "").toString().trim();
+    await assertSessionWritable(null, sessionLabel);
     const reason = (formData.get("reason") ?? "").toString().trim();
 
     if (!studentId) {

@@ -16,6 +16,7 @@ import type {
   LinkSiblingActionState,
   UnlinkSiblingActionState,
 } from "@/app/(app)/fees/students/sibling-action-state";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -330,6 +331,7 @@ export async function linkSiblingsAction(
 
   const studentId = (formData.get("studentId") ?? "").toString().trim();
   const sessionLabel = (formData.get("sessionLabel") ?? "").toString().trim();
+  await assertSessionWritable(null, sessionLabel);
   const siblingStudentIds = studentId ? readSiblingIds(formData, studentId) : [];
 
   if (!studentId || siblingStudentIds.length === 0) {
@@ -502,6 +504,7 @@ export async function unlinkSiblingAction(
   const studentId = (formData.get("studentId") ?? "").toString().trim();
   const familyGroupId = (formData.get("familyGroupId") ?? "").toString().trim();
   const sessionLabel = (formData.get("sessionLabel") ?? "").toString().trim();
+  await assertSessionWritable(null, sessionLabel, { orActive: true });
 
   if (!studentId || !familyGroupId) {
     return { status: "error", message: "Missing student or family reference for unlink." };

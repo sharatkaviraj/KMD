@@ -13,6 +13,7 @@ import { schoolToday } from "@/vx/format";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { p, type Pair } from "@/vx/text";
 import { changedFields, cleanProfile, EMPTY_PROFILE, PROFILE_PROBLEMS, profileProblems, type SchoolProfile } from "@/vx/screens/settings/domain/settings";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 /*
  * Settings (design `Settings`). Every action: permission first, then
@@ -79,6 +80,7 @@ export async function backupNowAction(): Promise<SettingsResult> {
 export async function archiveSessionAction(input: { label: string; sessionLabel: string }): Promise<SettingsResult> {
   await assertPermission("settings:manage");
   const actor = await assertPermission("jobs:run");
+  await assertSessionWritable(actor, input.sessionLabel);
   await assertNotPreviewing();
   const label = String(input.label ?? "").trim().slice(0, 120);
   const sessionLabel = String(input.sessionLabel ?? "").trim().slice(0, 40);

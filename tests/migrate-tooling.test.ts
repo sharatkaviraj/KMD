@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planAuthImport } from "../scripts/migrate/lib/auth-import.mjs";
+import { oneRoleForFeeRole, planAuthImport, remapUserReferences, shortNameFor } from "../scripts/migrate/lib/auth-import.mjs";
 import { matviewOrder } from "../scripts/migrate/lib/catalog.mjs";
 import {
   compareWithMcp,
@@ -570,12 +570,65 @@ describe("rows, env, secrets, storage, auth, extract helpers", () => {
     expect(p.copy.map((c: { path: string; reason: string }) => `${c.path}:${c.reason}`)).toEqual(["b:size", "c:missing"]);
   });
 
-  it("refuses an auth user whose email belongs to a different One user", () => {
+  it("maps a fees user whose email is a One account onto that account (D-350), never a second auth user", () => {
     const p = planAuthImport(
       [{ id: "u1", email: "A@x.invalid" }, { id: "u2", email: "b@x.invalid" }, { id: "u3", email: "c@x.invalid" }],
       [{ id: "other", email: "a@x.invalid" }, { id: "u2", email: "b@x.invalid" }],
     );
-    expect(p).toEqual({ insert: ["u3"], update: ["u2"], clashes: ["u1"] });
+    expect(p).toEqual({ insert: ["u3"], update: ["u2"], clashes: [], remap: [{ sourceId: "u1", targetId: "other" }] });
+  });
+
+  it("refuses only an ambiguous email: two fees users claiming one One account", () => {
+    const p = planAuthImport(
+      [{ id: "u1", email: "a@x.invalid" }, { id: "u9", email: "x@x.invalid" }],
+      [{ id: "other", email: "a@x.invalid" }],
+      new Map([["u9", "other"]]),
+    );
+    expect(p.remap).toEqual([{ sourceId: "u1", targetId: "other" }]);
+    expect(p.clashes).toEqual(["u9"]);
+  });
+
+  it("a recorded mapping wins over the email, so a changed email keeps its account", () => {
+    const p = planAuthImport([{ id: "u1", email: "new@x.invalid" }], [{ id: "one", email: "old@x.invalid" }], new Map([["u1", "one"]]));
+    expect(p).toEqual({ insert: [], update: [], clashes: [], remap: [{ sourceId: "u1", targetId: "one" }] });
+  });
+
+  it("rewrites every reference to a remapped fees user, and nothing else", () => {
+    const source = new Map([
+      ["users", [{ id: "u1", role: "admin" }, { id: "u3", role: "accountant" }]],
+      ["receipts", [{ id: "r1", posted_by: "u1", created_by: "u3", note: "u1 in prose" }]],
+    ]);
+    const out = remapUserReferences(source, [{ sourceId: "u1", targetId: "one" }]);
+    expect(out.get("users")).toEqual([{ id: "one", role: "admin" }, { id: "u3", role: "accountant" }]);
+    expect(out.get("receipts")).toEqual([{ id: "r1", posted_by: "one", created_by: "u3", note: "u1 in prose" }]);
+    expect(source.get("users")?.[0].id).toBe("u1");
+  });
+
+  it("gives a fees user with no One account the One role of the same name, least for anything else", () => {
+    for (const role of ["admin", "accountant", "fee_collector", "teacher", "view_only"]) expect(oneRoleForFeeRole(role)).toBe(role);
+    expect(oneRoleForFeeRole("read_only_staff")).toBe("view_only");
+    expect(oneRoleForFeeRole(undefined)).toBe("view_only");
+  });
+
+  it("never writes the public.users row of a user with a staff profile: One derives it (D-350)", () => {
+    const meta = { tables: { users: { columns: [col("id"), col("role")], pk: ["id"], uniques: [], triggers: [], sequences: [] } }, fks: [] };
+    const p = planLoad({
+      meta,
+      source: new Map([["users", [{ id: "one", role: "admin" }, { id: "fees-only", role: "accountant" }]]]),
+      target: new Map([["users", [{ id: "one", role: "view_only" }, { id: "qa", role: "view_only" }, { id: "stale", role: "admin" }]]]),
+      feesRef: "vgqyilgstjvgohrsiwkb",
+      derivedUserIds: new Set(["one", "qa"]),
+    });
+    expect(p.tables.users.insert).toEqual(["fees-only"]);
+    expect(p.tables.users.update).toEqual([]);
+    expect(p.tables.users.delete).toEqual(["stale"]);
+    expect(p.tables.users.counts).toMatchObject({ owned: 1, ownedKept: 1 });
+  });
+
+  it("makes a unique short name", () => {
+    expect(shortNameFor("Asha Devi Rao", new Set())).toBe("ADR");
+    expect(shortNameFor("Asha Devi Rao", new Set(["adr", "ADR2"]))).toBe("ADR3");
+    expect(shortNameFor("", new Set())).toBe("FEE");
   });
 
   it("keeps only the auth users behind public.users, and finds the newest change", () => {

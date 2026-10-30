@@ -24,6 +24,9 @@ import { previewPermissions, type Viewer } from "@/vx/view-as";
 import { OfflineBanner } from "@/vx/screens/system/offline-banner";
 import { SessionExpiredSheet } from "@/vx/screens/system/session-expired";
 import { UpdateBanner } from "@/vx/screens/system/update-banner";
+import type { SessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
+import { testSessionMessages } from "@/messages/setup";
+import { flat } from "@/platform/i18n/language";
 
 import { AssistProvider } from "@/vx/assist/context";
 
@@ -31,6 +34,7 @@ import { VxBottomBar } from "./bottom-bar";
 import { LazySearchPalette } from "./lazy";
 import type { PaletteItem } from "./palette";
 import { PreviewBanner } from "./preview-banner";
+import { SessionBar } from "./session-bar";
 import { menuRoleLabel, ROLE_SUB } from "./role-line";
 import { VxSidebar, type Badges } from "./sidebar";
 
@@ -96,11 +100,14 @@ export async function VxShell({
   viewer,
   sessionLabel,
   sessionIsTest,
+  sessionPill = null,
   children,
 }: {
   viewer: Viewer;
   sessionLabel: string;
   sessionIsTest: boolean;
+  /** The session pill, for a viewer allowed to switch (layout decides); null hides it. */
+  sessionPill?: { showLive: boolean; sessions: Promise<SessionSwitcherData> } | null;
   children: ReactNode;
 }) {
   const { staff, menu, previewing } = viewer;
@@ -166,6 +173,14 @@ export async function VxShell({
             <OfflineBanner />
             <SessionSwitchOverlayMount />
             {previewing ? <PreviewBanner label={MENU_LABEL[previewing].en} /> : null}
+            {staff.confined ? (
+              // A Preview or local deployment on the production database:
+              // everybody is fenced to TEST here, an admin included (D-346).
+              <div className="vx-confined" role="status">{flat(testSessionMessages.confinedBanner, staff.language)}</div>
+            ) : null}
+            {sessionPill ? (
+              <SessionBar label={sessionLabel} isTest={sessionIsTest} showLive={sessionPill.showLive} sessions={sessionPill.sessions} />
+            ) : null}
             <main id="vx-main" className="vx-main vx-reset">
               {children}
             </main>

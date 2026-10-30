@@ -3,6 +3,9 @@ import { cache } from "react";
 
 import { assertPermission, assertStaff, getCurrentStaff } from "@/platform/auth/current-staff";
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
+import { can } from "@/platform/auth/permissions";
+import { canAccessSession, canSwitchSessions, defaultSessionFor } from "@/platform/auth/test-session-policy";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
@@ -513,14 +516,24 @@ export async function deleteClassAlias(id: string): Promise<void> {
 export const resolveSessionLabel = cache(async (
   requested?: string | null,
 ): Promise<string | null> => {
-  await assertStaff();
+  const staff = await assertStaff();
   const { labels, active } = await cachedSessionFacts();
 
+  // Phase 3 (D-340): only sessions this person may open are candidates, so a
+  // real member of staff never lands in TEST-2026-27 and a test account never
+  // lands anywhere else (its default is TEST-2026-27, `defaultSessionFor`).
+  // With nothing requested, a viewer who has the session pill follows it:
+  // native screens read the same `vpps_view_session` cookie the fee screens do.
+  const viewer = { role: staff.role, isTestAccount: staff.isTestAccount === true, feeReader: can(staff, "fees:view") };
+  const visible = labels.filter((label) => canAccessSession(viewer, label));
+  const asked =
+    requested ?? (canSwitchSessions(viewer) ? await getViewSessionCookie().catch(() => null) : null);
+
   return pickSessionLabel({
-    requested,
+    requested: asked && canAccessSession(viewer, asked) ? asked : null,
     configured: process.env.VPPSONE_SESSION_LABEL,
-    active,
-    labels,
+    active: defaultSessionFor(viewer, active ?? ""),
+    labels: visible,
   });
 });
 

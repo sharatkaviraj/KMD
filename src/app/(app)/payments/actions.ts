@@ -43,6 +43,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { parseAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { schoolToday } from "@/vx/format";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,6 +59,8 @@ function sessionOf(label: string): string {
 export async function loadStudentDeskAction(input: { studentId: string; sessionLabel: string }): Promise<DeskStudentResult> {
   try {
     await assertPermission("fees:view");
+    await assertSessionWritable(null, input.sessionLabel);
+    await assertStudentVisible(null, input.studentId);
     if (!UUID.test(input.studentId)) return { ok: false, message: "That student was not found.", repairable: false };
     return await loadDeskStudent({ studentId: input.studentId, sessionLabel: sessionOf(input.sessionLabel), today: schoolToday() });
   } catch (error) {
@@ -68,6 +71,8 @@ export async function loadStudentDeskAction(input: { studentId: string; sessionL
 /** A posted receipt, for the saved state and the duplicate sheet. Read-only. */
 export async function loadDeskPreviewAction(input: { studentId: string; sessionLabel: string; paymentDate: string }) {
   await assertPermission("fees:view");
+  await assertSessionWritable(null, input.sessionLabel);
+  await assertStudentVisible(null, input.studentId);
   await requireStaffPermission("payments:view");
   const sessionLabel = sessionOf(input.sessionLabel);
   if (!UUID.test(input.studentId) || !/^\d{4}-\d{2}-\d{2}$/.test(input.paymentDate) || !Number.isFinite(Date.parse(`${input.paymentDate}T00:00:00Z`))) return { ok: false as const, message: "Choose a valid student and date." };
@@ -104,6 +109,7 @@ export type DeskPostInput = {
 export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskSaveResult> {
   try {
     await assertPermission("fees:collect");
+    await assertSessionWritable(null, input.sessionLabel);
     await assertNotPreviewing();
   } catch (error) {
     return { status: "error", message: message(error, "You cannot take payments here.") };
@@ -189,6 +195,7 @@ function postedResult(input: { receiptId: string; receiptNumber: string }): Extr
 export async function settleDeskSaveAction(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }): Promise<Extract<DeskSaveResult, { status: "saved" }> | null> {
   try {
     await assertPermission("fees:view");
+    await assertSessionWritable(null, input.sessionLabel);
     if (!UUID.test(input.receiptId) || !UUID.test(input.studentId)) return null;
     return await savedResult({ receiptId: input.receiptId, receiptNumber: input.receiptNumber, studentId: input.studentId, sessionLabel: sessionOf(input.sessionLabel) });
   } catch {
@@ -245,6 +252,7 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
 export async function deskDayStateAction(input: { date: string; sessionLabel: string }): Promise<{ closed: boolean; closedAt: string | null }> {
   try {
     await assertPermission("fees:view");
+    await assertSessionWritable(null, input.sessionLabel);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { closed: false, closedAt: null };
     const events = await listCloseEvents(input.date, input.date, { sessionLabel: sessionOf(input.sessionLabel) });
     const state = latestCloseState(events);
@@ -262,6 +270,7 @@ export async function deskDayStateAction(input: { date: string; sessionLabel: st
 export async function checkDeskPaymentAction(input: { studentId: string; clientRequestId: string; sessionLabel: string }): Promise<DeskCheckResult> {
   try {
     await assertPermission("fees:collect");
+    await assertSessionWritable(null, input.sessionLabel);
   } catch (error) {
     return { status: "unknown", message: message(error, "You cannot take payments here.") };
   }
@@ -283,6 +292,7 @@ export async function checkDeskPaymentAction(input: { studentId: string; clientR
 export async function removePaymentAction(input: { receiptId: string; studentId: string; sessionLabel: string; reason: string }) {
   try {
     await assertPermission("fees:collect");
+    await assertSessionWritable(null, input.sessionLabel);
     await assertNotPreviewing();
   } catch (error) {
     return { ok: false, message: message(error, "You cannot remove payments here.") };
@@ -339,6 +349,7 @@ export async function createBulkBatchAction(formData: FormData): Promise<{ ok: t
     await assertPermission("fees:accounts");
     await assertNotPreviewing();
     await requireStaffPermission("payments:bulk");
+    await assertSessionWritable(null, String(formData.get("sessionLabel") ?? ""), { orActive: true });
     const sessionLabel = sessionOf(String(formData.get("sessionLabel") ?? ""));
     const csv = formData.get("csv");
     const upload = formData.get("file");

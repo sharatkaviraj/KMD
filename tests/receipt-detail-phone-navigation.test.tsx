@@ -5,6 +5,18 @@ import { describe, expect, it, vi } from "vitest";
 import type { BottomTab } from "@/vx/nav";
 
 const route = vi.hoisted(() => ({ pathname: "/fees/receipts/7821379e-cabc-4cf3-9bfb-8fc1617b4f93" }));
+// The test-session fence (Phase 3) has its own tests; here it lets everything through.
+vi.mock("@/platform/auth/test-session-access", () => ({
+  assertSessionWritable: async () => {},
+  assertSessionVisible: async () => {},
+  assertStudentVisible: async () => {},
+  assertReceiptVisible: async () => {},
+  assertFamilyVisible: async () => {},
+  notFoundUnlessVisible: async (check: () => Promise<void>) => check(),
+  refusalResponse: async () => null,
+  currentSessionViewer: async () => null,
+  filterVisibleStudentIds: async (_staff: unknown, ids: string[]) => ids,
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => route.pathname,
   useRouter: () => ({ back: vi.fn(), push: vi.fn() }),

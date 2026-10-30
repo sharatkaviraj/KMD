@@ -32,7 +32,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { QA_ACCOUNTS } from "../tests/fixtures/qa-accounts.ts";
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "../src/platform/config/active-session.ts";
-import { toolScope } from "./target-guard.mjs";
+import { assertTestAccountUser, toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const asJson = process.argv.includes("--json");
@@ -49,8 +49,8 @@ const env = Object.fromEntries(
     }),
 );
 
-// Rule 3 / D-346: One's main project only, and on production it refuses (it writes real-session data).
-await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-access", mode: "dev-only" });
+// Rule 3 / D-346, Phase 3: One's main project only, confined to TEST-2026-27 and test accounts on every marker.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-access", mode: "test-scoped" });
 
 const URL_ = env.NEXT_PUBLIC_SUPABASE_URL;
 const service = (schema = "vppsone") =>
@@ -63,6 +63,7 @@ const service = (schema = "vppsone") =>
 async function signedInAs(email) {
   const { data, error } = await service().auth.admin.generateLink({ type: "magiclink", email });
   if (error) throw new Error(`${email}: ${error.message}`);
+  await assertTestAccountUser({ scope, url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, userId: data.user?.id, email });
 
   const client = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     db: { schema: "vppsone" },
@@ -87,6 +88,7 @@ const { data: activeSetting } = await service("public")
   .maybeSingle();
 const { data: sessionRows } = await admin.from("enrolments").select("session_label").limit(1000);
 const sessionLabel = pickSessionLabel({
+  requested: scope.confined ? scope.sessionLabel : null,
   requested: null,
   configured: null,
   active: typeof activeSetting?.value === "string" ? activeSetting.value : null,

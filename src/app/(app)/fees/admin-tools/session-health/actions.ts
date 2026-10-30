@@ -8,6 +8,7 @@ import { createClient } from "@/modules/fees/platform/supabase/server";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
 import { revalidateSessionFinance } from "@/modules/system-sync/domain/finance-sync";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 function sessionHealthUrl(params: Record<string, string | number>) {
   const searchParams = new URLSearchParams();
@@ -26,6 +27,7 @@ function getErrorMessage(error: unknown) {
 export async function reconcileSessionAction(formData: FormData) {
   const staff = await requireStaffPermission("fees:write");
   const label = String(formData.get("sessionLabel") ?? "").trim();
+  await assertSessionWritable(null, label);
 
   if (!label) {
     throw new Error("Choose a session to reconcile.");
@@ -125,6 +127,7 @@ export async function refreshSessionFiguresAction(formData: FormData) {
   await requireStaffPermission("dashboard:view");
 
   const label = (formData.get("sessionLabel") ?? "").toString().trim();
+  await assertSessionWritable(null, label, { orActive: true });
 
   if (!label) {
     redirect(sessionHealthUrl({ error: "Session is required to refresh figures." }));

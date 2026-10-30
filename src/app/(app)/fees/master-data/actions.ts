@@ -9,6 +9,7 @@ import { createAcademicSession, createClass, createFeeHead, createRoute, deleteA
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
 import { setActiveSessionLabel } from "@/modules/fees/platform/session-context/set-active";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 export type MasterDataActionState = {
   status: "idle" | "success" | "error";
@@ -150,6 +151,7 @@ export async function createSessionAction(
   try {
     await requireStaffPermission("settings:write");
     const sessionLabel = parseRequiredString(formData.get("sessionLabel"), "Session label");
+    await assertSessionWritable(null, sessionLabel);
     const isCurrent = parseBoolean(formData.get("isCurrentSession"));
 
     await createAcademicSession({
@@ -175,6 +177,7 @@ export async function updateSessionAction(
   try {
     await requireStaffPermission("settings:write");
     const sessionLabel = parseRequiredString(formData.get("sessionLabel"), "Session label");
+    await assertSessionWritable(null, sessionLabel);
     const isCurrent = parseBoolean(formData.get("isCurrentSession"));
 
     await updateAcademicSession({
@@ -216,6 +219,7 @@ export async function setLiveActiveSessionAction(
 
   try {
     const sessionLabel = parseRequiredString(formData.get("sessionLabel"), "Session label");
+    await assertSessionWritable(null, sessionLabel);
     const confirmation = parseRequiredString(formData.get("confirmSessionLabel"), "Confirmation");
 
     if (confirmation.trim().toLowerCase() !== sessionLabel.trim().toLowerCase()) {
@@ -236,6 +240,7 @@ export async function createClassAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertSessionWritable(null, String(formData.get("sessionLabel") ?? ""));
 
     await createClass({
       sessionLabel: parseRequiredString(formData.get("sessionLabel"), "Session"),
@@ -260,6 +265,7 @@ export async function updateClassAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertSessionWritable(null, String(formData.get("sessionLabel") ?? ""));
 
     await updateClass({
       id: parseRequiredUuid(formData.get("classId"), "Class"),

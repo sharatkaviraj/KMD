@@ -27,6 +27,12 @@ type SessionPillProps = {
   currentLabel: string;
   isTest: boolean;
   initialSessions?: AvailableSessionRow[];
+  /**
+   * Whether the current session may be called "Live". False on a database
+   * or deployment that is not production (One: the marker says dev, or the
+   * deployment is confined) — the books there are not live (plan §3.3).
+   */
+  showLive?: boolean;
 };
 
 export const SESSION_SWITCHER_STALE_PARAM_NAMES = [
@@ -146,6 +152,7 @@ export function SessionPill({
   currentLabel,
   isTest,
   initialSessions = [],
+  showLive = true,
 }: SessionPillProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -168,6 +175,7 @@ export function SessionPill({
   // today's books. When the session list hasn't loaded yet, a non-test
   // label is assumed live (the common case: staff sitting on the active AY).
   const displayIsLive =
+    showLive &&
     !displayIsTest &&
     (sessions.length === 0 ||
       sessions.some(

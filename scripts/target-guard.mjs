@@ -20,10 +20,11 @@
  *
  *   mode 'read-only'   — the script writes nothing: runs anywhere on the main
  *                        project.
- *   mode 'test-scoped' — the script has been confined: on production it writes
- *                        only TEST-2026-27 data and test accounts, and refuses
- *                        anything else itself. It is told `production: true`
- *                        and the session to use.
+ *   mode 'test-scoped' — the script has been confined: on EVERY marker (since
+ *                        Phase 3, when the QA accounts became test accounts)
+ *                        it writes only TEST-2026-27 data and test accounts,
+ *                        and refuses anything else itself. It is told
+ *                        `confined: true` and the session to use.
  *   mode 'dev-only'    — the script writes real-session data or has not been
  *                        confined yet: it refuses to run on production.
  *
@@ -119,9 +120,14 @@ export function decideToolScope(environment, mode) {
     return { ok: false, reason: `unknown tool mode ${mode}` };
   }
   const production = environment !== "dev";
-  if (!production) return { ok: true, production: false, sessionLabel: null };
-  if (mode === "read-only") return { ok: true, production: true, sessionLabel: null };
-  if (mode === "test-scoped") return { ok: true, production: true, sessionLabel: TEST_SESSION_LABEL };
+  // A test-scoped tool is CONFINED on every marker, dev included (Phase 3,
+  // D-340): the QA, smoke and day-run accounts it drives are test accounts
+  // now, and a test account sees TEST-2026-27 only — so data written anywhere
+  // else would be invisible to the very accounts that test it. `confined`
+  // is what the scripts branch on; `production` still says what the marker is.
+  if (mode === "test-scoped") return { ok: true, production, confined: true, sessionLabel: TEST_SESSION_LABEL };
+  if (!production) return { ok: true, production: false, confined: false, sessionLabel: null };
+  if (mode === "read-only") return { ok: true, production: true, confined: false, sessionLabel: null };
   return {
     ok: false,
     reason:
@@ -162,7 +168,7 @@ export async function isTestAccountUser({ url, serviceRoleKey, userId, fetchImpl
  * token. Throws, so a sign-in loop stops at the first refusal.
  */
 export async function assertTestAccountUser({ scope, url, serviceRoleKey, userId, email, fetchImpl }) {
-  if (!scope?.production) return;
+  if (!scope?.production && !scope?.confined) return;
   if (await isTestAccountUser({ url, serviceRoleKey, userId, fetchImpl })) return;
   throw new Error(
     `${email ?? userId} is not a test account, and this database is production: ` +
@@ -186,12 +192,10 @@ export async function toolScope({ url, serviceRoleKey, label = "this script", mo
     console.error(`Refusing to run ${label}: ${decision.reason}`);
     process.exit(1);
   }
-  if (decision.production) {
-    console.log(
-      `${label}: production database — ${
-        decision.sessionLabel ? `confined to ${decision.sessionLabel} and test accounts` : "read-only"
-      }.`,
-    );
+  if (decision.confined) {
+    console.log(`${label}: ${decision.production ? "production" : "dev"} database — confined to ${decision.sessionLabel} and test accounts.`);
+  } else if (decision.production) {
+    console.log(`${label}: production database — read-only.`);
   }
-  return { production: decision.production, sessionLabel: decision.sessionLabel };
+  return { production: decision.production, confined: decision.confined === true, sessionLabel: decision.sessionLabel };
 }

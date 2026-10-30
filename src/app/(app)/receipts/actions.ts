@@ -18,6 +18,7 @@ import {
 } from "@/modules/receipts/vx/domain/day-close";
 import { approveReversalRequests, declineReversalRequests, insertCloseEvent, insertReversalRequest, listCloseEvents } from "@/vx/screens/receipts/data";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 export type DeskActionResult = { ok: true; kind?: "reversed" | "requested" | "exists" | "declined" } | { ok: false; error: string };
 
@@ -46,6 +47,7 @@ export async function closeDayAction(input: {
 }): Promise<DeskActionResult> {
   try {
     const staff = await assertPermission("fees:accounts");
+    await assertSessionWritable(staff, input.sessionLabel);
     await assertNotPreviewing();
     if (!isIsoDate(input.date)) return { ok: false, error: "Pick a real day." };
     if (typeof input.sessionLabel !== "string" || !input.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };
@@ -102,6 +104,7 @@ export async function closeDayAction(input: {
 export async function reopenDayAction(input: { date: string; sessionLabel: string; note: string }): Promise<DeskActionResult> {
   try {
     const staff = await assertPermission("fees:manage");
+    await assertSessionWritable(staff, input.sessionLabel);
     await assertNotPreviewing();
     if (!isIsoDate(input.date)) return { ok: false, error: "Pick a real day." };
     if (typeof input.sessionLabel !== "string" || !input.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };

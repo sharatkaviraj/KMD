@@ -13,6 +13,7 @@ import { logBulkChange, saveMark, skipQualityItem, unskipQualityItem } from "@/v
 import { groupPlanWrites, planCounts, planPromotion, QUALITY_ISSUES, type PromoMark, type QualityIssue } from "@/vx/screens/student-tools/logic";
 import { parseDob } from "@/vx/screens/admissions/logic";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 /*
  * Student tools writes. Every one: `fees:manage`, then
@@ -99,6 +100,7 @@ export async function undoPromotionAction(runId: string) {
 
 export async function uploadImportAction(formData: FormData) {
   await assertPermission("fees:manage");
+  await assertSessionWritable(null, String(formData.get("sessionLabel") ?? ""), { orActive: true });
   await assertNotPreviewing();
   const file = formData.get("file");
   const session = formData.get("sessionLabel");
@@ -223,6 +225,7 @@ export async function unskipQualityAction(input: { studentId: string; issue: Qua
 
 export async function mergeFamilyAction(input: { studentIds: string[]; sessionLabel: string; father: string }) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, input.sessionLabel);
   await assertNotPreviewing();
   try {
     const res = await mergeFamily(input.studentIds, input.sessionLabel);
@@ -237,6 +240,7 @@ export async function mergeFamilyAction(input: { studentIds: string[]; sessionLa
 
 export async function splitFamilyAction(input: { studentId: string; familyGroupId: string; sessionLabel: string; name: string }) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, input.sessionLabel);
   await assertNotPreviewing();
   try {
     const res = await splitFromFamily(input.studentId, input.familyGroupId, input.sessionLabel);

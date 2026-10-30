@@ -108,7 +108,7 @@ const weekdayOf = (day) =>
 
 const [{ data: staff }, { data: version }, { data: kinds }] = await Promise.all([
   db.from("staff_profiles").select("id, display_name, short_name, is_teaching, role, is_test_account"),
-  scope.production
+  scope.confined
     ? db
         .from("timetable_versions")
         .select("id, session_label")
@@ -124,7 +124,7 @@ const [{ data: staff }, { data: version }, { data: kinds }] = await Promise.all(
 ]);
 
 // The session the app is working in. See src/platform/config/active-session.ts.
-const sessionLabel = scope.production ? scope.sessionLabel : await readActiveSession(db);
+const sessionLabel = scope.confined ? scope.sessionLabel : await readActiveSession(db);
 
 if (!version) {
   console.error("No published timetable. Run `npm run seed:timetable` first.");
@@ -175,7 +175,7 @@ const qaOffice = staff.find((person) => person.short_name === "QAOF");
 
 // D-346: on production every member of staff this seeds about — the
 // timetable's teachers and the named QA profiles — must be a test account.
-if (scope.production) {
+if (scope.confined) {
   const named = [raj, qaTeacher, qaOffice].filter(Boolean).map((person) => person.id);
   const notTest = [...new Set([...timetableTeachers.filter(Boolean), ...named])].filter(
     (id) => staff.find((person) => person.id === id)?.is_test_account !== true,
@@ -275,7 +275,7 @@ const profileOverrides = Object.fromEntries(
 const teacherProfiles = buildTeacherProfiles({
   teacherDetails: teacherDetailsFrom(slots, days),
   // On production a cover may only be given to a test account (D-346).
-  roster: staff.filter((person) => !scope.production || person.is_test_account === true).map((person) => person.id),
+  roster: staff.filter((person) => !scope.confined || person.is_test_account === true).map((person) => person.id),
   policyOverrides: profileOverrides,
   reserveStaff: policies
     .filter((policy) => policy.cover_role === "reserve")
@@ -892,7 +892,7 @@ die(
   (
     await db
       .from("message_templates")
-      .upsert(templates, { onConflict: "code", ignoreDuplicates: scope.production })
+      .upsert(templates, { onConflict: "code", ignoreDuplicates: scope.confined })
   ).error,
 );
 
@@ -924,7 +924,7 @@ const parentVarsHi = ["आपके बच्चे", "शुक्रवार 
 // messaging phases (D-346). The templates above are still there to look at.
 die(
   "Could not queue the messages",
-  scope.production ? null : (
+  scope.confined ? null : (
     await db.from("message_sends").insert([
       {
         session_label: sessionLabel,
@@ -956,7 +956,7 @@ die(
 );
 
 console.log(
-  scope.production
+  scope.confined
     ? "messages: templates present; nothing queued on production"
     : "messages: 2 templates, 2 queued (1 staff, 1 parent — parent is hand-sent)",
 );

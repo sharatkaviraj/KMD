@@ -42,8 +42,8 @@ const env = Object.fromEntries(
     }),
 );
 
-// Rule 3 / D-346: One's main project only, and on production it refuses (it writes real-session data).
-await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-cover-command", mode: "dev-only" });
+// Rule 3 / D-346, Phase 3: One's main project only, confined to TEST-2026-27 and test accounts on every marker.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-cover-command", mode: "test-scoped" });
 
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
@@ -67,6 +67,7 @@ const { data: version } = await db
   .from("timetable_versions")
   .select("id, session_label")
   .eq("status", "published")
+  .match(scope.confined ? { session_label: scope.sessionLabel } : {})
   .order("published_at", { ascending: false })
   .limit(1)
   .maybeSingle();

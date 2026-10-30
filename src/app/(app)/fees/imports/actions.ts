@@ -28,6 +28,7 @@ import {
 } from "@/modules/system-sync/domain/finance-sync";
 import { publishOfficeSyncEvent } from "@/modules/system-sync/data/office-sync-events";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 /**
  * Wall-clock budget for one commit request. Comfortably inside the platform's
@@ -87,6 +88,7 @@ export async function uploadStudentImportBatchAction(formData: FormData) {
   const file = formData.get("importFile");
   const mode = normalizeImportMode(formData.get("importMode"));
   const sessionLabel = parseOptionalString(formData.get("sessionLabel"));
+  await assertSessionWritable(null, sessionLabel, { orActive: true });
   let batchId: string | null = null;
   let autoValidated = false;
 

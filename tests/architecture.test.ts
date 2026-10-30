@@ -378,3 +378,61 @@ describe("no migration changes the fee app's code or rows", () => {
     expect(migrations).toContain("20260922100000_current_staff_role_reads_vppsone.sql");
   });
 });
+
+/**
+ * Every server action handed a session label checks the viewer may write it
+ * (Phase 3, plan §3.4 point 5; critique1 C2).
+ *
+ * One's writes are service role (D-179), so the database's test-session fence
+ * never sees them: `assertSessionWritable` is the fence for every write a
+ * person asks for. "Handed a session label" means the label comes from the
+ * caller — a parameter named for it, `input.sessionLabel` and the like, or a
+ * `formData.get("sessionLabel")` — not one the action resolved itself with
+ * `resolveSessionLabel()`, which already only returns sessions the viewer may
+ * open.
+ */
+describe("actions handed a session label check it is writable", () => {
+  const LABEL = "(?:sessionLabel|academicSessionLabel|session_label|targetSessionLabel|sourceSessionLabel)";
+  const IN_PARAMS = new RegExp(`\\b${LABEL}\\b`);
+  const FROM_INPUT = new RegExp(`\\b(?:input|args|params|payload|data|values|form|parsed\\.data|body)\\.${LABEL}\\b`);
+  const FROM_FORM = /\.get\(\s*["'](?:session|sessionLabel|session_label|academic_session_label|academicSessionLabel)["']\s*\)/;
+  const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
+
+  function paramsOf(body: string): string {
+    const open = body.indexOf("(");
+    let depth = 0;
+    for (let i = open; i < body.length; i += 1) {
+      if (body[i] === "(") depth += 1;
+      else if (body[i] === ")") {
+        depth -= 1;
+        if (depth === 0) return body.slice(open, i + 1);
+      }
+    }
+    return "";
+  }
+
+  const actions = sourceFiles
+    .map((file) => ({ file, source: readFileSync(file, "utf8").replace(/\r\n/g, "\n") }))
+    .filter(({ source }) => /^["']use server["']/.test(source.trimStart()))
+    .flatMap(({ file, source }) => {
+      const starts = [...source.matchAll(EXPORTED)].map((match) => ({ name: match[1], index: match.index ?? 0 }));
+      return starts.map((start, i) => ({
+        id: `${relative(file)} :: ${start.name}`,
+        body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
+      }));
+    })
+    .filter(({ body }) => IN_PARAMS.test(paramsOf(body)) || FROM_INPUT.test(body) || FROM_FORM.test(body));
+
+  it("finds the actions it is supposed to be guarding", () => {
+    // Fifty-odd today; nothing found means the patterns stopped matching.
+    expect(actions.length).toBeGreaterThan(40);
+  });
+
+  it.each(actions.map(({ id, body }) => [id, body]))("%s calls assertSessionWritable", (id, body) => {
+    expect(
+      body.includes("assertSessionWritable("),
+      `${id} is handed a session label and writes without asking whether this viewer may write it. ` +
+        "A test account must never write a real session, nor real staff the TEST one.",
+    ).toBe(true);
+  });
+});

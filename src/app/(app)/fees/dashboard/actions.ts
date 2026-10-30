@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { parseAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { alignWorkingSessionWithFeeSetup, revalidateFinanceSurfaces } from "@/modules/system-sync/domain/finance-sync";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 function parseSessionLabel(value: FormDataEntryValue | null) {
   const normalized = (value ?? "").toString().trim();
@@ -27,6 +28,7 @@ function dashboardUrl(notice: string, sessionLabel?: string) {
 export async function syncDashboardNowAction(formData: FormData) {
   await requireStaffPermission("fees:write");
   const sessionLabel = parseSessionLabel(formData.get("sessionLabel"));
+  await assertSessionWritable(null, sessionLabel, { orActive: true });
   // With the session label, so the dashboard's own cached rollups are actually
   // evicted. Without it this action refreshed everything except the numbers it
   // is named after.

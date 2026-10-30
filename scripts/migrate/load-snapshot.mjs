@@ -65,7 +65,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { applyAuthImport, planAuthImport } from "./lib/auth-import.mjs";
+import { applyAuthImport, oneRoleForFeeRole, planAuthImport, remapUserReferences, shortNameFor } from "./lib/auth-import.mjs";
 import { matviewOrder, MATVIEW_ORDER_SQL, readCatalog } from "./lib/catalog.mjs";
 import { planLoad, summarizePlan } from "./lib/diff.mjs";
 import { isMain, latestRunId, loadOneEnv, parseArgs, runDir } from "./lib/env.mjs";
@@ -130,11 +130,20 @@ async function buildPlan(tx, { manifest, source, authUsers, firstLoad }) {
   }
   const idMap = await readIdMap(tx);
   const oneOwned = await readOneOwned(tx);
-  const plan = planLoad({ meta, source, target, idMap, oneOwned, firstLoad, feesRef: FEES_SOURCE_PROJECT_REF });
-  const unmigrated = unmigratedSourceData(manifest.tables, meta);
 
+  // D-350: a fees user who already has a One account (same email) is the same
+  // person — remapped onto One's id, never inserted twice — and every One
+  // account's public.users row is derived from its staff profile, so the
+  // mirror leaves it alone.
   const targetAuth = await tx`select id::text, email from auth.users`;
-  const authPlan = planAuthImport(authUsers ?? [], targetAuth);
+  const authPlan = planAuthImport(authUsers ?? [], targetAuth, authIdMap(idMap));
+  const profiles = await tx`select user_id::text, role::text, is_test_account from vppsone.staff_profiles where user_id is not null`;
+  const derivedUserIds = new Set(profiles.map((row) => row.user_id));
+  const remapped = remapUserReferences(source, authPlan.remap);
+  const plan = planLoad({ meta, source: remapped, target, idMap, oneOwned, firstLoad, feesRef: FEES_SOURCE_PROJECT_REF, derivedUserIds });
+  const unmigrated = unmigratedSourceData(manifest.tables, meta);
+  const feeUsers = feeUserMapping({ authUsers: authUsers ?? [], feeUserRows: source.get("users") ?? [], authPlan, profiles });
+
   const authIds = new Set([...authPlan.insert, ...authPlan.update]);
   const externalMissingRefs = await externalMissing(tx, plan, authIds);
 
@@ -149,7 +158,44 @@ async function buildPlan(tx, { manifest, source, authUsers, firstLoad }) {
     const onlyOne = [...oneCols].filter((c) => !srcCols.has(c));
     if (onlySource.length || onlyOne.length) drift[t.name] = { onlySource, onlyOne };
   }
-  return { meta, plan, authPlan, externalMissingRefs, drift, unmigrated, authAudit: authCompleteness(manifest, authUsers) };
+  return { meta, plan, authPlan, externalMissingRefs, drift, unmigrated, feeUsers, authAudit: authCompleteness(manifest, authUsers) };
+}
+
+/** fees id -> One id from migration_id_map rows for auth.users. Pure. */
+export function authIdMap(idMap = []) {
+  return new Map(
+    idMap
+      .filter((row) => row.source_project === FEES_SOURCE_PROJECT_REF && row.source_table === "auth.users")
+      .map((row) => [String(row.source_id), String(row.target_id)]),
+  );
+}
+
+/**
+ * Plan §1.4: each fees user, by role only — whether a One account takes them
+ * (same email, remapped) and with which One role, or they arrive as a new One
+ * account with the role oneRoleForFeeRole gives. Counts, no names. Pure.
+ */
+export function feeUserMapping({ authUsers, feeUserRows, authPlan, profiles }) {
+  const feeRole = new Map(feeUserRows.map((row) => [String(row.id), String(row.role ?? "")]));
+  const remapTo = new Map((authPlan.remap ?? []).map((r) => [String(r.sourceId), String(r.targetId)]));
+  const profileOf = new Map(profiles.map((row) => [String(row.user_id), row]));
+  const rows = new Map();
+  for (const user of authUsers) {
+    const id = String(user.id);
+    const role = feeRole.get(id) ?? "(no public.users row)";
+    const target = remapTo.get(id) ?? (authPlan.update.includes(id) ? id : null);
+    const profile = target ? profileOf.get(target) : null;
+    const outcome = authPlan.clashes.includes(id)
+      ? "refused: ambiguous email"
+      : profile
+        ? `existing One account, One role ${profile.role}${profile.is_test_account ? " (test account)" : ""}`
+        : target
+          ? `existing One auth user without a profile: profile created, One role ${oneRoleForFeeRole(role)}`
+          : `new One account, One role ${oneRoleForFeeRole(role)}`;
+    const key = `${role} -> ${outcome}`;
+    rows.set(key, (rows.get(key) ?? 0) + 1);
+  }
+  return [...rows.entries()].map(([mapping, count]) => ({ mapping, count })).sort((a, b) => a.mapping.localeCompare(b.mapping));
 }
 
 /**
@@ -169,7 +215,7 @@ export function authCompleteness(manifest, authUsers = []) {
   return { users, identities, problems };
 }
 
-function report({ plan, authPlan, externalMissingRefs, drift, unmigrated, authAudit }, guard) {
+function report({ plan, authPlan, externalMissingRefs, drift, unmigrated, authAudit, feeUsers = [] }, guard) {
   const summary = summarizePlan(plan);
   console.log(`load-snapshot: totals insert ${summary.totals.insert}, update ${summary.totals.update}, delete ${summary.totals.delete}, unchanged ${summary.totals.unchanged}.`);
   for (const [table, c] of Object.entries(summary.perTable)) {
@@ -187,7 +233,8 @@ function report({ plan, authPlan, externalMissingRefs, drift, unmigrated, authAu
   if (summary.skipped.length) console.log(`  never loaded: ${summary.skipped.join(", ")}`);
   if (Object.keys(drift).length) console.log(`  column drift: ${JSON.stringify(drift)}`);
   console.log(`  deferred FK columns: ${JSON.stringify(summary.deferred)}`);
-  console.log(`  auth users: insert ${authPlan.insert.length}, update ${authPlan.update.length}, email clashes ${authPlan.clashes.length}; identities ${authAudit.identities}`);
+  console.log(`  auth users: insert ${authPlan.insert.length}, update ${authPlan.update.length}, remapped onto One accounts by email ${(authPlan.remap ?? []).length}, ambiguous ${authPlan.clashes.length}; identities ${authAudit.identities}`);
+  for (const row of feeUsers) console.log(`    fees user ${row.mapping}: ${row.count}`);
   for (const p of authAudit.problems) console.log(`    REFUSES: ${p}`);
   console.log(`  blocked deletes ${summary.blockedDeletes}; re-pointed children ${summary.repointed.reduce((n, r) => n + r.rows, 0)}; predicted orphans ${summary.predictedOrphans.length}; unique conflicts ${summary.uniqueConflicts.length}; missing auth parents ${externalMissingRefs.length}`);
   for (const r of summary.repointed) console.log(`    re-pointed ${r.constraint}: ${r.rows}${r.nullable ? " (FK nulled before the deletes)" : " (NOT NULL: refuses)"}${r.notUpdated ? `, ${r.notUpdated} not updated (refuses)` : ""}`);
@@ -208,7 +255,7 @@ export function blockers({ plan, authPlan, externalMissingRefs, unmigrated = { t
   if (plan.orphans.length) out.push(`${plan.orphans.length} foreign key(s) would be left with orphans`);
   if (plan.uniqueConflicts.length) out.push(`${plan.uniqueConflicts.length} unique key(s) would collide`);
   if (externalMissingRefs.length) out.push(`${externalMissingRefs.length} foreign key(s) point at auth users that do not exist`);
-  if (authPlan.clashes.length) out.push(`${authPlan.clashes.length} fees user(s) share an email with a different One user`);
+  if (authPlan.clashes.length) out.push(`${authPlan.clashes.length} fees user(s) claim a One account another fees user already maps to`);
   const repointBad = (plan.repoint ?? []).filter((r) => !r.nullable || r.notUpdated);
   if (repointBad.length) out.push(`${repointBad.length} foreign key(s) would lose re-pointed rows to a parent's delete (${repointBad.map((r) => r.constraint).join(", ")})`);
   if (unmigrated.tables.length) out.push(`${unmigrated.tables.length} live table(s) with rows that One has no table for (${unmigrated.tables.map((t) => t.table).join(", ")})`);
@@ -459,6 +506,56 @@ async function refreshAndSetval(tx, meta, touched) {
 }
 
 /** Thrown at the end of a --rollback-only rehearsal so the transaction rolls back. */
+/**
+ * After the rows are written (D-350): record every remap in migration_id_map,
+ * give each fees user who arrived without a One account a staff profile with
+ * the One role their fees role maps to, and re-derive public.users for every
+ * One account a fees user was remapped onto — public.users is derived from
+ * staff_profiles, never the other way round. A new profile derives its own
+ * row through the staff_profiles trigger.
+ */
+async function settleFeeUsers(tx, { authPlan, feeUserRows, authUsers = [], runRowId }) {
+  for (const r of authPlan.remap ?? []) {
+    await tx`
+      insert into vppsone.migration_id_map (source_project, source_table, source_id, target_id, batch_id)
+      values (${FEES_SOURCE_PROJECT_REF}, 'auth.users', ${r.sourceId}, ${r.targetId}, ${runRowId})
+      on conflict (source_project, source_table, source_id) do update set target_id = excluded.target_id`;
+  }
+  const feeRow = new Map(feeUserRows.map((row) => [String(row.id), row]));
+  const emailOf = new Map(authUsers.map((user) => [String(user.id), user.email ?? null]));
+  // A QA address arrives as a test account, like every QA account (Phase 3).
+  const isQaAddress = (email) => typeof email === "string" && email.toLowerCase().endsWith("@qa.vpps.local");
+  const taken = new Set((await tx`select short_name from vppsone.staff_profiles`).map((row) => row.short_name));
+  let created = 0;
+  // [One auth user id, the fees user whose public.users row describes them]:
+  // new and same-id users, and One auth users a fees user was remapped onto
+  // that have no staff profile yet (a login with no profile is not staff).
+  const candidates = [
+    ...[...authPlan.insert, ...authPlan.update].map((id) => [id, id]),
+    ...(authPlan.remap ?? []).map((r) => [r.targetId, r.sourceId]),
+  ];
+  for (const [id, feeId] of candidates) {
+    const [existing] = await tx`select id from vppsone.staff_profiles where user_id = ${id}`;
+    if (existing) continue;
+    const row = feeRow.get(feeId);
+    if (!row) continue;
+    const name = String(row.full_name ?? "").trim() || "Fees user";
+    const shortName = shortNameFor(name, taken);
+    taken.add(shortName);
+    await tx`
+      insert into vppsone.staff_profiles (user_id, display_name, short_name, role, is_active, preferred_language, is_test_account)
+      values (${id}, ${name}, ${shortName}, ${oneRoleForFeeRole(String(row.role ?? ""))}::vppsone.staff_role, ${row.is_active !== false}, 'hi', ${isQaAddress(emailOf.get(feeId))})`;
+    created += 1;
+  }
+  const targets = [...new Set((authPlan.remap ?? []).map((r) => r.targetId))];
+  let rederived = 0;
+  if (targets.length) {
+    const rows = await tx`select vppsone.sync_fee_user_from_staff_profile(sp.id) from vppsone.staff_profiles sp where sp.user_id = any(${targets}::uuid[])`;
+    rederived = rows.length;
+  }
+  return { remapped: (authPlan.remap ?? []).length, profilesCreated: created, rederived };
+}
+
 class RehearsalRollback extends Error {
   constructor(outcome) {
     super("rehearsal: rolled back");
@@ -488,9 +585,11 @@ async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rol
   if (!inner.ok) throw new Error(inner.reasons.join(" "));
   const runRowId = await insertRunRow(tx);
 
+  const [{ present: syncFn }] = await tx`select to_regprocedure('vppsone.sync_fee_user_from_staff_profile(uuid)') is not null as present`;
+  if (!syncFn) throw new Error("vppsone.sync_fee_user_from_staff_profile is missing: apply supabase/fee-migrations/20261031000100_fee_user_from_staff_profile.sql first (D-350).");
   const targetAuth = await tx`select id::text, email from auth.users`;
-  const authPlan = planAuthImport(authUsers, targetAuth);
-  if (authPlan.clashes.length) throw new Error(`${authPlan.clashes.length} fees user(s) share an email with a different One user.`);
+  const authPlan = planAuthImport(authUsers, targetAuth, authIdMap(await readIdMap(tx)));
+  if (authPlan.clashes.length) throw new Error(`${authPlan.clashes.length} fees user(s) claim a One account another fees user already maps to.`);
   const auth = await applyAuthImport(tx, authUsers, authPlan);
 
   const built = await buildPlan(tx, { manifest, source, authUsers, firstLoad });
@@ -499,6 +598,7 @@ async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rol
   if (stop.length) throw new Error(`plan refused: ${stop.join("; ")}`);
 
   const { counts, touched } = await applyPlan(tx, built);
+  auth.staff = await settleFeeUsers(tx, { authPlan, feeUserRows: source.get("users") ?? [], authUsers, runRowId });
   const orphans = await orphanCheck(tx, built.meta);
   if (orphans.length) throw new Error(`orphans after apply: ${orphans.map((o) => `${o.constraint} ${o.count}`).join(", ")}`);
   const refreshed = await refreshAndSetval(tx, built.meta, touched);

@@ -79,7 +79,7 @@ const die = (label, error) => {
 // The session the app is working in. See src/platform/config/active-session.ts
 // for why this is not "the label that sorts last".
 // On production: always TEST-2026-27 (`scope.sessionLabel`).
-const sessionLabel = scope.production ? scope.sessionLabel : await readActiveSession(db);
+const sessionLabel = scope.confined ? scope.sessionLabel : await readActiveSession(db);
 
 /* ------------------------------------------------------------ the mapping */
 
@@ -94,7 +94,7 @@ const [{ data: aliases }, { data: staff }, { data: subjects }] = await Promise.a
 
 // On production a teacher resolves only to a test account (D-346): a short
 // name that belongs to real staff is "unresolved" below, and the run stops.
-const eligibleStaff = (staff ?? []).filter((row) => !scope.production || row.is_test_account === true);
+const eligibleStaff = (staff ?? []).filter((row) => !scope.confined || row.is_test_account === true);
 
 const classesByLabel = new Map(
   (aliases ?? []).map((row) => [row.timetable_label.toLowerCase(), row.class_id]),

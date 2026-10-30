@@ -4,6 +4,7 @@ import { createAbsoluteUrl } from "@/platform/env";
 import { isUuid } from "@/platform/helpers/uuid";
 import { getReceiptDetail } from "@/modules/receipts/data/queries";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertReceiptVisible, refusalResponse } from "@/platform/auth/test-session-access";
 
 /**
  * A receipt as a PDF, for staff.
@@ -33,6 +34,8 @@ export async function GET(
 
   try {
     await requireStaffPermission("receipts:print");
+    const refused = await refusalResponse(() => assertReceiptVisible(null, { id: receiptId }));
+    if (refused) return refused;
 
     const receipt = await getReceiptDetail(receiptId);
     if (!receipt) {

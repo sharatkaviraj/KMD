@@ -12,6 +12,7 @@ import {
 } from "@/modules/repayment-plans/data/queries";
 import { getStudentWorkspaceData } from "@/modules/students-fees/data/workspace";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 type StudentStatementPageProps = {
   params: Promise<{
@@ -31,6 +32,7 @@ export default async function StudentStatementPage({
   if (!isUuid(resolvedParams.studentId)) {
     notFound();
   }
+  await notFoundUnlessVisible(() => assertStudentVisible(null, resolvedParams.studentId));
   // One clock read for the whole page: the plan query, the letterhead's issue
   // date and the overdue comparison all have to agree.
   const todayIso = partsToIso(todayPartsIst());

@@ -21,6 +21,7 @@ import { hasStaffPermission, requireStaffPermission } from "@/modules/fees/platf
 import { isUuid } from "@/platform/helpers/uuid";
 import { safeReturnTo } from "@/platform/navigation/return-to";
 import { BackLink } from "@/vx/ui/back-link";
+import { assertReceiptVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 type ReceiptDetailPageProps = {
   params: Promise<{
@@ -51,6 +52,8 @@ export default async function ReceiptDetailPage({ params, searchParams }: Receip
   if (!isUuid(receiptId)) {
     notFound();
   }
+  // A receipt is global; its student's session decides who may open it (Phase 3).
+  await notFoundUnlessVisible(() => assertReceiptVisible(null, { id: receiptId }));
 
   const receipt = await getReceiptDetail(receiptId);
 

@@ -350,6 +350,50 @@ parent set by 18 Nov, the staff set by 20 Nov.
 - Rehearsal 1 checks `private.current_staff_role()` under every seat's
   token.
 
+**Decided by default (D-350, Phase 3; the owner may overrule).**
+`vppsone.staff_profiles` is the authority; `public.users` is derived from it
+for every One account through `vppsone.fee_role_map`, by a trigger on
+`staff_profiles` (`supabase/fee-migrations/20261031000100_fee_user_from_staff_profile.sql`).
+`sync_staff_profile_from_auth_users` is not recreated.
+
+One role → fee role (`public.users.role`), least privilege:
+
+| One role | Fee role | Why |
+|---|---|---|
+| admin | admin | Runs the school, including its money |
+| accountant | accountant | Posts payments (D-6: posting is granted through this role) |
+| fee_collector | fee_collector | Collects at the desk |
+| office | view_only | Reads fees; posting is not the office's by default (D-6) |
+| academic_coordinator | view_only | No fee duty |
+| exam_coordinator | view_only | No fee duty |
+| teacher | view_only | No `fees:view` in One; the fees `teacher` role reads every fee screen |
+| view_only | view_only | Reads only |
+
+The 10 live fee users (fresh extract `20261030-p3-fresh`, 30 Oct; roles and
+counts only), matched to One accounts by email, case-insensitive:
+
+| Fees role | Count | In One |
+|---|---|---|
+| admin | 1 | the existing One admin account (same email): remapped onto it |
+| admin | 1 | an existing One QA account (test account), One role admin: remapped |
+| admin | 1 | no One account: imported, One role admin |
+| accountant | 1 | an existing One QA account (test account), One role office: remapped (fee role follows One: view_only) |
+| accountant | 2 | no One account: imported, One role accountant |
+| fee_collector | 1 | an existing One QA auth user with no staff profile: remapped, profile created (role fee_collector, test account) |
+| teacher | 1 | an existing One QA account (test account), One role teacher: remapped (fee role view_only) |
+| view_only | 1 | an existing One QA account (test account), One role view_only: remapped |
+| view_only | 1 | no One account: imported, One role view_only |
+
+So the 6 "email clashes" A2's loader refused on are the same people: the
+loader now remaps every reference to those fees ids onto One's ids
+(`migration_id_map`, source_table `auth.users`) and never inserts a duplicate
+auth user. The dry run on the fresh extract reports 6 remapped, 4 new, 0
+refused, and no missing auth parents (A2's run had 37). Passwords cannot be
+kept (Q6): the REST extract cannot read them (D-348), so the 4 imported users
+sign in by reset or magic link. Checked under JWT claims on wtgx:
+`current_staff_role()` = admin for a One admin, accountant for a One
+accountant, view_only for a teacher and an office account.
+
 **1.5 Dev catch-up**
 - Apply the 11 fee migrations (26–30 Oct) to dev so that One's tests meet
   the schema they will meet in production.

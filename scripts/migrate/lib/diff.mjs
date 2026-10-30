@@ -45,10 +45,15 @@ export function comparableColumns(tableMeta, sourceRows) {
 }
 
 /**
- * @param {{ meta: any, source: Map<string, any[]>, target: Map<string, any[]>, idMap?: any[], oneOwned?: any[], firstLoad?: boolean, feesRef?: string }} options
+ * derivedUserIds: auth user ids with a vppsone.staff_profiles row. Their
+ * `public.users` row is DERIVED from that profile (D-350,
+ * vppsone.sync_fee_user_from_staff_profile), so the mirror never inserts,
+ * updates or deletes it: counted as owned.
+ *
+ * @param {{ meta: any, source: Map<string, any[]>, target: Map<string, any[]>, idMap?: any[], oneOwned?: any[], firstLoad?: boolean, feesRef?: string, derivedUserIds?: Set<string> }} options
  * @returns {any}
  */
-export function planLoad({ meta, source, target, idMap = [], oneOwned = [], firstLoad = false, feesRef }) {
+export function planLoad({ meta, source, target, idMap = [], oneOwned = [], firstLoad = false, feesRef, derivedUserIds = new Set() }) {
   const loadable = [...source.keys()].filter((t) => meta.tables[t] && !SKIP_TABLES.has(t)).sort();
   const notInOne = [...source.keys()].filter((t) => !meta.tables[t]).sort();
   const skipped = [...source.keys()].filter((t) => SKIP_TABLES.has(t)).sort();
@@ -117,6 +122,10 @@ export function planLoad({ meta, source, target, idMap = [], oneOwned = [], firs
         continue;
       }
       const targetRow = targetByPk.get(key);
+      if (table === "users" && derivedUserIds.has(key)) {
+        plan.counts.owned += 1;
+        continue;
+      }
       if (isOwnedRow(table, raw, cellRules) || (targetRow && isOwnedRow(table, targetRow, cellRules))) {
         plan.counts.owned += 1;
         continue;
@@ -149,7 +158,7 @@ export function planLoad({ meta, source, target, idMap = [], oneOwned = [], firs
       if (sourceByPk.has(key)) continue;
       if (prot.has(key)) plan.counts.protectedKept += 1;
       else if (tTgt.has(key)) plan.counts.testKept += 1; // even on a first load: One's own test rows stay
-      else if (isOwnedRow(table, row, cellRules)) plan.counts.ownedKept += 1;
+      else if (isOwnedRow(table, row, cellRules) || (table === "users" && derivedUserIds.has(key))) plan.counts.ownedKept += 1;
       else {
         plan.delete.push(key);
         plan.compared.target.push(key);
