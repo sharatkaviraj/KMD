@@ -167,7 +167,7 @@ async function main() {
       fail(`Could not read the profile for ${staff.email}: ${readError.message}`);
     }
 
-    if (existing && scope.production && existing.is_test_account !== true) {
+    if (existing && scope.confined && existing.is_test_account !== true) {
       console.log(`  refuse  ${staff.email.padEnd(30)} its profile is not a test account (production)`);
       skipped += 1;
       continue;

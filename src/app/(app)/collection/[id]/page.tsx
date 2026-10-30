@@ -6,6 +6,7 @@ import {taskDeliveryMessages} from "@/messages/setup";
 import { authoredPlain, authoredTitle } from "@/ui/authored-text";
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";
 import { dayLabel } from "@/platform/dates";
 import { countOf, flat, primary, t } from "@/platform/i18n/language";
@@ -66,6 +67,8 @@ export default async function RequestPage(props: PageProps<"/collection/[id]">) 
       </>
     );
   }
+  // Phase 3 fence: a record in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertSessionVisible(staff, request.sessionLabel));
 
   const host = (await headers()).get("host") ?? "";
   const origin = `${host.startsWith("localhost") ? "http" : "https"}://${host}`;

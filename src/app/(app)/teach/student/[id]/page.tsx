@@ -48,6 +48,7 @@ import { Badge, Card, DetailList, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/page-header-localized";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 export const runtime = "nodejs";
 
@@ -93,6 +94,7 @@ export default async function StudentPage(
     );
   }
 
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId)) await notFoundUnlessVisible(() => assertStudentVisible(staff, studentId));
   const student = await getStudentCard(studentId);
 
   if (!student) {

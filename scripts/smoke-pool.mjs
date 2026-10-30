@@ -77,7 +77,7 @@ async function poolRows() {
  */
 async function freeTeacherProfiles(taken) {
   const [{ data: profiles, error: pErr }, { data: held, error: hErr }] = await Promise.all([
-    (scope.production
+    (scope.confined
       ? admin.from("staff_profiles").select("id").eq("role", "teacher").eq("is_active", true).is("user_id", null).eq("is_test_account", true).order("id")
       : admin.from("staff_profiles").select("id").eq("role", "teacher").eq("is_active", true).is("user_id", null).order("id")),
     admin.from("class_teachers").select("staff_profile_id").eq("role", "class_teacher").is("effective_to", null),
@@ -124,7 +124,7 @@ async function ensure() {
       linked = true;
     } else {
       // A profile left behind by an earlier `release` is reused, not duplicated.
-      const { data: old, error: oldError } = await (scope.production
+      const { data: old, error: oldError } = await (scope.confined
         ? admin.from("staff_profiles").select("id").eq("short_name", seat.shortName).eq("role", seat.role).is("user_id", null).eq("is_test_account", true).limit(1)
         : admin.from("staff_profiles").select("id").eq("short_name", seat.shortName).eq("role", seat.role).is("user_id", null).limit(1));
       if (oldError) throw new Error(`Could not look for an old profile for ${seat.email}: ${oldError.message}`);

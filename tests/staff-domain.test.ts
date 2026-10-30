@@ -356,7 +356,7 @@ describe("who may change authority (D-205)", () => {
   });
 
   it("names every refusal the database can give, in both languages", () => {
-    for (const reason of ["not_admin", "not_found", "self", "last_admin"] as const) {
+    for (const reason of ["not_admin", "not_found", "self", "last_admin", "test_account"] as const) {
       expect(authorityRefusalMessages[reason].hi).toBeTruthy();
       expect(authorityRefusalMessages[reason].en).toBeTruthy();
     }

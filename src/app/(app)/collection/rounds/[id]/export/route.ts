@@ -1,4 +1,5 @@
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionVisible, refusalResponse } from "@/platform/auth/test-session-access";
 import { schoolToday } from "@/platform/dates";
 import { logExport, roundExport, workbookBytes } from "@/modules/collection/data/export-repo";
 import { roundWorkbook } from "@/modules/collection/domain/workbook";
@@ -16,6 +17,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const round = await roundExport(id);
   if (!round) return new Response("Not found.", { status: 404 });
+  // Phase 3 fence: a round in a session this viewer cannot open is "not found".
+  const refused = await refusalResponse(() => assertSessionVisible(staff, round.sessionLabel));
+  if (refused) return refused;
 
   const today = schoolToday();
   const sheets = roundWorkbook({ title: round.title, sessionLabel: round.sessionLabel, generatedOn: today, links: round.links });

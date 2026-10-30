@@ -47,10 +47,9 @@ const env = Object.fromEntries(
 );
 
 // Rule 3 / D-346: One's main project only. It drives the app as a signed-in
-// account, and the app only hides real sessions from a test account once
-// Phase 3's visibility rules ship — so until then it refuses production
-// outright (dev-only) rather than being "confined" by an account flag alone.
-const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "measure-round-trips", mode: "dev-only" });
+// test account (refused otherwise, below), and since Phase 3 the app keeps a
+// test account inside TEST-2026-27: the visibility rules are what confine it.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "measure-round-trips", mode: "test-scoped" });
 
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3400";
 const traceFile = process.env.TRACE_FETCH_FILE;

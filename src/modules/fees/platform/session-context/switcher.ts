@@ -7,6 +7,8 @@ import {
 } from "@/modules/fees/platform/session-context/available-sessions";
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
 import { createClient } from "@/modules/fees/platform/supabase/server";
+import { currentSessionViewer } from "@/platform/auth/test-session-access";
+import { filterSessionsForViewer, UNREADABLE_VIEWER, type SessionViewer } from "@/platform/auth/test-session-policy";
 
 export type SessionSwitcherData = {
   activeSessionLabel: string;
@@ -43,7 +45,33 @@ function timeoutAfter<T>(fallback: T, timeoutMs = SESSION_SWITCHER_TIMEOUT_MS): 
   });
 }
 
-export async function getSessionSwitcherData(): Promise<SessionSwitcherData> {
+/**
+ * The sessions THIS viewer may switch to (Phase 3, D-340; critique1 B14).
+ *
+ * The cache below holds every session, for everybody — it is module scope and
+ * outlives the request, so it must never hold one person's view. The filter
+ * runs after it, per call: a real member of staff is never offered
+ * TEST-2026-27, a test account is offered nothing else, and a coming year
+ * (2027-28) only to fee readers. `viewer` is for the admin's "see the app as"
+ * preview, which lists the previewed role's sessions; by default it is the
+ * signed-in person, and nobody signed in gets the real sessions only.
+ */
+export async function getSessionSwitcherData(
+  viewer?: (SessionViewer & { feeReader: boolean }) | null,
+): Promise<SessionSwitcherData> {
+  const [all, who] = await Promise.all([
+    getUnfilteredSessionSwitcherData(),
+    // Unreadable fails closed (TEST only), as in resolveViewSession.
+    viewer === undefined ? currentSessionViewer().catch(() => UNREADABLE_VIEWER) : Promise.resolve(viewer),
+  ]);
+  const forViewer = who ?? { role: "view_only" as const, isTestAccount: false, feeReader: false };
+  return {
+    activeSessionLabel: all.activeSessionLabel,
+    availableSessions: filterSessionsForViewer(all.availableSessions, forViewer, all.activeSessionLabel),
+  };
+}
+
+async function getUnfilteredSessionSwitcherData(): Promise<SessionSwitcherData> {
   const now = Date.now();
 
   if (cachedSessionSwitcherData && cachedSessionSwitcherData.expiresAt > now) {

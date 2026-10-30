@@ -3,6 +3,8 @@ import "server-only";
 import { parseAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { resolveCurrentSessionLabel } from "@/modules/whatsapp/domain/fee-reminders";
+import { currentSessionViewer } from "@/platform/auth/test-session-access";
+import { canAccessSession, defaultSessionFor, TEST_SESSION_LABEL } from "@/platform/auth/test-session-policy";
 
 /**
  * Which session's ledger the reminders screens are looking at.
@@ -35,15 +37,23 @@ export async function resolveReminderSessionLabel(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
 ): Promise<string> {
+  // Phase 3 (D-340): only a session this viewer may open. A test account is
+  // never shown real families here, and real staff never TEST ones.
+  const viewer = await currentSessionViewer().catch(() => null);
+  const allowed = (label: string) => (viewer ? canAccessSession(viewer, label) : false);
   const cookie = await getViewSessionCookie().catch(() => null);
   if (cookie) {
     try {
-      return parseAcademicSessionLabel(cookie).normalizedLabel;
+      const label = parseAcademicSessionLabel(cookie).normalizedLabel;
+      if (allowed(label)) return label;
     } catch {
       // A hand-edited or stale cookie falls through to the live session rather
       // than throwing. Refusing to render the screen over an unreadable cookie
       // would be a worse failure than showing the year the school is actually in.
     }
   }
-  return resolveCurrentSessionLabel(supabase);
+  const current = await resolveCurrentSessionLabel(supabase);
+  if (allowed(current)) return current;
+  // A test account (or nobody): its own session, never the live year.
+  return viewer ? defaultSessionFor(viewer, current) : TEST_SESSION_LABEL;
 }

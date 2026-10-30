@@ -8,6 +8,7 @@ import { formatMediumDate } from "@/platform/helpers/date";
 import { isUuid } from "@/platform/helpers/uuid";
 import { getReceiptDetail } from "@/modules/receipts/data/queries";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertReceiptVisible, refusalResponse } from "@/platform/auth/test-session-access";
 
 /**
  * 1080×1080 PNG receipt card for WhatsApp sharing (Ledger Calm 2.0).
@@ -43,6 +44,8 @@ export async function GET(
   if (!isUuid(receiptId.trim())) {
     return NextResponse.json({ error: "Invalid receipt id" }, { status: 400 });
   }
+  const refused = await refusalResponse(() => assertReceiptVisible(null, { id: receiptId.trim() }));
+  if (refused) return refused;
 
   const receipt = await getReceiptDetail(receiptId.trim());
   if (!receipt) {

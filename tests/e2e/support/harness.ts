@@ -4,9 +4,8 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 
-import { ACTIVE_SESSION_KEY, pickSessionLabel } from "../../../src/platform/config/active-session";
 import { qaAccount } from "../../fixtures/qa-accounts";
-import { decideToolScope, isOneMainProjectUrl, readDeploymentEnvironment } from "../../../scripts/target-guard.mjs";
+import { decideToolScope, isOneMainProjectUrl, readDeploymentEnvironment, TEST_SESSION_LABEL } from "../../../scripts/target-guard.mjs";
 
 /**
  * What a workflow test needs before it can press anything: a dev database, a
@@ -41,17 +40,26 @@ if (!isOneMainProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL ?? "")) {
 }
 
 /**
- * The journeys write into the active (real) session as the QA accounts, so on
- * a production database they refuse (D-346): `warm-server.ts` calls this
- * before the first journey. Fail closed: an unreadable marker is production.
+ * The journeys are test-scoped (Phase 3, D-340): they sign in as the QA
+ * accounts, which are test accounts, against a local `next dev` — a confined
+ * deployment, where every account is fenced to TEST-2026-27 — so they work in
+ * TEST-2026-27 on every marker and touch test accounts only (`signIn` refuses
+ * anything else). `warm-server.ts` calls this before the first journey.
  */
 export async function refuseOnProductionDatabase(): Promise<void> {
   const environment = await readDeploymentEnvironment({
     url: env.NEXT_PUBLIC_SUPABASE_URL,
     serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
   });
-  const decision = decideToolScope(environment, "dev-only");
+  const decision = decideToolScope(environment, "test-scoped");
   if (!decision.ok) throw new Error(`Refusing to run workflow tests: ${decision.reason}`);
+}
+
+/** Is this auth user a test account? Fail closed. */
+async function isTestAccount(userId: string | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const { data, error } = await db().from("staff_profiles").select("is_test_account").eq("user_id", userId).maybeSingle();
+  return !error && (data as { is_test_account?: boolean } | null)?.is_test_account === true;
 }
 
 /**
@@ -85,6 +93,10 @@ export async function signIn(page: Page, accountKey: string, next = "/dashboard"
   });
 
   if (error) throw new Error(`${account.email}: ${error.message}`);
+  // Test-scoped (Phase 3): a journey only ever drives a test account.
+  if (!(await isTestAccount(data.user?.id))) {
+    throw new Error(`${account.email} is not a test account; workflow tests drive test accounts only (D-346).`);
+  }
 
   await page.goto(
     `/auth/confirm?token_hash=${data.properties.hashed_token}&type=magiclink&next=${encodeURIComponent(next)}`,
@@ -144,33 +156,24 @@ export async function unrecordedSchoolDays(
 }
 
 /**
- * The current session label, derived the way the app derives it.
+ * The session the journeys run in.
  *
- * That sentence was the intention; sorting the labels and taking the last was
- * the implementation, in this file and in three seeding scripts. See
- * `src/platform/config/active-session.ts` for what the shortcut cost — the
- * short version is that `TEST-2026-27` sorts above `2026-27`, so every spec
- * looked for its fixtures in the rehearsal session and found empty classes.
+ * Test-scoped (Phase 3): the QA accounts are test accounts and see
+ * TEST-2026-27 only, so that is the session — TEST or nothing. It used to go
+ * through `pickSessionLabel`, which quietly falls back to the active real
+ * session when the requested label has no classes; the journeys write, so a
+ * missing TEST session must stop them rather than send them into 2026-27.
+ * (Never sort the labels either: `TEST-2026-27` sorts above `2026-27`.)
  */
 export async function currentSessionLabel(): Promise<string> {
-  const [{ data: setting }, { data: classes, error }] = await Promise.all([
-    db("public")
-      .from("app_settings")
-      .select("value")
-      .eq("key", ACTIVE_SESSION_KEY)
-      .maybeSingle(),
-    db("public").from("classes").select("session_label"),
-  ]);
-
+  const { data: classes, error } = await db("public").from("classes").select("session_label");
   if (error) throw new Error(`Could not read the sessions: ${error.message}`);
 
-  const label = pickSessionLabel({
-    active: (setting?.value as string | null | undefined) ?? null,
-    labels: [...new Set((classes ?? []).map((row) => row.session_label as string))],
-  });
-
-  if (!label) throw new Error("This database has no academic session at all.");
-  return label;
+  const labels = new Set((classes ?? []).map((row) => row.session_label as string));
+  if (!labels.has(TEST_SESSION_LABEL)) {
+    throw new Error(`${TEST_SESSION_LABEL} has no classes; refusing rather than testing in another session.`);
+  }
+  return TEST_SESSION_LABEL;
 }
 
 /**

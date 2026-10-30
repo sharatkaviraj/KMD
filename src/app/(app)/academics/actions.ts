@@ -27,6 +27,7 @@ import {
   type AcademicsFormState,
 } from "@/modules/academics/domain/form-state";
 import { saveAttendanceRules } from "@/modules/attendance/data/attendance-repo";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 function failure(
   fieldErrors: Record<string, Localized> = {},
@@ -135,6 +136,7 @@ export async function saveClassAliasAction(
   formData: FormData,
 ): Promise<AcademicsFormState> {
   const staff = await assertPermission("academics:manage");
+  if (formData.get("sessionLabel")) await assertSessionWritable(staff, formData.get("sessionLabel")?.toString());
 
   const sessionLabel = await resolveSessionLabel(
     formData.get("sessionLabel")?.toString(),

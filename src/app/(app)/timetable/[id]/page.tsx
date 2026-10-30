@@ -6,6 +6,7 @@ import {
 } from "@/app/(app)/timetable/actions";
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { flat, primary, t } from "@/platform/i18n/language";
@@ -46,6 +47,8 @@ export default async function TimetableVersionPage(
 
   const version = await getVersion(id);
   if (!version) notFound();
+  // Phase 3 fence: a record in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertSessionVisible(staff, version.sessionLabel));
 
   const slots = await listSlots(version.id);
   const clashes = findClashes(slots);

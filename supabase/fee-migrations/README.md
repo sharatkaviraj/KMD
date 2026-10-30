@@ -122,3 +122,23 @@ original back. Use it for the next such change rather than copying a
 
 One-only files added later are listed in `docs/PROGRESS.md` with the ledger
 version the MCP stamped, the same as `supabase/migrations/` (D-22).
+
+## `vppsone` objects created by files in this folder
+
+Rule 1 puts One's objects in `vppsone`, and `supabase/migrations/` is
+`vppsone`-only — but a fee-migration that guards or derives fee rows needs
+helper functions, and those live in `vppsone` too (never `public`). So some
+files here create `vppsone` objects alongside their `public` triggers. Schema
+and parity tooling that reads only `supabase/migrations/` for `vppsone` must
+also read these:
+
+| File | `vppsone` objects |
+|---|---|
+| `20261030230000_fee_writes_guard.sql` | `fee_writes_allowed*`, `assert_fee_writes_allowed*`, `inject/remove_fee_function_preamble` |
+| `20261030230200_fee_writes_table_guard.sql` | `fee_writes_open`, `request_via_api`, the money/boundary/switch trigger functions |
+| `20261031000100_fee_user_from_staff_profile.sql` (D-350, ledger 20261030163950) | table `fee_role_map`, `sync_fee_user_from_staff_profile`, `staff_profiles_sync_fee_user` and its trigger on `vppsone.staff_profiles` |
+| `20261031000200_test_account_fee_write_fence.sql` (ledger 20261030172225) | `assert_test_account_may_write_session/student`, `test_account_student_guard`, `test_account_session_row_guard`, `test_account_settings_guard`; replaces `fee_money_row_guard` |
+
+`scripts/verify-fee-parity.mjs` compares `public`/`private` with live, so these
+`vppsone` helpers never show as drift; the `public` triggers they back are
+One-only and listed in `docs/cutover/SCHEMA-PARITY.md`.

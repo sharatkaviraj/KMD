@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Pencil } from "lucide-react";
 
-import { setStaffActiveAction } from "@/app/(app)/staff/actions";
+import { setStaffActiveAction, setTestAccountAction } from "@/app/(app)/staff/actions";
 import { m } from "@/messages";
+import { testSessionMessages } from "@/messages/setup";
+import { isRealAdmin } from "@/platform/auth/test-session-policy";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can, roleLabel } from "@/platform/auth/permissions";
 import {
@@ -81,6 +83,16 @@ async function workFor(staffId: string) {
   };
 }
 
+/** `staff_profiles.is_test_account` for one profile. A failed read shows "no". */
+async function readIsTestAccount(staffId: string): Promise<boolean> {
+  const { data } = await createAdminClient()
+    .from("staff_profiles")
+    .select("is_test_account")
+    .eq("id", staffId)
+    .maybeSingle<{ is_test_account: boolean | null }>();
+  return data?.is_test_account === true;
+}
+
 /**
  * One member of staff. `/staff/roles` and any other id that is not a profile
  * id used to reach the database and throw (React #441, "Something went
@@ -105,7 +117,11 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
   // office still edits the record through the Edit button.
   const maySwitchAccess = mayChangeAuthority(actor.role);
   const deactivation = canDeactivate(person, actor.id);
-  const work = await workFor(person.id);
+  const mayMarkTest = isRealAdmin(actor) && person.id !== actor.id;
+  const [work, personIsTest] = await Promise.all([
+    workFor(person.id),
+    mayMarkTest ? readIsTestAccount(person.id) : Promise.resolve(false),
+  ]);
   const policy = work.policy;
   const policyLine: Localized = !policy
     ? t("सामान्य · कोई अलग नियम नहीं", "Ordinary · no rule of their own")
@@ -217,6 +233,28 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
           text={m.staffNoLogin}
           language={language}
         />
+      ) : null}
+
+      {mayMarkTest ? (
+        // A test account sees and writes TEST-2026-27 only (Phase 3, D-340).
+        // Only a real administrator sees this, and never on their own row.
+        <form action={setTestAccountAction} className="mt-8 border-t border-border pt-4" data-testid="test-account-form">
+          <input type="hidden" name="id" value={person.id} />
+          <input type="hidden" name="isTestAccount" value={personIsTest ? "false" : "true"} />
+          <p className="mb-1 text-[13px] font-semibold">
+            {flat(testSessionMessages.testAccount, language)}
+            {" · "}
+            {flat(personIsTest ? m.yes : m.no, language)}
+          </p>
+          <p className="mb-2 text-[13px] text-muted-foreground">{flat(testSessionMessages.testAccountHelp, language)}</p>
+          <label className="mb-2 flex flex-col gap-1 text-[13px]">
+            {flat(testSessionMessages.reasonLabel, language)}
+            <input name="reason" required maxLength={500} className="rounded-md border border-border bg-surface px-2 py-1.5" />
+          </label>
+          <Button type="submit" variant="outline" size="sm">
+            {primary(personIsTest ? testSessionMessages.unmarkTest : testSessionMessages.markTest, language)}
+          </Button>
+        </form>
       ) : null}
 
       {maySwitchAccess ? (

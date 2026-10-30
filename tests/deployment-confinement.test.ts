@@ -79,12 +79,25 @@ describe("QA tools are confined, not banned", () => {
     expect(toolAccessDecision({ environment: "production", isTestAccount: null }).ok).toBe(false);
   });
 
-  it("scripts: read-only runs anywhere, test-scoped is told TEST-2026-27, dev-only refuses production", () => {
-    expect(scriptGuard.decideToolScope("dev", "dev-only")).toEqual({ ok: true, production: false, sessionLabel: null });
-    expect(scriptGuard.decideToolScope("production", "read-only")).toEqual({ ok: true, production: true, sessionLabel: null });
-    expect(scriptGuard.decideToolScope("production", "test-scoped")).toEqual({ ok: true, production: true, sessionLabel: "TEST-2026-27" });
+  it("scripts: read-only runs anywhere, test-scoped is confined to TEST-2026-27 on every marker, dev-only refuses production", () => {
+    expect(scriptGuard.decideToolScope("dev", "dev-only")).toEqual({ ok: true, production: false, confined: false, sessionLabel: null });
+    expect(scriptGuard.decideToolScope("production", "read-only")).toEqual({ ok: true, production: true, confined: false, sessionLabel: null });
+    expect(scriptGuard.decideToolScope("production", "test-scoped")).toEqual({ ok: true, production: true, confined: true, sessionLabel: "TEST-2026-27" });
+    // Phase 3: the QA accounts are test accounts, so dev is confined too.
+    expect(scriptGuard.decideToolScope("dev", "test-scoped")).toEqual({ ok: true, production: false, confined: true, sessionLabel: "TEST-2026-27" });
     expect(scriptGuard.decideToolScope("production", "dev-only").ok).toBe(false);
     expect(scriptGuard.decideToolScope("dev", "anything").ok).toBe(false);
+    // Scripts that flip school-wide switches: confined on dev, refused on production.
+    expect(scriptGuard.decideToolScope("dev", "confined-dev-only")).toEqual({ ok: true, production: false, confined: true, sessionLabel: "TEST-2026-27" });
+    expect(scriptGuard.decideToolScope("production", "confined-dev-only").ok).toBe(false);
+  });
+
+  it("scripts: a confined sign-in needs a test account even on a dev marker (Phase 3)", async () => {
+    const no = vi.fn(async () => Response.json([{ is_test_account: false }]));
+    const base = { url: ONE, serviceRoleKey: "k", userId: "00000000-0000-4000-8000-000000000001", email: "qa.x@qa.vpps.local" };
+    await expect(
+      scriptGuard.assertTestAccountUser({ ...base, scope: { production: false, confined: true }, fetchImpl: no as unknown as typeof fetch }),
+    ).rejects.toThrow(/not a test account/);
   });
 
   it("scripts: a sign-in script on production needs a test account, checked by user id", async () => {

@@ -30,6 +30,7 @@ import {
   hasDefaulterFilterParams,
   parseDefaulterFiltersFromQuery,
 } from "@/modules/exports/domain/defaulter-filters";
+import { visibleSessionForRoute } from "@/modules/fees/platform/session-context/route-session";
 
 // overrun Vercel's default function timeout on real data volumes.
 export const maxDuration = 60;
@@ -80,7 +81,10 @@ async function handleExport(request: NextRequest, context: RouteContext) {
   ) {
     return new Response("Forbidden", { status: 403 });
   }
-  const requestedSessionLabel = (request.nextUrl.searchParams.get("session") ?? "").trim();
+  // A named session must be one this viewer may open; none means their own (Phase 3).
+  const routeSession = await visibleSessionForRoute(request.nextUrl.searchParams.get("session"));
+  if (!routeSession.ok) return routeSession.response;
+  const requestedSessionLabel = routeSession.sessionLabel;
   // The export follows the filter. Downloading "all students" while the
   // Students page is filtered to "Never paid" and getting all 509 back is the
   // same class of surprise as the filter not applying at all.

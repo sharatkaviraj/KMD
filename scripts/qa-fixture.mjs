@@ -158,7 +158,7 @@ async function seed() {
   const note = flag("edge-classes") ? "with edge classes" : null;
   // A run made on production is marked, so `qa:reset` there replays only runs
   // that were confined to TEST-2026-27 and test accounts from the start.
-  const id = await startRun("seed", scope.production ? `${TEST_SCOPED_NOTE} ${note ?? ""}`.trim() : note);
+  const id = await startRun("seed", scope.confined ? `${TEST_SCOPED_NOTE} ${note ?? ""}`.trim() : note);
   console.log(`run ${id} · seed ${SEED}\n`);
 
   /* -------------------------------------------------- what is already here */
@@ -167,18 +167,18 @@ async function seed() {
   // src/platform/config/active-session.ts for what that shortcut cost. On
   // production it is TEST-2026-27 instead, whatever the app is working in
   // (D-346): the fixture never writes into a real session there.
-  const sessionLabel = scope.production ? scope.sessionLabel : await readActiveSession(db);
+  const sessionLabel = scope.confined ? scope.sessionLabel : await readActiveSession(db);
 
   const classes = must(
     "Could not read the classes",
-    scope.production
+    scope.confined
       ? await pub.from("classes").select("id, class_name, sort_order").eq("session_label", sessionLabel).order("sort_order")
       : await pub.from("classes").select("id, class_name, sort_order").order("sort_order"),
   );
 
   const version = must(
     "Could not read the published timetable",
-    scope.production
+    scope.confined
       ? await db
           .from("timetable_versions")
           .select("id")
@@ -237,7 +237,7 @@ async function seed() {
       // On production only a test account may be bound to a QA login or have
       // its class and phone changed (D-346).
       return profile && profile.is_active && profile.role === "teacher" &&
-        (!scope.production || profile.is_test_account === true)
+        (!scope.confined || profile.is_test_account === true)
         ? {
             staffProfileId,
             shortName: profile.short_name,
@@ -290,7 +290,7 @@ async function seed() {
   // D-346: on production, refuse before the first write if any existing
   // profile the fixture would bind or change is not a test account — and the
   // same for any profile that would have to give up a QA login.
-  if (scope.production) {
+  if (scope.confined) {
     const refused = resolved
       .filter((entry) => entry.profile && entry.profile.is_test_account !== true)
       .map((entry) => entry.profile.short_name);
@@ -378,7 +378,7 @@ async function seed() {
     const target = wanted.get(profile.user_id);
     if (target === undefined || target === profile.id) continue;
 
-    if (scope.production && profile.is_test_account !== true) {
+    if (scope.confined && profile.is_test_account !== true) {
       console.error(`Refusing to release ${profile.short_name} on production: it is not a test account (D-346).`);
       process.exit(1);
     }
@@ -760,7 +760,7 @@ async function reset() {
   // replayed. An older run bound QA logins to real staff and wrote into the
   // real session; putting those rows back is the quarantine's job (Phase 4),
   // not a fixture reset's.
-  if (scope.production) {
+  if (scope.confined) {
     const unconfined = targets.filter((run) => !(run.note ?? "").startsWith(TEST_SCOPED_NOTE));
     if (unconfined.length > 0) {
       console.error(

@@ -10,6 +10,7 @@ import { buildTransportRouteLabel } from "@/modules/fees/domain/label";
 import { withDownloadToken } from "@/platform/helpers/download-token";
 import { normalizePaymentModeFilter } from "@/modules/transactions/domain/payment-modes";
 import { parseSegments } from "@/modules/students-fees/domain/student-segments";
+import { visibleSessionForRoute } from "@/modules/fees/platform/session-context/route-session";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -61,6 +62,11 @@ export async function GET(request: NextRequest) {
     return new Response("Forbidden", { status: 403 });
   }
 
+  // A named session must be one this viewer may open; none means their own (Phase 3).
+  const routeSession = await visibleSessionForRoute(
+    request.nextUrl.searchParams.get("session") ?? request.nextUrl.searchParams.get("sessionLabel"),
+  );
+  if (!routeSession.ok) return routeSession.response;
   const view = normalizeOfficeWorkbookView(request.nextUrl.searchParams.get("view"));
   const workbook = await getOfficeWorkbookData({
     view,
@@ -70,11 +76,7 @@ export async function GET(request: NextRequest) {
     routeId: normalizeUuid(request.nextUrl.searchParams.get("routeId")),
     searchQuery: (request.nextUrl.searchParams.get("query") ?? "").trim(),
     segments: parseSegments(request.nextUrl.searchParams.get("seg")),
-    sessionLabel: (
-      request.nextUrl.searchParams.get("session") ??
-      request.nextUrl.searchParams.get("sessionLabel") ??
-      ""
-    ).trim(),
+    sessionLabel: routeSession.sessionLabel,
     toDate: normalizeDate(request.nextUrl.searchParams.get("toDate")),
     exportAll: true,
   });

@@ -10,8 +10,8 @@ import { QA_ACCOUNTS } from "../tests/fixtures/qa-accounts.ts";
 import { toolScope } from "./target-guard.mjs";
 
 const env = parseEnv(readFileSync(".env.local", "utf8"));
-// Rule 3 / D-346: One's main project only, and on production it refuses (it writes real-session data).
-await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "smoke-screens", mode: "dev-only" });
+// Rule 3 / D-346, Phase 3: One's main project only, confined to TEST-2026-27 and test accounts on every marker.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "smoke-screens", mode: "test-scoped" });
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3450";
 const manifest = await fetch(new URL("/manifest.webmanifest", origin), { signal: AbortSignal.timeout(30000) });
 const app = await manifest.json();
@@ -24,7 +24,15 @@ function checked(result, what) {
 }
 const labels = checked(await admin.from("classes").select("session_label"), "Session labels");
 const setting = checked(await admin.from("app_settings").select("value").eq("key", "active_session_label").maybeSingle(), "Active session");
-const session = pickSessionLabel({ configured: env.VPPSONE_SESSION_LABEL, active: setting?.value, labels: [...new Set(labels.map(row => row.session_label))] });
+const sessionLabels = [...new Set(labels.map(row => row.session_label))];
+// Confined: TEST-2026-27 or nothing. pickSessionLabel would fall back to the
+// active real session if TEST had no classes, and this script inserts rows.
+if (scope.confined && !sessionLabels.includes(scope.sessionLabel)) {
+  throw new Error(`${scope.sessionLabel} has no classes; refusing rather than writing another session.`);
+}
+const session = scope.confined
+  ? scope.sessionLabel
+  : pickSessionLabel({ configured: env.VPPSONE_SESSION_LABEL, active: setting?.value, labels: sessionLabels });
 if (!session) throw new Error("An active academic session is required.");
 const account = QA_ACCOUNTS.find(row => row.key === "teacher");
 let qaUser;

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { hasRequiredEnvVars } from "@/platform/env";
 import { resolveLanguage, type Language } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
@@ -51,6 +52,17 @@ export type CurrentStaff = {
    * run is no longer live.
    */
   smokeLab?: boolean;
+  /**
+   * Fenced to test sessions (Phase 3, D-340): `staff_profiles.is_test_account`,
+   * OR any account at all on a confined deployment (`isConfinedDeployment()` —
+   * every Preview and local `next dev`, which point at the production
+   * database), an admin included. Sees and writes TEST-2026-27 only;
+   * `test-session-policy.ts` is the rule. Always set by `readCurrentStaff`;
+   * optional only so hand-built fixtures stay valid (absent reads as false).
+   */
+  isTestAccount?: boolean;
+  /** True when `isTestAccount` comes from the deployment, not the profile: the shell says so. */
+  confined?: boolean;
 };
 
 type StaffProfileRow = {
@@ -62,11 +74,12 @@ type StaffProfileRow = {
   is_active: boolean;
   preferred_language: string | null;
   preferred_start: string | null;
+  is_test_account?: boolean | null;
 };
 
 const STAFF_PROFILE_COLUMNS =
   "id, display_name, short_name, role, is_teaching, is_active, preferred_language, " +
-  "preferred_start";
+  "preferred_start, is_test_account";
 
 /**
  * Sentinel for "signed in, but nobody has given this account a staff profile".
@@ -161,6 +174,7 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     preferredStart: data.preferred_start,
     permissions,
     ...(smokeLab ? { smokeLab: true } : {}),
+    ...testAccountFlags(data.is_test_account === true),
   };
 
   if (!staff.isActive) {
@@ -172,6 +186,19 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
 
   return { staff, reason: null };
 });
+
+/**
+ * The profile's own flag, widened by the deployment: on a confined deployment
+ * every account is a test account (owner override T1, D-346). Exported for
+ * the tests that pin it.
+ */
+export function testAccountFlags(
+  profileFlag: boolean,
+  env: { readonly [name: string]: string | undefined } = process.env,
+): { isTestAccount: boolean; confined: boolean } {
+  const confined = isConfinedDeployment(env);
+  return { isTestAccount: profileFlag || confined, confined: confined && !profileFlag };
+}
 
 /**
  * The signed-in person's permissions from the editable matrix, through

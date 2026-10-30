@@ -5,6 +5,7 @@ import { formatDateTimeIst, formatShortDate } from "@/platform/helpers/date";
 import { getReportsPageData, normalizeReportFilters } from "@/modules/reports/data/queries";
 import { formatPaymentModeLabel } from "@/platform/config/fee-rules";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 type PrintLedgerPageProps = {
   params: Promise<{ studentId: string }>;
@@ -24,6 +25,7 @@ export default async function PrintLedgerPage({ params, searchParams }: PrintLed
   if (!isUuid(studentId)) {
     notFound();
   }
+  await notFoundUnlessVisible(() => assertStudentVisible(null, studentId));
 
   const rawSearchParams = await searchParams;
 

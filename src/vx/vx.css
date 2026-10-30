@@ -186,6 +186,13 @@
 .vx-skip:focus{top:12px}
 .vx-preview{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--warns);color:var(--warnfg);font-size:13px;font-weight:600;border-bottom:1px solid var(--bd)}
 @media print{.vx-preview,.vx-skip{display:none!important}}
+/* The session pill (Phase 3): its own slim bar, since screens draw their own top bars. */
+.vx-sessionbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:8px 16px 0}
+.vx-sessionbar-m{display:none}
+@media (max-width:899px){.vx-sessionbar-d{display:none}.vx-sessionbar-m{display:block}.vx-sessionbar{padding:8px 12px 0}}
+@media print{.vx-sessionbar{display:none!important}}
+.vx-confined{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#c026d3;color:#fff;font-size:13px;font-weight:600}
+@media print{.vx-confined{display:none!important}}
 .vx-large .vx-main{zoom:1.125}
 
 /* ---- Older screens in the design's frame (docs/ui/DECISIONS.md UI-73) ---------------

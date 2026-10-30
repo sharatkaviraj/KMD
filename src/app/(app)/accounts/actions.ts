@@ -7,6 +7,7 @@ import { resolveViewSession } from "@/modules/fees/platform/session-context/reso
 import { describeStudentForQueue, searchFamilies } from "@/modules/finance-controls/vx/books-data";
 import type { FamilyHit } from "@/modules/finance-controls/vx/types";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertStudentVisible } from "@/platform/auth/test-session-access";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { schoolToday } from "@/vx/format";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -28,6 +29,7 @@ export async function addToQueueAction(studentId: string, note?: string): Promis
     const staff = await assertPermission("fees:collect");
     await assertNotPreviewing();
     if (!isUuid(studentId)) throw new Error("Pick a student.");
+    await assertStudentVisible(staff, studentId);
     const who = await describeStudentForQueue(studentId);
     if (!who) throw new Error("That student is not on the roll.");
     const db = createAdminClient();

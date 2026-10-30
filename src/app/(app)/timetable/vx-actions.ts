@@ -41,6 +41,7 @@ import {
   type PendingChange,
   type Slot,
 } from "@/vx/screens/timetable/domain/timetable";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 /*
  * Timetable & substitutions (design `Timetable`). Every write: permission,
@@ -244,6 +245,7 @@ export type CoverActionResult = TimetableResult & { status: 'saved' | 'refused' 
 
 export async function coverAction(input: CoverInput): Promise<CoverActionResult> {
   await assertPermission("substitutions:manage");
+  await assertSessionWritable(null, input.sessionLabel);
   await assertNotPreviewing();
   if (!input.sessionLabel || input.sessionLabel !== await resolveSessionLabel()) return { ok: false, status: 'uncertain', message: p('Select the original academic session to check this save. Its earlier result is still unresolved.', 'इस बदलाव को जाँचने के लिए मूल सत्र चुनें। पुराना परिणाम अभी अनिश्चित है।') };
   const fd = new FormData();
@@ -267,6 +269,7 @@ export async function coverAction(input: CoverInput): Promise<CoverActionResult>
 /** Read the original actor-scoped receipt before any uncertain retry. */
 export async function checkCoverAction(input: Pick<CoverInput, 'commandId' | 'sessionLabel' | 'day'>): Promise<CoverActionResult> {
   const actor = await assertPermission('substitutions:manage');
+  await assertSessionWritable(actor, input.sessionLabel);
   await assertNotPreviewing();
   if (!input.sessionLabel || input.sessionLabel !== await resolveSessionLabel() || !/^\d{4}-\d{2}-\d{2}$/.test(input.day)) return { ok: false, status: 'uncertain', message: p('Select the original academic session to check this save. Its earlier result is still unresolved.', 'इस बदलाव को जाँचने के लिए मूल सत्र चुनें। पुराना परिणाम अभी अनिश्चित है।') };
   const { data: command, error } = await createAdminClient().from('cover_commands').select('id').eq('id', input.commandId).eq('actor_staff_id', actor.id).eq('session_label', input.sessionLabel).eq('day', input.day).maybeSingle();
@@ -427,6 +430,7 @@ const LATE_REFUSALS: Record<string, Pair> = {
  */
 export async function lateCoverAction(input: { commandId: string; sessionLabel: string; day: string; needKey: string; coveringStaffId: string }): Promise<TimetableResult> {
   const actor = await assertPermission("substitutions:manage");
+  await assertSessionWritable(actor, input.sessionLabel);
   await assertNotPreviewing();
   if (!UUID.test(input.commandId) || !UUID.test(input.coveringStaffId) || !DAY.test(input.day) || !input.needKey) return fail(notSaved);
   if (!input.sessionLabel || input.sessionLabel !== (await resolveSessionLabel())) return fail(notSaved);

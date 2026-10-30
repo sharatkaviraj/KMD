@@ -14,6 +14,7 @@ import {
 import { getAuthenticatedStaff, hasStaffPermission } from "@/modules/fees/platform/session";
 
 import { withDownloadToken } from "@/platform/helpers/download-token";
+import { isSessionAccessDenied, workingSessionFor } from "@/platform/auth/test-session-access";
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
@@ -41,7 +42,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const sessionLabel = await getActiveSessionLabel();
+    // The active session — or, for a test account, TEST-2026-27 (Phase 3 fence).
+    let sessionLabel: string;
+    try {
+      sessionLabel = await workingSessionFor(null, await getActiveSessionLabel());
+    } catch (error) {
+      if (isSessionAccessDenied(error)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      throw error;
+    }
     const { classes, routes, resolver } = await buildBulkUpdateLookups(sessionLabel);
 
     // Query-string class ids are untrusted: keep them inside the active session

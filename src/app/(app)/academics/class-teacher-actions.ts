@@ -27,6 +27,7 @@ import {
   idleAcademicsState,
   type AcademicsFormState,
 } from "@/modules/academics/domain/form-state";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 function failure(
   fieldErrors: Record<string, Localized> = {},
@@ -51,6 +52,7 @@ export async function assignClassTeacherAction(
   formData: FormData,
 ): Promise<AcademicsFormState> {
   const actor = await assertPermission("academics:manage");
+  if (formData.get("sessionLabel")) await assertSessionWritable(actor, formData.get("sessionLabel")?.toString());
 
   const sessionLabel = await resolveSessionLabel(
     formData.get("sessionLabel")?.toString(),
@@ -122,6 +124,7 @@ export async function saveCalendarDayAction(
   formData: FormData,
 ): Promise<AcademicsFormState> {
   const actor = await assertPermission("academics:manage");
+  if (formData.get("sessionLabel")) await assertSessionWritable(actor, formData.get("sessionLabel")?.toString());
 
   const sessionLabel = await resolveSessionLabel(
     formData.get("sessionLabel")?.toString(),

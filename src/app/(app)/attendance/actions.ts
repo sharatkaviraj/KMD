@@ -12,6 +12,7 @@ import { schoolToday } from "@/vx/format";
 import { queueAttendanceReminders } from "@/vx/screens/admin/data";
 import { assertNotPreviewing } from "@/vx/view-as";
 import type { Pair } from "@/vx/text";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 /*
  * The attendance board (P5). Marking goes through the one register save the
@@ -36,6 +37,7 @@ export async function saveRegisterVx(payload: string): Promise<AttendanceSaveSta
 
 export async function remindTeachersVx(classIds: string[], scope?: { day: string; sessionLabel: string; commandId: string }): Promise<{ ok: boolean; queued: number; message?: Pair }> {
   await assertPermission("attendance:mark_on_behalf");
+  if (scope) await assertSessionWritable(null, scope.sessionLabel);
   await assertNotPreviewing();
   const sessionLabel = await resolveSessionLabel();
   if (scope && (scope.sessionLabel !== sessionLabel || scope.day !== schoolToday())) return { ok: false, queued: 0, message: { en: "The reminder day or session changed. Reload.", hi: "याद दिलाने का दिन या सत्र बदला। फिर से खोलें।" } };

@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const fixture = vi.hoisted(() => ({ session: 'TEST-2026-27', permitted: true, preview: false, found: true, queryError: false, filters: [] as Array<[string, unknown]>, commandStatus: 'error' as 'error' | 'saved' | 'stale' }));
 const calls = vi.hoisted(() => ({ save: vi.fn(), check: vi.fn(), refresh: vi.fn() }));
+// The test-session fence (Phase 3) has its own tests; here it lets everything through.
+vi.mock("@/platform/auth/test-session-access", () => ({
+  assertSessionWritable: async () => {},
+  assertSessionVisible: async () => {},
+  assertStudentVisible: async () => {},
+  assertReceiptVisible: async () => {},
+  assertFamilyVisible: async () => {},
+  notFoundUnlessVisible: async (check: () => Promise<void>) => check(),
+  refusalResponse: async () => null,
+  currentSessionViewer: async () => null,
+  filterVisibleStudentIds: async (_staff: unknown, ids: string[]) => ids,
+}));
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: calls.refresh }));
 vi.mock('@/platform/auth/current-staff', () => ({ assertPermission: async () => { if (!fixture.permitted) throw Error('denied'); return { id: 'qa-coordinator' }; } }));

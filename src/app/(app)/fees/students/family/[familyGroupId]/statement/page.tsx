@@ -9,6 +9,7 @@ import { formatShortDate, partsToIso, todayPartsIst } from "@/platform/helpers/d
 import { appendSessionParam } from "@/platform/navigation/session-href";
 import { getFamilyWorkspaceData } from "@/modules/students-fees/data/workspace";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertFamilyVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 type FamilyStatementPageProps = {
   params: Promise<{
@@ -28,6 +29,7 @@ export default async function FamilyStatementPage({
   if (!isUuid(resolvedParams.familyGroupId)) {
     notFound();
   }
+  await notFoundUnlessVisible(() => assertFamilyVisible(null, resolvedParams.familyGroupId));
   const workspace = await getFamilyWorkspaceData(resolvedParams.familyGroupId);
 
   if (!workspace || workspace.students.length === 0) {

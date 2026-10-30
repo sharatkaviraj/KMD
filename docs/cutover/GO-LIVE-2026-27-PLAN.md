@@ -350,6 +350,50 @@ parent set by 18 Nov, the staff set by 20 Nov.
 - Rehearsal 1 checks `private.current_staff_role()` under every seat's
   token.
 
+**Decided by default (D-350, Phase 3; the owner may overrule).**
+`vppsone.staff_profiles` is the authority; `public.users` is derived from it
+for every One account through `vppsone.fee_role_map`, by a trigger on
+`staff_profiles` (`supabase/fee-migrations/20261031000100_fee_user_from_staff_profile.sql`).
+`sync_staff_profile_from_auth_users` is not recreated.
+
+One role → fee role (`public.users.role`), least privilege:
+
+| One role | Fee role | Why |
+|---|---|---|
+| admin | admin | Runs the school, including its money |
+| accountant | accountant | Posts payments (D-6: posting is granted through this role) |
+| fee_collector | fee_collector | Collects at the desk |
+| office | view_only | Reads fees; posting is not the office's by default (D-6) |
+| academic_coordinator | view_only | No fee duty |
+| exam_coordinator | view_only | No fee duty |
+| teacher | view_only | No `fees:view` in One; the fees `teacher` role reads every fee screen |
+| view_only | view_only | Reads only |
+
+The 10 live fee users (fresh extract `20261030-p3-fresh`, 30 Oct; roles and
+counts only), matched to One accounts by email, case-insensitive:
+
+| Fees role | Count | In One |
+|---|---|---|
+| admin | 1 | the existing One admin account (same email): remapped onto it |
+| admin | 1 | an existing One QA account (test account), One role admin: remapped |
+| admin | 1 | no One account: imported, One role admin |
+| accountant | 1 | an existing One QA account (test account), One role office: remapped (fee role follows One: view_only) |
+| accountant | 2 | no One account: imported, One role accountant |
+| fee_collector | 1 | an existing One QA auth user with no staff profile: remapped, profile created (role fee_collector, test account) |
+| teacher | 1 | an existing One QA account (test account), One role teacher: remapped (fee role view_only) |
+| view_only | 1 | an existing One QA account (test account), One role view_only: remapped |
+| view_only | 1 | no One account: imported, One role view_only |
+
+So the 6 "email clashes" A2's loader refused on are the same people: the
+loader now remaps every reference to those fees ids onto One's ids
+(`migration_id_map`, source_table `auth.users`) and never inserts a duplicate
+auth user. The dry run on the fresh extract reports 6 remapped, 4 new, 0
+refused, and no missing auth parents (A2's run had 37). Passwords cannot be
+kept (Q6): the REST extract cannot read them (D-348), so the 4 imported users
+sign in by reset or magic link. Checked under JWT claims on wtgx:
+`current_staff_role()` = admin for a One admin, accountant for a One
+accountant, view_only for a teacher and an office account.
+
 **1.5 Dev catch-up**
 - Apply the 11 fee migrations (26–30 Oct) to dev so that One's tests meet
   the schema they will meet in production.
@@ -550,6 +594,25 @@ keep the fees app's permission-only RLS while mirror mode runs. A test
 account reading PostgREST directly could see real fee rows. Points 3–5
 close this in the app. The database gap is reviewed after the fees app
 retires.
+
+**Writes are NOT part of that limit (PR #143 review).** D-350 gives a test
+admin / accountant / fee collector its money role in `public.users`, so its
+JWT could also *write* real fee rows over PostgREST. That is closed in the
+database, not accepted: fee-migration `20261031000200` makes the D-347
+money-row trigger refuse any row whose student is not in a TEST session
+whenever a test account is signed in, and adds the same rule on
+`public.students`, `classes`, `academic_sessions` and `app_settings`
+(proof: `scripts/verify-test-session-fence.sql` J–M). Test accounts keep
+their money roles so TEST postings work through the app's own client.
+Reads of real fee rows over PostgREST remain the accepted limit above.
+
+**`/pay/[code]` (point 4) is deferred to Phase 7**, where the parent page,
+pay codes and Razorpay test mode are built (§7). Today the page is public
+(no viewer to fence), resolves a pay code from `whatsapp_reminder_sends` to
+an amount and builds a UPI intent to the school's account; it writes
+nothing and creates no Razorpay order. Phase 7 adds the rule: a pay code whose student is in a TEST session never shows
+the school's real UPI account (test notice, or Razorpay test keys only), and
+a real-session code never uses test keys.
 
 **3.5 Checks**
 - A unit test matrix: role × label × read/write.
@@ -1196,7 +1259,14 @@ Steps:
    running?
 5. **D-207.** Is `vppsone.staff_profiles` the authority for roles in One?
 6. **The 10 fee users' passwords.** Keep them, or force a reset at
-   cutover?
+   cutover? **The default ("kept") could not be met** (Phase 3, D-350): the
+   REST extract cannot read `auth.users.encrypted_password` (D-348), so the 4
+   fees users with no One account sign in by reset or magic link; the 6 who
+   already have a One account keep their One password. The alternative: once
+   a read-only Postgres credential for the live fee database exists, read the
+   hashes through the sealed select-only reader (D-339/D-348 helper) and
+   import them unchanged. **Needs an owner answer before the first real
+   load** — reset/magic link as now, or wait for that credential.
 
 **Needed before Phase 7**
 

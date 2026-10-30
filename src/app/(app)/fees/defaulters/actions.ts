@@ -12,6 +12,7 @@ import {
   type ContactOutcome,
 } from "@/modules/defaulters/data/contacts";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 export type LogContactState = {
   status: "idle" | "success" | "error";
@@ -93,6 +94,7 @@ export async function logContactAction(
   const promisedDate = (formData.get("promisedDate") as string | null)?.trim() || null;
   const note = (formData.get("note") as string | null)?.trim() || null;
   const sessionLabel = formData.get("sessionLabel") as string | null;
+  await assertSessionWritable(null, sessionLabel);
   const voiceNotePath = (formData.get("voiceNotePath") as string | null)?.trim() || null;
   const contactedPhone = (formData.get("contactedPhone") as string | null)?.trim() || null;
   const phoneLabel = (formData.get("phoneLabel") as string | null)?.trim() || null;
@@ -185,6 +187,7 @@ export async function quickLogContact(args: QuickLogArgs): Promise<QuickLogResul
   let staffId: string | null = null;
   try {
     const staff = await requireStaffPermission("defaulters:view");
+    await assertSessionWritable(null, args.sessionLabel);
     staffId = (staff?.id as string | undefined) ?? null;
   } catch {
     return { ok: false, message: "Permission denied." };
@@ -258,6 +261,7 @@ export async function logWhatsAppSendAttempts(
   let staffId: string | null = null;
   try {
     const staff = await requireStaffPermission("defaulters:view");
+    await assertSessionWritable(null, args.sessionLabel);
     staffId = (staff?.id as string | undefined) ?? null;
   } catch {
     return { ok: false, message: "Permission denied." };
@@ -328,6 +332,7 @@ export async function setNoCallFlagAction(args: SetNoCallArgs): Promise<QuickLog
   let staffId: string | null = null;
   try {
     const staff = await requireStaffPermission("students:write");
+    await assertSessionWritable(null, args.sessionLabel);
     staffId = (staff?.id as string | undefined) ?? null;
   } catch {
     return { ok: false, message: "Permission denied." };

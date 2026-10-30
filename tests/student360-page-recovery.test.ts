@@ -1,6 +1,18 @@
 import { Children, isValidElement, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ fees: vi.fn(), photo: vi.fn(), contacts: vi.fn(), allowed: true, photosAllowed: false, contactAllowed: false, previewing: null as "teacher" | null }));
+// The test-session fence (Phase 3) has its own tests; here it lets everything through.
+vi.mock("@/platform/auth/test-session-access", () => ({
+  assertSessionWritable: async () => {},
+  assertSessionVisible: async () => {},
+  assertStudentVisible: async () => {},
+  assertReceiptVisible: async () => {},
+  assertFamilyVisible: async () => {},
+  notFoundUnlessVisible: async (check: () => Promise<void>) => check(),
+  refusalResponse: async () => null,
+  currentSessionViewer: async () => null,
+  filterVisibleStudentIds: async (_staff: unknown, ids: string[]) => ids,
+}));
 vi.mock("server-only", () => ({}));
 vi.mock("@/platform/auth/current-staff", () => ({ requirePermission: async () => ({ id: "qa-staff", language: "en" }) }));
 vi.mock("@/vx/view-as", () => ({ getViewer: async () => ({ previewing: state.previewing }) }));

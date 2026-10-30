@@ -30,9 +30,20 @@ export const FALLBACK_OFFICE_SESSION_LABEL = "2026-27";
  * `scripts/verify-required-sessions.mjs`. Do not add a label here until the
  * session actually exists.
  */
+export const REQUIRED_PRODUCTION_SESSION_LABELS = ["2026-27"] as const;
+
+/**
+ * The rehearsal session, listed apart from the real ones (Phase 3, D-340):
+ * only a test account or a real admin is ever offered it.
+ * `getSessionSwitcherData()` merges both lists into its cached, unfiltered
+ * rows and filters per viewer afterwards (`filterSessionsForViewer`).
+ */
+export const REQUIRED_TEST_SESSION_LABELS = ["TEST-2026-27"] as const;
+
+/** Both, for the admin's session-health grid, which checks every one exists. */
 export const REQUIRED_OFFICE_SESSION_LABELS = [
-  "2026-27",
-  "TEST-2026-27",
+  ...REQUIRED_PRODUCTION_SESSION_LABELS,
+  ...REQUIRED_TEST_SESSION_LABELS,
 ] as const;
 
 export function mergeRequiredOfficeSessions(

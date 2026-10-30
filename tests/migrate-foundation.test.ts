@@ -94,4 +94,19 @@ describe("supabase/fee-migrations", () => {
     expect(sql).toMatch(/before insert or update or delete on public\.app_settings/);
     expect(sql).toMatch(/key = 'fee_writes_enabled'/);
   });
+
+  it("fences a test account's fee writes to TEST students without dropping the D-347 switch", () => {
+    const sql = readFileSync(path.join(dir, "20261031000200_test_account_fee_write_fence.sql"), "utf8");
+    const guard = /create or replace function vppsone\.fee_money_row_guard\(\)[\s\S]*?\$\$;/.exec(sql)?.[0] ?? "";
+    // Both halves, in the one trigger function every money table runs.
+    expect(guard).toMatch(/current_is_test_account\(\)/);
+    expect(guard).toMatch(/assert_test_account_may_write_student\(old\.student_id\)/);
+    expect(guard).toMatch(/assert_test_account_may_write_student\(new\.student_id\)/);
+    expect(guard).toMatch(/not vppsone\.fee_writes_open\(\)/);
+    expect(guard).toMatch(/assert_fee_writes_allowed\(old\.student_id\)/);
+    expect(sql).toMatch(/before insert or update or delete on public\.students/);
+    expect(sql).toMatch(/before insert or update or delete on public\.classes/);
+    expect(sql).toMatch(/before insert or update or delete on public\.academic_sessions/);
+    expect(sql).toMatch(/before insert or update or delete on public\.app_settings/);
+  });
 });

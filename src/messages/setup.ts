@@ -458,3 +458,29 @@ export const listMessages = {
   changeTeacher: t("अध्यापक बदलें", "Change teacher"),
   customised: t("बदला हुआ", "Changed"),
 } as const;
+
+/**
+ * The test-session fence (Phase 3, D-340): the confined-deployment banner, the
+ * Staff screen's test-account switch, and the session refusal. Pairs, rule 9.
+ */
+export const testSessionMessages = {
+  confinedBanner: t(
+    "जाँच वाला संस्करण: आप केवल TEST सत्र देख और बदल सकते हैं। असली बच्चों का डेटा यहाँ नहीं खुलता।",
+    "Test deployment: you see and change the TEST session only. Real children's records do not open here.",
+  ),
+  testAccountBanner: t("जाँच खाता: केवल TEST सत्र", "Test account: TEST session only"),
+  sessionRefused: t("यह सत्र आप नहीं खोल सकते।", "You cannot open that session."),
+  testAccount: t("जाँच खाता", "Test account"),
+  testAccountHelp: t(
+    "जाँच खाता केवल TEST-2026-27 देखता और बदलता है, असली सत्र कभी नहीं। इसे केवल असली प्रशासक बदल सकते हैं, अपने लिए नहीं।",
+    "A test account sees and changes TEST-2026-27 only, never a real session. Only a real administrator can change this, and not for themselves.",
+  ),
+  markTest: t("जाँच खाता बनाएँ", "Make a test account"),
+  unmarkTest: t("असली खाता बनाएँ", "Make a real account"),
+  reasonLabel: t("कारण", "Reason"),
+  reasonRequired: t("कारण लिखें।", "Write a reason."),
+  saved: t("बदल दिया गया।", "Changed."),
+  notRealAdmin: t("केवल असली प्रशासक यह बदल सकते हैं।", "Only a real administrator can change this."),
+  notSelf: t("आप अपना खाता नहीं बदल सकते।", "You cannot change your own account."),
+  failed: t("नहीं बदल सका। फिर प्रयास करें।", "Could not change it. Try again."),
+} as const;

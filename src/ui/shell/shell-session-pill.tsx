@@ -19,12 +19,15 @@ type ShellSessionPillProps = {
   currentLabel: string;
   isTest: boolean;
   sessions: Promise<SessionSwitcherData>;
+  /** False off production: no "Live ·" prefix (see SessionPill). */
+  showLive?: boolean;
 };
 
 export async function ShellSessionPill({
   currentLabel,
   isTest,
   sessions,
+  showLive = true,
 }: ShellSessionPillProps) {
   const { availableSessions } = await sessions;
 
@@ -33,6 +36,7 @@ export async function ShellSessionPill({
       currentLabel={currentLabel}
       isTest={isTest}
       initialSessions={availableSessions}
+      showLive={showLive}
     />
   );
 }

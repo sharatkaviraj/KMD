@@ -46,6 +46,7 @@ the fee schema is equal (`supabase_realtime: office_sync_events`).
 | Extensions | 8 | 8 | versions differ | **expected** | Project-managed |
 | Buckets | 4 | 8 | `vppsone-archives`, `vppsone-documents`, `vppsone-drive-backups`, `vppsone-photos` | **expected, One-only** | The fee buckets themselves are equal |
 | Publication | | | `supabase_realtime_messages_publication: realtime.messages_*` partitions | **expected** | Supabase realtime internals, dated partitions |
+| Triggers One has, live has not | | | `fee_writes_row_guard` / `fee_writes_truncate_guard` on the 16 money tables, `fee_writes_class_move_guard`, `fee_writes_class_relabel_guard`, `fee_writes_switch_owner_only` (D-347); `test_account_student_guard` on `students`, `test_account_session_row_guard` on `classes` and `academic_sessions`, `test_account_settings_guard` on `app_settings` (Phase 3, fee-migration 20261031000200) | **expected, One-only** | One's fee-writes switch and test-account fence; their functions live in `vppsone` (see `supabase/fee-migrations/README.md`). Added after this table was drawn; not re-diffed |
 
 Everything else — enums (12 = 12), every other table/view/matview, index,
 constraint, policy, trigger and RLS flag in `public`/`private` — is equal.

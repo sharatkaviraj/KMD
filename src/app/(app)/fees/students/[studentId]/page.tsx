@@ -66,6 +66,7 @@ import {
   requireStaffPermission,
 } from "@/modules/fees/platform/session";
 import { safeReturnTo } from "@/platform/navigation/return-to";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 type StudentDetailPageProps = {
   params: Promise<{
@@ -129,6 +130,8 @@ export default async function StudentDetailPage({
   if (!isUuid(resolvedParams.studentId)) {
     notFound();
   }
+  // A student in a session this viewer cannot open reads as not found (Phase 3).
+  await notFoundUnlessVisible(() => assertStudentVisible(null, resolvedParams.studentId));
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const activeTab = normalizeTab(resolvedSearchParams?.tab);
   const mobileTab = normalizeMobileTab(resolvedSearchParams?.tab);

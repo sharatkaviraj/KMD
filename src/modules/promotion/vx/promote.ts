@@ -73,6 +73,13 @@ export async function loadPromotionBoard(runId?: string | null): Promise<Promoti
   return { sourceSessionLabel, targetSessionLabel, run, detail, sourceClasses, targetClasses };
 }
 
+/** The two years a run moves children between, for the session fence; null when there is no such run. */
+export async function promotionRunSessions(runId: string): Promise<{ source: string; target: string } | null> {
+  await requireStaffPermission("students:write");
+  const detail = await getPromotionRun(runId);
+  return detail ? { source: detail.run.sourceSessionLabel, target: detail.run.targetSessionLabel } : null;
+}
+
 export async function buildPromotionList(sourceSessionLabel: string, targetSessionLabel: string) {
   await requireStaffPermission("students:write");
   const result = await createPromotionPreview({ sourceSessionLabel, targetSessionLabel });

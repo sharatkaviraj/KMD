@@ -3,6 +3,7 @@
 import { insertDefaulterContacts } from "@/modules/defaulters/data/contacts";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireAnyStaffPermission, requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertStudentsVisible, assertStudentVisible } from "@/platform/auth/test-session-access";
 import { renderNoticeBody } from "@/modules/whatsapp/domain/campaign-bodies";
 import { isAisensyConfigured, sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
 import { getFeePolicyForSession } from "@/modules/fees/data/policy";
@@ -121,6 +122,13 @@ export async function sendRemindersAction(
   const selected = new Set(formData.getAll("studentId").map(String).filter(Boolean));
   if (selected.size === 0) {
     return { status: "error", message: "No students selected." };
+  }
+  try {
+    // Phase 3 fence: a test account never messages a real parent. (The
+    // audience below is the viewer's session too; this is the second lock.)
+    await assertStudentsVisible(null, [...selected]);
+  } catch {
+    return { status: "error", message: "Some of those students belong to a session you cannot open." };
   }
 
   const supabase = createAdminClient();
@@ -526,6 +534,7 @@ export async function setReminderCadenceAction(
   const supabase = createAdminClient();
   try {
     const sessionLabel = await resolveReminderSessionLabel(supabase);
+    await assertStudentVisible(null, studentId);
     // Changing the cadence clears any snooze: the office just made a fresh,
     // more considered decision about this family, and leaving a stale snooze
     // underneath it would silently outrank what they chose.
@@ -565,6 +574,7 @@ export async function snoozeReminderAction(
   const supabase = createAdminClient();
   try {
     const sessionLabel = await resolveReminderSessionLabel(supabase);
+    await assertStudentVisible(null, studentId);
     await writeReminderFlags(supabase, studentId, sessionLabel, {
       whatsapp_snoozed_until: until,
     });
@@ -595,6 +605,7 @@ export async function resumeReminderAction(
   const supabase = createAdminClient();
   try {
     const sessionLabel = await resolveReminderSessionLabel(supabase);
+    await assertStudentVisible(null, studentId);
     await writeReminderFlags(supabase, studentId, sessionLabel, {
       whatsapp_cadence: "every_run",
       whatsapp_snoozed_until: null,
