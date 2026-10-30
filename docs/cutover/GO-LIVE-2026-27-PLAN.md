@@ -23,7 +23,7 @@ What the owner asked for, and where each part is covered:
 
 ---
 
-## 0. The one decision this plan needs first
+## 0. Where One's data lives
 
 The existing cutover plan (`LIVE-MIGRATION-PLAN.md`, D-3, D-310) puts One
 **on the live fee database** `vgqyilgstjvgohrsiwkb`. That plan has to:
@@ -32,21 +32,75 @@ The existing cutover plan (`LIVE-MIGRATION-PLAN.md`, D-3, D-310) puts One
 - replace two live fee functions, `private.current_staff_role()` and
   `public.has_permission(text)` (M2).
 
-That is a change to the fees app's database, which the owner has now ruled
-out. **This plan replaces it with a copy model:**
+That is a change to the fees app's database, which the owner has ruled out.
+**This plan replaces it with a copy model.**
 
-1. One gets **its own new Supabase project**, `vppsone-live`.
-2. The fee schema and data are copied into it from live, using reads only.
-3. Until cutover, the copy is refreshed and checked against live every
-   night ("mirror mode").
-4. On a quiet Sunday the desk moves to One.
-5. The fees app keeps running, unchanged, as the fallback until written
-   sign-off.
+### 0.1 Revised 30 Oct: One's main database is `wtgxcptmucjerhufzjcf`
 
-If the owner prefers the shared-database plan instead, Phases 3–8 still
-apply. Phases 1, 2, 10 and 11 would then go back to
-`LIVE-MIGRATION-PLAN.md`, and its M2 step would need an explicit waiver of
-"don't change the fees app's data".
+The owner chose the existing project `wtgxcptmucjerhufzjcf`
+(`schoolfees-dev`, https://wtgxcptmucjerhufzjcf.supabase.co) as One's main
+database (D-338). **There is no new `vppsone-live` project.** Wherever this
+plan says `vppsone-live`, read `wtgxcptmucjerhufzjcf`.
+
+What that project holds on 30 Oct (read-only counts):
+
+| Area | Contents |
+|---|---|
+| `vppsone` schema | Already in place: 86 migrations including the D-skip QA and smoke-lab set, and PostgREST already exposes it |
+| `public` | The masked replica of the fee data, 11 fee migrations behind live, and QA receipts up to 27 Oct |
+| Classes | 20 in 2026-27, 19 in TEST-2026-27, 19 in 2027-28 |
+| Auth users | 51: 50 QA accounts on `@qa.vpps.local` and the owner. Nobody else signs in, so all `vppsone` activity is test activity |
+| pg_cron | 5 jobs: the matview refresh, sibling-group refresh, EMI late fee, workbook enqueue, and `smoke-enforce` |
+| Plan | The org is on the **free plan**: no point-in-time recovery and no Supabase-managed backups. The nightly Drive backup (D-334) is the only backup |
+
+What changes in the phases:
+
+- **Phase 1 becomes "turn dev into production" in place.** No schema
+  bootstrap:
+  - Catch up the 11 fee migrations, with their `cron.schedule` blocks
+    stripped, and diff the schema against live read-only until they match.
+  - A database marker `vppsone.deployment` (`environment = 'production'`)
+    replaces "is this the dev ref?" in every guard. From then on these all
+    refuse this project:
+    - QA, smoke-lab and day-run sign-in
+    - `qa-fixture`, `seed-*` and `replicate-live.mjs`
+    - every `scripts/smoke/*`
+  - The `smoke-enforce` cron is unscheduled.
+  - The 50 QA auth users are banned.
+  - The test accounts are new users the owner controls, for example
+    plus-addresses on the school domain.
+- **Phase 4 quarantines in place.** One's `vppsone` rows are relabelled to
+  `TEST-2026-27` and re-pointed at TEST classes and new `TEST-D-` shell
+  students **before** any real fee data is loaded. Dev student ids equal
+  live ids, so a row left pointing at its old student would attach to a
+  real child as soon as the real data arrives. Append-only tables are
+  rewritten by inserting a copy and deleting the original, with their
+  named triggers switched off for that statement only.
+- **Phase 2 loads real data into this project's `public`.** It replaces the
+  masked replica, and the `vppsone.data_replica` marker is updated.
+  - one.vpps.co.in already serves this database. So the order is fixed:
+    1. lockdown (Phase 1);
+    2. TEST visibility (Phase 3);
+    3. quarantine (Phase 4);
+    4. `fee_writes_enabled=false`;
+    5. only then the first real load.
+  - Until T0, staff can view real fee figures in One but cannot write them.
+- **Previews and local development lose their database.** Vercel Preview
+  and Development, the local `.env.local`, CI smoke tooling, and the fees
+  app's local development all point at this project today. **The fees
+  app's local `.env.local` and its dry-run scripts
+  (`verify-online-*-dryrun.mjs`, `SUPABASE_DEV_PROJECT_REF`) target this
+  project too.** After the switch, running the fees app locally would act
+  on One's production data. That needs an owner decision (Q19); this plan
+  never edits the fees repo.
+- **Backups.** The free plan has none.
+  - The Drive nightly backup, plus a read-only `pg_dump` before every real
+    load and at T0, is the minimum.
+  - Pro (point-in-time recovery, daily backups, and room for a separate dev
+    project) is recommended (Q1).
+
+The rest of this plan (sessions, quarantine rules, the fee port, Razorpay,
+AiSensy, staff WhatsApp, cutover, rollback) holds as written.
 
 ---
 
@@ -1104,10 +1158,9 @@ Steps:
 
 **Needed before Phase 1**
 
-1. **The copy model.** Create a new Supabase project `vppsone-live`, with
-   its cost and point-in-time recovery, and supersede D-3 and D-310? The
-   alternative keeps the shared database and needs a waiver to change the
-   live fee database.
+1. **Answered 30 Oct:** One's main database is `wtgxcptmucjerhufzjcf`
+   (§0.1). Still open: upgrade the org to Pro for backups and
+   point-in-time recovery?
 2. **The pill.** Shown to fee readers, coordinators, admin and test
    accounts; teachers stay on the active session; 2027-28 visible to fee
    readers. Agreed?
@@ -1164,3 +1217,11 @@ Steps:
     files kept (D-334)?
 18. **After sign-off.** Does the fees app keep running read-only, or is it
     retired?
+19. **Where does development go?** Once `wtgxcptmucjerhufzjcf` is
+    production, where do these point?
+    - Vercel Preview and Development, local development and smoke tooling.
+      Options: a new dev project (the free plan allows two active
+      projects, so this means Pro or freeing a slot), or no database for
+      previews.
+    - The fees app's local `.env.local` and its dry-run scripts. You
+      repoint these; this plan never edits the fees repo.
