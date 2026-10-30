@@ -14,6 +14,14 @@ on its own after the CNAME verified; `vercel certs issue` did it in seconds.
 Remaining: staff sign in once on the new address and reinstall the phone app;
 deciding later whether to redirect `vppsone.vercel.app`.
 
+Released: [PR 137](https://github.com/veerpatta/vppsone/pull/137) merged as
+`d2a30c9` (head `6f65bc8`, all 22 checks green before merging); production
+`dpl_A7HgWi1qg2X9y2QZJLboEhd1ZnHZ` READY, aliased to `one.vpps.co.in` and
+`vppsone.vercel.app`. Checked live: both `/login` 200 "VPPS One" from `bom1`,
+`http://` 308 to https, HSTS, manifest and service worker 200, a job route 404
+without its secret, `npm run verify:origins` 3/3. Not checked: a receipt
+rendered signed in (needs a staff session).
+
 ## Fee admin screens simplified — 28 October 2026
 
 PR 134 (`52357ed`) and its fix PR 135 (`f19a7c0`), at the owner's request.
