@@ -595,6 +595,25 @@ account reading PostgREST directly could see real fee rows. Points 3–5
 close this in the app. The database gap is reviewed after the fees app
 retires.
 
+**Writes are NOT part of that limit (PR #143 review).** D-350 gives a test
+admin / accountant / fee collector its money role in `public.users`, so its
+JWT could also *write* real fee rows over PostgREST. That is closed in the
+database, not accepted: fee-migration `20261031000200` makes the D-347
+money-row trigger refuse any row whose student is not in a TEST session
+whenever a test account is signed in, and adds the same rule on
+`public.students`, `classes`, `academic_sessions` and `app_settings`
+(proof: `scripts/verify-test-session-fence.sql` J–M). Test accounts keep
+their money roles so TEST postings work through the app's own client.
+Reads of real fee rows over PostgREST remain the accepted limit above.
+
+**`/pay/[code]` (point 4) is deferred to Phase 7**, where the parent page,
+pay codes and Razorpay test mode are built (§7). Today the page is public
+(no viewer to fence), resolves a pay code from `whatsapp_reminder_sends` to
+an amount and builds a UPI intent to the school's account; it writes
+nothing and creates no Razorpay order. Phase 7 adds the rule: a pay code whose student is in a TEST session never shows
+the school's real UPI account (test notice, or Razorpay test keys only), and
+a real-session code never uses test keys.
+
 **3.5 Checks**
 - A unit test matrix: role × label × read/write.
 - Playwright:
@@ -1240,7 +1259,14 @@ Steps:
    running?
 5. **D-207.** Is `vppsone.staff_profiles` the authority for roles in One?
 6. **The 10 fee users' passwords.** Keep them, or force a reset at
-   cutover?
+   cutover? **The default ("kept") could not be met** (Phase 3, D-350): the
+   REST extract cannot read `auth.users.encrypted_password` (D-348), so the 4
+   fees users with no One account sign in by reset or magic link; the 6 who
+   already have a One account keep their One password. The alternative: once
+   a read-only Postgres credential for the live fee database exists, read the
+   hashes through the sealed select-only reader (D-339/D-348 helper) and
+   import them unchanged. **Needs an owner answer before the first real
+   load** — reset/magic link as now, or wait for that credential.
 
 **Needed before Phase 7**
 

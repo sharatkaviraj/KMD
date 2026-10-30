@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -223,6 +224,8 @@ export async function prepareReminderBatchAction(id: string): Promise<OutboxResu
     .eq("id", id)
     .maybeSingle<{ id: string; session_label: string; name: string; template: string; language: string; audience_line: string | null; student_ids: string[]; status: string }>();
   if (!batch) return fail(p("That batch is gone.", "बैच नहीं मिला।"));
+  // Phase 3 fence: the batch's own session, whoever prepares it.
+  await assertSessionWritable(actor, batch.session_label);
   if (batch.status !== "queued" && batch.status !== "scheduled") return fail(p("This batch was already prepared or stopped.", "यह बैच पहले ही तैयार या रद्द हो चुका है।"));
   if (!isTemplateId(batch.template) || !isReminderLanguage(batch.language)) return fail(p("This batch has an unknown message.", "इस बैच का संदेश पहचाना नहीं गया।"));
   const template = batch.template;

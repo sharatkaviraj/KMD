@@ -60,10 +60,15 @@ const service = (schema = "vppsone") =>
   });
 
 /** A client that is exactly this person, and nobody else. */
-async function signedInAs(email) {
+/**
+ * `orphan`: the login this run made a moment ago with NO staff profile — by
+ * construction not a test account, and by construction able to read nothing,
+ * which is what the run checks. Every other sign-in must be a test account.
+ */
+async function signedInAs(email, { orphan = false } = {}) {
   const { data, error } = await service().auth.admin.generateLink({ type: "magiclink", email });
   if (error) throw new Error(`${email}: ${error.message}`);
-  await assertTestAccountUser({ scope, url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, userId: data.user?.id, email });
+  if (!orphan) await assertTestAccountUser({ scope, url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, userId: data.user?.id, email });
 
   const client = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     db: { schema: "vppsone" },
@@ -87,18 +92,62 @@ const { data: activeSetting } = await service("public")
   .eq("key", ACTIVE_SESSION_KEY)
   .maybeSingle();
 const { data: sessionRows } = await admin.from("enrolments").select("session_label").limit(1000);
-const sessionLabel = pickSessionLabel({
-  requested: scope.confined ? scope.sessionLabel : null,
-  requested: null,
-  configured: null,
-  active: typeof activeSetting?.value === "string" ? activeSetting.value : null,
-  labels: [...new Set((sessionRows ?? []).map((row) => row.session_label))],
-});
+// Confined: TEST-2026-27 itself, never pickSessionLabel's fall-back to the
+// active real session when TEST has no enrolments yet (fail closed).
+const sessionLabel = scope.confined
+  ? scope.sessionLabel
+  : pickSessionLabel({
+      requested: null,
+      configured: null,
+      active: typeof activeSetting?.value === "string" ? activeSetting.value : null,
+      labels: [...new Set((sessionRows ?? []).map((row) => row.session_label))],
+    });
+
+/**
+ * Confined (Phase 3): the QA accounts are test accounts, and the fence shows
+ * them TEST-2026-27 rows only — so "everything" for the expected counts is
+ * everything in that session, not the whole table. Tables with their own
+ * label filter on it; timetable_slots and attendance_corrections go through
+ * their parent's. Unconfined, the whole table, as before.
+ */
+const LABELLED = new Set(["attendance_registers", "class_teachers", "collection_requests", "enrolments", "message_sends", "notes", "report_cards", "student_documents", "student_record_history", "student_records"]);
+const PARENT = { timetable_slots: ["version_id", "timetable_versions"], attendance_corrections: ["register_id", "attendance_registers"] };
+const parentIds = new Map();
+async function idsInSession(parentTable) {
+  if (!parentIds.has(parentTable)) {
+    const { data, error } = await admin.from(parentTable).select("id").eq("session_label", sessionLabel);
+    if (error) throw new Error(`${parentTable}: ${error.message}`);
+    parentIds.set(parentTable, (data ?? []).map((row) => row.id));
+  }
+  return parentIds.get(parentTable);
+}
+
+/** Count `table` rows (narrowed by `narrow`), scoped to the session when confined. Chunked (rule 3b). */
+async function countScoped(table, narrow = (query) => query) {
+  const base = () => narrow(admin.from(table).select("*", { count: "exact", head: true }));
+  if (!scope.confined || !(LABELLED.has(table) || table in PARENT)) {
+    const { count, error } = await base();
+    if (error) throw new Error(`${table}: ${error.message}`);
+    return count ?? 0;
+  }
+  if (LABELLED.has(table)) {
+    const { count, error } = await base().eq("session_label", sessionLabel);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    return count ?? 0;
+  }
+  const [column, parentTable] = PARENT[table];
+  const ids = await idsInSession(parentTable);
+  let total = 0;
+  for (let i = 0; i < ids.length; i += 200) {
+    const { count, error } = await base().in(column, ids.slice(i, i + 200));
+    if (error) throw new Error(`${table}: ${error.message}`);
+    total += count ?? 0;
+  }
+  return total;
+}
 
 async function countAll(table) {
-  const { count, error } = await admin.from(table).select("*", { count: "exact", head: true });
-  if (error) throw new Error(`${table}: ${error.message}`);
-  return count ?? 0;
+  return countScoped(table);
 }
 
 const PUPIL_TABLES = [
@@ -238,7 +287,7 @@ try {
 
     let client;
     try {
-      client = await signedInAs(subject.email);
+      client = await signedInAs(subject.email, { orphan: subject.key === "noProfile" });
     } catch (error) {
       failures.push(`${subject.key}: could not sign in — ${error.message}`);
       continue;
@@ -296,9 +345,9 @@ try {
       if (own.size === 0) {
         // A teacher with no classes still owns two things: the corrections she
         // asked for and a collection request assigned to her. Exactly those.
-        const [{ count: askedFor }, { count: assigned }] = await Promise.all([
-          admin.from("attendance_corrections").select("id", { count: "exact", head: true }).eq("requested_by", profile.id),
-          admin.from("collection_requests").select("id", { count: "exact", head: true }).eq("assigned_staff_id", profile.id),
+        const [askedFor, assigned] = await Promise.all([
+          countScoped("attendance_corrections", (query) => query.eq("requested_by", profile.id)),
+          countScoped("collection_requests", (query) => query.eq("assigned_staff_id", profile.id)),
         ]);
         for (const table of ["enrolments", "attendance_registers", "attendance_marks", "marks", "student_records", "student_record_history", "student_documents", "report_cards", "message_sends"]) {
           expect(subject.key, result.counts[table] === 0, `a teacher with no classes read ${table}`);

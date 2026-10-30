@@ -18,7 +18,7 @@ import {
 } from "@/modules/receipts/vx/domain/day-close";
 import { approveReversalRequests, declineReversalRequests, insertCloseEvent, insertReversalRequest, listCloseEvents } from "@/vx/screens/receipts/data";
 import { assertNotPreviewing } from "@/vx/view-as";
-import { assertSessionWritable } from "@/platform/auth/test-session-access";
+import { assertReceiptVisible, assertSessionWritable } from "@/platform/auth/test-session-access";
 
 export type DeskActionResult = { ok: true; kind?: "reversed" | "requested" | "exists" | "declined" } | { ok: false; error: string };
 
@@ -142,6 +142,8 @@ export async function reopenDayAction(input: { date: string; sessionLabel: strin
 export async function reverseReceiptAction(input: { receiptNumber: string; reasonCode: string; note: string }): Promise<DeskActionResult> {
   try {
     const staff = await assertPermission("fees:accounts");
+    // Phase 3 fence: the receipt's own session, on every path (request or reverse).
+    await assertReceiptVisible(staff, { receiptNumber: input.receiptNumber });
     await assertNotPreviewing();
     if (!isReversalReason(input.reasonCode)) return { ok: false, error: "Choose why this receipt is being reversed." };
 
@@ -203,6 +205,7 @@ export async function reverseReceiptAction(input: { receiptNumber: string; reaso
 export async function declineReversalRequestAction(input: { receiptNumber: string; note: string }): Promise<DeskActionResult> {
   try {
     const staff = await assertPermission("fees:accounts");
+    await assertReceiptVisible(staff, { receiptNumber: input.receiptNumber });
     await assertNotPreviewing();
     if (!feePermissionsFor(staff.role).includes("payments:reverse_any")) return { ok: false, error: "Only an admin can decline this request." };
     const note = String(input.note ?? "").trim().slice(0, 400);

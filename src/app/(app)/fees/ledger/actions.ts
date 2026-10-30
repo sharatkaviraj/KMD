@@ -7,6 +7,7 @@ import { addPaymentAdjustment } from "@/modules/reports/data/ledger-queries";
 import type { LedgerAdjustmentActionState } from "@/modules/reports/domain/ledger-types";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertStudentVisible } from "@/platform/auth/test-session-access";
 
 function parseRequiredString(value: FormDataEntryValue | null, label: string) {
   const normalized = (value ?? "").toString().trim();
@@ -90,6 +91,8 @@ export async function submitLedgerAdjustmentAction(
 ): Promise<LedgerAdjustmentActionState> {
   try {
     await requireStaffPermission("payments:adjust");
+    // Phase 3 fence: the student's own session (the RPC checks the payment is theirs).
+    await assertStudentVisible(null, parseUuid(formData.get("studentId"), "Student"));
 
     const amount = parseAmount(formData.get("amount"));
     const direction = parseDirection(formData.get("direction"));

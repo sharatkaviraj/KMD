@@ -3,6 +3,7 @@ import { Lock } from "lucide-react";
 
 import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
+import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { dayLabel, weekdayLabel } from "@/platform/dates";
 import { primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
@@ -63,6 +64,8 @@ export default async function DutyPage(props: PageProps<"/duty/[id]">) {
   }
 
   const shown: CoverDuty = view.kind === "former_holder" ? view.linked : (view.current ?? view.linked);
+  // Phase 3 fence: a duty in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertSessionVisible(staff, shown.sessionLabel));
   const [bells, people] = await Promise.all([currentBells(shown.sessionLabel), listStaff()]);
   const nameOf = new Map(people.map((person) => [person.id, person.displayName]));
   const window = bells.periods.find((period) => period.index === shown.period);

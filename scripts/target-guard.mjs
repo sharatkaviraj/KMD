@@ -116,7 +116,7 @@ export function environmentFromRows(rows) {
  * mode, may it run, and confined to what?
  */
 export function decideToolScope(environment, mode) {
-  if (!["read-only", "test-scoped", "dev-only"].includes(mode)) {
+  if (!["read-only", "test-scoped", "confined-dev-only", "dev-only"].includes(mode)) {
     return { ok: false, reason: `unknown tool mode ${mode}` };
   }
   const production = environment !== "dev";
@@ -126,6 +126,20 @@ export function decideToolScope(environment, mode) {
   // else would be invisible to the very accounts that test it. `confined`
   // is what the scripts branch on; `production` still says what the marker is.
   if (mode === "test-scoped") return { ok: true, production, confined: true, sessionLabel: TEST_SESSION_LABEL };
+  // Confined to TEST-2026-27 like a test-scoped tool, AND refused on
+  // production: the script also flips state the whole school shares
+  // (runtime_flags, parent_message_policies, the staff-notice queue) or picks
+  // real staff, so even a TEST-only run would reach real people (PR #143 review).
+  if (mode === "confined-dev-only") {
+    if (!production) return { ok: true, production: false, confined: true, sessionLabel: TEST_SESSION_LABEL };
+    return {
+      ok: false,
+      reason:
+        "the database marker says production (or could not be read), and this script changes " +
+        "school-wide switches or real staff's queues even when it writes only TEST-2026-27, " +
+        "so it runs on the dev marker only (D-346).",
+    };
+  }
   if (!production) return { ok: true, production: false, confined: false, sessionLabel: null };
   if (mode === "read-only") return { ok: true, production: true, confined: false, sessionLabel: null };
   return {

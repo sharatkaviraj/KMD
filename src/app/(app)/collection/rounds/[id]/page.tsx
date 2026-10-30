@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { dayLabel } from "@/platform/dates";
 import { countOf, counted, primary } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
@@ -62,6 +63,8 @@ export default async function RoundPage({
 
   const round = await roundById(id);
   if (!round) notFound();
+  // Phase 3 fence: a record in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertSessionVisible(staff, round.sessionLabel));
 
   const sessionLabel = (await resolveSessionLabel()) ?? round.sessionLabel;
 

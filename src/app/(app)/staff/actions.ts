@@ -8,6 +8,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { isRealAdmin } from "@/platform/auth/test-session-policy";
 import { testSessionMessages } from "@/messages/setup";
 import { createClient } from "@/platform/supabase/server";
+import { assertNotPreviewing } from "@/vx/view-as";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
   authorityChangeIn,
@@ -24,6 +25,7 @@ import {
   changeStaffAuthority,
   createStaff,
   findByShortName,
+  actorMayManage,
   getStaffById,
   updateStaff,
 } from "@/modules/staff/data/staff-repo";
@@ -110,7 +112,8 @@ export async function createStaffAction(
   }
 
   try {
-    await createStaff(parsed.data, staff.userId);
+    // A test account's new colleague is a test account too (Phase 3).
+    await createStaff(parsed.data, staff.userId, { isTestAccount: staff.isTestAccount === true });
   } catch (error) {
     // The race the check above cannot close: two admins submitting the same
     // short name at once. The index catches it; this translates it.
@@ -149,6 +152,9 @@ export async function updateStaffAction(
   const target = await getStaffById(id);
   if (!target) {
     return failure({}, m.profileNotFound);
+  }
+  if (!(await actorMayManage(actor, target.id))) {
+    return failure({}, authorityRefusalMessages.test_account);
   }
 
   // Changing your own role is how an admin accidentally locks the school out
@@ -219,6 +225,9 @@ export async function setStaffActiveAction(formData: FormData) {
   if (!target) {
     throw new Error("That profile was not found.");
   }
+  if (!(await actorMayManage(actor, target.id))) {
+    throw new Error(authorityRefusalMessages.test_account.en);
+  }
 
   // The same rule the button's disabled state uses, checked again here —
   // a disabled button is a hint, not a guard.
@@ -257,6 +266,7 @@ export async function setStaffActiveAction(formData: FormData) {
  */
 export async function setTestAccountAction(formData: FormData) {
   const actor = await assertPermission("staff:manage");
+  await assertNotPreviewing();
   if (!isRealAdmin(actor)) {
     throw new Error(testSessionMessages.notRealAdmin.en);
   }

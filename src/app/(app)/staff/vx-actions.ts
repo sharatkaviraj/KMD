@@ -8,6 +8,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { isStaffRole } from "@/platform/auth/permissions";
 import { createAdminClient } from "@/platform/supabase/admin";
 import {
+  actorMayManage,
   changeStaffAuthority,
   createStaff,
   findByShortName,
@@ -45,6 +46,8 @@ export async function saveMatrixAction(changes: unknown, reason?: string): Promi
   const actor = await assertPermission("settings:manage");
   await assertNotPreviewing();
   if (actor.role !== "admin") return fail(MATRIX_REFUSALS.not_admin);
+  // The permission matrix is the whole school's: never a test account's (Phase 3).
+  if (actor.isTestAccount === true) return fail(fromLocalized(authorityRefusalMessages.test_account));
 
   const clean = cleanChanges(changes);
   if (!clean) return fail(MATRIX_REFUSALS.bad_request);
@@ -101,7 +104,7 @@ export async function addStaffAction(input: {
   if (clash) return fail(p(`Short name already used by ${clash.displayName}`, `यह संक्षिप्त नाम ${clash.displayName} के पास है`));
 
   try {
-    const created = await createStaff(parsed.data, actor.userId);
+    const created = await createStaff(parsed.data, actor.userId, { isTestAccount: actor.isTestAccount === true });
     revalidatePath("/staff");
     return { ok: true, message: p(`${created.displayName} added`, `${created.displayName} जोड़े गए`), staffId: created.id };
   } catch {
@@ -125,6 +128,7 @@ export async function createLoginAction(input: { staffId: string; email: string;
 
   const target = await getStaffById(input.staffId);
   if (!target) return fail(fromLocalized(authorityRefusalMessages.not_found));
+  if (!(await actorMayManage(actor, target.id))) return fail(fromLocalized(authorityRefusalMessages.test_account));
   if (target.userId) return fail(p(`${target.displayName} already has a login.`, `${target.displayName} का लॉगिन पहले से है।`));
 
   const password = tempPasswordFrom(randomBytes(16));
@@ -171,6 +175,7 @@ export async function resetPasswordAction(staffId: string): Promise<StaffActionR
   if (!UUID.test(staffId)) return fail(fromLocalized(authorityRefusalMessages.not_found));
   const target = await getStaffById(staffId);
   if (!target?.userId) return fail(p("This person has no login yet.", "इनका लॉगिन नहीं है।"));
+  if (!(await actorMayManage(actor, target.id))) return fail(fromLocalized(authorityRefusalMessages.test_account));
   if (target.id === actor.id) return fail(p("Change your own password from the sign-in screen.", "अपना पासवर्ड लॉगिन स्क्रीन से बदलें।"));
 
   const password = tempPasswordFrom(randomBytes(16));
@@ -191,6 +196,7 @@ export async function setLoginActiveAction(input: { staffId: string; active: boo
   if (!UUID.test(input.staffId)) return fail(fromLocalized(authorityRefusalMessages.not_found));
   const target = await getStaffById(input.staffId);
   if (!target) return fail(fromLocalized(authorityRefusalMessages.not_found));
+  if (!(await actorMayManage(actor, target.id))) return fail(fromLocalized(authorityRefusalMessages.test_account));
   if (!input.active) {
     const verdict = canDeactivate(target, actor.id);
     if (!verdict.allowed) return fail(verdict.reason ? fromLocalized(verdict.reason) : p("Cannot disable this login."));
@@ -210,6 +216,7 @@ export async function changeRoleAction(input: { staffId: string; role: string })
   if (!UUID.test(input.staffId) || !isStaffRole(input.role)) return fail(p("Pick a role.", "भूमिका चुनें।"));
   const target = await getStaffById(input.staffId);
   if (!target) return fail(fromLocalized(authorityRefusalMessages.not_found));
+  if (!(await actorMayManage(actor, target.id))) return fail(fromLocalized(authorityRefusalMessages.test_account));
   const result = await changeStaffAuthority({ actorStaffId: actor.id, targetStaffId: target.id, role: input.role, isActive: target.isActive, reason: "Changed on Staff & roles" });
   if (!result.ok) return fail(fromLocalized(authorityRefusalMessages[result.reason]));
   revalidatePath("/staff");

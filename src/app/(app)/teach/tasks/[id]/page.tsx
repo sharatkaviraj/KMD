@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { schoolProfile } from "@/platform/config/school";
 import type { Language } from "@/platform/i18n/language";
 import { resolveAssignedRequest, rollForRequest } from "@/modules/collection/data/requests-repo";
@@ -44,6 +45,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (id.startsWith("collection-")) {
     const request = await resolveAssignedRequest(id.slice(11), staff.id);
     if (!request) notFound();
+    await notFoundUnlessVisible(() => assertSessionVisible(staff, request.sessionLabel));
     await createAdminClient().rpc("mark_teacher_task_opened", { p_id: request.id, p_staff: staff.id, p_token: null, p_request_token: null });
     const roll = await rollForRequest(request);
     const current = await resolveAssignedRequest(request.id, staff.id);
@@ -58,6 +60,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   }
   const work = await loadTaskWork({ id, staffId: staff.id });
   if (!work) notFound();
+  // Phase 3 fence: a task in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertSessionVisible(staff, work.task.session_label));
   const intro = work.collection ? askOf(work.collection.request, work.collection.roll.length) : null;
   return (
     <TaskShell title={work.task.title} back="/teach/tasks" intro={intro} phone={phone}>

@@ -10,6 +10,7 @@ import { createClient } from "@/modules/fees/platform/supabase/server";
 import type { FinanceControlsActionState } from "@/modules/finance-controls/domain/types";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertReceiptVisible, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_PATTERN =
@@ -176,6 +177,8 @@ export async function submitRefundWorkflowAction(
 
     if (workflowAction === "request_refund") {
       const receiptId = parseUuid(formData.get("receiptId"), "Receipt");
+      // Phase 3 fence: the receipt's own session.
+      await assertReceiptVisible(null, { id: receiptId });
       const refundDate = parseDate(formData.get("refundDate"), "Refund date");
       const requestedAmount = parseAmount(formData.get("requestedAmount"), "Requested amount");
       const refundMethod = parseRefundMethod(formData.get("refundMethod"));
@@ -224,13 +227,16 @@ export async function submitRefundWorkflowAction(
 
     const { data: existingRaw, error: existingError } = await supabase
       .from("refund_requests")
-      .select("id, status, receipt_ref:receipts(receipt_number)")
+      .select("id, status, receipt_id, receipt_ref:receipts(receipt_number)")
       .eq("id", refundRequestId)
       .maybeSingle();
 
     if (existingError || !existingRaw) {
       throw new Error("Selected refund request was not found.");
     }
+    // Phase 3 fence: the refund's receipt, through its student.
+    const refundReceiptId = (existingRaw as { receipt_id?: string | null }).receipt_id;
+    if (refundReceiptId) await assertReceiptVisible(null, { id: refundReceiptId });
 
     const existingStatus = existingRaw.status as RefundRequestStatus;
 
@@ -297,6 +303,20 @@ export async function submitRefundWorkflowAction(
   }
 }
 
+/** Phase 3 fence for a correction row: adjustment → payment → student → session. Fail closed. */
+async function assertAdjustmentVisible(paymentAdjustmentId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("payment_adjustments")
+    .select("payment:payments(student_id)")
+    .eq("id", paymentAdjustmentId)
+    .maybeSingle();
+  if (error) throw new Error("Could not check which session this correction is in.");
+  const payment = (data as { payment?: { student_id?: string | null } | { student_id?: string | null }[] | null } | null)?.payment;
+  const studentId = Array.isArray(payment) ? payment[0]?.student_id : payment?.student_id;
+  if (studentId) await assertStudentVisible(null, studentId);
+}
+
 export async function submitCorrectionReviewAction(
   _previous: FinanceControlsActionState,
   formData: FormData,
@@ -310,6 +330,7 @@ export async function submitCorrectionReviewAction(
 
     const staff = await requireStaffPermission("finance:approve");
     const paymentAdjustmentId = parseUuid(formData.get("paymentAdjustmentId"), "Correction row");
+    await assertAdjustmentVisible(paymentAdjustmentId);
     const reviewStatus = parseRequiredString(formData.get("reviewStatus"), "Review status");
     const reviewNote = parseOptionalString(formData.get("reviewNote"));
 

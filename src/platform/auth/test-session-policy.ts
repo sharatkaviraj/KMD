@@ -67,6 +67,17 @@ export function canAccessSession(viewer: SessionViewer, label: string | null | u
   return isTestSessionLabel(label) === (viewer.isTestAccount === true);
 }
 
+/**
+ * Who a request is treated as when reading the signed-in person FAILED (not
+ * "nobody signed in"): a test account with no permissions, so the fence fails
+ * closed — TEST-2026-27, no real session listed or shown.
+ */
+export const UNREADABLE_VIEWER: SessionViewer & { feeReader: boolean } = Object.freeze({
+  role: "view_only",
+  isTestAccount: true,
+  feeReader: false,
+});
+
 /** The session a viewer lands on when they have not chosen one. */
 export function defaultSessionFor(viewer: SessionViewer, activeSessionLabel: string): string {
   return viewer.isTestAccount === true ? TEST_SESSION_LABEL : activeSessionLabel;

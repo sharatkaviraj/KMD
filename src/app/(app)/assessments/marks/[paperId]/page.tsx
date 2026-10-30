@@ -1,5 +1,6 @@
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";
 import { dayLabel } from "@/platform/dates";
 import { primary, t } from "@/platform/i18n/language";
@@ -66,6 +67,8 @@ export default async function MarksPage(
       </>
     );
   }
+  // Phase 3 fence: a record in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertSessionVisible(staff, assessment.sessionLabel));
 
   // Marks are the subject teacher's: the one the timetable gives this subject
   // in this class, or whoever runs the exams (P7). A class teacher reads her

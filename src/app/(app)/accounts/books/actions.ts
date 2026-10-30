@@ -9,6 +9,7 @@ import {
 } from "@/modules/finance-controls/vx/books-data";
 import { canMoveCheque, canRemind, nextSlipNumber, parseUpiStatement } from "@/modules/finance-controls/vx/domain/books";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertNotTestAccount, assertReceiptVisible, assertStudentVisible } from "@/platform/auth/test-session-access";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -48,6 +49,7 @@ export async function saveChequeDetailsAction(input: { receiptId: string; cheque
     const chequeNo = input.chequeNo.replace(/\s+/g, "");
     const bank = input.bank.trim();
     if (!isUuid(input.receiptId)) throw new Error("Pick a cheque receipt.");
+    await assertReceiptVisible(staff, { id: input.receiptId });
     if (!/^\d{3,12}$/.test(chequeNo)) throw new Error("Cheque number is 3 to 12 digits.");
     if (bank.length < 2) throw new Error("Write the bank and branch.");
     if (input.chequeDate && !isDate(input.chequeDate)) throw new Error("Cheque date is not a date.");
@@ -73,6 +75,7 @@ export async function createDepositSlipAction(input: { receiptIds: string[]; ban
     const ids = [...new Set(input.receiptIds)].filter(isUuid);
     if (ids.length === 0) throw new Error("Pick at least one cheque.");
     if (ids.length > 60) throw new Error("A slip holds at most 60 cheques.");
+    await assertReceiptsVisible(staff, ids);
     if (!isDate(input.depositedOn)) throw new Error("Pick the deposit date.");
     const bankLabel = input.bankLabel.trim() || "School account";
     const receipts = await readReceiptBriefs(ids);
@@ -107,6 +110,7 @@ export async function markClearedAction(receiptIds: string[]): Promise<ActionRes
     await assertNotPreviewing();
     const ids = [...new Set(receiptIds)].filter(isUuid);
     if (ids.length === 0) throw new Error("Pick a cheque.");
+    await assertReceiptsVisible(staff, ids);
     const statusOf = await latestChequeStatus(ids);
     const movable = ids.filter((id) => canMoveCheque(statusOf(id), "cleared"));
     if (movable.length === 0) throw new Error("Only a deposited cheque can clear.");
@@ -132,6 +136,7 @@ export async function bounceChequeAction(input: { receiptId: string; reason: str
     const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     if (!isUuid(input.receiptId)) throw new Error("Pick a cheque.");
+    await assertReceiptVisible(staff, { id: input.receiptId });
     if (!(BOUNCE_REASONS as readonly string[]).includes(input.reason)) throw new Error("Say what the bank said.");
     const statusOf = await latestChequeStatus([input.receiptId]);
     if (!canMoveCheque(statusOf(input.receiptId), "bounced")) throw new Error("Only a deposited cheque can bounce.");
@@ -162,6 +167,8 @@ export async function uploadStatementAction(input: { text: string; bankLabel?: s
   try {
     const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
+    // A bank statement is the whole school's money: never a test account's.
+    await assertNotTestAccount(staff);
     if (input.text.length > 200_000) throw new Error("The statement is too long. Upload a week at a time.");
     const parsed = parseUpiStatement(input.text);
     if (parsed.rows.length === 0) throw new Error(parsed.errors[0] ? `Line ${parsed.errors[0].line}: ${parsed.errors[0].reason}` : "No payments found in the file.");
@@ -218,6 +225,7 @@ async function upiEvent(lineId: string, action: "match" | "unmatch" | "not_fee",
 export async function matchUpiAction(lineId: string, receiptId: string): Promise<ActionResult> {
   try {
     await assertPermission("fees:accounts");
+    await assertReceiptVisible(null, { id: receiptId });
     return await upiEvent(lineId, "match", receiptId);
   } catch (error) {
     return fail(error);
@@ -245,12 +253,18 @@ export async function notFeeUpiAction(lineId: string): Promise<ActionResult> {
 const REFUND_REASONS = ["Paid twice", "Left the school", "Paid more than the fee", "Fee changed", "Other"] as const;
 const REFUND_METHODS = ["cash", "upi", "bank_transfer", "cheque"] as const;
 
+/** Phase 3 fence: every receipt named, through its student's session. */
+async function assertReceiptsVisible(staff: Parameters<typeof assertReceiptVisible>[0], receiptIds: readonly string[]) {
+  for (const id of receiptIds) await assertReceiptVisible(staff, { id });
+}
+
 /** Ask the admin to approve a refund from a family's advance. No money moves here. */
 export async function requestRefundAction(input: { studentId: string; amount: number; reason: string; method: string; note?: string }): Promise<ActionResult> {
   try {
     const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     if (!isUuid(input.studentId)) throw new Error("Pick the family.");
+    await assertStudentVisible(staff, input.studentId);
     const amount = Math.trunc(Number(input.amount));
     if (!Number.isFinite(amount) || amount <= 0) throw new Error("Write the amount to give back.");
     if (!(REFUND_REASONS as readonly string[]).includes(input.reason)) throw new Error("Say why.");

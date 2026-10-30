@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertClassVisible } from "@/platform/auth/test-session-access";
 import {
   archiveCampaign,
   saveCampaign,
@@ -100,6 +101,9 @@ export async function saveCampaignAction(
   let sessionLabel: string;
   try {
     sessionLabel = await resolveReminderSessionLabel(supabase);
+    // A class filter must be in that session (Phase 3 fence).
+    const campaignClassId = String(formData.get("classId") ?? "").trim();
+    if (campaignClassId) await assertClassVisible(null, campaignClassId);
   } catch (caught) {
     return {
       status: "error",

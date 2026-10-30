@@ -38,8 +38,9 @@ const env = Object.fromEntries(
     }),
 );
 
-// Rule 3 / D-346, Phase 3: One's main project only, confined to TEST-2026-27 and test accounts on every marker.
-const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-reports", mode: "test-scoped" });
+// Rule 3 / D-346, Phase 3: One's main project only, confined to TEST-2026-27 and test accounts, and
+// refused on production: it flips school-wide switches (runtime_flags, parent policy or the staff-notice queue).
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-reports", mode: "confined-dev-only" });
 
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },

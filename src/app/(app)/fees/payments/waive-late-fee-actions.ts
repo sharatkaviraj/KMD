@@ -19,7 +19,7 @@ import { hasStaffPermission, requireStaffPermission } from "@/modules/fees/platf
 // here is fine (types are erased at build), but the const must not be exported
 // from this file or every Payment Desk server-action POST 500s.
 import type { WaiveLateFeeActionState } from "./waive-late-fee-action-state";
-import { assertSessionWritable } from "@/platform/auth/test-session-access";
+import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 type WaiveLateFeeRpcRow = {
   ok: boolean;
@@ -106,6 +106,7 @@ export async function waiveLateFeeAction(
     const reason = (formData.get("reason") ?? "").toString().trim();
     const sessionLabel = (formData.get("sessionLabel") ?? "").toString().trim() || null;
     await assertSessionWritable(null, sessionLabel, { orActive: true });
+    await assertStudentVisible(null, studentId);
     const clientRequestId = parseClientRequestId(formData.get("clientRequestId"));
     // Empty string = "all pending, oldest first", which is what the RPC does when
     // p_installment_id is null. Anything malformed degrades to that rather than

@@ -8,6 +8,7 @@ import {
 } from "@/modules/whatsapp/data/whatsapp-settings";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertNotTestAccount } from "@/platform/auth/test-session-access";
 
 export type WhatsappSettingsActionState = {
   status: "idle" | "success" | "error";
@@ -45,6 +46,8 @@ export async function saveWhatsappSettingsAction(
 ): Promise<WhatsappSettingsActionState> {
   try {
     const staff = await requireStaffPermission("settings:write");
+    // The school's WhatsApp switches and caps are everybody's: never a test account's.
+    await assertNotTestAccount(null);
     if (staff.appRole !== "admin") {
       return { status: "error", message: "Only an admin can change these." };
     }

@@ -11,6 +11,7 @@ import {
   isRealAdmin,
   isTestSessionLabel,
   TEST_SESSION_LABEL,
+  UNREADABLE_VIEWER,
 } from "@/platform/auth/test-session-policy";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 
@@ -129,6 +130,15 @@ describe("resolving a requested session", () => {
   it("test accounts default to TEST-2026-27, everybody else to the active session", () => {
     expect(defaultSessionFor(tester, "2026-27")).toBe(TEST_SESSION_LABEL);
     expect(defaultSessionFor(office, "2026-27")).toBe("2026-27");
+  });
+});
+
+describe("an unreadable viewer fails closed", () => {
+  it("is a test account with no fee reading: TEST only, never a real session", () => {
+    expect(canAccessSession(UNREADABLE_VIEWER, "2026-27")).toBe(false);
+    expect(canAccessSession(UNREADABLE_VIEWER, TEST_SESSION_LABEL)).toBe(true);
+    expect(isRealAdmin(UNREADABLE_VIEWER)).toBe(false);
+    expect(defaultSessionFor(UNREADABLE_VIEWER, "2026-27")).toBe(TEST_SESSION_LABEL);
   });
 });
 

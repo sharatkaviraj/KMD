@@ -197,6 +197,7 @@ export async function withdrawAction(input: { studentId: string; sessionLabel: s
 export async function undoWithdrawAction(studentId: string) {
   const staff = await assertPermission("fees:manage");
   await assertNotPreviewing();
+  await assertStudentVisible(staff, studentId);
   try {
     const result = await undoWithdraw(studentId);
     if (result.ok) await syncStudentEnrolments([studentId], staff.userId).catch(() => undefined);
@@ -217,6 +218,7 @@ export async function saveSeatsAction(input: { seats: { classId: string; seats: 
     const actor = await assertPermission("settings:manage");
     await assertNotPreviewing();
     const ctx = await loadAdmissionsFeeContext();
+    await assertSessionWritable(actor, ctx.sessionLabel);
     const known = new Set(ctx.classes.map((c) => c.id));
     if (!ctx.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };
     if (!Array.isArray(input.seats) || input.seats.some((r) => !r || !known.has(r.classId))) return { ok: false, error: "Choose classes from the active session." };

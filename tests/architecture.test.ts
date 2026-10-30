@@ -395,7 +395,14 @@ describe("actions handed a session label check it is writable", () => {
   const LABEL = "(?:sessionLabel|academicSessionLabel|session_label|targetSessionLabel|sourceSessionLabel)";
   const IN_PARAMS = new RegExp(`\\b${LABEL}\\b`);
   const FROM_INPUT = new RegExp(`\\b(?:input|args|params|payload|data|values|form|parsed\\.data|body)\\.${LABEL}\\b`);
-  const FROM_FORM = /\.get\(\s*["'](?:session|sessionLabel|session_label|academic_session_label|academicSessionLabel)["']\s*\)/;
+  // Any read of the label by name — `formData.get("sessionLabel")`, but also a
+  // helper such as `readText(formData, "sessionLabel")` or
+  // `getSubmittedSessionLabel(formData)`, which the first version missed.
+  // (`.eq("session_label", …)` is a column, not a read, and does not count.)
+  const FORM_KEY = `["'](?:session|sessionLabel|session_label|academic_session_label|academicSessionLabel)["']`;
+  const FROM_FORM = new RegExp(
+    `\\.get\\(\\s*${FORM_KEY}\\s*\\)|\\(\\s*(?:formData|form|fd)\\s*,\\s*${FORM_KEY}\\s*\\)|getSubmittedSessionLabel\\(`,
+  );
   const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
 
   function paramsOf(body: string): string {
@@ -434,5 +441,120 @@ describe("actions handed a session label check it is writable", () => {
       `${id} is handed a session label and writes without asking whether this viewer may write it. ` +
         "A test account must never write a real session, nor real staff the TEST one.",
     ).toBe(true);
+  });
+});
+
+/**
+ * Every server action that names a RECORD — a student, a receipt, a family, a
+ * class — checks that record's own session, not only the label it was handed
+ * (PR #143 review). A test account can post `sessionLabel=TEST-2026-27` with
+ * a real child's id; the label check passes and the write lands on real data.
+ * So the session comes from the record: `assertStudentVisible`,
+ * `assertStudentsVisible`, `assertReceiptVisible`, `assertFamilyVisible`,
+ * `assertClassVisible`. An action that only ever works on "the" session must
+ * check that instead (`assertSessionWritable`, `workingSessionFor`), and one
+ * that changes what the whole school shares refuses test accounts outright
+ * (`assertNotTestAccount`).
+ *
+ * "Names a record" is generous on purpose: an id-named parameter, an
+ * `input.studentId`, or the id's name as a string literal anywhere in the
+ * action (`formData.get("studentId")`, `readText(formData, "studentId")`).
+ */
+describe("actions that name a student, receipt, family or class check its session", () => {
+  const ID =
+    "(?:studentId|studentIds|receiptId|receiptIds|receiptNumber|familyGroupId|classId|student_id|receipt_id|family_group_id|class_id)";
+  const IN_PARAMS = new RegExp(`\\b${ID}\\b`);
+  const AS_STRING = new RegExp(`["']${ID}["']`);
+  const FROM_INPUT = new RegExp(`\\b(?:input|args|params|payload|data|values|form|parsed\\.data|body)\\.${ID}\\b`);
+  const ACTIVE = /getActiveSessionLabel\(/;
+  const GUARD =
+    /assert(?:Students?|Receipts?|Family|Class)Visible\(|assertSessionWritable\(|assertSessionVisible\(|filterVisibleStudentIds\(|assertNotTestAccount\(|workingSessionFor\(/;
+  const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
+
+  /**
+   * Known open, each with its reason. Not a place to park a new action: the
+   * last test below fails when an entry here gains a guard or disappears, so
+   * the list only ever shrinks. The native (vppsone) academic writes resolve
+   * their session with `resolveSessionLabel()`, which only returns a session
+   * the viewer may open, but do not yet check that the record they name is
+   * IN it — an open item in docs/PROGRESS.md (Phase B).
+   */
+  const OPEN: Record<string, string> = {
+    "src/app/(app)/academics/coordinator-actions.ts :: saveFollowupAction": "native write, id fence open",
+    "src/app/(app)/academics/coordinator-actions.ts :: savePlanAction": "native write, id fence open",
+    "src/app/(app)/academics/coordinator-actions.ts :: toggleStepAction": "native write, id fence open",
+    "src/app/(app)/academics/coordinator-actions.ts :: markRegisterAction": "native write, id fence open",
+    "src/app/(app)/assessments/actions.ts :: savePaperAction": "native write, id fence open",
+    "src/app/(app)/assessments/actions.ts :: issueReportCardAction": "native write, id fence open",
+    "src/app/(app)/collection/actions.ts :: createRequestAction": "native write, id fence open",
+    "src/app/(app)/collection/actions.ts :: deleteDocumentAction": "native write, id fence open",
+    "src/app/(app)/collection/actions.ts :: flagRouteAction": "flags a phone number, not a student",
+    "src/app/(app)/collection/photos/profile-actions.ts :: openPhotoEditorAction":
+      "authority is a photo credential (parent link or staff), checked by photoAuthority",
+    "src/app/(app)/collection/photos/profile-actions.ts :: saveProfilePhotoAction":
+      "authority is a photo credential (parent link or staff), checked by photoAuthority",
+    "src/app/(app)/collection/rounds/upload/actions.ts :: createFromAskListAction": "native write, id fence open",
+    "src/app/(app)/exam-office/results/actions.ts :: removeGraceAction": "native write, id fence open",
+    "src/app/(app)/exam-office/results/actions.ts :: unlockClassAction": "native write, id fence open",
+    "src/app/(app)/exam-office/results/actions.ts :: issueClassCardsAction": "native write, id fence open",
+    "src/app/(app)/exam-office/results/actions.ts :: addRecheckAction": "native write, id fence open",
+    "src/app/(app)/fees/reminders/actions.ts :: addReminderStudentAction":
+      "searches inside resolveReminderSessionLabel(), the viewer's own session; writes nothing",
+    "src/app/(app)/teach/actions.ts :: saveAttendanceAction": "native write, id fence open",
+    "src/app/(app)/teach/actions.ts :: writeNoteAction": "native write, id fence open",
+    "src/app/(app)/teach/actions.ts :: deleteNoteAction": "native write, id fence open",
+    "src/app/(app)/teach/marks/actions.ts :: saveRemarkAction": "native write, id fence open",
+    "src/app/(app)/timetable/vx-actions.ts :: saveChangeAction": "native write, id fence open",
+  };
+
+  function paramsOf(body: string): string {
+    const open = body.indexOf("(");
+    let depth = 0;
+    for (let i = open; i < body.length; i += 1) {
+      if (body[i] === "(") depth += 1;
+      else if (body[i] === ")") {
+        depth -= 1;
+        if (depth === 0) return body.slice(open, i + 1);
+      }
+    }
+    return "";
+  }
+
+  const actions = sourceFiles
+    .map((file) => ({ file, source: readFileSync(file, "utf8").replace(/\r\n/g, "\n") }))
+    .filter(({ source }) => /^["']use server["']/.test(source.trimStart()))
+    .flatMap(({ file, source }) => {
+      const starts = [...source.matchAll(EXPORTED)].map((match) => ({ name: match[1], index: match.index ?? 0 }));
+      return starts.map((start, i) => ({
+        id: `${relative(file)} :: ${start.name}`,
+        body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
+      }));
+    })
+    .filter(
+      ({ body }) => IN_PARAMS.test(paramsOf(body)) || AS_STRING.test(body) || FROM_INPUT.test(body) || ACTIVE.test(body),
+    );
+
+  it("finds the actions it is supposed to be guarding", () => {
+    // About a hundred today; far fewer means the patterns stopped matching.
+    expect(actions.length).toBeGreaterThan(80);
+  });
+
+  it.each(actions.filter(({ id }) => !(id in OPEN)).map(({ id, body }) => [id, body]))(
+    "%s checks the session of the record it names",
+    (id, body) => {
+      expect(
+        GUARD.test(body),
+        `${id} names a student, receipt, family or class (or works on the active session) and never ` +
+          "checks that record's own session. A test account handing a TEST label with a real id must be refused.",
+      ).toBe(true);
+    },
+  );
+
+  it("keeps the open list honest: every entry exists and is still unguarded", () => {
+    const byId = new Map(actions.map((action) => [action.id, action.body]));
+    for (const id of Object.keys(OPEN)) {
+      expect(byId.has(id), `${id} no longer names a record; remove it from OPEN`).toBe(true);
+      expect(GUARD.test(byId.get(id) ?? ""), `${id} is guarded now; remove it from OPEN`).toBe(false);
+    }
   });
 });

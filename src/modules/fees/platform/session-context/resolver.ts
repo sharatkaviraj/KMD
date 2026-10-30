@@ -11,6 +11,7 @@ import {
   canAccessSession,
   canSwitchSessions,
   defaultSessionFor,
+  UNREADABLE_VIEWER,
   type SessionViewer,
 } from "@/platform/auth/test-session-policy";
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
@@ -114,8 +115,12 @@ export async function resolveViewSession({
   cookieSession?: string | null;
   viewer?: (SessionViewer & { feeReader: boolean }) | null;
 }): Promise<ResolvedViewSession> {
+  // A viewer we could not read fails CLOSED: as a test account, so the
+  // request lands on TEST-2026-27 and never shows a real session to someone
+  // who may be fenced (reminder-session.ts does the same). Nobody signed in
+  // is a plain non-test viewer; the (app) layout has already sent them away.
   const who =
-    (viewer === undefined ? await currentSessionViewer().catch(() => null) : viewer) ??
+    (viewer === undefined ? await currentSessionViewer().catch(() => UNREADABLE_VIEWER) : viewer) ??
     { role: "view_only" as const, isTestAccount: false, feeReader: false };
   const mayChoose = canSwitchSessions(who);
 

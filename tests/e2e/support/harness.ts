@@ -4,7 +4,6 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 
-import { ACTIVE_SESSION_KEY, pickSessionLabel } from "../../../src/platform/config/active-session";
 import { qaAccount } from "../../fixtures/qa-accounts";
 import { decideToolScope, isOneMainProjectUrl, readDeploymentEnvironment, TEST_SESSION_LABEL } from "../../../scripts/target-guard.mjs";
 
@@ -157,35 +156,24 @@ export async function unrecordedSchoolDays(
 }
 
 /**
- * The current session label, derived the way the app derives it.
+ * The session the journeys run in.
  *
- * That sentence was the intention; sorting the labels and taking the last was
- * the implementation, in this file and in three seeding scripts. See
- * `src/platform/config/active-session.ts` for what the shortcut cost — the
- * short version is that `TEST-2026-27` sorts above `2026-27`, so every spec
- * looked for its fixtures in the rehearsal session and found empty classes.
+ * Test-scoped (Phase 3): the QA accounts are test accounts and see
+ * TEST-2026-27 only, so that is the session — TEST or nothing. It used to go
+ * through `pickSessionLabel`, which quietly falls back to the active real
+ * session when the requested label has no classes; the journeys write, so a
+ * missing TEST session must stop them rather than send them into 2026-27.
+ * (Never sort the labels either: `TEST-2026-27` sorts above `2026-27`.)
  */
 export async function currentSessionLabel(): Promise<string> {
-  const [{ data: setting }, { data: classes, error }] = await Promise.all([
-    db("public")
-      .from("app_settings")
-      .select("value")
-      .eq("key", ACTIVE_SESSION_KEY)
-      .maybeSingle(),
-    db("public").from("classes").select("session_label"),
-  ]);
-
+  const { data: classes, error } = await db("public").from("classes").select("session_label");
   if (error) throw new Error(`Could not read the sessions: ${error.message}`);
 
-  // Test-scoped (Phase 3): the QA accounts see TEST-2026-27 only.
-  const label = pickSessionLabel({
-    requested: TEST_SESSION_LABEL,
-    active: (setting?.value as string | null | undefined) ?? null,
-    labels: [...new Set((classes ?? []).map((row) => row.session_label as string))],
-  });
-
-  if (!label) throw new Error("This database has no academic session at all.");
-  return label;
+  const labels = new Set((classes ?? []).map((row) => row.session_label as string));
+  if (!labels.has(TEST_SESSION_LABEL)) {
+    throw new Error(`${TEST_SESSION_LABEL} has no classes; refusing rather than testing in another session.`);
+  }
+  return TEST_SESSION_LABEL;
 }
 
 /**

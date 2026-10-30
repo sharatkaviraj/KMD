@@ -14,6 +14,7 @@ import { buildBulkUpdatePreview, type BulkUpdatePreview } from "@/modules/studen
 import { resolveBulkUpdateFields } from "@/modules/students-fees/domain/bulk-update/fields";
 import { readBulkUpdateSheet } from "@/modules/students-fees/domain/bulk-update/workbook";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertSessionWritable, workingSessionFor } from "@/platform/auth/test-session-access";
 import {
   prepareDuesForStudentsAutomatically,
   revalidateFinanceSurfaces,
@@ -72,7 +73,9 @@ async function computePreview(formData: FormData): Promise<
     return { ok: false, message: "None of the selected fields can be bulk updated." };
   }
 
-  const sessionLabel = await getActiveSessionLabel();
+  // The active session — or, for a test account, TEST-2026-27 (Phase 3 fence).
+  const sessionLabel = await workingSessionFor(null, await getActiveSessionLabel());
+  await assertSessionWritable(null, sessionLabel);
   const { classes, resolver } = await buildBulkUpdateLookups(sessionLabel);
 
   // Class ids arrive from the form, so confine them to the active session

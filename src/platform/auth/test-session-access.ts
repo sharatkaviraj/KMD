@@ -11,6 +11,7 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import {
   canAccessSession,
   canSeeTestSessions as canSeeTestSessionsFor,
+  defaultSessionFor,
   isRealAdmin,
   isSessionAccessDenied,
   SessionAccessDenied,
@@ -89,6 +90,18 @@ export async function assertSessionWritable(
   throw new SessionAccessDenied("No session was named for this change.");
 }
 
+/**
+ * For a tool that only ever works on "the" session (bulk update, its
+ * template): the active session for real staff, TEST-2026-27 for a test
+ * account — the same default the session pill lands on — checked.
+ */
+export async function workingSessionFor(staff: ViewerArg, activeSessionLabel: string): Promise<string> {
+  const viewer = await viewerOf(staff);
+  const label = defaultSessionFor(viewer, activeSessionLabel);
+  await assertSessionVisible(viewer, label);
+  return label;
+}
+
 /** `app_settings.active_session_label` — what an unnamed write defaults to. Fail closed. */
 async function readActiveSessionLabel(): Promise<string> {
   const { data, error } = await createAdminClient()
@@ -144,6 +157,42 @@ export async function filterVisibleStudentIds(staff: ViewerArg, studentIds: read
   if (isRealAdmin(viewer)) return [...studentIds];
   const sessions = await sessionsOfStudents(studentIds);
   return studentIds.filter((id) => !sessions.has(id) || canAccessSession(viewer, sessions.get(id)));
+}
+
+/**
+ * Refuse a test account outright. For writes that have no session of their
+ * own and that the whole school shares — which session is live, transport
+ * routes, fee heads, payment modes, real staff profiles. A test account
+ * (and, on a confined deployment, everybody) may not make them.
+ */
+export async function assertNotTestAccount(staff: ViewerArg): Promise<void> {
+  const viewer = await viewerOf(staff);
+  if (viewer.isTestAccount === true) {
+    throw new SessionAccessDenied("A test account cannot change what the whole school shares.");
+  }
+}
+
+/** Every one of these students, or a refusal. For bulk and family actions. */
+export async function assertStudentsVisible(staff: ViewerArg, studentIds: readonly string[]): Promise<void> {
+  const viewer = await viewerOf(staff);
+  if (isRealAdmin(viewer)) return;
+  const ids = [...new Set(studentIds)];
+  const visible = await filterVisibleStudentIds(viewer, ids);
+  if (visible.length !== ids.length) throw new SessionAccessDenied();
+}
+
+/** A class by id → its own `session_label`. A class that does not exist is not refused here. */
+export async function assertClassVisible(staff: ViewerArg, classId: string): Promise<void> {
+  const viewer = await viewerOf(staff);
+  if (isRealAdmin(viewer) || !UUID.test(classId)) return;
+  const { data, error } = await createAdminClient()
+    .schema(FEE_SCHEMA)
+    .from("classes")
+    .select("session_label")
+    .eq("id", classId)
+    .maybeSingle<{ session_label: string | null }>();
+  if (error) throw new SessionAccessDenied("Could not check which session this class is in.");
+  if (data) await assertSessionVisible(viewer, data.session_label);
 }
 
 /** A receipt by id or by number → its student → the student's session. */

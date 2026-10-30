@@ -51,6 +51,12 @@ import {
   requireStaffPermission,
 } from "@/modules/fees/platform/session";
 import {
+  assertClassVisible,
+  assertSessionWritable,
+  assertStudentsVisible,
+  assertStudentVisible,
+} from "@/platform/auth/test-session-access";
+import {
   prepareDuesForStudentsAutomatically,
   revalidateFinanceSurfaces,
 } from "@/modules/system-sync/domain/finance-sync";
@@ -190,6 +196,8 @@ export async function createStudentAction(
   const { classOptions, routeOptions, resolvedSessionLabel } = await getStudentFormOptions({
     sessionLabel: submittedSessionLabel,
   });
+  // Phase 3 fence: the session the student is written into, whoever named it.
+  await assertSessionWritable(null, resolvedSessionLabel);
 
   const validated = validateStudentInput(input, {
     classIds: new Set(classOptions.map((option) => option.id)),
@@ -319,6 +327,8 @@ export async function updateStudentAction(
     "students:write",
     "students:edit_basic",
   ]);
+  // Phase 3 fence: the student's own session, not the one the form names.
+  await assertStudentVisible(null, studentId);
 
   // Teachers (students:edit_basic only) can edit identity / contact fields but
   // not the SR No, the new-vs-existing toggle, fee overrides, or conventional
@@ -419,6 +429,8 @@ export async function updateStudentAction(
   const { classOptions, routeOptions, resolvedSessionLabel } = await getStudentFormOptions({
     sessionLabel: submittedSessionLabel,
   });
+  // ...and the session it may be moved into.
+  await assertSessionWritable(null, resolvedSessionLabel);
 
   const validated = validateStudentInput(input, {
     classIds: new Set(classOptions.map((option) => option.id)),
@@ -614,6 +626,7 @@ export async function updateStudentInfoAction(
     "students:write",
     "students:edit_basic",
   ]);
+  await assertStudentVisible(null, studentId);
 
   const offeredFields = getSubmittedStudentInfoFields(formData);
 
@@ -697,6 +710,7 @@ export async function updateStudentPhotoAction(
     "students:write",
     "students:edit_basic",
   ]);
+  await assertStudentVisible(null, studentId);
 
   if (!formData.has("photoPath")) {
     return { status: "error", message: "Nothing to save.", photoPath: null };
@@ -856,6 +870,7 @@ export async function archiveStudentAction(
 
   try {
     await requireStaffPermission("students:write");
+    await assertStudentVisible(null, studentId);
 
     const student = await getStudentDetail(studentId);
 
@@ -941,6 +956,7 @@ export async function hardDeleteStudentAction(
 
   try {
     await requireStaffPermission("students:write");
+    await assertStudentVisible(null, studentId);
 
     const safety = await getStudentDeletionSafety(studentId);
 
@@ -1027,7 +1043,10 @@ export async function bulkUpdateStudentsAction(
     };
   }
 
+  // Phase 3 fence: every selected student, and the class they may be moved to.
+  await assertStudentsVisible(null, studentIds);
   const rawClassId = (formData.get("classId") ?? "").toString().trim();
+  if (rawClassId) await assertClassVisible(null, rawClassId);
   const rawRouteId = (formData.get("transportRouteId") ?? "").toString().trim();
   const rawRouteClear = (formData.get("transportRouteClear") ?? "").toString().trim() === "yes";
   const rawStatus = (formData.get("status") ?? "").toString().trim();
@@ -1215,6 +1234,8 @@ export async function realignRecentImportsToActiveSessionAction(): Promise<{
   attentionCount: number;
 }> {
   const staff = await requireStaffPermission("fees:write");
+  // Moves students into the ACTIVE (real) session: refused for a test account.
+  await assertSessionWritable(null, null, { orActive: true });
   const supabase = await createClient();
   const { data, error } = await supabase.rpc(
     "realign_recent_import_students_to_active_session",
@@ -1297,6 +1318,7 @@ export async function reinstateStudentAction(
 
   try {
     await requireStaffPermission("students:write");
+    await assertStudentVisible(null, studentId);
 
     const student = await getStudentDetail(studentId);
 
@@ -1401,6 +1423,7 @@ export async function cancelLeftStudentChargeAction(
         deleted: false,
       };
     }
+    await assertStudentVisible(null, studentId);
 
     const supabase = await createClient();
 
@@ -1571,6 +1594,13 @@ export async function sendFeeStatementAction(
     staffId = (staff?.id as string | undefined) ?? null;
   } catch {
     return { status: "error", message: "You do not have permission to send messages." };
+  }
+
+  try {
+    // Phase 3 fence: a test account never messages a real parent.
+    await assertStudentVisible(null, studentId);
+  } catch {
+    return { status: "error", message: "This student belongs to a session you cannot open." };
   }
 
   try {

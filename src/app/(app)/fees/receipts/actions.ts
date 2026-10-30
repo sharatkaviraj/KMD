@@ -6,6 +6,7 @@ import { istTodayIso } from "@/platform/helpers/date";
 import { isUuid } from "@/platform/helpers/uuid";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertReceiptVisible } from "@/platform/auth/test-session-access";
 
 /**
  * What a one-tap receipt send reports back.
@@ -60,6 +61,9 @@ export async function sendReceiptOnWhatsappAction(
     // Read through the caller's own session, so RLS still decides what this
     // staff member may see. Only the send itself runs as admin, because the
     // private document bucket carries no staff policy at all.
+    // Phase 3 fence: a test account never messages a real parent (nor the
+    // reverse). The receipt's own session decides, through its student.
+    await assertReceiptVisible(null, { id: receiptId });
     const receipt = await getReceiptDetail(receiptId);
     if (!receipt) {
       return { status: "error", message: "That receipt was not found." };
@@ -131,6 +135,9 @@ export async function sendReversalNoticeAction(
   }
 
   try {
+    // Phase 3 fence: a test account never messages a real parent (nor the
+    // reverse). The receipt's own session decides, through its student.
+    await assertReceiptVisible(null, { id: receiptId });
     const receipt = await getReceiptDetail(receiptId);
     if (!receipt) {
       return { status: "error", message: "That receipt was not found." };

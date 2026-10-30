@@ -87,6 +87,9 @@ describe("QA tools are confined, not banned", () => {
     expect(scriptGuard.decideToolScope("dev", "test-scoped")).toEqual({ ok: true, production: false, confined: true, sessionLabel: "TEST-2026-27" });
     expect(scriptGuard.decideToolScope("production", "dev-only").ok).toBe(false);
     expect(scriptGuard.decideToolScope("dev", "anything").ok).toBe(false);
+    // Scripts that flip school-wide switches: confined on dev, refused on production.
+    expect(scriptGuard.decideToolScope("dev", "confined-dev-only")).toEqual({ ok: true, production: false, confined: true, sessionLabel: "TEST-2026-27" });
+    expect(scriptGuard.decideToolScope("production", "confined-dev-only").ok).toBe(false);
   });
 
   it("scripts: a confined sign-in needs a test account even on a dev marker (Phase 3)", async () => {

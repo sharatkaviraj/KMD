@@ -43,7 +43,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { parseAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { schoolToday } from "@/vx/format";
 import { assertNotPreviewing } from "@/vx/view-as";
-import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
+import { assertReceiptVisible, assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -82,6 +82,7 @@ export async function loadDeskPreviewAction(input: { studentId: string; sessionL
 export async function loadReceiptAction(receiptId: string): Promise<DeskReceipt | null> {
   await assertPermission("fees:view");
   if (!UUID.test(receiptId)) return null;
+  await assertReceiptVisible(null, { id: receiptId });
   return loadDeskReceipt(receiptId);
 }
 
@@ -110,6 +111,8 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
   try {
     await assertPermission("fees:collect");
     await assertSessionWritable(null, input.sessionLabel);
+    // The label is the caller's; the student's own session is the fence.
+    await assertStudentVisible(null, input.studentId);
     await assertNotPreviewing();
   } catch (error) {
     return { status: "error", message: message(error, "You cannot take payments here.") };
@@ -197,6 +200,8 @@ export async function settleDeskSaveAction(input: { receiptId: string; receiptNu
     await assertPermission("fees:view");
     await assertSessionWritable(null, input.sessionLabel);
     if (!UUID.test(input.receiptId) || !UUID.test(input.studentId)) return null;
+    await assertStudentVisible(null, input.studentId);
+    await assertReceiptVisible(null, { id: input.receiptId });
     return await savedResult({ receiptId: input.receiptId, receiptNumber: input.receiptNumber, studentId: input.studentId, sessionLabel: sessionOf(input.sessionLabel) });
   } catch {
     return null;
@@ -271,6 +276,7 @@ export async function checkDeskPaymentAction(input: { studentId: string; clientR
   try {
     await assertPermission("fees:collect");
     await assertSessionWritable(null, input.sessionLabel);
+    await assertStudentVisible(null, input.studentId);
   } catch (error) {
     return { status: "unknown", message: message(error, "You cannot take payments here.") };
   }
@@ -293,6 +299,7 @@ export async function removePaymentAction(input: { receiptId: string; studentId:
   try {
     await assertPermission("fees:collect");
     await assertSessionWritable(null, input.sessionLabel);
+    await assertReceiptVisible(null, { id: input.receiptId });
     await assertNotPreviewing();
   } catch (error) {
     return { ok: false, message: message(error, "You cannot remove payments here.") };
@@ -309,6 +316,8 @@ export async function removePaymentAction(input: { receiptId: string; studentId:
 export async function sendReceiptWhatsappAction(receiptId: string): Promise<{ ok: boolean; message: string }> {
   try {
     await assertPermission("fees:collect");
+    // Phase 3 fence: a test account never messages a real parent.
+    await assertReceiptVisible(null, { id: receiptId });
     await assertNotPreviewing();
   } catch (error) {
     return { ok: false, message: message(error, "You cannot send receipts here.") };

@@ -8,7 +8,7 @@ import {
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { currentSessionViewer } from "@/platform/auth/test-session-access";
-import { filterSessionsForViewer, type SessionViewer } from "@/platform/auth/test-session-policy";
+import { filterSessionsForViewer, UNREADABLE_VIEWER, type SessionViewer } from "@/platform/auth/test-session-policy";
 
 export type SessionSwitcherData = {
   activeSessionLabel: string;
@@ -61,7 +61,8 @@ export async function getSessionSwitcherData(
 ): Promise<SessionSwitcherData> {
   const [all, who] = await Promise.all([
     getUnfilteredSessionSwitcherData(),
-    viewer === undefined ? currentSessionViewer().catch(() => null) : Promise.resolve(viewer),
+    // Unreadable fails closed (TEST only), as in resolveViewSession.
+    viewer === undefined ? currentSessionViewer().catch(() => UNREADABLE_VIEWER) : Promise.resolve(viewer),
   ]);
   const forViewer = who ?? { role: "view_only" as const, isTestAccount: false, feeReader: false };
   return {

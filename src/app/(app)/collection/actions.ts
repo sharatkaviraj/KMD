@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertStudentVisible } from "@/platform/auth/test-session-access";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
   classLabelMap,
@@ -330,6 +331,14 @@ export async function queueMessageAction(
   });
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+  // Phase 3 fence: a message about a student is about one this viewer may open.
+  if (parsed.data.studentId) {
+    try {
+      await assertStudentVisible(actor, parsed.data.studentId);
+    } catch {
+      return failure(m.notSaved);
+    }
+  }
 
   const template = (await listTemplates()).find(
     (entry) => entry.id === parsed.data.templateId,

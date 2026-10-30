@@ -24,7 +24,15 @@ function checked(result, what) {
 }
 const labels = checked(await admin.from("classes").select("session_label"), "Session labels");
 const setting = checked(await admin.from("app_settings").select("value").eq("key", "active_session_label").maybeSingle(), "Active session");
-const session = pickSessionLabel({ requested: scope.confined ? scope.sessionLabel : null, configured: env.VPPSONE_SESSION_LABEL, active: setting?.value, labels: [...new Set(labels.map(row => row.session_label))] });
+const sessionLabels = [...new Set(labels.map(row => row.session_label))];
+// Confined: TEST-2026-27 or nothing. pickSessionLabel would fall back to the
+// active real session if TEST had no classes, and this script inserts rows.
+if (scope.confined && !sessionLabels.includes(scope.sessionLabel)) {
+  throw new Error(`${scope.sessionLabel} has no classes; refusing rather than writing another session.`);
+}
+const session = scope.confined
+  ? scope.sessionLabel
+  : pickSessionLabel({ configured: env.VPPSONE_SESSION_LABEL, active: setting?.value, labels: sessionLabels });
 if (!session) throw new Error("An active academic session is required.");
 const account = QA_ACCOUNTS.find(row => row.key === "teacher");
 let qaUser;

@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
   students: new Map<string, string | null>(),
   readError: null as unknown,
   sessionsRead: vi.fn(),
+  staffThrows: false,
+  classSession: undefined as string | null | undefined,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -33,7 +35,12 @@ vi.mock("next/headers", () => ({
     },
   }),
 }));
-vi.mock("@/platform/auth/current-staff", () => ({ getCurrentStaff: async () => state.staff }));
+vi.mock("@/platform/auth/current-staff", () => ({
+  getCurrentStaff: async () => {
+    if (state.staffThrows) throw new Error("profile read failed");
+    return state.staff;
+  },
+}));
 vi.mock("@/modules/fees/platform/session-context/active", () => ({ getActiveSessionLabel: async () => "2026-27" }));
 vi.mock("@/modules/fees/platform/supabase/server", () => ({
   createClient: async () => ({
@@ -66,6 +73,11 @@ vi.mock("@/platform/supabase/admin", () => ({
             return query;
           },
           eq: () => query,
+          // classes by id (assertClassVisible)
+          maybeSingle: async () => ({
+            data: state.classSession === undefined ? null : { session_label: state.classSession },
+            error: null,
+          }),
           returns: async () => ({
             data: state.readError
               ? null
@@ -82,10 +94,14 @@ vi.mock("@/platform/supabase/admin", () => ({
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import {
+  assertClassVisible,
+  assertNotTestAccount,
   assertSessionWritable,
+  assertStudentsVisible,
   assertStudentVisible,
   filterVisibleStudentIds,
   notFoundUnlessVisible,
+  workingSessionFor,
 } from "@/platform/auth/test-session-access";
 
 const REAL = "11111111-1111-4111-8111-111111111111";
@@ -112,6 +128,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.cookieStoreThrows = false;
   state.readError = null;
+  state.staffThrows = false;
+  state.classSession = undefined;
   state.students = new Map([
     [REAL, "2026-27"],
     [TEST, "TEST-2026-27"],
@@ -149,6 +167,12 @@ describe("resolveViewSession", () => {
     expect(await resolveViewSession({ searchParamSession: "TEST-2026-27" })).toMatchObject({ sessionLabel: "TEST-2026-27", isTest: true, source: "url" });
   });
 
+  it("fails CLOSED when the signed-in person cannot be read: TEST-2026-27, never 2026-27", async () => {
+    as("admin", false);
+    state.staffThrows = true;
+    expect((await resolveViewSession({ searchParamSession: "2026-27" })).sessionLabel).toBe("TEST-2026-27");
+  });
+
   it("a teacher (no pill) always gets the active session", async () => {
     as("teacher", false);
     expect((await resolveViewSession({ searchParamSession: "2027-28", cookieSession: "2027-28" })).sessionLabel).toBe("2026-27");
@@ -169,6 +193,12 @@ describe("getSessionSwitcherData", () => {
     expect(admin.availableSessions.map((s) => s.session_label).sort()).toEqual(["2026-27", "2027-28", "TEST-2026-27"]);
     // One read for three viewers: the cache holds everybody's list, unfiltered.
     expect(state.sessionsRead).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails CLOSED when the signed-in person cannot be read: TEST sessions only", async () => {
+    as("admin", false);
+    state.staffThrows = true;
+    expect((await getSessionSwitcherData()).availableSessions.map((s) => s.session_label)).toEqual(["TEST-2026-27"]);
   });
 
   it("an admin previewing a role sees that role's sessions", async () => {
@@ -211,6 +241,44 @@ describe("assertStudentVisible", () => {
   it("filters a search list by session, keeping order", async () => {
     as("office", false);
     expect(await filterVisibleStudentIds(null, [TEST, REAL])).toEqual([REAL]);
+  });
+});
+
+describe("the record decides, not the label (PR #143 review)", () => {
+  it("a test account handing TEST-2026-27 with a real student's id is refused", async () => {
+    as("accountant", true);
+    await expect(assertSessionWritable(null, "TEST-2026-27")).resolves.toBeUndefined();
+    await expect(assertStudentVisible(null, REAL)).rejects.toMatchObject({ code: "session_access_denied" });
+  });
+
+  it("assertStudentsVisible refuses the whole list when one student is out of bounds", async () => {
+    as("office", true);
+    await expect(assertStudentsVisible(null, [TEST, TEST])).resolves.toBeUndefined();
+    await expect(assertStudentsVisible(null, [TEST, REAL])).rejects.toMatchObject({ code: "session_access_denied" });
+  });
+
+  it("assertClassVisible reads the class's own session", async () => {
+    as("office", true);
+    state.classSession = "2026-27";
+    await expect(assertClassVisible(null, REAL)).rejects.toMatchObject({ code: "session_access_denied" });
+    state.classSession = "TEST-2026-27";
+    await expect(assertClassVisible(null, REAL)).resolves.toBeUndefined();
+    state.classSession = undefined; // no such class: the action's own lookup says so
+    await expect(assertClassVisible(null, REAL)).resolves.toBeUndefined();
+  });
+
+  it("assertNotTestAccount: school-wide changes are a real account's", async () => {
+    as("admin", true);
+    await expect(assertNotTestAccount(null)).rejects.toMatchObject({ code: "session_access_denied" });
+    as("admin", false);
+    await expect(assertNotTestAccount(null)).resolves.toBeUndefined();
+  });
+
+  it("workingSessionFor: the active session for real staff, TEST for a test account", async () => {
+    as("office", false);
+    expect(await workingSessionFor(null, "2026-27")).toBe("2026-27");
+    as("office", true);
+    expect(await workingSessionFor(null, "2026-27")).toBe("TEST-2026-27");
   });
 });
 

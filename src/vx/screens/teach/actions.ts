@@ -34,7 +34,7 @@ import { absentAlertChanges } from "@/vx/screens/messages/domain/outbox";
 
 import { absentAlert, birthdayWish, leaveRuns } from "./domain/teach";
 import { childBasics } from "./students";
-import { assertSessionWritable } from "@/platform/auth/test-session-access";
+import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 /*
  * The teacher screens' writes. Each asks a permission, then refuses while an
@@ -323,6 +323,7 @@ export async function queueBirthdayWishVx(studentId: string): Promise<VxResult> 
   const staff = await assertPermission("attendance:view");
   await assertNotPreviewing();
   if (!UUID.safeParse(studentId).success) return fail("Not found.", "नहीं मिला।");
+  await assertStudentVisible(staff, studentId);
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return fail("Not saved.", "सहेजा नहीं गया।");
   const [held, placement] = await Promise.all([heldClassIds(staff.id, sessionLabel), enrolmentForStudent(studentId, sessionLabel)]);
