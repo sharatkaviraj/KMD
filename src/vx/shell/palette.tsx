@@ -69,7 +69,7 @@ const callLine = (a: Extract<ActionHit, { kind: "call" }>, phone: boolean): Pair
 };
 const callSub = (a: Extract<ActionHit, { kind: "call" }>): Pair =>
   a.relation === "father" ? { en: `Father of ${a.child}`, hi: `${a.child} के पिता` } : { en: `Mother of ${a.child}`, hi: `${a.child} की माता` };
-const modeWord = (mode: string): string => ({ cash: "Cash", upi: "UPI", cheque: "Cheque", bank_transfer: "Bank" } as Record<string, string>)[mode] ?? mode;
+const modeWord = (mode: string): string => ({ cash: "Cash", upi: "UPI", cheque: "Cheque", bank_transfer: "Bank", online: "Online (Razorpay)" } as Record<string, string>)[mode] ?? mode;
 /** "Aarav Sharma · 2 Oct · UPI", and "REVERSED" first for a reversed receipt (RULES A). */
 const receiptSub = (r: ReceiptHit): string => `${r.reversed ? "REVERSED · " : ""}${r.student} · ${dayMonth(r.date)} · ${modeWord(r.mode)}`;
 

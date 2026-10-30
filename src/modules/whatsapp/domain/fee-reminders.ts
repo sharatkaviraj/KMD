@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
 import {
   addDays,
@@ -1868,6 +1869,11 @@ async function loadSentToday(
   // un-contacted under the other. The unique index only ever sees one name;
   // this read is what sees both.
   if (campaignNames.length === 0) return new Map();
+  // A test session has no parents to protect from a second message, and the
+  // once-a-day rule stopped the office re-testing a pay link on its own number.
+  // Nobody reads as messaged today there, and the sender takes today's row back
+  // (`run-sender.ts`). The live year keeps the rule.
+  if (isTestAcademicSessionLabel(sessionLabel)) return new Map();
   const { data, error } = await supabase
     .from("whatsapp_reminder_sends")
     .select("student_id, status, created_at")

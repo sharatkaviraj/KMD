@@ -5,7 +5,7 @@ Every XLSX and printable the office downloads, and the AI context bundle.
 | | |
 |---|---|
 | Route | `/protected/exports` · `/protected/exports/[exportType]` |
-| Files | 1 domain · 2 data |
+| Files | 1 domain · 3 data |
 
 ## Owns
 
@@ -13,6 +13,12 @@ Every XLSX and printable the office downloads, and the AI context bundle.
   student-information column set
 - The AI context bundle — a 16-sheet workbook built from ~14 reads
 - Parsing the defaulter filters an export inherits from the screen
+- `student-master-photos`: the full student record with offline embedded JPEG
+  thumbnails, photo status, frozen headings and filters. Admin/teacher only,
+  matching the individual photo download permissions. Uses staff storage access,
+  never a caller-supplied path or a public/signed photo URL. Missing or damaged
+  photos leave the student row intact and are marked for follow-up. Excel only.
+  Completed downloads are audited; no student or financial records are changed.
 
 ## Invariants
 

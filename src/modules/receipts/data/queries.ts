@@ -1,6 +1,8 @@
 import "server-only";
 
+import type { PaymentMode } from "@/platform/db/types";
 import { fetchPagesUpTo } from "@/platform/helpers/chunk";
+import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 
 /**
@@ -73,7 +75,7 @@ type ReceiptListRow = {
   id: string;
   receipt_number: string;
   payment_date: string;
-  payment_mode: "cash" | "upi" | "bank_transfer" | "cheque";
+  payment_mode: PaymentMode;
   total_amount: number;
   reference_number: string | null;
   notes: string | null;
@@ -109,7 +111,7 @@ type ReceiptDetailRow = {
   student_id: string;
   receipt_number: string;
   payment_date: string;
-  payment_mode: "cash" | "upi" | "bank_transfer" | "cheque";
+  payment_mode: PaymentMode;
   total_amount: number;
   reference_number: string | null;
   notes: string | null;
@@ -759,6 +761,29 @@ export async function getReceiptsList(
  * document bridge needs this: it runs as a service, not as a signed-in person,
  * so `createClient()` has no cookies to read and RLS returns nothing.
  */
+/**
+ * How the parent paid an `online` receipt, from its verified capture.
+ *
+ * The receipt row says only `online`; the method lives on
+ * `online_payment_captures`, which is service-role only by design. So this
+ * reads that one column with the admin client, for a receipt the caller has
+ * already been allowed to open. Best-effort: a failed read leaves the receipt
+ * reading "Online (Razorpay)", which is true, rather than failing to render.
+ */
+async function readOnlineMethod(receiptId: string): Promise<string | null> {
+  try {
+    const { data } = await createAdminClient()
+      .from("online_payment_captures")
+      .select("method")
+      .eq("receipt_id", receiptId)
+      .maybeSingle();
+    const method = (data as { method?: string | null } | null)?.method;
+    return typeof method === "string" && method ? method : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Receipt detail for a signed-in staff request. */
 export async function getReceiptDetail(receiptId: string): Promise<ReceiptDetail | null> {
   return getReceiptDetailWith(await createClient(), receiptId);
@@ -1073,6 +1098,7 @@ export async function getReceiptDetailWith(
     receiptNumber: receipt.receipt_number,
     paymentDate: receipt.payment_date,
     paymentMode: receipt.payment_mode,
+    onlineMethod: receipt.payment_mode === "online" ? await readOnlineMethod(receipt.id) : null,
     totalAmount: receipt.total_amount,
     referenceNumber: receipt.reference_number,
     notes: receipt.notes,

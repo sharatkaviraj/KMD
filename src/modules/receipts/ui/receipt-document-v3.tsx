@@ -92,11 +92,18 @@ function amountInWords(value: number, t: ReceiptTranslator) {
   return `${words} ${t("rupeesSuffix")}`;
 }
 
-function paymentModeText(value: ReceiptDetail["paymentMode"], t: ReceiptTranslator) {
+function paymentModeText(
+  value: ReceiptDetail["paymentMode"],
+  t: ReceiptTranslator,
+  onlineMethod?: string | null,
+) {
   if (value === "upi") return t("paymentModeUpi");
   if (value === "bank_transfer") return t("paymentModeBankTransfer");
   if (value === "cheque") return t("paymentModeCheque");
   if (value === "discount") return t("discount");
+  // An online receipt fell through to "Cash" here: money a parent paid through
+  // Razorpay, printed as cash in the drawer.
+  if (value === "online") return t(onlineMethod === "upi" ? "paymentModeOnlineUpi" : "paymentModeOnline");
   return t("paymentModeCash");
 }
 
@@ -343,10 +350,10 @@ export function ReceiptDocumentV3({
               <BiKey t={t} k="paymentMode" />
             </p>
             <p className="mt-0.5 text-sm font-medium text-foreground">
-              {paymentModeText(receipt.paymentMode, t.en)}
+              {paymentModeText(receipt.paymentMode, t.en, receipt.onlineMethod)}
             </p>
             <p className="text-[11px] text-muted-foreground" lang="hi">
-              {paymentModeText(receipt.paymentMode, t.hi)}
+              {paymentModeText(receipt.paymentMode, t.hi, receipt.onlineMethod)}
             </p>
           </div>
         </section>

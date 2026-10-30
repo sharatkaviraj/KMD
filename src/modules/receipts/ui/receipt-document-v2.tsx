@@ -103,11 +103,17 @@ function amountInWords(value: number, t: ReceiptTranslator) {
   return `${words} ${t("rupeesSuffix")}`;
 }
 
-function paymentModeText(value: ReceiptDetail["paymentMode"], t: ReceiptTranslator) {
+function paymentModeText(
+  value: ReceiptDetail["paymentMode"],
+  t: ReceiptTranslator,
+  onlineMethod?: string | null,
+) {
   if (value === "upi") return t("paymentModeUpi");
   if (value === "bank_transfer") return t("paymentModeBankTransfer");
   if (value === "cheque") return t("paymentModeCheque");
   if (value === "discount") return t("discount");
+  // Same fall-through as V3: an online receipt used to print as "Cash".
+  if (value === "online") return t(onlineMethod === "upi" ? "paymentModeOnlineUpi" : "paymentModeOnline");
   return t("paymentModeCash");
 }
 
@@ -714,7 +720,7 @@ export function ReceiptDocumentV2({
             <span className="font-medium">
               {t.en("paymentMode")} / <span lang="hi">{t.hi("paymentMode")}</span>:
             </span>{" "}
-            {paymentModeText(receipt.paymentMode, t.en)} / <span lang="hi">{paymentModeText(receipt.paymentMode, t.hi)}</span>
+            {paymentModeText(receipt.paymentMode, t.en, receipt.onlineMethod)} / <span lang="hi">{paymentModeText(receipt.paymentMode, t.hi, receipt.onlineMethod)}</span>
             {receipt.referenceNumber ? ` · ${receipt.referenceNumber}` : ""}
           </p>
 

@@ -48,7 +48,12 @@ function isPublicPath(pathname: string) {
   // it is a cron request — and it carries its own secret, checked by the route
   // itself, which refuses everything when neither secret is configured. A 302
   // to a login page here would make every scheduled job a silent success.
-  return ["/r", "/t", "/w", "/api/jobs", "/api/lab"].some(
+  //
+  // `/rv/*` is the fee receipt check a parent reaches from a receipt notice
+  // (the fees app's `/r/{receiptNumber}`, moved because `/r/` is a request
+  // token here). It shows a receipt number, date, amount and reversal state,
+  // nothing about the child — see `src/app/rv/[code]/page.tsx`.
+  return ["/r", "/rv", "/t", "/w", "/api/jobs", "/api/lab"].some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }

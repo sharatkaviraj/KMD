@@ -356,7 +356,13 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
   const outstanding = Math.max(receipt.currentOutstanding, 0);
 
   const modeLabel = receipt.paymentMode.replace(/_/g, " ");
-  const modeTitle = modeLabel.charAt(0).toUpperCase() + modeLabel.slice(1);
+  // "Online" alone hid how the parent paid; the capture says, so print it.
+  const modeTitle =
+    receipt.paymentMode === "online"
+      ? receipt.onlineMethod === "upi"
+        ? "UPI (Razorpay)"
+        : "Online (Razorpay)"
+      : modeLabel.charAt(0).toUpperCase() + modeLabel.slice(1);
   const title = `${isVoided ? "REVERSED — " : ""}Receipt ${receipt.receiptNumber} — ${receipt.studentFullName}`;
 
   return renderToBuffer(

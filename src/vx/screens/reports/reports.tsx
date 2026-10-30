@@ -21,7 +21,7 @@ import { Btn, Card, EmptyState, Kpi, Pill } from "@/vx/ui/primitives";
 
 type Lang = "hi" | "en" | "both";
 
-const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "Cheque", bank_transfer: "Bank" };
+const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "Cheque", bank_transfer: "Bank", online: "Online (Razorpay)" };
 const MODE_COLOR: Record<string, string> = { upi: "var(--pri)", cash: "var(--acc)", cheque: "var(--warn)", bank_transfer: "var(--sub)" };
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 

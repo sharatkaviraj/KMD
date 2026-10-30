@@ -810,7 +810,7 @@ function maskPhone(phone: string | null): string | null {
   return `${last10.slice(0, 2)}••• ••${last10.slice(-3)}`;
 }
 
-const MODE_LABEL: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", discount: "Written off" };
+const MODE_LABEL: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", discount: "Written off", online: "Online (Razorpay)" };
 
 /**
  * Fees, as the design draws it: on a phone the ring with pending today and

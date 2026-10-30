@@ -24,7 +24,7 @@ import { Btn, Pill } from "@/vx/ui/primitives";
 import { deskHref } from "./href";
 import { deskDay, MODE_LOOK } from "./look";
 import type { DeskProps } from "./types";
-import { fill, MODE_WORD, receiptCount, W } from "./words";
+import { fill, MODE_WORD, receiptCount, receiptModeWord, W } from "./words";
 
 /** The drawn tick on "Day closed": a soft disc, a ring and a check that draw in. */
 function ClosedTick() {
@@ -204,7 +204,7 @@ export function ClosePanel(props: DeskProps) {
               </span>
               {waiting.map((w) => (
                 <span key={w.receiptNumber} className="num" style={{ fontSize: 13 }}>
-                  {w.receiptNumber} · {rupees(w.amount)} · {tx(MODE_WORD[deskModeOf(w.mode)])}
+                  {w.receiptNumber} · {rupees(w.amount)} · {tx(receiptModeWord(w.mode))}
                 </span>
               ))}
               <span style={{ fontSize: 12, lineHeight: 1.5 }}>{tx(W.waitingBody)}</span>

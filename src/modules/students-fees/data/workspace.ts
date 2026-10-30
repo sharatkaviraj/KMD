@@ -48,6 +48,11 @@ function paymentModeLabel(mode: StudentReceiptRow["payment_mode"]) {
     return "Discount";
   }
 
+  // Before this, an online receipt reached the line below and read "Cash".
+  if (mode === "online") {
+    return "Online (Razorpay)";
+  }
+
   return "Cash";
 }
 

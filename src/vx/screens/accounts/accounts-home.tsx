@@ -32,7 +32,7 @@ const TONES: [string, string][] = [
   ["var(--warns)", "var(--warnfg)"],
   ["var(--s3)", "var(--fg)"],
 ];
-const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "Cheque", bank_transfer: "Bank" };
+const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "Cheque", bank_transfer: "Bank", online: "Online (Razorpay)" };
 const MODE_COLOR: Record<string, string> = { upi: "var(--c1)", cash: "var(--c2)", cheque: "var(--c3)", bank_transfer: "var(--c4)" };
 /** The counter closes at 5:30 pm (the design's "Close by 5:30 pm"). */
 const CLOSE_MINUTE = 17 * 60 + 30;
@@ -232,7 +232,13 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, no
   };
 
   const c = data.collected;
-  const modes = ["upi", "cash", "cheque", "bank_transfer"].map((m) => data.collected.modes.find((x) => x.mode === m) ?? { mode: m, total: 0, count: 0 });
+  // A Razorpay `online` receipt is UPI money: filed under UPI, never Cash, and
+  // never dropped from the split (fees app #103 does the same in its strip).
+  const modes = ["upi", "cash", "cheque", "bank_transfer"].map((m) =>
+    data.collected.modes
+      .filter((x) => x.mode === m || (m === "upi" && x.mode === "online"))
+      .reduce((sum, x) => ({ mode: m, total: sum.total + x.total, count: sum.count + x.count }), { mode: m, total: 0, count: 0 }),
+  );
   // "↓ 100% vs usual day" beside ₹0 read as "100% done" (smoke 20 Oct): say above or below, and nothing yet when it is nothing.
   const vsUsualText =
     c.vsUsual === null

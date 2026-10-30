@@ -51,7 +51,7 @@ function authorize(request: Request): { ok: true } | { ok: false; reason: string
 }
 
 type ModeTotal = {
-  paymentMode: "cash" | "upi" | "bank_transfer" | "cheque";
+  paymentMode: "cash" | "upi" | "bank_transfer" | "cheque" | "online";
   totalAmount: number;
   receiptCount: number;
 };

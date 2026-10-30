@@ -74,6 +74,9 @@ export const PORTED_TREES = [
   "src/app/(app)/fees",
   "src/app/api/fees",
   "src/app/pay",
+  // The fees app's public receipt check, `/r/[code]` there. `/r/` is a
+  // SamPark token here, so it moved to `/rv/` (go-live critique A2).
+  "src/app/rv",
 ];
 
 /**

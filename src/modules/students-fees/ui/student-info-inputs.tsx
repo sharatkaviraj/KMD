@@ -67,8 +67,9 @@ export function StudentInfoGroupInputs({
                   A native <select> given a defaultValue it has no option for
                   silently selects the FIRST option instead — here the blank —
                   so opening a student and pressing Save would quietly erase the
-                  field. That is live today: 22 students carry a category of
-                  "GENERAL" or "SBC", neither of which is in CATEGORY_OPTIONS.
+                  field. That is live today: 14 students carry a category of
+                  "GENERAL", which the list spells "General". (SBC was the
+                  other, until it joined the list on 2026-10-28.)
                 */}
                 {values[field.name] && !field.options.includes(values[field.name] as never) ? (
                   <option value={values[field.name] as string}>

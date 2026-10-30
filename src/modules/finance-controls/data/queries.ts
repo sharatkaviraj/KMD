@@ -209,11 +209,15 @@ function parseSummarySnapshot(value: unknown): FinanceDaySummarySnapshot {
   const raw = value as Record<string, unknown>;
   const modeTotals = Array.isArray(raw.modeTotals)
     ? (raw.modeTotals as Array<Record<string, unknown>>).map((item) => ({
+        // `online` is kept as itself. Coercing every unknown mode to "cash"
+        // filed Razorpay money under Cash in a day's close, which is the one
+        // figure the office reconciles against the drawer.
         paymentMode:
           item.paymentMode === "cash" ||
           item.paymentMode === "upi" ||
           item.paymentMode === "bank_transfer" ||
-          item.paymentMode === "cheque"
+          item.paymentMode === "cheque" ||
+          item.paymentMode === "online"
             ? item.paymentMode
             : "cash",
         totalAmount: typeof item.totalAmount === "number" ? item.totalAmount : 0,
