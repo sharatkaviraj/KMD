@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import * as scriptGuard from "../scripts/target-guard.mjs";
-import { isConfinedDeployment } from "@/platform/deployment/confinement";
+import { declaresProduction, isConfinedDeployment } from "@/platform/deployment/confinement";
 import {
+  effectiveEnvironment,
   environmentFromMarkerRows,
   feeWritesMode,
   toolAccessDecision,
@@ -112,5 +113,32 @@ describe("feeWritesMode — the app half of D-345", () => {
     expect(feeWritesMode({ confined: false, environment: "production", setting: null })).toBe("test-only");
     expect(feeWritesMode({ confined: false, environment: "production", setting: "TRUE " })).toBe("open");
     expect(feeWritesMode({ confined: false, environment: "production", setting: "yes" })).toBe("test-only");
+  });
+});
+
+describe("a production deployment is production before the marker flips (review of PR #141)", () => {
+  it("declaresProduction: Vercel production or VPPSONE_ENV=live", () => {
+    expect(declaresProduction({ VERCEL_ENV: "production" })).toBe(true);
+    expect(declaresProduction({ VPPSONE_ENV: "live" })).toBe(true);
+    expect(declaresProduction({ VERCEL_ENV: "preview", VPPSONE_ENV: "LIVE " })).toBe(true);
+    expect(declaresProduction({ VERCEL_ENV: "preview", VPPSONE_ENV: "dev" })).toBe(false);
+    expect(declaresProduction({})).toBe(false);
+  });
+
+  it("effectiveEnvironment: dev only when the marker says dev AND the deployment does not declare production", () => {
+    expect(effectiveEnvironment({ marker: "dev", declaredProduction: false })).toBe("dev");
+    expect(effectiveEnvironment({ marker: "dev", declaredProduction: true })).toBe("production");
+    expect(effectiveEnvironment({ marker: "production", declaredProduction: false })).toBe("production");
+  });
+
+  it("live env + dev marker: QA tools confined to test accounts, fee writes test-only until the key is 'true'", () => {
+    const environment = effectiveEnvironment({
+      marker: "dev",
+      declaredProduction: declaresProduction({ VERCEL_ENV: "production", VPPSONE_ENV: "live" }),
+    });
+    expect(toolAccessDecision({ environment, isTestAccount: false }).ok).toBe(false);
+    expect(toolAccessDecision({ environment, isTestAccount: true }).ok).toBe(true);
+    expect(feeWritesMode({ confined: false, environment, setting: null })).toBe("test-only");
+    expect(feeWritesMode({ confined: false, environment, setting: "true" })).toBe("open");
   });
 });

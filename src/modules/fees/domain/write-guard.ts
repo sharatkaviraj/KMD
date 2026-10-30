@@ -1,11 +1,12 @@
 /**
  * The fee writes switch, app side (D-345, D-346; plan §2.7; critique0 #24).
  *
- * The database refuses the money RPCs itself (`vppsone.fee_writes_allowed`,
- * supabase/fee-migrations/20261030230000_fee_writes_guard.sql). This is the
- * other half: ONE check, inside the fee Supabase clients' `fetch`, that sees
- * every request the fee module makes to PostgREST — inserts, updates, upserts,
- * deletes and RPCs alike — so no screen, action or import can forget it.
+ * The database refuses the money RPCs and direct money-table writes itself
+ * (`vppsone.fee_writes_allowed`, supabase/fee-migrations/20261030230000_* and
+ * 20261030230200_*). This is the other half: ONE check, inside the fee
+ * Supabase clients' `fetch`, that sees every request the fee module makes to
+ * PostgREST — inserts, updates, upserts, deletes and RPCs alike — so no
+ * screen, action or import can forget it.
  *
  * Pure: it reads a request and answers what it would touch. The client wrapper
  * (`platform/supabase/write-guard.ts`) resolves those ids to sessions and
@@ -15,6 +16,14 @@
  * key set to 'false' — see `feeWritesMode`), a write may proceed only if
  * everything it names resolves to a TEST session. A write that names nothing
  * this can resolve is refused: unknown is not assumed to be a test.
+ *
+ * For an UPDATE or DELETE the rows changed are the ones the URL FILTERS pick,
+ * so the filters alone must place the write; what the body names must be TEST
+ * as well, but never stands in for the filters (a body saying
+ * `session_label: 'TEST-…'` does not make "update the row with this id" a
+ * TEST write). A filter this cannot read exactly — `or=`, `and=`, `not.…`, or
+ * a scope column compared other than by `eq.` / `in.` — makes the write
+ * unscoped.
  */
 
 export type WriteScope = {
@@ -25,6 +34,18 @@ export type WriteScope = {
   refundIds: string[];
   classIds: string[];
   sessionLabels: string[];
+  /** public.payment_import_batches.id -> its session_label. */
+  paymentBatchIds: string[];
+  /** public.payment_import_rows.id -> its batch. */
+  paymentImportRowIds: string[];
+  /** public.import_batches.id -> its target_session_label. */
+  importBatchIds: string[];
+  /** public.import_rows.id -> its batch. */
+  importRowIds: string[];
+  /** public.academic_sessions.id -> its session_label. */
+  academicSessionIds: string[];
+  /** public.fee_policy_configs.id -> its academic_session_label. */
+  policyIds: string[];
 };
 
 export type FeeRequestTarget =
@@ -72,12 +93,28 @@ const WRITE_RPCS: Record<string, (args: Args) => Partial<WriteScope> | "read"> =
   refresh_defaulter_recovery_state: (a) => ({ sessionLabels: str(a.p_session_label) }),
   sync_repayment_plan_late_fees: (a) =>
     a.p_dry_run === true ? "read" : { sessionLabels: str(a.p_session_label) },
+  // Deletes one academic session (and refuses if it has data): placed by that session.
+  delete_academic_session_safe: (a) => ({ academicSessionIds: str(a.p_session_id) }),
 };
 
 export const KNOWN_WRITE_RPCS = Object.keys(WRITE_RPCS);
 
 function emptyScope(): WriteScope {
-  return { studentIds: [], receiptIds: [], planIds: [], waiverIds: [], refundIds: [], classIds: [], sessionLabels: [] };
+  return {
+    studentIds: [],
+    receiptIds: [],
+    planIds: [],
+    waiverIds: [],
+    refundIds: [],
+    classIds: [],
+    sessionLabels: [],
+    paymentBatchIds: [],
+    paymentImportRowIds: [],
+    importBatchIds: [],
+    importRowIds: [],
+    academicSessionIds: [],
+    policyIds: [],
+  };
 }
 
 function merge(into: WriteScope, from: Partial<WriteScope>) {
@@ -99,8 +136,8 @@ function parseBody(body: string | null): unknown {
   }
 }
 
-/** `eq.x` / `in.(a,b)` / `in.("a","b")` -> values. Anything else (not.eq, like…) -> none. */
-function filterValues(raw: string): string[] {
+/** `eq.x` / `in.(a,b)` / `in.("a","b")` -> values. Anything else (not.eq, like…) -> null. */
+function filterValues(raw: string): string[] | null {
   if (raw.startsWith("eq.")) return str(raw.slice(3));
   const inList = /^in\.\((.*)\)$/.exec(raw);
   if (inList) {
@@ -109,38 +146,72 @@ function filterValues(raw: string): string[] {
       .map((value) => value.trim().replace(/^"(.*)"$/, "$1"))
       .filter(Boolean);
   }
-  return [];
+  return null;
+}
+
+/** PostgREST query parameters that are not row filters. */
+const NOT_FILTERS = new Set(["select", "order", "limit", "offset", "on_conflict", "columns"]);
+
+/** Logical filters: they can widen a filter beyond what its other params say. */
+const LOGICAL = /^(not\.)?(or|and)$/;
+
+/** Which scope key a column names on a table, or null when it names none. */
+function scopeKeyOf(table: string, column: string): keyof WriteScope | null {
+  if (column === "student_id" || (table === "students" && column === "id")) return "studentIds";
+  if (column === "receipt_id" || (table === "receipts" && column === "id")) return "receiptIds";
+  if (column === "class_id" || (table === "classes" && column === "id")) return "classIds";
+  if (column === "session_label" || column === "academic_session_label" || column === "target_session_label") {
+    return "sessionLabels";
+  }
+  if (table === "student_repayment_plans" && column === "id") return "planIds";
+  if (table === "student_late_fee_waivers" && column === "id") return "waiverIds";
+  if (table === "refund_requests" && column === "id") return "refundIds";
+  if (table === "payment_import_batches" && column === "id") return "paymentBatchIds";
+  if (table === "payment_import_rows" && column === "batch_id") return "paymentBatchIds";
+  if (table === "payment_import_rows" && column === "id") return "paymentImportRowIds";
+  if (table === "import_batches" && column === "id") return "importBatchIds";
+  if (table === "import_rows" && column === "batch_id") return "importBatchIds";
+  if (table === "import_rows" && column === "id") return "importRowIds";
+  if (table === "academic_sessions" && column === "id") return "academicSessionIds";
+  if (table === "fee_policy_configs" && column === "id") return "policyIds";
+  return null;
 }
 
 /** Which ids a row (insert/upsert body, or update body) names. */
 function scopeOfRow(table: string, row: unknown): WriteScope {
   const scope = emptyScope();
   if (!row || typeof row !== "object") return scope;
-  const r = row as Record<string, unknown>;
-  merge(scope, {
-    studentIds: [...str(r.student_id), ...(table === "students" ? str(r.id) : [])],
-    receiptIds: table === "receipts" ? str(r.id) : str(r.receipt_id),
-    classIds: str(r.class_id),
-    sessionLabels: [...str(r.session_label), ...str(r.academic_session_label)],
-  });
+  for (const [column, value] of Object.entries(row as Record<string, unknown>)) {
+    const key = scopeKeyOf(table, column);
+    if (key) merge(scope, { [key]: str(value) });
+  }
   return scope;
 }
 
-/** Which ids the URL's filters name. */
-function scopeOfFilters(table: string, params: URLSearchParams): WriteScope {
+/**
+ * Which ids the URL's filters name, and whether some filter could not be read
+ * exactly (`opaque`): a logical `or` / `and`, or a scope column compared other
+ * than by `eq.` / `in.`.
+ */
+function scopeOfFilters(table: string, params: URLSearchParams): { scope: WriteScope; opaque: boolean } {
   const scope = emptyScope();
+  let opaque = false;
   for (const [column, raw] of params) {
+    if (NOT_FILTERS.has(column)) continue;
+    if (LOGICAL.test(column)) {
+      opaque = true;
+      continue;
+    }
+    const key = scopeKeyOf(table, column);
+    if (!key) continue;
     const values = filterValues(raw);
-    if (values.length === 0) continue;
-    if (column === "student_id" || (table === "students" && column === "id")) merge(scope, { studentIds: values });
-    else if (column === "receipt_id" || (table === "receipts" && column === "id")) merge(scope, { receiptIds: values });
-    else if (column === "class_id" || (table === "classes" && column === "id")) merge(scope, { classIds: values });
-    else if (column === "session_label" || column === "academic_session_label") merge(scope, { sessionLabels: values });
-    else if (table === "student_repayment_plans" && column === "id") merge(scope, { planIds: values });
-    else if (table === "student_late_fee_waivers" && column === "id") merge(scope, { waiverIds: values });
-    else if (table === "refund_requests" && column === "id") merge(scope, { refundIds: values });
+    if (values === null) {
+      opaque = true;
+      continue;
+    }
+    merge(scope, { [key]: values });
   }
-  return scope;
+  return { scope, opaque };
 }
 
 /**
@@ -176,7 +247,10 @@ export function classifyFeeRequest(request: { method: string; url: string; body:
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return { kind: "read" };
   if (FREE_TABLES.has(resource)) return { kind: "free", resource };
 
-  const scope = scopeOfFilters(resource, url.searchParams);
+  const filters = scopeOfFilters(resource, url.searchParams);
+  const scope = emptyScope();
+  merge(scope, filters.scope);
+
   const body = parseBody(request.body);
   const rows = Array.isArray(body) ? body : body ? [body] : [];
 
@@ -189,8 +263,13 @@ export function classifyFeeRequest(request: { method: string; url: string; body:
     merge(scope, rowScope);
   }
 
-  const inserting = method === "POST" || method === "PUT";
-  const unscoped = isEmpty(scope) || (inserting && rowWithoutScope);
+  const inserting = method === "POST";
+  // UPDATE / DELETE / PUT change the rows the filters pick: the filters alone
+  // must place them. The body's ids were merged above, so they must be TEST
+  // too — but they never stand in for the filters.
+  const unscoped = inserting
+    ? isEmpty(scope) || rowWithoutScope
+    : filters.opaque || isEmpty(filters.scope);
   return { kind: "write", resource, rpc: false, scope, unscoped };
 }
 

@@ -22,6 +22,7 @@
  * data. Rule 3: dev only.
  */
 
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -108,9 +109,25 @@ check(
 );
 
 const fingerprints = Object.fromEntries(rows.map((row) => [row.name, row.md5]));
+
+// One-only preambles (supabase/fee-migrations/README.md) are inserted between
+// `-- [vppsone:<name>]` and `-- [/vppsone]` lines. With those blocks removed a
+// function is byte for byte the fees app's, so its md5 then is the
+// "fees-identical" fingerprint plan §8.3 compares against the fees catalogue
+// to tell fees drift from One's own changes.
+const ONE_ONLY_BLOCK = /  -- \[vppsone:[a-z0-9-]+\]\n[\s\S]*?  -- \[\/vppsone\]\n/g;
+const feesIdentical = Object.fromEntries(
+  rows
+    .filter((row) => /  -- \[vppsone:[a-z0-9-]+\]\n/.test(row.definition ?? ""))
+    .map((row) => [row.name, createHash("md5").update(row.definition.replace(ONE_ONLY_BLOCK, ""), "utf8").digest("hex")]),
+);
+
 if (writeBaseline || !existsSync(baselinePath)) {
   mkdirSync(path.dirname(baselinePath), { recursive: true });
-  writeFileSync(baselinePath, `${JSON.stringify({ recordedAt: new Date().toISOString(), count: rows.length, fingerprints }, null, 2)}\n`);
+  writeFileSync(
+    baselinePath,
+    `${JSON.stringify({ recordedAt: new Date().toISOString(), count: rows.length, fingerprints, feesIdentical }, null, 2)}\n`,
+  );
   console.log(`  · baseline written: ${path.relative(repoRoot, baselinePath)} (${rows.length} objects)`);
 }
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8")).fingerprints;

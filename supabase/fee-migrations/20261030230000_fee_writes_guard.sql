@@ -62,6 +62,10 @@
 -- (and log an error) while writes are off on production — correct during
 -- mirror mode. The mirror loader itself writes rows, not RPCs.
 --
+-- Direct table writes over PostgREST and the switch key itself are guarded by
+-- the follow-up 20261030230200_fee_writes_table_guard.sql (which also restates
+-- fee_writes_allowed_for_session through vppsone.fee_writes_open()).
+--
 -- Proof: scripts/migrate/verify-fee-writes-guard.sql (one DO block that ends
 -- by raising, so everything it did rolls back) — run through the MCP.
 --

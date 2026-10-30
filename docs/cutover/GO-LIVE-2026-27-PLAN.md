@@ -562,6 +562,22 @@ retires.
 - SQL under each seat's token.
 - Pill screenshots at desktop and 375px, compared with the fees app.
 
+**3.6 Carried from PR-1 (#141 review)**
+- Convert the existing QA auth users to `is_test_account` (until then a
+  production marker, or a Vercel production deployment, refuses every QA
+  sign-in).
+- Confine what PR-1 left `dev-only` (they refuse production today): the 13
+  writing `verify-*` scripts, `smoke-screens` and the Playwright harness
+  (`tests/e2e/support/harness.ts`) — each picks TEST-2026-27 classes,
+  students and test-account staff when `scope.production` is true, and
+  becomes `test-scoped`.
+- Move `deep-smoke`, `smoke-roles` and `measure-round-trips` back to
+  `test-scoped` once points 3–6 above are merged: they drive the app, and
+  only the visibility rules keep a test account off real sessions there.
+- 1.4 / Q5 is still open: the owner's ruling on role precedence and on
+  whether `sync_staff_profile_from_auth_users` is recreated on wtgx, then
+  the 10-user mapping table. PR-1 did not recreate the trigger.
+
 ---
 
 ### Phase 4 — Test-data quarantine and real master data (PR-4)

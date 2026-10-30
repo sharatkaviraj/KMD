@@ -299,7 +299,8 @@ async function seedPlan({ day, away, publish, pinToAdmin }) {
 
   die(
     "Could not clear the old absences",
-    (await db.from("teacher_absences").delete().eq("day", day)).error,
+    // Only this session's absences: on production the day also has real ones.
+    (await db.from("teacher_absences").delete().eq("session_label", sessionLabel).eq("day", day)).error,
   );
 
   die(
@@ -886,7 +887,13 @@ const templates = [
 
 die(
   "Could not write the templates",
-  (await db.from("message_templates").upsert(templates, { onConflict: "code" })).error,
+  // Templates are global, not per session. On production an existing template
+  // is the school's and is never overwritten — only a missing code is added.
+  (
+    await db
+      .from("message_templates")
+      .upsert(templates, { onConflict: "code", ignoreDuplicates: scope.production })
+  ).error,
 );
 
 const { data: staffTemplate } = await db
@@ -912,9 +919,12 @@ const staffVars = [qaTeacher?.display_name ?? "Teacher", "phone numbers"];
 const parentVars = ["your child", "the school trip is on Friday"];
 const parentVarsHi = ["आपके बच्चे", "शुक्रवार को स्कूल की यात्रा है"];
 
+// On production nothing is queued: a queued row is picked up by the real
+// sender, and the test-recipient allowlist that would stop it arrives with the
+// messaging phases (D-346). The templates above are still there to look at.
 die(
   "Could not queue the messages",
-  (
+  scope.production ? null : (
     await db.from("message_sends").insert([
       {
         session_label: sessionLabel,
@@ -945,7 +955,11 @@ die(
   ).error,
 );
 
-console.log("messages: 2 templates, 2 queued (1 staff, 1 parent — parent is hand-sent)");
+console.log(
+  scope.production
+    ? "messages: templates present; nothing queued on production"
+    : "messages: 2 templates, 2 queued (1 staff, 1 parent — parent is hand-sent)",
+);
 
 /* ------------------------------------------------------------ documents */
 //

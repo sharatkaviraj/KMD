@@ -2,7 +2,7 @@ import "server-only";
 
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { feeWritesMode, type FeeWritesMode } from "@/platform/deployment/decisions";
-import { readDeploymentEnvironment } from "@/platform/deployment/marker";
+import { readEffectiveEnvironment } from "@/platform/deployment/marker";
 import { getOptionalEnvVar, getServerSupabaseUrl } from "@/platform/env";
 import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
 
@@ -24,7 +24,10 @@ import { classifyFeeRequest, feeWriteRefusal, type WriteScope } from "@/modules/
  *
  * The mode (`feeWritesMode`) is test-only on any confined deployment
  * (Preview, local), whenever `fee_writes_enabled` is 'false', and on a
- * production database until the key is 'true'. The lookups use the service
+ * production database until the key is 'true'. "Production" is the marker
+ * made stricter by the deployment's own declaration (`readEffectiveEnvironment`):
+ * a Vercel production deployment is production even while the marker still
+ * says dev, so it writes real fees only once the owner has set the key. The lookups use the service
  * role and the underlying fetch, so they are never themselves guarded, and
  * any failure to resolve an id refuses: fail closed.
  */
@@ -54,7 +57,7 @@ export async function currentFeeWritesMode(): Promise<FeeWritesMode> {
   let value: FeeWritesMode = "test-only";
   if (!confined) {
     const [environment, rows] = await Promise.all([
-      readDeploymentEnvironment(),
+      readEffectiveEnvironment(),
       restGet("app_settings?select=value&key=eq.fee_writes_enabled"),
     ]);
     // An unreadable setting on a production database stays test-only below;
@@ -94,6 +97,32 @@ async function lookup(table: string, column: string, ids: string[]): Promise<Map
  * a missing row is not assumed to be a test one.
  */
 export async function sessionsTouched(scope: WriteScope): Promise<string[] | null> {
+  const labels = new Set(scope.sessionLabels);
+
+  /** Resolve every id through `table.column`, feeding each value to `add`. */
+  async function through(table: string, column: string, ids: string[], add: (value: string) => void) {
+    if (ids.length === 0) return true;
+    const found = await lookup(table, column, ids);
+    if (!found) return false;
+    for (const id of ids) {
+      const value = found.get(id);
+      if (!value) return false;
+      add(value);
+    }
+    return true;
+  }
+
+  // Import rows -> their batch; batches, sessions and policies -> a label.
+  const paymentBatchIds = new Set(scope.paymentBatchIds);
+  const importBatchIds = new Set(scope.importBatchIds);
+  if (!(await through("payment_import_rows", "batch_id", scope.paymentImportRowIds, (id) => paymentBatchIds.add(id)))) return null;
+  if (!(await through("import_rows", "batch_id", scope.importRowIds, (id) => importBatchIds.add(id)))) return null;
+  const addLabel = (label: string) => labels.add(label);
+  if (!(await through("payment_import_batches", "session_label", [...paymentBatchIds], addLabel))) return null;
+  if (!(await through("import_batches", "target_session_label", [...importBatchIds], addLabel))) return null;
+  if (!(await through("academic_sessions", "session_label", scope.academicSessionIds, addLabel))) return null;
+  if (!(await through("fee_policy_configs", "academic_session_label", scope.policyIds, addLabel))) return null;
+
   const studentIds = new Set(scope.studentIds);
 
   for (const [table, ids] of [
@@ -124,7 +153,6 @@ export async function sessionsTouched(scope: WriteScope): Promise<string[] | nul
     }
   }
 
-  const labels = new Set(scope.sessionLabels);
   if (classIds.size > 0) {
     const ids = [...classIds];
     const found = await lookup("classes", "session_label", ids);

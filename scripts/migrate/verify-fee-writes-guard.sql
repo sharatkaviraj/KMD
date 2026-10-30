@@ -19,9 +19,24 @@
 --   B. key unset, marker 'production'  -> real refused, TEST allowed.
 --   C. key 'true', marker 'production' -> real allowed.
 --   D. key unset, marker 'dev'         -> real allowed (today's state).
+--   E. key 'false', as the signed-in admin, DIRECT table writes over the API
+--      (20261030230200_fee_writes_table_guard.sql):
+--      - insert into public.payments for a real student  -> refused VPP01;
+--      - the same insert for a TEST student passes the guard and fails only
+--        on the row's own NOT NULL columns (23502) — it was never a payment;
+--      - update of a real student's installments          -> refused VPP01
+--        (receipts are not updatable by RLS at all, so installments it is);
+--      - moving a real student into a TEST class          -> refused VPP01.
+--   F. as the service role: insert into public.payments for a real student
+--      -> refused VPP01 (the triggers apply to every API caller).
+--   G. as the signed-in admin AND as the service role: writing
+--      app_settings.fee_writes_enabled -> refused 42501.
 -- Expected: A_real_rpc = "refused VPP01", A_test_prefix = "TST",
 -- A_undo_real = "refused VPP01", B_real = false, B_test = true, C_real = true,
--- D_real = true.
+-- D_real = true, E_insert_real = "refused VPP01", E_insert_test = "23502",
+-- E_update_real_installment = "refused VPP01", E_move_real_to_test = "refused VPP01",
+-- F_service_insert_real = "refused VPP01", G_admin_switch = "refused 42501",
+-- G_service_switch = "refused 42501".
 --
 -- Personal data: it picks students and a receipt by session only and prints
 -- no name, phone or id — just booleans, SQLSTATEs and a three-letter prefix.
@@ -34,6 +49,7 @@ declare
   v_admin uuid;
   v_real_receipt uuid;
   v_num text;
+  v_test_class uuid;
 begin
   select s.id into v_real
   from public.students s join public.classes c on c.id = s.class_id
@@ -49,6 +65,10 @@ begin
   from public.receipts r0 join public.students s on s.id = r0.student_id join public.classes c on c.id = s.class_id
   where c.session_label = '2026-27'
   order by r0.created_at desc limit 1;
+
+  select c.id into v_test_class
+  from public.classes c where c.session_label = 'TEST-2026-27'
+  order by c.id limit 1;
 
   select p.user_id into v_admin
   from vppsone.staff_profiles p join auth.users u on u.id = p.user_id
@@ -97,6 +117,71 @@ begin
     r := r || jsonb_build_object('A_test_rpc', 'posted', 'A_test_prefix', left(v_num, 3));
   exception
     when others then r := r || jsonb_build_object('A_test_rpc', 'error ' || sqlstate || ': ' || left(sqlerrm, 160));
+  end;
+
+  /* E. direct table writes, same signed-in admin, key still 'false' */
+  begin
+    insert into public.payments (student_id) values (v_real);
+    r := r || '{"E_insert_real": "ALLOWED - WRONG"}'::jsonb;
+  exception
+    when sqlstate 'VPP01' then r := r || '{"E_insert_real": "refused VPP01"}'::jsonb;
+    when others then r := r || jsonb_build_object('E_insert_real', 'other ' || sqlstate);
+  end;
+
+  begin
+    insert into public.payments (student_id) values (v_test);
+    r := r || '{"E_insert_test": "inserted"}'::jsonb;
+  exception
+    when sqlstate 'VPP01' then r := r || '{"E_insert_test": "refused VPP01 - WRONG"}'::jsonb;
+    when others then r := r || jsonb_build_object('E_insert_test', sqlstate);
+  end;
+
+  begin
+    update public.installments set notes = notes where student_id = v_real;
+    r := r || jsonb_build_object('E_update_real_installment', case when found then 'ALLOWED - WRONG' else 'no row visible' end);
+  exception
+    when sqlstate 'VPP01' then r := r || '{"E_update_real_installment": "refused VPP01"}'::jsonb;
+    when others then r := r || jsonb_build_object('E_update_real_installment', 'other ' || sqlstate);
+  end;
+
+  begin
+    update public.students set class_id = v_test_class where id = v_real;
+    r := r || jsonb_build_object('E_move_real_to_test', case when found then 'ALLOWED - WRONG' else 'no row visible' end);
+  exception
+    when sqlstate 'VPP01' then r := r || '{"E_move_real_to_test": "refused VPP01"}'::jsonb;
+    when others then r := r || jsonb_build_object('E_move_real_to_test', 'other ' || sqlstate);
+  end;
+
+  /* G (admin half). the switch is the owner's */
+  begin
+    insert into public.app_settings (key, value) values ('fee_writes_enabled', 'true')
+    on conflict (key) do update set value = excluded.value;
+    r := r || '{"G_admin_switch": "ALLOWED - WRONG"}'::jsonb;
+  exception
+    when sqlstate '42501' then r := r || '{"G_admin_switch": "refused 42501"}'::jsonb;
+    when others then r := r || jsonb_build_object('G_admin_switch', 'other ' || sqlstate);
+  end;
+
+  /* F. the service role */
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  execute 'set local role service_role';
+
+  begin
+    insert into public.payments (student_id) values (v_real);
+    r := r || '{"F_service_insert_real": "ALLOWED - WRONG"}'::jsonb;
+  exception
+    when sqlstate 'VPP01' then r := r || '{"F_service_insert_real": "refused VPP01"}'::jsonb;
+    when others then r := r || jsonb_build_object('F_service_insert_real', 'other ' || sqlstate);
+  end;
+
+  /* G (service half) */
+  begin
+    update public.app_settings set value = 'true' where key = 'fee_writes_enabled';
+    r := r || jsonb_build_object('G_service_switch', case when found then 'ALLOWED - WRONG' else 'no row' end);
+  exception
+    when sqlstate '42501' then r := r || '{"G_service_switch": "refused 42501"}'::jsonb;
+    when others then r := r || jsonb_build_object('G_service_switch', 'other ' || sqlstate);
   end;
 
   execute 'reset role';

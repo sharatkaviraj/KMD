@@ -81,4 +81,17 @@ describe("supabase/fee-migrations", () => {
     for (const name of new Set(injected)) expect(header).toContain(name);
     expect(new Set(injected).size).toBe(14);
   });
+
+  it("guards direct writes to every money table, and keeps the switch the owner's", () => {
+    const sql = readFileSync(path.join(dir, "20261030230200_fee_writes_table_guard.sql"), "utf8");
+    const list = /foreach t in array array\[([\s\S]*?)\]/.exec(sql)?.[1] ?? "";
+    const tables = [...list.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+    for (const table of ["payments", "receipts", "receipt_adjustments", "payment_adjustments", "installments", "student_fee_overrides", "student_carry_forward_balances", "student_late_fee_waivers", "refund_requests", "student_repayment_plans"]) {
+      expect(tables).toContain(table);
+    }
+    expect(sql).toMatch(/before update of class_id on public\.students/);
+    expect(sql).toMatch(/before update of session_label on public\.classes/);
+    expect(sql).toMatch(/before insert or update or delete on public\.app_settings/);
+    expect(sql).toMatch(/key = 'fee_writes_enabled'/);
+  });
 });

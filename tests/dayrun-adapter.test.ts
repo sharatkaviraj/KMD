@@ -14,7 +14,8 @@ vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: mocks.admin }))
 vi.mock("@/platform/supabase/server", () => ({ createClient: mocks.client }));
 vi.mock("@/platform/auth/current-staff", () => ({ getCurrentStaff: mocks.staff }));
 vi.mock("@/platform/auth/admit", () => ({ admitSignedInUser: mocks.admit }));
-vi.mock("@/platform/deployment/tool-access", () => ({ toolAccountAccess: async () => ({ ok: true }) }));
+const toolAccess = vi.hoisted(() => ({ fn: vi.fn(async (_account: Record<string, unknown>) => { void _account; return { ok: true } as { ok: boolean; reason?: string }; }) }));
+vi.mock("@/platform/deployment/tool-access", () => ({ toolAccountAccess: toolAccess.fn }));
 vi.mock("@/platform/i18n/language-cookie", () => ({ writeLanguageCookie: mocks.language }));
 vi.mock("@/vx/view-as", () => ({ VIEW_AS_COOKIE: "vx_view_as" }));
 
@@ -238,6 +239,15 @@ describe("dayrun redemption adapter", () => {
     const f = fixture(); f.getUserById.mockResolvedValue({ data: { user: { id: f.pair.user_id, email: "changed@qa.vpps.local", app_metadata: {} } }, error: null });
     await expect(redeemDayrunPair(request("/api/qa/dayrun/redeem"))).rejects.toThrow();
     expect(f.generateLink).not.toHaveBeenCalled(); expect(mocks.admit).not.toHaveBeenCalled();
+  });
+  test("on a production database a seat that is not a test account is refused before any token is minted (D-346)", async () => {
+    const f = fixture();
+    toolAccess.fn.mockResolvedValueOnce({ ok: false, reason: "production: test accounts only" });
+    await expect(redeemDayrunPair(request("/api/qa/dayrun/redeem"))).rejects.toThrow();
+    expect(toolAccess.fn).toHaveBeenCalledWith({ staffProfileId: f.pair.staff_profile_id });
+    expect(f.generateLink).not.toHaveBeenCalled();
+    expect(f.target.auth.verifyOtp).not.toHaveBeenCalled();
+    expect(mocks.admit).not.toHaveBeenCalled();
   });
   test("generateLink returning another account cannot reach OTP verification", async () => {
     const f = fixture(); f.generateLink.mockResolvedValue({ data: { user: { id: "wrong-user" }, properties: { hashed_token: "synthetic-wrong-hash" } }, error: null });

@@ -36,7 +36,10 @@ export function testSignInEnabled(key: unknown): boolean {
  * project (or a local stack), and `QA_LOGIN_KEY` configured. The QA clock
  * reads it for every request from a QA account (`qa-clock.ts`). It no longer
  * turns off under VPPSONE_ENV=live: on production the tool is confined to test
- * accounts by the database marker instead (D-346).
+ * accounts instead (D-346) — and "production" is the database marker OR the
+ * deployment's own declaration (VERCEL_ENV=production / VPPSONE_ENV=live), so a
+ * live deployment that goes out before the marker flips is confined too
+ * (`readEffectiveEnvironment`, used by `toolAccountAccess`).
  */
 export function qaToolsEnabled(): boolean {
   const expected = process.env.QA_LOGIN_KEY?.trim();

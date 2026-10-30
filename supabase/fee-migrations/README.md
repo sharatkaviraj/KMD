@@ -107,6 +107,7 @@ online-payment / notice tables exist, `payment_mode` has `online`, the 19
 | `20261030200100_parity_office_sync_realtime.sql` | One-only: realtime publication | 20261030111442 |
 | `20261030230000_fee_writes_guard.sql` | One-only: D-345 switch in 15 money functions | 20261030112459 |
 | `20261030230100_test_receipt_prefix.sql` | One-only: TEST receipts numbered TST | 20261030112612 |
+| `20261030230200_fee_writes_table_guard.sql` | One-only: the switch also guards direct writes to the 16 money tables, TEST/real boundary moves, and only the owner (no JWT) can set `fee_writes_enabled` | 20261030121509 |
 
 The two catch-up copies were found missing by the schema parity check
 (`docs/cutover/SCHEMA-PARITY.md`): the masked replica copied tables and

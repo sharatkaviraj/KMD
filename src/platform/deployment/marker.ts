@@ -2,7 +2,8 @@ import "server-only";
 
 import { getOptionalEnvVar, getServerSupabaseUrl } from "@/platform/env";
 
-import { environmentFromMarkerRows, type DeploymentEnvironment } from "./decisions";
+import { declaresProduction } from "./confinement";
+import { effectiveEnvironment, environmentFromMarkerRows, type DeploymentEnvironment } from "./decisions";
 
 /**
  * What `vppsone.deployment` says this database is: 'dev' or 'production'
@@ -48,6 +49,17 @@ async function readUncached(): Promise<DeploymentEnvironment> {
   } catch {
     return "production";
   }
+}
+
+/**
+ * What the guards should treat this deployment as: the marker, made stricter
+ * by the deployment's own declaration (VERCEL_ENV=production or
+ * VPPSONE_ENV=live) — see `effectiveEnvironment`. QA tool access and the fee
+ * writes mode use this, never the bare marker.
+ */
+export async function readEffectiveEnvironment(): Promise<DeploymentEnvironment> {
+  const marker = await readDeploymentEnvironment();
+  return effectiveEnvironment({ marker, declaredProduction: declaresProduction() });
 }
 
 /** For tests: forget the cached answer. */

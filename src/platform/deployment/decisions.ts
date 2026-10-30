@@ -18,7 +18,19 @@ export function environmentFromMarkerRows(rows: unknown): DeploymentEnvironment 
     : "production";
 }
 
-export type ToolAccess = { ok: true } | { ok: false; reason: string };
+/**
+ * The environment the guards act on: production when the database marker
+ * says so OR the deployment itself declares production (`declaresProduction`
+ * in confinement.ts). Only both saying "not production" is dev.
+ */
+export function effectiveEnvironment(input: {
+  marker: DeploymentEnvironment;
+  declaredProduction: boolean;
+}): DeploymentEnvironment {
+  return input.marker === "dev" && !input.declaredProduction ? "dev" : "production";
+}
+
+export type ToolAccess ={ ok: true } | { ok: false; reason: string };
 
 /**
  * May a QA / smoke-lab / day-run tool sign in as (or act for) this account?

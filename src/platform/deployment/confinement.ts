@@ -25,3 +25,20 @@ export function isConfinedDeployment(
 ): boolean {
   return env.VERCEL_ENV?.trim() !== "production";
 }
+
+/**
+ * Does this deployment declare itself production, whatever the database
+ * marker says? (D-346; review of PR #141)
+ *
+ * The marker (`vppsone.deployment`) is flipped to 'production' by the
+ * orchestrator at go-live. A Vercel production deployment, or one declared
+ * `VPPSONE_ENV=live`, that goes out before that flip must not run QA sign-in
+ * or open fee writes as if it were a dev box. So the guards treat either
+ * declaration as production too (`effectiveEnvironment`). Fail closed: this
+ * can only make a guard stricter, never looser.
+ */
+export function declaresProduction(
+  env: { readonly [name: string]: string | undefined } = process.env,
+): boolean {
+  return !isConfinedDeployment(env) || env.VPPSONE_ENV?.trim().toLowerCase() === "live";
+}

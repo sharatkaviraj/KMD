@@ -125,17 +125,17 @@ export async function testSignInAction(formData: FormData): Promise<void> {
   const account = TEST_ACCOUNTS.find((entry) => entry.key === formData.get("account"));
   if (!account) redirect("/login");
 
+  // Confined, not banned (D-346): on a production database only a test
+  // account signs in this way. Checked before any token is minted, so a
+  // refused account never gets one.
+  const { toolAccountAccess } = await import("@/platform/deployment/tool-access");
+  const access = await toolAccountAccess({ email: account.email });
+  if (!access.ok) redirect("/login?error=profile");
+
   const { createAdminClient } = await import("@/platform/supabase/admin");
   const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: account.email });
   const tokenHash = data?.properties?.hashed_token;
   if (error || !tokenHash) redirect("/login?error=link");
-
-  // Confined, not banned (D-346): on a production database only a test
-  // account signs in this way. Checked before the token is spent, so a refused
-  // account never gets a session.
-  const { toolAccountAccess } = await import("@/platform/deployment/tool-access");
-  const access = await toolAccountAccess({ userId: data.user?.id ?? null });
-  if (!access.ok) redirect("/login?error=profile");
 
   const supabase = await createClient();
   const verified = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: tokenHash });

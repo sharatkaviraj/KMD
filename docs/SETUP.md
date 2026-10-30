@@ -22,6 +22,9 @@ test work off real data is not the URL but two guards:
   scripts write only TEST-2026-27 data and test accounts
   (`scripts/target-guard.mjs#toolScope`: `read-only`, `test-scoped`, or
   `dev-only` = refuses production). `replicate-live.mjs` never runs there.
+  A deployment that declares itself production (`VERCEL_ENV=production` or
+  `VPPSONE_ENV=live`) is treated as production by these guards even while the
+  marker still says `dev` (`readEffectiveEnvironment`).
 - **Confined deployments** — anything but `VERCEL_ENV=production` —
   `isConfinedDeployment()` in `src/platform/deployment/confinement.ts`:
   every user is treated as a test account and fee writes go through only for
@@ -29,8 +32,10 @@ test work off real data is not the URL but two guards:
   On your machine that means a real-session payment is refused with
   "Fee changes are switched off here…" — post against a TEST-2026-27 student.
 - **Fee writes** on production need `app_settings.fee_writes_enabled = 'true'`
-  (D-345); the money functions check it themselves. TEST receipts are
-  numbered `TST…`.
+  (D-345); the money functions and BEFORE triggers on the money tables check
+  it themselves, for every API caller (anon, authenticated, service role).
+  Only the owner, as postgres in the SQL editor / MCP, can set that key — the
+  API is refused (`42501`). TEST receipts are numbered `TST…`.
 
 The fees app's live database `vgqyilgstjvgohrsiwkb` is never a target. Its
 local `.env.local` keys for this project were disabled on 30 Oct (owner
@@ -208,11 +213,20 @@ Two things follow:
   takes precedence, so a dashboard value that disagrees is silently ignored and
   the next person to read it is misled.
 
-## QA sign-in on dev
+## QA sign-in
 
 `npm run seed:dev` gives four of the QA accounts a `vppsone.staff_profiles`
-row — admin, teacher, office and view_only. It is idempotent, and it refuses to
-run against any project except `schoolfees-dev`.
+row — admin, teacher, office and view_only. It is idempotent, and it runs only
+against One's main project (`wtgxcptmucjerhufzjcf`). It is `test-scoped`
+(`toolScope`): while the database marker says `dev` it behaves as it always
+has; once the marker says `production` it creates and changes only
+`is_test_account` profiles and TEST-2026-27 data, and refuses anything else.
+
+Passwordless QA sign-in (`/login?…` with `QA_LOGIN_KEY`), the Smoke Lab and
+the day-run seats follow the same rule: on production they admit only
+`is_test_account` profiles, checked before any token is minted. Until Phase 3
+flags the QA accounts as test accounts, a production marker (or a Vercel
+production deployment) therefore refuses every QA sign-in — fail closed.
 
 `qa.director@qa.vpps.local` and `qa.collector@qa.vpps.local` are deliberately
 left without a profile: they are the "signed in, but not staff here" case, and
@@ -223,10 +237,18 @@ passwords came from a `TEST_STAFF_PASSWORD` that is not stored anywhere in
 either repo. Ask Janmejay for the current one, or set a new one from the
 Supabase dashboard (Authentication → Users). Never commit it.
 
-## Test data on dev
+## Test data
 
-Three scripts, in order. All three refuse to run against any project except
-`schoolfees-dev` (rule 3), and every name they write is invented (rule 6).
+Three scripts, in order. All three run only against One's main project
+(rule 3), and every name they write is invented (rule 6). All three are
+`test-scoped`: on a `dev` marker they seed the active session as before; on a
+`production` marker they write only into TEST-2026-27, about test-account
+staff only, and refuse otherwise. So on production the chain needs
+test-account teachers whose short names match the fixture timetable (Phase 3
+creates them) and TEST-2026-27 class aliases; `seed:timetable` then publishes
+the TEST-2026-27 timetable that `seed:scenarios` reads. On production
+`seed:scenarios` adds only missing message templates (never overwrites the
+school's) and queues no message.
 
 ```bash
 npm run seed:dev && npm run seed:timetable && npm run seed:scenarios
