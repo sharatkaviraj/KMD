@@ -1,5 +1,27 @@
 # VPPS One — progress
 
+## Go-live with the real 2026-27 data — started 30 October 2026
+
+Plan: `docs/cutover/GO-LIVE-2026-27-PLAN.md`, decisions D-338 to D-345. The
+plan replaces the shared-database cutover (`LIVE-MIGRATION-PLAN.md`), because
+the owner ruled out any change to the fee app's code or data. Phases 0–9 are
+engineering and run now; Phases 10–12 (rehearsals, cutover, parallel run) need
+the new Supabase project (cost: owner's yes), live read access, approved
+templates and the Razorpay webhook, and are dated around a proposed T0 of
+Sunday 13 Dec. Status per phase is kept in the table below.
+
+| Phase | Status | PR | Notes |
+|---|---|---|---|
+| 0 Plan and decisions | in review | — | This entry |
+| 1–2 Guards, importer, reconcile | not started | | |
+| 3 Session pill, TEST visibility | not started | | |
+| 4 Quarantine and promote | not started | | |
+| 5 Fee changes P1–P11 | not started | | |
+| 6 AiSensy parity and send gate | not started | | |
+| 7 Razorpay | not started | | |
+| 8 Staff WhatsApp | not started | | |
+| 9 Monitoring, env, runbooks | not started | | |
+
 ## The fee app at fees.vpps.co.in — 30 October 2026
 
 The owner asked for School Fees on `fees.vpps.co.in` the same way (D-337,
