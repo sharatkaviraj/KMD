@@ -1,5 +1,18 @@
 # VPPS One — progress
 
+## The fee app at fees.vpps.co.in — 30 October 2026
+
+The owner asked for School Fees on `fees.vpps.co.in` the same way (D-337,
+`docs/DOMAIN.md`). The domain, Cloudflare CNAME and certificate were already in
+place from earlier that morning. Done now: the fee app's production
+`NEXT_PUBLIC_SITE_URL` and the live Supabase Site URL moved to
+`https://fees.vpps.co.in`, with `https://fees.vpps.co.in/**` added to its
+redirect URLs, and the fee app redeployed. Here: `VERIFIED_ORIGINS.schoolfees`
+and PARITY.md, so VPPS One's links to the fee app open on the new address.
+Kept on `schoolfees-two.vercel.app` on purpose: the Meta-approved Pay now
+buttons, the Razorpay webhook and the MCP worker's site URL, so that host must
+never redirect.
+
 ## VPPS One at one.vpps.co.in — 30 October 2026
 
 The owner asked for the app on the school's own subdomain (D-336, runbook

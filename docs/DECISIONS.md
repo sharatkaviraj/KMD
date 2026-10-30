@@ -4,6 +4,7 @@
 
 | Decision | Outcome | Evidence and reason |
 |---|---|---|
+| D-337 | **The fee app's address is `https://fees.vpps.co.in`; VPPS One links there.** `schoolfees-two.vercel.app` and `vpps-one.vercel.app` keep serving the same deployment and must never redirect. | Every approved WhatsApp template's Pay now button is fixed by Meta at `https://schoolfees-two.vercel.app/pay/{{n}}`, and the Razorpay webhook posts there; moving either needs a template resubmission or a webhook edit, so they stay. The fee app's production `NEXT_PUBLIC_SITE_URL` and the live Supabase Site URL moved to the new address (old hosts stay in the redirect list). Details: `docs/DOMAIN.md`. |
 | D-336 | **VPPS One is served at `https://one.vpps.co.in`, the same Vercel deployment as `vppsone.vercel.app`, which keeps answering with no redirect.** Receipts, QR codes and messages use the new address from the next production build; preview deployments keep linking to themselves. | The owner asked for it on 30 Oct. A redirect would move everyone at once but break the smoke scripts and any open tab, so it waits until staff have moved. DNS is grey-cloud like `fees.vpps.co.in`, because a Cloudflare proxy in front of Vercel stops Vercel renewing its certificate. Supabase Site URL is untouched: sign-in never redirects through Supabase and schoolfees-dev also serves local development. Runbook and rollback: `docs/DOMAIN.md`. |
 
 ## One central store and nightly backups in Drive — 2026-10-28

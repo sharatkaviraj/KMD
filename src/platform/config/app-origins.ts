@@ -7,8 +7,9 @@
  * from a repository name or copied from an older note, because two of the
  * guesses a reader would make are wrong:
  *
- * - The fee app is served at `vpps-one.vercel.app`. The name that looks like
- *   it — `schoolfees.vercel.app` — answers 200 with `<title>Ecolage
+ * - The fee app is served at `fees.vpps.co.in` (since 2026-10-30; before that
+ *   `vpps-one.vercel.app`, which still answers). The name that looks like
+ *   it —`schoolfees.vercel.app` — answers 200 with `<title>Ecolage
  *   Desktop</title>` and belongs to somebody else entirely.
  * - SamPark is served at `sampark-theta-eight.vercel.app`. `sampark.vercel.app`
  *   answers 500 and is not ours either.
@@ -103,12 +104,14 @@ export const VERIFIED_ORIGINS: readonly VerifiedOrigin[] = [
   },
   {
     appId: "schoolfees",
-    origin: "https://vpps-one.vercel.app",
+    // The school's own subdomain since 30 Oct 2026 (D-337). Same deployment
+    // as `vpps-one.vercel.app` and `schoolfees-two.vercel.app`, both kept.
+    origin: "https://fees.vpps.co.in",
     environment: "live",
     vercelProject: "schoolfees",
     probePath: "/",
     identifiedBy: "Fee Admin",
-    verifiedOn: "2026-09-17",
+    verifiedOn: "2026-10-30",
   },
   {
     appId: "sampark",

@@ -73,6 +73,32 @@ Undo in reverse, any subset:
 - Delete the Cloudflare record and remove the domain from the Vercel project.
   `vppsone.vercel.app` was never touched, so staff can go straight back to it.
 
+## The fee app at `fees.vpps.co.in` (D-337)
+
+The same pattern on Vercel project `schoolfees`: `CNAME fees →
+c81256801d839531.vercel-dns-017.com`, DNS only, certificate by Vercel. Its
+production `NEXT_PUBLIC_SITE_URL` is `https://fees.vpps.co.in` (it was
+`https://schoolfees-two.vercel.app`). The live Supabase project
+(`vgqyilgstjvgohrsiwkb`) has Site URL `https://fees.vpps.co.in` (it was
+`https://schoolfees-veerpattas-projects.vercel.app/`, still in the redirect
+list) and `https://fees.vpps.co.in/**` added to Redirect URLs, so a password
+reset asked for on the new address comes back to it.
+
+What stays on `schoolfees-two.vercel.app`, on purpose:
+
+- **WhatsApp Pay now buttons.** Meta fixed the base URL of every approved
+  template at `https://schoolfees-two.vercel.app/pay/{{n}}`. Moving it means
+  resubmitting each template for approval.
+- **The Razorpay webhook**, `https://schoolfees-two.vercel.app/api/webhooks/razorpay`.
+- **The MCP worker's** `NEXT_PUBLIC_SITE_URL` in `workers/schoolfees-mcp/wrangler.toml`.
+
+So `schoolfees-two.vercel.app` must keep answering, with no redirect, for as
+long as any of those point at it. The pay page builds its links from the host
+it was opened on, so a parent who arrives from WhatsApp is returned there.
+
+`VERIFIED_ORIGINS.schoolfees` is `https://fees.vpps.co.in`, so VPPS One's
+links to the fee app open there; staff sign in once on that address.
+
 ## Later, not now
 
 Redirecting `vppsone.vercel.app` to the new address would move everybody at
