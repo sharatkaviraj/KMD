@@ -20,7 +20,8 @@
  *   terminal          counts per category and per table/action (no names)
  *   private folder    %USERPROFILE%\.vppsone-migration\rollback-<ts>\
  *                       detail.ndjson   one line per change (before/after rows)
- *                       detail.csv      category, table, id, action, when, by
+ *                       detail.csv      procedure (R1…R12, docs/cutover/ROLLBACK-REENTRY.md),
+ *                                       category, table, id, action, when, by — in re-entry order
  *                       summary.json    the counts
  * TEST-session changes are counted separately and are not part of the
  * re-entry list. Re-entering anything in the fees app is an owner-approved
@@ -43,6 +44,35 @@ import { openOneDb } from "./lib/one-db.mjs";
 import { ident, prepareTransaction } from "./lib/one-target.mjs";
 import { afterWatermark } from "./lib/tail.mjs";
 import { resolveWatermark } from "./lib/watermark.mjs";
+
+/**
+ * Each category's re-entry procedure in docs/cutover/ROLLBACK-REENTRY.md,
+ * in the order they are re-entered (`R1` first). detail.csv carries the id,
+ * so every line of the sheet points at the steps for it.
+ */
+export const ROLLBACK_PROCEDURES = {
+  admissions: "R1",
+  leavers: "R1",
+  "student edits": "R1",
+  "concessions and fee overrides": "R2",
+  "family links": "R3",
+  "EMI plans": "R4",
+  receipts: "R5",
+  "receipt allocations": "R5",
+  "online payments": "R5",
+  "write-offs": "R6",
+  "late-fee waivers": "R7",
+  "reversals and adjustments": "R8",
+  refunds: "R9",
+  "contacts and promises": "R10",
+  "reminder sends and notices": "R11",
+  other: "R12",
+};
+
+/** The procedure id for a category (R12, by hand, when unknown). Pure. */
+export function rollbackProcedure(category) {
+  return ROLLBACK_PROCEDURES[category] ?? "R12";
+}
 
 /** Which re-entry list a change belongs to. Pure. */
 export function rollbackCategory(table, row, action, before) {
@@ -165,12 +195,15 @@ async function main() {
     const category = rollbackCategory(change.table, change.after ?? change.row, change.action, change.before);
     summary.categories[category] = (summary.categories[category] ?? 0) + 1;
     summary.perTable[key] = (summary.perTable[key] ?? 0) + 1;
-    detail.push({ category, ...change });
+    detail.push({ procedure: rollbackProcedure(category), category, ...change });
   }
+  // In re-entry order (R1 … R12), then by time within a procedure.
+  const rank = (p) => Number(String(p).slice(1));
+  detail.sort((a, b) => rank(a.procedure) - rank(b.procedure) || String(a.at ?? "").localeCompare(String(b.at ?? "")));
 
   const dir = runDir(`rollback-${newRunId()}`);
   writeFileSync(path.join(dir, "detail.ndjson"), detail.map((d) => JSON.stringify(d)).join("\n") + (detail.length ? "\n" : ""));
-  const csv = ["category,table,id,action,at,by,source", ...detail.map((d) => [d.category, d.table, d.id, d.action, d.at ?? "", d.by ?? "", d.source].join(","))];
+  const csv = ["procedure,category,table,id,action,at,by,source", ...detail.map((d) => [d.procedure, d.category, d.table, d.id, d.action, d.at ?? "", d.by ?? "", d.source].join(","))];
   writeFileSync(path.join(dir, "detail.csv"), csv.join("\n") + "\n");
   writeFileSync(path.join(dir, "summary.json"), JSON.stringify(summary, null, 2));
 

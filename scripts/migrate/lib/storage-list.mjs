@@ -26,6 +26,11 @@ export async function listBucket(files, prefix = "") {
   }
 }
 
+/** Is this listing error "the bucket does not exist" (the only one that means empty)? Pure. */
+export function isBucketMissing(error) {
+  return /bucket not found|not_found/i.test(String(error?.message ?? error ?? ""));
+}
+
 /** Count and bytes. Pure. */
 export function storageTotals(objects) {
   return { count: objects.length, bytes: objects.reduce((n, o) => n + o.size, 0) };

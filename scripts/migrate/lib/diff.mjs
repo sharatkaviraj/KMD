@@ -167,6 +167,11 @@ export function planLoad({ meta, source, target, idMap = [], oneOwned = [], firs
   // 4. Blocked deletes: a row that stays must not lose its parent.
   const blocked = blockReferencedDeletes({ meta, tables, finalState, targetRows });
 
+  // 4b. Rows that stay but are re-pointed away from a parent being deleted:
+  // the delete runs first and its ON DELETE action (cascade, set null,
+  // restrict) would hit them. load-snapshot nulls their FK first.
+  const repoint = findRepointedChildren({ meta, tables, targetRows });
+
   // 5. Predicted orphans, external references, unique conflicts.
   const { orphans, external } = predictOrphans({ meta, finalState, loaded: new Set(loadable) });
   const uniqueConflicts = predictUniqueConflicts({ meta, finalState, loaded: loadable });
@@ -180,7 +185,57 @@ export function planLoad({ meta, source, target, idMap = [], oneOwned = [], firs
     plan.delete.sort(comparePk);
   }
 
-  return { tables, loadable, notInOne, skipped, blocked, orphans, external, uniqueConflicts, order, deferred, testSource, testTarget, protectedTarget };
+  return { tables, loadable, notInOne, skipped, blocked, repoint, orphans, external, uniqueConflicts, order, deferred, testSource, testTarget, protectedTarget };
+}
+
+/**
+ * Child rows that stay but whose CURRENT foreign key points at a parent the
+ * plan deletes (a re-anchored or merged student: the child moves from P to
+ * P2 while P goes). Deletes run before updates, so the DELETE of P would
+ * cascade the child away (or null it, or fail on restrict) and its later
+ * UPDATE would match nothing — a row silently missing after a "successful"
+ * load. blockReferencedDeletes cannot see this: it looks at the child's
+ * FINAL state, which points at P2.
+ *
+ * Per constraint: the child keys, whether the FK columns can be nulled first
+ * (load-snapshot does that before any delete; the UPDATE then writes the
+ * final value), and how many of them the plan does not update (must be 0).
+ */
+export function findRepointedChildren({ meta, tables, targetRows }) {
+  const out = [];
+  for (const fk of publicFks(meta)) {
+    const parentPlan = tables[fk.parent];
+    if (!parentPlan || parentPlan.delete.length === 0) continue;
+    const parentPk = meta.tables[fk.parent]?.pk;
+    const childPk = meta.tables[fk.child]?.pk;
+    if (!parentPk || !childPk) continue;
+    const parentTarget = new Map((targetRows.get(fk.parent) ?? []).map((row) => [pkKey(row, parentPk), row]));
+    const deleted = new Set(parentPlan.delete.map((key) => tupleOf(parentTarget.get(key), fk.parentCols)).filter(Boolean));
+    if (deleted.size === 0) continue;
+    const childPlan = tables[fk.child];
+    const childDeleted = new Set(childPlan?.delete ?? []);
+    const childUpdated = new Set(childPlan?.update ?? []);
+    const keys = [];
+    for (const row of targetRows.get(fk.child) ?? []) {
+      const tuple = tupleOf(row, fk.childCols);
+      if (!tuple || !deleted.has(tuple)) continue;
+      const key = pkKey(row, childPk);
+      if (childDeleted.has(key)) continue; // goes too, children first
+      keys.push(key);
+    }
+    if (keys.length === 0) continue;
+    keys.sort(comparePk);
+    out.push({
+      constraint: fk.name,
+      child: fk.child,
+      columns: fk.childCols,
+      nullable: Boolean(fk.nullable),
+      onDelete: fk.onDelete ?? null,
+      keys,
+      notUpdated: keys.filter((k) => !childUpdated.has(k)).length,
+    });
+  }
+  return out;
 }
 
 function tupleOf(row, cols) {
@@ -333,6 +388,7 @@ export function summarizePlan(plan) {
     notInOne: plan.notInOne,
     skipped: plan.skipped,
     blockedDeletes: plan.blocked.length,
+    repointed: (plan.repoint ?? []).map((r) => ({ constraint: r.constraint, rows: r.keys.length, nullable: r.nullable, notUpdated: r.notUpdated })),
     predictedOrphans: plan.orphans,
     uniqueConflicts: plan.uniqueConflicts,
     deferred: plan.deferred,

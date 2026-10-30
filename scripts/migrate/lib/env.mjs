@@ -71,13 +71,32 @@ export function runDir(runId, { create = true } = {}) {
   return dir;
 }
 
-/** The newest run folder that holds a finished extract, or null. */
-export function latestRunId() {
-  if (!existsSync(MIGRATION_HOME)) return null;
-  const runs = readdirSync(MIGRATION_HOME)
-    .filter((name) => existsSync(path.join(MIGRATION_HOME, name, "manifest.json")))
-    .sort();
-  return runs.at(-1) ?? null;
+/**
+ * The newest COMPLETE extract, or null: the manifest with the latest
+ * `finishedAt` — never a sort of folder names. Run ids are free text, so
+ * '20261030-a2-first' or 'rehearsal-1' would sort above every newer
+ * timestamped run (the CLAUDE.md rule 3a mistake). A `--tables` subset
+ * (`manifest.subset`) is never "the latest extract". load-snapshot --apply
+ * does not use this at all: it needs an explicit --run.
+ */
+export function latestRunId(home = MIGRATION_HOME) {
+  if (!existsSync(home)) return null;
+  let best = null;
+  for (const name of readdirSync(home)) {
+    const file = path.join(home, name, "manifest.json");
+    if (!existsSync(file)) continue;
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      continue;
+    }
+    if (manifest?.subset || !manifest?.finishedAt) continue;
+    const at = Date.parse(manifest.finishedAt);
+    if (Number.isNaN(at)) continue;
+    if (!best || at > best.at) best = { name, at };
+  }
+  return best?.name ?? null;
 }
 
 /** True when `moduleUrl` is the script node was started with (so tests can import it). */

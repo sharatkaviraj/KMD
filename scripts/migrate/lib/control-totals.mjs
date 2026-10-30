@@ -157,6 +157,69 @@ export function sessionMoneySummary(financialRows, sessionLabel) {
   };
 }
 
+/**
+ * The MCP's `yearSplit` block: current year against previous-year
+ * carry-forward, split on `is_carry_forward`, never on session_label.
+ * Ported from the fee schema's `public.get_dashboard_fee_split(p_session_label)`
+ * (the RPC the MCP's get_session_money_summary calls; read from wtgx, which
+ * matches live per docs/cutover/SCHEMA-PARITY.md) and the MCP's shaping in
+ * workers/schoolfees-mcp/src/tools/money.mjs. What changed: the SQL runs
+ * here over rows already extracted — `v_workbook_installment_balances`,
+ * `students`, `classes`, `payments`, `receipts` — because the sealed reader
+ * cannot call an RPC. Arithmetic unchanged:
+ *   scope   balance rows of the session, class active, and the student active
+ *           OR with any payment on a non-discount receipt;
+ *   collected against base = least(greatest(applied, 0), base_charge);
+ *   late fee pending = greatest(late_fee_pending, 0), current year only.
+ * Pure.
+ */
+/**
+ * @param {{ balances?: any[], students?: any[], classes?: any[], payments?: any[], receipts?: any[] }} inputs
+ * @param {string} sessionLabel
+ * @param {{ exclude?: Set<string> }} [options]
+ */
+export function sessionYearSplit({ balances = [], students = [], classes = [], payments = [], receipts = [] }, sessionLabel, { exclude = new Set() } = {}) {
+  const classStatus = new Map(classes.map((c) => [String(c.id), c.status]));
+  const studentStatus = new Map(students.map((s) => [String(s.id), s.status]));
+  const receiptMode = new Map(receipts.map((r) => [String(r.id), r.payment_mode]));
+  const paidSomething = new Set(payments.filter((p) => receiptMode.has(String(p.receipt_id)) && receiptMode.get(String(p.receipt_id)) !== "discount").map((p) => String(p.student_id)));
+
+  const sums = { cyExpected: 0, cyCollected: 0, cyPending: 0, pyOriginal: 0, pyCollected: 0, pyPending: 0, latePending: 0 };
+  for (const b of balances) {
+    if (b.session_label !== sessionLabel) continue;
+    const studentId = String(b.student_id);
+    if (exclude.has(studentId)) continue;
+    if (classStatus.get(String(b.class_id)) !== "active") continue;
+    if (!studentStatus.has(studentId)) continue;
+    if (studentStatus.get(studentId) !== "active" && !paidSomething.has(studentId)) continue;
+    const base = Number(b.base_charge ?? 0);
+    const collected = Math.min(Math.max(Number(b.applied_amount ?? 0), 0), base);
+    const pending = Number(b.pending_amount ?? 0);
+    if (b.is_carry_forward === true) {
+      sums.pyOriginal += base;
+      sums.pyCollected += collected;
+      sums.pyPending += pending;
+    } else {
+      sums.cyExpected += base;
+      sums.cyCollected += collected;
+      sums.cyPending += pending;
+      sums.latePending += Math.max(Number(b.late_fee_pending ?? 0), 0);
+    }
+  }
+  return {
+    currentYear: { expected: number(sums.cyExpected), collected: number(sums.cyCollected), pending: number(sums.cyPending) },
+    previousYear: { originalBalance: number(sums.pyOriginal), collected: number(sums.pyCollected), pending: number(sums.pyPending) },
+    lateFeePending: number(sums.latePending),
+  };
+}
+
+/** Year-split fields the MCP reports, compared field by field. */
+export const MCP_YEAR_SPLIT_FIELDS = [
+  ["currentYear", "expected"], ["currentYear", "collected"], ["currentYear", "pending"],
+  ["previousYear", "originalBalance"], ["previousYear", "collected"], ["previousYear", "pending"],
+  ["lateFeePending"],
+];
+
 /** Per-class rollups for one session, money scope. */
 export function classRollups(financialRows, sessionLabel) {
   return groupFinancialRows(
@@ -200,6 +263,17 @@ export function compareWithMcp(ours, theirs) {
     const b = theirs?.money?.moneySegments?.[segment];
     if (b === undefined) continue;
     if (a !== b) out.push({ field: `money.moneySegments.${segment}`, ours: a, theirs: b });
+  }
+  if (theirs?.yearSplit) {
+    if (!ours?.yearSplit) out.push({ field: "yearSplit", ours: "not computed (extract has no v_workbook_installment_balances)", theirs: "present" });
+    else {
+      for (const fieldPath of MCP_YEAR_SPLIT_FIELDS) {
+        const a = fieldPath.reduce((o, k) => o?.[k], ours.yearSplit);
+        const b = fieldPath.reduce((o, k) => o?.[k], theirs.yearSplit);
+        if (b === undefined) continue;
+        if (a !== b) out.push({ field: `yearSplit.${fieldPath.join(".")}`, ours: a, theirs: b });
+      }
+    }
   }
   return out;
 }

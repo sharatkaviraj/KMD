@@ -126,11 +126,15 @@ export function classifyTailChange(table, row, { op, receiptModes } = {}) {
  * What tail-sync does with one live row, given what One already holds:
  *   'review'   a fees receipt: recorded in vppsone.tail_receipts_review,
  *              never inserted (critique0 #8)
- *   'evidence' payments, captures, audit, lines that settled a fees receipt:
+ *   'evidence' payments, captures, audit, and the order lines and intents
+ *              that settled a fees receipt (their receipt_id names a receipt
+ *              that is in the review queue, never in public.receipts):
  *              attached to that receipt's review row
- *   'upsert'   online_payment_events, on provider_event_id, fees row wins
- *              (critique1 A7)
- *   'insert'   absent in One and safe to add as it is (after terminal rules)
+ *   'upsert'   online_payment_events, on provider_event_id; the fees row
+ *              replaces only One's 'ignored' twin (critique1 A7)
+ *   'insert'   absent in One; inserted after the terminal rules, in
+ *              TAIL_INSERT_ORDER, if every foreign-key parent is in One or
+ *              in the same batch (planTailInserts) — else deferred
  *   'skip'     already in One (insert-only: updates are not applied), or a
  *              table tail-sync never writes (notification_outbox, …)
  *   'defer'    a send whose receipt is not in One
@@ -149,12 +153,15 @@ export function tailAction(table, row, { existsInOne = false, receiptInOne = () 
     case "online_payment_audit":
       return "evidence";
     case "online_payment_order_lines":
+    case "online_payment_intents":
+      // An accounted intent or a paid line points at the fees receipt that
+      // went to the review queue: inserting it would violate its receipt FK.
       if (row?.receipt_id && !receiptInOne(row.receipt_id)) return "evidence";
       return existsInOne ? "skip" : "insert";
     case "online_payment_events":
       return "upsert";
     case "online_payment_orders":
-    case "online_payment_intents":
+    case "whatsapp_campaign_runs":
       return existsInOne ? "skip" : "insert";
     case "whatsapp_reminder_sends":
     case "school_notice_sends":
@@ -166,13 +173,88 @@ export function tailAction(table, row, { existsInOne = false, receiptInOne = () 
   }
 }
 
+/**
+ * Insert order, parents first: a send's run, then sends, then the orders
+ * and intents that hang off a send, then order lines (FKs read from wtgx,
+ * 30 Oct: orders.send_id, intents.send_id -> whatsapp_reminder_sends;
+ * sends.run_id -> whatsapp_campaign_runs; lines.order_id -> orders).
+ */
+export const TAIL_INSERT_ORDER = [
+  "whatsapp_campaign_runs",
+  "whatsapp_reminder_sends",
+  "school_notice_sends",
+  "online_payment_orders",
+  "online_payment_intents",
+  "online_payment_order_lines",
+];
+
+/**
+ * Which candidate rows can be inserted, in TAIL_INSERT_ORDER, and which wait.
+ * A row is inserted only when every non-null foreign key it carries points at
+ * a row that is in One (`parentExists`) or is inserted earlier in this batch;
+ * otherwise it is deferred with the reasons (a send for a student admitted in
+ * the fees app after T0, an order on a deferred send, …). Deferred rows are
+ * read again by the next tail-sync, which sees every change since the
+ * watermark. `ON CONFLICT DO NOTHING` does not catch a foreign-key violation,
+ * so without this one such row rolled back the whole apply. Pure.
+ *
+ *   candidates: { table: rows[] }
+ *   fks: catalog FKs whose child is in `public`: [{ name, child, childCols,
+ *        parentSchema, parent, parentCols }]
+ *   parentExists(schema, table, column, value) -> boolean
+ */
+/**
+ * @param {Record<string, any[]>} candidates
+ * @param {{ fks: any[], parentExists: (schema: string, table: string, column: string, value: string) => boolean }} options
+ * @returns {{ insert: Record<string, any[]>, defer: Record<string, Array<{ row: any, missing: string[] }>> }}
+ */
+export function planTailInserts(candidates, { fks, parentExists }) {
+  /** @type {Record<string, any[]>} */
+  const insert = {};
+  /** @type {Record<string, Array<{ row: any, missing: string[] }>>} */
+  const defer = {};
+  const batch = new Map(); // "table.column" -> Set of values inserted in this batch
+  const inBatch = (table, column, value) => batch.get(`${table}.${column}`)?.has(value) ?? false;
+  for (const table of TAIL_INSERT_ORDER) {
+    const tableFks = fks.filter((fk) => fk.child === table && (fk.childSchema ?? "public") === "public");
+    for (const row of candidates[table] ?? []) {
+      const missing = [];
+      for (const fk of tableFks) {
+        if (fk.childCols.length !== 1) {
+          if (fk.childCols.some((c) => row?.[c] != null)) missing.push(`${fk.name} (multi-column, unchecked)`);
+          continue;
+        }
+        const value = row?.[fk.childCols[0]];
+        if (value === null || value === undefined) continue;
+        const v = String(value);
+        const schema = fk.parentSchema ?? "public";
+        if (schema === "public" && inBatch(fk.parent, fk.parentCols[0], v)) continue;
+        if (parentExists(schema, fk.parent, fk.parentCols[0], v)) continue;
+        missing.push(`${fk.childCols[0]} -> ${schema}.${fk.parent}`);
+      }
+      if (missing.length) {
+        (defer[table] ??= []).push({ row, missing });
+        continue;
+      }
+      (insert[table] ??= []).push(row);
+      for (const [column, value] of Object.entries(row ?? {})) {
+        if (value === null || value === undefined || typeof value === "object") continue;
+        const key = `${table}.${column}`;
+        if (!batch.has(key)) batch.set(key, new Set());
+        batch.get(key).add(String(value));
+      }
+    }
+  }
+  return { insert, defer };
+}
+
 /** A review row from a fees receipt and its evidence. Ids and amounts only. */
 /**
  * @param {any} receipt
- * @param {{ payments?: any[], lines?: any[], captures?: any[] }} evidence
+ * @param {{ payments?: any[], lines?: any[], captures?: any[], intents?: any[] }} evidence
  * @param {string} sourceProject
  */
-export function reviewRow(receipt, { payments = [], lines = [], captures = [] } = {}, sourceProject) {
+export function reviewRow(receipt, { payments = [], lines = [], captures = [], intents = [] } = {}, sourceProject) {
   return {
     source_project: sourceProject,
     fees_receipt_id: receipt.id,
@@ -194,6 +276,9 @@ export function reviewRow(receipt, { payments = [], lines = [], captures = [] } 
       captures: captures
         .filter((c) => c.receipt_id === receipt.id)
         .map((c) => ({ id: c.id, provider_payment_id: c.provider_payment_id, amount_paise: c.amount_paise, application_status: c.application_status })),
+      intents: intents
+        .filter((i) => i.receipt_id === receipt.id)
+        .map((i) => ({ id: i.id, status: i.status, amount_rupees: i.amount_rupees, provider_link_id: i.provider_link_id ?? null })),
     },
   };
 }

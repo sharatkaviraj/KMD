@@ -130,6 +130,10 @@ describe("the wire seal", () => {
     expect(isReadOnlyRequest(`${URL_FEES}/storage/v1/object/student-photos`, "DELETE")).toBe(false);
     expect(isReadOnlyRequest(`${URL_FEES}/storage/v1/object/move`, "POST")).toBe(false);
     expect(isReadOnlyRequest(`${URL_FEES}/auth/v1/admin/users`, "POST")).toBe(false);
+    // An upload whose path only CONTAINS a read path is still an upload.
+    expect(isReadOnlyRequest(`${URL_FEES}/storage/v1/object/student-photos/x/storage/v1/object/list/y`, "POST")).toBe(false);
+    expect(isReadOnlyRequest(`${URL_FEES}/storage/v1/object/student-photos/storage/v1/object/sign/y`, "POST")).toBe(false);
+    expect(isReadOnlyRequest(`${URL_FEES}/storage/v1/object/list/student-photos/extra`, "POST")).toBe(false);
   });
 
   it("throws before sending a write, even from a raw client that escaped the surface", async () => {

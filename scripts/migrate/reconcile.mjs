@@ -7,6 +7,8 @@
  *   node scripts/migrate/reconcile.mjs --live           # One against live, read now
  *     --as-of YYYY-MM-DD    the date both sides' late fees are evaluated at
  *     --no-storage          skip the bucket listing
+ *     --allow-stale-matview go on (with a warning) when either side's matviews
+ *                           are not of the as-of day
  *
  * The fees side is the run's NDJSON (default, the snapshot a load used) or a
  * fresh read through the sealed client (--live). One's side is one READ ONLY
@@ -30,8 +32,18 @@
  *   6. the online invariant: captured = on receipts + in review + waiting;
  *   7. WhatsApp: sends per status and kind, school notices, outbox;
  *   8. EMI late fees per session as their own line;
- *   9. storage: objects and bytes per copied bucket.
+ *   9. storage: objects and bytes per copied bucket;
+ *  10. live data One has no place for (tables with rows, columns) beyond the
+ *      NOT_MIGRATED allow-list;
+ *  11. the year split per real session (the MCP's yearSplit);
+ *  12. event twins (critique1 A7): every fees event 'processed' after the
+ *      watermark has a One twin that is not 'ignored', or its payment is in
+ *      One as a capture or in vppsone.tail_receipts_review.
  * TEST-session figures are printed for information and never fail the run.
+ *
+ * Freshness: reconcile refuses unless the fees matviews were fresh at the
+ * extract (manifest.matviewFreshness; the queue's pending flag with --live)
+ * and One's were refreshed on the as-of day with nothing pending.
  *
  * As-of: late fees depend on the date. Both sides are read from their
  * student-financials matviews, which are evaluated on the day they were last
@@ -51,7 +63,9 @@ import { readCatalog } from "./lib/catalog.mjs";
 import { planLoad } from "./lib/diff.mjs";
 import { isMain, latestRunId, loadFeesSecrets, loadOneEnv, newRunId, parseArgs, runDir } from "./lib/env.mjs";
 import { openFeesReadOnly } from "./lib/fees-readonly.mjs";
-import { EXTRACT_VIEWS, readAllRows, readNdjson, readRunTables, relationsFromOpenApi } from "./lib/live-read.mjs";
+import { sessionYearSplit } from "./lib/control-totals.mjs";
+import { unmigratedSourceData } from "./lib/import-rules.mjs";
+import { EXTRACT_VIEWS, readAllRows, readNdjson, readRunTables, relationsFromOpenApi, viewKey } from "./lib/live-read.mjs";
 import { openOneDb } from "./lib/one-db.mjs";
 import { ident, prepareTransaction, readIdMap, readOneOwned, readPublicTables } from "./lib/one-target.mjs";
 import {
@@ -59,11 +73,14 @@ import {
   countBy,
   differingKeys,
   emiLateFees,
+  eventTwinViolations,
   moneyBySession,
+  oneMatviewFresh,
   onlineInvariant,
   receiptFigures,
   studentChecksums,
 } from "./lib/reconcile-checks.mjs";
+import { resolveWatermark } from "./lib/watermark.mjs";
 import { orderedMd5, pkKey } from "./lib/rows.mjs";
 import { COPIED_BUCKETS, listBucket, storageTotals } from "./lib/storage-list.mjs";
 import { FEES_SOURCE_PROJECT_REF } from "../target-guard.mjs";
@@ -79,13 +96,17 @@ async function readSource(args) {
     const source = new Map();
     for (const t of tables) source.set(t.name, await readAllRows(fees, t.name, t.pk));
     const viewRows = {};
-    for (const v of views.filter((x) => EXTRACT_VIEWS.includes(x.name))) viewRows[v.name] = await readAllRows(fees, v.name, v.pk);
+    for (const v of views.filter((x) => EXTRACT_VIEWS.includes(x.name))) viewRows[v.name] = await readAllRows(fees, v.name, viewKey(v));
     let storage = null;
     if (!args["no-storage"]) {
       storage = {};
       for (const bucket of COPIED_BUCKETS) storage[bucket] = storageTotals(await listBucket(fees.storage.from(bucket)));
     }
-    return { label: "live (read now)", source, viewRows, storage, sourceDate: istDate(new Date().toISOString()) };
+    const tableInfo = tables.map((t) => ({ name: t.name, columns: t.columns, rowCount: source.get(t.name).length }));
+    // No fingerprint on a live read: the queue's own pending flag is the test.
+    const queue = source.get("workbook_materialized_view_refresh_queue") ?? [];
+    const freshness = queue.length && !queue.some((r) => r.pending === true) ? { ok: true } : { ok: false, reason: queue.length ? "a fees matview refresh is pending" : "no fees refresh-queue row" };
+    return { label: "live (read now)", source, viewRows, storage, tableInfo, freshness, sourceDate: istDate(new Date().toISOString()) };
   }
   const runId = typeof args.run === "string" ? args.run : latestRunId();
   if (!runId) throw new Error("No extract run found; pass --run or --live.");
@@ -94,14 +115,16 @@ async function readSource(args) {
   if (manifest.sourceProject !== FEES_SOURCE_PROJECT_REF) throw new Error("The run's manifest is not from the fees project.");
   const source = await readRunTables(run, manifest);
   const viewRows = {};
-  for (const name of EXTRACT_VIEWS) viewRows[name] = (await readNdjson(path.join(run, "views", `${name}.ndjson`))) ?? [];
+  // null when the run predates a view (v_workbook_installment_balances): that check is skipped, not failed.
+  for (const name of EXTRACT_VIEWS) viewRows[name] = await readNdjson(path.join(run, "views", `${name}.ndjson`));
   let storage = null;
   if (!args["no-storage"]) {
     const fees = openFeesReadOnly(loadFeesSecrets());
     storage = {};
     for (const bucket of COPIED_BUCKETS) storage[bucket] = storageTotals(await listBucket(fees.storage.from(bucket)));
   }
-  return { label: `extract ${runId}`, run, source, viewRows, storage, sourceDate: istDate(manifest.finishedAt) };
+  const freshness = manifest.matviewFreshness ?? { ok: false, reason: "the run predates the freshness record (extract again)" };
+  return { label: `extract ${runId}`, run, source, viewRows, storage, tableInfo: manifest.tables, freshness, sourceDate: istDate(manifest.finishedAt) };
 }
 
 async function readOne(sql, source) {
@@ -124,7 +147,17 @@ async function readOne(sql, source) {
       group by bucket_id`;
     const storage = Object.fromEntries(COPIED_BUCKETS.map((b) => [b, { count: 0, bytes: 0 }]));
     for (const r of storageRows) storage[r.bucket_id] = { count: r.count, bytes: Number(r.bytes) };
-    return { meta, target, idMap, oneOwned, views, storage };
+    const queue = meta.tables.workbook_materialized_view_refresh_queue
+      ? await tx`select pending, last_refreshed_at::text as last_refreshed_at from public.workbook_materialized_view_refresh_queue`
+      : [];
+    const reviewRows = await tx`select evidence from vppsone.tail_receipts_review`;
+    let watermark = null;
+    try {
+      watermark = await resolveWatermark({ sql: tx });
+    } catch {
+      watermark = null;
+    }
+    return { meta, target, idMap, oneOwned, views, storage, queue, reviewRows, watermark };
   });
 }
 
@@ -138,12 +171,26 @@ async function main() {
     );
   }
 
+  // Both sides' money figures come from matviews: both must be of the as-of
+  // day, or a match (or a mismatch) means nothing.
+  const allowStale = Boolean(args["allow-stale-matview"]);
+  if (!src.freshness?.ok) {
+    const text = `the fees matviews in ${src.label} were not fresh (${src.freshness?.reason ?? "unknown"})`;
+    if (!allowStale) throw new Error(`${text}; extract again, or pass --allow-stale-matview.`);
+    console.log(`warning: ${text}; going on (--allow-stale-matview).`);
+  }
+
   const sql = await openOneDb(loadOneEnv());
   let one;
   try {
     one = await readOne(sql, src.source);
   } finally {
     await sql.end();
+  }
+  const oneFresh = oneMatviewFresh(one.queue, asOf);
+  if (!oneFresh.ok) {
+    if (!allowStale) throw new Error(`${oneFresh.reason}; refresh them (a load does) and run again, or pass --allow-stale-matview.`);
+    console.log(`warning: ${oneFresh.reason}; going on (--allow-stale-matview).`);
   }
 
   const plan = planLoad({ meta: one.meta, source: src.source, target: one.target, idMap: one.idMap, oneOwned: one.oneOwned, firstLoad: false, feesRef: FEES_SOURCE_PROJECT_REF });
@@ -177,6 +224,13 @@ async function main() {
   const tableFailures = Object.values(report.checks).filter((c) => !c.ok).length;
   line(tableFailures === 0, `tables: ${plan.loadable.length - tableFailures} of ${plan.loadable.length} equal (count + ordered md5)`);
   if (plan.notInOne.length) console.log(`         not in One's public, not compared: ${plan.notInOne.join(", ")}`);
+  // Live data One cannot hold is a difference, not a footnote.
+  const unmigrated = unmigratedSourceData(src.tableInfo ?? [], one.meta);
+  report.checks.unmigrated = { ok: unmigrated.tables.length === 0 && unmigrated.columns.length === 0, ...unmigrated };
+  line(
+    report.checks.unmigrated.ok,
+    `live data One has no place for: ${unmigrated.tables.map((t) => `${t.table} (${t.rows} rows)`).concat(unmigrated.columns.map((c) => `${c.table}.{${c.columns.join(",")}}`)).join(", ") || "none"} (NOT_MIGRATED aside)`,
+  );
 
   // 2-4. Money, classes, students.
   const feesFin = src.viewRows.v_workbook_student_financials ?? [];
@@ -198,6 +252,23 @@ async function main() {
     report.checks[`classes.${label}`] = { ok: classDiff.length === 0, differingClassIds: classDiff };
     line(classDiff.length === 0, `classes ${label}: ${classDiff.length} class rollup(s) differ`);
   }
+  // Year split (the MCP's yearSplit: current year vs carry-forward, on is_carry_forward).
+  const feesBalances = src.viewRows.v_workbook_installment_balances;
+  if (Array.isArray(feesBalances)) {
+    const sideInputs = (balances, tables) => ({ balances, students: tables.get("students") ?? [], classes: tables.get("classes") ?? [], payments: tables.get("payments") ?? [], receipts: tables.get("receipts") ?? [] });
+    const feesInputs = sideInputs(feesBalances, src.source);
+    const oneInputs = sideInputs(one.views.v_workbook_installment_balances ?? [], one.target);
+    for (const label of new Set([...Object.keys(feesMoney), ...Object.keys(oneMoney)])) {
+      const a = sessionYearSplit(feesInputs, label);
+      const b = sessionYearSplit(oneInputs, label, { exclude: protectedStudents });
+      const diff = differingKeys(a, b);
+      report.checks[`yearSplit.${label}`] = { ok: diff.length === 0, fees: a, one: b };
+      line(diff.length === 0, `year split ${label}: current expected ${a.currentYear.expected}/${b.currentYear.expected}, collected ${a.currentYear.collected}/${b.currentYear.collected}; carry-forward pending ${a.previousYear.pending}/${b.previousYear.pending} (fees/One)`);
+    }
+  } else {
+    console.log("info     year split: this extract has no v_workbook_installment_balances; not compared (extract again).");
+  }
+
   const studentDiff = checksumMismatches(studentChecksums(feesFin), studentChecksums(oneFin, { exclude: protectedStudents }));
   report.checks.students = { ok: studentDiff.length === 0, differing: studentDiff.length, first: studentDiff.slice(0, 20) };
   line(studentDiff.length === 0, `students: ${studentDiff.length} per-student checksum(s) differ${studentDiff.length ? ` — first ids: ${studentDiff.slice(0, 20).join(", ")}` : ""}`);
@@ -217,6 +288,18 @@ async function main() {
   const onlineOk = oa.holds && ob.holds && differingKeys(oa, ob).length === 0;
   report.checks.online = { ok: onlineOk, fees: oa, one: ob };
   line(onlineOk, `online: captured ${oa.captured}/${ob.captured} paise = on receipts ${oa.onReceipts}/${ob.onReceipts} + review ${oa.inReview}/${ob.inReview} + waiting ${oa.waiting}/${ob.waiting}`);
+
+  // 6b. Event twins (critique1 A7): a fees-processed payment never sits in
+  // One as 'ignored' with nothing to show for it.
+  const twins = eventTwinViolations({
+    feesEvents: src.source.get("online_payment_events") ?? [],
+    oneEvents: one.target.get("online_payment_events") ?? [],
+    oneCaptures: one.target.get("online_payment_captures") ?? [],
+    reviewRows: one.reviewRows,
+    since: one.watermark?.newestChangeAt ?? null,
+  });
+  report.checks.eventTwins = { ok: twins.length === 0, violations: twins.length, first: twins.slice(0, 20) };
+  line(twins.length === 0, `event twins: ${twins.length} fees-processed payment event(s) after the watermark with no live twin or capture or review row in One${twins.length ? ` — first: ${twins.slice(0, 5).map((t) => `${t.providerEventId} (One ${t.oneTwin})`).join(", ")}` : ""}`);
 
   // 7. WhatsApp.
   const wa = (table, cols) => {

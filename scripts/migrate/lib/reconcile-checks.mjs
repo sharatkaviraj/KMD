@@ -111,6 +111,54 @@ export function emiLateFees(installments, classSession) {
   return out;
 }
 
+/**
+ * critique1 A7, the half tail-sync cannot prove by itself: Razorpay sends
+ * every event to both webhooks, so a payment the fees app PROCESSED may sit
+ * in One's inbox as 'ignored'. Each fees event that is 'processed' and names
+ * a payment (after `since`, the watermark) must either have a One twin that
+ * is not 'ignored', or its payment must be represented in One — a capture
+ * with that provider_payment_id, or a vppsone.tail_receipts_review row whose
+ * evidence lists it. Returns the violations (event ids and statuses only). Pure.
+ */
+/**
+ * @param {{ feesEvents?: any[], oneEvents?: any[], oneCaptures?: any[], reviewRows?: any[], since?: string | null }} sides
+ * @returns {Array<{ providerEventId: string, oneTwin: string }>}
+ */
+export function eventTwinViolations({ feesEvents = [], oneEvents = [], oneCaptures = [], reviewRows = [], since = null }) {
+  const twins = new Map(oneEvents.map((e) => [String(e.provider_event_id), e]));
+  const represented = new Set(oneCaptures.map((c) => c.provider_payment_id).filter(Boolean));
+  for (const r of reviewRows) {
+    for (const c of r?.evidence?.captures ?? []) if (c?.provider_payment_id) represented.add(c.provider_payment_id);
+  }
+  const out = [];
+  for (const e of feesEvents) {
+    if (e.status !== "processed" || !e.provider_payment_id) continue;
+    if (since && e.received_at && Date.parse(e.received_at) <= Date.parse(since)) continue;
+    const twin = twins.get(String(e.provider_event_id));
+    if (twin && twin.status !== "ignored") continue;
+    if (represented.has(e.provider_payment_id)) continue;
+    out.push({ providerEventId: e.provider_event_id, oneTwin: twin ? twin.status : "missing" });
+  }
+  return out;
+}
+
+/**
+ * Was One's student-financials matview refreshed on the as-of day (IST) and
+ * is nothing waiting? reconcile compares One's matview with the fees side's,
+ * which is as of the extract day; a stale One matview gives false matches or
+ * false mismatches. Pure.
+ */
+export function oneMatviewFresh(queueRows, asOf) {
+  const rows = queueRows ?? [];
+  if (!rows.length) return { ok: false, reason: "One has no workbook_materialized_view_refresh_queue row" };
+  if (rows.some((r) => r.pending === true)) return { ok: false, reason: "a refresh of One's matviews is pending" };
+  const last = rows.map((r) => r.last_refreshed_at).filter(Boolean).sort((a, b) => Date.parse(a) - Date.parse(b)).at(-1);
+  if (!last) return { ok: false, reason: "One's matviews were never refreshed" };
+  const day = new Date(Date.parse(last) + 5.5 * 3600_000).toISOString().slice(0, 10);
+  if (day !== asOf) return { ok: false, reason: `One's matviews were last refreshed on ${day} (IST), not on ${asOf}` };
+  return { ok: true, reason: null };
+}
+
 /** Keys whose values differ between two plain objects (deep, canonical). */
 export function differingKeys(left = {}, right = {}) {
   const keys = new Set([...Object.keys(left), ...Object.keys(right)]);

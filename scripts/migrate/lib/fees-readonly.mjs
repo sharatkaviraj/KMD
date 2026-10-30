@@ -49,7 +49,13 @@ export class FeesReadOnlyError extends Error {
 
 /* -------------------------------------------------------------- the wire */
 
-const STORAGE_READ_POSTS = [/\/storage\/v1\/object\/list\//, /\/storage\/v1\/object\/sign\//];
+/**
+ * Anchored, so an upload whose path merely CONTAINS one of these
+ * (`/storage/v1/object/<bucket>/x/storage/v1/object/list/y`) is refused:
+ *   list  POST /storage/v1/object/list/<bucket>             (one segment)
+ *   sign  POST /storage/v1/object/sign/<bucket>[/<path>]    (createSignedUrl(s))
+ */
+const STORAGE_READ_POSTS = [/^\/storage\/v1\/object\/list\/[^/]+$/, /^\/storage\/v1\/object\/sign\/[^/]+(\/.*)?$/];
 
 /** Is this request a read? Pure, so it is tested without a network. */
 export function isReadOnlyRequest(url, method) {

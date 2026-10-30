@@ -409,12 +409,21 @@ describe("load order", () => {
 });
 
 describe("guards", () => {
-  const prod = { environment: "production", hasCutover: false, feeWritesEnabled: "false", previousApplied: 0 };
+  const prod = { environment: "production", hasCutover: false, feeWritesEnabled: "false", feeWritesOpen: false, previousApplied: 0 };
 
   it("load-snapshot refuses after cutover, while fee writes are on, and off production", () => {
     expect(decideLoadGuard(prod).ok).toBe(true);
     expect(decideLoadGuard({ ...prod, hasCutover: true }).ok).toBe(false);
     expect(decideLoadGuard({ ...prod, feeWritesEnabled: "TRUE " }).ok).toBe(false);
+    // The database's own rule decides "open": on a dev-marked target a missing
+    // key is open, and the string check alone would have let the load through.
+    expect(decideLoadGuard({ ...prod, environment: "dev", allowDevTarget: true, feeWritesEnabled: null, feeWritesOpen: true }).ok).toBe(false);
+    // Unreadable counts as open.
+    expect(decideLoadGuard({ ...prod, feeWritesOpen: null }).reasons[0]).toMatch(/could not be read/);
+    expect(decideLoadGuard({ ...prod, feeWritesOpen: undefined }).ok).toBe(false);
+    // A rehearsal that always rolls back lifts env + fee-writes, never cutover.
+    expect(decideLoadGuard({ ...prod, environment: "dev", feeWritesOpen: true, rollbackOnly: true }).ok).toBe(true);
+    expect(decideLoadGuard({ ...prod, hasCutover: true, rollbackOnly: true }).ok).toBe(false);
     expect(decideLoadGuard({ ...prod, environment: "dev" }).reasons[0]).toMatch(/allow-dev-target/);
     expect(decideLoadGuard({ ...prod, environment: null }).ok).toBe(false);
     expect(decideLoadGuard({ ...prod, environment: "dev", allowDevTarget: true }).ok).toBe(true);

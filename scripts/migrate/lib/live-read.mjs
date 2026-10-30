@@ -21,8 +21,24 @@ export const CHANGE_COLUMNS = [
   "ran_at", "waived_at", "voided_at", "applied_at", "resolved_at", "verified_at",
 ];
 
-/** Views the extract also reads (control totals, online invariant). */
-export const EXTRACT_VIEWS = ["v_workbook_student_financials", "v_online_payment_reconciliation"];
+/** Views the extract also reads (control totals, year split, online invariant). */
+export const EXTRACT_VIEWS = ["v_workbook_student_financials", "v_workbook_installment_balances", "v_online_payment_reconciliation"];
+
+/**
+ * A stable order for paging a view PostgREST reports no key for: a page by
+ * range over an unordered matview can repeat or skip rows. installment_id is
+ * unique in v_workbook_installment_balances (2,448 rows, 2,448 distinct) and
+ * student_id in v_workbook_student_financials (620 / 620) — wtgx, 30 Oct.
+ */
+export const VIEW_KEYS = {
+  v_workbook_installment_balances: ["installment_id"],
+  v_workbook_student_financials: ["student_id"],
+};
+
+/** The key to page a view by: PostgREST's, else VIEW_KEYS. */
+export function viewKey(view) {
+  return view.pk?.length ? view.pk : VIEW_KEYS[view.name] ?? [];
+}
 
 /**
  * Tables and views from PostgREST's OpenAPI document. Every view and matview

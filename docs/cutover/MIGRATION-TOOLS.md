@@ -35,14 +35,18 @@ rpc, schema, storage remove / upload / move / copy / update and bucket
 changes, auth createUser / deleteUser / updateUserById / inviteUserByEmail /
 generateLink. Setting a property on a query builder (e.g. `method = "DELETE"`)
 throws too. A second seal sits on the wire: the client's `fetch` refuses any
-request but GET / HEAD and the two Storage read POSTs (`object/list`,
-`object/sign`). `tests/migrate-readonly.test.ts` proves both.
+request but GET / HEAD and the two Storage read POSTs, matched on the whole
+path (`^/storage/v1/object/list/<bucket>$`, `^/storage/v1/object/sign/<bucket>…`),
+so an upload whose path merely contains one is still refused.
+`tests/migrate-readonly.test.ts` proves both.
 
-Optional, secondary: `withFeesReadOnlySnapshot()` for a `LIVE_DB_URL` in the
-secrets file (none today). It connects with `default_transaction_read_only=on`,
-runs one `REPEATABLE READ READ ONLY` transaction and exports a snapshot;
-refuses a URL that does not name the fees ref, and the transaction pooler
-(6543), which cannot hold a snapshot.
+Optional, secondary, **not wired**: `withFeesReadOnlySnapshot()` for a
+`LIVE_DB_URL` in the secrets file (none today). It connects with
+`default_transaction_read_only=on`, runs one `REPEATABLE READ READ ONLY`
+transaction and exports a snapshot; refuses a URL that does not name the fees
+ref, and the transaction pooler (6543), which cannot hold a snapshot. No
+script calls it: `extract-live.mjs` is REST-only, and wiring it in is a change
+for the day a live Postgres password exists.
 
 ---
 
@@ -68,11 +72,28 @@ node scripts/migrate/extract-live.mjs [--run <id>] [--tables a,b] [--no-auth] [-
   secrets folder) into `<run>/secrets/`, deleted after a load.
 - Control totals per session with the fees MCP's own definitions
   (`lib/control-totals.mjs`, ported from `workers/schoolfees-mcp/src/scope.mjs`
-  and `shape/student.mjs`).
+  and `shape/student.mjs`), **including `yearSplit`** (current year against
+  carry-forward on `is_carry_forward`), ported from the fee schema's
+  `get_dashboard_fee_split` RPC and computed over the extracted
+  `v_workbook_installment_balances` + students, classes, payments, receipts.
+- **Matview freshness.** The totals come from the fees matviews, so the
+  extract records the fees refresh queue in `manifest.matviewFreshness` and
+  treats a pending refresh, or a money-table change after the last refresh,
+  as "not stable": it reads again and refuses after `--max-attempts`
+  (`--allow-stale-matview` records it and goes on).
+- `--tables` makes a **subset** run (`manifest.subset`): never "the latest
+  extract", never loadable.
+- Views PostgREST reports no key for are paged by a stable key
+  (`lib/live-read.mjs VIEW_KEYS`), not by bare ranges.
 
 Output in `<run>/`: `tables/*.ndjson`, `views/*.ndjson`
-(`v_workbook_student_financials`, `v_online_payment_reconciliation`),
-`secrets/auth-users.json.enc`, `control-totals.json`, `manifest.json`.
+(`v_workbook_student_financials`, `v_workbook_installment_balances`,
+`v_online_payment_reconciliation`), `secrets/auth-users.json.enc`,
+`control-totals.json`, `manifest.json`.
+
+"The latest run", where a read-only tool defaults to it, is the manifest with
+the newest `finishedAt` that is not a subset — never a sort of folder names
+(run ids are free text; CLAUDE.md rule 3a).
 
 ## `control-totals.mjs` — compare with the fees MCP
 
@@ -81,8 +102,10 @@ node scripts/migrate/control-totals.mjs --run <id> [--mcp <file.json>]
 ```
 
 `<file.json>`: what `get_session_money_summary` returned, keyed by session
-label. Field-by-field comparison (headcount, every money figure, segments);
-exit 1 on any difference.
+label. Field-by-field comparison (headcount, every money figure, segments,
+and `yearSplit` when the file has it); exit 1 on any difference. The
+30 Oct run predates the year split, so its comparison below covers the
+headcount and money blocks only.
 
 **First real run, 30 Oct (run `20261030-a2-first`):** 88 tables, 73,573 rows,
 stable on the first attempt, 10 auth users. Against the MCP the same afternoon:
@@ -104,18 +127,38 @@ stable on the first attempt, 10 auth users. Against the MCP the same afternoon:
 ```
 node scripts/migrate/load-snapshot.mjs [--run <id>]                       # dry run
 node scripts/migrate/load-snapshot.mjs --run <id> --apply [--first-load] [--allow-dev-target]
+node scripts/migrate/load-snapshot.mjs --run <id> --rollback-only [--first-load]
 node scripts/migrate/load-snapshot.mjs --run <id> --purge-secrets
 ```
 
-**Guards (`lib/guards.mjs`), checked before and again inside the write
-transaction.** `--apply` refuses when:
+`--apply` and `--rollback-only` need an explicit `--run`.
+
+**Guards (`lib/guards.mjs`), checked before, and again inside the write
+transaction AFTER its locks** (`vppsone.migration_runs` and
+`public.app_settings` EXCLUSIVE, `vppsone.deployment` SHARE, then every loaded
+table — so a cutover row, a marker change or an owner turning fee writes on
+cannot commit between the check and the writes). `--apply` refuses when:
 
 - `vppsone.migration_runs` has a `cutover` row (after T0 a stray mirror would
   delete every One receipt — critique0 #7);
-- `app_settings.fee_writes_enabled = 'true'`;
+- `vppsone.fee_writes_open()` is not false — the database's own rule, under
+  which a missing key counts as open on a target not marked production — or
+  `fee_writes_enabled = 'true'`; unreadable counts as open;
 - `vppsone.deployment` is not `production`, unless `--allow-dev-target`
   (a rehearsal on a throwaway target only; it never lifts the other two);
-- `--first-load` and an applied load already exists.
+- `--first-load` and an applied load already exists;
+- the run is a `--tables` subset, or its auth rows carry no identities
+  (a user loaded without one cannot sign in).
+
+**`--rollback-only`** runs every step of `--apply` in the same transaction and
+then rolls it back: proof that the SQL path (staging, trigger disable/enable,
+detach, deletes, inserts, updates, deferred columns, count check, orphan check,
+matview refresh, setval, watermarks) works, with nothing persisted — not even
+the run row. It lifts the environment and fee-writes guards, never the
+cutover guard, and stops on the same plan blockers as `--apply`.
+**Not yet run:** every run today stops on the plan blockers (the 6 email
+clashes, and run `20261030-a2-first` has no identities), before the SQL path;
+it is the first thing to run once a fresh extract plans clean.
 
 **Dry run is read-only**: one `READ ONLY` transaction; no staging table, no
 `migration_runs` row. It prints the per-table plan, blocked deletes, predicted
@@ -126,27 +169,54 @@ guard verdict.
 
 | Rule | |
 |---|---|
-| Never touched | `backup_runs`, `workbook_materialized_view_refresh_queue`, `office_sync_events`; tables not in One's `public` (live's empty One-style tables) |
-| Terminal-state import | `online_payment_orders` open/pending/paid/review_required → `abandoned`; `_intents` link_pending/link_created/paid/review_required → `cancelled`; `_events` pending/failed → `ignored`; `_captures` pending/review_required → **not imported** (the only terminal value, `applied`, would claim a receipt); `notification_outbox` queued/processing/failed → `suppressed` (and `locked_until` cleared). Every target is allowed by the table's CHECK (read from wtgx) — critique0 #2, #3 |
+| Never touched | `backup_runs`, `workbook_materialized_view_refresh_queue`, `office_sync_events` |
+| Live data One cannot hold | A live table One's `public` lacks is loaded nowhere — so `--apply` **refuses** when such a table has a row, or when a live table has a column One lacks, unless it is on `NOT_MIGRATED` / `NOT_MIGRATED_COLUMNS` (`lib/import-rules.mjs`, table → reason); reconcile reports the same as a MISMATCH. See the 13 tables below |
+| Terminal-state import | Checked against the reconcilers' **actual** filters (`RECONCILER_FILTERS`, ported from fees `orders.ts reconcileOpenOrders` and `service.ts`; a test runs them over imported rows and expects no match). `online_payment_orders` open/pending/paid/review_required/**superseded** → `abandoned` (reconcileOpenOrders re-checks open/superseded/paid created in the last 24 h); `_intents` link_pending/link_created/paid/review_required → `cancelled`, and **every non-`accounted` intent gets `provider_cancelled_at`** (its updated_at, else created_at) — the intent reconciler also picks up superseded/expired/cancelled/failed with a null `provider_cancelled_at`, records their captures and cancels the (fees-owned) Razorpay link; `_events` pending/failed → `ignored`; `_captures` pending/review_required → **not imported** (the only terminal value, `applied`, would claim a receipt); `notification_outbox` queued/processing/failed → `suppressed` (and `locked_until` cleared). Every target is allowed by the table's CHECK (read from wtgx) — critique0 #2, #3 |
 | One-owned settings | `app_settings` keys `online_payment_*`, `whatsapp_receipt_notice_enabled`, `whatsapp_reversal_notice_enabled`, `receipt_suffix_floor`, `staff_whatsapp_month_cap`, `fee_writes_enabled`: never inserted, updated or deleted. Cells in `vppsone.one_owned_fee_settings` (TEST-2026-27 `receipt_prefix` = `TST`) keep One's value |
-| TEST sessions (T1) | Rows with a `*session_label` column holding a test label, `app_settings` keys ending `:<test label>`, and everything reached down a foreign key from them (students in TEST classes → installments, receipts, payments, waivers, family rows, sends, orders…), plus `audit_logs` rows about them. Without `--first-load`: never inserted, updated or deleted, on either side. With `--first-load`: live's TEST rows are inserted/updated; One's own TEST rows are still never deleted |
+| TEST sessions (T1) | Rows with a `*session_label` column holding a test label, `app_settings` keys ending `:<test label>`, and everything reached down a foreign key from them (students in TEST classes → installments, receipts, payments, waivers, family rows, sends, orders…), plus `audit_logs` rows about them, plus the two online tables with no FK: `online_payment_events` (by a TEST capture's `provider_payment_id` or a TEST intent's/capture's `provider_link_id`) and `online_payment_audit` (by `intent_id` / `capture_id` / `event_id`). Without `--first-load`: never inserted, updated or deleted, on either side. With `--first-load`: live's TEST rows are inserted/updated; One's own TEST rows are still never deleted |
 | Protected rows | `students.admission_no LIKE 'TEST-D-%'`, every `migration_id_map` target, and everything keyed on them (and their audit rows): never updated or deleted; a live row with the same key is counted as a conflict. Source rows the fees project re-keyed through the map are skipped |
 | Blocked deletes | A row that stays never loses its parent: the parent's delete is dropped and counted |
+| Re-pointed children | A row that stays but moves from parent P (deleted) to P2 (a re-anchor or merge): deletes run first, so P's ON DELETE CASCADE would take the row with it and its update would match nothing. The plan lists these (`findRepointedChildren`); `--apply` nulls their FK before any delete and the update writes P2. A NOT NULL FK of that kind refuses the load |
 | Order | Parents first (topological over `pg_constraint`); deletes children-first; the nullable side of a cycle (`installments.carry_forward_balance_id`, `student_repayment_plans.supersedes/superseded_by_plan_id`) is written in a second pass |
 
-**Apply, in one transaction:** auth users upserted by id (an email that
-belongs to a different One user refuses the load; the password hash is never
-copied or overwritten; identities inserted if missing) → loaded tables locked
-`EXCLUSIVE` → plan rebuilt inside the transaction → refused on any predicted
-orphan, unique conflict or missing auth parent → every source row staged into
+**Apply, in one transaction:** locks, then guards (above) → auth users
+upserted by id (an email that belongs to a different One user refuses the
+load; the password hash is never copied or overwritten; identities inserted if
+missing) → plan rebuilt inside the transaction → refused on any predicted
+orphan, unique conflict, missing auth parent, re-pointed row that cannot be
+detached, or live data One cannot hold → every source row staged into
 `import_stage.<t>` (`LIKE public.<t>`) → each table's **named** user triggers
 disabled (`ALTER TABLE … DISABLE TRIGGER "name"`, never
-`session_replication_role`, so foreign keys stay on) → deletes, inserts,
-updates, deferred columns → triggers re-enabled → orphan count per foreign key
-in `pg_constraint` (any orphan aborts) → matviews refreshed in dependency
-order → owned sequences `setval` → `vppsone.migration_watermarks`. Then a
-`migration_runs` row (`load-snapshot`, `run`, counts and the watermark in
-`summary`) and the run's sealed auth rows are deleted.
+`session_replication_role`, so foreign keys stay on) → refuses if a delete
+would reach a row outside `public` (a `vppsone` row keyed on a fee row) →
+re-pointed children detached → deletes, inserts, updates, deferred columns →
+triggers re-enabled → **written counts must equal the plan's, table by table**
+(a cascade or a key that matched nothing aborts; an orphan check cannot see a
+missing row) → staging tables dropped (they hold personal data), and the
+`import_stage` schema when empty → orphan count per foreign key in
+`pg_constraint` (any orphan aborts) → matviews refreshed in dependency order,
+and the refresh queue marked refreshed → owned sequences `setval`, a bigint
+identity to at least `ONE_IDENTITY_FLOOR` (1,000,000,000) so rows One writes
+(`online_payment_audit`, today its TEST online testing) take ids live never
+reaches → `vppsone.migration_watermarks`. Then a `migration_runs` row
+(`load-snapshot`, `run`, counts and the watermark in `summary`) and the run's
+sealed auth rows are deleted.
+
+**Live tables not in One's `public` (13, run `20261030-a2-first`):**
+
+| Table | Rows | Why not loaded |
+|---|---|---|
+| `feature_flags` | 4 | `NOT_MIGRATED`: the fees app's own feature toggles; One switches features through `app_settings` and its own code |
+| `job_runs` | 1 | `NOT_MIGRATED`: the fees app's cron history; One keeps its own |
+| `staff_payment_alerts` | 0 | Live's new fees migration `20261030170000_online_payment_staff_alerts`, a fee table that **will fill**. Not in the synced fees checkout (main 8a0cd47c), so its SQL could not be ported here; it needs its catch-up in `supabase/fee-migrations/` before the first real load. The loader refuses the moment it has a row |
+| `class_aliases`, `enrolments`, `subjects`, `teaching_assignments`, `timetable_slots`, `timetable_versions` | 0 | One-style academic tables the fees schema grew; One keeps these in `vppsone`. Empty; the loader refuses if one gains a row |
+| `staff_directory`, `staff_profiles`, `staff_access_links`, `staff_push_subscriptions` | 0 | One-style staff tables; One's staff live in `vppsone.staff_profiles`. Empty; same refusal |
+
+**Run `20261030-a2-first` cannot be loaded:** its sealed auth rows were written
+before identities were fetched (`manifest.auth.identities = 0`), so the
+loader refuses it. Purge them (`load-snapshot.mjs --run 20261030-a2-first
+--purge-secrets` — an owner/orchestrator step, it deletes a private file) and
+extract again before the first load.
 
 The loader connects as the database owner, so the D-347 table guards (which
 apply to API callers) do not apply to it, by design.
@@ -178,13 +248,22 @@ mode per date, highest suffix per (prefix, date), distinct numbers = rows; the
 online invariant (captured = on receipts + review + waiting, every applied
 capture has its receipt); WhatsApp sends per status/kind, school notices,
 outbox; EMI late fees per session as their own line (critique1 A8); storage
-objects and bytes per bucket.
+objects and bytes per bucket; live tables with rows / columns One has no place
+for (NOT_MIGRATED aside); the year split per real session; and **event twins**
+(critique1 A7): every fees `online_payment_events` row `processed` after the
+watermark has a One twin that is not `ignored`, or its payment is in One as a
+capture or listed in `vppsone.tail_receipts_review` evidence
+(`eventTwinViolations`).
 
 **As-of:** late fees depend on the date, and both sides come from their
 matviews. A read-only client cannot evaluate the fees side at another date, so
 `--as-of` must equal the source's IST date (the extract day, or today with
-`--live`) — reconcile refuses otherwise. Run extract, load and reconcile on the
-same day. Exit 1 on any mismatch; a JSON report goes to the run folder.
+`--live`) — reconcile refuses otherwise. It also refuses unless the fees
+matviews were fresh at the extract (`manifest.matviewFreshness`; the queue's
+pending flag with `--live`) **and** One's matviews were refreshed on the
+as-of day with nothing pending (a load marks the queue); `--allow-stale-matview`
+turns both into warnings. Run extract, load and reconcile on the same day.
+Exit 1 on any mismatch; a JSON report goes to the run folder.
 
 Run on 30 Oct against the unloaded replica: 62 mismatches, as expected
 (One still holds the masked 22 Sep replica).
@@ -192,12 +271,16 @@ Run on 30 Oct against the unloaded replica: 62 mismatches, as expected
 ## `storage-copy.mjs` — files
 
 ```
-node scripts/migrate/storage-copy.mjs [--apply] [--bucket <b>] [--allow-dev-target]
+node scripts/migrate/storage-copy.mjs [--apply] [--bucket <b>] [--allow-dev-target] [--overwrite-different]
 ```
 
 `student-photos`, `parent-documents`, `defaulter-voice-notes` → the same paths
-on One; never `nightly-backups`. Download through the sealed client, upload
-with `upsert` to One. Idempotent by path + size; nothing on One is deleted.
+on One; never `nightly-backups`. Download through the sealed client; only
+objects **missing** on One are uploaded (created, never upserted). An object
+on One with a different size is reported and kept — a photo replaced in One is
+not reverted — unless `--overwrite-different`. A failed listing of One's bucket
+stops the run (only "bucket not found" counts as empty). Idempotent by path +
+size; nothing on One is deleted.
 `--apply` only on a production marker (or `--allow-dev-target`). Dry run on
 30 Oct: 484 photos (13.1 MB), 176 documents (11.6 MB), 0 voice notes to copy.
 
@@ -212,17 +295,27 @@ with a timestamp scan of every table — the online, WhatsApp, outbox and
 waiver tables are not audited by the fees app. Insert-only: no deletes, no
 trigger bypass, a normal postgres session.
 
-- Fees receipts → **`vppsone.tail_receipts_review`** (migration
-  `20261030132121_tail_receipts_review.sql`), with payments, order lines and
-  captures as evidence (ids and amounts). Never raw `receipts` / `payments`
-  rows (critique0 #8). A person posts each through One's engine, or marks it a
-  duplicate or rejected.
-- `online_payment_events` → upsert on `provider_event_id`, the fees row wins
-  (critique1 A7), after the terminal rule.
-- Orders, intents, unpaid order lines → inserted when absent, after the
-  terminal rules.
-- `whatsapp_reminder_sends`, `school_notice_sends` → inserted when absent,
-  every kind (critique0 #11); a send whose receipt is not in One is deferred.
+- Fees receipts → **`vppsone.tail_receipts_review`** (migrations
+  `20261030132121_tail_receipts_review.sql`, and
+  `20261030145719_tail_receipts_review_grants.sql`: service_role may select,
+  insert, update — never delete or truncate), with payments, order lines,
+  captures and accounted intents as evidence (ids and amounts). Never raw
+  `receipts` / `payments` rows (critique0 #8), and never a row whose
+  `receipt_id` names such a receipt: an accounted intent or a paid order line
+  goes into the evidence, not into `public` (its receipt FK would fail).
+- `online_payment_events` → upsert on `provider_event_id` after the terminal
+  rule; the fees row replaces One's twin **only when One's is `ignored`**
+  (critique1 A7). A One `pending` / `failed` / `processed` row is One's own
+  payment in flight and is kept; the run reports how many.
+- `whatsapp_campaign_runs`, `whatsapp_reminder_sends`, `school_notice_sends`,
+  then orders, intents, unpaid order lines → inserted when absent, parents
+  first (`TAIL_INSERT_ORDER`), after the terminal rules; sends of every kind
+  (critique0 #11). A row whose foreign-key parent is neither in One nor
+  earlier in the batch (a send for a student admitted in the fees app after
+  T0, an order on such a send, a send whose receipt is in review) is
+  **deferred** with the reason printed; the next run reads it again.
+  `ON CONFLICT DO NOTHING` does not catch an FK violation, so without this one
+  such row rolled back the whole apply (`planTailInserts`).
 - `notification_outbox` → never (critique0 #3).
 - Any other fees write → **ALERT**, exit 2.
 
@@ -261,9 +354,11 @@ EMI plans, family links, concessions and overrides, admissions / leavers /
 edits, contacts and promises, reminder sends and notices, online payments).
 TEST-session changes are counted apart. Terminal: counts per category and per
 table/action. Private folder `rollback-<ts>/`: `detail.ndjson` (before/after
-rows), `detail.csv`, `summary.json`. The fees database keeps changing by its
-own crons throughout (critique1 B12), so re-entry starts from its current
-state.
+rows), `detail.csv` (each line with its **procedure id** `R1`…`R12`, sorted in
+re-entry order), `summary.json`. **How to re-enter each category** — fees
+screen or RPC, fields to carry, order, and how to avoid double-applying
+against what the fees crons did meanwhile (critique1 A11, B12) — is
+[`ROLLBACK-REENTRY.md`](ROLLBACK-REENTRY.md).
 
 ---
 
@@ -288,4 +383,8 @@ state.
 
 Tests: `tests/migrate-readonly.test.ts` (both seals),
 `tests/migrate-tooling.test.ts` (every pure rule above),
+`tests/migrate-tooling-review.test.ts` (the review fixes: reconciler filters,
+unmigrated data, TEST online rows, re-pointed children, count check, auth
+identities, tail insert order and deferral, event twins, matview freshness,
+year split, latest run, storage, rollback procedures, review-queue grants),
 `tests/migrate-foundation.test.ts` (A1).

@@ -17,16 +17,22 @@
  * session (no trigger is disabled, nothing is deleted, no row is updated
  * except an event's twin):
  *   - fees receipts -> vppsone.tail_receipts_review (one row per fees receipt,
- *     idempotent), with their payments, order lines and captures as evidence.
- *     Never raw receipts or payments rows (critique0 #8).
- *   - online_payment_events -> upsert on provider_event_id, the fees row wins
- *     (Razorpay sends every event to both webhooks — critique1 A7), after the
- *     terminal rule (pending/failed -> ignored).
- *   - online_payment_orders / _intents / unpaid order lines -> inserted when
- *     absent, after the terminal rules.
- *   - whatsapp_reminder_sends / school_notice_sends -> inserted when absent,
- *     every kind, so One's cadence and same-day checks see the fees sends
- *     (critique0 #11). A send whose receipt is not in One is deferred.
+ *     idempotent), with their payments, order lines, captures and accounted
+ *     intents as evidence. Never raw receipts or payments rows (critique0 #8),
+ *     and never a row whose receipt_id names such a receipt.
+ *   - online_payment_events -> upsert on provider_event_id after the terminal
+ *     rule (pending/failed -> ignored). Razorpay sends every event to both
+ *     webhooks (critique1 A7): the fees row replaces One's twin ONLY when
+ *     One's is 'ignored' — a pending/failed/processed One row is One's own
+ *     payment in flight and is never overwritten.
+ *   - whatsapp_campaign_runs, whatsapp_reminder_sends, school_notice_sends,
+ *     then online_payment_orders / _intents / unpaid order lines -> inserted
+ *     when absent, parents first (lib/tail.mjs TAIL_INSERT_ORDER), after the
+ *     terminal rules. Sends of every kind, so One's cadence and same-day
+ *     checks see the fees sends (critique0 #11). A row with a foreign-key
+ *     parent neither in One nor in the batch (a send for a student admitted
+ *     in the fees app after T0, an order on such a send) is DEFERRED and
+ *     reported; the next run reads it again.
  *   - notification_outbox -> NEVER (critique0 #3).
  * Everything else the fees app wrote is reported as an ALERT, and the exit
  * code is 2: someone is still working in the fees app.
@@ -45,18 +51,22 @@ import { importTransform } from "./lib/import-rules.mjs";
 import { relationsFromOpenApi } from "./lib/live-read.mjs";
 import { openOneDb } from "./lib/one-db.mjs";
 import { ident, prepareTransaction } from "./lib/one-target.mjs";
-import { classifyTailChange, reviewRow, tailAction } from "./lib/tail.mjs";
+import { readCatalog } from "./lib/catalog.mjs";
+import { classifyTailChange, planTailInserts, reviewRow, TAIL_INSERT_ORDER, tailAction } from "./lib/tail.mjs";
 import { collectFeesChanges } from "./lib/tail-feed.mjs";
 import { resolveWatermark } from "./lib/watermark.mjs";
 import { FEES_SOURCE_PROJECT_REF, ONE_MAIN_PROJECT_REF } from "../target-guard.mjs";
 
-const INSERTABLE = ["online_payment_orders", "online_payment_intents", "online_payment_order_lines", "whatsapp_reminder_sends", "school_notice_sends"];
+const INSERTABLE = TAIL_INSERT_ORDER;
 
-async function existingIds(sql, table, ids) {
+async function existingIds(sql, table, ids, { schema = "public", column = "id" } = {}) {
   const have = new Set();
   for (let i = 0; i < ids.length; i += 1000) {
-    const rows = await sql.unsafe(`select id::text from public.${ident(table)} where id::text = any($1::text[])`, [ids.slice(i, i + 1000)]);
-    for (const r of rows) have.add(r.id);
+    const rows = await sql.unsafe(
+      `select ${ident(column)}::text as v from ${ident(schema)}.${ident(table)} where ${ident(column)}::text = any($1::text[])`,
+      [ids.slice(i, i + 1000)],
+    );
+    for (const r of rows) have.add(r.v);
   }
   return have;
 }
@@ -68,7 +78,7 @@ async function plan(sql, changes) {
   const receiptModes = new Map(receipts.map((r) => [String(r.id), r.payment_mode]));
 
   const allReceiptRefs = new Set();
-  for (const table of ["online_payment_order_lines", "whatsapp_reminder_sends", "school_notice_sends"]) {
+  for (const table of ["online_payment_order_lines", "online_payment_intents", "whatsapp_reminder_sends", "school_notice_sends"]) {
     for (const row of live(table)) if (row.receipt_id) allReceiptRefs.add(String(row.receipt_id));
   }
   const receiptsInOne = await existingIds(sql, "receipts", [...allReceiptRefs]);
@@ -93,7 +103,54 @@ async function plan(sql, changes) {
       else (actions[action][table] ??= []).push(row);
     }
   }
-  return { alerts, actions, evidence: { payments: live("payments"), lines: live("online_payment_order_lines"), captures: live("online_payment_captures") } };
+
+  // Parents first, and only rows whose every FK parent is in One or in this
+  // batch; the rest wait (lib/tail.mjs planTailInserts).
+  const meta = await readCatalog(sql);
+  const fks = (meta.allFks ?? []).filter((fk) => fk.childSchema === "public" && INSERTABLE.includes(fk.child));
+  const wanted = new Map(); // "schema.table.column" -> Set of values
+  for (const fk of fks) {
+    if (fk.childCols.length !== 1) continue;
+    const key = `${fk.parentSchema}.${fk.parent}.${fk.parentCols[0]}`;
+    for (const row of actions.insert[fk.child] ?? []) {
+      const v = row[fk.childCols[0]];
+      if (v === null || v === undefined) continue;
+      if (!wanted.has(key)) wanted.set(key, new Set());
+      wanted.get(key).add(String(v));
+    }
+  }
+  const found = new Map();
+  for (const [key, values] of wanted) {
+    const [schema, table, column] = key.split(".");
+    found.set(key, await existingIds(sql, table, [...values], { schema, column }));
+  }
+  const { insert, defer } = planTailInserts(actions.insert, {
+    fks,
+    parentExists: (schema, table, column, value) => found.get(`${schema}.${table}.${column}`)?.has(value) ?? false,
+  });
+  actions.insert = insert;
+  const deferReasons = {};
+  for (const [table, entries] of Object.entries(defer)) {
+    (actions.defer[table] ??= []).push(...entries.map((e) => e.row));
+    for (const e of entries) for (const why of e.missing) deferReasons[`${table}: ${why}`] = (deferReasons[`${table}: ${why}`] ?? 0) + 1;
+  }
+
+  // Events whose One twin is not 'ignored' keep One's row.
+  const eventIds = actions.upsert.map((e) => String(e.provider_event_id));
+  const oneEvents = new Map();
+  for (let i = 0; i < eventIds.length; i += 1000) {
+    const rows = await sql`select provider_event_id, status from public.online_payment_events where provider_event_id = any(${eventIds.slice(i, i + 1000)})`;
+    for (const r of rows) oneEvents.set(r.provider_event_id, r.status);
+  }
+  const keptOne = actions.upsert.filter((e) => oneEvents.has(String(e.provider_event_id)) && oneEvents.get(String(e.provider_event_id)) !== "ignored").length;
+
+  return {
+    alerts,
+    actions,
+    deferReasons,
+    keptOneEvents: keptOne,
+    evidence: { payments: live("payments"), lines: live("online_payment_order_lines"), captures: live("online_payment_captures"), intents: live("online_payment_intents") },
+  };
 }
 
 function counts(actions) {
@@ -128,7 +185,8 @@ async function upsertEvents(tx, rows) {
     const result = await tx.unsafe(
       `insert into public.online_payment_events (${cols.map(ident).join(", ")})
        select ${cols.map(ident).join(", ")} from jsonb_populate_record(null::public.online_payment_events, $1::jsonb)
-       on conflict (provider_event_id) do update set ${cols.filter((c) => c !== "provider_event_id").map((c) => `${ident(c)} = excluded.${ident(c)}`).join(", ")}`,
+       on conflict (provider_event_id) do update set ${cols.filter((c) => c !== "provider_event_id").map((c) => `${ident(c)} = excluded.${ident(c)}`).join(", ")}
+       where public.online_payment_events.status = 'ignored'`,
       [JSON.stringify(row)],
     );
     n += result.count;
@@ -153,6 +211,8 @@ async function main() {
     });
     const summary = counts(result.actions);
     console.log(`tail-sync: ${summary.review} fees receipt(s) for review; ${summary.upsertEvents} event(s) to upsert; insert ${JSON.stringify(summary.insert)}; already in One ${JSON.stringify(summary.skip)}; deferred ${JSON.stringify(summary.defer)}; evidence ${JSON.stringify(summary.evidence)}.`);
+    for (const [why, n] of Object.entries(result.deferReasons)) console.log(`  deferred ${why}: ${n}`);
+    if (result.keptOneEvents) console.log(`  ${result.keptOneEvents} event(s) keep One's own row (One's twin is not 'ignored').`);
     const alertTables = Object.keys(result.alerts);
     for (const table of alertTables) console.log(`  ALERT ${table}: ${Object.entries(result.alerts[table]).map(([why, n]) => `${why} ${n}`).join(", ")}`);
 
@@ -189,7 +249,7 @@ async function main() {
           out.review += r.count;
         }
         out.events = await upsertEvents(tx, result.actions.upsert);
-        // Parents first: orders and intents before lines.
+        // Parents first (TAIL_INSERT_ORDER): runs, sends, orders, intents, lines.
         for (const table of INSERTABLE) {
           if (result.actions.insert[table]) out.inserted[table] = await insertRows(tx, table, result.actions.insert[table]);
         }

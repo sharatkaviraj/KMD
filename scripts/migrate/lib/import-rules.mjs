@@ -46,11 +46,24 @@ export const SKIP_TABLES = new Set(["backup_runs", "workbook_materialized_view_r
  * means the table has no terminal state that would be true, so the row is not
  * imported at all.
  *
- *  online_payment_orders     open/pending/paid/review_required -> abandoned.
- *      One's reconcileOpenOrders scans open/superseded/paid; abandoned is
- *      ignored. The fees app stays the owner of that order and posts it in its
- *      own ledger; tail-sync brings the result (critique0 #2c).
- *  online_payment_intents    link_pending/link_created/paid/review_required -> cancelled.
+ * "Ignored" is checked against the reconcilers' ACTUAL filters (ported from
+ * fees orders.ts reconcileOpenOrders and service.ts reconcileOnlinePayments;
+ * RECONCILER_FILTERS below, pinned by a test that runs them over imported
+ * rows), not against this file's own list of terminal states:
+ *
+ *  online_payment_orders     open/pending/paid/review_required/superseded -> abandoned.
+ *      reconcileOpenOrders fails `pending` orders older than 10 minutes and
+ *      re-checks open/superseded/paid orders created in the last 24 hours at
+ *      Razorpay — so `superseded` is NOT safe to import as it is. The fees app
+ *      stays the owner of that order and posts it in its own ledger;
+ *      tail-sync brings the result (critique0 #2c).
+ *  online_payment_intents    link_pending/link_created/paid/review_required -> cancelled,
+ *      AND every intent that is not `accounted` gets `provider_cancelled_at`
+ *      (its own updated_at, else created_at — deterministic, so a reload and
+ *      reconcile see the same value). The intent reconciler picks up
+ *      link_pending/link_created, and superseded/expired/cancelled/failed
+ *      whose provider_cancelled_at is null — it would then record their
+ *      captures and cancel a fees-owned Razorpay link.
  *  online_payment_events     pending/failed -> ignored (the reconciler re-processes
  *      pending and failed inbox rows).
  *  online_payment_captures   pending/review_required -> NOT imported. The only
@@ -64,13 +77,16 @@ export const SKIP_TABLES = new Set(["backup_runs", "workbook_materialized_view_r
 export const TERMINAL_RULES = {
   online_payment_orders: {
     column: "status",
-    terminal: ["accounted", "superseded", "abandoned", "failed"],
+    terminal: ["accounted", "abandoned", "failed"],
     rewrite: "abandoned",
   },
   online_payment_intents: {
     column: "status",
     terminal: ["accounted", "superseded", "cancelled", "expired", "failed"],
     rewrite: "cancelled",
+    // Closed for the reconciler too: provider_cancelled_at set on every
+    // non-accounted intent that lacks it.
+    stamp: { column: "provider_cancelled_at", unlessStatus: ["accounted"], from: ["updated_at", "created_at"] },
   },
   online_payment_events: {
     column: "status",
@@ -98,11 +114,96 @@ export function importTransform(table, row) {
   const rule = TERMINAL_RULES[table];
   if (!rule) return { row, action: "keep" };
   const value = row?.[rule.column];
-  if (rule.terminal.includes(value)) return { row, action: "keep" };
-  if (rule.rewrite === null) return { row: null, action: "dropped" };
-  const next = { ...row, [rule.column]: rule.rewrite };
-  for (const column of rule.clear ?? []) if (column in next) next[column] = null;
-  return { row: next, action: "rewritten" };
+  let next = row;
+  if (!rule.terminal.includes(value)) {
+    if (rule.rewrite === null) return { row: null, action: "dropped" };
+    next = { ...row, [rule.column]: rule.rewrite };
+    for (const column of rule.clear ?? []) if (column in next) next[column] = null;
+  }
+  const stamp = rule.stamp;
+  if (stamp && !stamp.unlessStatus.includes(next?.[rule.column]) && (next?.[stamp.column] ?? null) === null) {
+    const at = stamp.from.map((c) => next?.[c]).find((v) => v !== null && v !== undefined) ?? "1970-01-01T00:00:00+00:00";
+    next = next === row ? { ...row } : next;
+    next[stamp.column] = at;
+  }
+  return { row: next, action: next === row ? "keep" : "rewritten" };
+}
+
+/**
+ * The fees reconcilers' own selection filters, as One will port them
+ * (fees src/modules/payments/data/online/orders.ts reconcileOpenOrders and
+ * service.ts reconcileOnlinePayments, main 8a0cd47c). An imported row must
+ * match none of them. `now` and created_at are ignored on purpose: an import
+ * can land within 24 hours of the row's creation. Pure.
+ */
+/** @type {Record<string, Array<(row: any) => boolean>>} */
+export const RECONCILER_FILTERS = {
+  online_payment_orders: [
+    // .eq("status","pending").lt("created_at", now-10min) -> online_payment_order_failed
+    (row) => row.status === "pending",
+    // .in("status",["open","superseded","paid"]).gte("created_at", now-24h)
+    (row) => ["open", "superseded", "paid"].includes(row.status),
+  ],
+  online_payment_intents: [
+    // status.in.(link_pending,link_created),
+    (row) => ["link_pending", "link_created"].includes(row.status),
+    // and(status.in.(superseded,expired,cancelled,failed),provider_cancelled_at.is.null)
+    (row) => ["superseded", "expired", "cancelled", "failed"].includes(row.status) && (row.provider_cancelled_at ?? null) === null,
+  ],
+  online_payment_events: [
+    // the inbox drain: status pending/failed, attempts < 12
+    (row) => ["pending", "failed"].includes(row.status),
+  ],
+  online_payment_captures: [(row) => ["pending", "review_required"].includes(row.application_status)],
+  notification_outbox: [(row) => ["queued", "processing", "failed"].includes(row.status)],
+};
+
+/** Would any of One's ported reconcilers pick this imported row up? Pure. */
+export function reconcilerWouldPickUp(table, row) {
+  return (RECONCILER_FILTERS[table] ?? []).some((filter) => row && filter(row));
+}
+
+/* ------------------------------------------------- tables not in One */
+
+/**
+ * Live tables One's `public` does not have, that the mirror deliberately
+ * does not carry (table -> reason). Any OTHER live table that One lacks makes
+ * load-snapshot --apply refuse — and reconcile report a MISMATCH — as soon as
+ * it holds a row, and so does any live column One lacks: nothing is dropped
+ * silently (critique of A2). 30 Oct, run 20261030-a2-first: 13 live tables
+ * not in One; these two carry rows, the other eleven are empty
+ * (docs/cutover/MIGRATION-TOOLS.md lists all 13 with a reason each).
+ */
+export const NOT_MIGRATED = {
+  feature_flags: "The fees app's own feature toggles. One switches features through app_settings and its own code, never these rows.",
+  job_runs: "The fees app's cron history. One keeps its own; a fees job run means nothing in One.",
+};
+
+/** Live column names One lacks, per table, that may be dropped (none today). */
+export const NOT_MIGRATED_COLUMNS = {};
+
+/**
+ * What the extract has that One cannot hold. Pure.
+ *   manifestTables: [{ name, rowCount, columns }]; meta: One's catalog.
+ * Returns { tables: [{ table, rows }], columns: [{ table, columns }] } — only
+ * the ones NOT on the allow-lists above: each one stops --apply.
+ */
+export function unmigratedSourceData(manifestTables, meta) {
+  const tables = [];
+  const columns = [];
+  for (const t of manifestTables) {
+    if (SKIP_TABLES.has(t.name)) continue;
+    const one = meta.tables[t.name];
+    if (!one) {
+      if ((t.rowCount ?? 0) > 0 && !NOT_MIGRATED[t.name]) tables.push({ table: t.name, rows: t.rowCount });
+      continue;
+    }
+    const oneCols = new Set(one.columns.map((c) => c.name));
+    const allowed = new Set(NOT_MIGRATED_COLUMNS[t.name] ?? []);
+    const missing = (t.columns ?? []).filter((c) => !oneCols.has(c) && !allowed.has(c));
+    if (missing.length) columns.push({ table: t.name, columns: missing });
+  }
+  return { tables, columns };
 }
 
 /* --------------------------------------------------------- One-owned */
@@ -208,7 +309,55 @@ export function propagateDown(seed, rowsByTable, meta) {
       marked.set(fk.child, childMarked);
     }
   }
-  return attachAuditRows(marked, rowsByTable, meta);
+  return attachAuditRows(attachOnlineRows(marked, rowsByTable, meta), rowsByTable, meta);
+}
+
+/**
+ * Two online tables name their subject without a foreign key, so following
+ * FKs never reaches them, and One's own TEST-session online testing would be
+ * filed as real rows — deleted as "extra in One" by the next mirror load:
+ *  - online_payment_events: by provider_payment_id (a marked capture's) or
+ *    provider_link_id (a marked intent's or capture's);
+ *  - online_payment_audit: by intent_id / capture_id / event_id (plain
+ *    columns) pointing at a marked row.
+ */
+export function attachOnlineRows(marked, rowsByTable, meta) {
+  const keysOf = (table) => marked.get(table) ?? new Set();
+  const rowsOf = (table) => rowsByTable.get(table) ?? [];
+  const pkOf = (table) => meta.tables[table]?.pk;
+  const markedRows = (table) => {
+    const pk = pkOf(table);
+    const keys = keysOf(table);
+    return pk && keys.size ? rowsOf(table).filter((row) => keys.has(pkKey(row, pk))) : [];
+  };
+
+  const intents = markedRows("online_payment_intents");
+  const captures = markedRows("online_payment_captures");
+  const paymentIds = new Set(captures.map((c) => c.provider_payment_id).filter(Boolean));
+  const linkIds = new Set([...intents, ...captures].map((r) => r.provider_link_id).filter(Boolean));
+
+  const eventPk = pkOf("online_payment_events");
+  if (eventPk && (paymentIds.size || linkIds.size)) {
+    const out = new Set(keysOf("online_payment_events"));
+    for (const e of rowsOf("online_payment_events")) {
+      if ((e.provider_payment_id && paymentIds.has(e.provider_payment_id)) || (e.provider_link_id && linkIds.has(e.provider_link_id))) out.add(pkKey(e, eventPk));
+    }
+    if (out.size) marked.set("online_payment_events", out);
+  }
+
+  const auditPk = pkOf("online_payment_audit");
+  if (auditPk) {
+    const ids = (table) => new Set(markedRows(table).map((r) => String(r.id)));
+    const byColumn = { intent_id: ids("online_payment_intents"), capture_id: ids("online_payment_captures"), event_id: ids("online_payment_events") };
+    if (Object.values(byColumn).some((s) => s.size)) {
+      const out = new Set(keysOf("online_payment_audit"));
+      for (const a of rowsOf("online_payment_audit")) {
+        if (Object.entries(byColumn).some(([column, set]) => a[column] != null && set.has(String(a[column])))) out.add(pkKey(a, auditPk));
+      }
+      if (out.size) marked.set("online_payment_audit", out);
+    }
+  }
+  return marked;
 }
 
 /**
