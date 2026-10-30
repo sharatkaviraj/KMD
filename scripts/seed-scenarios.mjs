@@ -23,7 +23,10 @@
  * Idempotent: every write is an upsert or a delete-then-insert on the same
  * day, so running it twice leaves the same database.
  *
- * Rule 3: dev only, and it refuses to run anywhere else.
+ * Rule 3 / D-346: One's main project only. On production (the database
+ * marker says so) it is confined: it seeds TEST-2026-27, reads only that
+ * session's published timetable, and refuses unless every member of staff it
+ * would write about is a test account.
  * Rule 6: every name written here is invented. Nothing describes a real child,
  * parent or member of staff.
  */
@@ -50,7 +53,7 @@ import {
 import { attendancePercent } from "../src/modules/attendance/domain/attendance.ts";
 import { buildReportCard } from "../src/modules/assessments/domain/report-card.ts";
 import { readActiveSession } from "./read-active-session.mjs";
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PERIOD_COUNT = 8;
@@ -65,10 +68,8 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
-  console.error(`Refusing to run: .env.local is not the dev project (rule 3).`);
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only, and on production confined to TEST-2026-27 and test accounts.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "seed-scenarios", mode: "test-scoped" });
 
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
@@ -106,17 +107,24 @@ const weekdayOf = (day) =>
 /* --------------------------------------------------------------- lookups */
 
 const [{ data: staff }, { data: version }, { data: kinds }] = await Promise.all([
-  db.from("staff_profiles").select("id, display_name, short_name, is_teaching, role"),
-  db
-    .from("timetable_versions")
-    .select("id, session_label")
-    .eq("status", "published")
-    .maybeSingle(),
+  db.from("staff_profiles").select("id, display_name, short_name, is_teaching, role, is_test_account"),
+  scope.production
+    ? db
+        .from("timetable_versions")
+        .select("id, session_label")
+        .eq("status", "published")
+        .eq("session_label", scope.sessionLabel)
+        .maybeSingle()
+    : db
+        .from("timetable_versions")
+        .select("id, session_label")
+        .eq("status", "published")
+        .maybeSingle(),
   db.from("note_kinds").select("id, code").order("sort_order"),
 ]);
 
 // The session the app is working in. See src/platform/config/active-session.ts.
-const sessionLabel = await readActiveSession(db);
+const sessionLabel = scope.production ? scope.sessionLabel : await readActiveSession(db);
 
 if (!version) {
   console.error("No published timetable. Run `npm run seed:timetable` first.");
@@ -164,6 +172,21 @@ const timetableTeachers = [...new Set(slots.map((slot) => slot.staffProfileId))]
 const raj = staff.find((person) => person.short_name === "RAJ");
 const qaTeacher = staff.find((person) => person.short_name === "QATE");
 const qaOffice = staff.find((person) => person.short_name === "QAOF");
+
+// D-346: on production every member of staff this seeds about — the
+// timetable's teachers and the named QA profiles — must be a test account.
+if (scope.production) {
+  const named = [raj, qaTeacher, qaOffice].filter(Boolean).map((person) => person.id);
+  const notTest = [...new Set([...timetableTeachers.filter(Boolean), ...named])].filter(
+    (id) => staff.find((person) => person.id === id)?.is_test_account !== true,
+  );
+  if (notTest.length > 0) {
+    console.error(
+      `Refusing to seed on production: ${notTest.length} member(s) of staff in the ${sessionLabel} timetable are not test accounts.`,
+    );
+    process.exit(1);
+  }
+}
 
 console.log(`session ${sessionLabel} · ${slots.length} slots · ${days.length} days`);
 
@@ -251,7 +274,8 @@ const profileOverrides = Object.fromEntries(
 
 const teacherProfiles = buildTeacherProfiles({
   teacherDetails: teacherDetailsFrom(slots, days),
-  roster: staff.map((person) => person.id),
+  // On production a cover may only be given to a test account (D-346).
+  roster: staff.filter((person) => !scope.production || person.is_test_account === true).map((person) => person.id),
   policyOverrides: profileOverrides,
   reserveStaff: policies
     .filter((policy) => policy.cover_role === "reserve")

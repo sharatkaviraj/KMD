@@ -6,14 +6,43 @@
 | Local | `C:\Users\AnandKumari\Desktop\vppsone` |
 | Vercel | project `vppsone`, connected to the repo — every push to `main` deploys |
 | Live | https://vppsone.vercel.app |
-| Database | Supabase `schoolfees-dev` — `wtgxcptmucjerhufzjcf` |
+| Database | Supabase `wtgxcptmucjerhufzjcf` (project name still `schoolfees-dev`) — **One's main, production database and its only test bed** (D-338, D-346) |
 | Supabase CLI | `supabase init` done, `project_id = "vppsone"` |
+
+## One database, confined where it is not production (D-338, D-346)
+
+There is no separate dev database. Production, Preview, local `next dev`, the
+scripts and the tests all point at `wtgxcptmucjerhufzjcf`, so what keeps
+test work off real data is not the URL but two guards:
+
+- **The database marker** `vppsone.deployment.environment` — `dev` today,
+  `production` from the Phase 1 lockdown (an owner step, done as postgres).
+  Unreadable counts as production. While it says production, QA / smoke-lab /
+  day-run sign-in works only for `is_test_account` profiles, and the seeding
+  scripts write only TEST-2026-27 data and test accounts
+  (`scripts/target-guard.mjs#toolScope`: `read-only`, `test-scoped`, or
+  `dev-only` = refuses production). `replicate-live.mjs` never runs there.
+- **Confined deployments** — anything but `VERCEL_ENV=production` —
+  `isConfinedDeployment()` in `src/platform/deployment/confinement.ts`:
+  every user is treated as a test account and fee writes go through only for
+  TEST-session students (`modules/fees/platform/supabase/write-guard.ts`).
+  On your machine that means a real-session payment is refused with
+  "Fee changes are switched off here…" — post against a TEST-2026-27 student.
+- **Fee writes** on production need `app_settings.fee_writes_enabled = 'true'`
+  (D-345); the money functions check it themselves. TEST receipts are
+  numbered `TST…`.
+
+The fees app's live database `vgqyilgstjvgohrsiwkb` is never a target. Its
+local `.env.local` keys for this project were disabled on 30 Oct (owner
+approved), so the fees app run locally cannot touch One's data.
 
 ## Environment
 
 `.env.local` carries the values copied from the fee app, with the Supabase ones
-pointed at **dev**. The same set (minus `SUPABASE_DEV_DB_PASSWORD`, which is
-local-only) is set on Vercel for Production, Preview and Development.
+pointed at **One's main project**. The same set (minus
+`SUPABASE_DEV_DB_PASSWORD`, which is local-only — scripts/migrate/lib/one-db.mjs
+uses it for direct session-pooler connections) is set on Vercel for
+Production, Preview and Development.
 
 | Key | Source |
 |---|---|
@@ -137,10 +166,14 @@ become usable here anyway.
 
 So the routine is:
 
-1. Write the migration as a numbered file in `supabase/migrations/`.
-2. Apply it to dev with the Supabase MCP (`execute_sql`, or `apply_migration`).
-3. The file is the source of truth — the cutover replays the files in order
-   against the live project the same way.
+1. Write the migration as a numbered file in `supabase/migrations/` (`vppsone`
+   objects only), or — for a change to the fee schema One owns on this
+   database (D-338) — in `supabase/fee-migrations/`, with a header saying why
+   it differs from the fees app (see that folder's README for the
+   `fee_<version>_<name>` ledger naming).
+2. Apply it to `wtgxcptmucjerhufzjcf` with the Supabase MCP (`apply_migration`).
+   Never to `vgqyilgstjvgohrsiwkb`.
+3. The file is the source of truth.
 
 The MCP stamps its own version when it applies a migration, so name the file
 after what it recorded rather than what you guessed. `docs/PROGRESS.md` lists

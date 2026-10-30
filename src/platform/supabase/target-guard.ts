@@ -3,19 +3,32 @@
  *
  * Every script in `scripts/` has refused the wrong project since the first
  * week, and the app's own clients never did: they trusted whatever
- * `NEXT_PUBLIC_SUPABASE_URL` said. A deployment with the live URL and
- * `VPPSONE_ENV` forgotten — which `getVppsOneEnvironment()` reads as `dev` —
- * would have written cover plans and test registers into the school's real
- * database, and the only thing between the two was a variable nobody re-reads.
+ * `NEXT_PUBLIC_SUPABASE_URL` said. So the target is checked where a client is
+ * created, from the URL itself.
  *
- * So the target is checked where a client is created, from the URL itself:
+ * Two projects matter, and since 30 Oct they are not "dev" and "live"
+ * (D-338, D-346):
  *
- *  - **dev** may reach the dev project or a local Supabase, and nothing else.
- *    The live fee project is refused by name. An unknown project is refused
- *    too — "fail closed" means an unfamiliar ref is not assumed to be a test.
- *  - **live** may reach the live project and nothing else, and never from a
- *    test runner. `VPPSONE_ENV=live` is the cutover's own declaration
- *    (`docs/CUTOVER.md`); a test that inherits it is not a cutover.
+ *  - **ONE_MAIN_PROJECT_REF** (`wtgxcptmucjerhufzjcf`) is One's own database:
+ *    production from go-live on, and the only test bed there will ever be.
+ *    There is no separate dev database. Testing happens in it, under
+ *    TEST-2026-27, and whether it is production right now is said by the
+ *    database itself (`vppsone.deployment`), not by its ref.
+ *  - **FEES_SOURCE_PROJECT_REF** (`vgqyilgstjvgohrsiwkb`) is the fees app's
+ *    live database. One copies from it and never writes to it. The app — and
+ *    every script except `scripts/migrate/*`'s sealed select-only reader — may
+ *    never target it, whatever `VPPSONE_ENV` says.
+ *
+ * The rule:
+ *
+ *  - the fees source project is refused, always;
+ *  - **live** (`VPPSONE_ENV=live`, the production deployment's own
+ *    declaration) may reach ONE_MAIN_PROJECT_REF and nothing else, and never
+ *    from a test runner — a test that inherits `VPPSONE_ENV=live` is not a
+ *    deployment;
+ *  - **dev** (everything else: previews, `next dev`, tests) may reach
+ *    ONE_MAIN_PROJECT_REF or a local Supabase. An unknown project is refused —
+ *    "fail closed" means an unfamiliar ref is not assumed to be a test.
  *
  * A hostname is compared exactly. `url.includes(ref)` — the scripts' old check
  * — passes `https://elsewhere.example/?wtgxcptmucjerhufzjcf`.
@@ -25,11 +38,11 @@
  * for the Node scripts; `tests/target-guard.test.ts` keeps the two agreeing.
  */
 
-/** schoolfees-dev. The only database this app is built against (rule 3). */
-export const DEV_PROJECT_REFS = ["wtgxcptmucjerhufzjcf"] as const;
+/** One's main database: production from go-live, and the only test bed (D-338). */
+export const ONE_MAIN_PROJECT_REF = "wtgxcptmucjerhufzjcf";
 
-/** The live School Fees project. Never a target before the cutover. */
-export const PROTECTED_LIVE_PROJECT_REF = "vgqyilgstjvgohrsiwkb";
+/** The fees app's live database. A read-only source for migration scripts; never a target. */
+export const FEES_SOURCE_PROJECT_REF = "vgqyilgstjvgohrsiwkb";
 
 export type SupabaseTarget =
   | { kind: "project"; ref: string }
@@ -60,6 +73,12 @@ export function supabaseTargetOf(url: string): SupabaseTarget {
 
   // A subdomain that cannot be a project ref, like CI's `ci-build-only`.
   return { kind: "placeholder", host };
+}
+
+/** Is this URL exactly One's main project? */
+export function isOneMainProject(url: string): boolean {
+  const target = supabaseTargetOf(url);
+  return target.kind === "project" && target.ref === ONE_MAIN_PROJECT_REF;
 }
 
 export type TargetContext = {
@@ -97,26 +116,23 @@ function describe(target: SupabaseTarget): string {
 export function refusalFor(url: string, context: TargetContext): string | null {
   const target = supabaseTargetOf(url);
 
-  if (target.kind === "project" && target.ref === PROTECTED_LIVE_PROJECT_REF) {
-    if (context.underTest) {
-      return "The live fee project is never a test target, whatever VPPSONE_ENV says.";
-    }
-    if (context.environment !== "live") {
-      return (
-        "NEXT_PUBLIC_SUPABASE_URL is the live fee project but VPPSONE_ENV is not " +
-        "'live'. Until the cutover this app is built against schoolfees-dev only (rule 3)."
-      );
-    }
-    return null;
+  if (target.kind === "project" && target.ref === FEES_SOURCE_PROJECT_REF) {
+    return (
+      "NEXT_PUBLIC_SUPABASE_URL is the fees app's live database. One copies from it " +
+      "and never targets it (D-338, D-339); One's database is " +
+      `${ONE_MAIN_PROJECT_REF}.`
+    );
   }
 
   if (context.environment === "live") {
-    return `VPPSONE_ENV=live may only reach the live fee project, not ${describe(target)}.`;
+    if (context.underTest) {
+      return "VPPSONE_ENV=live under a test runner: a test is not the production deployment.";
+    }
+    if (target.kind === "project" && target.ref === ONE_MAIN_PROJECT_REF) return null;
+    return `VPPSONE_ENV=live may only reach One's main project, not ${describe(target)}.`;
   }
 
-  if (target.kind === "project" && (DEV_PROJECT_REFS as readonly string[]).includes(target.ref)) {
-    return null;
-  }
+  if (target.kind === "project" && target.ref === ONE_MAIN_PROJECT_REF) return null;
 
   if (target.kind === "local") return null;
 
@@ -125,7 +141,7 @@ export function refusalFor(url: string, context: TargetContext): string | null {
   if (target.kind === "placeholder" && context.ci) return null;
 
   return (
-    `Refusing ${describe(target)}: it is not a known dev project. ` +
+    `Refusing ${describe(target)}: it is not One's main project. ` +
     "An unfamiliar target is not assumed to be a test one."
   );
 }

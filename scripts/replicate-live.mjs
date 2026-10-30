@@ -51,11 +51,18 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
+import {
+  FEES_SOURCE_PROJECT_REF,
+  ONE_MAIN_PROJECT_REF,
+  projectRefOf,
+  readDeploymentEnvironment,
+} from "./target-guard.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The only two projects this script will ever touch, and in which direction. */
-const LIVE_REF = "vgqyilgstjvgohrsiwkb"; // read-only, always
-const DEV_REF = "wtgxcptmucjerhufzjcf"; // written
+const LIVE_REF = FEES_SOURCE_PROJECT_REF; // read-only, always
+const DEV_REF = ONE_MAIN_PROJECT_REF; // written — and only while its marker says dev
 
 const LIVE_SECRETS = path.join(
   process.env.USERPROFILE ?? process.env.HOME ?? "",
@@ -86,12 +93,28 @@ function parseEnv(file) {
 const devEnv = parseEnv(path.join(repoRoot, ".env.local"));
 const liveEnv = parseEnv(LIVE_SECRETS);
 
-if (!(devEnv.NEXT_PUBLIC_SUPABASE_URL ?? "").includes(DEV_REF)) {
+// Exact hostnames, not `url.includes(ref)` (see scripts/target-guard.mjs).
+if (projectRefOf(devEnv.NEXT_PUBLIC_SUPABASE_URL) !== DEV_REF) {
   console.error(`Refusing to run: .env.local does not point at ${DEV_REF} (rule 3).`);
   process.exit(1);
 }
-if (!(liveEnv.NEXT_PUBLIC_SUPABASE_URL ?? "").includes(LIVE_REF)) {
+if (projectRefOf(liveEnv.NEXT_PUBLIC_SUPABASE_URL) !== LIVE_REF) {
   console.error(`Refusing to run: the secrets backup is not ${LIVE_REF}.`);
+  process.exit(1);
+}
+
+/*
+ * **Never on production, in either mode** (D-346). This script overwrites
+ * `public` with masked people. Once `vppsone.deployment` says production, the
+ * people in `public` are real and the school's, and this is the one tool that
+ * is not confined but refused outright. Fail closed: a marker that cannot be
+ * read is production.
+ */
+if ((await readDeploymentEnvironment({ url: devEnv.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: devEnv.SUPABASE_SERVICE_ROLE_KEY })) !== "dev") {
+  console.error(
+    `Refusing to run: ${DEV_REF} is marked production (or its marker could not be read). ` +
+      "replicate-live overwrites public with masked data and never runs on production (D-346).",
+  );
   process.exit(1);
 }
 

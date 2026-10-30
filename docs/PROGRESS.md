@@ -13,7 +13,8 @@ Sunday 13 Dec. Status per phase is kept in the table below.
 | Phase | Status | PR | Notes |
 |---|---|---|---|
 | 0 Plan and decisions | in review | — | This entry |
-| 1–2 Guards, importer, reconcile | not started | | |
+| 1 Foundation (A1): marker, guards, fee writes switch, parity | in review | branch `feat/golive-foundation` | Applied to wtgx: 11 fee catch-ups (earlier run, now committed), `deployment_marker` 20261030112133, `migration_ledger` 20261030112221, fee-migrations `nightly_backup_bucket` 20261030111402, `student_photo_storage_rls` 20261030111416, `parity_revoke_public_execute` 20261030111438, `parity_office_sync_realtime` 20261030111442, `fee_writes_guard` 20261030112459, `test_receipt_prefix` 20261030112612. Marker seeded `dev`. Surprises: wtgx let `anon` execute 45 fee functions live had revoked (incl. the money RPCs); live got a new fees migration `20261030170000_online_payment_staff_alerts` today, not on fees main yet. Left: auth.users trigger (blocked on Q5), QA users → test accounts (Phase 3), the `dev-only` verify-* scripts to be confined to TEST, the fee-parity baseline to re-record after review |
+| 2 Importer, reconcile | not started | | |
 | 3 Session pill, TEST visibility | not started | | |
 | 4 Quarantine and promote | not started | | |
 | 5 Fee changes P1–P11 | not started | | |

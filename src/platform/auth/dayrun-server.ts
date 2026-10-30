@@ -7,6 +7,7 @@ import { createAdminClient } from '@/platform/supabase/admin';
 import { createClient } from '@/platform/supabase/server';
 import { getCurrentStaff } from '@/platform/auth/current-staff';
 import { admitSignedInUser } from '@/platform/auth/admit';
+import { toolAccountAccess } from '@/platform/deployment/tool-access';
 import { VIEW_AS_COOKIE } from '@/vx/view-as';
 import { getRequiredEnvVar } from '@/platform/env';
 import { DAYRUN, accountForAlias, assertDayrunEnvironment, assertDayrunOrigin, assertDayrunOwner, parsePairCookie } from '@/platform/auth/dayrun-policy';
@@ -107,6 +108,10 @@ export async function redeemDayrunPair(request:NextRequest) {
     return {id:data.user.id,email:data.user.email,appMetadata:data.user.app_metadata};
    },
    mint:async(email)=>{
+    // Confined, not banned (D-346): on a production database a day-run seat
+    // signs in only as a test account. Checked before a token exists.
+    const access=await toolAccountAccess({staffProfileId:selectedStaffId});
+    if(!access.ok) throw new Error('Account unavailable');
     const {data,error}=await admin.auth.admin.generateLink({type:'magiclink',email});
     if(error || !data?.properties?.hashed_token || data.user?.id!==selectedUserId) throw new Error('Account unavailable');
     return data.properties.hashed_token;

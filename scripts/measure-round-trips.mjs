@@ -36,7 +36,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { assertTestAccountUser, toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const env = Object.fromEntries(
@@ -46,10 +46,8 @@ const env = Object.fromEntries(
     .map((line) => [line.slice(0, line.indexOf("=")).trim(), line.slice(line.indexOf("=") + 1).trim()]),
 );
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
-  console.error("Refusing to run: .env.local is not the dev project (rule 3).");
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only, and on production confined to TEST-2026-27 and test accounts.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "measure-round-trips", mode: "test-scoped" });
 
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3400";
 const traceFile = process.env.TRACE_FETCH_FILE;
@@ -87,6 +85,7 @@ async function sessionCookie(key) {
   if (!account?.email.endsWith("@qa.vpps.local")) throw new Error(`${key}: not a QA account`);
   const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email: account.email });
   if (error) throw new Error(`${key}: ${error.message}`);
+  await assertTestAccountUser({ scope, url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, userId: data.user?.id, email: account.email });
   const response = await fetch(
     `${origin}/auth/confirm?token_hash=${data.properties.hashed_token}&type=magiclink`,
     { redirect: "manual" },

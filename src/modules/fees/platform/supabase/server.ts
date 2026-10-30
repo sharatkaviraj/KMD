@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 
 import { getFeeSchema, getRequiredEnvVar, getServerSupabaseUrl } from "@/platform/env";
 
+import { createFeeWriteGuardedFetch } from "./write-guard";
+
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
 const getCookieStore = cache(() => cookies());
@@ -40,6 +42,9 @@ export async function createFeeClient(cookieStore?: CookieStore) {
         },
       },
       db: { schema: getFeeSchema() },
+      // The fee writes switch (D-345, D-346): the same one check as the admin
+      // client, so a write as the signed-in user cannot go round it.
+      global: { fetch: createFeeWriteGuardedFetch() },
     },
   );
 }

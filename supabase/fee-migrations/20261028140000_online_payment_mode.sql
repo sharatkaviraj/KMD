@@ -1,0 +1,22 @@
+-- ============================================================================
+-- VPPS One fee-migration: copy of the fees app's supabase/migrations/20261028140000_online_payment_mode.sql
+-- (fees main 8a0cd47c), applied to One's main database wtgxcptmucjerhufzjcf
+-- through the Supabase MCP (D-338; see supabase/fee-migrations/README.md).
+-- Difference from the fees app: none. The body below is byte-for-byte the fees
+--   original; only this header is added.
+-- ============================================================================
+-- A receipt paid through the online gateway says so.
+--
+-- Razorpay takes UPI, cards and netbanking, so none of the counter's four modes
+-- describes it truthfully: calling a card payment "UPI" would put it in the
+-- wrong column of every day-close and export. `online` is its own mode.
+--
+-- Its own migration because Postgres refuses to USE a new enum value in the
+-- transaction that adds it ("unsafe use of new value"), and
+-- `20261028140100_online_payments.sql` posts with it.
+--
+-- The Payment Desk never offers it: `PAYMENT_MODES` in
+-- `src/platform/config/fee-rules.ts` is the desk's list and does not carry it.
+-- Only `public.online_payment_apply_capture` posts an `online` receipt.
+
+alter type public.payment_mode add value if not exists 'online';

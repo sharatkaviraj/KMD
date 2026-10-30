@@ -1,0 +1,41 @@
+-- ============================================================================
+-- VPPS One fee-migration: copy of the fees app's supabase/migrations/20261026120020_whatsapp_scheduled_runs_timer.sql
+-- (fees main 8a0cd47c), applied to One's main database wtgxcptmucjerhufzjcf
+-- through the Supabase MCP (D-338; see supabase/fee-migrations/README.md).
+-- Difference from the fees app: the pg_cron block(s) are REMOVED.
+--   The fees original unschedules and re-schedules a pg_cron job whose command
+--   calls https://schoolfees-two.vercel.app/api/cron/... — the PRODUCTION fees
+--   app. Applied here it would make One's database a caller of the fees app's
+--   production endpoints whenever Vault holds the same secret name (plan §1.5,
+--   critique0 #23). One schedules its own jobs, against its own routes, at
+--   cutover (plan §11). Nothing else in the file is changed.
+-- ============================================================================
+-- The morning timer for scheduled WhatsApp campaigns — 09:30 IST every day.
+--
+-- `/api/cron/whatsapp-scheduled-runs` has existed since September, but nothing
+-- called it: Vercel's Hobby plan allows two crons and both are spent (the
+-- nightly backup and the automatic day close), and a third `vercel.json` entry
+-- fails the whole deployment rather than just the cron. pg_cron + pg_net are
+-- already how this database calls out on a schedule (the Notion sync), so the
+-- timer lives here instead.
+--
+-- What it sends is decided entirely by the route, under the same guards as a
+-- pressed Send: only saved campaigns whose slot has arrived AND whose owner
+-- ticked "sends itself". Production held ZERO saved campaigns when this was
+-- written, so on its first morning it sends nothing at all.
+--
+-- The secret lives in Vault as `VPPS_WHATSAPP_CRON_SECRET` and matches the
+-- `WHATSAPP_CRON_SECRET` env var on the Vercel production deployment. Until
+-- that secret exists the job does not call out at all — so a preview branch or
+-- the dev project, which run this same migration, never ping production.
+--
+-- 04:00 UTC is 09:30 IST: office hours, and inside the 08:00-20:00 quiet-hours
+-- guard, so a scheduled run is never the thing that wakes a parent.
+
+-- [VPPS One] cron.unschedule block removed (see header).
+
+-- [VPPS One] cron.schedule block removed (see header).
+
+-- [VPPS One] With both cron blocks removed this file does nothing. The no-op
+-- below lets it be applied anyway, so the ledger records every fee version.
+select 1;

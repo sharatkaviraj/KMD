@@ -35,10 +35,9 @@ import {
   parseTimetable,
 } from "../src/modules/timetable/domain/parse-timetable.ts";
 import { readActiveSession } from "./read-active-session.mjs";
-import { DEV_PROJECT_REFS, isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const [DEV_PROJECT_REF] = DEV_PROJECT_REFS;
 const LABEL = "Fixture v11 (seeded)";
 
 function readEnv() {
@@ -56,12 +55,10 @@ function readEnv() {
 const env = readEnv();
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-if (!isDevProjectUrl(url)) {
-  console.error(
-    `Refusing to run: .env.local points at ${url}, not the dev project ${DEV_PROJECT_REF} (rule 3).`,
-  );
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only. It publishes a timetable into the
+// active (real) session, so on production it refuses until it is taught to
+// publish into TEST-2026-27 instead.
+await toolScope({ url, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "seed:timetable", mode: "dev-only" });
 
 const db = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },

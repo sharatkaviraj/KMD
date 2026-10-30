@@ -7,6 +7,7 @@ import { resolvePass, touchPass } from "@/modules/smoke/data/smoke-repo";
 import { admitSignedInUser } from "@/platform/auth/admit";
 import { QA_CLOCK_COOKIE } from "@/platform/auth/qa-clock";
 import { smokeLabEnabled } from "@/platform/auth/smoke-lab";
+import { toolAccountAccess } from "@/platform/deployment/tool-access";
 import { landingFor } from "@/platform/config/start";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
@@ -19,9 +20,9 @@ export const dynamic = "force-dynamic";
  *
  * The pass is the whole credential: 256 random bits an admin issued on
  * `/smoke`, valid only while it and its run are live (24 hours at most), only
- * for a `smoke.*@qa.vpps.local` account, and only while the app is on the test
- * database. The session is made exactly as `/auth/confirm` makes one — a
- * one-time magic-link token minted and verified on the server, so no link,
+ * for a `smoke.*@qa.vpps.local` account, only on One's main project, and — once
+ * that database is marked production — only for a test-account seat (D-346).
+ * The session is made exactly as `/auth/confirm` makes one — a one-time magic-link token minted and verified on the server, so no link,
  * password or token ever reaches the agent — and admitted by the same check.
  * The middleware then keeps the session only while the pass stays live.
  */
@@ -40,6 +41,11 @@ export async function GET(request: NextRequest) {
   if (!resolved.ok) return ended(resolved.reason);
   const { pass } = resolved;
   if (!isSmokeEmail(pass.email)) return ended("invalid");
+  // Confined, not banned (D-346): on a production database a seat is admitted
+  // only if its staff profile is a test account. Checked before any session is
+  // minted, so a refused seat never signs in at all.
+  const access = await toolAccountAccess({ staffProfileId: pass.staffProfileId });
+  if (!access.ok) return ended("profile");
 
   const supabase = await createClient();
   // A browser already signed in as a real member of staff is not quietly

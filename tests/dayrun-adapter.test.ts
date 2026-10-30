@@ -14,6 +14,7 @@ vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: mocks.admin }))
 vi.mock("@/platform/supabase/server", () => ({ createClient: mocks.client }));
 vi.mock("@/platform/auth/current-staff", () => ({ getCurrentStaff: mocks.staff }));
 vi.mock("@/platform/auth/admit", () => ({ admitSignedInUser: mocks.admit }));
+vi.mock("@/platform/deployment/tool-access", () => ({ toolAccountAccess: async () => ({ ok: true }) }));
 vi.mock("@/platform/i18n/language-cookie", () => ({ writeLanguageCookie: mocks.language }));
 vi.mock("@/vx/view-as", () => ({ VIEW_AS_COOKIE: "vx_view_as" }));
 

@@ -32,7 +32,7 @@ import { monthStartIst } from "@/modules/assist/domain/cost";
 import { SMOKE_ASSIST_DAILY_CAP } from "@/modules/smoke/domain/limits";
 import { checkPlan } from "@/modules/smoke/domain/plan";
 
-import { isDevProjectUrl } from "../target-guard.mjs";
+import { isOneMainProjectUrl } from "../target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const planPath = path.resolve(process.argv[2] ?? path.join(repoRoot, "docs/smoke/plans/school-day.json"));
@@ -93,8 +93,8 @@ const env = existsSync(envFile)
     )
   : {};
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL) || !env.SUPABASE_SERVICE_ROLE_KEY) {
-  warn("skipped: .env.local has no dev project URL and service key (rule 3). `npm run smoke:pool -- status` needs them too.");
+if (!isOneMainProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL) || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  warn("skipped: .env.local has no One main-project URL and service key (rule 3). `npm run smoke:pool -- status` needs them too.");
 } else if (plan?.seats?.length) {
   const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
