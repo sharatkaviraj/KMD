@@ -1,5 +1,19 @@
 # VPPS One — progress
 
+## VPPS One at one.vpps.co.in — 30 October 2026
+
+The owner asked for the app on the school's own subdomain (D-336, runbook
+`docs/DOMAIN.md`). Done outside the repo: `one.vpps.co.in` added to Vercel
+project `vppsone`; Cloudflare `CNAME one → ade918e9b8269018.vercel-dns-017.com`,
+DNS only; certificate issued (Let's Encrypt, to 28 Jan 2027, auto-renewed);
+production-only `NEXT_PUBLIC_SITE_URL=https://one.vpps.co.in`, with Preview and
+Development keeping the old value; `https://one.vpps.co.in/**` in schoolfees-dev's
+Supabase redirect URLs. In the repo: `VERIFIED_ORIGINS.vppsone` and PARITY.md.
+`vppsone.vercel.app` keeps answering. Surprise: the certificate was not issued
+on its own after the CNAME verified; `vercel certs issue` did it in seconds.
+Remaining: staff sign in once on the new address and reinstall the phone app;
+deciding later whether to redirect `vppsone.vercel.app`.
+
 ## Fee admin screens simplified — 28 October 2026
 
 PR 134 (`52357ed`) and its fix PR 135 (`f19a7c0`), at the owner's request.

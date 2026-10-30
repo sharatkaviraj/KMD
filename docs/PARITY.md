@@ -26,7 +26,7 @@ an older note.** Re-verify with `npm run verify:origins`.
 
 | App | Verified production origin | Identified by | Database |
 |---|---|---|---|
-| VPPS One | `https://vppsone.vercel.app` | `307 → /login?next=%2F` | schoolfees-dev `wtgxcptmucjerhufzjcf` (`VPPSONE_ENV=dev`) |
+| VPPS One | `https://one.vpps.co.in` (since 2026-10-30; `https://vppsone.vercel.app` serves the same deployment, `docs/DOMAIN.md`) | `307 → /login?next=%2F` | schoolfees-dev `wtgxcptmucjerhufzjcf` (`VPPSONE_ENV=dev`) |
 | School Fees | `https://vpps-one.vercel.app` | `<title>… \| Fee Admin</title>` | **live** `vgqyilgstjvgohrsiwkb` |
 | SamPark | `https://sampark-theta-eight.vercel.app` | `<title>Sign in — Sampark</title>` | **live** Neon (`DATABASE_URL`, Production) |
 
@@ -56,7 +56,7 @@ an older note.** Re-verify with `npm run verify:origins`.
 |---|---|---|
 | School Fees test origin | None stable and staff-reachable | R6.2 test coverage is blocked on someone creating one; R6.1 links production and labels it |
 | SamPark test origin | None (Production Neon only; one preview branch has its own `DATABASE_URL`, no stable alias) | R3 parity is built natively in VPPS One on dev data; the SamPark link is to live |
-| VPPS One test origin | `https://vppsone.vercel.app` **is** the test deployment | Badge stays; the badge describes this app only |
+| VPPS One test origin | `https://one.vpps.co.in` (also `https://vppsone.vercel.app`) **is** the test deployment | Badge stays; the badge describes this app only |
 
 ## SamPark
 
