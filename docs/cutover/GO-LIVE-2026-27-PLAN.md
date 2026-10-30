@@ -60,15 +60,23 @@ What changes in the phases:
   - Catch up the 11 fee migrations, with their `cron.schedule` blocks
     stripped, and diff the schema against live read-only until they match.
   - A database marker `vppsone.deployment` (`environment = 'production'`)
-    replaces "is this the dev ref?" in every guard. From then on these all
-    refuse this project:
-    - QA, smoke-lab and day-run sign-in
-    - `qa-fixture`, `seed-*` and `replicate-live.mjs`
-    - every `scripts/smoke/*`
-  - The `smoke-enforce` cron is unscheduled.
-  - The 50 QA auth users are banned.
-  - The test accounts are new users the owner controls, for example
-    plus-addresses on the school domain.
+    replaces "is this the dev ref?" in every guard (D-346; built in PR-1,
+    seeded `dev`, flipped by the orchestrator at lockdown). From then on QA
+    tooling is **confined, not banned**:
+    - QA, smoke-lab and day-run sign-in work only for `is_test_account`
+      profiles;
+    - `qa-fixture`, `seed-dev`, `seed-scenarios` and `smoke-pool` write only
+      TEST-2026-27 data and test accounts and refuse anything else; the other
+      writing `verify-*` / `seed-timetable` / `smoke-screens` scripts refuse
+      production until they are taught the same;
+    - `replicate-live.mjs` refuses production absolutely.
+  - The `smoke-enforce` cron keeps running (it only bans smoke seats without
+    a live pass).
+  - The 50 QA auth users are **converted to test accounts**, not banned
+    (Phase 3); further test accounts are users the owner controls.
+  - **Deployments that are not Vercel production are confined** (D-346):
+    every signed-in user is a test account, fee writes only for
+    TEST-session students, messages only to the test allowlist.
 - **Phase 4 quarantines in place.** One's `vppsone` rows are relabelled to
   `TEST-2026-27` and re-pointed at TEST classes and new `TEST-D-` shell
   students **before** any real fee data is loaded. Dev student ids equal
@@ -85,14 +93,15 @@ What changes in the phases:
     4. `fee_writes_enabled=false`;
     5. only then the first real load.
   - Until T0, staff can view real fee figures in One but cannot write them.
-- **Previews and local development lose their database.** Vercel Preview
-  and Development, the local `.env.local`, CI smoke tooling, and the fees
-  app's local development all point at this project today. **The fees
-  app's local `.env.local` and its dry-run scripts
-  (`verify-online-*-dryrun.mjs`, `SUPABASE_DEV_PROJECT_REF`) target this
-  project too.** After the switch, running the fees app locally would act
-  on One's production data. That needs an owner decision (Q19); this plan
-  never edits the fees repo.
+- **Previews and local development stay on this database, confined**
+  (Q19 answered 30 Oct, D-346). There is no separate dev database, ever:
+  Vercel Preview and Development, the local `.env.local` and CI smoke
+  tooling keep pointing at this project, and every non-production
+  deployment runs confined (`isConfinedDeployment()`). Testing happens in
+  production under `TEST-2026-27`; TEST receipts are numbered `TST`. The
+  fees app's local `.env.local` keys for this project were disabled on
+  30 Oct with the owner's approval, so the fees app run locally cannot act
+  on One's data; this plan still never edits the fees repo.
 - **Backups.** The free plan has none.
   - The Drive nightly backup, plus a read-only `pg_dump` before every real
     load and at T0, is the minimum.
@@ -552,6 +561,22 @@ retires.
   - mobile width.
 - SQL under each seat's token.
 - Pill screenshots at desktop and 375px, compared with the fees app.
+
+**3.6 Carried from PR-1 (#141 review)**
+- Convert the existing QA auth users to `is_test_account` (until then a
+  production marker, or a Vercel production deployment, refuses every QA
+  sign-in).
+- Confine what PR-1 left `dev-only` (they refuse production today): the 13
+  writing `verify-*` scripts, `smoke-screens` and the Playwright harness
+  (`tests/e2e/support/harness.ts`) — each picks TEST-2026-27 classes,
+  students and test-account staff when `scope.production` is true, and
+  becomes `test-scoped`.
+- Move `deep-smoke`, `smoke-roles` and `measure-round-trips` back to
+  `test-scoped` once points 3–6 above are merged: they drive the app, and
+  only the visibility rules keep a test account off real sessions there.
+- 1.4 / Q5 is still open: the owner's ruling on role precedence and on
+  whether `sync_staff_profile_from_auth_users` is recreated on wtgx, then
+  the 10-user mapping table. PR-1 did not recreate the trigger.
 
 ---
 
@@ -1217,7 +1242,10 @@ Steps:
     files kept (D-334)?
 18. **After sign-off.** Does the fees app keep running read-only, or is it
     retired?
-19. **Where does development go?** Once `wtgxcptmucjerhufzjcf` is
+19. **Answered 30 Oct (D-346): nowhere else.** Previews, local development
+    and smoke tooling stay on `wtgxcptmucjerhufzjcf`, confined to TEST data;
+    the fees app's local keys for it were disabled. The original question,
+    kept for the record: once `wtgxcptmucjerhufzjcf` is
     production, where do these point?
     - Vercel Preview and Development, local development and smoke tooling.
       Options: a new dev project (the free plan allows two active

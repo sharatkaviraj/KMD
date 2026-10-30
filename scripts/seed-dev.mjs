@@ -22,12 +22,9 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
-import { DEV_PROJECT_REFS, isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-/** The dev project. This script refuses to run against anything else. */
-const [DEV_PROJECT_REF] = DEV_PROJECT_REFS;
 
 /**
  * Seeded staff, one per QA account (kickoff task 1.1).
@@ -104,15 +101,12 @@ if (!supabaseUrl || !serviceRoleKey) {
   );
 }
 
-// Rule 3. The live fee database is not a target, and a seed script holding a
-// service-role key is exactly the thing that must not be pointed at it by a
-// stale shell variable.
-if (!isDevProjectUrl(supabaseUrl)) {
-  fail(
-    `Refusing to seed ${supabaseUrl}.\n  ` +
-      `This script only runs against schoolfees-dev (${DEV_PROJECT_REF}).`,
-  );
-}
+// Rule 3 / D-346. One's main project only — the fees app's live database is
+// refused by name, and a seed script holding a service-role key is exactly the
+// thing that must not be pointed at it by a stale shell variable. On
+// production it is confined: every profile it creates is a test account, and
+// it refuses to touch a profile that is not one.
+const scope = await toolScope({ url: supabaseUrl, serviceRoleKey, label: "seed:dev", mode: "test-scoped" });
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   db: { schema: "vppsone" },
@@ -165,12 +159,18 @@ async function main() {
 
     const { data: existing, error: readError } = await supabase
       .from("staff_profiles")
-      .select("id, short_name")
+      .select("id, short_name, is_test_account")
       .eq("user_id", userId)
       .maybeSingle();
 
     if (readError) {
       fail(`Could not read the profile for ${staff.email}: ${readError.message}`);
+    }
+
+    if (existing && scope.production && existing.is_test_account !== true) {
+      console.log(`  refuse  ${staff.email.padEnd(30)} its profile is not a test account (production)`);
+      skipped += 1;
+      continue;
     }
 
     if (existing) {
@@ -209,6 +209,9 @@ async function main() {
       is_active: true,
       preferred_language: "hi",
       created_by: userId,
+      // Every profile this seeds is a QA one, so it is a test account: on
+      // production that is what lets it exist at all (D-346).
+      is_test_account: true,
     });
 
     if (error) {

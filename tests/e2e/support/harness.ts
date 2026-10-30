@@ -6,7 +6,7 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "../../../src/platform/config/active-session";
 import { qaAccount } from "../../fixtures/qa-accounts";
-import { isDevProjectUrl } from "../../../scripts/target-guard.mjs";
+import { decideToolScope, isOneMainProjectUrl, readDeploymentEnvironment } from "../../../scripts/target-guard.mjs";
 
 /**
  * What a workflow test needs before it can press anything: a dev database, a
@@ -35,9 +35,23 @@ function readEnv(): Record<string, string> {
 
 const env = readEnv();
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL ?? "")) {
+if (!isOneMainProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL ?? "")) {
   // Rule 3. These journeys write: they mark registers and create requests.
-  throw new Error("Refusing to run workflow tests: .env.local is not the dev project.");
+  throw new Error("Refusing to run workflow tests: .env.local is not One's main project.");
+}
+
+/**
+ * The journeys write into the active (real) session as the QA accounts, so on
+ * a production database they refuse (D-346): `warm-server.ts` calls this
+ * before the first journey. Fail closed: an unreadable marker is production.
+ */
+export async function refuseOnProductionDatabase(): Promise<void> {
+  const environment = await readDeploymentEnvironment({
+    url: env.NEXT_PUBLIC_SUPABASE_URL,
+    serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+  const decision = decideToolScope(environment, "dev-only");
+  if (!decision.ok) throw new Error(`Refusing to run workflow tests: ${decision.reason}`);
 }
 
 /**

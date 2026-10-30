@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 import { SMOKE_SEATS, isSmokeEmail } from "../src/modules/smoke/domain/pool.ts";
-import { assertDevTarget } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const env = Object.fromEntries(
@@ -39,7 +39,10 @@ const env = Object.fromEntries(
       return [line.slice(0, at).trim(), line.slice(at + 1).trim()];
     }),
 );
-assertDevTarget(env.NEXT_PUBLIC_SUPABASE_URL, "smoke:pool");
+// Rule 3 / D-346: One's main project only. On production the pool is confined:
+// a teacher seat may borrow only a test-account profile, and every profile it
+// creates is a test account.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "smoke:pool", mode: "test-scoped" });
 
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -74,7 +77,9 @@ async function poolRows() {
  */
 async function freeTeacherProfiles(taken) {
   const [{ data: profiles, error: pErr }, { data: held, error: hErr }] = await Promise.all([
-    admin.from("staff_profiles").select("id").eq("role", "teacher").eq("is_active", true).is("user_id", null).order("id"),
+    (scope.production
+      ? admin.from("staff_profiles").select("id").eq("role", "teacher").eq("is_active", true).is("user_id", null).eq("is_test_account", true).order("id")
+      : admin.from("staff_profiles").select("id").eq("role", "teacher").eq("is_active", true).is("user_id", null).order("id")),
     admin.from("class_teachers").select("staff_profile_id").eq("role", "class_teacher").is("effective_to", null),
   ]);
   if (pErr || hErr) throw new Error(`Could not read teacher profiles: ${(pErr ?? hErr).message}`);
@@ -119,9 +124,12 @@ async function ensure() {
       linked = true;
     } else {
       // A profile left behind by an earlier `release` is reused, not duplicated.
-      const { data: old, error: oldError } = await admin.from("staff_profiles").select("id").eq("short_name", seat.shortName).eq("role", seat.role).is("user_id", null).limit(1);
+      const { data: old, error: oldError } = await (scope.production
+        ? admin.from("staff_profiles").select("id").eq("short_name", seat.shortName).eq("role", seat.role).is("user_id", null).eq("is_test_account", true).limit(1)
+        : admin.from("staff_profiles").select("id").eq("short_name", seat.shortName).eq("role", seat.role).is("user_id", null).limit(1));
       if (oldError) throw new Error(`Could not look for an old profile for ${seat.email}: ${oldError.message}`);
-      const fields = { user_id: user.id, display_name: seat.label, short_name: seat.shortName, role: seat.role, is_teaching: seat.role === "teacher", is_active: true, preferred_language: seat.language };
+      // A smoke seat is a test account by definition (D-346).
+      const fields = { user_id: user.id, display_name: seat.label, short_name: seat.shortName, role: seat.role, is_teaching: seat.role === "teacher", is_active: true, preferred_language: seat.language, is_test_account: true };
       const { data, error } = old.length
         ? await admin.from("staff_profiles").update(fields).eq("id", old[0].id).is("user_id", null).select("id").single()
         : await admin.from("staff_profiles").insert(fields).select("id").single();

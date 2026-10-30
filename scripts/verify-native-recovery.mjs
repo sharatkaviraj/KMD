@@ -5,10 +5,11 @@ import { parseEnv } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import { QA_ACCOUNTS } from "../tests/fixtures/qa-accounts.ts";
 import { can } from "../src/platform/auth/permissions.ts";
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const env = parseEnv(readFileSync(".env.local", "utf8"));
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error("Native recovery verification is dev only.");
+// Rule 3 / D-346: One's main project only, and on production it refuses (it writes real-session data).
+await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-native-recovery", mode: "dev-only" });
 const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const admin = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });

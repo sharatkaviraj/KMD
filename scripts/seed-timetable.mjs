@@ -18,7 +18,8 @@
  * Idempotent: re-running replaces the seeded version rather than stacking
  * another one beside it.
  *
- * Rule 3: dev only. It refuses to run anywhere else.
+ * Rule 3 / D-346: One's main project only. While the marker says production
+ * it is confined: TEST-2026-27 and test-account teachers only.
  * Rule 6: the fixture is the one already in the repo; nothing new is written
  * into it here.
  */
@@ -35,10 +36,9 @@ import {
   parseTimetable,
 } from "../src/modules/timetable/domain/parse-timetable.ts";
 import { readActiveSession } from "./read-active-session.mjs";
-import { DEV_PROJECT_REFS, isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const [DEV_PROJECT_REF] = DEV_PROJECT_REFS;
 const LABEL = "Fixture v11 (seeded)";
 
 function readEnv() {
@@ -56,12 +56,11 @@ function readEnv() {
 const env = readEnv();
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-if (!isDevProjectUrl(url)) {
-  console.error(
-    `Refusing to run: .env.local points at ${url}, not the dev project ${DEV_PROJECT_REF} (rule 3).`,
-  );
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only, and CONFINED on production: there
+// it publishes into TEST-2026-27 (never the active, real session) and names
+// only test-account staff as teachers. Every write below is filtered by
+// `sessionLabel`, so nothing outside that session is touched.
+const scope = await toolScope({ url, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "seed:timetable", mode: "test-scoped" });
 
 const db = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
@@ -79,7 +78,8 @@ const die = (label, error) => {
 
 // The session the app is working in. See src/platform/config/active-session.ts
 // for why this is not "the label that sorts last".
-const sessionLabel = await readActiveSession(db);
+// On production: always TEST-2026-27 (`scope.sessionLabel`).
+const sessionLabel = scope.production ? scope.sessionLabel : await readActiveSession(db);
 
 /* ------------------------------------------------------------ the mapping */
 
@@ -88,15 +88,19 @@ const [{ data: aliases }, { data: staff }, { data: subjects }] = await Promise.a
     .from("class_aliases")
     .select("class_id, timetable_label")
     .eq("session_label", sessionLabel),
-  db.from("staff_profiles").select("id, short_name").eq("is_active", true),
+  db.from("staff_profiles").select("id, short_name, is_test_account").eq("is_active", true),
   db.from("subjects").select("id, code").eq("is_active", true),
 ]);
+
+// On production a teacher resolves only to a test account (D-346): a short
+// name that belongs to real staff is "unresolved" below, and the run stops.
+const eligibleStaff = (staff ?? []).filter((row) => !scope.production || row.is_test_account === true);
 
 const classesByLabel = new Map(
   (aliases ?? []).map((row) => [row.timetable_label.toLowerCase(), row.class_id]),
 );
 const teachersByShortName = new Map(
-  (staff ?? []).map((row) => [row.short_name.toLowerCase(), row.id]),
+  eligibleStaff.filter((row) => row.short_name).map((row) => [row.short_name.toLowerCase(), row.id]),
 );
 const subjectsByCode = new Map(
   (subjects ?? []).map((row) => [row.code.toLowerCase(), row.id]),

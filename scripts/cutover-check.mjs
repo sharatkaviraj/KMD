@@ -28,14 +28,9 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
-import {
-  isDevProjectUrl,
-  projectRefOf,
-  PROTECTED_LIVE_PROJECT_REF,
-} from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const LIVE_PROJECT_REF = PROTECTED_LIVE_PROJECT_REF;
 
 const env = Object.fromEntries(
   readFileSync(path.join(repoRoot, ".env.local"), "utf8")
@@ -49,15 +44,8 @@ const env = Object.fromEntries(
 
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-if (projectRefOf(url) === LIVE_PROJECT_REF) {
-  console.error("Refusing to run: that is the live fee project (rule 3).");
-  process.exit(1);
-}
-
-if (!isDevProjectUrl(url)) {
-  console.error("Refusing to run: .env.local is not the dev project (rule 3).");
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only (the fees app's live database is refused by name), and on production it only reads.
+await toolScope({ url: url, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "cutover-check", mode: "read-only" });
 
 const db = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },

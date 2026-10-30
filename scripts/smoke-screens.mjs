@@ -7,10 +7,11 @@ import { parseEnv } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import { pickSessionLabel } from "../src/platform/config/active-session.ts";
 import { QA_ACCOUNTS } from "../tests/fixtures/qa-accounts.ts";
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const env = parseEnv(readFileSync(".env.local", "utf8"));
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error("Screen fixtures require the dev database.");
+// Rule 3 / D-346: One's main project only, and on production it refuses (it writes real-session data).
+await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "smoke-screens", mode: "dev-only" });
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3450";
 const manifest = await fetch(new URL("/manifest.webmanifest", origin), { signal: AbortSignal.timeout(30000) });
 const app = await manifest.json();

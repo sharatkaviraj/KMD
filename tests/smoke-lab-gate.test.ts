@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   admit: vi.fn(),
   currentClaims: vi.fn(async (): Promise<{ data: unknown }> => ({ data: null })),
   enabled: { value: true },
+  toolAccess: vi.fn(async (): Promise<{ ok: boolean; reason?: string }> => ({ ok: true })),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -30,6 +31,7 @@ vi.mock("@/platform/env", () => ({
   isSafeInternalPath: (p: string) => p.startsWith("/") && !p.startsWith("//"),
 }));
 vi.mock("@/platform/auth/smoke-lab", () => ({ smokeLabEnabled: () => mocks.enabled.value }));
+vi.mock("@/platform/deployment/tool-access", () => ({ toolAccountAccess: mocks.toolAccess }));
 vi.mock("@/modules/smoke/data/smoke-repo", () => ({ resolvePass: mocks.resolvePass, touchPass: mocks.touchPass, fileFinding: mocks.fileFinding, listFindings: mocks.listFindings }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({ auth: { admin: { generateLink: mocks.generateLink } } }) }));
 vi.mock("@/platform/supabase/server", () => ({ createClient: async () => ({ auth: { verifyOtp: mocks.verifyOtp, getClaims: mocks.currentClaims } }) }));
@@ -159,6 +161,15 @@ describe("/lab/enter", () => {
     expect(mocks.generateLink).not.toHaveBeenCalled();
     expect(mocks.admit).toHaveBeenCalledWith(expect.anything(), "u1", { signOutScope: "local", expectedStaffProfileId: PROFILE });
     expect(again.headers.get("location")).toBe(`${ORIGIN}/teach`);
+  });
+
+  it("on a production database admits only a test-account seat, before minting anything (D-346)", async () => {
+    mocks.resolvePass.mockResolvedValue({ ok: true, pass: livePass });
+    mocks.toolAccess.mockResolvedValueOnce({ ok: false, reason: "not a test account" });
+    const res = await enter(new NextRequest(new URL("/lab/enter?pass=live", ORIGIN)));
+    expect(mocks.toolAccess).toHaveBeenCalledWith({ staffProfileId: PROFILE });
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/lab/ended?reason=profile`);
+    expect(mocks.generateLink).not.toHaveBeenCalled();
   });
 
   it("refuses when the verified account is not the pass's account", async () => {

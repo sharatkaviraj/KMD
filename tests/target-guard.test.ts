@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import * as scriptGuard from "../scripts/target-guard.mjs";
 import {
   assertPermittedTarget,
-  DEV_PROJECT_REFS,
-  PROTECTED_LIVE_PROJECT_REF,
+  FEES_SOURCE_PROJECT_REF,
+  isOneMainProject,
+  ONE_MAIN_PROJECT_REF,
   ProtectedTargetError,
   refusalFor,
   supabaseTargetOf,
@@ -12,16 +13,18 @@ import {
 } from "@/platform/supabase/target-guard";
 
 /**
- * P0, Gate A: a client cannot be made for the live fee project except by a
- * deployment that has declared the cutover, and never by a test.
+ * P0 Gate A, as amended by D-338/D-346: One's main database is
+ * `wtgxcptmucjerhufzjcf` (production from go-live, and the only test bed); the
+ * fees app's live database is never a target of the app or of any script but
+ * the sealed migration reader.
  *
  * Every URL here is synthetic. Nothing is fetched — the guard decides from the
  * string, and that is the property being tested: the refusal happens before a
- * request could leave the process, so proving it needs no request.
+ * request could leave the process.
  */
 
-const DEV = `https://${DEV_PROJECT_REFS[0]}.supabase.co`;
-const LIVE = `https://${PROTECTED_LIVE_PROJECT_REF}.supabase.co`;
+const ONE = `https://${ONE_MAIN_PROJECT_REF}.supabase.co`;
+const FEES = `https://${FEES_SOURCE_PROJECT_REF}.supabase.co`;
 const UNKNOWN = "https://abcdefghijklmnopqrst.supabase.co";
 
 const dev: TargetContext = { environment: "dev", underTest: false, ci: false };
@@ -31,22 +34,17 @@ const liveTest: TargetContext = { environment: "live", underTest: true, ci: fals
 
 describe("supabaseTargetOf", () => {
   it("reads the project ref from the hostname, exactly", () => {
-    expect(supabaseTargetOf(DEV)).toEqual({ kind: "project", ref: DEV_PROJECT_REFS[0] });
-    expect(supabaseTargetOf(`${LIVE}/rest/v1/`)).toEqual({
-      kind: "project",
-      ref: PROTECTED_LIVE_PROJECT_REF,
-    });
+    expect(supabaseTargetOf(ONE)).toEqual({ kind: "project", ref: ONE_MAIN_PROJECT_REF });
+    expect(supabaseTargetOf(`${FEES}/rest/v1/`)).toEqual({ kind: "project", ref: FEES_SOURCE_PROJECT_REF });
+    expect(isOneMainProject(ONE)).toBe(true);
+    expect(isOneMainProject(FEES)).toBe(false);
   });
 
   it("does not take a ref from anywhere but the host", () => {
     // The scripts' old `url.includes(ref)` passed all three of these.
-    expect(supabaseTargetOf(`https://elsewhere.example/?${DEV_PROJECT_REFS[0]}`).kind).toBe(
-      "unknown",
-    );
-    expect(supabaseTargetOf(`https://${DEV_PROJECT_REFS[0]}.evil.example`).kind).toBe("unknown");
-    expect(
-      supabaseTargetOf(`https://x.example/${DEV_PROJECT_REFS[0]}.supabase.co`).kind,
-    ).toBe("unknown");
+    expect(supabaseTargetOf(`https://elsewhere.example/?${ONE_MAIN_PROJECT_REF}`).kind).toBe("unknown");
+    expect(supabaseTargetOf(`https://${ONE_MAIN_PROJECT_REF}.evil.example`).kind).toBe("unknown");
+    expect(supabaseTargetOf(`https://x.example/${ONE_MAIN_PROJECT_REF}.supabase.co`).kind).toBe("unknown");
   });
 
   it("knows a local Supabase and an inert placeholder", () => {
@@ -57,73 +55,80 @@ describe("supabaseTargetOf", () => {
   });
 });
 
-describe("refusalFor — the live fee project", () => {
-  it("is refused on a dev deployment", () => {
-    expect(refusalFor(LIVE, dev)).toMatch(/live fee project/);
+describe("refusalFor — the fees app's live database", () => {
+  it("is refused in every context, live included", () => {
+    for (const context of [dev, devTest, live, liveTest, { ...dev, ci: true }]) {
+      expect(refusalFor(FEES, context)).toMatch(/fees app's live database/);
+    }
+  });
+});
+
+describe("refusalFor — One's main project", () => {
+  it("is the target of a live deployment", () => {
+    expect(refusalFor(ONE, live)).toBeNull();
   });
 
-  it("is refused under a test runner, even when the environment says live", () => {
-    // "Environment names such as preview or test do not override the target
-    // check" — and neither does a test that inherited VPPSONE_ENV=live.
-    expect(refusalFor(LIVE, liveTest)).toMatch(/never a test target/);
-    expect(refusalFor(LIVE, devTest)).toMatch(/never a test target/);
+  it("is also the target of previews, local development and tests (it is the only test bed)", () => {
+    expect(refusalFor(ONE, dev)).toBeNull();
+    expect(refusalFor(ONE, devTest)).toBeNull();
   });
 
-  it("is permitted only by a live deployment that is not a test", () => {
-    expect(refusalFor(LIVE, live)).toBeNull();
+  it("is refused when a test runner says VPPSONE_ENV=live", () => {
+    expect(refusalFor(ONE, liveTest)).toMatch(/test is not the production deployment/);
   });
 });
 
 describe("refusalFor — everything else", () => {
-  it("lets dev reach the dev project and a local Supabase", () => {
-    expect(refusalFor(DEV, dev)).toBeNull();
-    expect(refusalFor(DEV, devTest)).toBeNull();
+  it("lets dev reach a local Supabase", () => {
     expect(refusalFor("http://127.0.0.1:54321", devTest)).toBeNull();
   });
 
   it("fails closed on an unknown project", () => {
-    expect(refusalFor(UNKNOWN, dev)).toMatch(/not a known dev project/);
-    expect(refusalFor(UNKNOWN, devTest)).toMatch(/not a known dev project/);
+    expect(refusalFor(UNKNOWN, dev)).toMatch(/not One's main project/);
+    expect(refusalFor(UNKNOWN, devTest)).toMatch(/not One's main project/);
   });
 
-  it("refuses the dev project from a live deployment", () => {
-    // A cutover that forgot to change the URL is a misconfiguration, not a
-    // reason to write live traffic into the test database.
-    expect(refusalFor(DEV, live)).toMatch(/may only reach the live fee project/);
+  it("keeps a live deployment on One's main project only", () => {
+    expect(refusalFor(UNKNOWN, live)).toMatch(/may only reach One's main project/);
+    expect(refusalFor("http://127.0.0.1:54321", live)).toMatch(/may only reach One's main project/);
   });
 
   it("accepts the CI placeholder only on CI", () => {
     const placeholder = "https://ci-build-only.supabase.co";
     expect(refusalFor(placeholder, { ...dev, ci: true })).toBeNull();
-    expect(refusalFor(placeholder, dev)).toMatch(/not a known dev project/);
+    expect(refusalFor(placeholder, dev)).toMatch(/not One's main project/);
   });
 });
 
 describe("assertPermittedTarget", () => {
   it("throws a ProtectedTargetError before anything is made", () => {
-    expect(() => assertPermittedTarget(LIVE, dev)).toThrow(ProtectedTargetError);
-    expect(assertPermittedTarget(DEV, dev)).toBe(DEV);
+    expect(() => assertPermittedTarget(FEES, live)).toThrow(ProtectedTargetError);
+    expect(assertPermittedTarget(ONE, dev)).toBe(ONE);
   });
 
-  it("reads the real process as a test run", () => {
-    // Vitest sets VITEST; this is the context every unit test runs in.
-    expect(() => assertPermittedTarget(LIVE)).toThrow(/never a test target/);
+  it("refuses the fees database in the real (test) process", () => {
+    expect(() => assertPermittedTarget(FEES)).toThrow(/fees app's live database/);
   });
 });
 
 describe("the scripts' twin agrees", () => {
   it("names the same projects", () => {
-    expect(scriptGuard.DEV_PROJECT_REFS).toEqual([...DEV_PROJECT_REFS]);
-    expect(scriptGuard.PROTECTED_LIVE_PROJECT_REF).toBe(PROTECTED_LIVE_PROJECT_REF);
+    expect(scriptGuard.ONE_MAIN_PROJECT_REF).toBe(ONE_MAIN_PROJECT_REF);
+    expect(scriptGuard.FEES_SOURCE_PROJECT_REF).toBe(FEES_SOURCE_PROJECT_REF);
+    expect(scriptGuard.TEST_SESSION_LABEL).toBe("TEST-2026-27");
   });
 
-  it("accepts only an exact dev host", () => {
-    expect(scriptGuard.isDevProjectUrl(DEV)).toBe(true);
-    expect(scriptGuard.isDevProjectUrl(LIVE)).toBe(false);
-    expect(scriptGuard.isDevProjectUrl(UNKNOWN)).toBe(false);
-    expect(scriptGuard.isDevProjectUrl(`https://elsewhere.example/?${DEV_PROJECT_REFS[0]}`)).toBe(
-      false,
-    );
-    expect(scriptGuard.projectRefOf(LIVE)).toBe(PROTECTED_LIVE_PROJECT_REF);
+  it("accepts only an exact main-project host", () => {
+    expect(scriptGuard.isOneMainProjectUrl(ONE)).toBe(true);
+    expect(scriptGuard.isOneMainProjectUrl(FEES)).toBe(false);
+    expect(scriptGuard.isOneMainProjectUrl(UNKNOWN)).toBe(false);
+    expect(scriptGuard.isOneMainProjectUrl(`https://elsewhere.example/?${ONE_MAIN_PROJECT_REF}`)).toBe(false);
+    expect(scriptGuard.projectRefOf(FEES)).toBe(FEES_SOURCE_PROJECT_REF);
+  });
+
+  it("names the fees database when it refuses it", () => {
+    expect(scriptGuard.targetRefusal(FEES)).toMatch(/fees app's live database/);
+    expect(scriptGuard.targetRefusal(UNKNOWN)).toMatch(/not One's main project/);
+    expect(scriptGuard.targetRefusal(ONE)).toBeNull();
   });
 });
