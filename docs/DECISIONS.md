@@ -1,5 +1,11 @@
 # Decisions
 
+## The school's own address — 2026-10-30
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-336 | **VPPS One is served at `https://one.vpps.co.in`, the same Vercel deployment as `vppsone.vercel.app`, which keeps answering with no redirect.** Receipts, QR codes and messages use the new address from the next production build; preview deployments keep linking to themselves. | The owner asked for it on 30 Oct. A redirect would move everyone at once but break the smoke scripts and any open tab, so it waits until staff have moved. DNS is grey-cloud like `fees.vpps.co.in`, because a Cloudflare proxy in front of Vercel stops Vercel renewing its certificate. Supabase Site URL is untouched: sign-in never redirects through Supabase and schoolfees-dev also serves local development. Runbook and rollback: `docs/DOMAIN.md`. |
+
 ## One central store and nightly backups in Drive — 2026-10-28
 
 | Decision | Outcome | Evidence and reason |
