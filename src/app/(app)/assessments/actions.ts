@@ -9,6 +9,7 @@ import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
+import { assertClassVisible, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { schoolToday } from "@/platform/dates";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
@@ -129,7 +130,7 @@ export async function savePaperAction(
   _previous: AssessmentState,
   formData: FormData,
 ): Promise<AssessmentState> {
-  await assertPermission("assessments:manage");
+  const actor = await assertPermission("assessments:manage");
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);
@@ -148,6 +149,8 @@ export async function savePaperAction(
   });
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+  // The class's own session (Phase 3 fence), not only the resolved one.
+  if (!(await passesFence(() => assertClassVisible(actor, parsed.data.classId)))) return failure(m.notFound);
 
   // A paper whose marks are being typed keeps the scheme they are typed
   // against: changing the maximum or the step under somebody's draft would
@@ -351,6 +354,9 @@ export async function issueReportCardAction(
   if (!studentId || !term || !/^[0-9a-f-]{36}$/i.test(commandId) || !Number.isInteger(expectedRevision)) {
     return failure(m.notSaved);
   }
+  // The child's own session (Phase 3 fence): never a real child's card from a
+  // test account, nor a TEST child's from real staff.
+  if (!(await passesFence(() => assertStudentVisible(actor, studentId)))) return failure(m.notFound);
 
   // The card is worked out here, now, from the marks and the scheme as they
   // stand — not taken from the browser — and the database refuses it if any

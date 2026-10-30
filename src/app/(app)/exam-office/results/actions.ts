@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertClassVisible, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { p, type Pair } from "@/vx/text";
@@ -139,10 +140,11 @@ export async function giveGraceAction(input: { examId: string }): Promise<Action
 
 /** Take back grace on one paper for one child. */
 export async function removeGraceAction(input: { paperId: string; studentId: string }): Promise<ActionResult> {
-  await assertPermission("assessments:manage");
+  const staff = await assertPermission("assessments:manage");
   const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.paperId) || !UUID.test(input.studentId)) return { ok: false, message: RELOAD };
+  if (!(await passesFence(() => assertStudentVisible(staff, input.studentId)))) return { ok: false, message: RELOAD };
   const paper = await paperById(input.paperId);
   if (!paper) return { ok: false, message: RELOAD };
   const locks = await locksFor(paper.assessment_id);
@@ -164,6 +166,9 @@ export async function lockClassesAction(input: { examId: string; classIds: strin
   if (!canFinaliseMarks(staff)) return { ok: false, message: p("Only the admin finalises marks. Ask the admin to lock this class.", "अंक केवल प्रशासक अंतिम करते हैं। कक्षा बंद करने के लिए प्रशासक से कहें।") };
   const ids = [...new Set(input.classIds)].filter((id) => UUID.test(id));
   if (!UUID.test(input.examId) || ids.length === 0) return { ok: false, message: RELOAD };
+  for (const id of ids) {
+    if (!(await passesFence(() => assertClassVisible(staff, id)))) return { ok: false, message: RELOAD };
+  }
   const found = await examOf(input.examId);
   if (!found) return { ok: false, message: RELOAD };
   // The same check the board's "Ready to lock" makes, from the marks as they
@@ -190,6 +195,7 @@ export async function unlockClassAction(input: { examId: string; classId: string
   if (preview) return { ok: false, message: preview };
   if (!canReopenMarks(staff)) return { ok: false, message: p("Only the admin can unlock a class.", "कक्षा केवल प्रशासक खोल सकते हैं।") };
   if (!UUID.test(input.examId) || !UUID.test(input.classId)) return { ok: false, message: RELOAD };
+  if (!(await passesFence(() => assertClassVisible(staff, input.classId)))) return { ok: false, message: RELOAD };
   const { error } = await db().from("exam_class_locks").delete().eq("assessment_id", input.examId).eq("class_id", input.classId);
   if (error) return { ok: false, message: NOT_SAVED };
   await logActivity({ assessmentId: input.examId, kind: "unlocked", en: `${staff.displayName} unlocked a class`, hi: `${staff.displayName} ने एक कक्षा खोली`, actorId: staff.id }).catch(() => undefined);
@@ -203,6 +209,7 @@ export async function issueClassCardsAction(input: { examId: string; classId: st
   const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !UUID.test(input.classId)) return { ok: false, message: RELOAD };
+  if (!(await passesFence(() => assertClassVisible(staff, input.classId)))) return { ok: false, message: RELOAD };
   const found = await examOf(input.examId);
   if (!found) return { ok: false, message: RELOAD };
   const { exam, sessionLabel } = found;
@@ -270,6 +277,7 @@ export async function addRecheckAction(input: { paperId: string; studentId: stri
   if (preview) return { ok: false, message: preview };
   const askedBy = input.askedBy.trim().slice(0, 120);
   if (!UUID.test(input.paperId) || !UUID.test(input.studentId) || askedBy.length < 2) return { ok: false, message: RELOAD };
+  if (!(await passesFence(() => assertStudentVisible(staff, input.studentId)))) return { ok: false, message: RELOAD };
   const { error } = await db()
     .from("exam_rechecks")
     .insert({ paper_id: input.paperId, student_id: input.studentId, asked_by: askedBy, note: input.note.trim().slice(0, 300) || null, created_by: staff.id });

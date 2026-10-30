@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { assertStaff } from "@/platform/auth/current-staff";
+import { assertNotTestAccount, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { photoAuthority, readPhotoContext, PHOTO_UUID } from "@/modules/collection/data/profile-photo-context";
@@ -10,9 +11,27 @@ import { preparePhoto, stagePhoto } from "@/modules/collection/data/photo-storag
 import { submitCollectionPhoto } from "@/modules/teacher-tasks/data/collection-save";
 import { rejectionNote, type PhotoCredential, type PhotoSaveResult } from "@/modules/collection/domain/profile-photo";
 
+/*
+ * The Phase 3 fence on a photo, after `photoAuthority` has said who may act:
+ *  - a parent's link (`actorId === "public"`) has nobody signed in; the
+ *    request's own roll already ties the child to the request's session;
+ *  - a signed-in person working on a CHILD may only reach one whose own
+ *    session they may open (a test account never a real child);
+ *  - a staff photo has no session, so changing somebody else's is a
+ *    school-wide write a test account may not make.
+ * Written out in each action, because tests/architecture.test.ts reads the
+ * action's own body for the check.
+ */
+
 export async function openPhotoEditorAction(credential: PhotoCredential, studentId?: string) {
   try {
     const auth = await photoAuthority(credential, studentId);
+    const fenced =
+      auth.actorId === "public" ||
+      (auth.staff
+        ? auth.target === auth.actorId || (await passesFence(() => assertNotTestAccount(null)))
+        : await passesFence(() => assertStudentVisible(null, auth.target)));
+    if (!fenced) return { ok: false as const };
     return { ok: true as const, context: await readPhotoContext(auth), credential: auth.credential };
   } catch { return { ok: false as const }; }
 }
@@ -21,6 +40,13 @@ export async function saveProfilePhotoAction(credential: PhotoCredential, form: 
   let auth;
   try { auth = await photoAuthority(credential, String(form.get("studentId") ?? "")); } catch { return { ok: false, reason: "not_permitted" }; }
   if (form.get("scope") !== auth.scope) return { ok: false, reason: "not_permitted" };
+  const target = auth.target;
+  const fenced =
+    auth.actorId === "public" ||
+    (auth.staff
+      ? target === auth.actorId || (await passesFence(() => assertNotTestAccount(null)))
+      : await passesFence(() => assertStudentVisible(null, target)));
+  if (!fenced) return { ok: false, reason: "not_permitted" };
   const commandId = String(form.get("commandId") ?? "");
   const expectedCurrent = String(form.get("expectedCurrent") ?? "") || null;
   const expectedProposal = String(form.get("expectedProposal") ?? "") || null;

@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
-import { assertStudentVisible } from "@/platform/auth/test-session-access";
+import {
+  assertClassVisible,
+  assertNotTestAccount,
+  assertStudentVisible,
+  passesFence,
+} from "@/platform/auth/test-session-access";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
   classLabelMap,
@@ -32,7 +37,7 @@ import {
   setTemplateActive,
   upsertTemplate,
 } from "@/modules/collection/data/messages-repo";
-import { deleteDocument } from "@/modules/collection/data/documents-repo";
+import { deleteDocument, openableDocument } from "@/modules/collection/data/documents-repo";
 import { fieldSchema, slugFieldKey } from "@/modules/collection/domain/fields";
 import {
   requestInputSchema,
@@ -162,6 +167,8 @@ export async function createRequestAction(
   });
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+  // The class's own session (Phase 3 fence), not only the resolved one.
+  if (!(await passesFence(() => assertClassVisible(actor, parsed.data.classId)))) return failure(m.notFound);
 
   const labels = await classLabelMap(sessionLabel);
   const classLabel = labels.get(parsed.data.classId);
@@ -259,11 +266,17 @@ export async function decideSubmissionsAction(
 // app/(app)/documents/uploads.
 
 export async function deleteDocumentAction(formData: FormData) {
-  await assertPermission("documents:manage");
+  const actor = await assertPermission("documents:manage");
 
   const id = (formData.get("id") ?? "").toString();
   const studentId = (formData.get("studentId") ?? "").toString();
   if (!id) return;
+
+  // The document's own child decides (Phase 3 fence) — not the studentId the
+  // form carries, which is only where to refresh.
+  const document = await openableDocument(id);
+  if (!document) return;
+  if (!(await passesFence(() => assertStudentVisible(actor, document.studentId)))) return;
 
   await deleteDocument(id);
   if (studentId) revalidatePath(`/teach/student/${studentId}`);
@@ -515,6 +528,13 @@ export async function flagRouteAction(
   if (!/^\d{10}$/.test(phone.replace(/\D/g, "").slice(-10)) || reason === "") {
     return failure(ms.messagesFlagNeedsReason);
   }
+  // A flag stops every message to that number, so it is school-wide: about a
+  // child, only one this viewer may open; about a bare number, never from a
+  // test account (Phase 3 fence).
+  const fenced = studentId
+    ? await passesFence(() => assertStudentVisible(actor, studentId))
+    : await passesFence(() => assertNotTestAccount(actor));
+  if (!fenced) return failure(m.notFound);
 
   let withdrawn = 0;
   try {

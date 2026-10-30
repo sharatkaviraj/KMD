@@ -41,7 +41,7 @@ import {
   type PendingChange,
   type Slot,
 } from "@/vx/screens/timetable/domain/timetable";
-import { assertSessionWritable } from "@/platform/auth/test-session-access";
+import { assertClassVisible, assertSessionWritable, passesFence } from "@/platform/auth/test-session-access";
 
 /*
  * Timetable & substitutions (design `Timetable`). Every write: permission,
@@ -67,6 +67,10 @@ export async function saveChangeAction(input: { day: string; period: number; cla
   }
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return fail(p("No session is open.", "कोई सत्र खुला नहीं है।"));
+  // The class's own session (Phase 3 fence), not only the resolved one.
+  if (!(await passesFence(() => assertClassVisible(actor, input.classId)))) {
+    return fail(p("Pick a subject and a teacher.", "विषय और शिक्षक चुनें।"));
+  }
   const published = await getPublishedVersion(sessionLabel);
   if (!published) return fail(p("There is no published timetable to change.", "कोई प्रकाशित समय-सारणी नहीं।"));
 

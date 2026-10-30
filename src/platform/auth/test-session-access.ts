@@ -242,6 +242,23 @@ export async function notFoundUnlessVisible(check: () => Promise<void>): Promise
   }
 }
 
+/**
+ * For a server action that answers with a result rather than throwing: true
+ * when the check passes, false when the fence refuses. Anything else (a
+ * database outage, a bug) still throws — "could not check" is not "allowed".
+ *
+ *   if (!(await passesFence(() => assertStudentVisible(actor, studentId)))) return fail(…);
+ */
+export async function passesFence(check: () => Promise<void>): Promise<boolean> {
+  try {
+    await check();
+    return true;
+  } catch (error) {
+    if (isSessionAccessDenied(error)) return false;
+    throw error;
+  }
+}
+
 /** For a route handler: 404 for a refusal, null when it may proceed. */
 export async function refusalResponse(check: () => Promise<void>): Promise<Response | null> {
   try {

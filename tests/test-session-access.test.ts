@@ -101,6 +101,7 @@ import {
   assertStudentVisible,
   filterVisibleStudentIds,
   notFoundUnlessVisible,
+  passesFence,
   workingSessionFor,
 } from "@/platform/auth/test-session-access";
 
@@ -296,5 +297,24 @@ describe("assertSessionWritable", () => {
   it("nobody signed in is refused", async () => {
     state.staff = null;
     await expect(assertSessionWritable(null, "2026-27")).rejects.toMatchObject({ code: "session_access_denied" });
+  });
+});
+
+describe("passesFence", () => {
+  it("answers true or false for a refusal, and rethrows anything else", async () => {
+    as("office", true);
+    expect(await passesFence(() => assertStudentVisible(null, TEST))).toBe(true);
+    expect(await passesFence(() => assertStudentVisible(null, REAL))).toBe(false);
+    await expect(
+      passesFence(async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+  });
+
+  it("a read it could not make is a refusal, never permission", async () => {
+    as("office", true);
+    state.readError = { message: "down" };
+    expect(await passesFence(() => assertStudentVisible(null, TEST))).toBe(false);
   });
 });
