@@ -27,7 +27,8 @@
  *      THEN the guards (lib/guards.mjs), so nothing they read can change
  *      under the load: refuses after a cutover row, while
  *      vppsone.fee_writes_open() is not false, on a target not marked
- *      production (unless --allow-dev-target), and a repeated --first-load;
+ *      production (unless --allow-dev-target), a repeated --first-load, and
+ *      while public sign-ups are on (lib/auth-settings.mjs, plan §6 Q21);
  *   2. auth users upserted by id; an email clash refuses (lib/auth-import.mjs);
  *   3. One's rows read and the plan made INSIDE the transaction, so it cannot
  *      be stale;
@@ -69,6 +70,7 @@ import { applyAuthImport, oneRoleForFeeRole, planAuthImport, remapUserReferences
 import { matviewOrder, MATVIEW_ORDER_SQL, readCatalog } from "./lib/catalog.mjs";
 import { planLoad, summarizePlan } from "./lib/diff.mjs";
 import { isMain, latestRunId, loadOneEnv, parseArgs, runDir } from "./lib/env.mjs";
+import { readSignupDisabled } from "./lib/auth-settings.mjs";
 import { decideLoadGuard, readGuardState } from "./lib/guards.mjs";
 import { unmigratedSourceData } from "./lib/import-rules.mjs";
 import { readRunTables } from "./lib/live-read.mjs";
@@ -569,7 +571,7 @@ class RehearsalRollback extends Error {
  * would otherwise go unseen, and the load would overwrite what One wrote
  * after the flip.
  */
-async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rollbackOnly, runId, insertRunRow }) {
+async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rollbackOnly, runId, insertRunRow, signupDisabled }) {
   await prepareTransaction(tx);
   await tx.unsafe("set local lock_timeout = '60s'");
   const meta0 = await readCatalog(tx);
@@ -581,7 +583,7 @@ async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rol
   for (const t of manifest.tables) {
     if (meta0.tables[t.name] && t.name !== "app_settings") await tx.unsafe(`lock table public.${ident(t.name)} in exclusive mode`);
   }
-  const inner = decideLoadGuard({ ...(await readGuardState(tx)), allowDevTarget: Boolean(args["allow-dev-target"]), firstLoad, rollbackOnly });
+  const inner = decideLoadGuard({ ...(await readGuardState(tx)), signupDisabled, allowDevTarget: Boolean(args["allow-dev-target"]), firstLoad, rollbackOnly });
   if (!inner.ok) throw new Error(inner.reasons.join(" "));
   const runRowId = await insertRunRow(tx);
 
@@ -643,10 +645,14 @@ async function main() {
   const mode = rollbackOnly ? "REHEARSAL (every write rolled back)" : apply ? "APPLY" : "dry run";
   console.log(`load-snapshot: run ${runId} (${manifest.tables.length} tables), ${mode}${firstLoad ? ", first load" : ""}, target ${ONE_MAIN_PROJECT_REF}.`);
 
-  const sql = await openOneDb(loadOneEnv());
+  const oneEnv = loadOneEnv();
+  // Plan §6 Q21: no real load while public sign-ups are on. Read once (a GET
+  // of GoTrue's public settings) and fed to both guard checks.
+  const signupDisabled = await readSignupDisabled(oneEnv);
+  const sql = await openOneDb(oneEnv);
   try {
     const state = await sql.begin("read only", (tx) => readGuardState(tx));
-    const guard = decideLoadGuard({ ...state, allowDevTarget: Boolean(args["allow-dev-target"]), firstLoad, rollbackOnly });
+    const guard = decideLoadGuard({ ...state, signupDisabled, allowDevTarget: Boolean(args["allow-dev-target"]), firstLoad, rollbackOnly });
 
     if (!apply && !rollbackOnly) {
       const built = await sql.begin("read only", async (tx) => {
@@ -674,7 +680,7 @@ async function main() {
       // The run row lives and dies with the rehearsal's transaction.
       try {
         await sql.begin((tx) =>
-          writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rollbackOnly, runId, insertRunRow: async (t) => (await runRowValues(t))[0].id }),
+          writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rollbackOnly, runId, signupDisabled, insertRunRow: async (t) => (await runRowValues(t))[0].id }),
         );
         throw new Error("rehearsal: the transaction did not roll back");
       } catch (error) {
@@ -688,7 +694,7 @@ async function main() {
     const [runRow] = await runRowValues(sql);
     try {
       const outcome = await sql.begin((tx) =>
-        writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rollbackOnly: false, runId, insertRunRow: async () => runRow.id }),
+        writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rollbackOnly: false, runId, signupDisabled, insertRunRow: async () => runRow.id }),
       );
       await sql`
         update vppsone.migration_runs set status = 'succeeded', finished_at = now(),

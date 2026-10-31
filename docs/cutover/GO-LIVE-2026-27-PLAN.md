@@ -91,7 +91,8 @@ What changes in the phases:
     2. TEST visibility (Phase 3);
     3. quarantine (Phase 4);
     4. `fee_writes_enabled=false`;
-    5. only then the first real load.
+    5. public sign-ups off (Q21; the loader refuses otherwise);
+    6. only then the first real load.
   - Until T0, staff can view real fee figures in One but cannot write them.
 - **Previews and local development stay on this database, confined**
   (Q19 answered 30 Oct, D-346). There is no separate dev database, ever:
@@ -1131,6 +1132,11 @@ accountant attends rehearsal 2 and signs the route sheet.
   read-only).
 - Vault secrets exist.
 - Auth and SMTP are ready; real staff and test accounts exist.
+- **Public sign-ups are OFF on `wtgxcptmucjerhufzjcf`** (owner: Dashboard →
+  Authentication → Sign In / Providers → "Allow new users to sign up";
+  Q21, D-355 (1)). It is also a precondition of the *first* real load, long
+  before T-3: `load-snapshot.mjs --apply` reads GoTrue's
+  `/auth/v1/settings` and refuses while `disable_signup` is not true.
 - Training is done.
 - **7 green nightly reconciles in a row.**
 - A point-in-time recovery mark, plus an offline read-only `pg_dump` of
@@ -1146,8 +1152,9 @@ accountant attends rehearsal 2 and signs the route sheet.
 | C3 | | One settings: `fee_writes_enabled=true`, `receipt_suffix_floor=5000`, receipt notice per Q9, online switches still off. A `cutover` row goes into `migration_runs`, which locks out `load-snapshot` |
 | C4 | | Run `one-live-cron-jobs.sql`. Add `auto-day-close` to pg_cron in exactly one place |
 | C5 | | Point Vercel Production env at `vppsone-live` (names in §9.3). Redeploy. Staff sign in again |
+| C5a | | Q6: run `node scripts/migrate/access-email-check.mjs` (read-only); it **must print `ok`** (exit 0) — `NOT VERIFIED`, `STOP`, or any non-zero exit means no access email. Then send a password-reset or sign-in link to the 4 fees users with no One account, and to nobody else (the 6 remapped keep their One login) |
 | C6 | | Add One's webhook in the Razorpay dashboard. The fees webhook stays |
-| C7 | | Smoke as the test admin in TEST: desk receipt, PDF, allowlisted WhatsApp receipt. The owner pays ₹100 live on a TEST student: posted once in One, and only an `ignored` event row in fees (checked read-only). Set the seven switches (§7.6). If Q8 = (a), the owner turns off the fees online switches |
+| C7 | | Smoke as the test admin in TEST: desk receipt, PDF, allowlisted WhatsApp receipt. The owner pays ₹100 live on a TEST student: posted once in One, and only an `ignored` event row in fees (checked read-only). Set the seven switches (§7.6). Q8 answered (a): the owner turns OFF the fees app's *New payment links* (`online_payment_links_enabled`) only; every other fees online switch stays on (`OLD-PAY-NOW.md`) |
 | C8 | | Check 10 real students' dues in One against the frozen baseline. Rebuild enrolments: the count equals on roll plus left. Every class has its class teacher |
 | C9 | Sun 14:00 | Go. `parent_dispatch=true` for receipts only. No reminder run on T0 or T0+1 |
 
@@ -1297,7 +1304,8 @@ Steps:
    writes their auth row or any password hash). Before any access email,
    `scripts/migrate/access-email-check.mjs` (read-only) prints, for each of
    the 4, the role and whether One's address for them equals live's
-   (`MIGRATION-TOOLS.md`). No email was sent. The original question, for the
+   (`MIGRATION-TOOLS.md`); only `ok` clears the emails, and a user the load
+   has not brought is `NOT VERIFIED` (runbook step C5a). No email was sent. The original question, for the
    record: keep the passwords or force a reset — the default ("kept") could
    not be met because the REST extract cannot read
    `auth.users.encrypted_password` (D-348).
@@ -1389,4 +1397,9 @@ Steps:
     `whatsapp_reminder_sends` and others, D-355 (1)). Turn them off in the
     Supabase dashboard (Authentication → Sign In / Providers → "Allow new
     users to sign up")? This phase did not change it: it is the owner's
-    project setting.
+    project setting. **It blocks the first real load:** since the Phase I
+    review, `load-snapshot.mjs --apply` reads `/auth/v1/settings` and
+    refuses while sign-ups are on or unreadable (`lib/auth-settings.mjs`),
+    and the Phase 11 go/no-go repeats it. Narrowing those twelve tables'
+    authenticated-read policies instead would change fee-app policies while
+    the fees app still runs, so it is not offered here.

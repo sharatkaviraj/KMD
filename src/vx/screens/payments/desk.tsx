@@ -22,6 +22,7 @@ import {
   deskChips,
   deskLateDefault,
   deskProblems,
+  deskWaivesLate,
   deskTotals,
   findRecentDuplicate,
   hasPaise,
@@ -69,6 +70,8 @@ type Form = {
   chequeBank: string;
   chequeDate: string;
   late: "take" | "waive";
+  /** "yes" once the cashier tapped the late-fee choice; until then `late` is the Q20 default. A string: the form is stored as one. */
+  lateChosen: "" | "yes";
   waiveReason: string;
   waiveNote: string;
   notes: string;
@@ -171,6 +174,7 @@ function freshForm(boot: DeskBoot): Form {
     chequeDate: boot.today,
     // Waived by default for anyone allowed to waive (plan Q20, owner 31 Oct).
     ...deskLateDefault(boot.me.canWaive),
+    lateChosen: "",
     waiveNote: "",
     notes: "",
     receivedBy: boot.me.name,
@@ -370,7 +374,8 @@ export function PaymentDesk({
   const dayClosed = closedDay?.date === paymentDate && closedDay.session === boot.sessionLabel;
   const totals = deskTotals(rows, today);
   const waiveAllowed = boot.me.canWaive && Boolean(student) && !student?.onPlan;
-  const waiveLate = waiveAllowed && form.late === "waive" && totals.lateFee > 0;
+  const lateOn = lateFeesOn(rows, paymentDate);
+  const waiveLate = deskWaivesLate({ waiveAllowed, late: form.late, lateChosen: form.lateChosen === "yes", lateFeeOwed: totals.lateFee, lateOn });
   const walk = walkPayment(rows, Number.isFinite(amount) ? amount : 0, { paymentDate, today, waiveLate, concession: Number.isFinite(concession) ? concession : 0, authoritative: true });
   const cut = Number.isFinite(concession) ? concession : 0;
   const chips: { key: string; label: string; amount: number | null; disabled?: boolean }[] = student?.repaymentPlan
@@ -390,7 +395,6 @@ export function PaymentDesk({
           }))
           .filter((c) => c.amount > 0 && !seen.has(c.amount) && Boolean(seen.add(c.amount)));
       })();
-  const lateOn = lateFeesOn(rows, paymentDate);
   const lateNowAmt = lateOn.due.reduce((s, r) => s + r.lateFeePending, 0);
   const problems = deskProblems(
     { amount, paymentDate, mode: form.mode, chequeNo: form.chequeNo, chequeBank: form.chequeBank, waiveLate, waiveReason: form.waiveReason },
@@ -945,7 +949,7 @@ export function PaymentDesk({
               <Seg
                 label={tx(W.lateFee)}
                 value={form.late}
-                onChange={(v) => set({ late: v })}
+                onChange={(v) => set({ late: v, lateChosen: "yes" })}
                 options={[
                   // Waive first: it is the default (plan Q20).
                   { value: "waive", label: tx(W.lateWaive) },

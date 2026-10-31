@@ -9,9 +9,19 @@
 --   addStaffAction      -> a vppsone.staff_profiles row with no login
 --   createLoginAction   -> auth.admin.createUser (a bare auth.users row), then
 --                          `update staff_profiles set user_id = … where user_id is null`
---   changeRoleAction    -> change_staff_authority (a role update on the profile)
--- Each step is replayed below as the SQL it issues. The new person is a QA
--- address and a test account; nothing survives the rollback.
+--   changeRoleAction    -> vppsone.change_staff_authority (role), and
+--   setLoginActiveAction   the same function (activation)
+-- Each step is replayed below as the SQL it issues; role and activation
+-- changes go through change_staff_authority itself, with a proof admin (a
+-- test account, so it may manage the test-account target) as the actor, so a
+-- regression in that function or in fee_role_map shows here. The new people
+-- are QA addresses and test accounts; nothing survives the rollback.
+--
+-- Runs (record each one here: date, database, result):
+--   31 Oct 2026, wtgxcptmucjerhufzjcf, raw role updates for E/F/I: A–I pass
+--   31 Oct 2026, wtgxcptmucjerhufzjcf, E/F/I through change_staff_authority
+--     (Phase I fixer; the body run as one DO block that raised its results, so
+--     it aborted): A–I pass, 3 active admins stay admin; no proof row left
 --
 -- Cases
 --   A  no trigger on auth.users runs a function of public, private or vppsone
@@ -39,6 +49,8 @@ declare
   v_n integer;
   v_admins integer;
   v_bad integer;
+  v_actor uuid;
+  v_result jsonb;
 begin
   -- A
   select count(*) into v_n
@@ -72,18 +84,26 @@ begin
   insert into proof_results values ('D', 'after linking: ' || coalesce(v_role, 'no row') || ', active ' || coalesce(v_active::text, '-'),
                                     v_role = 'accountant' and v_active);
 
-  -- E: changeRoleAction -> teacher
-  update vppsone.staff_profiles set role = 'teacher' where id = v_profile;
-  select role::text into v_role from public.users where id = v_uid;
-  insert into proof_results values ('E', 'teacher -> ' || coalesce(v_role, 'no row'), v_role = 'view_only');
+  -- The actor for E, F and I: an active admin profile, a test account with no
+  -- login (so it gets no fee row and is not one of G's admins).
+  insert into vppsone.staff_profiles (display_name, short_name, role, is_test_account)
+  values ('Proof Admin', 'PRA' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 6), 'admin', true)
+  returning id into v_actor;
 
-  -- F
-  update vppsone.staff_profiles set role = 'office' where id = v_profile;
+  -- E: changeRoleAction -> teacher, through change_staff_authority
+  v_result := vppsone.change_staff_authority(v_actor, v_profile, 'teacher', true, 'proof E');
   select role::text into v_role from public.users where id = v_uid;
-  update vppsone.staff_profiles set role = 'fee_collector' where id = v_profile;
+  insert into proof_results values ('E', 'teacher -> ' || coalesce(v_role, 'no row') || ' (' || v_result::text || ')',
+                                    (v_result->>'ok')::boolean and v_role = 'view_only');
+
+  -- F: the same function, office then fee_collector
+  v_result := vppsone.change_staff_authority(v_actor, v_profile, 'office', true, 'proof F');
+  select role::text into v_role from public.users where id = v_uid;
+  v_bad := case when (v_result->>'ok')::boolean then 0 else 1 end;
+  v_result := vppsone.change_staff_authority(v_actor, v_profile, 'fee_collector', true, 'proof F');
   insert into proof_results
   select 'F', 'office -> ' || coalesce(v_role, 'no row') || ', fee_collector -> ' || coalesce(u.role::text, 'no row'),
-         v_role = 'view_only' and u.role::text = 'fee_collector'
+         v_bad = 0 and (v_result->>'ok')::boolean and v_role = 'view_only' and u.role::text = 'fee_collector'
   from public.users u where u.id = v_uid;
 
   -- G
@@ -107,11 +127,11 @@ begin
   where sp.role = 'admin' and sp.is_active and sp.user_id is not null;
   insert into proof_results values ('H', 'admins demoted or deactivated after the touch: ' || v_bad, v_bad = 0);
 
-  -- I: setLoginActiveAction (off)
-  update vppsone.staff_profiles set is_active = false where id = v_profile;
+  -- I: setLoginActiveAction (off), through change_staff_authority
+  v_result := vppsone.change_staff_authority(v_actor, v_profile, 'fee_collector', false, 'proof I');
   select role::text, is_active into v_role, v_active from public.users where id = v_uid;
   insert into proof_results values ('I', 'login off: ' || coalesce(v_role, 'no row') || ', active ' || coalesce(v_active::text, '-'),
-                                    v_role = 'fee_collector' and not v_active);
+                                    (v_result->>'ok')::boolean and v_role = 'fee_collector' and not v_active);
 end;
 $$;
 

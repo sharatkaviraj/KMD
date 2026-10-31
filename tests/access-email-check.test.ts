@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { accessEmailCheck, emailHash } from "../scripts/migrate/lib/access-email.mjs";
+import { accessEmailCheck, accessEmailVerdict, emailHash } from "../scripts/migrate/lib/access-email.mjs";
 import { applyAuthImport, planAuthImport } from "../scripts/migrate/lib/auth-import.mjs";
 
 /**
@@ -127,10 +127,30 @@ describe("access-email-check (Q6): role and yes/no only, compared as hashes", ()
     expect(result.rows).toEqual([{ role: "admin", match: "no" }]);
   });
 
+  it("'ok' only when every row is yes: a 'not loaded' row is NOT VERIFIED and refuses by default", () => {
+    // Today's state: the first real load has not run, every row not loaded.
+    const before = { rows: [{ role: "admin", match: "not loaded" }, { role: "accountant", match: "not loaded" }], remapped: 6, clashes: 0 };
+    expect(accessEmailVerdict(before)).toEqual({ verdict: expect.stringMatching(/^NOT VERIFIED/), exitCode: 2 });
+    // A load that skipped one user is not a green light either.
+    const skipped = { rows: [{ role: "admin", match: "yes" }, { role: "view_only", match: "not loaded" }], remapped: 0, clashes: 0 };
+    expect(accessEmailVerdict(skipped).exitCode).toBe(2);
+    expect(accessEmailVerdict(skipped).verdict).not.toBe("ok");
+    // --before-load: exit 0, and it says it clears nothing.
+    const look = accessEmailVerdict(before, { beforeLoad: true });
+    expect(look.exitCode).toBe(0);
+    expect(look.verdict).toMatch(/informational only/);
+    expect(look.verdict).toMatch(/clears no access email/);
+    // --before-load never lifts a "no" or a clash.
+    expect(accessEmailVerdict({ rows: [{ role: "admin", match: "no" }], remapped: 0, clashes: 0 }, { beforeLoad: true }).exitCode).toBe(2);
+    expect(accessEmailVerdict({ rows: [], remapped: 0, clashes: 1 }, { beforeLoad: true }).exitCode).toBe(2);
+    expect(accessEmailVerdict({ rows: [{ role: "admin", match: "yes" }, { role: "accountant", match: "yes" }], remapped: 6, clashes: 0 })).toEqual({ verdict: "ok", exitCode: 0 });
+  });
+
   it("the script reads only, and is documented", () => {
     const script = readFileSync(join(process.cwd(), "scripts/migrate/access-email-check.mjs"), "utf8");
     expect(script).toContain('sql.begin("read only"');
     expect(script).toContain("openFeesReadOnly");
+    expect(script).toContain("accessEmailVerdict(result");
     expect(script).not.toMatch(/sendAisensy|resetPasswordForEmail|generateLink|inviteUserByEmail/);
     const doc = readFileSync(join(process.cwd(), "docs/cutover/MIGRATION-TOOLS.md"), "utf8");
     expect(doc).toContain("access-email-check.mjs");

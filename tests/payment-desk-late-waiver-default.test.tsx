@@ -25,7 +25,7 @@ import { PaymentDesk } from "@/vx/screens/payments/desk";
 import { W } from "@/vx/screens/payments/words";
 import { ToastProvider } from "@/vx/ui/overlays";
 import { paymentAttemptKey } from "@/modules/payments/vx/attempt";
-import { composeRemarks, DESK_DEFAULT_WAIVE_REASON, deskLateDefault, deskProblems } from "@/modules/payments/vx/domain/desk";
+import { composeRemarks, DESK_DEFAULT_WAIVE_REASON, deskLateDefault, deskProblems, deskWaivesLate } from "@/modules/payments/vx/domain/desk";
 
 let root: Root;
 let host: HTMLDivElement;
@@ -144,6 +144,27 @@ describe("the default, as pure rules", () => {
     expect(W.waiveReasons[0].hi).toBeTruthy();
     // post_student_payment_core writes the same words on its quick waiver.
     expect(DESK_DEFAULT_WAIVE_REASON).toBe("Payment Desk late fee waiver");
+  });
+
+  it("the default waiver never covers a late fee the payment date avoids; a tapped waiver always counts", () => {
+    const base = { waiveAllowed: true, late: "waive" as const, lateChosen: false, lateFeeOwed: 1000 };
+    const row = {};
+    // A late fee owed on the payment date: waived by default.
+    expect(deskWaivesLate({ ...base, lateOn: { due: [row], avoidable: [] } })).toBe(true);
+    expect(deskWaivesLate({ ...base, lateOn: { due: [row], avoidable: [row] } })).toBe(true);
+    // Every pending late fee still avoidable on that date (a payment dated on
+    // or before each due date): no default waiver record; the desk shows "no
+    // late fee on <date>" as it did before Q20.
+    expect(deskWaivesLate({ ...base, lateOn: { due: [], avoidable: [row] } })).toBe(false);
+    // The cashier tapped Waive: honoured.
+    expect(deskWaivesLate({ ...base, lateChosen: true, lateOn: { due: [], avoidable: [row] } })).toBe(true);
+    // Take, not allowed, or nothing owed: never.
+    expect(deskWaivesLate({ ...base, late: "take", lateOn: { due: [row], avoidable: [] } })).toBe(false);
+    expect(deskWaivesLate({ ...base, waiveAllowed: false, lateOn: { due: [row], avoidable: [] } })).toBe(false);
+    expect(deskWaivesLate({ ...base, lateFeeOwed: 0, lateOn: { due: [], avoidable: [] } })).toBe(false);
+    const desk = readFileSync(join(process.cwd(), "src/vx/screens/payments/desk.tsx"), "utf8");
+    expect(desk).toContain("set({ late: v, lateChosen: \"yes\" })");
+    expect(desk).toContain("const waiveLate = deskWaivesLate(");
   });
 
   it("the on-screen waiver line is bilingual and names the amount", () => {

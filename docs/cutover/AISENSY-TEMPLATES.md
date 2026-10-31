@@ -68,9 +68,13 @@ printed, committed or seeded by a migration.
 
 Test-only mode covers every send that goes through the gate: the fee
 reminder screens, their test sends, receipts, reversals, statements, school
-notices. One's own parent queue (`/collection`, `vppsone.message_sends`)
-also checks `parent_dispatch` itself before it reaches the gate, so it stays
-closed in test-only mode.
+notices — and, since the Phase I review, One's own parent queue
+(`/collection`, `vppsone.message_sends`): its dispatcher counts test-only
+mode as its switch (`parentDispatchMode`), still needs the category's named
+automatic exception and nothing stale, and then the gate holds the send to
+the allowlist (`tests/collection-test-only-dispatch.test.ts`). Test-only mode
+never sends through the mock provider. Screens that show the school's switch
+still show it off.
 
 **Switch it on** (the owner or the operator, as postgres in the Supabase SQL
 editor for `wtgxcptmucjerhufzjcf`; no screen writes it):

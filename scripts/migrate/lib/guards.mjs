@@ -16,13 +16,19 @@
  *  - only on a database marked production — the mirror is the production
  *    load — unless `--allow-dev-target` (a rehearsal on a throwaway target);
  *  - `--first-load` (TEST-session rows copied from live, T1) only if no
- *    earlier applied load exists.
+ *    earlier applied load exists;
+ *  - never while public sign-ups are on (plan §6 Q21, D-355 (1)): twelve
+ *    `public` tables let any signed-in user read under the fees app's
+ *    policies, so a self-registered account could read the parent data the
+ *    load brings. `signupDisabled` comes from lib/auth-settings.mjs; only
+ *    `true` passes — unreadable counts as on.
  * `rollbackOnly` (load-snapshot --rollback-only: every write is rolled back)
- * lifts the environment and fee-writes guards — nothing it does persists —
- * but never the cutover guard: after T0 its locks would stall real postings.
+ * lifts the environment, fee-writes and sign-up guards — nothing it does
+ * persists — but never the cutover guard: after T0 its locks would stall
+ * real postings.
  * A dry run evaluates the same guards and reports them; it writes nothing.
  */
-export function decideLoadGuard({ environment, hasCutover, feeWritesEnabled, feeWritesOpen, allowDevTarget = false, firstLoad = false, previousApplied = 0, rollbackOnly = false }) {
+export function decideLoadGuard({ environment, hasCutover, feeWritesEnabled, feeWritesOpen, signupDisabled, allowDevTarget = false, firstLoad = false, previousApplied = 0, rollbackOnly = false }) {
   const reasons = [];
   if (hasCutover) reasons.push("vppsone.migration_runs has a cutover row: One is the system of record, the mirror is over (plan §2.3).");
   if (!rollbackOnly && String(feeWritesEnabled ?? "").trim().toLowerCase() === "true") {
@@ -36,6 +42,13 @@ export function decideLoadGuard({ environment, hasCutover, feeWritesEnabled, fee
   }
   if (environment !== "production" && !allowDevTarget && !rollbackOnly) {
     reasons.push(`vppsone.deployment says '${environment ?? "unreadable"}', not 'production'. Pass --allow-dev-target only for a rehearsal on a throwaway target.`);
+  }
+  if (!rollbackOnly && signupDisabled !== true) {
+    reasons.push(
+      signupDisabled === false
+        ? "Public sign-ups are on (GoTrue disable_signup is false): a self-registered account could read the parent data this load brings (plan §6 Q21). The owner turns them off first: Dashboard → Authentication → Sign In / Providers → \"Allow new users to sign up\"."
+        : "Could not read whether public sign-ups are off (/auth/v1/settings); refusing as if they were on (plan §6 Q21).",
+    );
   }
   if (firstLoad && previousApplied > 0) {
     reasons.push(`--first-load, but ${previousApplied} applied load(s) already ran: TEST-session rows are copied from live once only (T1).`);

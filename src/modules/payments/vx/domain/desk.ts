@@ -379,6 +379,28 @@ export function deskLateDefault(canWaive: boolean): { late: "take" | "waive"; wa
   return canWaive ? { late: "waive", waiveReason: DESK_DEFAULT_WAIVE_REASON } : { late: "take", waiveReason: "" };
 }
 
+/**
+ * Whether this payment waives the late fee. The DEFAULT waiver (the cashier
+ * has not tapped the choice) covers a late fee that is owed on the payment
+ * date; when every pending late fee is still avoidable on that date (a
+ * payment dated on or before each due date), the default stays out of the
+ * way — no waiver record for a fee that date never earned — and the desk
+ * shows "no late fee on <date>" exactly as it did before Q20. A waiver the
+ * cashier taps is always honoured. Nobody waits for a waiver they may not
+ * give, and there is nothing to waive without a late fee.
+ */
+export function deskWaivesLate(input: {
+  waiveAllowed: boolean;
+  late: "take" | "waive";
+  lateChosen: boolean;
+  lateFeeOwed: number;
+  lateOn: { due: readonly unknown[]; avoidable: readonly unknown[] };
+}): boolean {
+  if (!input.waiveAllowed || input.late !== "waive" || input.lateFeeOwed <= 0) return false;
+  if (!input.lateChosen && input.lateOn.due.length === 0 && input.lateOn.avoidable.length > 0) return false;
+  return true;
+}
+
 /** Everything that stops "Review & save", in the order the cashier should fix it. */
 export function deskProblems(
   draft: DeskDraft,

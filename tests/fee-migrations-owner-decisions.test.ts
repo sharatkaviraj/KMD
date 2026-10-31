@@ -73,6 +73,10 @@ describe("D-355: no trigger on auth.users; One's /staff makes the profile and th
     expect(proof).not.toMatch(/^\s*commit\b/im);
     for (const id of ["A", "B", "C", "D", "E", "F", "G", "H", "I"]) expect(proof, id).toContain(`'${id}', `);
     expect(proof).toContain("@qa.vpps.local");
+    // Role and activation changes go through the function /staff calls, never
+    // a raw update of staff_profiles.role / is_active.
+    expect(proof.match(/vppsone\.change_staff_authority\(v_actor, v_profile, /g)?.length).toBe(4);
+    expect(proof).not.toMatch(/update vppsone\.staff_profiles set (role|is_active)\b/);
   });
 
   it("the fees app's staff screen no longer writes public.users: it sends an admin to /staff", () => {
@@ -82,6 +86,32 @@ describe("D-355: no trigger on auth.users; One's /staff makes the profile and th
     const actions = read("src", "app", "(app)", "fees", "staff", "actions.ts");
     expect(actions).not.toMatch(/createStaffAccount\(|updateStaffAccount\(|resetStaffAccountPassword\(/);
     expect(actions).toContain("Staff accounts are managed on Staff & roles (/staff)");
+  });
+
+  it("the ported writers of public.users and auth.users stay dead code: nothing in src calls them", () => {
+    // staff-fees/data/queries.ts keeps the fees app's createStaffAccount,
+    // updateStaffAccount and resetStaffAccountPassword so the ported file
+    // stays diffable against its source; an import of any of them would bring
+    // a second writer of logins and fee roles back (D-350, D-355).
+    const writers = /\b(createStaffAccount|updateStaffAccount|resetStaffAccountPassword)\b/;
+    const home = path.join("src", "modules", "staff-fees", "data", "queries.ts");
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(path.join(root, dir), { withFileTypes: true })) {
+        const rel = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(rel);
+        else if (/\.(ts|tsx|mjs|js)$/.test(entry.name) && rel !== home && writers.test(read(rel))) offenders.push(rel);
+      }
+    };
+    walk("src");
+    expect(offenders).toEqual([]);
+  });
+
+  it("the fee navigation sends Staff & roles to /staff, not the redirecting /fees/staff", () => {
+    const nav = read("src", "modules", "fees", "config", "navigation.ts");
+    expect(nav).not.toMatch(/href: "\/fees\/staff"/);
+    const settings = read("src", "app", "(app)", "fees", "settings", "page.tsx");
+    expect(settings).not.toContain("admin staff creation");
   });
 });
 

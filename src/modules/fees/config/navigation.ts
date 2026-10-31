@@ -271,7 +271,7 @@ const routeMetaItems: Array<
     match: "/fees/staff",
     href: "/fees/admin-tools",
     label: "Staff",
-    description: "Internal staff accounts, role access, and password resets.",
+    description: "Moved to Staff & roles (/staff): logins and roles are managed there (D-355).",
   },
   {
     match: "/fees/settings",
@@ -604,7 +604,9 @@ const mobileMoreGroups: readonly MobileMoreGroup[] = [
         i18nKey: "moreFinanceControls",
       },
       {
-        href: "/fees/staff",
+        // One's Staff & roles is the only writer of logins and roles (D-350,
+        // D-355); /fees/staff only redirects there.
+        href: "/staff",
         label: "Staff & roles",
         description: "Logins and permissions",
         icon: UsersRound,
@@ -821,9 +823,9 @@ export const advancedHubSections: readonly AdvancedHubSection[] = [
     description: "Internal staff accounts, roles, and password controls.",
     items: [
       {
-        href: "/fees/staff",
+        href: "/staff",
         label: "Staff",
-        description: "Create internal staff accounts, assign roles, and reset passwords.",
+        description: "Staff & roles: logins, roles and password resets (one place, D-355).",
         icon: ShieldCheck,
         requiredPermission: "staff:manage",
       },

@@ -147,6 +147,15 @@ cannot commit between the check and the writes). `--apply` refuses when:
 - `vppsone.deployment` is not `production`, unless `--allow-dev-target`
   (a rehearsal on a throwaway target only; it never lifts the other two);
 - `--first-load` and an applied load already exists;
+- **public sign-ups are on** on One's project (plan §6 Q21, D-355 (1)):
+  `lib/auth-settings.mjs` GETs GoTrue's public `/auth/v1/settings` with the
+  publishable key (One's own host only) and anything but
+  `disable_signup: true` — including an unreadable answer — refuses. Twelve
+  `public` tables let any signed-in user read under the fees app's policies,
+  so a self-registered account could read the parent data a real load
+  brings. The owner turns sign-ups off in the dashboard; `--rollback-only`
+  persists nothing and is not stopped by it. **31 Oct: on**, so `--apply`
+  refuses today;
 - the run is a `--tables` subset, or its auth rows carry no identities
   (a user loaded without one cannot sign in).
 
@@ -344,7 +353,8 @@ option a), the tail runs to 31 Jan.
 ## `access-email-check.mjs` — before any sign-in email (Q6)
 
 ```
-node scripts/migrate/access-email-check.mjs
+node scripts/migrate/access-email-check.mjs                 # after the load: must print ok
+node scripts/migrate/access-email-check.mjs --before-load   # a look before it; clears nothing
 ```
 
 Read-only on both databases (the sealed reader on live; a `read only`
@@ -358,13 +368,21 @@ any password hash (pinned by `tests/access-email-check.test.ts`).
 For each user of the first kind it prints the fees role and whether the
 address One holds for that id equals live's — compared as lowercase, trimmed
 SHA-256 hashes (`lib/access-email.mjs`), never printed. `not loaded` means the
-first real load has not brought the user yet. Exit 2 on any `no` or an
-ambiguous email. **Run it after the load that will be live, and before any
-access email is sent**; nothing is sent by it or by this phase.
+first real load has not brought the user yet — nothing was compared for it.
+
+The verdict is `ok` (exit 0) only when **every** row is `yes` and nobody is
+ambiguous. Any `no` or ambiguous email: `STOP` (exit 2). Any `not loaded`:
+`NOT VERIFIED` (exit 2) — a load that skipped a user is not a green light for
+that user's email. `--before-load` turns only the `not loaded` case into an
+informational run (exit 0, and it says it clears no email); it never lifts a
+`no` or a clash. **Run it without the flag after the load that will be live,
+and send no access email until it prints `ok`** (plan runbook step C5a);
+nothing is sent by it or by this phase.
 
 31 Oct, before the first real load: 4 fees users with no One account
 (admin 1, accountant 2, view_only 1), all `not loaded`; 6 remapped; 0
-ambiguous.
+ambiguous. That run predates the verdict above; today it would print
+`NOT VERIFIED`, or the informational line with `--before-load`.
 
 ## `rollback-export.mjs` — what One changed, for a rollback
 

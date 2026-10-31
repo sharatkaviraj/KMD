@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { oneRoleForFeeRole, planAuthImport, remapUserReferences, shortNameFor } from "../scripts/migrate/lib/auth-import.mjs";
+import { authSettingsUrl, readSignupDisabled } from "../scripts/migrate/lib/auth-settings.mjs";
 import { matviewOrder } from "../scripts/migrate/lib/catalog.mjs";
 import {
   compareWithMcp,
@@ -409,7 +410,44 @@ describe("load order", () => {
 });
 
 describe("guards", () => {
-  const prod = { environment: "production", hasCutover: false, feeWritesEnabled: "false", feeWritesOpen: false, previousApplied: 0 };
+  const prod = { environment: "production", hasCutover: false, feeWritesEnabled: "false", feeWritesOpen: false, signupDisabled: true, previousApplied: 0 };
+
+  it("load-snapshot refuses a real load while public sign-ups are on, or unreadable (plan §6 Q21)", () => {
+    expect(decideLoadGuard({ ...prod, signupDisabled: false }).ok).toBe(false);
+    expect(decideLoadGuard({ ...prod, signupDisabled: false }).reasons[0]).toMatch(/Public sign-ups are on/);
+    expect(decideLoadGuard({ ...prod, signupDisabled: null }).reasons[0]).toMatch(/Could not read whether public sign-ups are off/);
+    expect(decideLoadGuard({ ...prod, signupDisabled: undefined }).ok).toBe(false);
+    // --allow-dev-target and --first-load never lift it; a rehearsal that
+    // always rolls back persists nothing, so it may run.
+    expect(decideLoadGuard({ ...prod, environment: "dev", allowDevTarget: true, signupDisabled: false }).ok).toBe(false);
+    expect(decideLoadGuard({ ...prod, firstLoad: true, signupDisabled: false }).ok).toBe(false);
+    expect(decideLoadGuard({ ...prod, signupDisabled: false, rollbackOnly: true }).ok).toBe(true);
+  });
+
+  it("reads disable_signup from One's own project only, and counts anything odd as unreadable", async () => {
+    const env = { NEXT_PUBLIC_SUPABASE_URL: "https://wtgxcptmucjerhufzjcf.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test" };
+    const calls: { url: string; init: { headers: Record<string, string> } }[] = [];
+    // The reader only needs fetch's shape; cast once rather than build a Response.
+    const fetchWith = (body: unknown, ok = true) =>
+      (async (url: string, init: { headers: Record<string, string> }) => {
+        calls.push({ url, init });
+        return { ok, json: async () => body };
+      }) as unknown as typeof fetch;
+    expect(await readSignupDisabled(env, { fetchImpl: fetchWith({ disable_signup: true }) })).toBe(true);
+    expect(calls[0].url).toBe("https://wtgxcptmucjerhufzjcf.supabase.co/auth/v1/settings");
+    expect(calls[0].init.headers.apikey).toBe("sb_publishable_test");
+    expect(await readSignupDisabled(env, { fetchImpl: fetchWith({ disable_signup: false }) })).toBe(false);
+    expect(await readSignupDisabled(env, { fetchImpl: fetchWith({}) })).toBeNull();
+    expect(await readSignupDisabled(env, { fetchImpl: fetchWith({ disable_signup: true }, false) })).toBeNull();
+    const throwing = (async () => {
+      throw new Error("offline");
+    }) as unknown as typeof fetch;
+    expect(await readSignupDisabled(env, { fetchImpl: throwing })).toBeNull();
+    // The fees project, or any other host, is never asked.
+    expect(authSettingsUrl({ NEXT_PUBLIC_SUPABASE_URL: "https://vgqyilgstjvgohrsiwkb.supabase.co" })).toBeNull();
+    expect(authSettingsUrl({ NEXT_PUBLIC_SUPABASE_URL: "http://wtgxcptmucjerhufzjcf.supabase.co" })).toBeNull();
+    expect(await readSignupDisabled({ ...env, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "" }, { fetchImpl: fetchWith({ disable_signup: true }) })).toBeNull();
+  });
 
   it("load-snapshot refuses after cutover, while fee writes are on, and off production", () => {
     expect(decideLoadGuard(prod).ok).toBe(true);

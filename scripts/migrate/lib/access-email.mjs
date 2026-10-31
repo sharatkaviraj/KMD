@@ -51,3 +51,26 @@ export function accessEmailCheck({ sourceAuthUsers, sourceFeeUsers, targetAuthUs
   rows.sort((a, b) => a.role.localeCompare(b.role) || a.match.localeCompare(b.match));
   return { rows, remapped: plan.remap.length, clashes: plan.clashes.length };
 }
+
+/**
+ * What the operator is told, and the exit code. "ok" (exit 0) only when every
+ * row is "yes" and nobody is ambiguous: a "not loaded" row has compared
+ * nothing, so by default it is NOT VERIFIED and refuses like a "no" (exit 2)
+ * — a load that skipped a user must not read as a green light for that
+ * user's access email. `beforeLoad` (the script's --before-load) is for a
+ * look before the first real load: the same rows, exit 0, and the verdict
+ * says plainly that it is informational and clears no email.
+ */
+export function accessEmailVerdict(result, { beforeLoad = false } = {}) {
+  const no = result.rows.filter((row) => row.match === "no").length;
+  const notLoaded = result.rows.filter((row) => row.match === "not loaded").length;
+  if (no > 0 || result.clashes > 0) {
+    return { verdict: "STOP — resolve the rows above before any access email", exitCode: 2 };
+  }
+  if (notLoaded > 0) {
+    return beforeLoad
+      ? { verdict: `informational only (--before-load): ${notLoaded} not loaded yet, nothing compared for them; this clears no access email — run again after the load`, exitCode: 0 }
+      : { verdict: `NOT VERIFIED — ${notLoaded} not loaded; run after the real load (no access email until this prints ok)`, exitCode: 2 };
+  }
+  return { verdict: "ok", exitCode: 0 };
+}

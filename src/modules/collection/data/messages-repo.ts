@@ -27,7 +27,7 @@ import {
 import {
   categoryFor,
   markStale,
-  parentDispatchSwitch,
+  parentDispatchMode,
   parentPolicies,
   snapshotNow,
   staleness,
@@ -379,22 +379,26 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
   if (isTeacherTaskCampaign(send.templateCode)||send.taskId||(send.requestId&&(await managedTasksForRequests([send.requestId])).has(send.requestId))) return { ok: false, outcome:"rejected", error: "Use reviewed task delivery in Needs you." };
   if (needsProviderReconciliation(send)) return { ok: false, error: "Check the provider result before sending again." };
   let category: ParentCategory | undefined;
+  let testOnly = false;
   if (send.audience === "parent") {
     // A parent message goes from the app only under the school's switch, a
     // named automatic exception for its category, and nothing stale (P9) —
-    // otherwise it is D-10: a person sends it.
+    // otherwise it is D-10: a person sends it. Test-only mode (owner, 31 Oct)
+    // counts as the switch here; the parent-send gate then holds every such
+    // send to message_test_recipients, whatever the session or the sender.
     if (send.status === "sent" || send.status === "cancelled") {
       const refused = mayDispatch(send);
       if (!refused.ok) return { ok: false, error: refused.reason.en };
     }
-    const [switchOn, policies, check] = await Promise.all([
-      parentDispatchSwitch(),
+    const [mode, policies, check] = await Promise.all([
+      parentDispatchMode(),
       parentPolicies(),
       staleness(send),
     ]);
+    testOnly = mode === "test_only";
     category = check.extras?.category ?? categoryFor(send);
     const policy = policies.find((entry) => entry.category === category) ?? null;
-    const verdict = mayDispatchToParent({ switchOn, policy, stale: check.reasons });
+    const verdict = mayDispatchToParent({ switchOn: mode !== "off", policy, stale: check.reasons });
     if (!verdict.ok) {
       if (check.reasons.length > 0) await markStale(send.id, check.reasons);
       return { ok: false, error: verdict.reason.en };
@@ -415,6 +419,11 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
           ? thrown.message
           : "No messaging provider is configured.",
     };
+  }
+  // Only AiSensy's path asks the parent-send gate, which is where test-only
+  // mode's allowlist lives; the mock would record a "sent" no gate checked.
+  if (testOnly && provider.id !== "aisensy") {
+    return { ok: false, outcome: "rejected", error: "Parent messages are in test-only mode, which sends only through the AiSensy gate. Not sent." };
   }
 
   // A single conditional UPDATE is the cross-request claim. It commits before

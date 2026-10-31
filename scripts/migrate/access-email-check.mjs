@@ -5,7 +5,8 @@
  * cutover), is the address One would send that email to the address the live
  * fees app has? Run it before ANY access email is sent.
  *
- *   node scripts/migrate/access-email-check.mjs
+ *   node scripts/migrate/access-email-check.mjs                 # after the load: must print ok
+ *   node scripts/migrate/access-email-check.mjs --before-load   # a look before it; clears nothing
  *
  * Prints one line per such user: the fees role and match yes / no / not loaded.
  * No id, name or address is printed; addresses are compared as lowercase
@@ -15,13 +16,16 @@
  *
  * Exit 2 when any row is "no" or a fees user is ambiguous (two fees users, one
  * One account): no access email goes out until that is resolved by hand.
+ * Exit 2 too, as NOT VERIFIED, when any row is "not loaded" — nothing was
+ * compared for it — unless --before-load, which says the run is informational
+ * only and exits 0. "ok" means every row is "yes" (accessEmailVerdict).
  * This script sends nothing and writes nothing.
  */
 
 import process from "node:process";
 
-import { accessEmailCheck } from "./lib/access-email.mjs";
-import { isMain, loadFeesSecrets, loadOneEnv } from "./lib/env.mjs";
+import { accessEmailCheck, accessEmailVerdict } from "./lib/access-email.mjs";
+import { isMain, loadFeesSecrets, loadOneEnv, parseArgs } from "./lib/env.mjs";
 import { openFeesReadOnly } from "./lib/fees-readonly.mjs";
 import { readAllRows } from "./lib/live-read.mjs";
 import { openOneDb } from "./lib/one-db.mjs";
@@ -40,6 +44,7 @@ async function listAllAuthUsers(fees) {
 }
 
 async function main() {
+  const args = parseArgs(process.argv.slice(2));
   const fees = openFeesReadOnly(loadFeesSecrets());
   const [sourceAuthUsers, sourceFeeUsers] = await Promise.all([listAllAuthUsers(fees), readAllRows(fees, "users", ["id"])]);
 
@@ -59,9 +64,9 @@ async function main() {
   console.log("access-email-check: read-only; nothing is sent or written.");
   console.log(`  fees users with no One account: ${result.rows.length}; remapped onto a One account (keep their One login): ${result.remapped}; ambiguous: ${result.clashes}`);
   for (const row of result.rows) console.log(`    ${row.role}: email matches live ${row.match}`);
-  const bad = result.rows.some((row) => row.match === "no") || result.clashes > 0;
-  console.log(`access-email-check: ${bad ? "STOP — resolve the rows above before any access email" : "ok"}.`);
-  if (bad) process.exit(2);
+  const { verdict, exitCode } = accessEmailVerdict(result, { beforeLoad: Boolean(args["before-load"]) });
+  console.log(`access-email-check: ${verdict}.`);
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
 if (isMain(import.meta.url)) {
