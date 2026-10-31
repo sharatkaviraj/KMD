@@ -433,6 +433,118 @@ Phase 10 row of `docs/PROGRESS.md`):
       cash, UPI, online, cheque, discount, family, carry-forward — checking
       Hindi fonts, the `NEXT_PUBLIC_SCHOOL_*` header and One's footer.
 
+## `health.mjs` — the health pack in a terminal (Phase G)
+
+```
+npm run migrate:health -- [--hours 24] [--json] [--probe https://one.vpps.co.in]
+```
+
+Plan §9.1, critique1 B9. Reads `vppsone.ops_health_counts()` (counts only;
+service role / postgres) through One's direct connection, read-only, and
+judges it with the app's own rules (`src/modules/ops-health/domain/health.ts`)
+— the same verdict as the `health` job (`/api/jobs/health`, 08:00 IST), which
+WhatsApps the real admins (`ops_alert`, off until the owner turns it on). It
+counts Razorpay events stuck (pending/failed, attempts ≥ 3), captures in
+`review_required`, receipt outbox `uncertain`/`failed`, pg_cron failures in
+the window (with the job names), `vppsone.job_runs` failed or stuck, hours
+since the last good Drive backup, staff WhatsApp failed/unknown, parent sends
+failed (reminders, school notices, One's own), and this month's AiSensy sends
+against each cap (a problem from 80%). A count the database could not read is
+reported as such, never as zero. `--probe` POSTs a bad signature to One's own
+Razorpay webhook and expects 401 (404 = webhook secret unset: "not configured
+yet" before the cutover line, a problem after it), and asks the test-only
+doors (`/login/test`, `/login/test/clock`, `/login/dayrun`, `/lab/enter`,
+`/lab/clock`) cold — each must refuse a stranger. Exit 0 quiet, 1 something
+to look at, 2 unreadable.
+
+Added after review (migration `20261031125856_ops_health_more_counts`):
+`net_http_failed` (pg_net calls the C4 timers made that One answered ≥ 400,
+timed out or missed — pg_cron itself records them as succeeded; pg_net keeps
+about 6 h of responses), `online_events_pending_old` (pending > 30 min,
+whatever the attempts: a reconciler that never runs), receipt notices and
+One's parent sends this month, `aisensy_month_total` across every lane
+against the owner-set `aisensy_month_plan_cap` (off until set), and
+`cutover_rows`. The scheduled `health` job runs the webhook probe against
+its own origin every morning (production only).
+
+**31 Oct on wtgx:** one problem — `refresh-sibling-groups-matview` failed 720
+times in 24 h (it calls a function that does not exist on wtgx; removed at C4
+by `one-live-cron-jobs.sql`); webhook probe 404 (secret not set yet, as
+expected before C6).
+
+## `env-names-diff.mjs` — the env inventory (Phase G)
+
+```
+npm run migrate:env-names -- [--fees-repo <path>] [--check]
+npm run migrate:env-names -- --vercel     # live Production names against the committed snapshot
+```
+
+`--vercel` runs `vercel env ls production --project <p>` for `vppsone` and
+`schoolfees` (names only; the CLI prints values as "Encrypted") and exits 1
+if either differs from `VERCEL_PRODUCTION` in the script — the T-3/T-1
+go/no-go runs it so a Production env changed after 31 Oct cannot reach C5
+unseen. Equal on 31 Oct (13 and 35 names).
+
+Plan §9.3, critique1 B7. A static scan of which env variable NAMES each
+codebase reads (`lib/env-scan.mjs`; the fees repo by file reads only, no git,
+no script), against each Vercel Production project's names (`vercel env ls
+production`, values hidden), with an owner and a status per name. Writes
+`docs/cutover/ENV-INVENTORY.md`. `--check` exits 1 on any name nobody has
+settled. Names only, never a value.
+
+## `backup-one.mjs` — backup and restore test (Phase G)
+
+```
+npm run migrate:backup-one                          # dump
+npm run migrate:backup-one -- --restore-test <run>  # prove it restores
+```
+
+Plan §9.2, critique1 B8. Every table in `public` and `vppsone`, in one
+`REPEATABLE READ READ ONLY` snapshot, `COPY` text → gzip in
+`%USERPROFILE%\.vppsone-migration\backup-<run>\`, with a manifest of counts,
+money sums and SHA-256 per table, and a `migration_runs` row (`backup-one`).
+The restore test loads it into a throw-away schema inside one transaction,
+compares rows, sums and a re-dump's hash per table, drops the schema and
+rolls back (`backup-one-restore-test` row). Run on 31 Oct:
+`docs/cutover/BACKUP-EVIDENCE.md` (228 tables, 51,482 rows, all equal).
+
+```
+npm run migrate:backup-one -- --restore <run> [--schema public|vppsone] [--tables s.t,…]   # dry run
+npm run migrate:backup-one -- --restore <run> … --rollback-only | --apply
+```
+
+The rollback of cutover steps 3–4: puts the live tables back to the backup in
+one transaction (locks, then `decideRestoreGuard` — never after the cutover
+row; `--apply` only on production with fee writes shut), TRUNCATE + COPY
+parents first with a second pass for the one FK cycle, every table compared
+with the manifest, fee writes and both dispatches left off, orphan check,
+sequences forward only, matviews refreshed, a `backup-one-restore` /
+`rollback` row naming the loads it undid. Never rewrites the marker or
+`migration_runs`. Rehearsed with `--rollback-only` on 31 Oct: 226 tables /
+51,481 rows equal, 37 s (`BACKUP-EVIDENCE.md`).
+
+## `reconcile-post.mjs` — the parallel run's money check (Phase G)
+
+```
+npm run migrate:reconcile-post -- --baseline           # once, at C3
+npm run migrate:reconcile-post -- --as-of <today IST>  # every morning after T0
+```
+
+Plan §12.1; `PARALLEL-RUN.md` check 5; the first rollback trigger. After T0
+One and the fees app differ by design, so `reconcile.mjs` no longer applies.
+Read-only on One (never opens the fees database). `--baseline` freezes One's
+ledger at the `cutover` row — receipts per real session and mode, their
+allocations, EMI late-fee installments, the money summary — in a
+`reconcile-post` migration_runs row. The daily run checks the baseline is
+unchanged and baseline + desk postings + tail postings (receipts a posted
+`tail_receipts_review` row names) = One's receipts now; no receipt number
+twice; none at or under `receipt_suffix_floor`; every posted tail row's
+receipt exists, after the line, for its amount. EMI late fees since the line,
+the money summary's change and TEST are printed apart. Exit 1 = a rollback
+trigger. Arithmetic in `lib/reconcile-post.mjs`
+(tests/migrate-reconcile-post.test.ts); on 31 Oct it refuses (no cutover
+row), and with a trial line of 1 Oct on wtgx's data all checks were equal.
+
 ---
 
 ## Libraries
@@ -453,6 +565,7 @@ Phase 10 row of `docs/PROGRESS.md`):
 | `lib/reconcile-checks.mjs` | the figures reconcile compares |
 | `lib/tail.mjs`, `lib/tail-feed.mjs`, `lib/watermark.mjs` | the tail: end date, allow-list, actions, feed, watermark |
 | `lib/storage-list.mjs` | bucket listing and copy plan |
+| `lib/env-scan.mjs` | which env names a codebase reads (static scan) |
 
 Tests: `tests/migrate-readonly.test.ts` (both seals),
 `tests/migrate-tooling.test.ts` (every pure rule above),

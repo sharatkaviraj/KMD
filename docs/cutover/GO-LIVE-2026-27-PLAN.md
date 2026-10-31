@@ -1049,6 +1049,15 @@ through the parent gate):
 
 ### Phase 9 — Monitoring, backups, env (PR-9)
 
+**Built 31 Oct (go-live phase G, D-358):** the health pack (`/api/jobs/health`,
+`npm run migrate:health`, `ops_alert`), server-side Sentry, the timers
+(`one-live-cron-jobs.sql`), `ENV-INVENTORY.md`, `backup-one.mjs` with a
+restore proof (`BACKUP-EVIDENCE.md`), and the Phase 10–12 runbooks:
+`CUTOVER-RUNBOOK-2026-27.md`, `ROLLBACK-2026-27.md`, `PARALLEL-RUN.md`,
+`TRAINING-SHEET.md`, `ADMIN-OPS-SHEET.md`, `PARENT-NOTICE.md`,
+`MCP-AND-NOTION.md`. Point-in-time recovery does not exist on the free plan;
+read 9.2 with that in mind.
+
 **9.1 Health pack** — a daily query, counts only, with alerts by staff
 WhatsApp to the owner. It watches:
 - Razorpay webhook responses that are not 2xx. An uptime check posts a bad

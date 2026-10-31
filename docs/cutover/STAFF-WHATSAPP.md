@@ -24,6 +24,7 @@ and the templates below are for the owner to submit.
 | `money_decision` | Whoever asked | `vx_staff_money_decision_v1` | It is approved or declined by someone else | Window, 8/day, digest |
 | `leave_requested` | `substitutions:manage` | `vx_staff_leave_requested_v1` | A teacher asks for leave (`teacher_leave`) | Window, 8/day, digest |
 | `leave_decided` | The teacher | `vx_staff_leave_decided_v1` | Someone else approves or declines it | Window, 8/day, digest |
+| `ops_alert` | Real admins (`settings:manage`) | `vx_staff_ops_alert_v1` | Job `health` (Phase G) finds something to look at: counts only | Window, 8/day, digest |
 | (digest) | — | `vx_staff_digest_v1` | More than 3 of one kind for one person within 30 minutes | — |
 | `teacher_task` | Teacher | `vppsone_teacher_task_*_v1` | Its own reviewed delivery (unchanged) | Its own (see §7) |
 
@@ -455,6 +456,26 @@ English:
 
 ```text
 {{1}}, your leave for {{2}} was {{3}}. {{4}}
+```
+
+### `vx_staff_ops_alert_v1` — System check
+
+Added in Phase G (`20261031115621_ops_health_and_alerts`): the health job's
+alert to every real admin (`settings:manage`). Off until the owner names it
+(`docs/cutover/ADMIN-OPS-SHEET.md`).
+
+Variables: {{1}} name · {{2}} day · {{3}} count · {{4}} what · {{5}} link
+
+Hindi:
+
+```text
+{{1}} जी, {{2}} की सिस्टम जाँच में {{3}} बातें देखनी हैं: {{4}}। देखें: {{5}}
+```
+
+English:
+
+```text
+{{1}}, the system check for {{2}} found {{3}} things to look at: {{4}}. Details: {{5}}
 ```
 
 ### The teacher-task link: `vppsone_teacher_task_*_v1` (six templates)

@@ -1,4 +1,5 @@
 import { primary, t, type Language, type Localized } from "@/platform/i18n/language";
+import { HEALTH_SUMMARY_LABELS } from "@/modules/ops-health/domain/health";
 
 /**
  * The jobs, as a list rather than as four route files that grew apart.
@@ -25,6 +26,7 @@ export const jobNames = [
   "fee-day-not-closed",
   "document-backup",
   "drive-backup",
+  "health",
 ] as const;
 
 export type JobName = (typeof jobNames)[number];
@@ -172,6 +174,20 @@ export const JOBS: Record<JobName, JobDefinition> = {
     // A second run makes a second snapshot and copies only what changed.
     oncePerDay: false,
   },
+  health: {
+    name: "health",
+    label: t("सिस्टम जाँच", "System check"),
+    what: t(
+      "गिनती से देखता है कि कुछ अटका या विफल तो नहीं — ऑनलाइन भुगतान, रसीद और स्टाफ़ के संदेश, डेटाबेस टाइमर, ऐप के काम, Drive बैकअप, इस महीने के WhatsApp — और कुछ हो तो प्रशासक को WhatsApp करता है।",
+      "Counts whether anything is stuck or failing — online payments, receipt and staff messages, database timers, app jobs, the Drive backup, this month's WhatsApp — and WhatsApps the admins if something is.",
+    ),
+    // 02:30 UTC is 08:00 in school, inside the staff send window. The
+    // database timer (docs/cutover/one-live-cron-jobs.sql) runs it again at
+    // 16:00; the same problems on the same day are one alert.
+    schedule: "30 2 * * *",
+    when: t("हर सुबह 8:00 बजे", "Every morning at 8:00"),
+    oncePerDay: false,
+  },
 };
 
 export const jobList: JobDefinition[] = jobNames.map((name) => JOBS[name]);
@@ -280,6 +296,8 @@ export const summaryLabels: Record<string, Localized> = {
   registers_submitted: t("हाज़िरी जमा", "registers submitted"),
   school_open: t("विद्यालय खुला", "school open"),
   self_study: t("स्वयं अध्ययन", "self study"),
+  // The health job (Phase G) writes one key per check.
+  ...HEALTH_SUMMARY_LABELS,
 };
 
 /**

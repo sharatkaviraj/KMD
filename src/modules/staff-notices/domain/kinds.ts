@@ -38,6 +38,7 @@ export const OUTBOX_KINDS = [
   "money_decision",
   "leave_requested",
   "leave_decided",
+  "ops_alert",
 ] as const;
 
 export type OutboxKind = (typeof OUTBOX_KINDS)[number];
@@ -170,6 +171,13 @@ export const KINDS: Record<StaffMessageKind, KindDefinition> = {
     "vx_staff_leave_decided_v1",
     t("छुट्टी का निर्णय", "Leave decided"),
     t("अध्यापक", "The teacher"),
+  ),
+  // The health job's alert (go-live Phase G, plan §9.1): every real admin.
+  ops_alert: kind(
+    "ops_alert",
+    "vx_staff_ops_alert_v1",
+    t("सिस्टम जाँच", "System check"),
+    t("प्रशासक", "Admin"),
   ),
   teacher_task: kind(
     "teacher_task",

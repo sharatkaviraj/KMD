@@ -207,6 +207,7 @@ export const KIND_PATHS: Record<PayloadKind, string> = {
   money_decision: "/inbox",
   leave_requested: "/timetable",
   leave_decided: "/teach",
+  ops_alert: "/jobs",
 };
 
 /** A rendered staff message must never carry a phone number (plan §8.2). */
@@ -335,6 +336,17 @@ export function renderPayloadNotice(kind: PayloadKind, payload: Payload, ctx: Re
       values = both([name, dayRange(payload.from_day, payload.to_day), decision, link]);
       break;
     }
+    case "ops_alert":
+      // The health job writes the list in both languages: labels and counts,
+      // never a name or a number to call (src/modules/ops-health/domain/health.ts).
+      values = both([
+        name,
+        dayText(str(payload.date) || "1970-01-01"),
+        String(Math.round(num(payload.problem_count))),
+        t(str(payload.what_hi) || str(payload.what_en) || "—", str(payload.what_en) || str(payload.what_hi) || "—"),
+        link,
+      ]);
+      break;
   }
 
   const rendered = fromTemplate(KINDS[kind].template, values, ctx.language, link);

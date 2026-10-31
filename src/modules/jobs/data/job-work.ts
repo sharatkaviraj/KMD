@@ -22,10 +22,19 @@ import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
-import { FEE_SCHEMA } from "@/platform/env";
+import { createAbsoluteUrl, FEE_SCHEMA } from "@/platform/env";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { addDays, SCHOOL_UTC_OFFSET_MINUTES } from "@/platform/dates";
+import {
+  alertKey,
+  alertPayload,
+  evaluateHealth,
+  healthSummary,
+  needsAttention,
+  WEBHOOK_PROBE_REQUEST,
+  webhookProbeFinding,
+} from "@/modules/ops-health/domain/health";
 
 /**
  * What each job actually does.
@@ -837,6 +846,74 @@ async function driveBackup(): Promise<Summary> {
   return runDriveBackup(await vercelOidcToken());
 }
 
+/* ---------------------------------------------------------------- health */
+
+/**
+ * The health pack (go-live Phase G, plan §9.1): counts from
+ * `vppsone.ops_health_counts()`, judged by `ops-health/domain/health.ts`, and
+ * — when something needs a person — one `ops_alert` staff WhatsApp to every
+ * real admin (`settings:manage`) through the outbox, which asks consent, the
+ * kind switch (off until the owner names it), the window and the caps.
+ *
+ * The counts carry no personal data, so a confined deployment may read them;
+ * it queues its alert on a TEST session only, which the outbox sends only to
+ * numbers on the test list (D-346). Production uses the real session.
+ */
+/**
+ * POST a deliberately wrong signature to this deployment's own webhook. The
+ * route refuses before it reads or writes anything, so the probe leaves no
+ * row. The status, or null when no answer came (a finding, never quiet).
+ */
+async function probeRazorpayWebhook(): Promise<number | null> {
+  try {
+    const response = await fetch(createAbsoluteUrl("/api/webhooks/razorpay"), {
+      ...WEBHOOK_PROBE_REQUEST,
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+    return response.status;
+  } catch {
+    return null;
+  }
+}
+
+export async function healthCheck(day: string): Promise<Summary> {
+  const counts = await must(
+    createAdminClient().rpc("ops_health_counts", { p_hours: 24 }),
+    "the health counts",
+  );
+  // The uptime check on the Razorpay webhook (plan §9.1): production only —
+  // a confined deployment has no webhook of its own to answer for.
+  const probe = isConfinedDeployment() ? [] : [webhookProbeFinding(await probeRazorpayWebhook(), counts as Record<string, unknown>)];
+  const result = evaluateHealth(counts as Record<string, unknown>, probe);
+  const summary = healthSummary(result);
+  if (!needsAttention(result)) return summary;
+
+  let sessionLabel: string | null;
+  if (isConfinedDeployment()) {
+    sessionLabel = (await feeDaySessions()).test[0] ?? null;
+  } else {
+    const active = await currentSession();
+    sessionLabel = active && !isTestSessionLabel(active) ? active : null;
+  }
+  if (!sessionLabel) return { ...summary, queued: 0, note: "no session to alert under" };
+
+  const queued = await queueStaffNoticeToPermission({
+    key: alertKey(result, day),
+    kind: "ops_alert",
+    permission: "settings:manage",
+    sessionLabel,
+    payload: alertPayload(result, day),
+    // Tomorrow's check says it again if it is still true.
+    notAfter: schoolMoment(addDays(day, 1), 8 * 60),
+  });
+  const sent = queued > 0 ? await dispatchStaffNotices({ max: queued + 5 }) : null;
+  return sent
+    ? { ...summary, queued, accepted: sent.accepted, held: sent.held, suppressed: sent.suppressed }
+    : { ...summary, queued };
+}
+
 export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "open-registers": openRegisters,
   "attendance-reminder": attendanceReminder,
@@ -847,4 +924,5 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "fee-day-not-closed": feeDayNotClosed,
   "document-backup": documentBackup,
   "drive-backup": driveBackup,
+  health: healthCheck,
 };
