@@ -112,7 +112,10 @@ for (const width of [360, 390, 412]) {
     await page.locator("#pd-amount").fill("3500");
     // The counter concession is off (school-day run, accountant B1).
     await expect(page.locator("#pd-concession")).toHaveCount(0);
-    await page.getByRole("radio", { name: "Waive", exact: true }).tap();
+    // Waived by default for an admin (plan Q20), the standard reason picked.
+    await expect(page.getByRole("radio", { name: "Waive", exact: true })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByTestId("late-waived-now")).toContainText("is waived");
+    await page.getByRole("button", { name: "Payment Desk late fee waiver", exact: true }).tap();
     // A waiver without a reason keeps the amount step: the date step never opens on a problem only step 2 can fix.
     await page.getByRole("button", { name: "Next: date & mode", exact: true }).tap();
     await expect(page.getByText("Pick a reason for the waiver", { exact: true }).first()).toBeVisible();

@@ -91,7 +91,8 @@ What changes in the phases:
     2. TEST visibility (Phase 3);
     3. quarantine (Phase 4);
     4. `fee_writes_enabled=false`;
-    5. only then the first real load.
+    5. public sign-ups off (Q21; the loader refuses otherwise);
+    6. only then the first real load.
   - Until T0, staff can view real fee figures in One but cannot write them.
 - **Previews and local development stay on this database, confined**
   (Q19 answered 30 Oct, D-346). There is no separate dev database, ever:
@@ -350,11 +351,18 @@ parent set by 18 Nov, the staff set by 20 Nov.
 - Rehearsal 1 checks `private.current_staff_role()` under every seat's
   token.
 
-**Decided by default (D-350, Phase 3; the owner may overrule).**
-`vppsone.staff_profiles` is the authority; `public.users` is derived from it
-for every One account through `vppsone.fee_role_map`, by a trigger on
-`staff_profiles` (`supabase/fee-migrations/20261031000100_fee_user_from_staff_profile.sql`).
-`sync_staff_profile_from_auth_users` is not recreated.
+**Answered 31 Oct (owner): approved (D-350).** One's staff list is the
+source of truth for fee permissions. `vppsone.staff_profiles` is the
+authority; `public.users` is derived from it for every One account through
+`vppsone.fee_role_map`, by a trigger on `staff_profiles`
+(`supabase/fee-migrations/20261031000100_fee_user_from_staff_profile.sql`).
+`sync_staff_profile_from_auth_users` is not recreated, and no corrected
+version is added either (D-355 (1)): public sign-up is on for this project,
+so a profile trigger on `auth.users` would give access to anyone who signs
+up, and One's `/staff` already makes the profile before the login. Proof:
+`scripts/verify-staff-login-fee-role.sql` (rolled back). The ported
+`/fees/staff` screen, a second writer of `public.users`, now sends an admin
+to `/staff` (D-355 (2)).
 
 One role → fee role (`public.users.role`), least privilege:
 
@@ -637,9 +645,8 @@ a real-session code never uses test keys.
 - Move `deep-smoke`, `smoke-roles` and `measure-round-trips` back to
   `test-scoped` once points 3–6 above are merged: they drive the app, and
   only the visibility rules keep a test account off real sessions there.
-- 1.4 / Q5 is still open: the owner's ruling on role precedence and on
-  whether `sync_staff_profile_from_auth_users` is recreated on wtgx, then
-  the 10-user mapping table. PR-1 did not recreate the trigger.
+- 1.4 / Q5: **answered 31 Oct (owner)** — D-350 approved; the trigger is
+  not recreated (D-355 (1)); the 10-user mapping is the table in §1.4.
 
 ---
 
@@ -1125,6 +1132,11 @@ accountant attends rehearsal 2 and signs the route sheet.
   read-only).
 - Vault secrets exist.
 - Auth and SMTP are ready; real staff and test accounts exist.
+- **Public sign-ups are OFF on `wtgxcptmucjerhufzjcf`** (owner: Dashboard →
+  Authentication → Sign In / Providers → "Allow new users to sign up";
+  Q21, D-355 (1)). It is also a precondition of the *first* real load, long
+  before T-3: `load-snapshot.mjs --apply` reads GoTrue's
+  `/auth/v1/settings` and refuses while `disable_signup` is not true.
 - Training is done.
 - **7 green nightly reconciles in a row.**
 - A point-in-time recovery mark, plus an offline read-only `pg_dump` of
@@ -1140,8 +1152,9 @@ accountant attends rehearsal 2 and signs the route sheet.
 | C3 | | One settings: `fee_writes_enabled=true`, `receipt_suffix_floor=5000`, receipt notice per Q9, online switches still off. A `cutover` row goes into `migration_runs`, which locks out `load-snapshot` |
 | C4 | | Run `one-live-cron-jobs.sql`. Add `auto-day-close` to pg_cron in exactly one place |
 | C5 | | Point Vercel Production env at `vppsone-live` (names in §9.3). Redeploy. Staff sign in again |
+| C5a | | Q6: run `node scripts/migrate/access-email-check.mjs` (read-only); it **must print `ok`** (exit 0) — `NOT VERIFIED`, `STOP`, or any non-zero exit means no access email. Then send a password-reset or sign-in link to the 4 fees users with no One account, and to nobody else (the 6 remapped keep their One login) |
 | C6 | | Add One's webhook in the Razorpay dashboard. The fees webhook stays |
-| C7 | | Smoke as the test admin in TEST: desk receipt, PDF, allowlisted WhatsApp receipt. The owner pays ₹100 live on a TEST student: posted once in One, and only an `ignored` event row in fees (checked read-only). Set the seven switches (§7.6). If Q8 = (a), the owner turns off the fees online switches |
+| C7 | | Smoke as the test admin in TEST: desk receipt, PDF, allowlisted WhatsApp receipt. The owner pays ₹100 live on a TEST student: posted once in One, and only an `ignored` event row in fees (checked read-only). Set the seven switches (§7.6). Q8 answered (a): the owner turns OFF the fees app's *New payment links* (`online_payment_links_enabled`) only; every other fees online switch stays on (`OLD-PAY-NOW.md`) |
 | C8 | | Check 10 real students' dues in One against the frozen baseline. Rebuild enrolments: the count equals on roll plus left. Every class has its class teacher |
 | C9 | Sun 14:00 | Go. `parent_dispatch=true` for receipts only. No reminder run on T0 or T0+1 |
 
@@ -1280,23 +1293,35 @@ Steps:
    And do you accept, in writing, that the fee tables can't hide real rows
    from a test account at the database level while the fees app is still
    running?
-5. **D-207.** Is `vppsone.staff_profiles` the authority for roles in One?
-6. **The 10 fee users' passwords.** Keep them, or force a reset at
-   cutover? **The default ("kept") could not be met** (Phase 3, D-350): the
-   REST extract cannot read `auth.users.encrypted_password` (D-348), so the 4
-   fees users with no One account sign in by reset or magic link; the 6 who
-   already have a One account keep their One password. The alternative: once
-   a read-only Postgres credential for the live fee database exists, read the
-   hashes through the sealed select-only reader (D-339/D-348 helper) and
-   import them unchanged. **Needs an owner answer before the first real
-   load** — reset/magic link as now, or wait for that credential.
+5. **Answered 31 Oct (owner): yes.** D-207: `vppsone.staff_profiles` is the
+   authority for roles in One — One's staff list is the source of truth for
+   fee permissions (admin → admin, accountant → accountant, teacher and every
+   other non-fee role → view-only); the 6 matching fees accounts join their
+   One accounts by email (D-350, D-355).
+6. **Answered 31 Oct (owner): reset / sign-in link.** The 4 fees users with
+   no One account sign in by password reset or sign-in link at cutover; the 6
+   with a One account keep their One login and password (the loader never
+   writes their auth row or any password hash). Before any access email,
+   `scripts/migrate/access-email-check.mjs` (read-only) prints, for each of
+   the 4, the role and whether One's address for them equals live's
+   (`MIGRATION-TOOLS.md`); only `ok` clears the emails, and a user the load
+   has not brought is `NOT VERIFIED` (runbook step C5a). No email was sent. The original question, for the
+   record: keep the passwords or force a reset — the default ("kept") could
+   not be met because the REST extract cannot read
+   `auth.users.encrypted_password` (D-348).
 
 **Needed before Phase 7**
 
 7. **Fees auto campaigns.** If any is set to automatic at T-7, may you turn
    it off in the fees app's own screen?
-8. **The fees Pay-now tail.** Option (a), you turn off the fees online
-   switches at T0, or option (b), no fees change and a longer tail?
+8. **Answered 31 Oct (owner): option (a), approved in principle.** At
+   cutover the owner turns off the fees app's *New payment links*
+   (`online_payment_links_enabled`); webhook capture, the reconciler, auto
+   posting and receipt recovery keep running, and One's tail-sync brings the
+   late money into `vppsone.tail_receipts_review`
+   (`docs/cutover/OLD-PAY-NOW.md`). The question was: option (a), you turn
+   off the fees online switches at T0, or option (b), no fees change and a
+   longer tail?
 9. **Where One differs from the fees app.**
    - Supersede D-270, D-291, D-10 and D-76 for fee messages?
    - Keep D-274 and D-318?
@@ -1349,10 +1374,32 @@ Steps:
 
 **Added in the Phase D review — needed before T0**
 
-20. **Late fee at One's Payment Desk.** The fees app now waives the late
+20. **Answered 31 Oct (owner): waive by default.** One's vx Payment Desk
+    now waives the late fee by default for staff allowed to waive, with the
+    ported desk's reason ('Payment Desk late fee waiver') filled in; the
+    waived amount is shown before saving and "Take with fees" is one tap
+    (D-355 (4)). The question, for the record: **Late fee at One's Payment
+    Desk.** The fees app now waives the late
     fee by default at the desk (fees 1b932785, the office's call of 27 Oct),
     and One's two ported desk screens do the same. One's own vx Payment
     Desk, the one staff use, still takes it by default, because waiving
     there asks for a reason (D-353 (7)). Should the vx desk waive by
     default too, for staff allowed to waive, with a standard reason filled
     in, or keep taking it?
+
+**Added 31 Oct (owner decisions phase) — needed before the first real load**
+
+21. **Public sign-ups on `wtgxcptmucjerhufzjcf`.** They are on today
+    (`disable_signup` false). Every staff login is made by an admin through
+    the service role, so nobody needs them; but a self-registered,
+    email-confirmed account can read the 12 `public` tables whose fees-app
+    policy lets any signed-in user read (`defaulter_contacts`,
+    `whatsapp_reminder_sends` and others, D-355 (1)). Turn them off in the
+    Supabase dashboard (Authentication → Sign In / Providers → "Allow new
+    users to sign up")? This phase did not change it: it is the owner's
+    project setting. **It blocks the first real load:** since the Phase I
+    review, `load-snapshot.mjs --apply` reads `/auth/v1/settings` and
+    refuses while sign-ups are on or unreadable (`lib/auth-settings.mjs`),
+    and the Phase 11 go/no-go repeats it. Narrowing those twelve tables'
+    authenticated-read policies instead would change fee-app policies while
+    the fees app still runs, so it is not offered here.

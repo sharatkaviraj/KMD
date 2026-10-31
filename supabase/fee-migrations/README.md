@@ -177,6 +177,26 @@ its baseline was re-recorded (642 objects).
 `vppsone` objects: `replace_in_fee_function`, `undo_replace_in_fee_function`,
 `receipt_suffix_floor`, `online_receipt_prefix`.
 
+## Added by the owner decisions phase (31 Oct), applied to `wtgxcptmucjerhufzjcf`
+
+| File | What | Ledger name | Ledger version |
+|---|---|---|---|
+| `20261031090000_school_notice_sends_service_grants.sql` | One-only: `service_role` SELECT, INSERT, UPDATE on `public.school_notice_sends`. One had no grant at all on it (live's come from default privileges), so the ported school-notice sender could not read it — found by the 31 Oct live-vs-One catalog diff | `fee_20261031090000_school_notice_sends_service_grants` | 20261031084233 |
+
+Checked after applying: `has_table_privilege` service_role select/insert/update
+true, delete false; anon and authenticated nothing; `cron.job` still calls
+nothing on `schoolfees-two` or `vercel.app` (0).
+
+Also recorded from that diff (`docs/cutover/SCHEMA-PARITY.md`, "Re-checked 31
+Oct"): Phase E's three files above are merged (PR #146); live's
+`20261031071000_cancel_duplicate_student_charges` is a data-only UPDATE on
+`installments` — **not replayed here**, it arrives with the data load;
+`private.whatsapp_send_after_write` differs from live by comments only; the
+failure-desk tables and `academic_calendar` / `backup_runs` /
+`student_external_ids` keep grants narrower than live's; One's
+`fee_writes_switch_truncate_guard` is One-only. No unexpected difference
+blocks the load.
+
 ## Phase D, checked after applying
 
 Neither fees file schedules a cron job. Checked after applying: `cron.job`

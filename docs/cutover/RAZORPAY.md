@@ -191,6 +191,12 @@ Afterwards assert no job calls the fees app:
 
 ## 7. Pay now links the fees app already sent (the tail, plan §7.8, Q8)
 
+**Answered 31 Oct (owner): option (a), approved in principle.** The owner
+turns off the fees app's *New payment links* (`online_payment_links_enabled`)
+at C7; that one switch also closes the one-tap page, and every other fees
+switch stays as it is. What stops, what keeps running and how One picks up
+the late money: `docs/cutover/OLD-PAY-NOW.md`.
+
 | | What happens | Tail after T0 |
 |---|---|---|
 | **(a) Recommended** | At T0 the **owner** turns off the fees app's `online_payment_links_enabled` and `online_payment_checkout_enabled` on the fees app's own online screen — a settings change made through normal use of the fees app, by the owner, never by tooling. Fees orders already open (two-hour links) still post in the fees app. | about 2 hours |

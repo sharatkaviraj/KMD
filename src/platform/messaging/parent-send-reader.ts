@@ -25,6 +25,12 @@ export const parentSendReader: ParentSendReader = {
     const row = await flagRow("parent_dispatch");
     return row ? row.enabled === true : null;
   },
+  async parentDispatchTestOnly() {
+    // A missing row (a deployment ahead of migration 20261031084012) is null:
+    // the gate refuses rather than guessing.
+    const row = await flagRow("parent_dispatch_test_only");
+    return row ? row.enabled === true : null;
+  },
   async dispatchCategories() {
     const row = await flagRow("parent_dispatch_categories");
     if (!row) return null;

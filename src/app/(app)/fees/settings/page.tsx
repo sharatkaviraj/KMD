@@ -202,7 +202,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       label: "Service role key",
       value: serviceRoleConfigured ? "Configured" : "Not set",
       detail:
-        "SUPABASE_SERVICE_ROLE_KEY must stay server-only and is required for bootstrap provisioning, admin staff creation, and staff password resets.",
+        "SUPABASE_SERVICE_ROLE_KEY must stay server-only and is required for server-side fee jobs and bootstrap provisioning. Staff logins and password resets are made on Staff & roles (/staff).",
       healthy: serviceRoleConfigured,
     },
     // The only DATA check on this panel. Everything above it is deployment

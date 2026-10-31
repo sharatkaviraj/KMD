@@ -50,6 +50,55 @@ Sending is still behind the parent-send gate: VPPSONE_ENV=live,
 `runtime_flags.parent_dispatch` on, and `fee_reminder` listed in
 `runtime_flags.parent_dispatch_categories`.
 
+### Test-only sending (owner, 31 Oct)
+
+To verify AiSensy on the owner's approved numbers while parent sending stays
+closed, there is a second switch, `runtime_flags.parent_dispatch_test_only`
+(migration `20261031084012`, seeded **off**):
+
+| `parent_dispatch` | `parent_dispatch_test_only` | What the gate lets through |
+|---|---|---|
+| off | off | nothing (the state on 31 Oct) |
+| off | **on** | only a number in `vppsone.message_test_recipients` — whatever the session, the sender or the category; `_v6` is still refused, and `VPPSONE_ENV` must still be `live` |
+| on | either | the full gate above; the test-only switch is not read |
+
+Every read fails closed: a switch or the list that cannot be read refuses.
+The allowlist holds 3 numbers the owner approved (31 Oct); they are never
+printed, committed or seeded by a migration.
+
+Test-only mode covers every send that goes through the gate: the fee
+reminder screens, their test sends, receipts, reversals, statements, school
+notices — and, since the Phase I review, One's own parent queue
+(`/collection`, `vppsone.message_sends`): its dispatcher counts test-only
+mode as its switch (`parentDispatchMode`), still needs the category's named
+automatic exception and nothing stale, and then the gate holds the send to
+the allowlist (`tests/collection-test-only-dispatch.test.ts`). Test-only mode
+never sends through the mock provider. Screens that show the school's switch
+still show it off.
+
+**Switch it on** (the owner or the operator, as postgres in the Supabase SQL
+editor for `wtgxcptmucjerhufzjcf`; no screen writes it):
+
+```sql
+-- check first: dispatch is off and the allowlist is what you expect (count only)
+select key, enabled from vppsone.runtime_flags where key in ('parent_dispatch', 'parent_dispatch_test_only');
+select count(*) from vppsone.message_test_recipients;
+
+update vppsone.runtime_flags set enabled = true where key = 'parent_dispatch_test_only';
+```
+
+**Switch it off** when the test is done:
+
+```sql
+update vppsone.runtime_flags set enabled = false where key = 'parent_dispatch_test_only';
+```
+
+Add or remove an approved number the same way (`insert into
+vppsone.message_test_recipients (phone_e164, label) values ('+91…', 'owner test 1')`
+/ `delete … where phone_e164 = '+91…'`), never in a migration (rule 6).
+The switch takes effect on the very next send; nothing is cached.
+Nothing in this repo switches it on.
+
 ## The 22 templates
 
 | Notice | Hindi | English |

@@ -116,6 +116,27 @@ export async function parentDispatchSwitch(): Promise<boolean> {
   return data?.enabled === true;
 }
 
+/**
+ * How far the app may dispatch to parents: `on` (parent_dispatch), `test_only`
+ * (parent_dispatch off, `parent_dispatch_test_only` on — owner, 31 Oct), or
+ * `off`. In `test_only` the dispatcher lets a message reach the provider and
+ * the parent-send gate holds it to `message_test_recipients`
+ * (`checkTestOnlySend`), so One's own `_v7` notices can be checked on the
+ * approved numbers while every real parent stays closed. A failed read is
+ * `off`. Screens that show the school's switch keep reading
+ * `parentDispatchSwitch`: test-only mode is not "on".
+ */
+export async function parentDispatchMode(): Promise<"on" | "test_only" | "off"> {
+  const { data, error } = await createAdminClient()
+    .from("runtime_flags")
+    .select("key, enabled")
+    .in("key", ["parent_dispatch", "parent_dispatch_test_only"]);
+  if (error) return "off";
+  const on = (key: string) => (data ?? []).some((row: { key: string; enabled: boolean }) => row.key === key && row.enabled === true);
+  if (on("parent_dispatch")) return "on";
+  return on("parent_dispatch_test_only") ? "test_only" : "off";
+}
+
 /* ------------------------------------------------------------ snapshots */
 
 /** The category a parent message belongs to: a request it answers, or anything else. */

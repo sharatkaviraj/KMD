@@ -1,149 +1,37 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import type { StaffFormActionState } from "@/modules/staff-fees/data/queries";
+import { requireStaffPermission } from "@/modules/fees/platform/session";
 
-import {
-  createStaffAccount,
-  resetStaffAccountPassword,
-  updateStaffAccount,
-  type StaffFormActionState,
-} from "@/modules/staff-fees/data/queries";
-import { revalidateTagAfterWrite } from "@/modules/system-sync/data/finance-revalidation";
-import { isStaffRole } from "@/modules/fees/platform/roles";
-import { STAFF_PROFILES_TAG, requireStaffPermission } from "@/modules/fees/platform/session";
+/**
+ * The fees app's staff actions, refused in One (D-350, D-355). They wrote
+ * `public.users` and auth users directly, with the fee role vocabulary; in One
+ * the staff profile on Staff & roles (`/staff`) is the only authority and the
+ * fee row is derived from it. The page redirects to `/staff`; these stay
+ * exported so a stale form posting to them is told where to go instead of
+ * writing a second, contradicting record.
+ */
+const REFUSED: StaffFormActionState = {
+  status: "error",
+  message: "Staff accounts are managed on Staff & roles (/staff). Nothing was changed here.",
+  generatedPassword: null,
+};
 
-function getRequiredString(
-  value: FormDataEntryValue | null,
-  fieldLabel: string,
-) {
-  const normalized = (value ?? "").toString().trim();
-
-  if (!normalized) {
-    throw new Error(`${fieldLabel} is required.`);
-  }
-
-  return normalized;
+// Who is asking is still checked first, as in every action
+// (tests/action-guards.test.ts). The fees signatures were (previous, formData)
+// and (userId, previous, formData); a function that takes fewer arguments
+// still fits every caller.
+export async function createStaffAccountAction(): Promise<StaffFormActionState> {
+  await requireStaffPermission("staff:manage");
+  return REFUSED;
 }
 
-function getOptionalString(value: FormDataEntryValue | null) {
-  const normalized = (value ?? "").toString().trim();
-  return normalized ? normalized : undefined;
+export async function updateStaffAccountAction(): Promise<StaffFormActionState> {
+  await requireStaffPermission("staff:manage");
+  return REFUSED;
 }
 
-function getRole(value: FormDataEntryValue | null) {
-  const normalized = getRequiredString(value, "Role");
-
-  if (!isStaffRole(normalized)) {
-    throw new Error("Role is invalid.");
-  }
-
-  return normalized;
-}
-
-function getBoolean(value: FormDataEntryValue | null) {
-  return (value ?? "").toString() === "on";
-}
-
-function toActionError(error: unknown): StaffFormActionState {
-  return {
-    status: "error",
-    message:
-      error instanceof Error
-        ? error.message
-        : "Unable to save staff changes right now.",
-    generatedPassword: null,
-  };
-}
-
-function revalidateStaffRoutes() {
-  revalidatePath("/fees/staff");
-  revalidatePath("/fees/settings");
-  // Every request reads the signed-in staffer's profile from the data cache
-  // (src/platform/supabase/session.ts). A role change or a deactivation must
-  // reach the next request, not wait for the entry to expire.
-  revalidateTagAfterWrite(STAFF_PROFILES_TAG);
-}
-
-export async function createStaffAccountAction(
-  _previous: StaffFormActionState,
-  formData: FormData,
-): Promise<StaffFormActionState> {
-  try {
-    await requireStaffPermission("staff:manage");
-
-    const result = await createStaffAccount({
-      fullName: getRequiredString(formData.get("fullName"), "Full name"),
-      email: getRequiredString(formData.get("email"), "Email"),
-      role: getRole(formData.get("role")),
-      password: getOptionalString(formData.get("password")),
-      notes: getOptionalString(formData.get("notes")) ?? null,
-    });
-
-    revalidateStaffRoutes();
-
-    return {
-      status: "success",
-      message:
-        result.mode === "created"
-          ? "Staff account created successfully."
-          : "Existing staff account updated successfully.",
-      generatedPassword: result.generatedPassword,
-    };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
-
-export async function updateStaffAccountAction(
-  userId: string,
-  _previous: StaffFormActionState,
-  formData: FormData,
-): Promise<StaffFormActionState> {
-  try {
-    const actor = await requireStaffPermission("staff:manage");
-
-    await updateStaffAccount({
-      actorUserId: actor.id ?? actor.sub ?? "",
-      userId,
-      fullName: getRequiredString(formData.get("fullName"), "Full name"),
-      role: getRole(formData.get("role")),
-      isActive: getBoolean(formData.get("isActive")),
-      notes: getOptionalString(formData.get("notes")) ?? null,
-    });
-
-    revalidateStaffRoutes();
-
-    return {
-      status: "success",
-      message: "Staff access updated successfully.",
-      generatedPassword: null,
-    };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
-
-export async function resetStaffPasswordAction(
-  userId: string,
-  _previous: StaffFormActionState,
-  formData: FormData,
-): Promise<StaffFormActionState> {
-  try {
-    await requireStaffPermission("staff:manage");
-
-    await resetStaffAccountPassword({
-      userId,
-      password: getRequiredString(formData.get("password"), "New password"),
-    });
-
-    revalidateStaffRoutes();
-
-    return {
-      status: "success",
-      message: "Password reset successfully.",
-      generatedPassword: null,
-    };
-  } catch (error) {
-    return toActionError(error);
-  }
+export async function resetStaffPasswordAction(): Promise<StaffFormActionState> {
+  await requireStaffPermission("staff:manage");
+  return REFUSED;
 }

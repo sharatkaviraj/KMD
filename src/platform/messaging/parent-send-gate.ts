@@ -12,7 +12,11 @@
  *  0. One never sends a `_v6` template. Their Pay now buttons are fixed by Meta
  *     to the fees app's host; One's are `_v7` (campaign-generation.ts).
  *  1. The deployment says `VPPSONE_ENV=live`.
- *  2. `runtime_flags.parent_dispatch` is on.
+ *  2. `runtime_flags.parent_dispatch` is on. While it is OFF, the only way
+ *     through is test-only mode (`runtime_flags.parent_dispatch_test_only`,
+ *     owner 31 Oct): the number must be in `vppsone.message_test_recipients`,
+ *     whatever the session or the sender, and checks 3 and 4 are not asked.
+ *     Both off: nothing goes.
  *  3. `runtime_flags.parent_dispatch_categories` lists this notice's kind.
  *     An absence notice also needs `runtime_flags.absent_notice_owner` to name
  *     the path asking, so a family never hears about one absence twice.
@@ -76,6 +80,8 @@ export type ParentSendGate = {
 /** Each read answers a value, or `null` when it could not be read. */
 export type ParentSendReader = {
   parentDispatchOn(): Promise<boolean | null>;
+  /** `runtime_flags.parent_dispatch_test_only`; asked only while parent_dispatch is off. */
+  parentDispatchTestOnly(): Promise<boolean | null>;
   /** The JSON value of `parent_dispatch_categories`, unparsed. */
   dispatchCategories(): Promise<unknown | null>;
   /** The JSON value of `absent_notice_owner`, unparsed. */
@@ -89,7 +95,7 @@ export type ParentSendReader = {
 export type ParentSendEnv = { readonly [name: string]: string | undefined };
 
 export type ParentSendVerdict =
-  | { ok: true; allowlistRequired: boolean }
+  | { ok: true; allowlistRequired: boolean; testOnly?: true }
   | { ok: false; code: ParentSendRefusal; reason: string };
 
 export type ParentSendRefusal =
@@ -135,6 +141,37 @@ export function nativeParentGate(
   };
 }
 
+/**
+ * Test-only mode (owner, 31 Oct): with `parent_dispatch` off, a send may go
+ * only to a number in `message_test_recipients`, so AiSensy can be verified on
+ * the owner's approved numbers while every real parent stays closed. The
+ * allowlist is the whole test — session, sender and category neither open nor
+ * close anything here — and any read that fails refuses. The caller has
+ * already refused `_v6` and anything but `VPPSONE_ENV=live`.
+ *
+ * Phase F (staff consent gates) is to call this same function while staff
+ * sending is off, so a staff test send follows the same rule.
+ */
+export async function checkTestOnlySend(
+  destination: string,
+  reader: Pick<ParentSendReader, "parentDispatchTestOnly" | "isTestRecipient">,
+): Promise<ParentSendVerdict> {
+  const testOnly = await reader.parentDispatchTestOnly();
+  if (testOnly === null) return refuse("read_failed", "Could not read the test-only switch. Not sent.");
+  if (!testOnly) return refuse("dispatch_off", "Parent messages are switched off (parent_dispatch).");
+  const phone = toE164(destination);
+  if (!phone) return refuse("bad_destination", "The number is not a phone number. Not sent.");
+  const listed = await reader.isTestRecipient(phone);
+  if (listed === null) return refuse("read_failed", "Could not read the test-recipient list. Not sent.");
+  if (!listed) {
+    return refuse(
+      "not_test_recipient",
+      "Parent messages are in test-only mode: only the numbers in message_test_recipients may be messaged.",
+    );
+  }
+  return { ok: true, allowlistRequired: true, testOnly: true };
+}
+
 /** One never sends a `_v6` template (plan §6.2). */
 export function isRefusedGeneration(campaignName: string): boolean {
   return /_v6$/i.test(campaignName.trim());
@@ -163,7 +200,7 @@ export async function checkParentSend(
     // 2. The school's switch.
     const dispatch = await reader.parentDispatchOn();
     if (dispatch === null) return refuse("read_failed", "Could not read the parent-message switch. Not sent.");
-    if (!dispatch) return refuse("dispatch_off", "Parent messages are switched off (parent_dispatch).");
+    if (!dispatch) return await checkTestOnlySend(input.destination, reader);
 
     // 3. This kind of message, by name.
     const categories = await reader.dispatchCategories();

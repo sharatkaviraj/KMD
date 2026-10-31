@@ -28,6 +28,7 @@ const REAL_PHONE = "+919000000002";
 function reader(overrides: Partial<ParentSendReader> = {}): ParentSendReader {
   return {
     parentDispatchOn: async () => true,
+    parentDispatchTestOnly: async () => false,
     dispatchCategories: async () => ["fee_reminder", "receipt", "absent_notice", "school_notice", "general"],
     absentNoticeOwner: async () => "fees_notice",
     isTestAccount: async () => false,
@@ -78,6 +79,100 @@ describe("the parent-send gate", () => {
         LIVE_PROD,
       ),
     ).toMatchObject({ code: "read_failed" });
+  });
+
+  describe("2b. test-only mode: parent_dispatch off, parent_dispatch_test_only on (owner, 31 Oct)", () => {
+    const testOnly = (overrides: Partial<ParentSendReader> = {}) =>
+      reader({ parentDispatchOn: async () => false, parentDispatchTestOnly: async () => true, ...overrides });
+
+    it("both off: everything is refused, an allowlisted number included", async () => {
+      const r = reader({ parentDispatchOn: async () => false });
+      expect(await checkParentSend(send(), r, LIVE_PROD)).toMatchObject({ code: "dispatch_off" });
+      expect(await checkParentSend(send({}, { destination: TEST_PHONE }), r, LIVE_PROD)).toMatchObject({ code: "dispatch_off" });
+      expect(
+        await checkParentSend(send({ sessionLabel: "TEST-2026-27" }, { destination: TEST_PHONE }), r, LIVE_PROD),
+      ).toMatchObject({ code: "dispatch_off" });
+    });
+
+    it("refuses a real parent's number, even from a real admin in a real session on production", async () => {
+      expect(await checkParentSend(send(), testOnly(), LIVE_PROD)).toMatchObject({ ok: false, code: "not_test_recipient" });
+      expect(await checkParentSend(send({ actor: "system" }), testOnly(), LIVE_PROD)).toMatchObject({ code: "not_test_recipient" });
+    });
+
+    it("lets an allowlisted number through from a real admin in a real session", async () => {
+      expect(await checkParentSend(send({}, { destination: TEST_PHONE }), testOnly(), LIVE_PROD)).toEqual({
+        ok: true,
+        allowlistRequired: true,
+        testOnly: true,
+      });
+      expect(await checkParentSend(send({}, { destination: "9000000001" }), testOnly(), LIVE_PROD)).toMatchObject({ ok: true });
+    });
+
+    it("needs the allowlist whatever the session or sender, and asks no category", async () => {
+      const dispatchCategories = vi.fn(async () => []);
+      const isTestAccount = vi.fn(async () => true);
+      const r = testOnly({ dispatchCategories, isTestAccount });
+      for (const gate of [
+        { sessionLabel: "TEST-2026-27" },
+        { sessionLabel: null, testSend: true },
+        { actor: "system" as const },
+        { actor: "unknown" as const },
+        { kind: "reversal" as const },
+        { kind: "absent_notice" as const, absentPath: "native" as const },
+      ]) {
+        expect(await checkParentSend(send(gate), r, LIVE_PROD)).toMatchObject({ code: "not_test_recipient" });
+        expect(await checkParentSend(send(gate, { destination: TEST_PHONE }), r, LIVE_PROD)).toMatchObject({ ok: true, testOnly: true });
+      }
+      expect(dispatchCategories).not.toHaveBeenCalled();
+      expect(isTestAccount).not.toHaveBeenCalled();
+    });
+
+    it("still refuses _v6 and anything but VPPSONE_ENV=live", async () => {
+      expect(
+        await checkParentSend(send({}, { campaignName: "vpps_app_fee_due_hi_v6", destination: TEST_PHONE }), testOnly(), LIVE_PROD),
+      ).toMatchObject({ code: "v6_never" });
+      for (const env of [{}, { VPPSONE_ENV: "dev", VERCEL_ENV: "production" }]) {
+        expect(await checkParentSend(send({}, { destination: TEST_PHONE }), testOnly(), env)).toMatchObject({ code: "not_live" });
+      }
+      // A Preview with VPPSONE_ENV=live may test too, but only to the allowlist.
+      const preview = { VPPSONE_ENV: "live", VERCEL_ENV: "preview" };
+      expect(await checkParentSend(send(), testOnly(), preview)).toMatchObject({ code: "not_test_recipient" });
+      expect(await checkParentSend(send({}, { destination: TEST_PHONE }), testOnly(), preview)).toMatchObject({ ok: true });
+    });
+
+    it("fails closed on every read", async () => {
+      expect(
+        await checkParentSend(send({}, { destination: TEST_PHONE }), reader({ parentDispatchOn: async () => false, parentDispatchTestOnly: async () => null }), LIVE_PROD),
+      ).toMatchObject({ code: "read_failed" });
+      expect(
+        await checkParentSend(
+          send({}, { destination: TEST_PHONE }),
+          reader({ parentDispatchOn: async () => false, parentDispatchTestOnly: () => Promise.reject(new Error("network")) }),
+          LIVE_PROD,
+        ),
+      ).toMatchObject({ code: "read_failed" });
+      expect(
+        await checkParentSend(send({}, { destination: TEST_PHONE }), testOnly({ isTestRecipient: async () => null }), LIVE_PROD),
+      ).toMatchObject({ code: "read_failed" });
+      expect(await checkParentSend(send({}, { destination: "12" }), testOnly(), LIVE_PROD)).toMatchObject({ code: "bad_destination" });
+    });
+
+    it("changes nothing once parent_dispatch is on", async () => {
+      const parentDispatchTestOnly = vi.fn(async () => true);
+      expect(await checkParentSend(send(), reader({ parentDispatchTestOnly }), LIVE_PROD)).toEqual({ ok: true, allowlistRequired: false });
+      expect(parentDispatchTestOnly).not.toHaveBeenCalled();
+    });
+
+    it("the migration seeds it OFF, adds no grant and no number", () => {
+      const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261031084012_parent_dispatch_test_only.sql"), "utf8").replace(/\r\n/g, "\n");
+      expect(sql).toContain("('parent_dispatch_test_only', false, null,");
+      expect(sql).toContain("'parent_dispatch_test_only'\n  )");
+      expect(sql).not.toMatch(/^\s*grant\b/im);
+      expect(sql).not.toMatch(/insert into vppsone\.message_test_recipients/i);
+      expect(readFileSync(join(process.cwd(), "src/platform/messaging/parent-send-reader.ts"), "utf8")).toContain(
+        'flagRow("parent_dispatch_test_only")',
+      );
+    });
   });
 
   it("3. refuses a kind parent_dispatch_categories does not list, or a value of the wrong shape", async () => {
