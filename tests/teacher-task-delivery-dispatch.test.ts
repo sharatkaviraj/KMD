@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const state=vi.hoisted(()=>({availability:"ready",claimed:false,finishFails:false,claimReason:"",calls:[] as string[],outcome:{ok:true,providerMessageId:"synthetic-receipt"} as unknown,send:vi.fn()}));
+const state=vi.hoisted(()=>({consent:true as boolean,availability:"ready",claimed:false,finishFails:false,claimReason:"",calls:[] as string[],outcome:{ok:true,providerMessageId:"synthetic-receipt"} as unknown,send:vi.fn()}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/platform/supabase/server",()=>({createClient:vi.fn()}));
 vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({rpc:async(name:string)=>{
@@ -14,8 +14,11 @@ vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({rpc:async(name
 }})}));
 vi.mock("@/modules/collection/data/message-provider",()=>({taskDeliveryAvailability:()=>state.availability,selectProvider:()=>({id:"aisensy",send:state.send}),ProviderMisconfigured:class extends Error{}}));
 vi.mock("@/modules/collection/data/parent-messages-repo",()=>({}));
+// The staff gate (go-live Phase F): a consenting teacher with the switch on, on Vercel production.
+vi.mock("@/platform/deployment/confinement",()=>({isConfinedDeployment:()=>false}));
+vi.mock("@/modules/staff-notices/data/consent",()=>({teacherTaskGateFacts:async()=>({optInAt:state.consent?"2026-10-01T00:00:00Z":null,optOutAt:null,isTestAccount:false,isTestSession:false,prefEnabled:null,kindsEnabled:{teacher_task:true},allowlisted:false,monthSent:0,monthCap:1000})}));
 import {dispatchTeacherTaskMessage} from "@/modules/collection/data/messages-repo";
-beforeEach(()=>{state.availability="ready";state.claimed=false;state.finishFails=false;state.claimReason="";state.calls=[];state.send.mockReset().mockResolvedValue({ok:true,providerMessageId:"synthetic-receipt"});});
+beforeEach(()=>{state.consent=true;state.availability="ready";state.claimed=false;state.finishFails=false;state.claimReason="";state.calls=[];state.send.mockReset().mockResolvedValue({ok:true,providerMessageId:"synthetic-receipt"});});
 it("double confirmation reaches transport once after a durable claim",async()=>{
   const result=await Promise.all([dispatchTeacherTaskMessage("synthetic-actor","synthetic-send"),dispatchTeacherTaskMessage("synthetic-actor","synthetic-send")]);
   expect(result.map(r=>r.ok)).toEqual([true,false]);expect(state.send).toHaveBeenCalledOnce();
@@ -35,4 +38,8 @@ it("a thrown transport remains unknown with the same durable attempt",async()=>{
   state.send.mockRejectedValue(new Error("synthetic timeout"));
   expect(await dispatchTeacherTaskMessage("synthetic-actor","synthetic-send")).toMatchObject({ok:false,reason:"reconcile"});
   await dispatchTeacherTaskMessage("synthetic-actor","synthetic-send");expect(state.send).toHaveBeenCalledOnce();
+});
+it("a teacher who has not agreed to WhatsApp is refused before anything is claimed",async()=>{
+  state.consent=false;expect(await dispatchTeacherTaskMessage("synthetic-actor","synthetic-send")).toMatchObject({ok:false,reason:"no_consent"});
+  expect(state.calls).toEqual([]);expect(state.send).not.toHaveBeenCalled();
 });

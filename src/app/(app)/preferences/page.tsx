@@ -15,7 +15,13 @@ import {
 import { Card, Section } from "@/ui/primitives";
 import { PageHeader } from "@/ui/page-header-localized";
 
+import { staffWhatsappMessages } from "@/messages/setup";
+import { dayLabel } from "@/platform/dates";
+import { readNoticePrefs, readStaffConsent } from "@/modules/staff-notices/data/consent";
+import { KINDS, STAFF_MESSAGE_KINDS } from "@/modules/staff-notices/domain/kinds";
+
 import { LanguageForm } from "./language-form";
+import { WhatsappForm } from "./whatsapp-form";
 import { StartForm, type StartChoice } from "./start-form";
 
 export const runtime = "nodejs";
@@ -71,6 +77,11 @@ export default async function PreferencesPage() {
 
   const current = resolveStart(staff.role, staff.preferredStart)?.value ?? "";
 
+  // WhatsApp from the school app (go-live Phase F): their own consent and switches.
+  const [consent, prefs] = await Promise.all([readStaffConsent(staff.id), readNoticePrefs(staff.id)]);
+  const consentDay = consent.state === "yes" ? consent.optInAt : consent.state === "opted_out" ? consent.optOutAt : null;
+  const consentSince = consentDay ? dayLabel(consentDay.slice(0, 10)) : null;
+
   return (
     <>
       <PageHeader eyebrow={m.eyebrowPersonal} title={m.preferencesTitle} language={staff.language} />
@@ -93,6 +104,17 @@ export default async function PreferencesPage() {
       <Section className="mt-7" title={m.language} description={m.preferencesLanguageHint} language={staff.language}>
         <Card className="p-4">
           <LanguageForm current={staff.language} />
+        </Card>
+      </Section>
+
+      <Section className="mt-7" title={staffWhatsappMessages.title} language={staff.language}>
+        <Card className="p-4">
+          <WhatsappForm
+            state={consent.state}
+            since={consentSince}
+            hasNumber={consent.hasNumber}
+            kinds={STAFF_MESSAGE_KINDS.map((kind) => ({ kind, label: KINDS[kind].label, enabled: prefs[kind] }))}
+          />
         </Card>
       </Section>
 

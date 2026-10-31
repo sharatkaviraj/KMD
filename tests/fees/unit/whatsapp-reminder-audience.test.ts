@@ -63,6 +63,8 @@ type Tables = {
   plans?: unknown[];
   /** `student_conventional_discount_assignments`, already filtered to active RTE. */
   rte?: unknown[];
+  /** `whatsapp_number_health`, already filtered to dead numbers. */
+  health?: unknown[];
 };
 
 /**
@@ -95,6 +97,10 @@ function stubClient(tables: Tables) {
           return builder;
         },
         neq: () => builder,
+        // The send-history reads skip undelivered messages with
+        // `.or("delivery_status.is.null,delivery_status.neq.failed")` since
+        // 2026-10-30; fixtures carry no delivery status, so a pass-through.
+        or: () => builder,
         // The applied-late-fee read scopes with `.gt("late_fee_pending", 0)`;
         // fixtures are written already-filtered, so this is a pass-through.
         gt: () => builder,
@@ -128,6 +134,8 @@ function stubClient(tables: Tables) {
             data = tables.plans ?? [];
           } else if (state.table === "student_conventional_discount_assignments") {
             data = tables.rte ?? [];
+          } else if (state.table === "whatsapp_number_health") {
+            data = tables.health ?? [];
           }
           // PostgREST's own cap: an unpaged read gets the first 1,000 rows.
           data = state.range ? data.slice(state.range[0], state.range[1] + 1) : data.slice(0, 1000);
@@ -1334,9 +1342,41 @@ describe("unreachable families", () => {
     });
 
     // A number that exists but is not a usable mobile is `phoneUnusable`, not
-    // `noPhoneOnRecord`, and does not reach the unreachable list at all.
+    // `noPhoneOnRecord` — and since 2026-10-30 it IS on the unreachable list,
+    // with the number shown. Until then it was counted and dropped, so a typo
+    // was invisible to everyone who could fix it.
     expect(audience.skipped.phoneUnusable).toBe(1);
+    expect(audience.unreachable).toHaveLength(1);
+    expect(audience.unreachable[0]).toMatchObject({
+      reason: "unusable",
+      phoneOnRecord: "01482222333",
+    });
+  });
+
+  it("lists a family as unreachable when WhatsApp rejected its only number", async () => {
+    const audience = await load({
+      financials: [noPhone("dead", { father_phone: "9829012345" })],
+      health: [{ phone_key: "9829012345", last_cause: "not_on_whatsapp" }],
+    });
+
+    expect(audience.candidates).toHaveLength(0);
+    expect(audience.unreachable[0]).toMatchObject({ reason: "dead", deadCause: "not_on_whatsapp" });
+  });
+
+  it("switches to the mother's number when WhatsApp rejected the father's", async () => {
+    const audience = await load({
+      financials: [
+        noPhone("switch", { father_phone: "9829012345", mother_phone: "9413367890" }),
+      ],
+      health: [{ phone_key: "9829012345", last_cause: "not_on_whatsapp" }],
+    });
+
     expect(audience.unreachable).toHaveLength(0);
+    expect(audience.candidates[0]).toMatchObject({
+      destination: "+919413367890",
+      usedMotherPhone: true,
+      secondaryDestination: null,
+    });
   });
 
   it("respects the class filter when deciding whether the list is about them", async () => {

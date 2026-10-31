@@ -1,6 +1,7 @@
 import { readRazorpayConfig } from "@/modules/payments/data/online/razorpay-client";
 import { readOnlineScreen } from "@/modules/payments/data/online/screen-reads";
 import { readCheckoutOptions, readOnlineSwitches } from "@/modules/payments/data/online/service";
+import { readStaffAlertWhatsappOn } from "@/modules/payments/data/online/staff-alerts";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { formatInr } from "@/platform/helpers/currency";
 import { formatDateTimeIst } from "@/platform/helpers/date";
@@ -28,10 +29,15 @@ import { postOnlinePaymentAction, resolveOnlineReviewAction, setOnlineSwitchActi
  * permission its nav entry is gated on, so the fee vocabulary's broader
  * `payments:write` (every collector) does not reach it by URL. Every list is
  * fenced by session (`data/online/screen-reads.ts`): a test account sees TEST
- * payments only, real staff never see them, a real admin sees both. The fees app's
- * "Staff alerts" section (push to staff phones, WhatsApp to office numbers)
- * arrives with the staff alerts sender in go-live Phase 8; its switch,
- * `online_payment_staff_whatsapp_enabled`, is not offered here until then.
+ * payments only, real staff never see them, a real admin sees both.
+ *
+ * The staff alerts (go-live Phase F): `online_payment_staff_whatsapp_enabled`
+ * is offered with the other switches. On, every online receipt becomes an
+ * `online_payment` notice in the staff outbox for everybody with
+ * `fees:collect`, sent only to those who consented and only while the
+ * `online_payment` kind is on (`docs/cutover/STAFF-WHATSAPP.md` §4). The fees
+ * app's typed list of office numbers and its push half are not ported: One
+ * has no push sign-up screen.
  */
 
 export const revalidate = 0;
@@ -155,11 +161,12 @@ export default async function OnlinePaymentsPage({
   // One only: every list below is fenced by session (`screen-reads.ts`). A
   // test account sees TEST payments only, real staff never see them, a real
   // admin sees both — the service-role client bypasses the database's fence.
-  const [switches, screen, checkoutSetting, checkoutOptions] = await Promise.all([
+  const [switches, screen, checkoutSetting, checkoutOptions, staffWhatsappOn] = await Promise.all([
     readOnlineSwitches(supabase),
     readOnlineScreen(supabase, { role: viewer.role, isTestAccount: viewer.isTestAccount === true }),
     supabase.from("app_settings").select("value").eq("key", "online_payment_checkout_enabled").maybeSingle(),
     readCheckoutOptions(supabase),
+    readStaffAlertWhatsappOn(supabase),
   ]);
   const { recon, attention, intents, outbox, audit, orders } = screen;
   const fenced = screen.scope !== "all";
@@ -218,6 +225,13 @@ export default async function OnlinePaymentsPage({
       on: checkoutOptions.waiveLateFees,
       explain:
         "This year only (owner, 2026-10-30). On: the one-tap page shows and asks for fees only, and a payment there forgives every late fee on that child — paid ones too, which then count toward fees. Turn off when late fees are taken again.",
+    },
+    {
+      key: "online_payment_staff_whatsapp_enabled",
+      label: "Tell the office on WhatsApp",
+      on: staffWhatsappOn,
+      explain:
+        "On: each online receipt becomes a staff WhatsApp to everybody who collects fees — sent only to people who agreed to WhatsApp, and only while the \"Online payment received\" message is switched on for staff. Off: nobody is told.",
     },
   ];
 

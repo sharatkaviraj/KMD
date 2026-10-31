@@ -1,7 +1,7 @@
 import "server-only";
 
 import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
-import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
+import { pickFamilyNumber } from "@/modules/whatsapp/domain/phone-numbers";
 import {
   addDays,
   cadenceGapDays,
@@ -635,6 +635,19 @@ export type ReminderAudience = {
      * to get this fixed, and the office needs to see what is currently there.
      */
     phoneOnRecord: string | null;
+    /** The mother's number on record, so the fix sheet can show both. */
+    motherPhoneOnRecord?: string | null;
+    /**
+     * Why WhatsApp cannot reach them: `none` = no number at all; `unusable` = a
+     * number that is not a mobile (9 digits, a landline); `dead` = WhatsApp has
+     * said every usable number on record cannot be messaged.
+     *
+     * Until 2026-10-30 only `none` was listed here. An `unusable` number was
+     * counted and then dropped, so a typo was invisible to everyone who could fix it.
+     */
+    reason?: "none" | "unusable" | "dead";
+    /** For `dead`: the cause WhatsApp gave, e.g. `not_on_whatsapp`. */
+    deadCause?: string | null;
     dueAmount: number;
     /**
      * True when this family would ALSO have survived the notice, the minimum and
@@ -1147,6 +1160,7 @@ export async function loadReminderAudience(
     planStudentIds,
     rteStudentIds,
     siblingGroups,
+    deadNumbers,
   ] = await Promise.all([
     // Paged, like every read here that can pass PostgREST's 1,000 rows: 535
     // students today, and a larger school would silently lose the rest.
@@ -1183,6 +1197,7 @@ export async function loadReminderAudience(
     loadActivePlanStudentIds(supabase, filters.sessionLabel),
     loadRteStudentIds(supabase, filters.sessionLabel),
     loadSiblingGroups(supabase, filters.sessionLabel),
+    loadDeadNumbers(supabase),
   ]);
 
   if (error) {
@@ -1428,38 +1443,51 @@ export async function loadReminderAudience(
     const transportFeeAmount = Number(row.transport_fee ?? 0);
     const classSortOrder = Number(row.sort_order ?? 0);
     const parentName = titleCase(row.father_name) || "अभिभावक";
-    const fatherDestination = toWhatsappDestination(row.father_phone);
-    const motherDestination = toWhatsappDestination(row.mother_phone);
-    const destination = fatherDestination ?? motherDestination;
+    // A number WhatsApp has said it cannot use (`whatsapp_number_health`) is
+    // skipped like an unusable one: the family moves to the other parent's
+    // number on its own, and only when neither works do they become unreachable.
+    // Paying for a message that fails the same way every morning is the cost
+    // this avoids.
+    const picked = pickFamilyNumber(row.father_phone, row.mother_phone, (key) =>
+      deadNumbers.get(key),
+    );
+    const { fatherUsable, motherUsable, fatherDead, motherDead } = picked;
+    const fatherDestination = fatherUsable && !fatherDead ? fatherUsable : null;
+    const motherDestination = motherUsable && !motherDead ? motherUsable : null;
+    const destination = picked.destination;
     if (!destination) {
       if (owesSelected) funnel.noNumber += 1;
-      if (!row.father_phone && !row.mother_phone) {
-        skipped.noPhoneOnRecord += 1;
-        unreachable.push({
-          // Carried so the screen can link straight to the edit page. Fixing the
-          // number is the only thing that gets this family off the list, and
-          // making somebody search for them by name is how it stays undone.
-          studentId: row.student_id,
-          admissionNo,
-          studentName: titleCase(row.student_name),
-          studentClass,
-          classSortOrder,
-          transportRoute,
-          transportFeeAmount,
-          parentName,
-          phoneOnRecord: row.father_phone ?? row.mother_phone ?? null,
-          dueAmount,
-          // Everything this needs is already in scope — the facts and the
-          // quoted amount are computed above the phone check — so the flag
-          // costs nothing and, critically, changes nothing about who lands in
-          // the array. `/reminders/unreachable` still reads all of them.
-          matchesNotice:
-            (matchesFilters || namedByHand) &&
-            (!filters.classId || row.class_id === filters.classId),
-        });
-      } else {
-        skipped.phoneUnusable += 1;
-      }
+      const noneOnRecord = !row.father_phone && !row.mother_phone;
+      if (noneOnRecord) skipped.noPhoneOnRecord += 1;
+      else skipped.phoneUnusable += 1;
+      // Listed whatever the reason. A number that exists but is not a mobile
+      // used to be counted and dropped here, so nobody who could fix the typo
+      // was ever shown it.
+      unreachable.push({
+        // Carried so the screen can link straight to the edit page. Fixing the
+        // number is the only thing that gets this family off the list, and
+        // making somebody search for them by name is how it stays undone.
+        studentId: row.student_id,
+        admissionNo,
+        studentName: titleCase(row.student_name),
+        studentClass,
+        classSortOrder,
+        transportRoute,
+        transportFeeAmount,
+        parentName,
+        phoneOnRecord: row.father_phone ?? row.mother_phone ?? null,
+        motherPhoneOnRecord: row.mother_phone ?? null,
+        reason: noneOnRecord ? "none" : fatherUsable || motherUsable ? "dead" : "unusable",
+        deadCause: fatherDead ?? motherDead ?? null,
+        dueAmount,
+        // Everything this needs is already in scope — the facts and the
+        // quoted amount are computed above the phone check — so the flag
+        // costs nothing and, critically, changes nothing about who lands in
+        // the array. `/reminders/unreachable` still reads all of them.
+        matchesNotice:
+          (matchesFilters || namedByHand) &&
+          (!filters.classId || row.class_id === filters.classId),
+      });
       money.unreachable += owesOnTiles;
       continue;
     }
@@ -2305,6 +2333,9 @@ async function loadLastSentOn(
         .eq("session_label", sessionLabel)
         .eq("status", "sent")
         .eq("notice_kind", "reminder")
+        // An undelivered message did not ask the family anything, so it must
+        // not push their next reminder out or count toward the second number.
+        .or("delivery_status.is.null,delivery_status.neq.failed")
         .order("sent_on", { ascending: false })
         .order("id", { ascending: true })
         .range(from, to),
@@ -2375,6 +2406,38 @@ async function loadNoCallStudentIds(
   // message the exact families the office asked us to leave alone.
   if (error) throw new Error(`Could not read no-call flags: ${error.message}`);
   return new Set(((data ?? []) as Array<{ student_id: string }>).map((row) => row.student_id));
+}
+
+/**
+ * Numbers WhatsApp has said it cannot message, by last ten digits → cause.
+ *
+ * Dead means the LATEST word on the number was a dead-number failure (not on
+ * WhatsApp, not a valid number, the family blocked the school) and nothing has
+ * been delivered to it since — one delivery resets `failures_in_a_row`.
+ *
+ * Fails soft, to an empty map: before `20261030190000` the table does not
+ * exist, and every number reads as it always did.
+ */
+async function loadDeadNumbers(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+): Promise<Map<string, string>> {
+  try {
+    const { data, error } = await fetchAllPages<{ phone_key: string; last_cause: string | null }>(
+      (from, to) =>
+        supabase
+          .from("whatsapp_number_health")
+          .select("phone_key, last_cause")
+          .gt("failures_in_a_row", 0)
+          .in("last_cause", ["not_on_whatsapp", "invalid_number", "opted_out"])
+          .order("phone_key", { ascending: true })
+          .range(from, to),
+    );
+    if (error) return new Map();
+    return new Map(data.map((row) => [row.phone_key, row.last_cause ?? "not_on_whatsapp"]));
+  } catch {
+    return new Map();
+  }
 }
 
 /**
@@ -2453,7 +2516,11 @@ async function loadSentToday(
     // A FAILED send reached nobody: that family is still to be messaged today,
     // and the sender takes the failed row back on the retry. Counting it here
     // locked the row and reported "already had today's reminder".
-    .neq("status", "failed");
+    .neq("status", "failed")
+    // Nor did one WhatsApp later reported undelivered. `or(is.null, neq)`
+    // rather than `neq` alone, because `neq` drops the NULLs — which is every
+    // row no report has touched yet.
+    .or("delivery_status.is.null,delivery_status.neq.failed");
 
   // A missing send history is not a reason to refuse to show the list — but it
   // does mean the screen cannot promise nobody was messaged today, so say so

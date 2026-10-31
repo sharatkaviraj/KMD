@@ -11,6 +11,8 @@ import { schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { classLabelMap, listSubjects, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
+import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
+import { queueStaffNotice } from "@/modules/staff-notices/data/enqueue";
 import { schoolCalendar } from "@/modules/attendance/data/attendance-repo";
 import { timetableRuns } from "@/modules/academics/domain/calendar";
 import { absencesOn } from "@/modules/substitutions/data/absences-repo";
@@ -204,25 +206,26 @@ export async function publishChangesAction(input: { notify: boolean }): Promise<
 
   let queued = 0;
   if (input.notify) {
-    const [{ data: template }, staff, subjects] = await Promise.all([
-      admin.from("message_templates").select("id").eq("code", "vx_staff_notice").maybeSingle<{ id: string }>(),
-      listStaff(),
-      listSubjects(),
-    ]);
+    // One staff notice per affected teacher, in the outbox (go-live Phase F):
+    // it used to be a message_sends row somebody sent by hand.
+    const [staff, subjects] = await Promise.all([listStaff(), listSubjects()]);
     const subjectName = (code: string) => subjects.find((s) => s.code === code)?.nameEn ?? code;
-    if (template) {
-      const rowsToQueue = [...affectedTeachers(changes, live).entries()].flatMap(([staffId, list]) => {
-        const person = staff.find((s) => s.id === staffId);
-        const phone = String(person?.whatsappPhone ?? person?.phone ?? "").replace(/\D/g, "").slice(-10);
-        if (!person || phone.length !== 10) return [];
-        const text = changeNotice(person.displayName, list, subjectName);
-        return [{ session_label: sessionLabel, template_id: template.id, to_phone: phone, to_name: person.displayName, staff_profile_id: person.id, variables: [`${text.hi}\n\n${text.en}`], rendered_hi: text.hi, rendered_en: text.en, status: "queued", requested_by: actor.id, category: "general" }];
-      });
-      if (rowsToQueue.length) {
-        const { error } = await admin.from("message_sends").insert(rowsToQueue);
-        if (!error) queued = rowsToQueue.length;
-      }
+    for (const [staffId, list] of affectedTeachers(changes, live).entries()) {
+      const person = staff.find((s) => s.id === staffId);
+      if (!person) continue;
+      const text = changeNotice(person.displayName, list, subjectName);
+      const id = await queueStaffNotice({
+        key: `timetable:${versionId}:${person.id}`,
+        kind: "staff_broadcast",
+        staffId: person.id,
+        sessionLabel,
+        payload: { hi: text.hi, en: text.en },
+        notAfter: new Date(Date.now() + 2 * 86_400_000),
+        requestedBy: actor.id,
+      }).catch(() => null);
+      if (id) queued += 1;
     }
+    if (queued) await dispatchStaffNotices({ max: queued + 5 }).catch(() => null);
   }
 
   revalidatePath("/timetable");

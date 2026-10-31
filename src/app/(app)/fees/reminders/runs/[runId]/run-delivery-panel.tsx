@@ -63,8 +63,8 @@ export function RunDeliveryPanel({
   // Notice stays as well: it is the durable record of what the last import
   // matched, which a toast is not.
   useActionFeedback(retryState, {
-    successTitle: "Retried",
-    errorTitle: "Some retries failed",
+    successTitle: "Resent",
+    errorTitle: "Not everything was resent",
   });
   useActionFeedback(reconcileState, {
     successTitle: "Recorded",
@@ -144,19 +144,21 @@ export function RunDeliveryPanel({
           <div className="flex flex-col gap-3">
             <div>
               <h2 className="text-sm font-bold text-foreground">
-                <span className="tabular-nums">{failedCount}</span> failed
+                <span className="tabular-nums">{failedCount}</span> did not reach the family
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Retrying updates the same rows rather than adding new ones, so a family is never
-                recorded as messaged twice.
+                Refused by AiSensy or reported undelivered. Resending rebuilds each family from
+                today&apos;s ledger, skips anyone who has paid since, and uses the other
+                parent&apos;s number where WhatsApp rejected the first. Wrong numbers are fixed on
+                the Fix tab.
               </p>
             </div>
             <form action={retryAction}>
               <input type="hidden" name="runId" value={runId} />
               <PendingSubmitButton
                 className="h-11 w-full sm:w-auto"
-                idleLabel={`Retry ${failedCount} failed`}
-                pendingLabel="Retrying…"
+                idleLabel={`Resend ${failedCount}`}
+                pendingLabel="Resending…"
               />
             </form>
             {retryState.status !== "idle" && retryState.message ? (

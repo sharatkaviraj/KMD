@@ -63,6 +63,12 @@ const NEW_SURFACES = [
   "src/modules/whatsapp/ui/audience-panels.tsx",
   "src/modules/whatsapp/ui/notice-preview.tsx",
   "src/modules/whatsapp/ui/profile-badge.tsx",
+  // 2026-10-30: the failure desk.
+  "src/app/(app)/fees/reminders/fix/page.tsx",
+  "src/app/(app)/fees/reminders/fix/fix-forms.tsx",
+  "src/modules/whatsapp/ui/fix-tab-count.tsx",
+  "src/modules/whatsapp/ui/fix-nudge.tsx",
+  "src/modules/whatsapp/ui/student-whatsapp-history.tsx",
 ];
 
 /** The sub-pages, where the tab bar is NOT rendered. */
@@ -72,6 +78,7 @@ const TAKEOVER_SURFACES = [
   "src/app/(app)/fees/reminders/families/page.tsx",
   "src/app/(app)/fees/reminders/ladder/page.tsx",
   "src/app/(app)/fees/reminders/notices/page.tsx",
+  "src/app/(app)/fees/reminders/fix/page.tsx",
 ];
 
 describe("reminders sub-pages are takeovers, not tab screens", () => {

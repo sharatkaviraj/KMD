@@ -4,6 +4,33 @@ import { logWarn } from "@/platform/observability/log";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { readDeliveryStatus, STATUS_RANK } from "@/modules/whatsapp/domain/delivery-report";
 import type { DeliveryStatus } from "@/modules/whatsapp/domain/delivery-report";
+import { applyDeliveryResult } from "@/modules/whatsapp/data/delivery-store";
+import { errorCodeIn } from "@/modules/whatsapp/domain/failure-cause";
+
+/**
+ * The failure reason and code, wherever this payload shape keeps them. WhatsApp
+ * puts them in `errors[0]`; AiSensy has been seen to flatten them onto the body.
+ */
+function failureOf(body: Record<string, unknown>): { reason?: string; errorCode?: string } {
+  const errors = Array.isArray(body.errors) ? (body.errors as Array<Record<string, unknown>>) : [];
+  const first = errors[0] ?? {};
+  const nested = (body.error ?? {}) as Record<string, unknown>;
+  const reason = String(
+    body.failureReason ??
+      body.failure_reason ??
+      body.reason ??
+      first.title ??
+      first.message ??
+      nested.message ??
+      "",
+  ).trim();
+  const code = String(body.errorCode ?? body.error_code ?? first.code ?? nested.code ?? "").trim();
+  const errorCode = code || errorCodeIn(reason) || "";
+  return {
+    ...(reason ? { reason } : {}),
+    ...(errorCode ? { errorCode } : {}),
+  };
+}
 
 /**
  * AiSensy delivery webhook.
@@ -87,16 +114,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, matched: true, changed: false });
   }
 
-  const now = new Date().toISOString();
-  await supabase
-    .from("whatsapp_reminder_sends")
-    .update({
-      delivery_status: status,
-      ...(status === "delivered" ? { delivered_at: now } : {}),
-      ...(status === "read" ? { read_at: now } : {}),
-      updated_at: now,
-    })
-    .eq("id", target.id);
+  // The same write as the report import: the cause, reason and code land with
+  // the status, and the trigger records the attempt and the number's health.
+  await applyDeliveryResult(supabase, {
+    id: target.id,
+    status,
+    at: null,
+    ...(status === "failed" ? failureOf(body) : {}),
+  });
 
   return NextResponse.json({ ok: true, matched: true, changed: true });
 }

@@ -12,6 +12,11 @@ import {
 import { isEntered } from "@/modules/assessments/domain/assessments";
 import type { JobName } from "@/modules/jobs/domain/jobs";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
+import { queueStaffNotice, queueStaffNoticeToPermission } from "@/modules/staff-notices/data/enqueue";
+import { loadDeskReceipts } from "@/modules/receipts/vx/data";
+import { DESK_MODES, latestCloseState, summarizeReceipts } from "@/modules/receipts/vx/domain/day-close";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
 import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
@@ -20,7 +25,7 @@ import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
 import { FEE_SCHEMA } from "@/platform/env";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
-import { SCHOOL_UTC_OFFSET_MINUTES } from "@/platform/dates";
+import { addDays, SCHOOL_UTC_OFFSET_MINUTES } from "@/platform/dates";
 
 /**
  * What each job actually does.
@@ -270,102 +275,6 @@ async function staffContacts(ids: string[]): Promise<Map<string, StaffContact>> 
     }
   }
   return found;
-}
-
-const fill = (body: string, values: string[]) =>
-  body.replace(/\{\{(\d+)\}\}/g, (whole, index) => values[Number(index) - 1] ?? whole);
-
-/**
- * Who has already had *this* reminder today.
- *
- * Keyed on the template, not merely on the person: two jobs ask two different
- * questions, and a teacher who has been nudged about marks has not thereby
- * been asked about her register. Matching on any message at all is how a
- * reminder silently stops arriving.
- */
-async function alreadyRemindedWith(
-  templateCode: string,
-  sessionLabel: string,
-  day: string,
-): Promise<Set<string>> {
-  const admin = createAdminClient();
-
-  const { data: template } = await admin
-    .from("message_templates")
-    .select("id")
-    .eq("code", templateCode)
-    .maybeSingle();
-
-  if (!template) return new Set();
-
-  const sent = await must(
-    admin
-      .from("message_sends")
-      .select("staff_profile_id")
-      .eq("session_label", sessionLabel)
-      .eq("template_id", template.id)
-      .gte("requested_at", `${day}T00:00:00Z`),
-    "the reminders already sent",
-  );
-
-  return new Set(
-    sent
-      .map((row) => row.staff_profile_id as string | null)
-      .filter((id): id is string => id !== null),
-  );
-}
-
-/**
- * Prepare a message for a member of staff. **Prepared, not sent.**
- *
- * Written as a `draft`, which is where Phase 5 left every message this app
- * produces: the office opens the messages screen, reads what it says, and
- * sends it. A job that dispatched on its own would be the one thing D-10 and
- * D-76 exist to prevent, at the worst possible hour, with nobody watching —
- * and `mayDispatch()` would refuse it anyway if it were aimed at a parent.
- */
-async function draftStaffMessage(input: {
-  sessionLabel: string;
-  templateCode: string;
-  to: StaffContact;
-  variables: string[];
-}): Promise<boolean> {
-  if (!input.to.phone) return false;
-
-  const admin = createAdminClient();
-
-  const { data: template, error: templateError } = await admin
-    .from("message_templates")
-    .select("id, body_hi, body_en, audience, is_active")
-    .eq("code", input.templateCode)
-    .maybeSingle();
-
-  if (templateError) {
-    throw new Error(`Could not read the template: ${templateError.message}`);
-  }
-
-  // A missing or parent-facing template is a refusal, not a crash: the job's
-  // other findings are still worth writing down, and the count of what it
-  // could not draft is the thing that says something is misconfigured.
-  if (!template || template.audience !== "staff" || template.is_active === false) {
-    return false;
-  }
-
-  const { error } = await admin.from("message_sends").insert({
-    session_label: input.sessionLabel,
-    template_id: template.id,
-    to_phone: input.to.phone,
-    to_name: input.to.name,
-    staff_profile_id: input.to.id,
-    variables: input.variables,
-    rendered_hi: fill(template.body_hi as string, input.variables),
-    rendered_en: fill(template.body_en as string, input.variables),
-    status: "draft",
-    requested_by: null,
-  });
-
-  if (error) throw error;
-  return true;
 }
 
 /* ------------------------------------------------ 2. attendance reminder */
@@ -644,33 +553,31 @@ export async function missingMarksNudge(day: string): Promise<Summary> {
     perTeacher.set(teacher.id, entry);
   }
 
-  // The same guard the attendance reminder uses: a forced re-run should not
-  // hand somebody the same nudge twice.
-  const alreadyAsked = await alreadyRemindedWith(
-    "vppsone_marks_reminder",
-    sessionLabel,
-    day,
-  );
-
-  let drafted = 0;
+  // A staff notice in the outbox each (go-live Phase F; it used to be a
+  // message_sends draft somebody sent by hand). Keyed by day and teacher, so a
+  // forced re-run hands nobody the same nudge twice; the outbox asks consent
+  // and the limits when it sends, and holds it for 07:00 if it runs late.
+  let queued = 0;
   for (const { contact, papers: names } of perTeacher.values()) {
-    if (alreadyAsked.has(contact.id)) continue;
-
-    const wrote = await draftStaffMessage({
+    const id = await queueStaffNotice({
+      key: `marks:${sessionLabel}:${day}:${contact.id}`,
+      kind: "marks_reminder",
+      staffId: contact.id,
       sessionLabel,
-      templateCode: "vppsone_marks_reminder",
-      to: contact,
-      variables: [contact.name, names.sort().join(", ")],
+      payload: { papers: names.sort().join(", ") },
+      notAfter: schoolMoment(addDays(day, 2), 20 * 60),
     });
-    if (wrote) drafted += 1;
+    if (id) queued += 1;
   }
+  const sent = queued > 0 ? await dispatchStaffNotices({ max: queued + 5 }) : null;
 
   return {
     exams_open: examIds.length,
     papers: paperList.length,
     papers_outstanding: outstanding.length,
     marks_outstanding: marksOutstanding,
-    drafted,
+    queued,
+    ...(sent ? { transport: sent.transport, accepted: sent.accepted, held: sent.held, suppressed: sent.suppressed } : {}),
   };
 }
 
@@ -771,9 +678,138 @@ export async function dailySummary(day: string): Promise<Summary> {
   };
 }
 
+/* --------------------------------------------- 5. the fee day, for staff */
+
+/**
+ * The fee day's money for the office (go-live Phase F, plan §8.2): what came
+ * in (19:00) and, at 20:00, whether the day was closed. Both read the desk's
+ * own figures (`loadDeskReceipts` + `summarizeReceipts`, the numbers the
+ * Receipts desk closes against) and queue a staff notice for everybody with
+ * `fees:accounts`; the outbox asks consent and the limits when it sends.
+ *
+ * Both also run for the TEST session (review of PR #148), so each kind can be
+ * rehearsed end to end under TEST-2026-27: the TEST pass's notices are TEST-
+ * session notices, which the outbox sends only to numbers on the test list. A
+ * confined deployment (anything but Vercel production) runs the TEST pass
+ * only and never looks at a real session (D-346).
+ */
+type DayFigures = { sessionLabel: string; count: number; net: number; byMode: Record<string, number> };
+
+/** The sessions the fee day is told about: the real one (production only) and every TEST one. */
+async function feeDaySessions(): Promise<{ real: string | null; test: string[] }> {
+  const classes = await must(
+    createAdminClient().schema("public").from("classes").select("session_label"),
+    "the sessions",
+  );
+  const test = [...new Set((classes as { session_label: string | null }[]).map((row) => row.session_label ?? ""))]
+    .filter((label) => isTestSessionLabel(label))
+    .sort();
+  if (isConfinedDeployment()) return { real: null, test };
+  const active = await currentSession();
+  return { real: active && !isTestSessionLabel(active) ? active : null, test };
+}
+
+async function feeDayFigures(sessionLabel: string, day: string): Promise<DayFigures> {
+  const { rows, truncated } = await loadDeskReceipts(sessionLabel, day, day);
+  if (truncated) throw new Error("The day's receipt list is incomplete; nothing was queued.");
+  const summary = summarizeReceipts(rows.filter((row) => row.paymentDate === day));
+  return {
+    sessionLabel,
+    count: summary.count,
+    net: summary.net,
+    byMode: Object.fromEntries(DESK_MODES.map((mode) => [mode, summary.byMode[mode].amount])),
+  };
+}
+
+/**
+ * Run one fee-day pass per session and say what happened: the real session's
+ * numbers as before, and the TEST pass's under `test_…` keys. One dispatch at
+ * the end sends whatever was queued.
+ */
+async function feeDayPasses(
+  day: string,
+  pass: (figures: DayFigures) => Promise<Summary & { queued: number }>,
+): Promise<Summary> {
+  const sessions = await feeDaySessions();
+  let summary: Summary = {};
+  let queuedTotal = 0;
+  if (sessions.real) {
+    const figures = await feeDayFigures(sessions.real, day);
+    // A day with no receipts says nothing worth a message.
+    const result = figures.count === 0 ? { receipts: 0, queued: 0, note: "no receipts today" } : await pass(figures);
+    summary = { ...result };
+    queuedTotal += result.queued;
+  } else {
+    summary = { queued: 0, note: isConfinedDeployment() ? "confined deployment: real fee data not read" : "no session" };
+  }
+  let testReceipts = 0;
+  let testQueued = 0;
+  for (const label of sessions.test) {
+    const figures = await feeDayFigures(label, day);
+    if (figures.count === 0) continue;
+    testReceipts += figures.count;
+    const result = await pass(figures);
+    testQueued += result.queued;
+  }
+  if (sessions.test.length > 0) summary = { ...summary, test_receipts: testReceipts, test_queued: testQueued };
+  queuedTotal += testQueued;
+  const sent = queuedTotal > 0 ? await dispatchStaffNotices({ max: queuedTotal + 5 }) : null;
+  return sent ? { ...summary, accepted: sent.accepted, held: sent.held, suppressed: sent.suppressed } : summary;
+}
+
+export async function feeDaySummary(day: string): Promise<Summary> {
+  return feeDayPasses(day, async (figures) => {
+    const queued = await queueStaffNoticeToPermission({
+      key: `day_collection:${figures.sessionLabel}:${day}`,
+      kind: "day_collection",
+      permission: "fees:accounts",
+      sessionLabel: figures.sessionLabel,
+      payload: { date: day, total_rupees: figures.net, receipts: figures.count, by_mode: figures.byMode },
+      // Still worth reading the next morning; not after.
+      notAfter: schoolMoment(addDays(day, 1), 10 * 60),
+    });
+    return { receipts: figures.count, total: figures.net, queued };
+  });
+}
+
+export async function feeDayNotClosed(day: string): Promise<Summary> {
+  return feeDayPasses(day, async (figures) => {
+    const events = await must(
+      createAdminClient()
+        .from("fee_day_close_events")
+        .select("id, action, created_at")
+        .eq("session_label", figures.sessionLabel)
+        .eq("payment_date", day),
+      "the day's close history",
+    );
+    const closed = latestCloseState(
+      (events as { id: string; action: "close" | "reopen"; created_at: string }[]).map((event) => ({
+        action: event.action,
+        createdAt: event.created_at,
+      })),
+    ).closed;
+    if (closed) return { receipts: figures.count, closed: "yes", queued: 0 };
+    const queued = await queueStaffNoticeToPermission({
+      key: `day_not_closed:${figures.sessionLabel}:${day}`,
+      kind: "day_not_closed",
+      permission: "fees:accounts",
+      sessionLabel: figures.sessionLabel,
+      payload: { date: day, receipts: figures.count, total_rupees: figures.net },
+      // Sent at the window's edge (gates.ts); overnight it stops mattering.
+      notAfter: schoolMoment(day, 21 * 60),
+    });
+    return { receipts: figures.count, closed: "no", queued };
+  });
+}
+
 /* ------------------------------------------------------------- dispatch */
 
-/** Send what is due and settle what is stuck (P4). The day is not used: due is due. */
+/**
+ * Send what is due and settle what is stuck (P4). The day is not used: due is
+ * due. Every five minutes once the database timer is set (docs/cutover/
+ * STAFF-WHATSAPP.md §5), so the kill switch, the 07:00 hold and the digest
+ * all work; once a day from Vercel's cron until then (critique1 A10).
+ */
 async function staffNotices(): Promise<Summary> {
   const result = await dispatchStaffNotices({ max: 50 });
   return {
@@ -782,6 +818,9 @@ async function staffNotices(): Promise<Summary> {
     accepted: result.accepted,
     failed: result.failed,
     unknown: result.unknown,
+    suppressed: result.suppressed,
+    held: result.held,
+    digested: result.digested,
     released: result.swept.released,
     became_unknown: result.swept.unknown,
     stopped: result.stopped,
@@ -804,6 +843,8 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "missing-marks-nudge": missingMarksNudge,
   "daily-summary": dailySummary,
   "staff-notices": staffNotices,
+  "fee-day-summary": feeDaySummary,
+  "fee-day-not-closed": feeDayNotClosed,
   "document-backup": documentBackup,
   "drive-backup": driveBackup,
 };

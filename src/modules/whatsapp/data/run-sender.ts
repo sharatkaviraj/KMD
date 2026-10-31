@@ -39,6 +39,7 @@ import {
   type FeesPayCodeHolders,
 } from "@/modules/whatsapp/data/fees-pay-codes";
 
+import { classifyFailure } from "@/modules/whatsapp/domain/failure-cause";
 import { lateFeePhrase } from "@/modules/whatsapp/domain/late-fee";
 import { splitHoldout } from "@/modules/whatsapp/domain/run-measurement";
 
@@ -885,6 +886,11 @@ async function sendOne(args: {
     // "already". A failed row used to block the family for the rest of the
     // day, reported as "already had today's reminder" when nothing went.
     //
+    // A SENT row WhatsApp later reported undelivered (`delivery_status =
+    // 'failed'`, from the report or the webhook) is taken back too: it reached
+    // nobody, exactly like a refusal. Nothing else that is `sent` ever is — an
+    // acceptance with no report yet may well have arrived.
+    //
     // In a TEST / UAT / DEMO session a SENT row is taken back too: once a day
     // protects parents, and a test session has none, while testing the pay
     // link needed a second message to the office's own number the same day.
@@ -893,9 +899,13 @@ async function sendOne(args: {
     // In a real session a failure whose fate is unknown is NOT taken back: a
     // timeout or a 5xx can come after AiSensy accepted the message, and one
     // parent missed beats one parent messaged twice. Only a definite rejection
-    // is retried. The fees app retries every failed row; One differs here.
-    const isTestSession = isTestAcademicSessionLabel(sessionLabel);
-    const reclaimable = isTestSession ? ["failed", "sent"] : ["failed"];
+    // (or a sent row WhatsApp later reported undelivered) is retried. The fees
+    // app retries every failed row; One differs here (D-352 (4)).
+    //
+    // The attempt counter, and clearing the previous message's delivery result,
+    // are the database's job (`whatsapp_send_before_update`), and the earlier
+    // attempt survives in `whatsapp_send_attempts`.
+    const testSession = isTestAcademicSessionLabel(sessionLabel);
     const reclaimRow: Record<string, unknown> = {
       status: "pending",
       destination,
@@ -911,21 +921,21 @@ async function sendOne(args: {
       updated_at: new Date().toISOString(),
     };
     const reclaimWith = (values: Record<string, unknown>) => {
-      let reclaim = supabase
+      const query = supabase
         .from("whatsapp_reminder_sends")
         .update(values)
         .eq("student_id", candidate.studentId)
         .eq("session_label", sessionLabel)
         .eq("sent_on", today)
         .eq("campaign_name", campaignName)
-        .eq("destination_role", destinationRole)
-        .in("status", reclaimable);
-      if (!isTestSession) {
-        reclaim = reclaim.or(
-          `error_message.is.null,error_message.not.like.${DELIVERY_UNKNOWN_PREFIX.trim()}*`,
-        );
-      }
-      return reclaim.select("id");
+        .eq("destination_role", destinationRole);
+      return (
+        testSession
+          ? query.in("status", ["failed", "sent"])
+          : query.or(
+              `and(status.eq.failed,or(error_message.is.null,error_message.not.like.${DELIVERY_UNKNOWN_PREFIX.trim()}*)),and(status.eq.sent,delivery_status.eq.failed)`,
+            )
+      ).select("id");
     };
     let { data: reclaimed, error: reclaimError } = await reclaimWith(reclaimRow);
     if (isMissingColumn(reclaimError, "pay_scope")) {
@@ -951,19 +961,34 @@ async function sendOne(args: {
     ...(message.payButton ? { buttons: [payNowButton(payCode)] } : {}),
   });
 
-  await supabase
-    .from("whatsapp_reminder_sends")
-    .update({
-      status: result.ok ? "sent" : "failed",
-      provider_message_id: result.ok ? result.messageId : null,
-      error_message: result.ok
-        ? null
-        : result.deliveryUnknown
-          ? `${DELIVERY_UNKNOWN_PREFIX}${result.error}`
-          : result.error,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", claimId);
+  // The cause is written WITH the status, in one update, because the database
+  // trigger that records the attempt and marks a dead number reads both from
+  // the same row change. A failure whose fate is unknown keeps One's
+  // `delivery-unknown:` prefix, so it is never retried by the machine.
+  const failureText = result.ok
+    ? null
+    : result.deliveryUnknown
+      ? `${DELIVERY_UNKNOWN_PREFIX}${result.error}`
+      : result.error;
+  const outcomeRow: Record<string, unknown> = {
+    status: result.ok ? "sent" : "failed",
+    provider_message_id: result.ok ? result.messageId : null,
+    error_message: failureText,
+    last_error: failureText,
+    failure_cause: result.ok
+      ? null
+      : classifyFailure({ text: result.error, httpStatus: result.status }),
+    updated_at: new Date().toISOString(),
+  };
+  const writeOutcome = (values: Record<string, unknown>) =>
+    supabase.from("whatsapp_reminder_sends").update(values).eq("id", claimId);
+  const { error: outcomeError } = await writeOutcome(outcomeRow);
+  // Before `20261030190000` there is no `failure_cause`: record the outcome as before.
+  if (isMissingColumn(outcomeError, "failure_cause")) {
+    const { failure_cause: _cause, ...withoutCause } = outcomeRow;
+    void _cause;
+    await writeOutcome(withoutCause);
+  }
 
   return result.ok
     ? { kind: "sent", providerMessageId: result.messageId ?? null }

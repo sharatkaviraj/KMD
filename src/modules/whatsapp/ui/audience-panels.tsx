@@ -122,13 +122,16 @@ export function PausedPanel({
   );
 }
 
-/** Families with no number at all — they need a call or a slip, not a message. */
+/**
+ * Families WhatsApp cannot reach — no number, a number that is not a mobile, or
+ * numbers WhatsApp has rejected. They need a call, a slip, or a fixed number.
+ */
 export function UnreachablePanel({ audience }: { audience: ReminderAudience }) {
   if (audience.unreachable.length === 0) return null;
   return (
     <details className="rounded-lg border border-border bg-surface-2 p-4 text-sm">
       <summary className="cursor-pointer font-medium">
-        {audience.unreachable.length} families have no phone number at all — they need a call
+        {audience.unreachable.length} families have no number WhatsApp can use — they need a call
       </summary>
       <ul className="mt-3 grid gap-1 md:grid-cols-2">
         {audience.unreachable.slice(0, 20).map((entry) => (

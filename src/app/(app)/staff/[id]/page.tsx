@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Pencil } from "lucide-react";
 
-import { setStaffActiveAction, setTestAccountAction } from "@/app/(app)/staff/actions";
+import { recordWhatsappConsentAction, setStaffActiveAction, setTestAccountAction } from "@/app/(app)/staff/actions";
 import { m } from "@/messages";
-import { testSessionMessages } from "@/messages/setup";
+import { staffWhatsappMessages, testSessionMessages } from "@/messages/setup";
+import { readStaffConsent } from "@/modules/staff-notices/data/consent";
 import { isRealAdmin } from "@/platform/auth/test-session-policy";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can, roleLabel } from "@/platform/auth/permissions";
@@ -118,9 +119,10 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
   const maySwitchAccess = mayChangeAuthority(actor.role);
   const deactivation = canDeactivate(person, actor.id);
   const mayMarkTest = isRealAdmin(actor) && person.id !== actor.id;
-  const [work, personIsTest] = await Promise.all([
+  const [work, personIsTest, consent] = await Promise.all([
     workFor(person.id),
     mayMarkTest ? readIsTestAccount(person.id) : Promise.resolve(false),
+    maySwitchAccess ? readStaffConsent(person.id) : Promise.resolve(null),
   ]);
   const policy = work.policy;
   const policyLine: Localized = !policy
@@ -233,6 +235,56 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
           text={m.staffNoLogin}
           language={language}
         />
+      ) : null}
+
+      {consent ? (
+        // WhatsApp consent (go-live Phase F): an administrator records a yes
+        // collected on the training form or in person, or a no.
+        <div className="mt-8 border-t border-border pt-4" data-testid="whatsapp-consent-admin">
+          <p className="mb-1 text-[13px] font-semibold">
+            {flat(staffWhatsappMessages.staffTitle, language)}
+            {" · "}
+            {flat(
+              consent.state === "yes"
+                ? staffWhatsappMessages.stateYes
+                : consent.state === "opted_out"
+                  ? staffWhatsappMessages.stateOptedOut
+                  : staffWhatsappMessages.stateNo,
+              language,
+            )}
+            {consent.state === "yes" && consent.optInSource
+              ? ` · ${flat(
+                  consent.optInSource === "form"
+                    ? staffWhatsappMessages.viaForm
+                    : consent.optInSource === "self"
+                      ? staffWhatsappMessages.viaSelf
+                      : staffWhatsappMessages.viaAdmin,
+                  language,
+                )}`
+              : ""}
+          </p>
+          <p className="mb-2 text-[13px] text-muted-foreground">{flat(staffWhatsappMessages.staffHelp, language)}</p>
+          {!consent.hasNumber ? (
+            <p className="mb-2 text-[13px] text-muted-foreground">{flat(staffWhatsappMessages.noNumber, language)}</p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["form", staffWhatsappMessages.recordForm],
+                ["admin_recorded", staffWhatsappMessages.recordInPerson],
+                ["no", staffWhatsappMessages.recordOptOut],
+              ] as const
+            ).map(([value, label]) => (
+              <form key={value} action={recordWhatsappConsentAction}>
+                <input type="hidden" name="id" value={person.id} />
+                <input type="hidden" name="consent" value={value} />
+                <Button type="submit" variant="outline" size="sm">
+                  {primary(label, language)}
+                </Button>
+              </form>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       {mayMarkTest ? (

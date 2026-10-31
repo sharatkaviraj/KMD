@@ -2,6 +2,8 @@ import "server-only";
 
 import { contentHash } from "@/modules/collection/data/parent-messages-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
+import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
+import { queueStaffNotice } from "@/modules/staff-notices/data/enqueue";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { dayMonth } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
@@ -98,6 +100,67 @@ export async function queueCampaign(
 }
 
 /**
+ * A notice to the staff (go-live Phase F): one staff notice each in the
+ * outbox, which asks consent and the limits as it sends; the campaign row
+ * stays, so the notice is listed and can be stopped like any other. It used
+ * to be one message_sends row each, sent by hand.
+ */
+async function queueStaffBroadcast(
+  input: Parameters<typeof queueNotice>[0],
+  compose: { title: string; hi: string; en: string; language: NoticeLanguage },
+  date: string,
+): Promise<QueueResult> {
+  const staff = (await listStaff()).filter((s) => s.isActive && tenDigits(s.whatsappPhone ?? s.phone));
+  if (staff.length === 0) return fail(p("Nobody to send to: no usable WhatsApp numbers.", "कोई व्हाट्सऐप नंबर नहीं मिला।"));
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("message_campaigns")
+    .select("id")
+    .eq("client_request_id", input.clientRequestId)
+    .maybeSingle<{ id: string }>();
+  if (existing) return { ok: true, campaignId: existing.id, count: 0, duplicate: true };
+
+  const { data: campaign, error } = await admin
+    .from("message_campaigns")
+    .insert({
+      session_label: input.sessionLabel,
+      kind: input.kind,
+      title: input.title.trim().slice(0, 120),
+      body_hi: input.language === "en" ? null : input.hi.trim(),
+      body_en: input.language === "hi" ? null : input.en.trim(),
+      language: input.language,
+      audience: "staff",
+      class_ids: [],
+      audience_label: `All staff · ${staff.length}`,
+      recipient_count: staff.length,
+      cost_paise: staff.length * 88,
+      status: "queued",
+      client_request_id: input.clientRequestId,
+      created_by: input.createdBy,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !campaign) return fail(p("Not queued. Nothing was saved.", "कतार में नहीं गया।"));
+
+  let count = 0;
+  for (const person of staff) {
+    const text = composeText(compose, { parent: person.displayName, student: "", className: "", date });
+    const id = await queueStaffNotice({
+      key: `broadcast:${campaign.id}:${person.id}`,
+      kind: "staff_broadcast",
+      staffId: person.id,
+      sessionLabel: input.sessionLabel,
+      payload: { hi: text.hi, en: text.en, campaign_id: campaign.id },
+      notAfter: new Date(Date.now() + 2 * 86_400_000),
+      requestedBy: input.createdBy,
+    }).catch(() => null);
+    if (id) count += 1;
+  }
+  if (count > 0) await dispatchStaffNotices({ max: count + 5 }).catch(() => null);
+  return { ok: true, campaignId: campaign.id, count, duplicate: false };
+}
+
+/**
  * A notice to the whole school, some classes, or the staff: every family gets
  * its own copy with the placeholders filled in. Idempotent on clientRequestId.
  */
@@ -119,16 +182,7 @@ export async function queueNotice(input: {
   let audienceLabel = "";
 
   if (input.audience === "staff") {
-    const id = await templateId(NOTICE_TEMPLATE.staff);
-    if (!id) return fail(p("The staff notice template is missing.", "स्टाफ़ टेम्पलेट नहीं मिला।"));
-    const staff = (await listStaff()).filter((s) => s.isActive);
-    for (const person of staff) {
-      const phone = tenDigits(person.whatsappPhone ?? person.phone);
-      if (!phone) continue;
-      const text = composeText(compose, { parent: person.displayName, student: "", className: "", date });
-      rows.push({ template_id: id, to_phone: phone, to_name: person.displayName, staff_profile_id: person.id, variables: [messageVariable(text)], rendered_hi: text.hi, rendered_en: text.en, category: "general" });
-    }
-    audienceLabel = `All staff · ${rows.length}`;
+    return queueStaffBroadcast(input, compose, date);
   } else {
     const id = await templateId(NOTICE_TEMPLATE.parent);
     if (!id) return fail(p("The school notice template is missing.", "सूचना टेम्पलेट नहीं मिला।"));

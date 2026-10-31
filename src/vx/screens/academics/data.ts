@@ -1336,6 +1336,40 @@ export async function classTeacherOf(ctx: Ctx, classId: string): Promise<{ name:
 
 /* ------------------------------------------------------- the week */
 
+/**
+ * When the weekly summary last went, for the bar's "last sent": the staff
+ * outbox since go-live Phase F (a `weekly_summary` notice not taken back),
+ * and the hand-sent `message_sends` rows from before it, whichever is later.
+ */
+export async function weeklySummaryLastSent(session: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const [outbox, template] = await Promise.all([
+    admin
+      .from("staff_notices")
+      .select("created_at")
+      .eq("kind", "weekly_summary")
+      .eq("session_label", session)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ created_at: string }>(),
+    admin.from("message_templates").select("id").eq("code", "vppsone_weekly_summary").maybeSingle<{ id: string }>(),
+  ]);
+  const { data: handSent } = template.data
+    ? await admin
+        .from("message_sends")
+        .select("created_at")
+        .eq("template_id", template.data.id)
+        .eq("session_label", session)
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ created_at: string }>()
+    : { data: null };
+  const times = [outbox.data?.created_at, handSent?.created_at].filter((at): at is string => Boolean(at));
+  return times.length ? times.reduce((a, b) => (Date.parse(a) >= Date.parse(b) ? a : b)) : null;
+}
+
 export async function weekFacts(ctx: Ctx) {
   const monday = mondayOf(ctx.today);
   const prevMonday = addDays(monday, -7);
@@ -1412,12 +1446,7 @@ export async function weekFacts(ctx: Ctx) {
     notStarted: entry.papers.filter((p) => !p.submitted && p.entered === 0).length,
   };
   const principals = [...staff.values()].filter((s) => s.role === "admin" && s.is_active && (s.whatsapp_phone ?? s.phone)).map((s) => s.display_name);
-  // When the summary last went (message_sends on the weekly-summary template), for the bar's "last sent".
-  const { data: template } = await createAdminClient().from("message_templates").select("id").eq("code", "vppsone_weekly_summary").maybeSingle<{ id: string }>();
-  const { data: lastSend } = template
-    ? await createAdminClient().from("message_sends").select("created_at").eq("template_id", template.id).eq("session_label", ctx.session).neq("status", "cancelled").order("created_at", { ascending: false }).limit(1).maybeSingle<{ created_at: string }>()
-    : { data: null };
-  const lastSent = lastSend?.created_at ?? null;
+  const lastSent = await weeklySummaryLastSent(ctx.session);
   return {
     monday,
     trend,

@@ -1,7 +1,51 @@
 # AiSensy templates VPPS One needs: the `_v7` set
 
 For the owner to submit in the AiSensy dashboard (go-live Phase D; plan §6.2,
-critique0 #31). Nothing in this file has been submitted; nothing here sends.
+critique0 #31). All 22 were submitted on 31 Oct 2026 (owner-approved; record
+below). Submitted is not approved-and-live: none is used until it is APPROVED,
+an API campaign of the same name is set Live, and the owner says go — only
+then is its name added to `APPROVED_V7`. Nothing here sends.
+
+## `_v7` submission record (31 Oct 2026)
+
+Submitted through the AiSensy dashboard (project "Veer Patta Public School", WABA 918047136289)
+on 31 Oct 2026 by duplicating each approved `_v6` template and changing only the name and the
+Pay now button URL. Before each submit, a script checked: body byte-for-byte equal to this
+document, language, category UTILITY, button 1 = URL `https://one.vpps.co.in/pay/{{6}}`,
+button 2 = phone +91 9352205884, button titles unchanged. `_v6` templates were not edited.
+No API campaign was created and nothing was sent.
+
+Status read back from the template list on 31 Oct 2026 (Meta review is separate from submission):
+
+| Template | Status 31 Oct |
+|---|---|
+| vpps_app_upcoming_hi_v7 | APPROVED |
+| vpps_app_upcoming_en_v7 | APPROVED |
+| vpps_app_upcoming_final_hi_v7 | APPROVED |
+| vpps_app_upcoming_final_en_v7 | APPROVED |
+| vpps_app_fee_due_hi_v7 | APPROVED |
+| vpps_app_fee_due_en_v7 | PENDING |
+| vpps_app_balance_hi_v7 | APPROVED |
+| vpps_app_balance_en_v7 | APPROVED |
+| vpps_app_overdue_final_hi_v7 | PENDING |
+| vpps_app_overdue_final_en_v7 | APPROVED |
+| vpps_app_late_fee_waiver_hi_v7 | PENDING |
+| vpps_app_late_fee_waiver_en_v7 | APPROVED |
+| vpps_app_waiver_last_call_hi_v7 | APPROVED |
+| vpps_app_waiver_last_call_en_v7 | PENDING |
+| vpps_app_promise_due_hi_v7 | PENDING |
+| vpps_app_promise_due_en_v7 | PENDING |
+| vpps_app_promise_lapsed_hi_v7 | PENDING |
+| vpps_app_promise_lapsed_en_v7 | PENDING |
+| vpps_app_exam_clearance_hi_v7 | PENDING |
+| vpps_app_exam_clearance_en_v7 | PENDING |
+| vpps_app_prevyear_hi_v7 | PENDING |
+| vpps_app_prevyear_en_v7 | PENDING |
+
+Next (owner-gated, not done): API campaigns with the same names set Live, then names added to
+`APPROVED_V7` in `src/modules/whatsapp/domain/campaign-generation.ts`. `APPROVED_V7` is still
+empty. The staff templates are separate and not yet submitted: `docs/cutover/STAFF-WHATSAPP.md`
+§6 lists every one, the six teacher-task `vppsone_teacher_task_*_v1` (URL button) included.
 
 ## Why a new set
 

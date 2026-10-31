@@ -359,7 +359,6 @@ describe("every parent send goes through the choke point", () => {
     "src/modules/whatsapp/data/fee-statement-notice.ts",
     "src/modules/whatsapp/data/school-notice-sender.ts",
     "src/app/(app)/fees/reminders/actions.ts",
-    "src/app/(app)/fees/reminders/runs/[runId]/actions.ts",
     "src/modules/collection/data/message-provider.ts",
   ])("%s states a gate and a vppsone source", (path) => {
     const source = read(path);
@@ -390,6 +389,13 @@ describe("every parent send goes through the choke point", () => {
     const provider = read("src/modules/collection/data/message-provider.ts");
     expect(provider.indexOf('if (send.audience === "parent" && !send.taskId) return sendParentThroughGate')).toBeGreaterThan(-1);
     expect(provider.indexOf("sendParentThroughGate(send, context)")).toBeLessThan(provider.indexOf("backend.aisensy.com"));
+  });
+
+  it("the run page's retry sends nothing itself: it hands the failed rows to the failure desk's resend, which posts the Send screen's own action (fees 3cc2de4b)", () => {
+    const retry = read("src/app/(app)/fees/reminders/runs/[runId]/actions.ts");
+    expect(retry).not.toContain("sendAisensyCampaignMessage(");
+    expect(retry).toContain("resendFailuresAction(");
+    expect(read("src/app/(app)/fees/reminders/fix/actions.ts")).toContain("sendRemindersAction(");
   });
 
   it("the receipt resend no longer skips every switch: it passes the gate like the rest", () => {

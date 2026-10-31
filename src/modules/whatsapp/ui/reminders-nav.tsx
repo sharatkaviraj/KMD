@@ -1,7 +1,9 @@
-import { CalendarClock, History, Megaphone, Send, Users, type LucideIcon } from "lucide-react";
+import { Suspense } from "react";
+import { CalendarClock, History, Megaphone, Send, Users, Wrench, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/platform/utils";
 import { NavLink } from "@/ui/shell/nav-link";
+import { FixTabCount } from "@/modules/whatsapp/ui/fix-tab-count";
 
 /**
  * The tabs across the Reminders section.
@@ -16,11 +18,11 @@ import { NavLink } from "@/ui/shell/nav-link";
  * touchstart or hover, the ~100ms before the click fires, and the top progress
  * bar starts the moment the tap lands. Pages already seen come back instantly
  * from the router cache (`staleTimes.dynamic`, next.config.ts). `tap` gives the
- * press itself. Short labels with an icon each, so all five fit a phone's width
+ * press itself. Short labels with an icon each, so the first four fit a phone's width
  * without the row having to be scrolled to find one.
  */
 
-export type RemindersTab = "send" | "families" | "ladder" | "notices" | "campaigns";
+export type RemindersTab = "send" | "fix" | "families" | "ladder" | "notices" | "campaigns";
 
 const TABS: ReadonlyArray<{
   value: RemindersTab;
@@ -30,6 +32,14 @@ const TABS: ReadonlyArray<{
   icon: LucideIcon;
 }> = [
   { value: "send", label: "Send", title: "Send fee reminders", href: "/fees/reminders", icon: Send },
+  // Second, so its count is on screen without scrolling the row on a phone.
+  {
+    value: "fix",
+    label: "Fix",
+    title: "Families a reminder did not reach: why, and what to do",
+    href: "/fees/reminders/fix",
+    icon: Wrench,
+  },
   {
     value: "families",
     label: "Families",
@@ -83,6 +93,12 @@ export function RemindersNav({ active }: { active: RemindersTab }) {
               >
                 <Icon className="size-4 shrink-0" aria-hidden="true" />
                 {tab.label}
+                {/* Streams in on its own, so no Reminders page waits for it. */}
+                {tab.value === "fix" ? (
+                  <Suspense fallback={null}>
+                    <FixTabCount onAccent={current} />
+                  </Suspense>
+                ) : null}
               </NavLink>
             </li>
           );

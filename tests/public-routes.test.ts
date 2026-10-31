@@ -207,6 +207,18 @@ describe("a cold request with no cookie", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  // The staff WhatsApp timers (scripts/ops/schedule-staff-notices-cron.sql)
+  // knock with pg_net's GET and a per-job token, with no cookie at all.
+  it.each(["staff-notices", "fee-day-summary", "fee-day-not-closed"])(
+    "the pg_cron GET to /api/jobs/%s with a token is answered by the route, not redirected",
+    async (job) => {
+      const url = `/api/jobs/${job}?token=0123456789abcdef0123456789abcdef`;
+      const response = await updateSession(new NextRequest(new URL(url, "https://one.vpps.co.in")));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    },
+  );
+
   it("still sends the fee screens to /login", async () => {
     // The opening is the prefixes above, not the fee area: /fees/payments/online
     // is staff-only.

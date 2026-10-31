@@ -4,8 +4,8 @@ Fee reminders and the message templates behind them.
 
 | | |
 |---|---|
-| Route | /fees/reminders (+ families, ladder, notices, campaigns, runs) · /fees/admin-tools/whatsapp-templates |
-| Files | 20 domain · 10 data · 15 ui |
+| Route | /fees/reminders (+ fix, families, ladder, notices, campaigns, runs) · /fees/admin-tools/whatsapp-templates |
+| Files | 31 domain · 17 data · 24 ui |
 
 ## Owns
 
@@ -236,6 +236,76 @@ Fee reminders and the message templates behind them.
 - **School notices are their own lane.** `school_notice_sends`, their own budget,
   their own screen. A fee profile or cadence never stops an absence alert; the
   no-call flag and quiet hours do.
+
+## The failure desk (2026-10-30)
+
+`/protected/reminders/fix` lists every family a fee reminder did not reach, why,
+and the one thing that fixes it. `data/fix-desk.ts` reads it, and
+`domain/fix-desk.ts` holds the rules.
+
+- **Five lanes.**
+  - Refused: `status = 'failed'`, AiSensy said no.
+  - Not delivered: `sent` and `delivery_status = 'failed'`, from the report CSV or the webhook.
+  - No answer: still `pending` after 15 minutes.
+  - No usable number.
+  - Left out: owes on passed installments and has a number, but has not been reached since the latest passed due date.
+
+  The tab's red count is the number of cards: the tab and the page both read `loadFixDesk`, under `cache()`.
+- **One cause rule.** `domain/failure-cause.ts` turns AiSensy's text, WhatsApp's
+  code (131026 …) and the HTTP status into one of nine causes. The sender, the
+  report import and the webhook all write `failure_cause` through it. Each
+  cause sets the row's words (English and Hindi), its button, and whether
+  Resend is allowed (`resendPolicyFor`). Template and account faults are the
+  school's, so they show as one banner for the group, not as forty rows.
+- **Resend is not a second send path.** It rebuilds the Send screen's form:
+  the run's notice, language and installments, the failed children named by
+  hand, plus `withFamily` and `skipNothingDue`. That form goes to
+  `sendRemindersAction`. So the resend gets:
+  - every guard;
+  - the budget;
+  - the ledger re-check of every child;
+  - the claim. The sender takes a failed row back with an update guarded on its
+    status, so two presses at once send ONE message.
+
+  The old run-page retry re-sent stored params with no claim and re-quoted
+  one-child Pay now rows only. It now goes through the same path.
+- **An undelivered message reached nobody.** `loadSentToday` and `loadLastSentOn`
+  skip `delivery_status = 'failed'`, and the sender's reclaim takes such a row
+  back, so a family WhatsApp did not deliver to is still due today's reminder.
+  The filter is `or(delivery_status.is.null, delivery_status.neq.failed)` —
+  `neq` alone drops the NULLs, which is every row no report has touched.
+- **A dead number is not paid for twice.** The `whatsapp_number_health` table is
+  keyed by the last ten digits and written by trigger. A number is dead while
+  its latest word is not_on_whatsapp, invalid_number or opted_out, with nothing
+  delivered since. `pickFamilyNumber` (`domain/phone-numbers.ts`) then picks the other
+  parent's number, and the audience and the desk share it, so "Resend to
+  mother's number" is what the send does. With neither number usable, the
+  family is listed on the cannot-reach page with `reason = 'dead'`. Re-typing a
+  rejected number in the sheet needs a tick, so the office vouches for it on purpose.
+- **History is the database's job.** `whatsapp_send_attempts` gets one append-only
+  row for each:
+  - provider answer;
+  - delivery result;
+  - human resolution.
+
+  The `whatsapp_send_after_write` trigger writes it, so no code path can forget.
+  `whatsapp_send_before_update` counts a reclaim as the next attempt and clears
+  the previous message's delivery result.
+- **Delivered-later and paid-since are derived, never stored.** A failure is "sorted itself" when:
+  - a later reminder reached the child; or
+  - nothing is owed any more on the installments it asked for.
+
+  The ledger and the send log decide, so the desk cannot disagree with them.
+  `resolution` stores only what a person says: called, slip_sent, or dismissed
+  with a reason.
+- **One report import covers the session.** An AiSensy campaign report spans
+  every run that used the template. Rows are matched by message id. The
+  phone + day fallback fires only for a report row with NO id: a row whose id
+  matches nothing is a message since resent, and matching it by phone would
+  mark the resend failed.
+- **Numbers are fixed with the staff member's own client.** The
+  `audit_students` trigger records who changed what. Siblings who carried the
+  same old number change with it when ticked.
 
 ## Never
 

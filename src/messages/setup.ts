@@ -386,6 +386,7 @@ export const taskDeliveryMessages = {
   complete: t("शिक्षक का कोई कार्य बाकी नहीं है। स्मरण संदेश की आवश्यकता नहीं है।", "No teacher work remains pending. A reminder is not needed."),
   phone: t("शिक्षक का सही मोबाइल नंबर आवश्यक है।", "The teacher needs a valid mobile number."),
   already_handled: t("यह संदेश पहले ही संभाला जा चुका है। स्थिति फिर से देखें।", "This message has already been handled. Refresh its status."),
+  no_consent: t("शिक्षक ने स्कूल ऐप से WhatsApp की हामी नहीं भरी (या यह सूचना बंद है)। WhatsApp लिंक से भेजें।", "The teacher has not agreed to WhatsApp from the school app (or this kind is off). Send it with the WhatsApp link."),
   opened: t("शिक्षक ने कार्य खोला", "Teacher opened the work"), unopened: t("खोलने का प्रमाण अभी नहीं है", "No opening recorded yet"),
   answered: t("जमा उत्तर", "Submitted answers"), approved: t("स्वीकृत उत्तर", "Approved answers"), rejectedCount: t("अस्वीकृत उत्तर", "Rejected answers"),
   noReceipt: t("स्वीकार होना पहुँचने की पुष्टि नहीं है। पहुँचने का सत्यापित प्रमाण उपलब्ध नहीं है।", "Acceptance is not delivery confirmation. Verified delivery evidence is unavailable."),
@@ -483,4 +484,45 @@ export const testSessionMessages = {
   notRealAdmin: t("केवल असली प्रशासक यह बदल सकते हैं।", "Only a real administrator can change this."),
   notSelf: t("आप अपना खाता नहीं बदल सकते।", "You cannot change your own account."),
   failed: t("नहीं बदल सका। फिर प्रयास करें।", "Could not change it. Try again."),
+} as const;
+
+/** WhatsApp to staff: consent, own switches, the staff log (go-live Phase F). */
+export const staffWhatsappMessages = {
+  title: t("WhatsApp पर स्कूल की सूचनाएँ", "School messages on WhatsApp"),
+  help: t(
+    "हामी भरने पर स्कूल ऐप आपके काम की सूचनाएँ (व्यवस्था, हाज़िरी, फ़ीस…) आपके WhatsApp पर भेजेगा — सुबह 7 से रात 8 के बीच, दिन में 8 से ज़्यादा नहीं (व्यवस्था को छोड़कर)। कभी भी बंद कर सकते हैं।",
+    "If you agree, the school app sends messages about your work (cover, registers, fees…) to your WhatsApp — between 07:00 and 20:00, at most 8 a day (cover excepted). You can stop at any time.",
+  ),
+  stateYes: t("हामी भरी है", "You have agreed"),
+  stateNo: t("अभी हामी नहीं भरी — कोई WhatsApp नहीं आएगा", "Not agreed yet — no WhatsApp is sent"),
+  stateOptedOut: t("WhatsApp बंद है — कोई WhatsApp नहीं आएगा", "Turned off — no WhatsApp is sent"),
+  noNumber: t("WhatsApp नंबर दर्ज नहीं है; कार्यालय से जुड़वाएँ।", "No WhatsApp number is on file; ask the office to add it."),
+  optIn: t("हाँ, WhatsApp पर भेजें", "Yes, send me WhatsApp"),
+  optOut: t("WhatsApp बंद करें", "Stop WhatsApp"),
+  kindsTitle: t("कौन-सी सूचनाएँ", "Which messages"),
+  kindsHelp: t("जो नहीं चाहिए उसे हटा दें।", "Untick what you do not want."),
+  saveKinds: t("सहेजें", "Save"),
+  saved: t("सहेज लिया", "Saved"),
+  notSaved: t("सहेजा नहीं जा सका", "Could not save"),
+  viaForm: t("कागज़ के फ़ॉर्म से", "on the paper form"),
+  viaSelf: t("स्वयं", "by themselves"),
+  viaAdmin: t("प्रशासक ने दर्ज किया", "recorded by an admin"),
+  staffTitle: t("WhatsApp की हामी", "WhatsApp consent"),
+  staffHelp: t(
+    "प्रशिक्षण में भरे फ़ॉर्म या सामने ली गई हामी यहाँ दर्ज करें। बिना हामी के कोई WhatsApp नहीं जाता।",
+    "Record consent given on the training form or in person. Without consent no WhatsApp is sent.",
+  ),
+  recordForm: t("फ़ॉर्म से हामी दर्ज करें", "Record consent from the form"),
+  recordInPerson: t("सामने ली हामी दर्ज करें", "Record consent given in person"),
+  recordOptOut: t("मना करना दर्ज करें", "Record that they said no"),
+  logTitle: t("स्टाफ़ को WhatsApp", "WhatsApp to staff"),
+  logHelp: t(
+    "स्कूल ऐप ने स्टाफ़ को जो भेजा या रोका, और इस महीने का खर्च।",
+    "What the school app sent to staff or held back, and this month's cost.",
+  ),
+  monthSent: t("इस महीने भेजे", "Sent this month"),
+  monthCost: t("इस महीने का खर्च", "This month's cost"),
+  monthCap: t("महीने की सीमा", "Monthly cap"),
+  consented: t("हामी भरने वाले स्टाफ़", "Staff who agreed"),
+  noneYet: t("अभी कुछ नहीं।", "Nothing yet."),
 } as const;

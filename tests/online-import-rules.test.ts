@@ -137,17 +137,19 @@ describe("the receipt-band preflight before C3/C7 (critique0 #9)", () => {
   });
 });
 
-describe("the seven switches are One's own", () => {
+describe("the eight switches are One's own", () => {
   it("the mirror never copies them from the fees app", () => {
     for (const key of ONLINE_SWITCH_KEYS) expect(isOneOwnedAppSetting(key), key).toBe(true);
     expect(isOneOwnedAppSetting("online_payment_order_max_rupees")).toBe(true);
     expect(isOneOwnedAppSetting("receipt_suffix_floor")).toBe(true);
   });
 
-  it("are exactly seven, and leave out the number and the staff-alert switch", () => {
-    expect(ONLINE_SWITCH_KEYS).toHaveLength(7);
+  it("are exactly eight, the staff-alert WhatsApp switch among them (Phase F), and leave out the number", () => {
+    expect(ONLINE_SWITCH_KEYS).toHaveLength(8);
     expect(ONLINE_SWITCH_KEYS).not.toContain("online_payment_order_max_rupees");
-    expect(ONLINE_SWITCH_KEYS).not.toContain("online_payment_staff_whatsapp_enabled");
+    expect(ONLINE_SWITCH_KEYS).toContain("online_payment_staff_whatsapp_enabled");
+    const page = read("src/app/(app)/fees/payments/online/page.tsx");
+    for (const key of ONLINE_SWITCH_KEYS) expect(page, key).toContain(`key: "${key}"`);
     const actions = read("src/app/(app)/fees/payments/online/actions.ts");
     expect(actions).toContain("ONLINE_SWITCH_KEYS");
     expect(actions).not.toMatch(/new Set\(\[\s*"online_payment_/);

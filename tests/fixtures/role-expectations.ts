@@ -550,6 +550,7 @@ function feeDeskScreens(): RouteExpectation[] {
         "/fees/reminders",
         "/fees/reminders/campaigns",
         "/fees/reminders/families",
+        "/fees/reminders/fix",
         "/fees/reminders/ladder",
         "/fees/reminders/lists",
         "/fees/reminders/notices",

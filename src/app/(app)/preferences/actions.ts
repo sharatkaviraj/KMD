@@ -14,6 +14,10 @@ import {
 } from "@/platform/i18n/locales";
 import { resolveStart } from "@/platform/config/start";
 import { createAdminClient } from "@/platform/supabase/admin";
+import { staffWhatsappMessages } from "@/messages/setup";
+import { writeNoticePrefs, writeStaffConsent } from "@/modules/staff-notices/data/consent";
+import { STAFF_MESSAGE_KINDS } from "@/modules/staff-notices/domain/kinds";
+import { assertNotPreviewing } from "@/vx/view-as";
 
 export type PreferencesState = {
   status: "idle" | "saved" | "error";
@@ -123,4 +127,45 @@ export async function saveStartAction(
   revalidatePath("/", "layout");
 
   return { status: "saved", message: m.saved };
+}
+
+/**
+ * Agreeing to, or stopping, WhatsApp from the school app (go-live Phase F,
+ * plan §8.3). The same shape as the two above: the row of whoever is asking,
+ * found by their own id, so there is nothing to tamper with. A yes is
+ * recorded as `self`; a no ends every staff WhatsApp to them at the next send.
+ */
+export async function saveWhatsappConsentAction(
+  _previous: PreferencesState,
+  formData: FormData,
+): Promise<PreferencesState> {
+  const staff = await assertStaff();
+  await assertNotPreviewing();
+  const choice = (formData.get("whatsapp") ?? "").toString();
+  if (choice !== "yes" && choice !== "no") return { status: "error", message: staffWhatsappMessages.notSaved };
+  try {
+    await writeStaffConsent({ staffId: staff.id, optIn: choice === "yes", source: "self", recordedBy: staff.id });
+  } catch {
+    return { status: "error", message: staffWhatsappMessages.notSaved };
+  }
+  revalidatePath("/preferences");
+  return { status: "saved", message: staffWhatsappMessages.saved };
+}
+
+/** Their own on/off for each kind. Every kind not ticked is off; unknown names are ignored. */
+export async function saveNoticePrefsAction(
+  _previous: PreferencesState,
+  formData: FormData,
+): Promise<PreferencesState> {
+  const staff = await assertStaff();
+  await assertNotPreviewing();
+  const ticked = new Set(formData.getAll("kind").map(String));
+  const prefs = Object.fromEntries(STAFF_MESSAGE_KINDS.map((kind) => [kind, ticked.has(kind)]));
+  try {
+    await writeNoticePrefs(staff.id, prefs);
+  } catch {
+    return { status: "error", message: staffWhatsappMessages.notSaved };
+  }
+  revalidatePath("/preferences");
+  return { status: "saved", message: staffWhatsappMessages.saved };
 }

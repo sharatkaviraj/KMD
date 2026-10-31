@@ -22,8 +22,11 @@ import { requireStaffPermission } from "@/modules/fees/platform/session";
  * One only (go-live Phase E): each also needs One's `fees:accounts` (the
  * screen's own gate), and each passes the test-session fence — a capture is
  * posted or closed only by someone who may see every student it pays for, and
- * the switches are school-wide, so a test account never flips one. The fees
- * app's four staff-alert actions arrive with the alerts sender (Phase 8).
+ * the switches are school-wide, so a test account never flips one. Of the
+ * fees app's four staff-alert actions, only the WhatsApp switch is here (one
+ * of `ONLINE_SWITCH_KEYS`, go-live Phase F): the push and typed-number
+ * actions are not ported, because One sends staff alerts through its consented
+ * staff outbox and has no push sign-up.
  */
 
 const PATH = "/fees/payments/online";
@@ -114,9 +117,9 @@ export async function resolveOnlineReviewAction(formData: FormData): Promise<voi
 /**
  * Flip one kill switch. Admin only, and written to the online audit trail.
  *
- * Only the seven boolean switches the screen shows (`ONLINE_SWITCH_KEYS`).
- * `online_payment_order_max_rupees` is a number, set by the operator, and the
- * staff-alert switch waits for Phase 8.
+ * Only the eight boolean switches the screen shows (`ONLINE_SWITCH_KEYS`),
+ * the staff-alert WhatsApp switch among them. `online_payment_order_max_rupees`
+ * is a number, set by the operator.
  */
 export async function setOnlineSwitchAction(formData: FormData): Promise<void> {
   const viewer = await assertPermission("fees:accounts");
