@@ -571,6 +571,24 @@ class RehearsalRollback extends Error {
  * would otherwise go unseen, and the load would overwrite what One wrote
  * after the flip.
  */
+/**
+ * The vppsone.data_replica row a real load writes. `masked_columns` empty and
+ * a note starting "REAL" — unlike replicate-live.mjs's rows, which list every
+ * masked column. Readers take the NEWEST row (created_at). Pure.
+ */
+export function realDataMarker({ runId, manifest }) {
+  return {
+    source_project: FEES_SOURCE_PROJECT_REF,
+    target_project: ONE_MAIN_PROJECT_REF,
+    tables_copied: manifest.tables.length,
+    rows_copied: manifest.tables.reduce((n, t) => n + (t.rowCount ?? 0), 0),
+    tables_skipped: {},
+    masked_columns: {},
+    carried_exceptions: {},
+    note: `REAL fee data loaded by load-snapshot run ${runId} (watermark ${manifest.watermark?.newestChangeAt ?? "unknown"}). Nothing masked. The masked replica's rows were replaced or deleted, except protected rows (TEST-D- shells, TEST twin classes).`,
+  };
+}
+
 async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rollbackOnly, runId, insertRunRow, signupDisabled }) {
   await prepareTransaction(tx);
   await tx.unsafe("set local lock_timeout = '60s'");
@@ -614,6 +632,17 @@ async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rol
         snapshot_id = excluded.snapshot_id, snapshot_at = excluded.snapshot_at, run_id = excluded.run_id,
         row_count = excluded.row_count, content_md5 = excluded.content_md5, updated_at = now()`;
   }
+  // The replica marker (go-live phase H): `public` now holds the REAL fee
+  // data, so vppsone.data_replica gets a row saying so — the newest row is
+  // the answer to "is this live data?" (CLAUDE.md rule 3). The masked
+  // replica's rows were replaced or deleted by this load's delete-missing
+  // step, except protected rows (TEST-D- shells, TEST twin classes and
+  // everything keyed on them — lib/import-rules.mjs protectedRows).
+  const marker = realDataMarker({ runId, manifest });
+  await tx`
+    insert into vppsone.data_replica (source_project, target_project, tables_copied, rows_copied, tables_skipped, masked_columns, carried_exceptions, note)
+    values (${marker.source_project}, ${marker.target_project}, ${marker.tables_copied}, ${marker.rows_copied},
+            ${tx.json(marker.tables_skipped)}, ${tx.json(marker.masked_columns)}, ${tx.json(marker.carried_exceptions)}, ${marker.note})`;
   const outcome = { summary, counts, auth, refreshed, runId };
   if (rollbackOnly) throw new RehearsalRollback(outcome);
   return outcome;

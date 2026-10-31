@@ -294,7 +294,11 @@ itself be undone. What `--apply` does, in ONE transaction:
 Never restored (`RESTORE_KEEP`): `vppsone.deployment` (the production marker
 step 2 set) and `vppsone.migration_runs` (the record). A `vppsone` restore
 puts back the backup's test-account flags too, so step 2
-(`convert-to-production --apply`, phase H) runs again right after it.
+(`convert-to-production --apply`, phase H) runs again right after it. The
+rollback of step 3 restores **both** schemas: phase H's quarantine also
+writes `public` (shells in `students`, a TEST twin in `classes`, `users` via
+the D-350 trigger, `audit_logs`) — its rehearsal lists every table it wrote
+and checks each against the backup manifest (`QUARANTINE-REPORT.md`).
 Afterwards: `npm run migrate:health` and step 5's `reconcile.mjs` before
 anything is switched back on.
 
