@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { db, signIn } from "./support/harness";
 
@@ -31,6 +31,27 @@ import { db, signIn } from "./support/harness";
  * sees both) needs an unconfined deployment and a non-test account: the unit
  * matrix (tests/test-session-policy.test.ts) and the SQL proof cover it.
  */
+
+/**
+ * "Not found", however the page says it. A route with a `loading.tsx` streams:
+ * the 200 is on the wire before the page calls `notFound()`, so the status
+ * stays 200 and the not-found screen arrives in the stream (seen on
+ * `/fees/students/[id]`, Phase C). Either way the record must not show.
+ */
+async function expectNotFound(page: Page, status: number | undefined, what: string) {
+  if (status === 404) return;
+  expect(status, what).toBe(200);
+  // A screen the account has no permission for (the edit page, for an
+  // accountant) refuses before it reads the record — a redirect inside the
+  // stream, so it lands after goto() returns. Also not shown.
+  const notFound = page.getByRole("heading", { name: /could not find|does not exist|no longer exists|not found|नहीं मिला/i }).first();
+  await expect
+    .poll(async () => new URL(page.url()).pathname === "/access-denied" || (await notFound.isVisible()), {
+      message: what,
+      timeout: 60_000,
+    })
+    .toBe(true);
+}
 
 async function studentIn(session: string): Promise<string> {
   const { data: classes, error } = await db("public").from("classes").select("id").eq("session_label", session).limit(20);
@@ -75,7 +96,7 @@ test("a real student opened by id is not found; a TEST student opens", async ({ 
   const real = await studentIn("2026-27");
   for (const path of [`/fees/students/${real}`, `/fees/students/${real}/edit`, `/fees/reports/ledger/${real}/print`]) {
     const response = await page.goto(path);
-    expect(response?.status(), path).toBe(404);
+    await expectNotFound(page, response?.status(), path);
   }
 
   const testStudent = await studentIn("TEST-2026-27");
@@ -88,7 +109,7 @@ test("a real receipt opened by number is not found", async ({ page }) => {
   test.skip(!receipt, "no 2026-27 receipt in the replica");
   await signIn(page, "accountant", "/fees/dashboard");
   const response = await page.goto(`/receipts/${encodeURIComponent(receipt ?? "")}`);
-  expect(response?.status()).toBe(404);
+  await expectNotFound(page, response?.status(), "receipt");
 });
 
 test("a test teacher gets the pill, and it says TEST-2026-27", async ({ page }) => {

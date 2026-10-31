@@ -66,6 +66,20 @@ type SearchParamSource = {
  */
 export const sessionSyncGuard: { label: string | null } = { label: null };
 
+/**
+ * The URL's session, only when it is one of the sessions this viewer may
+ * open (the switcher's list is already filtered per viewer, Phase 3). Null
+ * otherwise — including before the list has loaded — so the pill shows the
+ * session the server actually resolved, never a forbidden label it ignored.
+ */
+export function sessionThisViewerMayOpen(
+  label: string | null,
+  sessions: readonly Pick<AvailableSessionRow, "session_label">[],
+): string | null {
+  if (!label) return null;
+  return sessions.some((session) => session.session_label === label) ? label : null;
+}
+
 export function normalizeSessionLabel(label: string | null | undefined) {
   const value = (label ?? "").trim();
 
@@ -163,7 +177,11 @@ export function SessionPill({
   const [isSwitching, setIsSwitching] = useState(false);
   const [isRefreshing, startNavTransition] = useTransition();
   const { setIsSwitching: setGlobalSessionSwitching } = useSessionSwitching();
-  const urlSession = normalizeSessionLabel(searchParams.get("session"));
+  // A `?session=` this viewer may not open is ignored by the server (Phase 3:
+  // a test account asking for 2026-27 is shown TEST-2026-27). The pill must
+  // not print it either, or a test account reads "2026-27" over TEST data. So
+  // the URL only wins once the viewer's own session list says it may.
+  const urlSession = sessionThisViewerMayOpen(normalizeSessionLabel(searchParams.get("session")), sessions);
   const [optimisticLabel, setOptimisticLabel] = useState<string | null>(null);
   const displayLabel = optimisticLabel ?? urlSession ?? currentLabel;
   const displayIsTest =
