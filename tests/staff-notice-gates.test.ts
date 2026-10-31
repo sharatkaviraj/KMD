@@ -223,8 +223,15 @@ describe("evaluateTeacherTaskSend — the teacher-task link's API send", () => {
     expect(task({ isTestAccount: true, allowlisted: true })).toEqual({ ok: true });
   });
 
-  it("is a person's press, so neither the window nor the caps apply", () => {
-    expect(task({ sentToday: 50, monthSent: 5000 })).toEqual({ ok: true });
+  it("is a person's press, so the daily limit does not apply", () => {
+    expect(task({ sentToday: 50 })).toEqual({ ok: true });
+  });
+
+  it("is held to the one month's cap every staff WhatsApp shares (review of PR #148)", () => {
+    expect(task({ monthSent: 999, monthCap: 1000 })).toEqual({ ok: true });
+    expect(task({ monthSent: 1000, monthCap: 1000 })).toEqual({ ok: false, reason: "month_cap" });
+    expect(task({ monthCap: null })).toEqual({ ok: false, reason: "gate_unreadable" });
+    expect(task({ monthSent: Number.NaN })).toEqual({ ok: false, reason: "gate_unreadable" });
   });
 });
 

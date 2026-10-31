@@ -73,15 +73,17 @@ function claim(kind: string, gate: Partial<StaffGateFacts> | null = {}, extra: P
   };
 }
 
-function fakeDb(claims: Claim[]) {
+function fakeDb(claims: Claim[], options: { slots?: string[] } = {}) {
   const calls: Array<{ fn: string; args: Record<string, unknown> }> = [];
   const queue = [...claims];
+  const slots = [...(options.slots ?? [])];
   return {
     calls,
     rpc: async (fn: string, args: Record<string, unknown> = {}) => {
       calls.push({ fn, args });
       if (fn === "sweep_staff_notices") return { data: { released: 0, unknown: 0 }, error: null };
       if (fn === "claim_staff_notice") return { data: queue.shift() ?? { claimed: false, reason: "empty" }, error: null };
+      if (fn === "reserve_staff_send_slot") return slots.length ? { data: slots.shift(), error: null } : { data: null, error: { message: "absent" } };
       if (fn === "stamp_staff_notice") return { data: true, error: null };
       if (fn === "digest_staff_notices") return { data: 3, error: null };
       return { data: { recorded: true }, error: null };
@@ -89,13 +91,15 @@ function fakeDb(claims: Claim[]) {
   };
 }
 
-function fakeTransport(name: "mock" | "aisensy" = "aisensy") {
+function fakeTransport(name: "mock" | "aisensy" = "aisensy", answer: "accepted" | "rejected" | "rate_limited" | "unknown" = "accepted") {
   const sent: Array<{ templateCode: string; params: string[]; destination: string }> = [];
   const transport: StaffTransport = {
     name,
     send: async (input) => {
       sent.push(input);
-      return { outcome: "accepted", providerMessageId: `p-${sent.length}`, status: 200 };
+      if (answer === "accepted") return { outcome: "accepted", providerMessageId: `p-${sent.length}`, status: 200 };
+      if (answer === "unknown") return { outcome: "unknown", status: null, error: "timeout" };
+      return { outcome: answer, status: answer === "rejected" ? 400 : 429, error: answer };
     },
   };
   return { transport, sent };
@@ -158,6 +162,16 @@ describe("the gate stands in front of every send", () => {
     expect(released(db)[0]).toMatchObject({ p_action: "defer", p_reason: "gate_unreadable" });
   });
 
+  it("on a confined deployment claims TEST-session notices only; production claims both", async () => {
+    const confined = fakeDb([]);
+    await run(confined, fakeTransport().transport, { confined: true });
+    expect(confined.calls.find((call) => call.fn === "claim_staff_notice")?.args).toMatchObject({ p_test_only: true });
+
+    const production = fakeDb([]);
+    await run(production, fakeTransport().transport, { confined: false });
+    expect(production.calls.find((call) => call.fn === "claim_staff_notice")?.args).toMatchObject({ p_test_only: false });
+  });
+
   it("on a confined deployment, only an allowlisted number receives anything", async () => {
     const off = fakeDb([claim("cover_assigned")]);
     const a = fakeTransport();
@@ -193,7 +207,7 @@ describe("the gate stands in front of every send", () => {
 });
 
 describe("the digest and the pace", () => {
-  it("sends one digest for a burst and folds the rest into it after the stamp", async () => {
+  it("sends one digest for a burst and folds the rest into it once the provider took it", async () => {
     const db = fakeDb([claim("money_request", { pendingSameKind: 4 })]);
     const { transport, sent } = fakeTransport();
     const summary = await run(db, transport);
@@ -203,8 +217,38 @@ describe("the digest and the pace", () => {
     expect(sent[0].params[1]).toBe("5");
     expect(summary.digested).toBe(3);
     const order = db.calls.map((call) => call.fn);
-    expect(order.indexOf("stamp_staff_notice")).toBeLessThan(order.indexOf("digest_staff_notices"));
-    expect(order.indexOf("digest_staff_notices")).toBeLessThan(order.indexOf("finish_staff_notice"));
+    expect(order.indexOf("stamp_staff_notice")).toBeLessThan(order.indexOf("finish_staff_notice"));
+    expect(order.indexOf("finish_staff_notice")).toBeLessThan(order.indexOf("digest_staff_notices"));
+  });
+
+  it.each(["rejected", "rate_limited"] as const)("a %s digest folds nothing, so every notice in it is still there to retry", async (answer) => {
+    const db = fakeDb([claim("money_request", { pendingSameKind: 4 })]);
+    const { transport } = fakeTransport("aisensy", answer);
+    const summary = await run(db, transport);
+    expect(summary).toMatchObject({ failed: 1, digested: 0 });
+    expect(db.calls.some((call) => call.fn === "digest_staff_notices")).toBe(false);
+  });
+
+  it("an unknown digest folds the rest in: it may have gone", async () => {
+    const db = fakeDb([claim("money_request", { pendingSameKind: 4 })]);
+    const { transport } = fakeTransport("aisensy", "unknown");
+    const summary = await run(db, transport);
+    expect(summary).toMatchObject({ unknown: 1, digested: 3 });
+  });
+
+  it("takes each AiSensy second from the database, shared by every dispatcher at once", async () => {
+    const soon = (ms: number) => new Date(Date.now() + ms).toISOString();
+    const db = fakeDb([claim("cover_assigned"), claim("cover_changed")], { slots: [soon(-5), soon(2500)] });
+    const { transport } = fakeTransport("aisensy");
+    const sleep = vi.fn(async () => undefined);
+    await run(db, transport, { sleep });
+
+    expect(db.calls.filter((call) => call.fn === "reserve_staff_send_slot")).toHaveLength(2);
+    // The first slot is now; the second is another dispatcher's second away, and is waited for.
+    expect(sleep).toHaveBeenCalledTimes(1);
+    const [[ms]] = sleep.mock.calls as unknown as Array<[number]>;
+    expect(ms).toBeGreaterThan(1500);
+    expect(ms).toBeLessThanOrEqual(2500);
   });
 
   it("waits so AiSensy is asked at most once a second", async () => {

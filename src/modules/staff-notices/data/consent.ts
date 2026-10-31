@@ -97,7 +97,7 @@ export async function teacherTaskGateFacts(sendId: string): Promise<Parameters<t
     .eq("id", sendId)
     .maybeSingle<{ staff_profile_id: string | null; session_label: string | null; to_phone: string | null }>();
   if (error || !send?.staff_profile_id) return null;
-  const [profile, pref, flag] = await Promise.all([
+  const [profile, pref, flag, cap, month] = await Promise.all([
     admin
       .from("staff_profiles")
       .select("whatsapp_opt_in_at, whatsapp_opt_out_at, is_test_account")
@@ -110,8 +110,12 @@ export async function teacherTaskGateFacts(sendId: string): Promise<Parameters<t
       .eq("kind", "teacher_task")
       .maybeSingle<{ enabled: boolean }>(),
     admin.from("runtime_flags").select("enabled, value").eq("key", "staff_notice_kinds_enabled").maybeSingle<{ enabled: boolean; value: unknown }>(),
+    admin.from("runtime_flags").select("enabled, value").eq("key", "staff_whatsapp_month_cap").maybeSingle<{ enabled: boolean; value: unknown }>(),
+    // One budget for every staff WhatsApp: the outbox's sends and these.
+    admin.rpc("staff_whatsapp_month_sent"),
   ]);
   if (profile.error || !profile.data || pref.error || flag.error || !flag.data) return null;
+  if (cap.error || month.error || typeof month.data !== "number") return null;
   const digits = String(send.to_phone ?? "").replace(/\D/g, "").slice(-10);
   const listed = digits.length === 10
     ? await admin.from("message_test_recipients").select("phone_e164").eq("phone_e164", `+91${digits}`).maybeSingle()
@@ -125,6 +129,8 @@ export async function teacherTaskGateFacts(sendId: string): Promise<Parameters<t
     prefEnabled: pref.data ? pref.data.enabled === true : null,
     kindsEnabled: flag.data.enabled ? flag.data.value : null,
     allowlisted: Boolean(listed.data),
+    monthSent: month.data,
+    monthCap: cap.data?.enabled ? cap.data.value : null,
   };
 }
 

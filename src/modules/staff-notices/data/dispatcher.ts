@@ -7,7 +7,7 @@ import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveLanguage, type Language } from "@/platform/i18n/language";
 import { currentBells } from "@/modules/substitutions/data/cover-repo";
-import { evaluateStaffSend, paceDelay, type StaffGateFacts } from "@/modules/staff-notices/domain/gates";
+import { evaluateStaffSend, MIN_SEND_GAP_MS, paceDelay, type StaffGateFacts } from "@/modules/staff-notices/domain/gates";
 import { isOutboxKind, type OutboxKind } from "@/modules/staff-notices/domain/kinds";
 import {
   classifyResponse,
@@ -46,10 +46,15 @@ import {
  * member of staff is the school's decision, not a default (CLAUDE.md rule 8):
  * even with `aisensy`, nothing reaches a person who has not consented, and on
  * anything but Vercel production (a confined deployment), nothing reaches a
- * number outside `vppsone.message_test_recipients`.
+ * number outside `vppsone.message_test_recipients` — and a confined
+ * deployment claims TEST-session notices only (`p_test_only`), so Preview or
+ * a local `next dev`, pointed at the one database, never leases, suppresses
+ * or sends a real one.
  *
- * AiSensy is asked at most once a second (plan §8.3), within a run. Two runs
- * at once each keep their own pace; the cron runs one.
+ * AiSensy is asked at most once a second (plan §8.3) across every run at
+ * once: each send takes the next free second from
+ * `vppsone.reserve_staff_send_slot` and waits for it. If that cannot be read
+ * the run falls back to its own pace.
  */
 
 export type StaffTransportName = "disabled" | "mock" | "aisensy";
@@ -258,6 +263,7 @@ export async function dispatchStaffNotices(options: DispatchOptions = {}): Promi
       p_lease_seconds: 60,
       p_transport: transport.name,
       p_notice_id: options.noticeId ?? null,
+      p_test_only: confined,
     });
     if (error) throw new Error(`Could not claim a notice: ${error.message}`);
 
@@ -364,13 +370,8 @@ export async function dispatchStaffNotices(options: DispatchOptions = {}): Promi
     });
     if (!stamped) continue; // The lease went; the sweeper will put it back.
 
-    if (verdict.digestCount !== null) {
-      const { data: folded } = await admin.rpc("digest_staff_notices", { p_attempt: claimed.attempt_id, p_worker: worker });
-      summary.digested += Number(folded ?? 0);
-    }
-
     if (transport.name === "aisensy") {
-      const wait = paceDelay(lastProviderCall, Date.now());
+      const wait = await paceWait(admin, lastProviderCall);
       if (wait > 0) await sleep(wait);
       lastProviderCall = Date.now();
     }
@@ -396,10 +397,34 @@ export async function dispatchStaffNotices(options: DispatchOptions = {}): Promi
     else if (outcome.outcome === "unknown") summary.unknown += 1;
     else summary.failed += 1;
 
+    // The rest of the burst is folded in only once the digest went (or may
+    // have): a refused or rate-limited digest folds nothing, so every notice
+    // in it is still there for the retry. The database checks the outcome too.
+    if (verdict.digestCount !== null && (outcome.outcome === "accepted" || outcome.outcome === "unknown")) {
+      const { data: folded } = await admin.rpc("digest_staff_notices", { p_attempt: claimed.attempt_id, p_worker: worker });
+      summary.digested += Number(folded ?? 0);
+    }
+
     if (options.noticeId) break;
   }
 
   return summary;
+}
+
+/**
+ * How long to wait for this send's second. The database hands out one second
+ * per request to every dispatcher at once; if it cannot be asked, this run
+ * keeps its own pace, which is still one a second within the run.
+ */
+async function paceWait(admin: Db, lastProviderCall: number | null): Promise<number> {
+  try {
+    const { data, error } = await admin.rpc("reserve_staff_send_slot", { p_gap_ms: MIN_SEND_GAP_MS });
+    const slot = !error && typeof data === "string" ? Date.parse(data) : Number.NaN;
+    if (Number.isFinite(slot)) return Math.max(0, slot - Date.now());
+  } catch {
+    // Fall through to the run's own pace.
+  }
+  return paceDelay(lastProviderCall, Date.now());
 }
 
 function isCoverKind(kind: OutboxKind): kind is StaffNoticeKind {

@@ -16,7 +16,7 @@ vi.mock("@/modules/collection/data/message-provider",()=>({taskDeliveryAvailabil
 vi.mock("@/modules/collection/data/parent-messages-repo",()=>({}));
 // The staff gate (go-live Phase F): a consenting teacher with the switch on, on Vercel production.
 vi.mock("@/platform/deployment/confinement",()=>({isConfinedDeployment:()=>false}));
-vi.mock("@/modules/staff-notices/data/consent",()=>({teacherTaskGateFacts:async()=>({optInAt:state.consent?"2026-10-01T00:00:00Z":null,optOutAt:null,isTestAccount:false,isTestSession:false,prefEnabled:null,kindsEnabled:{teacher_task:true},allowlisted:false})}));
+vi.mock("@/modules/staff-notices/data/consent",()=>({teacherTaskGateFacts:async()=>({optInAt:state.consent?"2026-10-01T00:00:00Z":null,optOutAt:null,isTestAccount:false,isTestSession:false,prefEnabled:null,kindsEnabled:{teacher_task:true},allowlisted:false,monthSent:0,monthCap:1000})}));
 import {dispatchTeacherTaskMessage} from "@/modules/collection/data/messages-repo";
 beforeEach(()=>{state.consent=true;state.availability="ready";state.claimed=false;state.finishFails=false;state.claimReason="";state.calls=[];state.send.mockReset().mockResolvedValue({ok:true,providerMessageId:"synthetic-receipt"});});
 it("double confirmation reaches transport once after a durable claim",async()=>{

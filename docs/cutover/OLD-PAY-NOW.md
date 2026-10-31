@@ -116,6 +116,6 @@ database every one is a One-owned `app_settings` row
 | Key | One today | One's screen (`/fees/payments/online`) |
 |---|---|---|
 | the seven above except staff WhatsApp | `false` (fee-migration `20261031120200`) | `ONLINE_SWITCH_KEYS`, a real admin flips them at C7 (`RAZORPAY.md` §5) |
-| `online_payment_staff_whatsapp_enabled` | `false` | not on the screen yet: its sender is go-live Phase 8 (`staff-alerts.ts` is a no-op stub, D-354 (5)); the key is One-owned and off, so nothing is missing for cutover |
+| `online_payment_staff_whatsapp_enabled` | `false` | "Tell the office on WhatsApp", one of `ONLINE_SWITCH_KEYS` (go-live Phase F). Its sender shipped: `staff-alerts.ts` turns each online receipt into `online_payment` staff notices in the consented staff outbox. Turned on after the `online_payment` kind (`STAFF-WHATSAPP.md` §4) |
 
 Nothing was ported for this: Phase E missed none of the eight.

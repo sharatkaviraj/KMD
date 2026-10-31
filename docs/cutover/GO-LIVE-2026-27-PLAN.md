@@ -1150,7 +1150,7 @@ accountant attends rehearsal 2 and signs the route sheet.
 | C1 | Sun 08:00 | Final extract → load → reconcile, which **must be exact**. Its snapshot is the watermark. The control-totals hash is stored as the cutover baseline. Final quarantine and promote run on frozen dev |
 | C2 | | Refresh the matviews. `verify:fee-parity` |
 | C3 | | One settings: `fee_writes_enabled=true`, `receipt_suffix_floor=5000`, receipt notice per Q9, online switches still off. A `cutover` row goes into `migration_runs`, which locks out `load-snapshot` |
-| C4 | | Run `one-live-cron-jobs.sql`. Add `auto-day-close` to pg_cron in exactly one place |
+| C4 | | Run `one-live-cron-jobs.sql`. Add `auto-day-close` to pg_cron in exactly one place. **Required:** the staff WhatsApp timers — store the three job tokens in Vault, run `scripts/ops/schedule-staff-notices-cron.sql` (refuses unless the marker says production), check three `staff-%` rows in `cron.job` (`STAFF-WHATSAPP.md` §5) |
 | C5 | | Point Vercel Production env at `vppsone-live` (names in §9.3). Redeploy. Staff sign in again |
 | C5a | | Q6: run `node scripts/migrate/access-email-check.mjs` (read-only); it **must print `ok`** (exit 0) — `NOT VERIFIED`, `STOP`, or any non-zero exit means no access email. Then send a password-reset or sign-in link to the 4 fees users with no One account, and to nobody else (the 6 remapped keep their One login) |
 | C6 | | Add One's webhook in the Razorpay dashboard. The fees webhook stays |

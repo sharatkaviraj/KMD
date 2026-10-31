@@ -109,7 +109,7 @@ describe("drainStaffPaymentAlerts", () => {
     const queue = vi.fn(async () => 2);
     const dispatch = vi.fn(async () => null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: dispatch as any, now: NOW });
+    const result = await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: dispatch as any, now: NOW, confined: false });
 
     expect(result).toMatchObject({ alerts: 1, whatsappSent: 1, pushed: 0 });
     expect(queue).toHaveBeenCalledWith(
@@ -130,7 +130,7 @@ describe("drainStaffPaymentAlerts", () => {
       const db = fakeDb({ alerts: [baseAlert], whatsappOn: value });
       const queue = vi.fn(async () => 1);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW });
+      await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, confined: false });
       expect(queue).not.toHaveBeenCalled();
       expect(db.updates[0].values).toMatchObject({ whatsapp_status: "off", push_status: "no_devices" });
     }
@@ -140,7 +140,7 @@ describe("drainStaffPaymentAlerts", () => {
     const db = fakeDb({ alerts: [baseAlert], whatsappOn: "true", sessionLabel: null });
     const queue = vi.fn(async () => 1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW });
+    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, confined: false });
     expect(queue).not.toHaveBeenCalled();
     expect(db.updates[0].values).toMatchObject({ whatsapp_status: "not_configured" });
   });
@@ -149,7 +149,7 @@ describe("drainStaffPaymentAlerts", () => {
     const db = fakeDb({ alerts: [baseAlert], whatsappOn: "true", sessionLabel: "TEST-2026-27" });
     const queue = vi.fn(async () => 1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW });
+    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, confined: false });
     expect(queue).toHaveBeenCalledWith(expect.objectContaining({ sessionLabel: "TEST-2026-27" }));
   });
 
@@ -159,7 +159,7 @@ describe("drainStaffPaymentAlerts", () => {
       throw new Error("database away");
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW });
+    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, confined: false });
     expect(db.updates[0].values).toMatchObject({ whatsapp_status: "failed", whatsapp_attempts: 1 });
     expect(db.updates[0].values.next_attempt_at).toBe("2026-11-02T05:02:00.000Z");
   });
@@ -168,7 +168,7 @@ describe("drainStaffPaymentAlerts", () => {
     const db = fakeDb({ alerts: [baseAlert], whatsappOn: "true" });
     const queue = vi.fn(async () => 1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, outOfTime: () => true });
+    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, confined: false, outOfTime: () => true });
     expect(queue).not.toHaveBeenCalled();
     expect(Object.keys(db.updates[0].values).sort()).toEqual(["locked_until", "updated_at"]);
   });
@@ -176,7 +176,7 @@ describe("drainStaffPaymentAlerts", () => {
   it("survives a failed claim and still looks for captures to review", async () => {
     const db = fakeDb({ claimError: true, captures: [] });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await drainStaffPaymentAlerts({ supabase: db, queue: vi.fn() as any, dispatch: vi.fn() as any, now: NOW });
+    const result = await drainStaffPaymentAlerts({ supabase: db, queue: vi.fn() as any, dispatch: vi.fn() as any, now: NOW, confined: false });
     expect(result).toEqual({ alerts: 0, pushed: 0, whatsappSent: 0, reviews: 0 });
   });
 });
@@ -189,7 +189,7 @@ describe("queueOnlineReviewNotices", () => {
     });
     const queue = vi.fn(async () => 2);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const queued = await queueOnlineReviewNotices({ supabase: db, queue: queue as any, now: NOW });
+    const queued = await queueOnlineReviewNotices({ supabase: db, queue: queue as any, now: NOW, confined: false });
     expect(queued).toBe(2);
     expect(queue).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -208,7 +208,45 @@ describe("queueOnlineReviewNotices", () => {
     });
     const queue = vi.fn(async () => 1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(await queueOnlineReviewNotices({ supabase: db, queue: queue as any, now: NOW })).toBe(0);
+    expect(await queueOnlineReviewNotices({ supabase: db, queue: queue as any, now: NOW, confined: false })).toBe(0);
     expect(queue).not.toHaveBeenCalled();
+  });
+});
+
+describe("review of PR #148", () => {
+  it("never stores the child's name: the payload names the student by id, the outbox reads the name at send time", async () => {
+    const db = fakeDb({ alerts: [baseAlert], whatsappOn: "true" });
+    const queue = vi.fn(async () => 1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, confined: false });
+    const payload = (queue.mock.calls[0] as unknown as [{ payload: Record<string, unknown> }])[0].payload;
+    expect(payload).toMatchObject({ student_id: "stu-1" });
+    expect(payload).not.toHaveProperty("student_name");
+    expect(JSON.stringify(payload)).not.toContain("Test Child One");
+  });
+
+  it("on a confined deployment claims no alert row and queues review notices for TEST captures only", async () => {
+    const db = fakeDb({
+      alerts: [baseAlert],
+      whatsappOn: "true",
+      captures: [
+        { id: "cap-real", amount_paise: 100, intent_id: "int-real", order_id: null, created_at: "2026-11-02T04:00:00Z" },
+        { id: "cap-test", amount_paise: 100, intent_id: "int-test", order_id: null, created_at: "2026-11-02T04:00:00Z" },
+      ],
+      intents: [
+        { id: "int-real", student_id: "stu-1", session_label: "2026-27" },
+        { id: "int-test", student_id: "stu-1", session_label: "TEST-2026-27" },
+      ],
+    });
+    const rpc = vi.spyOn(db, "rpc");
+    const queue = vi.fn(async () => 1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await drainStaffPaymentAlerts({ supabase: db, queue: queue as any, dispatch: vi.fn() as any, now: NOW, confined: true });
+
+    expect(rpc).not.toHaveBeenCalledWith("staff_payment_alert_claim", expect.anything());
+    expect(db.updates).toHaveLength(0);
+    expect(result).toMatchObject({ alerts: 0, whatsappSent: 0, reviews: 1 });
+    expect(queue).toHaveBeenCalledTimes(1);
+    expect(queue).toHaveBeenCalledWith(expect.objectContaining({ key: "online_review:cap-test", sessionLabel: "TEST-2026-27" }));
   });
 });

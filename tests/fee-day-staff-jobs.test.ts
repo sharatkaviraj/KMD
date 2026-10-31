@@ -8,11 +8,17 @@ const state = vi.hoisted(() => ({
   truncated: false,
   closeEvents: [] as Array<Record<string, unknown>>,
   queued: [] as Array<Record<string, unknown>>,
+  sessions: ["2026-27"] as string[],
+  testReceipts: [] as Array<Record<string, unknown>>,
+  read: [] as string[],
 }));
 
 vi.mock("@/platform/deployment/confinement", () => ({ isConfinedDeployment: () => state.confined }));
 vi.mock("@/modules/receipts/vx/data", () => ({
-  loadDeskReceipts: async () => ({ rows: state.receipts, truncated: state.truncated }),
+  loadDeskReceipts: async (sessionLabel: string) => {
+    state.read.push(sessionLabel);
+    return { rows: sessionLabel.startsWith("TEST-") ? state.testReceipts : state.receipts, truncated: state.truncated };
+  },
 }));
 vi.mock("@/modules/staff-notices/data/enqueue", () => ({
   queueStaffNotice: vi.fn(async () => null),
@@ -35,7 +41,9 @@ vi.mock("@/platform/supabase/admin", () => {
     createAdminClient: () => ({
       schema: () => ({
         from: (table: string) =>
-          table === "app_settings" ? chain([{ value: "2026-27" }]) : chain([{ session_label: "2026-27" }]),
+          table === "app_settings"
+            ? chain([{ value: "2026-27" }])
+            : chain(state.sessions.map((session_label) => ({ session_label }))),
       }),
       from: (table: string) => (table === "fee_day_close_events" ? chain(state.closeEvents) : chain([])),
     }),
@@ -65,6 +73,9 @@ beforeEach(() => {
   state.truncated = false;
   state.closeEvents = [];
   state.queued = [];
+  state.sessions = ["2026-27"];
+  state.testReceipts = [];
+  state.read = [];
 });
 
 describe("fee-day-summary (19:00)", () => {
@@ -122,5 +133,44 @@ describe("fee-day-not-closed (20:00)", () => {
 
   it("does not ask for a close on a day with no receipts", async () => {
     expect(await feeDayNotClosed("2026-11-02")).toMatchObject({ queued: 0 });
+  });
+});
+
+describe("the TEST pass (review of PR #148): both kinds can be rehearsed under TEST-2026-27", () => {
+  it("on production queues the real session and the TEST session, each under its own key", async () => {
+    state.sessions = ["2026-27", "TEST-2026-27"];
+    state.receipts = [receipt("cash", 3000)];
+    state.testReceipts = [receipt("upi", 700)];
+    const summary = await feeDaySummary("2026-11-02");
+
+    expect(summary).toMatchObject({ receipts: 1, total: 3000, queued: 2, test_receipts: 1, test_queued: 2 });
+    expect(state.queued.map((q) => q.key)).toEqual(["day_collection:2026-27:2026-11-02", "day_collection:TEST-2026-27:2026-11-02"]);
+    expect(state.queued[1]).toMatchObject({ sessionLabel: "TEST-2026-27", payload: expect.objectContaining({ total_rupees: 700 }) });
+  });
+
+  it("on a confined deployment runs the TEST pass only and never reads the real session", async () => {
+    state.confined = true;
+    state.sessions = ["2026-27", "TEST-2026-27"];
+    state.receipts = [receipt("cash", 3000)];
+    state.testReceipts = [receipt("cash", 400)];
+
+    const summary = await feeDaySummary("2026-11-02");
+    expect(summary).toMatchObject({ queued: 0, note: "confined deployment: real fee data not read", test_queued: 2 });
+    expect(state.read).toEqual(["TEST-2026-27"]);
+    expect(state.queued.map((q) => q.sessionLabel)).toEqual(["TEST-2026-27"]);
+
+    state.queued = [];
+    state.read = [];
+    const notClosed = await feeDayNotClosed("2026-11-02");
+    expect(notClosed).toMatchObject({ test_queued: 2 });
+    expect(state.read).toEqual(["TEST-2026-27"]);
+    expect(state.queued[0]).toMatchObject({ key: "day_not_closed:TEST-2026-27:2026-11-02", kind: "day_not_closed" });
+  });
+
+  it("a TEST day with no receipts queues nothing", async () => {
+    state.sessions = ["2026-27", "TEST-2026-27"];
+    state.receipts = [receipt("cash", 3000)];
+    expect(await feeDaySummary("2026-11-02")).toMatchObject({ queued: 2, test_receipts: 0, test_queued: 0 });
+    expect(state.queued).toHaveLength(1);
   });
 });

@@ -44,7 +44,8 @@ Status read back from the template list on 31 Oct 2026 (Meta review is separate 
 
 Next (owner-gated, not done): API campaigns with the same names set Live, then names added to
 `APPROVED_V7` in `src/modules/whatsapp/domain/campaign-generation.ts`. `APPROVED_V7` is still
-empty. The staff templates are separate and not yet submitted: `docs/cutover/STAFF-WHATSAPP.md`.
+empty. The staff templates are separate and not yet submitted: `docs/cutover/STAFF-WHATSAPP.md`
+§6 lists every one, the six teacher-task `vppsone_teacher_task_*_v1` (URL button) included.
 
 ## Why a new set
 

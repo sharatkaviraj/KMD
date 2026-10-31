@@ -16,7 +16,7 @@ import {
   studentLabel,
   type PayloadKind,
 } from "@/modules/staff-notices/domain/notices";
-import { fillTemplate, placeholderCount, STAFF_TEMPLATES } from "@/modules/staff-notices/domain/templates";
+import { fillTemplate, placeholderCount, STAFF_TEMPLATES, TEACHER_TASK_TEMPLATES } from "@/modules/staff-notices/domain/templates";
 
 /**
  * Every staff WhatsApp template (go-live Phase F): what the app sends equals
@@ -88,6 +88,26 @@ describe("every kind has its template, written down once", () => {
       expect(DOC, `${code} hi`).toContain(body.hi);
       expect(DOC, `${code} en`).toContain(body.en);
     }
+  });
+
+  it("lists the six teacher-task templates too, each body as the delivery migration registered it (review of PR #148)", () => {
+    const delivery = readFileSync(join(process.cwd(), "supabase/migrations/20261016090000_teacher_task_delivery.sql"), "utf8").replace(/\r\n/g, "\n");
+    const codes = Object.keys(TEACHER_TASK_TEMPLATES).sort();
+    expect(codes).toHaveLength(6);
+    // The delivery's claim accepts exactly these six names.
+    for (const code of codes) expect(delivery).toContain(`'${code}'`);
+    expect(KINDS.teacher_task.template).toBe("vppsone_teacher_task_*_v1");
+    for (const [code, template] of Object.entries(TEACHER_TASK_TEMPLATES)) {
+      expect(code).toMatch(/^vppsone_teacher_task_(reminder_)?(en|hi|both)_v1$/);
+      expect(code.endsWith(`_${template.language}_v1`), code).toBe(true);
+      expect(delivery, code).toContain(`('${code}','`);
+      expect(delivery, code).toContain(`,${sqlString(template.body)},`);
+      expect(placeholderCount(template.body), code).toBe(template.variables.length);
+      expect(template.buttonUrl).toBe("https://one.vpps.co.in/t/tasks/{{1}}");
+      expect(DOC, code).toContain(`#### \`${code}\``);
+      expect(DOC, `${code} body`).toContain(template.body);
+    }
+    expect(DOC).toContain("https://one.vpps.co.in/t/tasks/{{1}}");
   });
 
   it("seeds the kinds switch exactly as the domain does", () => {

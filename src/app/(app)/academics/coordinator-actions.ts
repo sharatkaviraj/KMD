@@ -17,7 +17,7 @@ import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
 import { cancelQueuedStaffNotices, queueStaffNotice } from "@/modules/staff-notices/data/enqueue";
 import { schoolToday } from "@/vx/format";
 import { academicContext, attendanceOn, marksEntry, planHiddenFrom, staffDirectory, weekFacts } from "@/vx/screens/academics/data";
-import { isUuid, weeklySummaryLine } from "@/vx/screens/academics/domain";
+import { isUuid, weeklySummaryKey, weeklySummaryLine } from "@/vx/screens/academics/domain";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -154,13 +154,14 @@ export async function sendWeeklySummaryAction(input: { long?: boolean; extra?: s
   if (admins.length === 0) return fail("No principal has a phone on file.", "प्रधानाचार्य का फ़ोन नंबर नहीं है।");
   const summary = weeklySummaryLine(week.facts, { long: input?.long !== false, extra: typeof input?.extra === "string" ? input.extra : null });
   // A staff notice in the outbox (go-live Phase F), no longer a message_sends
-  // row to send by hand. A summary is the same week's: one per week per admin.
-  const commandId = randomUUID();
+  // row to send by hand. A summary is the same week's: one per week per admin,
+  // keyed by the session and the week's Monday, so a second press queues
+  // nothing (the outbox is idempotent on the key).
   const ids: string[] = [];
   try {
     for (const a of admins) {
       const id = await queueStaffNotice({
-        key: `weekly:${commandId}:${a.id}`,
+        key: weeklySummaryKey(ctx.session, week.monday, a.id),
         kind: "weekly_summary",
         staffId: a.id,
         sessionLabel: ctx.session,
@@ -173,7 +174,9 @@ export async function sendWeeklySummaryAction(input: { long?: boolean; extra?: s
   } catch {
     return fail("Could not send the summary.", "सारांश नहीं भेजा जा सका।");
   }
-  if (ids.length === 0) return fail("Could not send the summary.", "सारांश नहीं भेजा जा सका।");
+  if (ids.length === 0) {
+    return fail("This week's summary has already been sent.", "इस सप्ताह का सारांश पहले ही भेजा जा चुका है।");
+  }
   await dispatchStaffNotices({ max: ids.length + 5 }).catch(() => null);
   return { ok: true, ids, text: p(`Weekly summary sent to ${admins.map((a) => a.display_name).join(", ")}.`, `साप्ताहिक सारांश ${admins.map((a) => a.display_name).join(", ")} को भेजा।`) };
 }

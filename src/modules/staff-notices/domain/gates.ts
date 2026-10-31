@@ -29,7 +29,9 @@ import { KINDS, isOutboxKind } from "./kinds";
  *     notice may go in the hour the window closes. Outside it: held until 07:00.
  *  7. At most 8 a day per person, cover exempt.
  *  8. The month's cap on AiSensy sends (`staff_whatsapp_month_cap`, 1,000 by
- *     default), for every kind — it is money.
+ *     default), for every kind — it is money. The count is
+ *     `vppsone.staff_whatsapp_month_sent()`: the outbox's sends and the
+ *     teacher-task link's, one budget.
  *  9. More than 3 of one kind for one person within 30 minutes become one
  *     digest. Cover is never folded.
  */
@@ -212,16 +214,26 @@ export function evaluateStaffSend(input: StaffGateInput): StaffGateVerdict {
 
 /**
  * The teacher-task link's API send (its own reviewed delivery, pressed by a
- * person, so neither the window nor the caps apply): the same consent, the
- * `teacher_task` switch, the person's own switch and the test allowlist. Any
- * fact missing refuses.
+ * person, so neither the window nor the daily limit applies): the same
+ * consent, the `teacher_task` switch, the person's own switch, the test
+ * allowlist — and the month's cap, which is one budget for every staff
+ * WhatsApp (`vppsone.staff_whatsapp_month_sent()` counts these sends too).
+ * Any fact missing refuses.
  */
 export function evaluateTeacherTaskSend(input: {
-  facts: Pick<StaffGateFacts, "optInAt" | "optOutAt" | "isTestAccount" | "isTestSession" | "prefEnabled" | "kindsEnabled" | "allowlisted"> | null;
+  facts: Pick<
+    StaffGateFacts,
+    "optInAt" | "optOutAt" | "isTestAccount" | "isTestSession" | "prefEnabled" | "kindsEnabled" | "allowlisted" | "monthSent" | "monthCap"
+  > | null;
   confined: boolean;
 }): { ok: true } | { ok: false; reason: StaffGateReason } {
   const facts = input.facts;
-  if (!facts || typeof facts.isTestAccount !== "boolean" || typeof facts.isTestSession !== "boolean") {
+  if (
+    !facts ||
+    typeof facts.isTestAccount !== "boolean" ||
+    typeof facts.isTestSession !== "boolean" ||
+    !isCount(facts.monthSent)
+  ) {
     return { ok: false, reason: "gate_unreadable" };
   }
   const map = facts.kindsEnabled;
@@ -234,6 +246,9 @@ export function evaluateTeacherTaskSend(input: {
   if ((facts.isTestSession || facts.isTestAccount || input.confined) && facts.allowlisted !== true) {
     return { ok: false, reason: "not_test_recipient" };
   }
+  const cap = readMonthCap(facts.monthCap);
+  if (cap === null) return { ok: false, reason: "gate_unreadable" };
+  if (facts.monthSent >= cap) return { ok: false, reason: "month_cap" };
   return { ok: true };
 }
 

@@ -9,6 +9,7 @@ do $$
 declare
   v_student uuid; v_session text; v_req uuid; v_notice uuid; v_staff uuid; v_teacher uuid;
   v_claim jsonb; v_rel jsonb; v_count int; v_leave uuid; v_a uuid; v_b uuid;
+  v_slot1 timestamptz; v_slot2 timestamptz;
 begin
   select s.id, c.session_label into v_student, v_session
   from public.students s join public.classes c on c.id = s.class_id
@@ -68,15 +69,26 @@ begin
   insert into proof values ('G test account, TEST session: queued',
     vppsone.queue_staff_notice('proof:test', 'weekly_summary', v_staff, v_session, '{"summary":"x"}'::jsonb) is not null, null);
 
-  -- H. The digest folds the rest of a burst into the one being sent.
+  -- H. The digest folds the rest of a burst into the one sent — only once the
+  --    provider took it (review of PR #148): a refused digest folds nothing.
   v_a := vppsone.queue_staff_notice('proof:d1', 'weekly_summary', v_staff, v_session, '{"summary":"1"}'::jsonb);
   v_b := vppsone.queue_staff_notice('proof:d2', 'weekly_summary', v_staff, v_session, '{"summary":"2"}'::jsonb);
   update vppsone.staff_profiles set whatsapp_phone = '9000000005' where id = v_staff and vppsone.staff_destination(id) is null;
   v_claim := vppsone.claim_staff_notice('proof5', 60, 'mock', v_a);
   insert into proof values ('H burst counted', (v_claim->'gate'->>'pendingSameKind')::int >= 2, v_claim->'gate'->'pendingSameKind');
   perform vppsone.stamp_staff_notice((v_claim->>'attempt_id')::uuid, 'proof5', 'vx_staff_digest_v1', 'en', '{}'::jsonb, 'x');
-  v_count := vppsone.digest_staff_notices((v_claim->>'attempt_id')::uuid, 'proof5');
-  insert into proof values ('H folded into the digest', v_count >= 2 and (select status_reason = 'digested' and digest_into = v_a
+  insert into proof values ('H nothing folded before the send',
+    vppsone.digest_staff_notices((v_claim->>'attempt_id')::uuid, 'proof5') = 0, null);
+  perform vppsone.finish_staff_notice((v_claim->>'attempt_id')::uuid, 'proof5', 'rejected', null, 400, 'qa');
+  insert into proof values ('H a refused digest folds nothing',
+    vppsone.digest_staff_notices((v_claim->>'attempt_id')::uuid, 'proof5') = 0
+      and (select status = 'pending' from vppsone.staff_notices where id = v_b), null);
+  update vppsone.staff_notices set status = 'pending', next_attempt_at = now() - interval '1 second' where id = v_a;
+  v_claim := vppsone.claim_staff_notice('proof6', 60, 'mock', v_a);
+  perform vppsone.stamp_staff_notice((v_claim->>'attempt_id')::uuid, 'proof6', 'vx_staff_digest_v1', 'en', '{}'::jsonb, 'x');
+  perform vppsone.finish_staff_notice((v_claim->>'attempt_id')::uuid, 'proof6', 'accepted', 'proof-receipt', 200, null);
+  v_count := vppsone.digest_staff_notices((v_claim->>'attempt_id')::uuid, 'proof6');
+  insert into proof values ('H folded once accepted', v_count >= 1 and (select status_reason = 'digested' and digest_into = v_a
     from vppsone.staff_notices where id = v_b), jsonb_build_object('folded', v_count));
 
   -- I. Leave asked → approvers; decided by someone else → the teacher.
@@ -91,6 +103,29 @@ begin
   update vppsone.teacher_leave set status = 'approved', decided_by = v_staff, decided_at = now() where id = v_leave;
   insert into proof values ('I leave_decided to the teacher',
     exists (select 1 from vppsone.staff_notices where notice_key = 'leave_decided:' || v_leave and staff_profile_id = v_teacher), null);
+
+  -- K. A confined deployment's claim never touches a real session.
+  select sp.id into v_teacher from vppsone.staff_profiles sp where not sp.is_test_account and sp.is_active limit 1;
+  v_a := vppsone.queue_staff_notice('proof:real-confined', 'weekly_summary', v_teacher, '2026-27', '{"summary":"x"}'::jsonb);
+  v_claim := vppsone.claim_staff_notice('proof7', 60, 'mock', v_a, true);
+  insert into proof values ('K test-only claim leaves a real notice pending', not (v_claim->>'claimed')::boolean
+    and (select status = 'pending' and attempts = 0 from vppsone.staff_notices where id = v_a), null);
+
+  -- L. No child's name in a stored payload; the claim adds it only when allowed.
+  insert into proof values ('L no stored name', not exists (select 1 from vppsone.staff_notices where payload ? 'student_name'),
+    (select to_jsonb(array(select jsonb_object_keys(payload) order by 1)) from vppsone.staff_notices
+     where notice_key like 'money_request:' || v_req || ':%' limit 1));
+
+  -- M. The browser reads no payload and no params.
+  insert into proof values ('M payload and params closed to the browser',
+    not has_column_privilege('authenticated', 'vppsone.staff_notices', 'payload', 'select')
+    and not has_column_privilege('authenticated', 'vppsone.staff_notice_attempts', 'params', 'select')
+    and has_column_privilege('authenticated', 'vppsone.staff_notices', 'status', 'select'), null);
+
+  -- N. Two slots in a row are a second apart, whoever asks.
+  v_slot1 := vppsone.reserve_staff_send_slot(1000);
+  v_slot2 := vppsone.reserve_staff_send_slot(1000);
+  insert into proof values ('N the pace is shared', v_slot2 >= v_slot1 + interval '1 second', null);
 
   -- J. A kind with a payload kind cannot be written without one.
   begin

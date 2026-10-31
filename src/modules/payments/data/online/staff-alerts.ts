@@ -3,6 +3,8 @@ import "server-only";
 import { buildClassLabel } from "@/modules/fees/domain/policy-shaping";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
 import { queueStaffNoticeToPermission } from "@/modules/staff-notices/data/enqueue";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { logWarn } from "@/platform/observability/log";
 
 /**
@@ -30,7 +32,14 @@ import { logWarn } from "@/platform/observability/log";
  *    empty and every alert's push half is closed as `no_devices`. Porting
  *    `platform/push/web-push.ts` waits for a subscription screen.
  *  - **A child is named only if the school allows it** (`runtime_flags.
- *    staff_notice_student_names`); otherwise the class says who.
+ *    staff_notice_student_names`); otherwise the class says who. The payload
+ *    carries the student's id and class, never the name: the outbox's claim
+ *    reads the name at the moment it sends, and only while the switch is on.
+ *  - **A confined deployment (Preview, local) drains nothing real.** Every
+ *    alert row and capture is a real-or-TEST payment in the one database; a
+ *    confined drain does not claim alert rows at all (production's drain sends
+ *    those, TEST ones included, to test recipients), and queues review notices
+ *    for TEST-session captures only (D-346).
  *
  * The same drain also queues an `online_review` notice for every capture that
  * could not be posted automatically (`application_status = 'review_required'`),
@@ -66,11 +75,10 @@ type AlertRow = {
   whatsapp_attempts: number;
 };
 
-type StudentFacts = { studentName: string; classLabel: string; sessionLabel: string | null };
+type StudentFacts = { classLabel: string; sessionLabel: string | null };
 
 type StudentRow = {
   id: string;
-  full_name: string | null;
   class_ref: { class_name: string; section: string | null; stream_name: string | null; session_label: string | null } | null;
 };
 
@@ -81,12 +89,11 @@ async function loadStudents(supabase: Db, ids: readonly string[]): Promise<Map<s
   if (unique.length === 0) return facts;
   const { data, error } = await supabase
     .from("students")
-    .select("id, full_name, class_ref:classes(class_name, section, stream_name, session_label)")
+    .select("id, class_ref:classes(class_name, section, stream_name, session_label)")
     .in("id", unique);
   if (error) return facts;
   for (const row of (data ?? []) as StudentRow[]) {
     facts.set(row.id, {
-      studentName: row.full_name ?? "",
       classLabel: row.class_ref ? buildClassLabel(row.class_ref) : "",
       sessionLabel: row.class_ref?.session_label ?? null,
     });
@@ -103,14 +110,21 @@ export async function drainStaffPaymentAlerts(args: {
   queue?: typeof queueStaffNoticeToPermission;
   dispatch?: typeof dispatchStaffNotices;
   now?: () => Date;
+  /** Tests: `isConfinedDeployment()`. */
+  confined?: boolean;
 }): Promise<StaffAlertDrain> {
   const { supabase } = args;
   const queue = args.queue ?? queueStaffNoticeToPermission;
   const dispatch = args.dispatch ?? dispatchStaffNotices;
   const now = args.now ?? (() => new Date());
+  const confined = args.confined ?? isConfinedDeployment();
   const result: StaffAlertDrain = { alerts: 0, pushed: 0, whatsappSent: 0, reviews: 0 };
 
-  const { data, error } = await supabase.rpc("staff_payment_alert_claim", { p_limit: 10, p_lease_seconds: 120 });
+  // A confined deployment claims no alert row: the claim cannot be fenced to
+  // TEST payments, and production's drain sends those too.
+  const { data, error } = confined
+    ? { data: [], error: null }
+    : await supabase.rpc("staff_payment_alert_claim", { p_limit: 10, p_lease_seconds: 120 });
   if (error) {
     logWarn("staff_alerts.claim_failed", { error: error.message ?? "unknown" });
   } else {
@@ -155,7 +169,7 @@ export async function drainStaffPaymentAlerts(args: {
                   receipt_id: alert.receipt_id,
                   receipt_number: alert.receipt_number,
                   amount_rupees: Number(alert.amount_rupees ?? 0),
-                  student_name: student.studentName,
+                  student_id: alert.student_id,
                   class_label: student.classLabel,
                 },
                 notAfter: new Date(now().getTime() + 86_400_000),
@@ -178,7 +192,7 @@ export async function drainStaffPaymentAlerts(args: {
     }
   }
 
-  result.reviews = await queueOnlineReviewNotices({ supabase, queue, now }).catch((caught) => {
+  result.reviews = await queueOnlineReviewNotices({ supabase, queue, now, confined }).catch((caught) => {
     logWarn("staff_alerts.review_queue_failed", { error: caught instanceof Error ? caught.message : "unknown" });
     return 0;
   });
@@ -205,15 +219,18 @@ type CaptureRow = {
  * three days. Idempotent on the capture: running every ten minutes queues each
  * once. The session comes from the payment's link (intent) or, for a pay-page
  * order, from the reminder it answered; a capture with neither is not queued.
+ * A confined deployment queues TEST-session captures only.
  */
 export async function queueOnlineReviewNotices(args: {
   supabase: Db;
   queue?: typeof queueStaffNoticeToPermission;
   now?: () => Date;
+  confined?: boolean;
 }): Promise<number> {
   const { supabase } = args;
   const queue = args.queue ?? queueStaffNoticeToPermission;
   const now = args.now ?? (() => new Date());
+  const confined = args.confined ?? isConfinedDeployment();
   const since = new Date(now().getTime() - REVIEW_LOOKBACK_MS).toISOString();
   const { data, error } = await supabase
     .from("online_payment_captures")
@@ -263,6 +280,7 @@ export async function queueOnlineReviewNotices(args: {
   let queued = 0;
   for (const row of placed) {
     if (!row.sessionLabel) continue;
+    if (confined && !isTestSessionLabel(row.sessionLabel)) continue;
     const student = row.studentId ? students.get(row.studentId) : undefined;
     queued += await queue({
       key: `online_review:${row.capture.id}`,
@@ -272,7 +290,7 @@ export async function queueOnlineReviewNotices(args: {
       payload: {
         capture_id: row.capture.id,
         amount_rupees: Math.round(Number(row.capture.amount_paise ?? 0) / 100),
-        student_name: student?.studentName ?? "",
+        student_id: row.studentId,
         class_label: student?.classLabel ?? "",
       },
       notAfter: new Date(now().getTime() + 2 * 86_400_000),

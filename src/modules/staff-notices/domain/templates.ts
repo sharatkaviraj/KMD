@@ -125,6 +125,75 @@ export const STAFF_TEMPLATES: Record<string, TemplateBody> = {
   },
 };
 
+/**
+ * The teacher-task link's six templates (`vppsone_teacher_task_*_v1`, migration
+ * `20261016090000_teacher_task_delivery`): not sent by the outbox — they go
+ * through the task's own reviewed delivery — but staff templates all the same,
+ * so the owner submits them with the rest (plan §8.3, critique1 B13). Each
+ * code is one language; its body is the same in both `message_templates`
+ * columns. Each has a URL button whose link ends in the task's token: the
+ * button's dynamic suffix is `{{1}}` after `<site>/t/tasks/`
+ * (`claim_teacher_task_delivery` returns it as `buttonSuffix`).
+ * `AISENSY_CAMPAIGN_PREFIX`, when set, replaces the leading `vppsone` of the
+ * campaign name (`message-provider.ts`).
+ */
+export type TeacherTaskTemplate = {
+  label: string;
+  language: "hi" | "en" | "both";
+  body: string;
+  variables: readonly ["teacher", "task", "due"];
+  /** The URL button's link; `{{1}}` is the task token the send fills in. */
+  buttonUrl: string;
+};
+
+const TASK_VARIABLES = ["teacher", "task", "due"] as const;
+const TASK_BUTTON = "https://one.vpps.co.in/t/tasks/{{1}}";
+
+export const TEACHER_TASK_TEMPLATES: Record<string, TeacherTaskTemplate> = {
+  vppsone_teacher_task_en_v1: {
+    label: "Teacher task · English",
+    language: "en",
+    body: "{{1}}, task: {{2}}. Due: {{3}}. Use the button to open your work.",
+    variables: TASK_VARIABLES,
+    buttonUrl: TASK_BUTTON,
+  },
+  vppsone_teacher_task_hi_v1: {
+    label: "Teacher task · Hindi",
+    language: "hi",
+    body: "{{1}}, कार्य: {{2}}। अंतिम तिथि: {{3}}। काम खोलने के लिए बटन दबाएँ।",
+    variables: TASK_VARIABLES,
+    buttonUrl: TASK_BUTTON,
+  },
+  vppsone_teacher_task_both_v1: {
+    label: "Teacher task · Both",
+    language: "both",
+    body: "{{1}}, कार्य / Task: {{2}}। अंतिम तिथि / Due: {{3}}। काम खोलने के लिए बटन दबाएँ / Use the button to open your work.",
+    variables: TASK_VARIABLES,
+    buttonUrl: TASK_BUTTON,
+  },
+  vppsone_teacher_task_reminder_en_v1: {
+    label: "Task reminder · English",
+    language: "en",
+    body: "{{1}}, work is still pending: {{2}}. Due: {{3}}. Use the button to open your work.",
+    variables: TASK_VARIABLES,
+    buttonUrl: TASK_BUTTON,
+  },
+  vppsone_teacher_task_reminder_hi_v1: {
+    label: "Task reminder · Hindi",
+    language: "hi",
+    body: "{{1}}, कार्य अभी बाकी है: {{2}}। अंतिम तिथि: {{3}}। काम खोलने के लिए बटन दबाएँ।",
+    variables: TASK_VARIABLES,
+    buttonUrl: TASK_BUTTON,
+  },
+  vppsone_teacher_task_reminder_both_v1: {
+    label: "Task reminder · Both",
+    language: "both",
+    body: "{{1}}, कार्य अभी बाकी है / Work is still pending: {{2}}। अंतिम तिथि / Due: {{3}}। काम खोलने के लिए बटन दबाएँ / Use the button to open your work.",
+    variables: TASK_VARIABLES,
+    buttonUrl: TASK_BUTTON,
+  },
+};
+
 /** Put the values in their places. A placeholder with no value is left as it is, so a gap shows. */
 export function fillTemplate(body: string, values: readonly string[]): string {
   return body.replace(/\{\{(\d+)\}\}/g, (whole, index: string) => values[Number(index) - 1] ?? whole);

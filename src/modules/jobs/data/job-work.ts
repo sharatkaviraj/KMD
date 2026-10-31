@@ -16,6 +16,7 @@ import { queueStaffNotice, queueStaffNoticeToPermission } from "@/modules/staff-
 import { loadDeskReceipts } from "@/modules/receipts/vx/data";
 import { DESK_MODES, latestCloseState, summarizeReceipts } from "@/modules/receipts/vx/domain/day-close";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
 import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
@@ -686,22 +687,33 @@ export async function dailySummary(day: string): Promise<Summary> {
  * Receipts desk closes against) and queue a staff notice for everybody with
  * `fees:accounts`; the outbox asks consent and the limits when it sends.
  *
- * A confined deployment (anything but Vercel production) does not look at a
- * real session at all: its notices would sit in the one database for the
- * production dispatcher to send (D-346).
+ * Both also run for the TEST session (review of PR #148), so each kind can be
+ * rehearsed end to end under TEST-2026-27: the TEST pass's notices are TEST-
+ * session notices, which the outbox sends only to numbers on the test list. A
+ * confined deployment (anything but Vercel production) runs the TEST pass
+ * only and never looks at a real session (D-346).
  */
-async function feeDayFigures(day: string): Promise<
-  | { ok: false; note: string }
-  | { ok: true; sessionLabel: string; count: number; net: number; byMode: Record<string, number> }
-> {
-  if (isConfinedDeployment()) return { ok: false, note: "confined deployment: real fee data not read" };
-  const sessionLabel = await currentSession();
-  if (!sessionLabel) return { ok: false, note: "no session" };
+type DayFigures = { sessionLabel: string; count: number; net: number; byMode: Record<string, number> };
+
+/** The sessions the fee day is told about: the real one (production only) and every TEST one. */
+async function feeDaySessions(): Promise<{ real: string | null; test: string[] }> {
+  const classes = await must(
+    createAdminClient().schema("public").from("classes").select("session_label"),
+    "the sessions",
+  );
+  const test = [...new Set((classes as { session_label: string | null }[]).map((row) => row.session_label ?? ""))]
+    .filter((label) => isTestSessionLabel(label))
+    .sort();
+  if (isConfinedDeployment()) return { real: null, test };
+  const active = await currentSession();
+  return { real: active && !isTestSessionLabel(active) ? active : null, test };
+}
+
+async function feeDayFigures(sessionLabel: string, day: string): Promise<DayFigures> {
   const { rows, truncated } = await loadDeskReceipts(sessionLabel, day, day);
   if (truncated) throw new Error("The day's receipt list is incomplete; nothing was queued.");
   const summary = summarizeReceipts(rows.filter((row) => row.paymentDate === day));
   return {
-    ok: true,
     sessionLabel,
     count: summary.count,
     net: summary.net,
@@ -709,64 +721,85 @@ async function feeDayFigures(day: string): Promise<
   };
 }
 
+/**
+ * Run one fee-day pass per session and say what happened: the real session's
+ * numbers as before, and the TEST pass's under `test_…` keys. One dispatch at
+ * the end sends whatever was queued.
+ */
+async function feeDayPasses(
+  day: string,
+  pass: (figures: DayFigures) => Promise<Summary & { queued: number }>,
+): Promise<Summary> {
+  const sessions = await feeDaySessions();
+  let summary: Summary = {};
+  let queuedTotal = 0;
+  if (sessions.real) {
+    const figures = await feeDayFigures(sessions.real, day);
+    // A day with no receipts says nothing worth a message.
+    const result = figures.count === 0 ? { receipts: 0, queued: 0, note: "no receipts today" } : await pass(figures);
+    summary = { ...result };
+    queuedTotal += result.queued;
+  } else {
+    summary = { queued: 0, note: isConfinedDeployment() ? "confined deployment: real fee data not read" : "no session" };
+  }
+  let testReceipts = 0;
+  let testQueued = 0;
+  for (const label of sessions.test) {
+    const figures = await feeDayFigures(label, day);
+    if (figures.count === 0) continue;
+    testReceipts += figures.count;
+    const result = await pass(figures);
+    testQueued += result.queued;
+  }
+  if (sessions.test.length > 0) summary = { ...summary, test_receipts: testReceipts, test_queued: testQueued };
+  queuedTotal += testQueued;
+  const sent = queuedTotal > 0 ? await dispatchStaffNotices({ max: queuedTotal + 5 }) : null;
+  return sent ? { ...summary, accepted: sent.accepted, held: sent.held, suppressed: sent.suppressed } : summary;
+}
+
 export async function feeDaySummary(day: string): Promise<Summary> {
-  const figures = await feeDayFigures(day);
-  if (!figures.ok) return { queued: 0, note: figures.note };
-  // A day with no receipts says nothing worth a message.
-  if (figures.count === 0) return { receipts: 0, queued: 0, note: "no receipts today" };
-  const queued = await queueStaffNoticeToPermission({
-    key: `day_collection:${figures.sessionLabel}:${day}`,
-    kind: "day_collection",
-    permission: "fees:accounts",
-    sessionLabel: figures.sessionLabel,
-    payload: { date: day, total_rupees: figures.net, receipts: figures.count, by_mode: figures.byMode },
-    // Still worth reading the next morning; not after.
-    notAfter: schoolMoment(addDays(day, 1), 10 * 60),
+  return feeDayPasses(day, async (figures) => {
+    const queued = await queueStaffNoticeToPermission({
+      key: `day_collection:${figures.sessionLabel}:${day}`,
+      kind: "day_collection",
+      permission: "fees:accounts",
+      sessionLabel: figures.sessionLabel,
+      payload: { date: day, total_rupees: figures.net, receipts: figures.count, by_mode: figures.byMode },
+      // Still worth reading the next morning; not after.
+      notAfter: schoolMoment(addDays(day, 1), 10 * 60),
+    });
+    return { receipts: figures.count, total: figures.net, queued };
   });
-  const sent = queued > 0 ? await dispatchStaffNotices({ max: queued + 5 }) : null;
-  return {
-    receipts: figures.count,
-    total: figures.net,
-    queued,
-    ...(sent ? { accepted: sent.accepted, held: sent.held, suppressed: sent.suppressed } : {}),
-  };
 }
 
 export async function feeDayNotClosed(day: string): Promise<Summary> {
-  const figures = await feeDayFigures(day);
-  if (!figures.ok) return { queued: 0, note: figures.note };
-  if (figures.count === 0) return { receipts: 0, queued: 0, note: "no receipts today" };
-  const events = await must(
-    createAdminClient()
-      .from("fee_day_close_events")
-      .select("id, action, created_at")
-      .eq("session_label", figures.sessionLabel)
-      .eq("payment_date", day),
-    "the day's close history",
-  );
-  const closed = latestCloseState(
-    (events as { id: string; action: "close" | "reopen"; created_at: string }[]).map((event) => ({
-      action: event.action,
-      createdAt: event.created_at,
-    })),
-  ).closed;
-  if (closed) return { receipts: figures.count, closed: "yes", queued: 0 };
-  const queued = await queueStaffNoticeToPermission({
-    key: `day_not_closed:${figures.sessionLabel}:${day}`,
-    kind: "day_not_closed",
-    permission: "fees:accounts",
-    sessionLabel: figures.sessionLabel,
-    payload: { date: day, receipts: figures.count, total_rupees: figures.net },
-    // Sent at the window's edge (gates.ts); overnight it stops mattering.
-    notAfter: schoolMoment(day, 21 * 60),
+  return feeDayPasses(day, async (figures) => {
+    const events = await must(
+      createAdminClient()
+        .from("fee_day_close_events")
+        .select("id, action, created_at")
+        .eq("session_label", figures.sessionLabel)
+        .eq("payment_date", day),
+      "the day's close history",
+    );
+    const closed = latestCloseState(
+      (events as { id: string; action: "close" | "reopen"; created_at: string }[]).map((event) => ({
+        action: event.action,
+        createdAt: event.created_at,
+      })),
+    ).closed;
+    if (closed) return { receipts: figures.count, closed: "yes", queued: 0 };
+    const queued = await queueStaffNoticeToPermission({
+      key: `day_not_closed:${figures.sessionLabel}:${day}`,
+      kind: "day_not_closed",
+      permission: "fees:accounts",
+      sessionLabel: figures.sessionLabel,
+      payload: { date: day, receipts: figures.count, total_rupees: figures.net },
+      // Sent at the window's edge (gates.ts); overnight it stops mattering.
+      notAfter: schoolMoment(day, 21 * 60),
+    });
+    return { receipts: figures.count, closed: "no", queued };
   });
-  const sent = queued > 0 ? await dispatchStaffNotices({ max: queued + 5 }) : null;
-  return {
-    receipts: figures.count,
-    closed: "no",
-    queued,
-    ...(sent ? { accepted: sent.accepted, held: sent.held, suppressed: sent.suppressed } : {}),
-  };
 }
 
 /* ------------------------------------------------------------- dispatch */

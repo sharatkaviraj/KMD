@@ -30,7 +30,12 @@ and the templates below are for the owner to submit.
 **Never in a staff message:** a parent's phone number (refused when queued and
 again when rendered: `assertNoPhoneNumber`), the reason a colleague is away, a
 leave note. **A child's name** only while `runtime_flags.staff_notice_student_names`
-is on (off by default): otherwise "a student of 5 A".
+is on (off by default): otherwise "a student of 5 A". The name is never
+stored: a notice's payload names the student by id and class, and the claim
+reads the name at the moment it sends, only while the switch is on
+(`20261031111241_staff_whatsapp_review_fixes`). The browser cannot read
+`staff_notices.payload` or `staff_notice_attempts.params` at all (column
+grants); every read of the outbox is server-side with the service role.
 
 The money and leave notices are queued by triggers on `vppsone.fee_desk_requests`
 and `vppsone.teacher_leave` in the same transaction as the request; the claim
@@ -48,18 +53,27 @@ cannot be read holds the notice for five minutes, never sends it.
 3. Consent: `staff_profiles.whatsapp_opt_in_at` set and no later opt-out.
 4. The person has not switched the kind off (`staff_notice_prefs`).
 5. TEST session, test account, or a confined deployment (anything but Vercel
-   production): the number must be in `vppsone.message_test_recipients`.
+   production): the number must be in `vppsone.message_test_recipients`. A
+   confined deployment (Preview, a local `next dev`) also **claims TEST-session
+   notices only** (`claim_staff_notice(…, p_test_only)`): it never leases,
+   suppresses or sends a real one, which stays for production's dispatcher.
 6. The send window 07:00–20:00 IST — the fee reminders' `DEFAULT_QUIET_HOURS`
    shape and end, opening at 07:00 (critique1 C1). Cover is exempt; outside it
    a notice is held until 07:00.
 7. At most 8 a day per person (cover exempt).
 8. `runtime_flags.staff_whatsapp_month_cap` (1,000) AiSensy sends a month, all
-   kinds together.
-9. More than 3 of one kind for one person in 30 minutes → one digest.
+   kinds together — the teacher-task link's AiSensy sends included. One count,
+   `vppsone.staff_whatsapp_month_sent()`, is used by the claim, by the
+   teacher-task send's gate and by Messages → Staff.
+9. More than 3 of one kind for one person in 30 minutes → one digest. The rest
+   of the burst is folded into it only once AiSensy took it (accepted, or
+   unknown); a refused or rate-limited digest folds nothing, so each notice is
+   still there to retry.
 
-And 1 request a second to AiSensy. The log of everything sent, held or
-dropped, with the month's count and cost (₹0.88 a message), is
-**Messages → Staff**.
+And 1 request a second to AiSensy, across every dispatcher running at once
+(`vppsone.reserve_staff_send_slot` hands out the seconds from one row). The log
+of everything sent, held or dropped, with the month's count and cost (₹0.88 a
+message), is **Messages → Staff**.
 
 ## 3. Consent procedure
 
@@ -106,8 +120,13 @@ Form text (print one per person):
 3. Test on the allowlist: add the owner's own numbers to
    `vppsone.message_test_recipients` (SQL, never in a migration), set
    `STAFF_NOTICE_TRANSPORT=aisensy` on a Preview deployment (confined: only
-   those numbers can receive), consent a test account whose WhatsApp number is
-   on the list, and trigger each kind against TEST-2026-27.
+   those numbers can receive, and only TEST-session notices are claimed),
+   consent a test account whose WhatsApp number is on the list, and trigger
+   each kind against TEST-2026-27. The two fee-day kinds rehearse too: both
+   jobs also run a TEST pass (`fee-day-summary` and `fee-day-not-closed` read
+   TEST-2026-27's receipts and queue TEST-session notices), so post a TEST
+   receipt and run each job by hand (`/api/jobs/fee-day-summary?token=…`,
+   or Jobs → Run) — on a Preview that is the only pass that runs.
 4. Turn kinds on by name (service role / SQL editor):
 
    ```sql
@@ -116,10 +135,18 @@ Form text (print one per person):
    where key = 'staff_notice_kinds_enabled';
    ```
 
-5. On production set `STAFF_NOTICE_TRANSPORT=aisensy` (Vercel env, owner).
-6. Names of children, if the owner allows it:
+   The `online_payment` kind has a second switch in front of it: the
+   online-payments screen's **Tell the office on WhatsApp**
+   (`online_payment_staff_whatsapp_enabled`, Payments → Online payments →
+   Switches, a real admin). Turn the kind on first, then that switch; off, no
+   online receipt is turned into a notice at all.
+5. **Required:** schedule the timers — `scripts/ops/schedule-staff-notices-cron.sql`
+   (§5). Without it the 07:00 hold, the digest hold and every retry wait for
+   the next day's 02:00 UTC cron.
+6. On production set `STAFF_NOTICE_TRANSPORT=aisensy` (Vercel env, owner).
+7. Names of children, if the owner allows it:
    `update vppsone.runtime_flags set enabled = true where key = 'staff_notice_student_names';`
-7. The cap: `update vppsone.runtime_flags set value = '1500'::jsonb where key = 'staff_whatsapp_month_cap';`
+8. The cap: `update vppsone.runtime_flags set value = '1500'::jsonb where key = 'staff_whatsapp_month_cap';`
 
 Kill switches, fastest first: `staff_notice_dispatch` off (instant), a kind
 `false` in the map, `STAFF_NOTICE_TRANSPORT=disabled` (a redeploy).
@@ -127,31 +154,43 @@ Kill switches, fastest first: `staff_notice_dispatch` off (instant), a kind
 ## 5. The five-minute timer (critique1 A10)
 
 Vercel's cron runs `/api/jobs/staff-notices` once a day (02:00 UTC), which is
-not enough for the 07:00 hold, the digest or the kill switch to be prompt. At
-cutover, after storing the job's token (`HMAC(JOBS_SECRET, 'staff-notices')`,
-the first 32 hex characters — `jobTokenFor` in `src/modules/jobs/domain/token.ts`)
-in Vault as `VPPS_STAFF_NOTICES_JOB_TOKEN`, run in One's database:
+not enough for the 07:00 hold, the digest or the kill switch to be prompt. The
+timers are a committed operator script, **a required cutover step** (C-step in
+`docs/PROGRESS.md`, next to the Razorpay reconciler's timer in `RAZORPAY.md` §5):
 
-```sql
-select cron.schedule('staff-notices-dispatch', '*/5 * * * *', $$
-  select net.http_get(
-    url := 'https://one.vpps.co.in/api/jobs/staff-notices?token=' ||
-      (select decrypted_secret from vault.decrypted_secrets where name = 'VPPS_STAFF_NOTICES_JOB_TOKEN'),
-    timeout_milliseconds := 55000);
-$$);
-```
+1. After the lockdown (`vppsone.deployment.environment = 'production'`), store
+   three job tokens in Vault, by name — each `jobTokenFor(JOBS_SECRET, job)`,
+   the first 32 hex characters of HMAC-SHA256 (`src/modules/jobs/domain/token.ts`):
+   `VPPS_STAFF_NOTICES_JOB_TOKEN` (`staff-notices`),
+   `VPPS_FEE_DAY_SUMMARY_JOB_TOKEN` (`fee-day-summary`),
+   `VPPS_FEE_DAY_NOT_CLOSED_JOB_TOKEN` (`fee-day-not-closed`).
+2. Run `scripts/ops/schedule-staff-notices-cron.sql` as postgres in One's SQL
+   editor. It reads the deployment marker first and refuses anything but
+   production, refuses if a token is missing, and is idempotent (unschedules a
+   job of the same name, then schedules it). It schedules:
+   - `staff-notices-dispatch`, every five minutes;
+   - `staff-fee-day-summary` at 13:30 UTC (19:00 IST) and
+     `staff-fee-day-not-closed` at 14:30 UTC (20:00 IST).
+3. Check: `select jobname, schedule, active from cron.job where jobname like 'staff-%';`
+   — three rows, active.
 
-Not scheduled in this phase (no secret is in Vault, and wtgx is production).
-The two new fee jobs are in `vercel.json`: `fee-day-summary` at 13:30 UTC
-(19:00 IST) and `fee-day-not-closed` at 14:30 UTC (20:00 IST). On a confined
-deployment both refuse to read real fee data.
+The two fee-day jobs are also in `vercel.json`. **The Vercel team's plan could
+not be read from here** (the team API does not say); on Hobby a Vercel cron
+fires anywhere within its hour, so "day not closed" could go at 20:59. The
+pg_cron entries fire on the minute whatever the plan, and running both is
+harmless: each notice is keyed by session and day, so the second run queues
+nothing. On a confined deployment both jobs read TEST sessions only.
+
+Not scheduled in this phase: no token is in Vault and the marker says `dev`
+(the script was run on wtgx and refused, as it should).
 
 ## 6. Template bodies (for the owner to submit)
 
 Every body is the single source in `src/modules/staff-notices/domain/templates.ts`;
 the app fills exactly these and `tests/staff-notice-templates.test.ts` holds
 the two, the migration's `message_templates` rows and this list together. The
-links are plain text in the body (no URL button). `vx_staff_notice` is a
+links are plain text in the body (no URL button) — except the teacher-task
+link's six, at the end, which carry one. `vx_staff_notice` is a
 free-text body (`{{1}}`) kept from before Phase F; Meta may refuse a body that
 is only a variable — if so, submit it with a fixed opening line and a new
 name, and change `KINDS.staff_broadcast.template`.
@@ -418,6 +457,54 @@ English:
 {{1}}, your leave for {{2}} was {{3}}. {{4}}
 ```
 
+### The teacher-task link: `vppsone_teacher_task_*_v1` (six templates)
+
+Sent by the task's own reviewed delivery, not the outbox, but staff templates
+all the same — submit them with the rest. Each name is ONE language (the
+teacher's choice picks `_en`, `_hi` or `_both`), category UTILITY, with a **URL
+button**: link `https://one.vpps.co.in/t/tasks/{{1}}`, where the dynamic suffix
+`{{1}}` is the task's token (`buttonSuffix` from `claim_teacher_task_delivery`).
+Variables in every one: {{1}} teacher · {{2}} task · {{3}} due. When
+`AISENSY_CAMPAIGN_PREFIX` is set, it replaces the leading `vppsone` of the
+campaign name. Bodies (`TEACHER_TASK_TEMPLATES` in `templates.ts`, rows from
+migration `20261016090000_teacher_task_delivery`):
+
+#### `vppsone_teacher_task_en_v1` — Teacher task · English
+
+```text
+{{1}}, task: {{2}}. Due: {{3}}. Use the button to open your work.
+```
+
+#### `vppsone_teacher_task_hi_v1` — Teacher task · Hindi
+
+```text
+{{1}}, कार्य: {{2}}। अंतिम तिथि: {{3}}। काम खोलने के लिए बटन दबाएँ।
+```
+
+#### `vppsone_teacher_task_both_v1` — Teacher task · Both
+
+```text
+{{1}}, कार्य / Task: {{2}}। अंतिम तिथि / Due: {{3}}। काम खोलने के लिए बटन दबाएँ / Use the button to open your work.
+```
+
+#### `vppsone_teacher_task_reminder_en_v1` — Task reminder · English
+
+```text
+{{1}}, work is still pending: {{2}}. Due: {{3}}. Use the button to open your work.
+```
+
+#### `vppsone_teacher_task_reminder_hi_v1` — Task reminder · Hindi
+
+```text
+{{1}}, कार्य अभी बाकी है: {{2}}। अंतिम तिथि: {{3}}। काम खोलने के लिए बटन दबाएँ।
+```
+
+#### `vppsone_teacher_task_reminder_both_v1` — Task reminder · Both
+
+```text
+{{1}}, कार्य अभी बाकी है / Work is still pending: {{2}}। अंतिम तिथि / Due: {{3}}। काम खोलने के लिए बटन दबाएँ / Use the button to open your work.
+```
+
 ### `vx_staff_digest_v1` — Several messages at once
 
 Variables: {{1}} name · {{2}} count · {{3}} what · {{4}} link
@@ -450,9 +537,12 @@ English:
   notices (consent and limits apply; the typed number list
   `online_payment_staff_whatsapp_numbers` is not used), the push half is closed
   as `no_devices` — One has no push sign-up screen and its service worker has
-  no `push` handler, so `platform/push/web-push.ts`, the four push/number
-  actions and the *Staff alerts* section of `/fees/payments/online` are not
-  ported. The same drain queues `online_review` for captures needing a person.
+  no `push` handler, so `platform/push/web-push.ts` and the push and
+  typed-number actions are not ported. The WhatsApp switch
+  (`online_payment_staff_whatsapp_enabled`) is offered with the other online
+  switches. The same drain queues `online_review` for captures needing a
+  person. A confined deployment claims no alert row and queues review notices
+  for TEST captures only.
 - **The failure desk's Fix tab** (fees 3cc2de4b + 2c0ada0a) is ported to
   `/fees/reminders/fix`, with One's fences on every action and One's cutover
   line (a reminder the fees app sent before cutover is never re-sent from One).

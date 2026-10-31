@@ -443,6 +443,15 @@ export function weeklySummaryLine(f: WeekFacts, opts: { long?: boolean; extra?: 
     .join(" ");
 }
 
+/**
+ * The staff outbox key of one week's summary to one admin: the session and
+ * the week's Monday, so pressing Send twice queues it once (the outbox is
+ * idempotent on the key).
+ */
+export function weeklySummaryKey(session: string, monday: string, adminId: string): string {
+  return `weekly:${session}:${monday}:${adminId}`;
+}
+
 /* ------------------------------------------------------------ dates */
 
 /** Monday of the week a day falls in (YYYY-MM-DD in, YYYY-MM-DD out). */

@@ -52,14 +52,27 @@ vi.mock("@/modules/fees/platform/supabase/admin", () => ({
         ? [{ id: "run-1", situation: "fee_due", language: "hi", last_date: null, filters: { installments: [1] } }]
         : rows;
       const chain: Record<string, unknown> = {};
-      for (const name of ["select", "in", "eq", "is", "limit"]) chain[name] = () => chain;
-      chain.then = (done: (value: { data: unknown; error: null }) => unknown) => done({ data, error: null });
+      for (const name of ["select", "in", "eq", "is", "limit", "neq", "or"]) chain[name] = () => chain;
+      chain.maybeSingle = async () => ({
+        data: table === "students" ? { id: "s-1", primary_phone: "9000000001", secondary_phone: null } : null,
+        error: null,
+      });
+      chain.then = (done: (value: { data: unknown; error: null }) => unknown) =>
+        done({ data: table === "students" ? [] : data, error: null });
       return chain;
     },
   }),
 }));
 
-import { markNumberAction, resendFailuresAction, saveFamilyNumberAction } from "@/app/(app)/fees/reminders/fix/actions";
+import {
+  markHandledAction,
+  markNumberAction,
+  resendFailuresAction,
+  resolveStuckAction,
+  saveFamilyNumberAction,
+} from "@/app/(app)/fees/reminders/fix/actions";
+import { resolveFailedSends, resolveStuckSends } from "@/modules/whatsapp/data/delivery-store";
+import { createClient } from "@/modules/fees/platform/supabase/server";
 
 const row = (id: string, student: string, created_at: string, session_label: string) => ({
   id,
@@ -125,5 +138,72 @@ describe("the other actions", () => {
     const result = await markNumberAction({ status: "idle" }, form([["phone", "9000000001"], ["working", "0"]]));
     expect(result.status).toBe("error");
     expect(health).not.toHaveBeenCalled();
+  });
+});
+
+describe("review of PR #148: the fence checks exactly what the write touches", () => {
+  const many = (count: number) => Array.from({ length: count }, (_, i) => ["sendId", `send-${i}`] as [string, string]);
+
+  it("refuses to close more reminders than one fence check covers, writing nothing", async () => {
+    rows = [];
+    const result = await markHandledAction({ status: "idle" }, form([["resolution", "called"], ...many(201)]));
+    expect(result.status).toBe("error");
+    expect(resolveFailedSends).not.toHaveBeenCalled();
+  });
+
+  it("writes to the same list it fenced, de-duplicated", async () => {
+    rows = [];
+    await markHandledAction({ status: "idle" }, form([["resolution", "called"], ["sendId", "a"], ["sendId", "a"], ["sendId", "b"]]));
+    expect(vi.mocked(resolveFailedSends).mock.calls[0]![0]).toMatchObject({ sendIds: ["a", "b"] });
+  });
+
+  it("refuses a stuck-row answer naming more than one fence check covers", async () => {
+    rows = [];
+    const result = await resolveStuckAction({ status: "idle" }, form([["outcome", "sent"], ...many(201)]));
+    expect(result).toEqual({ status: "error", message: "Those reminders could not be found." });
+    expect(resolveStuckSends).not.toHaveBeenCalled();
+  });
+
+  it("checks the siblings it will write: this student left out first, then capped at ten", async () => {
+    const siblings = Array.from({ length: 11 }, (_, i) => ["siblingId", `sib-${i}`] as [string, string]);
+    fence.student.mockRejectedValueOnce(new Error("stop after the fence"));
+    await saveFamilyNumberAction(
+      { status: "idle" },
+      form([["studentId", "s-1"], ["fatherPhone", "9000000001"], ["siblingId", "s-1"], ...siblings]),
+    );
+    // The fence on the student refused; nothing past it ran. Now let it pass.
+    fence.students.mockClear();
+    await saveFamilyNumberAction(
+      { status: "idle" },
+      form([["studentId", "s-1"], ["fatherPhone", "abc"], ["siblingId", "s-1"], ...siblings]),
+    );
+    const checked = fence.students.mock.calls[0]![1] as string[];
+    expect(checked).toHaveLength(10);
+    expect(checked).not.toContain("s-1");
+    expect(checked).toEqual(siblings.slice(0, 10).map(([, id]) => id));
+  });
+
+  it("a test account saving a number leaves the number's shared health alone", async () => {
+    const update = { eq: () => update, select: () => update, single: async () => ({ data: { id: "s-1" }, error: null }) };
+    vi.mocked(createClient).mockResolvedValueOnce({ from: () => ({ update: () => update }) } as never);
+    fence.notTest.mockRejectedValueOnce(new Error("test account"));
+    const result = await saveFamilyNumberAction(
+      { status: "idle" },
+      form([["studentId", "s-1"], ["fatherPhone", "9000000002"], ["retryFather", "1"]]),
+    );
+    expect(result.status).toBe("success");
+    expect(result.message).toMatch(/test account cannot clear/);
+    expect(health).not.toHaveBeenCalled();
+  });
+
+  it("a real account's retry clears the number's failures", async () => {
+    const update = { eq: () => update, select: () => update, single: async () => ({ data: { id: "s-1" }, error: null }) };
+    vi.mocked(createClient).mockResolvedValueOnce({ from: () => ({ update: () => update }) } as never);
+    const result = await saveFamilyNumberAction(
+      { status: "idle" },
+      form([["studentId", "s-1"], ["fatherPhone", "9000000002"], ["retryFather", "1"]]),
+    );
+    expect(result.status).toBe("success");
+    expect(health).toHaveBeenCalledWith(expect.objectContaining({ phoneKey: "9000000002", working: true }));
   });
 });

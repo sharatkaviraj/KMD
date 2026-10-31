@@ -23,6 +23,7 @@ import {
   requireStaffPermission,
 } from "@/modules/fees/platform/session";
 import { formatDdMmYyyy } from "@/platform/helpers/date";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { assertNotTestAccount, assertSessionWritable, assertStudentsVisible, assertStudentVisible } from "@/platform/auth/test-session-access";
 import { writtenBeforeWatermark } from "@/platform/migration/cutover-watermark";
 import { readCutoverWatermark } from "@/platform/migration/cutover-watermark-reader";
@@ -53,16 +54,26 @@ import { readCutoverWatermark } from "@/platform/migration/cutover-watermark-rea
  * cutover line in `migration_runs`), because the fees app may have retried it.
  */
 
-/** The fence for a set of reminders: every one of their students must be this viewer's to touch. */
-async function assertSendsVisible(sendIds: readonly string[]): Promise<void> {
-  const ids = [...new Set(sendIds.filter(Boolean))].slice(0, 200);
-  if (ids.length === 0) return;
+/** The most reminders one press may name: one `.in()` filter's worth (rule 3b). */
+const MAX_FENCED_SENDS = IN_FILTER_CHUNK_SIZE;
+
+/**
+ * The fence for a set of reminders: every one of their students must be this
+ * viewer's to touch. Returns the list it checked, which is the only list the
+ * caller may then write to — a form naming more than one filter's worth is
+ * refused outright, never checked in part and written in full.
+ */
+async function fenceSends(sendIds: readonly string[]): Promise<string[]> {
+  const ids = [...new Set(sendIds.filter(Boolean))];
+  if (ids.length > MAX_FENCED_SENDS) throw new Error(`At most ${MAX_FENCED_SENDS} reminders at once.`);
+  if (ids.length === 0) return ids;
   const { data, error } = await createAdminClient().from("whatsapp_reminder_sends").select("student_id").in("id", ids);
   if (error) throw new Error("Could not read those reminders.");
   await assertStudentsVisible(
     null,
     ((data ?? []) as Array<{ student_id: string | null }>).map((row) => row.student_id).filter((id): id is string => Boolean(id)),
   );
+  return ids;
 }
 
 export type FixActionState = {
@@ -295,10 +306,19 @@ export async function saveFamilyNumberAction(
 
   const studentId = String(formData.get("studentId") ?? "").trim();
   if (!studentId) return { status: "error", message: "No student given." };
+  // The siblings checked are exactly the siblings written: this student left
+  // out, de-duplicated, then capped — never capped first and filtered after.
+  const siblingIds = [
+    ...new Set(
+      formData
+        .getAll("siblingId")
+        .map(String)
+        .filter((id) => id && id !== studentId),
+    ),
+  ].slice(0, 10);
   try {
     await assertStudentVisible(null, studentId);
-    const siblingIdsToCheck = formData.getAll("siblingId").map(String).filter(Boolean).slice(0, 10);
-    if (siblingIdsToCheck.length > 0) await assertStudentsVisible(null, siblingIdsToCheck);
+    if (siblingIds.length > 0) await assertStudentsVisible(null, siblingIds);
   } catch {
     return { status: "error", message: "Could not find that student." };
   }
@@ -340,16 +360,12 @@ export async function saveFamilyNumberAction(
   if (updateError) return { status: "error", message: `Could not save: ${updateError.message}` };
 
   // Siblings on the same OLD number get the same correction, field for field.
-  const siblingIds = formData
-    .getAll("siblingId")
-    .map(String)
-    .filter((id) => id && id !== studentId);
   let siblingsChanged = 0;
   if (formData.get("applyToSiblings") === "1" && siblingIds.length > 0) {
     const { data: siblings } = await admin
       .from("students")
       .select("id, primary_phone, secondary_phone")
-      .in("id", siblingIds.slice(0, 10));
+      .in("id", siblingIds);
     for (const sibling of (siblings ?? []) as Array<{
       id: string;
       primary_phone: string | null;
@@ -369,13 +385,23 @@ export async function saveFamilyNumberAction(
   }
 
   // Re-typing a number WhatsApp rejected is the office vouching for it.
-  // Only when they say so: an untouched dead number stays dead.
+  // Only when they say so: an untouched dead number stays dead. A number's
+  // health is shared by every family on it, real ones included — and a TEST
+  // student is a copy of a real family, number and all — so a test account
+  // saves the number but leaves its health alone (as `markNumberAction` does).
   const staffId = (staff?.id as string | undefined) ?? null;
+  const wantsRetry = formData.get("retryFather") === "1" || formData.get("retryMother") === "1";
+  const mayTouchHealth = wantsRetry
+    ? await assertNotTestAccount(null).then(
+        () => true,
+        () => false,
+      )
+    : false;
   for (const [field, key] of [
     ["retryFather", father],
     ["retryMother", mother],
   ] as const) {
-    if (formData.get(field) === "1" && key) {
+    if (mayTouchHealth && formData.get(field) === "1" && key) {
       await markNumberHealth({
         supabase: admin,
         phoneKey: key,
@@ -412,7 +438,8 @@ export async function saveFamilyNumberAction(
   }
   const savedLine =
     `Saved.${siblingsChanged > 0 ? ` ${plural(siblingsChanged, "sibling", "siblings")} updated too.` : ""}` +
-    (shared.size > 0 ? ` Also on ${[...shared].join(", ")}, so they share one message.` : "");
+    (shared.size > 0 ? ` Also on ${[...shared].join(", ")}, so they share one message.` : "") +
+    (wantsRetry && !mayTouchHealth ? " A test account cannot clear a number's failures for the whole school." : "");
 
   if (formData.get("resend") !== "1") return { status: "success", message: savedLine };
 
@@ -447,9 +474,8 @@ export async function markHandledAction(
   if (resolution === "dismissed" && note.length < 3) {
     return { status: "error", message: "Say why this one is not being chased, so the record explains itself." };
   }
-  const sendIds = formData.getAll("sendId").map(String).filter(Boolean);
   try {
-    await assertSendsVisible(sendIds);
+    const sendIds = await fenceSends(formData.getAll("sendId").map(String));
     const count = await resolveFailedSends({
       supabase: createAdminClient(),
       sendIds,
@@ -562,12 +588,12 @@ export async function resolveStuckAction(
   } catch {
     return { status: "error", message: "Only an admin can record this." };
   }
-  const sendIds = formData.getAll("sendId").map(String).filter(Boolean);
   const outcome = String(formData.get("outcome") ?? "");
-  if (sendIds.length === 0) return { status: "error", message: "Nothing selected." };
+  if (formData.getAll("sendId").filter(Boolean).length === 0) return { status: "error", message: "Nothing selected." };
   if (outcome !== "sent" && outcome !== "failed") return { status: "error", message: "Pick what happened." };
+  let sendIds: string[];
   try {
-    await assertSendsVisible(sendIds);
+    sendIds = await fenceSends(formData.getAll("sendId").map(String));
   } catch {
     return { status: "error", message: "Those reminders could not be found." };
   }

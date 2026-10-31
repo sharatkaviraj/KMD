@@ -16,7 +16,9 @@ import { PAISE_PER_MESSAGE } from "./domain/messages";
  * cost against the cap. Service-role reads after the page's `messages:send`
  * check, fenced like every other list: a test account sees TEST-session
  * notices only, real staff no TEST ones, a real administrator both. No number
- * is shown beyond its last four digits.
+ * is shown beyond its last four digits. The month's count is the one the cap
+ * is held against (`vppsone.staff_whatsapp_month_sent()`): the outbox's
+ * AiSensy sends and the teacher-task link's.
  */
 
 export type StaffLogRow = {
@@ -41,11 +43,6 @@ export type StaffLogData = {
 
 const pairOf = (label: { hi: string; en: string }): Pair => p(label.en, label.hi);
 
-function istMonthStart(now = new Date()): string {
-  const shifted = new Date(now.getTime() + 330 * 60_000);
-  return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1) - 330 * 60_000).toISOString();
-}
-
 export async function loadStaffLog(transport: string): Promise<StaffLogData> {
   const viewer = await getCurrentStaff();
   const admin = createAdminClient();
@@ -58,12 +55,7 @@ export async function loadStaffLog(transport: string): Promise<StaffLogData> {
       .select("id, kind, status, status_reason, created_at, session_label, staff_profile_id")
       .order("created_at", { ascending: false })
       .limit(150),
-    admin
-      .from("staff_notice_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("transport", "aisensy")
-      .in("state", ["sending", "accepted", "unknown"])
-      .gte("started_at", istMonthStart()),
+    admin.rpc("staff_whatsapp_month_sent"),
     admin.from("runtime_flags").select("enabled, value").eq("key", "staff_whatsapp_month_cap").maybeSingle(),
     admin
       .from("staff_profiles")
@@ -117,7 +109,7 @@ export async function loadStaffLog(transport: string): Promise<StaffLogData> {
   const names = new Map(((people.data ?? []) as Array<{ id: string; display_name: string }>).map((row) => [row.id, row.display_name]));
 
   const capRow = cap.data as { enabled: boolean; value: unknown } | null;
-  const monthSent = month.count ?? 0;
+  const monthSent = typeof month.data === "number" ? month.data : 0;
   return {
     rows: visible.map((row) => {
       const attempt = latest.get(row.id);
