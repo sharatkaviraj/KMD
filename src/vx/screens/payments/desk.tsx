@@ -138,7 +138,7 @@ export type DeskActions = Omit<typeof SERVER, OptionalActions> & Partial<Pick<ty
 
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
 const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
-const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
+const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", online: "Online (Razorpay)" };
 const REMOVE_WINDOW_MS = 10 * 60_000;
 /** The design's avatar tones, cycled down the class list. */
 const TONES: [string, string][] = [["var(--accs)", "var(--accfg)"], ["var(--infos)", "var(--info)"], ["var(--oks)", "var(--ok)"], ["var(--warns)", "var(--warnfg)"], ["var(--s3)", "var(--fg)"]];

@@ -81,6 +81,75 @@ const die = (label, error) => {
 // On production: always TEST-2026-27 (`scope.sessionLabel`).
 const sessionLabel = scope.confined ? scope.sessionLabel : await readActiveSession(db);
 
+/* --------------------------------------- the TEST session's own master data */
+
+// TEST-2026-27 has its classes and students in the fee schema (the fees app's
+// rehearsal session) but none of One's own rows that hang off them: no
+// timetable labels for its classes and no enrolments, so every teacher screen
+// in it is an empty state and the fixture's class names resolve to nothing
+// (Phase C, 31 Oct). When confined, and only for the TEST session, this fills
+// the two in — idempotently, and touching no row of any other session:
+//   - class_aliases: the real session's timetable label for the class of the
+//     same name, pointed at the TEST class;
+//   - enrolments: every active student of a TEST class, enrolled in it.
+if (scope.confined) {
+  const pub = db.schema("public");
+  const activeSession = await readActiveSession(db);
+  const [{ data: testClasses, error: testClassesError }, { data: realAliases, error: realAliasesError }, { data: testAliases, error: testAliasesError }] =
+    await Promise.all([
+      pub.from("classes").select("id, class_name").eq("session_label", sessionLabel),
+      db.from("class_aliases").select("class_id, timetable_label, display_name, sort_order").eq("session_label", activeSession),
+      db.from("class_aliases").select("class_id").eq("session_label", sessionLabel),
+    ]);
+  die("Could not read the TEST classes", testClassesError);
+  die("Could not read the timetable labels", realAliasesError);
+  die("Could not read the TEST timetable labels", testAliasesError);
+
+  const { data: realClasses, error: realClassesError } = await pub
+    .from("classes")
+    .select("id, class_name")
+    .in("id", (realAliases ?? []).map((row) => row.class_id));
+  die("Could not read the real classes", realClassesError);
+
+  const testClassByName = new Map((testClasses ?? []).map((row) => [row.class_name.toLowerCase(), row.id]));
+  const realNameById = new Map((realClasses ?? []).map((row) => [row.id, row.class_name.toLowerCase()]));
+  const aliased = new Set((testAliases ?? []).map((row) => row.class_id));
+  const aliasRows = (realAliases ?? [])
+    .map((row) => ({ ...row, class_id: testClassByName.get(realNameById.get(row.class_id) ?? "") }))
+    .filter((row) => row.class_id && !aliased.has(row.class_id))
+    .map((row) => ({
+      class_id: row.class_id,
+      session_label: sessionLabel,
+      timetable_label: row.timetable_label,
+      display_name: row.display_name,
+      sort_order: row.sort_order,
+    }));
+  if (aliasRows.length > 0) {
+    die("Could not write the TEST timetable labels", (await db.from("class_aliases").insert(aliasRows)).error);
+  }
+
+  const testClassIds = (testClasses ?? []).map((row) => row.id);
+  const { data: testStudents, error: testStudentsError } = testClassIds.length
+    ? await pub.from("students").select("id, class_id").in("class_id", testClassIds).eq("status", "active")
+    : { data: [], error: null };
+  die("Could not read the TEST students", testStudentsError);
+  const today = new Date().toISOString().slice(0, 10);
+  const enrolmentRows = (testStudents ?? []).map((row) => ({
+    student_id: row.id,
+    class_id: row.class_id,
+    session_label: sessionLabel,
+    status: "enrolled",
+    enrolled_on: today,
+  }));
+  for (let index = 0; index < enrolmentRows.length; index += 500) {
+    const { error } = await db
+      .from("enrolments")
+      .upsert(enrolmentRows.slice(index, index + 500), { onConflict: "student_id,session_label", ignoreDuplicates: true });
+    die("Could not write the TEST enrolments", error);
+  }
+  console.log(`TEST master data: ${aliasRows.length} timetable labels added, ${enrolmentRows.length} active students enrolled (existing kept)`);
+}
+
 /* ------------------------------------------------------------ the mapping */
 
 const [{ data: aliases }, { data: staff }, { data: subjects }] = await Promise.all([

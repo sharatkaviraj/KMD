@@ -361,7 +361,9 @@ function buildCollectionRows(allRows: WorkbookTransaction[]) {
               ? "Bank transfer"
               : row.paymentMode === "cheque"
                 ? "Cheque"
-                : "Cash",
+                : row.paymentMode === "online"
+                  ? "Online (Razorpay)"
+                  : "Cash",
         receiptCount: 1,
         studentIds: new Set<string>([row.studentId]),
         totalAmount: row.totalAmount,

@@ -36,9 +36,15 @@ export const STUDENT_INFO_GROUPS = [
 
 export const GENDER_OPTIONS = ["Male", "Female", "Other"] as const;
 
+/**
+ * SBC is Rajasthan's Special Backward Class. Added on 2026-10-28: 6 live
+ * students already carried it from an import, outside the list, so it could
+ * be kept but never picked and never translated.
+ */
 export const CATEGORY_OPTIONS = [
   "General",
   "OBC",
+  "SBC",
   "SC",
   "ST",
   "EWS",
@@ -425,6 +431,31 @@ export function getStudentInfoFieldsByGroup(group: StudentInfoGroupId) {
 /** Message key for one option value, e.g. "General" -> "infoOptionGeneral". */
 export function getStudentInfoOptionKey(option: string) {
   return `infoOption${option.replace(/[^A-Za-z0-9]/g, "")}`;
+}
+
+/**
+ * What a reader sees for one STORED value of an option field — the ONE answer,
+ * for the phone cards and the desk panel alike.
+ *
+ * Matched to the option list without regard to case: an import wrote "GENERAL"
+ * for 14 live students where the list says "General", and they should read
+ * "सामान्य" in Hindi like everybody else in that category. A value the list does
+ * not hold at all is shown exactly as recorded (SBC was one, until it joined
+ * the list). Asking the catalogue for a key it lacks is never safe: next-intl
+ * throws MISSING_MESSAGE and renders the key path — "Students.infoOptionGENERAL"
+ * where a category should be, which is what the phone cards showed from
+ * 2026-09-07.
+ */
+export function studentInfoOptionLabel(
+  field: Pick<StudentInfoFieldDescriptor, "options" | "translateOptions">,
+  value: string,
+  t: { (key: string): string; has(key: string): boolean },
+): string {
+  if (!field.options || field.translateOptions === false) return value;
+  const wanted = value.trim().toLowerCase();
+  const option = field.options.find((entry) => entry.toLowerCase() === wanted);
+  const key = option ? getStudentInfoOptionKey(option) : null;
+  return key && t.has(key) ? t(key) : value;
 }
 
 function asTrimmedString(value: FormDataEntryValue | null) {

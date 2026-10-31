@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { p } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -65,6 +66,10 @@ export async function saveRemarkAction(input: { studentId: string; term: string;
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel || !/^[0-9a-f-]{36}$/i.test(input.studentId) || !input.term) {
     return { ok: false, message: p("Something was missing. Reload the page.", "कुछ अधूरा था। पेज फिर खोलें।") };
+  }
+  // The child's own session (Phase 3 fence), not only the resolved one.
+  if (!(await passesFence(() => assertStudentVisible(staff, input.studentId)))) {
+    return { ok: false, message: p("Only this child's class teacher writes the remark.", "टिप्पणी केवल कक्षा अध्यापक लिखते हैं।") };
   }
 
   const db = createAdminClient();

@@ -5,7 +5,7 @@ import type { LedgerSelectedStudent } from "@/modules/reports/domain/ledger-type
 import {
   STUDENT_INFO_GROUPS,
   getStudentInfoFieldsByGroup,
-  getStudentInfoOptionKey,
+  studentInfoOptionLabel,
 } from "@/modules/students-fees/domain/info-fields";
 import type { StudentDetail } from "@/modules/students-fees/domain/types";
 import { DetailList, DetailRow } from "@/ui/primitives/detail-list";
@@ -97,16 +97,10 @@ export async function StudentAboutPanel({
             <DetailList columns={2}>
               {fields.map((field) => {
                 const value = student[field.name];
-                // A value outside the option list has no translation key, and
-                // asking for one renders the key itself — "Students.infoOptionSBC"
-                // where a category should be. 22 students are in exactly that
-                // position, so fall back to what is actually recorded.
-                const optionKey =
-                  value && field.options && field.translateOptions !== false
-                    ? getStudentInfoOptionKey(value)
-                    : null;
-                const display =
-                  optionKey && t.has(optionKey) ? t(optionKey) : value;
+                // The same reader the phone cards use: "GENERAL" reads as
+                // General in the reader's language, and a value outside the
+                // option list, with no key, as recorded.
+                const display = value ? studentInfoOptionLabel(field, value, t) : value;
 
                 return (
                   <DetailRow

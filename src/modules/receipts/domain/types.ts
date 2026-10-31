@@ -95,6 +95,10 @@ export type ReceiptDetail = {
   receiptNumber: string;
   paymentDate: string;
   paymentMode: PaymentMode;
+  /** For an `online` receipt, how the parent paid on Razorpay (`upi`, `card`,
+   *  `netbanking`, `wallet`), read from the verified capture. Null for every
+   *  other mode; absent on draft previews and older fixtures. */
+  onlineMethod?: string | null;
   totalAmount: number;
   referenceNumber: string | null;
   notes: string | null;

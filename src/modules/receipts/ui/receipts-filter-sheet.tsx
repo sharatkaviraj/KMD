@@ -45,6 +45,7 @@ const MODE_KEYS: Record<PaymentMode, string> = {
   bank_transfer: "paymentModeBankTransfer",
   cheque: "paymentModeCheque",
   discount: "paymentModeDiscount",
+  online: "paymentModeOnline",
 };
 
 const SORT_KEYS: Record<ReceiptSort, string> = {

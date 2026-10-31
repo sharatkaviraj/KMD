@@ -1,7 +1,10 @@
 import "server-only";
 
 import { recordActivity } from "@/modules/activity/data/events";
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import {
+  DELIVERY_UNKNOWN_PREFIX,
+  sendAisensyCampaignMessage,
+} from "@/modules/whatsapp/data/aisensy";
 import { closeRun, openRun } from "@/modules/whatsapp/data/campaign-store";
 import {
   campaignFor,
@@ -22,6 +25,7 @@ import {
 } from "@/modules/whatsapp/domain/fee-reminders";
 import { randomBytes } from "node:crypto";
 
+import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { isoFromDdMmYyyy } from "@/platform/helpers/date";
 
 import { lateFeePhrase } from "@/modules/whatsapp/domain/late-fee";
@@ -648,9 +652,62 @@ async function sendOne(args: {
     .select("id")
     .single();
 
+  let claimId: string | null = claim?.id ?? null;
   if (claimError) {
-    if (claimError.code === "23505") return { kind: "already" };
-    return { kind: "failed", error: `Could not claim send slot: ${claimError.message}` };
+    if (claimError.code !== "23505") {
+      return { kind: "failed", error: `Could not claim send slot: ${claimError.message}` };
+    }
+    // Today's slot is taken. If what took it is a FAILED send, this is the
+    // retry it needs: take the row back to pending with today's message and a
+    // fresh pay code. Guarded on the status, so two retries racing each other
+    // still send once — the loser updates nothing and reads "already". A
+    // failed row used to block the family for the rest of the day, reported as
+    // "already had today's reminder" when nothing went.
+    //
+    // In a TEST / UAT / DEMO session a SENT row is taken back too: once a day
+    // protects parents, and a test session has none, while testing the pay
+    // link needed a second message to the office's own number the same day.
+    // A `pending` row is never taken — that is a send still in flight.
+    //
+    // In a real session a failure whose fate is unknown is NOT taken back: a
+    // timeout or a 5xx can come after AiSensy accepted the message, and one
+    // parent missed beats one parent messaged twice. Only a definite rejection
+    // is retried. The fees app retries every failed row; One differs here.
+    //
+    // Ported from the fees app's 1b932785 (the failed-row reclaim) and
+    // 31e85d27 (#86, the test-session rule) together: One's base predates both.
+    const isTestSession = isTestAcademicSessionLabel(sessionLabel);
+    const reclaimable = isTestSession ? ["failed", "sent"] : ["failed"];
+    let reclaim = supabase
+      .from("whatsapp_reminder_sends")
+      .update({
+        status: "pending",
+        destination,
+        due_amount: message.dueAmount,
+        template_params: templateParams,
+        language: args.language ?? filters.language,
+        pay_code: payCode,
+        pay_code_expires_on: lastDateIsoFor(filters, candidate),
+        sent_by: staffId,
+        run_id: runId,
+        error_message: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("student_id", candidate.studentId)
+      .eq("session_label", sessionLabel)
+      .eq("sent_on", today)
+      .eq("campaign_name", campaignName)
+      .eq("destination_role", destinationRole)
+      .in("status", reclaimable);
+    if (!isTestSession) {
+      reclaim = reclaim.or(
+        `error_message.is.null,error_message.not.like.${DELIVERY_UNKNOWN_PREFIX.trim()}*`,
+      );
+    }
+    const { data: reclaimed } = await reclaim.select("id");
+    const row = ((reclaimed ?? []) as Array<{ id: string }>)[0];
+    if (!row) return { kind: "already" };
+    claimId = row.id;
   }
 
   const result = await sendAisensyCampaignMessage({
@@ -666,10 +723,14 @@ async function sendOne(args: {
     .update({
       status: result.ok ? "sent" : "failed",
       provider_message_id: result.ok ? result.messageId : null,
-      error_message: result.ok ? null : result.error,
+      error_message: result.ok
+        ? null
+        : result.deliveryUnknown
+          ? `${DELIVERY_UNKNOWN_PREFIX}${result.error}`
+          : result.error,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", claim.id);
+    .eq("id", claimId);
 
   return result.ok
     ? { kind: "sent", providerMessageId: result.messageId ?? null }

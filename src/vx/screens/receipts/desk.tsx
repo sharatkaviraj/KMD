@@ -28,7 +28,7 @@ import { deskHref } from "./href";
 import { AVATAR_TONES, dayGroupLabel, daySeg, deskDay, deskTime, MIX, MODE_LOOK, nameInitials } from "./look";
 import { ReceiptPanel } from "./receipt-panel";
 import type { DeskProps, DeskRow } from "./types";
-import { MODE_WORD, receiptCount, W } from "./words";
+import { MODE_WORD, receiptCount, receiptModeWord, W } from "./words";
 
 /*
  * Receipts and the day close, drawn as the design's `Fees` module: KPI tiles,
@@ -331,7 +331,7 @@ function DeskTableRow({ r, delay, tone, sel, href, narrow }: { r: DeskRow; delay
         </span>
       </span>
       <span role="cell" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, minWidth: 0 }}>
-        <span className="pill" style={{ background: r.isReversed ? "var(--bads)" : look.bg, color: r.isReversed ? "var(--bad)" : look.fg }}>{r.isReversed ? tx(W.reversed) : tx(MODE_WORD[mode])}</span>
+        <span className="pill" style={{ background: r.isReversed ? "var(--bads)" : look.bg, color: r.isReversed ? "var(--bad)" : look.fg }}>{r.isReversed ? tx(W.reversed) : tx(receiptModeWord(r.paymentMode))}</span>
         {r.reversalAsked ? <span className="pill" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>{tx(W.reversalAskedTag)}</span> : null}
       </span>
       {narrow ? null : <span role="cell" className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{r.receivedBy ?? "—"}</span>}
@@ -361,7 +361,7 @@ function DeskCardRow({ r, first, delay, href }: { r: DeskRow; first: boolean; de
       </span>
       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
         <span className="num" style={{ fontSize: 15, fontWeight: 700, textDecoration: r.isReversed ? "line-through" : "none" }}>{rupees(r.totalAmount)}</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: r.isReversed ? "var(--bad)" : "var(--mut)" }}>{r.isReversed ? tx(W.reversed) : tx(MODE_WORD[mode])}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: r.isReversed ? "var(--bad)" : "var(--mut)" }}>{r.isReversed ? tx(W.reversed) : tx(receiptModeWord(r.paymentMode))}</span>
         {r.reversalAsked ? <span style={{ fontSize: 11, fontWeight: 600, color: "var(--warnfg)" }}>{tx(W.reversalAskedTag)}</span> : null}
       </span>
     </Link>

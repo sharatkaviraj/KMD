@@ -10,6 +10,7 @@ import { describeReceiptCampaign } from "@/modules/whatsapp/domain/campaign-bodi
 import { describeReceiptDocumentCampaign } from "@/modules/whatsapp/domain/campaign-bodies-v5";
 import { isNoticeLanguage, type NoticeLanguage } from "@/modules/whatsapp/domain/campaigns";
 import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
+import { receiptVerifyPath } from "@/modules/receipts/domain/verify-url";
 import { createAbsoluteUrl } from "@/platform/env";
 import { formatDdMmYyyy, istTodayIso } from "@/platform/helpers/date";
 
@@ -113,7 +114,7 @@ async function renderAndStoreReceipt(args: {
     const { renderReceiptPdf } = await import("@/modules/receipts/domain/receipt-pdf");
     const buffer = await renderReceiptPdf({
       receipt,
-      verifyUrl: createAbsoluteUrl(`/r/${encodeURIComponent(receipt.receiptNumber)}`),
+      verifyUrl: createAbsoluteUrl(receiptVerifyPath(receipt.receiptNumber)),
     });
 
     const document = await storeNoticeDocument({

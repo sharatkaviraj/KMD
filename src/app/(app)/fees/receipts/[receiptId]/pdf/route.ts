@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { createAbsoluteUrl } from "@/platform/env";
 import { isUuid } from "@/platform/helpers/uuid";
 import { getReceiptDetail } from "@/modules/receipts/data/queries";
+import { receiptVerifyPath } from "@/modules/receipts/domain/verify-url";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
 import { assertReceiptVisible, refusalResponse } from "@/platform/auth/test-session-access";
 
@@ -48,7 +49,7 @@ export async function GET(
 
     const buffer = await renderReceiptPdf({
       receipt,
-      verifyUrl: createAbsoluteUrl(`/r/${encodeURIComponent(receipt.receiptNumber)}`),
+      verifyUrl: createAbsoluteUrl(receiptVerifyPath(receipt.receiptNumber)),
     });
 
     return new Response(new Uint8Array(buffer), {

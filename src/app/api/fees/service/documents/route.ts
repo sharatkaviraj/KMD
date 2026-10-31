@@ -1,6 +1,7 @@
 import { createAbsoluteUrl } from "@/platform/env";
 import { isUuid } from "@/platform/helpers/uuid";
 import { getReceiptDetailWith } from "@/modules/receipts/data/queries";
+import { receiptVerifyPath } from "@/modules/receipts/domain/verify-url";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 
 /**
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
     const { renderReceiptPdf, receiptPdfFilename } = await import("@/modules/receipts/domain/receipt-pdf");
     const buffer = await renderReceiptPdf({
       receipt,
-      verifyUrl: createAbsoluteUrl(`/r/${encodeURIComponent(receipt.receiptNumber)}`),
+      verifyUrl: createAbsoluteUrl(receiptVerifyPath(receipt.receiptNumber)),
     });
 
     if (buffer.byteLength > MAX_BYTES) {

@@ -254,6 +254,15 @@ export type CollectionReceipt = {
 export const COLLECTION_MODES = ["upi", "cash", "cheque", "bank_transfer"] as const;
 export type CollectionMode = (typeof COLLECTION_MODES)[number];
 
+/**
+ * The column a receipt's money falls in. `online` (a Razorpay Pay now payment,
+ * always UPI since the fees app's #86) is filed under UPI, as the fees app's
+ * day strip does — never Cash, and never left out of the mode split.
+ */
+export function collectionModeOf(paymentMode: string): string {
+  return paymentMode === "online" ? "upi" : paymentMode;
+}
+
 export type CollectionBucket = {
   key: string;
   receipts: number;
@@ -297,13 +306,14 @@ export function bucketCollection(
   for (const r of receipts) {
     if (r.reversed || r.paymentMode === "discount") continue;
     if (r.paymentDate < from || r.paymentDate > to) continue;
-    if (mode && r.paymentMode !== mode) continue;
+    const column = collectionModeOf(r.paymentMode);
+    if (mode && column !== mode) continue;
     if (classId && r.classId !== classId) continue;
     const b = buckets.get(keyOf(r.paymentDate));
     if (!b) continue;
     b.receipts += 1;
     b.total += r.amount;
-    if ((COLLECTION_MODES as readonly string[]).includes(r.paymentMode)) b.byMode[r.paymentMode as CollectionMode] += r.amount;
+    if ((COLLECTION_MODES as readonly string[]).includes(column)) b.byMode[column as CollectionMode] += r.amount;
   }
   return [...buckets.values()];
 }

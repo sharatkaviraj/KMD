@@ -7,7 +7,9 @@ import { SectionCard } from "@/ui/shell/section-card";
 import { OfficeNotice } from "@/ui/office/office-ui";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
-import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { hasAnyStaffPermission, requireStaffPermission } from "@/modules/fees/platform/session";
+import { STUDENT_PHOTO_DOWNLOAD_PERMISSIONS } from "@/modules/students-fees/domain/photo-permissions";
+import { getStudentFormOptions } from "@/modules/students-fees/data/queries";
 import { cn } from "@/platform/utils";
 
 export const revalidate = 60;
@@ -27,6 +29,13 @@ const exportGroups = [
         key: "student-master",
         labelKey: "itemStudentMaster",
         detailKey: "itemStudentMasterDetail",
+        icon: IdCard,
+        tone: "neutral" as const,
+      },
+      {
+        key: "student-master-photos",
+        labelKey: "itemStudentPhotos",
+        detailKey: "itemStudentPhotosDetail",
         icon: IdCard,
         tone: "neutral" as const,
       },
@@ -143,17 +152,22 @@ function getIconStyles(tone: "neutral" | "info" | "warning" | "danger" | "succes
 }
 
 type ExportsPageProps = {
-  searchParams?: Promise<{ session?: string }>;
+  searchParams?: Promise<{ session?: string; classId?: string }>;
 };
 
 export default async function ExportsPage({ searchParams }: ExportsPageProps) {
-  await requireStaffPermission("reports:view", { onDenied: "redirect" });
+  const staff = await requireStaffPermission("reports:view", { onDenied: "redirect" });
+  const canExportPhotos = hasAnyStaffPermission(staff, STUDENT_PHOTO_DOWNLOAD_PERMISSIONS);
   const t = await getTranslations("Exports");
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const viewSession = await resolveViewSession({
     searchParamSession: resolvedSearchParams?.session,
     cookieSession: await getViewSessionCookie(),
   });
+  const { allClassOptions } = await getStudentFormOptions({ sessionLabel: viewSession.sessionLabel });
+  const classOptions = allClassOptions.filter((option) => option.sessionLabel === viewSession.sessionLabel);
+  const classId = classOptions.some((option) => option.id === resolvedSearchParams?.classId)
+    ? resolvedSearchParams!.classId! : "";
 
   return (
     <div className="space-y-6">
@@ -177,13 +191,26 @@ export default async function ExportsPage({ searchParams }: ExportsPageProps) {
             // cell and wrap one word per line — span the full row instead.
             className={group.titleKey === "groupAnalysis" ? "lg:col-span-3" : undefined}
           >
+            {group.titleKey === "groupStudents" ? (
+              <form className="mb-3 flex flex-wrap items-center gap-2" action="/fees/exports">
+                <input type="hidden" name="session" value={viewSession.sessionLabel} />
+                <label htmlFor="export-class" className="text-sm">{t("studentClass")}</label>
+                <select id="export-class" name="classId" defaultValue={classId} className="h-11 max-w-full rounded-md border border-border bg-card px-2 text-sm">
+                  <option value="">{t("allClasses")}</option>
+                  {classOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+                <button type="submit" className="h-11 rounded-md border border-border px-3 text-sm">{t("applyClass")}</button>
+              </form>
+            ) : null}
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
               {group.items.map((item) => {
+                if (item.key === "student-master-photos" && !canExportPhotos) return null;
                 const styles = getIconStyles(item.tone);
                 const IconComponent = item.icon;
-                const xlsxHref = `/fees/exports/${item.key}?session=${encodeURIComponent(viewSession.sessionLabel)}`;
-                const pdfHref = `/fees/exports/${item.key}?session=${encodeURIComponent(viewSession.sessionLabel)}&format=pdf`;
-                const supportsPdf = item.key !== "ai-context-bundle";
+                const classParam = group.titleKey === "groupStudents" && classId ? `&classId=${encodeURIComponent(classId)}` : "";
+                const xlsxHref = `/fees/exports/${item.key}?session=${encodeURIComponent(viewSession.sessionLabel)}${classParam}`;
+                const pdfHref = `${xlsxHref}&format=pdf`;
+                const supportsPdf = item.key !== "ai-context-bundle" && item.key !== "student-master-photos";
                 return (
                   <div
                     key={item.key}
@@ -216,6 +243,7 @@ export default async function ExportsPage({ searchParams }: ExportsPageProps) {
                         href={xlsxHref}
                         download
                         pendingLabel={t("formatXlsx")}
+                        timeoutMs={item.key === "student-master-photos" ? 150_000 : undefined}
                         className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-success/30 bg-success-soft px-2.5 text-xs font-bold text-success-soft-foreground hover:bg-success-soft/80 md:h-auto md:rounded-md md:py-1.5 md:font-medium"
                       >
                         <Download className="size-3.5" aria-hidden="true" />

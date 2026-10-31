@@ -19,6 +19,7 @@ The Payment Desk. The only place in this application that posts money.
 - **Allocate against `total_pending`**, not `pending_amount`. Fees-only would refuse to let a cashier take a late fee the ledger is still asking for.
 - **Call the permission-gated RPCs with the user-JWT client**, never the service-role one: `has_permission` needs `auth.uid()`, which is null under a service-role JWT, so every call raises.
 - Reference number is optional for every payment mode.
+- **`online` is UPI, never Cash.** Every mode switch that ends in a Cash default must handle `online` first. Online money is a UPI payment through Razorpay, and Cash is the figure reconciled against the drawer. `tests/fees/unit/online-mode-never-cash.test.ts` lists every such switch: add yours to it — One's own vx screens (`src/vx/`, `src/modules/receipts/vx/`) included. (Ported from fees 63ba81df.)
 
 ## Never
 

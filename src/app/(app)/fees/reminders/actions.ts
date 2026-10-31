@@ -3,7 +3,7 @@
 import { insertDefaulterContacts } from "@/modules/defaulters/data/contacts";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireAnyStaffPermission, requireStaffPermission } from "@/modules/fees/platform/session";
-import { assertStudentsVisible, assertStudentVisible } from "@/platform/auth/test-session-access";
+import { assertStudentsVisible, assertStudentVisible, filterVisibleStudentIds } from "@/platform/auth/test-session-access";
 import { renderNoticeBody } from "@/modules/whatsapp/domain/campaign-bodies";
 import { isAisensyConfigured, sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
 import { getFeePolicyForSession } from "@/modules/fees/data/policy";
@@ -449,7 +449,12 @@ export async function addReminderStudentAction(formData: FormData): Promise<void
 
   const supabase = createAdminClient();
   const sessionLabel = await resolveReminderSessionLabel(supabase);
-  const matches = await searchSessionStudents(supabase, sessionLabel, query);
+  const found = await searchSessionStudents(supabase, sessionLabel, query);
+  // The search runs inside the viewer's own session already; the child's own
+  // session is checked too (Phase 3 fence), so nobody is put on a list by an
+  // id this viewer may not open.
+  const visible = new Set(await filterVisibleStudentIds(null, found.map((match) => match.studentId)));
+  const matches = found.filter((match) => visible.has(match.studentId));
 
   if (matches.length === 1) {
     const existing = (params.get("include") ?? "").split(",").filter(Boolean);

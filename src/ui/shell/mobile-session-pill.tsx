@@ -21,6 +21,7 @@ import {
   isTestSession,
   normalizeSessionLabel,
   sessionSyncGuard,
+  sessionThisViewerMayOpen,
 } from "./session-pill";
 
 const EMPTY_SESSIONS: AvailableSessionRow[] = [];
@@ -50,7 +51,11 @@ export function MobileSessionPill({
   const [isSwitching, setIsSwitching] = useState(false);
   const [isRefreshing, startNavTransition] = useTransition();
   const { setIsSwitching: setGlobalSessionSwitching } = useSessionSwitching();
-  const urlSession = normalizeSessionLabel(searchParams.get("session"));
+  // A `?session=` this viewer may not open is ignored by the server (Phase 3:
+  // a test account asking for 2026-27 is shown TEST-2026-27). The pill must
+  // not print it either, or a test account reads "2026-27" over TEST data. So
+  // the URL only wins once the viewer's own session list says it may.
+  const urlSession = sessionThisViewerMayOpen(normalizeSessionLabel(searchParams.get("session")), sessions);
   const [optimisticLabel, setOptimisticLabel] = useState<string | null>(null);
   const displayLabel = optimisticLabel ?? urlSession ?? currentLabel;
   const displayIsTest =
@@ -227,7 +232,17 @@ export function MobileSessionPill({
         disabled={isTransitioning}
         aria-busy={isTransitioning}
       >
-        <span className="min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]">{displayLabel}</span>
+        {/* A long label (`TEST-2026-27`) is set a size smaller so it stays on
+            one line at 375px instead of breaking at its hyphen; it still wraps,
+            never truncates, if a longer one ever comes (One-only, Phase C). */}
+        <span
+          className={cn(
+            "min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]",
+            displayLabel.length > 9 && "text-xs tracking-tight",
+          )}
+        >
+          {displayLabel}
+        </span>
         <span className="grid size-4 place-items-center" aria-hidden="true">
           {isTransitioning ? (
             <Loader2 className="size-4 motion-safe:animate-spin" />

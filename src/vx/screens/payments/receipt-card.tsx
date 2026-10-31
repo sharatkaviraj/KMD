@@ -8,7 +8,7 @@ import type { Pair } from "@/vx/text";
 import { ampm, dotJoin, shortDate, srTag, timeAndDay, wordsOf } from "./look";
 import { W } from "./words";
 
-const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
+const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", online: "Online (Razorpay)" };
 
 /** The receipt is a bilingual paper: Hindi first, then English, whatever the reader's language. */
 const both = (pair: Pair) => (pair.hi ? `${pair.hi} · ${pair.en}` : pair.en);

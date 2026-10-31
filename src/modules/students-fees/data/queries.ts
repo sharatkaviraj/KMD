@@ -1681,7 +1681,34 @@ async function countImportStudentReferences(studentId: string) {
 }
 
 export async function getStudentDeletionSafety(studentId: string): Promise<StudentDeletionSafety | null> {
-  const student = await getStudentDetail(studentId);
+  // The counts only need the id, so they start alongside the student read
+  // instead of after it. That read is request-cached and shared with the
+  // profile's workspace loader, so this does not add a query -- it removes a
+  // round trip of waiting from every profile open.
+  const [student, counts] = await Promise.all([
+    getStudentDetail(studentId),
+    Promise.all([
+      countRows("installments", studentId),
+      countRows("receipts", studentId),
+      countRows("payments", studentId),
+      countRows("payment_adjustments", studentId),
+      countRows("refund_requests", studentId).catch(() => 0),
+      countRows("config_change_blocked_installments", studentId).catch(() => 0),
+      countRows("ledger_regeneration_rows", studentId).catch(() => 0),
+      countImportStudentReferences(studentId).catch(() => 0),
+      countRows("student_fee_overrides", studentId).catch(() => 0),
+      countRows("audit_logs", studentId, "record_id").catch(() => 0),
+      // The five counts below back `on delete restrict` / `no action` foreign keys
+      // that used to be invisible to this check: the delete button was offered and
+      // Postgres then refused the DELETE. The first two block; the rest are cleaned
+      // up by hardDeleteStudent().
+      countRows("receipt_adjustments", studentId).catch(() => 0),
+      countRows("receipt_finance_adjustments", studentId).catch(() => 0),
+      countRows("student_carry_forward_balances", studentId).catch(() => 0),
+      countRows("student_session_reanchor_log", studentId).catch(() => 0),
+      countRows("payment_import_rows", studentId).catch(() => 0),
+    ]),
+  ]);
 
   if (!student) {
     return null;
@@ -1703,27 +1730,8 @@ export async function getStudentDeletionSafety(studentId: string): Promise<Stude
     carryForwardBalanceCount,
     sessionReanchorLogCount,
     paymentImportRowCount,
-  ] = await Promise.all([
-    countRows("installments", studentId),
-    countRows("receipts", studentId),
-    countRows("payments", studentId),
-    countRows("payment_adjustments", studentId),
-    countRows("refund_requests", studentId).catch(() => 0),
-    countRows("config_change_blocked_installments", studentId).catch(() => 0),
-    countRows("ledger_regeneration_rows", studentId).catch(() => 0),
-    countImportStudentReferences(studentId).catch(() => 0),
-    countRows("student_fee_overrides", studentId).catch(() => 0),
-    countRows("audit_logs", studentId, "record_id").catch(() => 0),
-    // The five counts below back `on delete restrict` / `no action` foreign keys
-    // that used to be invisible to this check: the delete button was offered and
-    // Postgres then refused the DELETE. The first two block; the rest are cleaned
-    // up by hardDeleteStudent().
-    countRows("receipt_adjustments", studentId).catch(() => 0),
-    countRows("receipt_finance_adjustments", studentId).catch(() => 0),
-    countRows("student_carry_forward_balances", studentId).catch(() => 0),
-    countRows("student_session_reanchor_log", studentId).catch(() => 0),
-    countRows("payment_import_rows", studentId).catch(() => 0),
-  ]);
+  ] = counts;
+
   const deletePolicy = getStudentDeletePolicy({
     installmentCount,
     receiptCount,

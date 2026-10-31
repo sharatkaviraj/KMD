@@ -149,6 +149,9 @@ type TxnTranslator = ReturnType<typeof useTranslations<"Transactions">>;
 
 function formatPaymentModeLabel(value: string, t: TxnTranslator) {
   if (value === "upi") return t("paymentModeUpi");
+  // A parent's payment from the Pay now link: always UPI, through Razorpay.
+  // It fell through to "Cash" here and the list badged it CASH (2026-10-30).
+  if (value === "online") return t("paymentModeOnline");
   if (value === "bank_transfer") return t("paymentModeBankTransfer");
   if (value === "cheque") return t("paymentModeCheque");
   if (value === "discount") return "Discount";
@@ -157,7 +160,7 @@ function formatPaymentModeLabel(value: string, t: TxnTranslator) {
 
 function modeBadgeClassName(mode: string) {
   if (mode === "cash") return "bg-success-soft text-success-soft-foreground";
-  if (mode === "upi") return "bg-info-soft text-info-soft-foreground";
+  if (mode === "upi" || mode === "online") return "bg-info-soft text-info-soft-foreground";
   if (mode === "bank_transfer") return "bg-accent-soft text-accent-soft-foreground";
   if (mode === "cheque") return "bg-warning-soft text-warning-soft-foreground";
   if (mode === "discount") return "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200";
@@ -363,7 +366,7 @@ function TransactionsTable({
                   "grid size-10 shrink-0 place-items-center rounded-xl text-[10px] font-extrabold uppercase",
                   row.paymentMode === "cash"
                     ? "tone-accent"
-                    : row.paymentMode === "upi"
+                    : row.paymentMode === "upi" || row.paymentMode === "online"
                       ? "tone-info"
                       : "tone-neutral",
                 )}

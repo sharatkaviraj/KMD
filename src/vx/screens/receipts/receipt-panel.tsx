@@ -18,7 +18,7 @@ import { Btn, Pill, WhatsAppPreview, type Tone } from "@/vx/ui/primitives";
 import { deskHref } from "./href";
 import { deskDay, deskTime } from "./look";
 import type { DeskProps, HistoryEvent, SelectedReceipt } from "./types";
-import { fill, MODE_WORD, REASON_SUB, REASON_WORD, SHARE_FOOTER, shareLines, W } from "./words";
+import { fill, receiptModeWord, REASON_SUB, REASON_WORD, SHARE_FOOTER, shareLines, W } from "./words";
 
 /** One labelled fact on the receipt: 11px label over a 600 value. */
 function Fact({ k, v }: { k: string; v: React.ReactNode }) {
@@ -148,7 +148,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
   const firstName = r.studentFullName.split(" ")[0] ?? r.studentFullName;
   const fatherFirst = r.fatherName?.split(" ")[0] ?? null;
   const sendLabel = sent ? tx(W.sendAgain) : fatherFirst ? tx(fill(W.sendTo, { name: fatherFirst })) : tx(W.sendWa);
-  const modeLine = `${tx(MODE_WORD[mode])}${r.referenceNumber ? ` · ${mode === "upi" ? `${tx(W.ref).toLowerCase()} ` : ""}${r.referenceNumber}` : ""}`;
+  const modeLine = `${tx(receiptModeWord(r.paymentMode))}${r.referenceNumber ? ` · ${mode === "upi" ? `${tx(W.ref).toLowerCase()} ` : ""}${r.referenceNumber}` : ""}`;
   const tools = [perms.print, canAskReverse].filter(Boolean).length;
 
   return (
@@ -240,7 +240,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         open={sheet === "reverse" && canAskReverse}
         onClose={() => setSheet(null)}
         title={`${tx(W.reverse)} ${r.receiptNumber}?`}
-        sub={`${r.studentFullName} · ${r.classLabel} · ${rupees(remaining)} · ${tx(MODE_WORD[mode])}`}
+        sub={`${r.studentFullName} · ${r.classLabel} · ${rupees(remaining)} · ${tx(receiptModeWord(r.paymentMode))}`}
         footer={
           declining ? (
             <>

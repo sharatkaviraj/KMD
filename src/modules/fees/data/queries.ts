@@ -771,6 +771,10 @@ async function sumReceiptSnapshot(
         totals.cashTotal += amount;
         break;
       case "upi":
+      // Pay now link payments are UPI through Razorpay. They counted in the
+      // day's total but in no mode, so the strip's split never added up — and
+      // they are never cash, which is what the drawer is checked against.
+      case "online":
         totals.upiTotal += amount;
         break;
       case "bank_transfer":

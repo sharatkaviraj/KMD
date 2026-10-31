@@ -174,6 +174,7 @@ Fee reminders and the message templates behind them.
   about the ledger, and the counter will ask for something different.
   `describeLateFeeDrift` takes `statesAccountBalance` for exactly that, and it
   still warns rather than blocks — it is the owner's school and the owner's call.
+- **A failed send is retried the same day, but only a definite rejection.** `sendOne` takes a `failed` row back to `pending` on the next run (fees 1b932785). In a real session a failure whose fate is unknown — a network error or a 5xx, recorded with the `delivery-unknown:` prefix (`DELIVERY_UNKNOWN_PREFIX` in `data/aisensy.ts`) — stays claimed: AiSensy may already have accepted it, and one parent missed beats one parent messaged twice. A TEST session retries any row, `sent` included, and its `pay_code` is rotated, which retires the earlier message's link (fees 31e85d27). One differs from the fees app here (D-352).
 - **The ledger-quoted notices never take a late fee from the screen.** `late_fee_applied` and the two waiver notices quote `late_fee_pending` per family (`LEDGER_QUOTED_SITUATIONS`); the control is replaced by hidden inputs. `promise_due` prints each family's own promised date (`RUN_DATE_FREE_SITUATIONS`), so the run's date is neither shown nor guarded on it.
 
 ## Never

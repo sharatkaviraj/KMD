@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { db, signIn } from "./support/harness";
 
@@ -32,28 +32,58 @@ import { db, signIn } from "./support/harness";
  * matrix (tests/test-session-policy.test.ts) and the SQL proof cover it.
  */
 
-async function studentIn(session: string): Promise<string> {
+/**
+ * "Not found", however the page says it. A route with a `loading.tsx` streams:
+ * the 200 is on the wire before the page calls `notFound()`, so the status
+ * stays 200 and the not-found screen arrives in the stream (seen on
+ * `/fees/students/[id]`, Phase C). Either way the record must not show — and
+ * on a 200 that is checked, not assumed: `absent` (the real record's admission
+ * number) must not be in the page's visible text, so a page that streamed the
+ * record and then a not-found heading still fails. Compared as a boolean, so a
+ * failure does not print it.
+ */
+async function expectNotFound(page: Page, status: number | undefined, what: string, absent: string) {
+  if (status === 404) return;
+  expect(status, what).toBe(200);
+  // A screen the account has no permission for (the edit page, for an
+  // accountant) refuses before it reads the record — a redirect inside the
+  // stream, so it lands after goto() returns. Also not shown.
+  const notFound = page.getByRole("heading", { name: /could not find|does not exist|no longer exists|not found|नहीं मिला/i }).first();
+  await expect
+    .poll(async () => new URL(page.url()).pathname === "/access-denied" || (await notFound.isVisible()), {
+      message: what,
+      timeout: 60_000,
+    })
+    .toBe(true);
+  const visible = await page.locator("body").innerText();
+  expect(visible.includes(absent), `${what} shows the real record`).toBe(false);
+}
+
+type StudentRef = { id: string; admissionNo: string };
+
+async function studentIn(session: string): Promise<StudentRef> {
   const { data: classes, error } = await db("public").from("classes").select("id").eq("session_label", session).limit(20);
   if (error || !classes?.length) throw new Error(`No ${session} class to pick a student from`);
   const { data, error: studentError } = await db("public")
     .from("students")
-    .select("id")
+    .select("id, admission_no")
     .in("class_id", classes.map((row) => row.id as string))
+    .not("admission_no", "is", null)
     .limit(1)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string; admission_no: string }>();
   if (studentError || !data) throw new Error(`No ${session} student`);
-  return data.id;
+  return { id: data.id, admissionNo: data.admission_no };
 }
 
-async function receiptIn(session: string): Promise<string | null> {
+async function receiptIn(session: string): Promise<{ receiptNumber: string; admissionNo: string } | null> {
   const student = await studentIn(session);
   const { data } = await db("public")
     .from("receipts")
     .select("receipt_number")
-    .eq("student_id", student)
+    .eq("student_id", student.id)
     .limit(1)
     .maybeSingle<{ receipt_number: string }>();
-  return data?.receipt_number ?? null;
+  return data ? { receiptNumber: data.receipt_number, admissionNo: student.admissionNo } : null;
 }
 
 test("a test account asking for 2026-27 lands on TEST-2026-27", async ({ page }) => {
@@ -73,13 +103,13 @@ test("a test admin asking for 2026-27 still lands on TEST-2026-27", async ({ pag
 test("a real student opened by id is not found; a TEST student opens", async ({ page }) => {
   await signIn(page, "accountant", "/fees/dashboard");
   const real = await studentIn("2026-27");
-  for (const path of [`/fees/students/${real}`, `/fees/students/${real}/edit`, `/fees/reports/ledger/${real}/print`]) {
+  for (const path of [`/fees/students/${real.id}`, `/fees/students/${real.id}/edit`, `/fees/reports/ledger/${real.id}/print`]) {
     const response = await page.goto(path);
-    expect(response?.status(), path).toBe(404);
+    await expectNotFound(page, response?.status(), path, real.admissionNo);
   }
 
   const testStudent = await studentIn("TEST-2026-27");
-  const ok = await page.goto(`/fees/students/${testStudent}`);
+  const ok = await page.goto(`/fees/students/${testStudent.id}`);
   expect(ok?.status()).toBe(200);
 });
 
@@ -87,8 +117,8 @@ test("a real receipt opened by number is not found", async ({ page }) => {
   const receipt = await receiptIn("2026-27");
   test.skip(!receipt, "no 2026-27 receipt in the replica");
   await signIn(page, "accountant", "/fees/dashboard");
-  const response = await page.goto(`/receipts/${encodeURIComponent(receipt ?? "")}`);
-  expect(response?.status()).toBe(404);
+  const response = await page.goto(`/receipts/${encodeURIComponent(receipt?.receiptNumber ?? "")}`);
+  await expectNotFound(page, response?.status(), "receipt", receipt?.admissionNo ?? "");
 });
 
 test("a test teacher gets the pill, and it says TEST-2026-27", async ({ page }) => {

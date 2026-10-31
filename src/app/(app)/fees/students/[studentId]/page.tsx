@@ -57,7 +57,7 @@ import { getStudentDeletionSafety, getStudentFamilyMembersDetail } from "@/modul
 import {
   STUDENT_INFO_GROUPS,
   getStudentInfoFieldsByGroup,
-  getStudentInfoOptionKey,
+  studentInfoOptionLabel,
 } from "@/modules/students-fees/domain/info-fields";
 import { getStudentWorkspaceData } from "@/modules/students-fees/data/workspace";
 import {
@@ -458,6 +458,7 @@ export default async function StudentDetailPage({
     upi: "UPI",
     bank_transfer: "Bank transfer",
     cheque: "Cheque",
+    online: "Online (Razorpay)",
   };
   const receiptIdByNumber = new Map(receipts.map((r) => [r.receiptNumber, r.id]));
 
@@ -1316,9 +1317,10 @@ export default async function StudentDetailPage({
                       {ts(field.labelKey)}
                     </dt>
                     <dd className="text-right text-[12.5px] font-bold text-foreground">
-                      {field.options && field.translateOptions !== false
-                        ? ts(getStudentInfoOptionKey(value))
-                        : value}
+                      {/* Never the option's message key looked up directly: a
+                          stored "GENERAL" has none, and this card printed
+                          "Students.infoOptionGENERAL" on every phone. */}
+                      {studentInfoOptionLabel(field, value, ts)}
                     </dd>
                   </div>
                 );

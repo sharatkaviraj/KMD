@@ -1,3 +1,4 @@
+import { deskModeOf } from "@/modules/receipts/vx/domain/day-close";
 import { p } from "@/vx/text";
 
 /** The words on /receipts, English with Hindi (src/vx/text.ts). */
@@ -16,6 +17,7 @@ export const W = {
   cheque: p("Cheque", "चेक"),
   bank: p("Bank", "बैंक"),
   other: p("Other", "अन्य"),
+  online: p("Online (Razorpay)", "ऑनलाइन (Razorpay)"),
   reversed: p("Reversed", "रद्द"),
   reversedSub: p("kept in history, not counted", "इतिहास में, गिनती में नहीं"),
   toCount: p("to count", "गिनना है"),
@@ -214,6 +216,17 @@ export const MODE_WORD: Record<string, { en: string; hi?: string }> = {
   bank: W.bank,
   other: W.other,
 };
+
+/**
+ * What one receipt's mode reads as. The desk files an `online` (Razorpay)
+ * receipt under UPI for its totals, but the receipt itself says where the
+ * money came from — never "Cash", and not plain "UPI" the office would look
+ * for in its own bank app (fees app #86 / #103).
+ */
+export function receiptModeWord(paymentMode: string | null | undefined): { en: string; hi?: string } {
+  if (paymentMode === "online") return W.online;
+  return MODE_WORD[deskModeOf(paymentMode)];
+}
 
 export const REASON_WORD: Record<string, { en: string; hi?: string }> = {
   wrong_amount: W.rWrongAmount,

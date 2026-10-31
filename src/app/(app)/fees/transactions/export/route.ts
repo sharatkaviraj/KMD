@@ -41,6 +41,11 @@ function formatPaymentModeLabel(value: string) {
     return "Cheque";
   }
 
+  // An online receipt otherwise exported as "Cash".
+  if (value === "online") {
+    return "Online (Razorpay)";
+  }
+
   return "Cash";
 }
 

@@ -26,7 +26,13 @@ import {
 import { classScopeFor, heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
-import { deleteOwnNote, writeNote } from "@/modules/notes/data/notes-repo";
+import { deleteOwnNote, noteSessionLabel, writeNote } from "@/modules/notes/data/notes-repo";
+import {
+  assertClassVisible,
+  assertSessionWritable,
+  assertStudentVisible,
+  passesFence,
+} from "@/platform/auth/test-session-access";
 import {
   idleTeachState,
   type TeachState,
@@ -91,6 +97,10 @@ export async function saveAttendanceAction(
 
   const parsed = saveRegisterSchema.safeParse(payload);
   if (!parsed.success) return { status: "refused", message: fieldErrorsFrom(parsed.error) };
+  // The class's own session (Phase 3 fence), not only the resolved one.
+  if (!(await passesFence(() => assertClassVisible(actor, parsed.data.classId)))) {
+    return { status: "refused", message: attendanceRefusals.not_permitted };
+  }
 
   const held = await heldClassIds(actor.id, sessionLabel);
   const authority = registerAuthority({
@@ -173,6 +183,16 @@ export async function writeNoteAction(
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
 
+  // The record's own session (Phase 3 fence): a test account never writes a
+  // note about a real child or class, nor real staff about a TEST one.
+  const { studentId: noteStudentId, classId: noteClassId } = parsed.data;
+  if (noteStudentId && !(await passesFence(() => assertStudentVisible(actor, noteStudentId)))) {
+    return failure(m.notYourStudentTitle);
+  }
+  if (noteClassId && !(await passesFence(() => assertClassVisible(actor, noteClassId)))) {
+    return failure(m.notYourClassTitle);
+  }
+
   // A note is about a class or a child the writer teaches (P1). A child is in
   // scope through their enrolment this session, read under the writer's RLS.
   const scope = await classScopeFor(actor, sessionLabel);
@@ -203,6 +223,11 @@ export async function deleteNoteAction(formData: FormData) {
   const studentId = (formData.get("studentId") ?? "").toString();
   const classId = (formData.get("classId") ?? "").toString();
   if (!noteId) return;
+
+  // The note's own session (Phase 3 fence) — a note written before an account
+  // became a test account stays where it was written.
+  const session = await noteSessionLabel(noteId);
+  if (session && !(await passesFence(() => assertSessionWritable(actor, session)))) return;
 
   // Only your own, enforced in the query itself rather than checked first —
   // a tampered id cannot reach somebody else's note.

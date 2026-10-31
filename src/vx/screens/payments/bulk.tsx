@@ -32,7 +32,7 @@ import { W } from "./words";
 
 const CHUNK = 25;
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
-const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
+const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", online: "Online (Razorpay)" };
 const LOOK = {
   ok: { icon: "checkCircle" as const, fg: "var(--ok)", bg: "transparent", pair: W.gReady },
   warn: { icon: "alert" as const, fg: "var(--warn)", bg: "var(--warns)", pair: W.gCheck },

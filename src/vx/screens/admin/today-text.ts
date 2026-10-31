@@ -107,5 +107,7 @@ export const TD = {
     cheque: p("Cheque", "चेक"),
     bank_transfer: p("Bank transfer", "बैंक ट्रांसफ़र"),
     card: p("Card", "कार्ड"),
+    // A Razorpay Pay now payment: never "Cash" (fees app #86 / #103).
+    online: p("Online (Razorpay)", "ऑनलाइन (Razorpay)"),
   },
 };

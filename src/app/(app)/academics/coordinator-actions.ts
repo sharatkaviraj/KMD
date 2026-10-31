@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { assertClassVisible, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { saveRegisterCommand, studentNames } from "@/modules/attendance/data/attendance-repo";
@@ -29,6 +30,9 @@ import { assertNotPreviewing } from "@/vx/view-as";
 export type ActionResult = { ok: boolean; text: Pair; ids?: string[] };
 
 const fail = (en: string, hi: string): ActionResult => ({ ok: false, text: p(en, hi) });
+
+/** A record in a session this reader may not write — said like "not found". */
+const NOT_YOURS = p("That record could not be found.", "यह रिकॉर्ड नहीं मिला।");
 
 function revalidateAcademics() {
   revalidatePath("/academics");
@@ -206,6 +210,9 @@ export async function saveFollowupAction(input: { studentId: string; kind: strin
   const note = (input.note ?? "").trim().slice(0, 400) || null;
   const session = await resolveSessionLabel();
   if (!session) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
+  // The child's own session, not only the one resolved (Phase 3 fence): a test
+  // account never writes about a real child, nor real staff about a TEST one.
+  if (!(await passesFence(() => assertStudentVisible(actor, input.studentId)))) return { ok: false, text: NOT_YOURS };
   const { error } = await createAdminClient()
     .from("student_followups")
     .insert({ session_label: session, student_id: input.studentId, kind, outcome, note, owner_staff_id: isUuid(input.ownerId) ? input.ownerId : null, created_by: actor.id });
@@ -235,6 +242,7 @@ export async function savePlanAction(input: { studentId: string; goal: string; s
   if (!isUuid(input.studentId)) return fail("Choose a child.", "बच्चा चुनें।");
   const session = await resolveSessionLabel();
   if (!session) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
+  if (!(await passesFence(() => assertStudentVisible(actor, input.studentId)))) return { ok: false, text: NOT_YOURS };
   const scope = await classScopeFor(actor, session);
   const admin = createAdminClient();
   const { data: enrolment } = await admin.from("enrolments").select("class_id").eq("session_label", session).eq("student_id", input.studentId).eq("status", "enrolled").maybeSingle<{ class_id: string }>();
@@ -303,6 +311,15 @@ export async function toggleStepAction(stepId: string, done: boolean): Promise<A
   const actor = await assertPermission("academics:manage");
   await assertNotPreviewing();
   if (!isUuid(stepId)) return fail("Choose a step.", "कदम चुनें।");
+  // The step names a plan, and the plan a child: that child's session decides.
+  const { data: step } = await createAdminClient()
+    .from("support_plan_steps")
+    .select("plan:support_plans!inner(student_id)")
+    .eq("id", stepId)
+    .maybeSingle<{ plan: { student_id: string } | null }>();
+  if (!step?.plan) return fail("Choose a step.", "कदम चुनें।");
+  const studentId = step.plan.student_id;
+  if (!(await passesFence(() => assertStudentVisible(actor, studentId)))) return { ok: false, text: NOT_YOURS };
   const { error } = await createAdminClient()
     .from("support_plan_steps")
     .update(done ? { done_at: new Date().toISOString(), done_by: actor.id } : { done_at: null, done_by: null })
@@ -345,6 +362,7 @@ export async function markRegisterAction(payload: unknown): Promise<ActionResult
   const parsed = saveRegisterSchema.safeParse(payload);
   if (!parsed.success) return fail("Mark every child before saving.", "सहेजने से पहले हर बच्चे की हाज़िरी लगाएँ।");
   if (parsed.data.day !== schoolToday() && parsed.data.kind === "save") return fail("Only today's register can be marked here.", "यहाँ केवल आज का रजिस्टर दर्ज होता है।");
+  if (!(await passesFence(() => assertClassVisible(actor, parsed.data.classId)))) return { ok: false, text: NOT_YOURS };
   const held = await heldClassIds(actor.id, session);
   const authority = registerAuthority({
     isOwner: held.includes(parsed.data.classId),

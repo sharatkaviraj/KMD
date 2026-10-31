@@ -61,7 +61,7 @@ export type CurrentStaff = {
    * optional only so hand-built fixtures stay valid (absent reads as false).
    */
   isTestAccount?: boolean;
-  /** True when `isTestAccount` comes from the deployment, not the profile: the shell says so. */
+  /** True on a confined deployment (Preview, local), for every account: the shell says so. */
   confined?: boolean;
 };
 
@@ -197,7 +197,10 @@ export function testAccountFlags(
   env: { readonly [name: string]: string | undefined } = process.env,
 ): { isTestAccount: boolean; confined: boolean } {
   const confined = isConfinedDeployment(env);
-  return { isTestAccount: profileFlag || confined, confined: confined && !profileFlag };
+  // `confined` is the deployment's, whatever the profile says: the banner tells
+  // everybody on a Preview or local build — a test admin included — that this
+  // build only reaches test data (tests/e2e/test-session.spec.ts).
+  return { isTestAccount: profileFlag || confined, confined };
 }
 
 /**
