@@ -36,7 +36,8 @@ import {
   parseTimetable,
 } from "../src/modules/timetable/domain/parse-timetable.ts";
 import { readActiveSession } from "./read-active-session.mjs";
-import { toolScope } from "./target-guard.mjs";
+import { decidePromoteSeed, teacherShortNameMap } from "./migrate/lib/quarantine-rules.mjs";
+import { assertOneMainTarget, toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LABEL = "Fixture v11 (seeded)";
@@ -56,12 +57,6 @@ function readEnv() {
 const env = readEnv();
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-// Rule 3 / D-346: One's main project only, and CONFINED on production: there
-// it publishes into TEST-2026-27 (never the active, real session) and names
-// only test-account staff as teachers. Every write below is filtered by
-// `sessionLabel`, so nothing outside that session is touched.
-const scope = await toolScope({ url, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "seed:timetable", mode: "test-scoped" });
-
 const db = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
   auth: { persistSession: false },
@@ -73,6 +68,44 @@ const die = (label, error) => {
     process.exit(1);
   }
 };
+
+// --production-promote (go-live phase H, critique1 A4): the ONE path that
+// publishes the REAL session's timetable on production, run by
+// promote-master-data.mjs once the real teacher profiles exist. Guarded by
+// the marker AND the flag: every input read exactly (an unreadable marker is
+// a refusal here, not "production"), fee writes still shut, a succeeded
+// promote-master-data run, no cutover (lib/quarantine-rules.mjs
+// decidePromoteSeed). It names ONLY real (non-test) staff as teachers.
+// Without the flag: Rule 3 / D-346 — One's main project only, and CONFINED
+// on production: it publishes into TEST-2026-27 (never the active, real
+// session) and names only test-account staff as teachers. Every write below
+// is filtered by `sessionLabel`, so nothing outside that session is touched.
+const productionPromote = process.argv.includes("--production-promote");
+let scope;
+if (productionPromote) {
+  assertOneMainTarget(url, "seed:timetable --production-promote");
+  const pub = db.schema("public");
+  const [marker, setting, promoted, cutover] = await Promise.all([
+    db.from("deployment").select("environment").eq("id", 1).maybeSingle(),
+    pub.from("app_settings").select("value").eq("key", "fee_writes_enabled").maybeSingle(),
+    db.from("migration_runs").select("id", { count: "exact", head: true }).eq("script", "promote-master-data").eq("kind", "run").eq("status", "succeeded"),
+    db.from("migration_runs").select("id", { count: "exact", head: true }).eq("kind", "cutover"),
+  ]);
+  const decision = decidePromoteSeed({
+    environment: marker.error ? null : (marker.data?.environment ?? null),
+    feeWritesEnabled: setting.error ? null : (setting.data?.value ?? null),
+    promoteRuns: promoted.error ? 0 : (promoted.count ?? 0),
+    hasCutover: cutover.error ? null : (cutover.count ?? 0) > 0,
+  });
+  if (!decision.ok) {
+    console.error(`Refusing seed:timetable --production-promote: ${decision.reasons.join("; ")}.`);
+    process.exit(1);
+  }
+  scope = { production: true, confined: false, realOnly: true, sessionLabel: null };
+  console.log("seed:timetable --production-promote: the real session, real staff only (phase H).");
+} else {
+  scope = await toolScope({ url, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "seed:timetable", mode: "test-scoped" });
+}
 
 /* ------------------------------------------------------------ the session */
 
@@ -163,14 +196,20 @@ const [{ data: aliases }, { data: staff }, { data: subjects }] = await Promise.a
 
 // On production a teacher resolves only to a test account (D-346): a short
 // name that belongs to real staff is "unresolved" below, and the run stops.
-const eligibleStaff = (staff ?? []).filter((row) => !scope.confined || row.is_test_account === true);
+// --production-promote is the mirror image: real staff only, so the real
+// timetable never names a test account. After promote-master-data the
+// fixture's short names are real profiles, so confined mode falls back from
+// X to the test twin `T-X` (lib/quarantine-rules.mjs teacherShortNameMap) and
+// the TEST timetable can still be re-seeded.
+if (scope.realOnly) {
+  const realSession = sessionLabel;
+  if (/^(test|uat|demo)-/i.test(realSession)) die("--production-promote", `the active session is ${realSession}, a TEST session`);
+}
 
 const classesByLabel = new Map(
   (aliases ?? []).map((row) => [row.timetable_label.toLowerCase(), row.class_id]),
 );
-const teachersByShortName = new Map(
-  eligibleStaff.filter((row) => row.short_name).map((row) => [row.short_name.toLowerCase(), row.id]),
-);
+const teachersByShortName = teacherShortNameMap(staff ?? [], { realOnly: Boolean(scope.realOnly), confined: Boolean(scope.confined) });
 const subjectsByCode = new Map(
   (subjects ?? []).map((row) => [row.code.toLowerCase(), row.id]),
 );

@@ -27,8 +27,8 @@ The owner fixed the order of the steps that cannot be undone:
 |---|---|---|---|
 | 1 | **Backup** | Operator | nothing to undo (read-only) |
 | 2 | **Convert to production** | Operator (owner's yes) | `convert-to-production.mjs --revert` per step |
-| 3 | **Quarantine** One's test activity | Operator | `backup-one.mjs --restore <step 1 run> --schema vppsone --apply`, then step 2 again |
-| 4 | **First load** (`--first-load`) | Operator | `backup-one.mjs --restore <step 1 run> --schema public --apply` |
+| 3 | **Quarantine** One's test activity, then a second backup (3b) | Operator | `backup-one.mjs --restore <step 1 run> --apply` (both schemas), then step 2 again |
+| 4 | **First load** (`--first-load`) | Operator | `backup-one.mjs --restore <step 3b run> --schema public --apply` |
 | 5 | **Reconcile** | Operator, Accountant | read-only |
 | 6 | Owner turns **OFF the fees app's New payment links** | Owner | owner turns it back on |
 | 7 | **Tail-sync** | Operator | delete the run's tail review rows |
@@ -42,8 +42,10 @@ the last one**, then steps 6–9 run on T0.
 
 Scripts marked **(phase H)** — `convert-to-production.mjs`,
 `classify-dev-vppsone.mjs`, `quarantine-in-place.mjs`,
-`promote-master-data.mjs`, `verify-quarantine.sql` — are built and dry-run in
-go-live phase H; until that PR is merged the step cannot run.
+`promote-master-data.mjs`, `verify-quarantine.sql`, `rebuild-enrolments.mjs`
+(C8) and `reset-test-session.mjs` — are built, dry-run and rehearsed
+(`--rollback-only`) on wtgx in go-live phase H; the counts are in
+`QUARANTINE-REPORT.md`. Every one is a dry run unless given `--apply`.
 
 ---
 
@@ -108,50 +110,108 @@ npm run migrate:backup-one -- --restore <run>        # dry run of the rollback r
   `drive-backup` is `ok` (`npm run migrate:health` shows `Drive backup
   overdue` ok).
 - **Rollback:** none (read-only on the database; the folder can be deleted).
-- Note the run id in the log: it is the restore point for steps 2–4.
+- Note the run id in the log: it is the restore point for steps 2–3 (step 4 restores from the step 3b backup).
 
 ### Step 2 — Convert to production (07:45, Operator with the owner's yes) — owner sequence 2
 
 ```
-node scripts/migrate/convert-to-production.mjs            # dry run: read the checklist   (phase H)
-node scripts/migrate/convert-to-production.mjs --apply    # (phase H)
+node scripts/migrate/convert-to-production.mjs                  # dry run: preflight + checklist   (phase H)
+node scripts/migrate/convert-to-production.mjs --rollback-only  # every step applied and reverted, then ROLLBACK
+node scripts/migrate/convert-to-production.mjs --apply          # (phase H)
 ```
-It sets `app_settings.fee_writes_enabled='false'`, the TEST receipt prefix if
-missing, `vppsone.deployment.environment='production'`, converts every
-`@qa.vpps.local` / smoke / day-run profile to a test account (never bans),
-and turns `parent_dispatch` and `staff_notice_dispatch` off.
-- **Check:** `select environment from vppsone.deployment;` → `production`;
-  `select vppsone.fee_writes_open();` → `false`;
-  `select key, enabled from vppsone.runtime_flags where key in ('parent_dispatch','staff_notice_dispatch');` → both off;
-  the script's checklist all ticked.
+Preflight (refuses `--apply`): a `backup-one` run from the last 24 h whose
+manifest is on this machine; every `supabase/migrations` file in the ledger;
+marker `dev` or already `production`; no cutover row. Steps, each idempotent,
+in one transaction, each before-state recorded in the
+`convert-to-production` run row:
+`fee-writes` (`app_settings.fee_writes_enabled='false'`), `test-prefix`
+(TEST-2026-27 → `TST`, One-owned, if missing), `marker`
+(`vppsone.deployment.environment='production'`), `test-accounts` (every
+profile a `@qa.vpps.local` / smoke / day-run **login** uses → test account;
+never banned), `test-phones` (a test account's number not on
+`message_test_recipients` is nulled — the masked `99999…` numbers are real
+mobiles), `smoke-enforce` (kept: its body touches `auth.users` /
+`auth.sessions` only through `vppsone.smoke_pool`, all smoke seats are test
+accounts — otherwise unscheduled), `dispatch-flags` (`parent_dispatch` and
+`staff_notice_dispatch` off).
+- **Check:** the checklist prints `[x]` on all seven and
+  `vppsone.fee_writes_open() = false`; `select environment from vppsone.deployment;` → `production`;
+  `select key, enabled from vppsone.runtime_flags where key in ('parent_dispatch','staff_notice_dispatch');` → both off.
 - **Rollback:** `node scripts/migrate/convert-to-production.mjs --revert <step>`
-  (phase H), step by step in reverse.
+  with `<step>` one of `dispatch-flags`, `smoke-enforce`, `test-phones`,
+  `test-accounts`, `marker`, `test-prefix`, `fee-writes` — in that order
+  (reverse). Each writes back the before-state of the last `--apply`.
 
 ### Step 3 — Quarantine (08:00, Operator) — owner sequence 3
 
 ```
-node scripts/migrate/classify-dev-vppsone.mjs                       # read-only counts   (phase H)
-node scripts/migrate/quarantine-in-place.mjs                        # dry run            (phase H)
-node scripts/migrate/quarantine-in-place.mjs --apply                # (phase H)
-node scripts/migrate/promote-master-data.mjs --apply                # (phase H)
-psql … -f scripts/migrate/verify-quarantine.sql                     # (phase H)
+node scripts/migrate/classify-dev-vppsone.mjs                                # read-only counts per bucket (phase H)
+node scripts/migrate/quarantine-in-place.mjs                                 # dry run: counts per table + guard
+node scripts/migrate/promote-master-data.mjs                                 # dry run: the owner's sign-off list (candidates AND held)
+node scripts/migrate/quarantine-in-place.mjs --rollback-only --with-promote --with-reset  # rehearsal: all writes + checks + a TEST reset, ROLLBACK
+node scripts/migrate/quarantine-in-place.mjs --apply [--accept-held <short,…>]           # (phase H)
+node scripts/migrate/promote-master-data.mjs --apply [--accept-held <short,…>]           # then re-seeds the timetable itself
+psql … -f scripts/migrate/verify-quarantine.sql                              # (phase H)
+npm run migrate:backup-one                                                   # 3b: the restore point for step 4
+npm run migrate:backup-one -- --restore-test <run printed above>
 ```
-Relabels every dev-era `vppsone` row to `TEST-2026-27`, re-points it at TEST
-classes and `TEST-D-` shell students, nulls phones and tokens on them,
-promotes the real master data (bucket A), and maps every re-keyed id in
-`vppsone.migration_id_map`. It refuses unless the marker is `production` and
-fee writes are `false` (so it can only follow step 2).
-- **Check:** `verify-quarantine.sql` — every check passes (zero rows labelled
-  `2026-27` that point at a dev student, zero phone numbers on quarantined
-  rows, both `class_teachers` TEST rows handled — `ct_mismatch = 0`). The
-  owner signs the promote list.
-- **Rollback:** put `vppsone` back to step 1's backup, then step 2 again
-  (the backup predates it, so its test-account conversions are undone; the
-  marker itself is never restored), then step 3 again:
+`quarantine-in-place` moves every bucket-B row (and every TEST row of an A/R
+table) into `TEST-2026-27` in place: relabelled; re-pointed at TEST classes
+(a TEST twin class is made for the one real class without one), at
+`TEST-D-####` shell students (masked name, no phone / email / address) for
+every student not already in a TEST class, and at test-account profiles (each
+real-teacher profile gets a test twin `T-<short>` that takes over its QA /
+smoke login); phones, destinations and tokens nulled or rotated; sends
+`cancelled`, notices `suppressed`, queues / campaigns / tasks / links
+cancelled or revoked; record answers to phone / identifier / address fields
+nulled; append-only tables rewritten by delete + insert-copy (ids kept) with
+their named triggers off for those statements. References with no foreign
+key (`class_ids` arrays, `merge_host_class_id`, `actor_staff_id`, `*_by`, …)
+are listed in `lib/quarantine-rules.mjs` and re-pointed like the rest; a
+reference-shaped column that is not listed stops the run. Every new identity
+(shells, the twin class, twin / placeholder profiles) and every class / staff
+re-map is in `vppsone.migration_id_map`; per-table counts are in the run row.
+It refuses unless the marker is `production`, fee writes are `false`, a
+`backup-one` run from the last 24 h is on this machine, no load has been
+applied, every table is classified and no **held** profile is waiting.
+One transaction for the identities, then one per table group.
+
+**Held profiles.** A timetable short name whose only profile a day-run made
+(`qa_dayrun_accounts`) or whose display name reads like QA tooling is held:
+it stays a test account and gets no twin, and both `quarantine-in-place
+--apply` and `promote-master-data --apply` refuse while it is held. On
+31 Oct: 2 of 19. The owner opens `promote-<run>\sign-off.json` (the `held`
+list), confirms each is the real teacher, fixes its display name in
+`/staff`, and the Operator passes the short names to **both** scripts with
+`--accept-held`. A held profile that is not the real teacher: rename its
+short name (say `QA-<short>`) and give the real teacher a profile with the
+timetable short name, then re-run the dry runs.
+`promote-master-data --apply` (after the quarantine) resets
+`role_permissions` to the migration seed, drops real rows about QA / smoke /
+day-run profiles, QA-fixture rows and rows on the class with no live partner,
+nulls QA authors, makes the 19 real-teacher profiles real (no login, no
+phone), then runs `node scripts/seed-timetable.mjs --production-promote`
+(refuses unless marker `production`, fee writes `false`, a promote run, no
+cutover).
+- **Check:** `verify-quarantine.sql` — every row says `pass` (no TEST row on a
+  real student, class or real staff profile; no real-session row in a B
+  table; no phone / destination / live token on a TEST row from before the
+  quarantine; sends cancelled, notices suppressed; shells clean and mapped;
+  no QA login or smoke seat on a real profile; `ct_mismatch` 0; marker and
+  fee writes as step 2 left them). `quarantine-in-place` prints the same
+  checks after `--apply`, and `a re-run would change: 0` in the rehearsal.
+  The owner signs `%USERPROFILE%\.vppsone-migration\promote-<run>\sign-off.json`.
+- **Rollback:** put **both schemas** back to step 1's backup — the quarantine
+  also writes `public` (the `TEST-D-` shells in `students`, the TEST twin in
+  `classes`, the twins' rows in `users` through the D-350 trigger, and their
+  `audit_logs`; the rehearsal lists every table written and checks each is
+  one a restore puts back) — then step 2 again (the backup predates it, so
+  its test-account conversions are undone; the marker itself is never
+  restored), then step 3 again:
   ```
-  npm run migrate:backup-one -- --restore <step 1 run> --schema vppsone            # dry run: no !! line
-  npm run migrate:backup-one -- --restore <step 1 run> --schema vppsone --apply
-  node scripts/migrate/convert-to-production.mjs --apply                         # (phase H)
+  npm run migrate:backup-one -- --restore <step 1 run>            # dry run: no !! line
+  npm run migrate:backup-one -- --restore <step 1 run> --apply
+  node scripts/migrate/convert-to-production.mjs --apply          # (phase H)
   ```
   One transaction (rehearsed at rehearsals 1–2): refuses unless the marker is
   `production` and fee writes are shut; every table compared with the backup
@@ -161,6 +221,12 @@ fee writes are `false` (so it can only follow step 2).
   `vppsone.migration_runs`.
 
 ### Step 4 — First load / final load = C1 (08:30, Operator) — owner sequence 4
+
+**Before the first load** (critique0 #19 — nothing freezes One between step 3
+and step 4, and a real-session row made in between would attach to a real
+child): re-run `psql … -f scripts/migrate/verify-quarantine.sql`; every row
+must still say `pass`. `load-snapshot --first-load --apply` checks the same
+thing itself and refuses while any bucket-B row carries a real session.
 
 ```
 node scripts/migrate/extract-live.mjs --run t0-<date>                         # read-only on fees live
@@ -173,6 +239,16 @@ node scripts/migrate/storage-copy.mjs --apply                                  #
 (`--first-load` only on the first ever load; it brings live's TEST-2026-27 rows
 once. Later loads omit it.) The extract's snapshot is the **watermark**; its
 control-totals hash is the cutover baseline.
+
+**After the first load only — the TEST students' phones** (critique1 B15):
+live's 79 TEST students arrive with real numbers (31 Oct: 78 not on the test
+allowlist). The owner chose between nulling and allowlisting; record which:
+```
+node scripts/reset-test-session.mjs --session TEST-2026-27 --null-test-phones                  # dry run: counts per column
+node scripts/reset-test-session.mjs --session TEST-2026-27 --null-test-phones --apply          # nulls every TEST-class phone off the allowlist
+```
+(or the owner adds the numbers to `vppsone.message_test_recipients` and this
+is skipped). Later loads never touch TEST rows, so it is done once.
 - **Check:** load-snapshot prints written = planned for every table, 0
   orphans, matviews refreshed; `select summary->'watermark' from
   vppsone.migration_runs where script='load-snapshot' order by finished_at desc limit 1;`
@@ -180,9 +256,12 @@ control-totals hash is the cutover baseline.
 - **Rollback:** the load is one transaction — a failure leaves nothing. After
   a commit:
   ```
-  npm run migrate:backup-one -- --restore <step 1 run> --schema public            # dry run
-  npm run migrate:backup-one -- --restore <step 1 run> --schema public --apply
+  npm run migrate:backup-one -- --restore <step 3b run> --schema public            # dry run
+  npm run migrate:backup-one -- --restore <step 3b run> --schema public --apply
   ```
+  — the **step 3b** backup, not step 1's: step 1's `public` predates the
+  quarantine's `TEST-D-` shells and TEST twin class, and restoring it would
+  leave every quarantined row pointing at a student that no longer exists —
   then start again at step 4, `--first-load` included: the restore names the
   load it undid in its run row (`undid_runs`) and load-snapshot no longer
   counts it as applied. The restore leaves `fee_writes_enabled = 'false'`
@@ -205,6 +284,43 @@ node scripts/migrate/access-email-check.mjs        # Q6: must print ok (exit 0) 
 - **Rollback:** read-only. A mismatch stops the cutover: no step after this
   one runs; the desk stays on the fees app (`ROLLBACK-2026-27.md` is not
   needed — nothing was switched on).
+
+### C8 — enrolments and class teachers (09:30, Operator, Admin) — (phase H)
+Rebuild 2026-27 enrolments from the loaded students (the count equals on
+roll plus left, critique1 B21), after the final load and its reconcile and
+**before step 8**: `rebuild-enrolments --apply` refuses once
+`fee_writes_enabled` is `'true'` (from then on the app keeps enrolments
+itself), so it cannot run after 11:30.
+
+```
+node scripts/migrate/rebuild-enrolments.mjs                  # dry run: target = on roll + left, inserts/corrections/deletes, classes without a class teacher
+node scripts/migrate/rebuild-enrolments.mjs --apply          # one transaction; refuses unless marker production, fee writes 'false', a first load or cutover row
+```
+It enrols every `active` student of the session's classes in their class and
+gives every `left` student a `left` enrolment; existing rows keep their id and
+roll number; a row whose student is not in the session any more is deleted;
+TEST-2026-27 is never touched. It prints the classes with no current class
+teacher (assign them in `/staff` before C9). The same checks by hand
+(read-only, SQL editor):
+
+```sql
+-- 1. enrolments = students of the session (on roll + left), by status
+select status, count(*) from vppsone.enrolments where session_label = '2026-27' group by 1;
+select s.status, count(*) from public.students s join public.classes c on c.id = s.class_id
+where c.session_label = '2026-27' group by 1;
+-- 2. every 2026-27 class has a current class teacher (so its teacher's my_class_keys is non-empty)
+select c.id from public.classes c
+where c.session_label = '2026-27'
+  and not exists (
+    select 1 from vppsone.class_teachers ct
+    where ct.class_id = c.id and ct.session_label = c.session_label
+      and (ct.effective_from is null or ct.effective_from <= vppsone.school_today())
+      and (ct.effective_to is null or ct.effective_to >= vppsone.school_today()));
+```
+**Check:** query 1's two totals are equal (on 31 Oct, on the replica: 511
+enrolled against 513 active + 28 left — why the rebuild is needed); query 2
+returns **zero rows** (on 31 Oct: 1 of 20 classes had none); the totals match
+step 5's reconcile.
 
 ### C3 — the cutover line and One's settings (09:45, Owner in the SQL editor)
 
@@ -356,31 +472,6 @@ select vppsone.fee_writes_open();                         -- true
   — every money RPC refuses real students again at once (fee-migration
   `20261030230000_fee_writes_guard`).
 
-### C8 — enrolments and class teachers (12:00, Admin) — rebuild is (phase H)
-Rebuild 2026-27 enrolments from the loaded students (the count equals on
-roll plus left, critique1 B21) — the rebuild script is built in **phase H**;
-until that PR is merged this step cannot run. The checks exist now (read-only,
-SQL editor):
-
-```sql
--- 1. enrolments = students of the session (on roll + left), by status
-select status, count(*) from vppsone.enrolments where session_label = '2026-27' group by 1;
-select s.status, count(*) from public.students s join public.classes c on c.id = s.class_id
-where c.session_label = '2026-27' group by 1;
--- 2. every 2026-27 class has a current class teacher (so its teacher's my_class_keys is non-empty)
-select c.id from public.classes c
-where c.session_label = '2026-27'
-  and not exists (
-    select 1 from vppsone.class_teachers ct
-    where ct.class_id = c.id and ct.session_label = c.session_label
-      and (ct.effective_from is null or ct.effective_from <= vppsone.school_today())
-      and (ct.effective_to is null or ct.effective_to >= vppsone.school_today()));
-```
-**Check:** query 1's two totals are equal (on 31 Oct, on the replica: 511
-enrolled against 513 active + 28 left — why the rebuild is needed); query 2
-returns **zero rows** (on 31 Oct: 1 of 20 classes had none); the totals match
-step 5's reconcile.
-
 ### Step 9 — Parent message categories, one by one = C9 (14:00, Owner) — owner sequence 9
 
 Before the first: Vercel Production `MESSAGE_PROVIDER=aisensy`, redeploy;
@@ -441,6 +532,7 @@ no duplicate-message query hits — `PARALLEL-RUN.md`):
 | 3 Quarantine + promote + verify | 20 min | | |
 | 4 Extract + load + storage | 45 min | | |
 | 5 Reconcile + parity | 20 min | | |
+| C8 enrolments rebuild (before step 8) | 10 min | | |
 | C3–C6 | 45 min | | |
 | 6–8 | 30 min | | |
 | Total in the freeze | under 3 h | | |

@@ -574,3 +574,30 @@ unmigrated data, TEST online rows, re-pointed children, count check, auth
 identities, tail insert order and deferral, event twins, matview freshness,
 year split, latest run, storage, rollback procedures, review-queue grants),
 `tests/migrate-foundation.test.ts` (A1).
+
+## Phase H — conversion, quarantine, promotion, enrolments
+
+Runbook steps 2, 3 and C8 (`CUTOVER-RUNBOOK-2026-27.md`). Each is a dry run
+unless given `--apply`; each but `classify` has `--rollback-only` (every
+write, its checks, then ROLLBACK). The rules are pure and tested
+(`lib/quarantine-rules.mjs`, `lib/quarantine-sql.mjs`, `lib/uuid5.mjs`;
+`tests/migrate-quarantine.test.ts`). Dry-run counts on wtgx:
+`QUARANTINE-REPORT.md`.
+
+| Script | Does | `--apply` refuses unless |
+|---|---|---|
+| `convert-to-production.mjs` | fee writes `'false'`, TEST prefix `TST`, marker `production`, QA / smoke / day-run login profiles → test accounts (never banned), test accounts' off-allowlist numbers nulled, `smoke-enforce` kept only if provably confined, dispatch flags off; `--revert <step>` from the run row | a backup-one run < 24 h on this machine; every `supabase/migrations` file in the ledger; no cutover |
+| `classify-dev-vppsone.mjs` | read-only: rows per bucket (A promote / B quarantine / R rebuilt / C never / K keep), unclassified tables, real classes with no live partner (sealed reader), the owner's own activity | — |
+| `quarantine-in-place.mjs` | every B row (and TEST rows of A/R tables) into TEST-2026-27 in place: relabel; TEST twin classes; `TEST-D-` shells (uuid v5 `dev:students:<id>`); test twins for real-teacher profiles (their logins move; held day-run / QA-named profiles get none); class / student / staff references re-pointed — foreign keys, `class_id` / `student_id`, and the no-foreign-key columns and uuid[] arrays TABLES lists; phones / tokens / phone-field record answers nulled or rotated; sends cancelled, notices suppressed; append-only tables delete + insert-copy (ids kept) with named triggers off; every new identity and class / staff re-map in `migration_id_map`. `--with-promote` / `--with-reset` (rehearsal) add the promotion and a TEST reset before the checks. The rehearsal lists every table written and checks each is one `backup-one --restore` puts back | marker `production`, fee writes `'false'`, a backup < 24 h, no applied load, no cutover, no unclassified table, no unlisted reference column, no held profile (`--accept-held <short,…>`) |
+| `promote-master-data.mjs` | role_permissions = migration seed; real A rows about QA profiles / from the QA fixture / on a class with no live partner dropped; QA authors nulled; text scan; real-teacher profiles made real (no login, no phone); then `seed-timetable.mjs --production-promote`. Sign-off list (candidates and held) → private folder | marker `production`, fee writes `'false'`, a succeeded quarantine, live classes readable, no TEST row on a candidate, no held profile (`--accept-held`), the re-seed resolves |
+| `verify-quarantine.sql` | the §4.6 checks as one read-only SELECT, one row per check | — |
+| `repoint-test-class-rows.mjs` | TEST-labelled rows on a real class → its TEST twin (the general rule alone); `--revert <run>` | touches TEST rows only |
+| `rebuild-enrolments.mjs` | C8 (runbook: after step 5, before step 8): real-session enrolments = on roll + left from `public.students`; classes without a current class teacher | marker `production`, fee writes `'false'`, a first load or cutover row |
+| `../reset-test-session.mjs --session TEST-2026-27` | deletes One's TEST-2026-27 activity (B tables, children first; a table's BEFORE DELETE guard triggers off for its one DELETE); keeps the TEST bed and every fee row; `--rollback-only` rehearses. `--null-test-phones`: nulls TEST-class students' phones that are not on the allowlist (after the first load) | the session named exactly; ≤ 150 students in TEST classes, not counting the quarantine's `TEST-D-` shells |
+
+`load-snapshot.mjs` writes a `vppsone.data_replica` row (`REAL fee data …`,
+nothing masked) with each load, and `--first-load --apply` refuses while any
+bucket-B `vppsone` row still carries a real session (the quarantine has not
+run, or real activity happened since). There is no `purge-dev-fee-data` script:
+the first real load replaces `public`, deleting the masked replica's rows
+except protected ones (shells, the TEST twin class).
