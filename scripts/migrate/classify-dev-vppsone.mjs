@@ -36,9 +36,38 @@ import { classesWithoutLivePartner, TABLES, unclassified } from "./lib/quarantin
 import { quoteIdent } from "./lib/quarantine-sql.mjs";
 import { readClasses, readLiveClasses } from "./lib/quarantine-state.mjs";
 import { readRealSession } from "./lib/real-session.mjs";
-import { readVppsoneCatalog } from "./lib/vppsone-catalog.mjs";
+import { readVppsoneCatalog, unlistedRefColumns } from "./lib/vppsone-catalog.mjs";
 
 const rel = (table) => `vppsone.${quoteIdent(table)}`;
+
+/** A uuid literal, or a refusal (it goes into SQL text). */
+function uuidLiteral(id) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id))) throw new Error(`Not a uuid: ${id}`);
+  return `'${id}'::uuid`;
+}
+
+/**
+ * The WHERE that finds a table's rows by one login (owner review, plan §4.4):
+ * every staff reference (foreign key or listed in TABLES, scalar or array) to
+ * its profile, and every auth.users reference to its user. null when the
+ * table has neither. Pure.
+ */
+export function ownerActivityWhere(info, owner) {
+  const parts = [];
+  if (owner.profile_id) {
+    const p = uuidLiteral(owner.profile_id);
+    parts.push(...info.staffCols.map((c) => `t.${quoteIdent(c)} = ${p}`));
+    parts.push(...(info.staffArrays ?? []).map((c) => `${p} = any(t.${quoteIdent(c)})`));
+  }
+  if (owner.user_id) parts.push(...info.authCols.map((c) => `t.${quoteIdent(c)} = ${uuidLiteral(owner.user_id)}`));
+  return parts.length ? parts.join(" or ") : null;
+}
+
+/** The WHERE that finds a table's rows on any of `classIds` (scalar class columns and class arrays). Pure. */
+export function classRefsWhere(info) {
+  const parts = [...info.classCols.map((c) => `t.${quoteIdent(c)} = any($1::uuid[])`), ...(info.classArrays ?? []).map((c) => `t.${quoteIdent(c)} && $1::uuid[]`)];
+  return parts.length ? parts.join(" or ") : null;
+}
 
 export async function classify(tx) {
   const catalog = await readVppsoneCatalog(tx);
@@ -65,12 +94,9 @@ export async function classify(tx) {
   const ownerActivity = [];
   for (const owner of owners) {
     for (const info of Object.values(catalog)) {
-      const parts = [
-        ...(owner.profile_id ? info.staffCols.map((c) => `t.${quoteIdent(c)} = '${owner.profile_id}'::uuid`) : []),
-        ...info.authCols.map((c) => `t.${quoteIdent(c)} = '${owner.user_id}'::uuid`),
-      ];
-      if (!parts.length || info.table === "staff_profiles") continue;
-      const [{ n }] = await tx.unsafe(`select count(*)::int as n from ${rel(info.table)} as t where ${parts.join(" or ")}`);
+      const where = ownerActivityWhere(info, owner);
+      if (!where || info.table === "staff_profiles") continue;
+      const [{ n }] = await tx.unsafe(`select count(*)::int as n from ${rel(info.table)} as t where ${where}`);
       if (n) ownerActivity.push({ table: info.table, bucket: TABLES[info.table]?.bucket ?? "UNCLASSIFIED", rows: n });
     }
   }
@@ -81,8 +107,9 @@ export async function classify(tx) {
   const refsToExtra = [];
   if (extra?.length) {
     for (const info of Object.values(catalog)) {
-      if (!info.classCols.length) continue;
-      const [{ n }] = await tx.unsafe(`select count(*)::int as n from ${rel(info.table)} where class_id = any($1::uuid[])`, [`{${extra.map((c) => c.id).join(",")}}`]);
+      const where = classRefsWhere(info);
+      if (!where) continue;
+      const [{ n }] = await tx.unsafe(`select count(*)::int as n from ${rel(info.table)} as t where ${where}`, [`{${extra.map((c) => c.id).join(",")}}`]);
       if (n) refsToExtra.push({ table: info.table, rows: n });
     }
   }
@@ -94,6 +121,7 @@ export async function classify(tx) {
     session,
     tables,
     unclassified: unclassified(Object.keys(catalog)),
+    unlistedRefs: unlistedRefColumns(catalog),
     owners: owners.length,
     ownerActivity: ownerActivity.sort((a, b) => a.table.localeCompare(b.table)),
     classCounts: Object.fromEntries(
@@ -133,6 +161,7 @@ async function main() {
     console.log(`    ${t.bucket} ${t.table}: ${t.total}${t.hasSession ? ` (${t.real_session} ${report.session}, ${t.test} TEST)` : ""}`);
   }
   if (report.unclassified.length) console.log(`  !! UNCLASSIFIED: ${report.unclassified.join(", ")}`);
+  if (report.unlistedRefs.length) console.log(`  !! reference columns the quarantine would not re-point: ${report.unlistedRefs.join(", ")}`);
   console.log(`  classes in One: ${Object.entries(report.classCounts).map(([s, n]) => `${s} ${n}`).join(", ")}; on live: ${report.liveClassCounts ? Object.entries(report.liveClassCounts).map(([s, n]) => `${s} ${n}`).join(", ") : `UNAVAILABLE (${report.liveError})`}`);
   if (report.extraClasses) {
     console.log(`  ${report.session} classes with no live partner: ${report.extraClasses.length}`);
@@ -143,7 +172,7 @@ async function main() {
   const runId = `classify-${newRunId()}`;
   writeFileSync(path.join(runDir(runId), "classify.json"), JSON.stringify(report, null, 2));
   console.log(`  report: %USERPROFILE%\\.vppsone-migration\\${runId}\\classify.json`);
-  if (report.unclassified.length) process.exitCode = 1;
+  if (report.unclassified.length || report.unlistedRefs.length) process.exitCode = 1;
 }
 
 if (isMain(import.meta.url)) {

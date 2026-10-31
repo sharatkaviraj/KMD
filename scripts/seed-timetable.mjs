@@ -36,7 +36,7 @@ import {
   parseTimetable,
 } from "../src/modules/timetable/domain/parse-timetable.ts";
 import { readActiveSession } from "./read-active-session.mjs";
-import { decidePromoteSeed } from "./migrate/lib/quarantine-rules.mjs";
+import { decidePromoteSeed, teacherShortNameMap } from "./migrate/lib/quarantine-rules.mjs";
 import { assertOneMainTarget, toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -197,10 +197,10 @@ const [{ data: aliases }, { data: staff }, { data: subjects }] = await Promise.a
 // On production a teacher resolves only to a test account (D-346): a short
 // name that belongs to real staff is "unresolved" below, and the run stops.
 // --production-promote is the mirror image: real staff only, so the real
-// timetable never names a test account.
-const eligibleStaff = (staff ?? []).filter((row) =>
-  scope.realOnly ? row.is_test_account === false : !scope.confined || row.is_test_account === true,
-);
+// timetable never names a test account. After promote-master-data the
+// fixture's short names are real profiles, so confined mode falls back from
+// X to the test twin `T-X` (lib/quarantine-rules.mjs teacherShortNameMap) and
+// the TEST timetable can still be re-seeded.
 if (scope.realOnly) {
   const realSession = sessionLabel;
   if (/^(test|uat|demo)-/i.test(realSession)) die("--production-promote", `the active session is ${realSession}, a TEST session`);
@@ -209,9 +209,7 @@ if (scope.realOnly) {
 const classesByLabel = new Map(
   (aliases ?? []).map((row) => [row.timetable_label.toLowerCase(), row.class_id]),
 );
-const teachersByShortName = new Map(
-  eligibleStaff.filter((row) => row.short_name).map((row) => [row.short_name.toLowerCase(), row.id]),
-);
+const teachersByShortName = teacherShortNameMap(staff ?? [], { realOnly: Boolean(scope.realOnly), confined: Boolean(scope.confined) });
 const subjectsByCode = new Map(
   (subjects ?? []).map((row) => [row.code.toLowerCase(), row.id]),
 );

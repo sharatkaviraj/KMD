@@ -76,6 +76,8 @@ import { unmigratedSourceData } from "./lib/import-rules.mjs";
 import { readRunTables } from "./lib/live-read.mjs";
 import { openOneDb } from "./lib/one-db.mjs";
 import { ident, prepareTransaction, readIdMap, readOneOwned, readPublicTables } from "./lib/one-target.mjs";
+import { decideFirstLoadQuarantine } from "./lib/quarantine-rules.mjs";
+import { readQuarantineLeftovers } from "./lib/quarantine-state.mjs";
 import { purgeSecrets, readSecretJson } from "./lib/secrets-box.mjs";
 import { FEES_SOURCE_PROJECT_REF, ONE_MAIN_PROJECT_REF } from "../target-guard.mjs";
 
@@ -603,6 +605,15 @@ async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rol
   }
   const inner = decideLoadGuard({ ...(await readGuardState(tx)), signupDisabled, allowDevTarget: Boolean(args["allow-dev-target"]), firstLoad, rollbackOnly });
   if (!inner.ok) throw new Error(inner.reasons.join(" "));
+  // The first real load attaches every vppsone row to the real child with
+  // the same id: refuse while a bucket-B row still carries a real session
+  // (no quarantine yet, or real activity between step 3 and step 4 —
+  // critique0 #19). A rehearsal only warns.
+  if (firstLoad) {
+    const q = decideFirstLoadQuarantine({ firstLoad, rollbackOnly, leftovers: await readQuarantineLeftovers(tx) });
+    if (!q.ok) throw new Error(q.reasons.join(" "));
+    if (q.warn) console.log(`  !! ${q.warn}`);
+  }
   const runRowId = await insertRunRow(tx);
 
   const [{ present: syncFn }] = await tx`select to_regprocedure('vppsone.sync_fee_user_from_staff_profile(uuid)') is not null as present`;

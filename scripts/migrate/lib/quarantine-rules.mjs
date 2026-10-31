@@ -48,16 +48,29 @@ export function isTestSessionLabel(label) {
 }
 
 /*
- * Per-table specs for B:
- *   appendOnly  rewritten by insert-copy + delete (new id devId(table, id)),
- *               with the table's named triggers off for those statements
- *   relabelSet  extra SET fragments applied with the relabel (SQL, constant)
- *   scrub       [{ column, to }] to: 'null' | 'empty' | 'token' | 'emptyArray'
- *   terminal    { set, where }: rows still live become terminal
- *   staffArrays uuid[] columns that hold staff profile ids (no foreign key)
- *   classArrays uuid[] columns that hold class ids
+ * Per-table specs (B, and the TEST rows of A / R):
+ *   appendOnly      rewritten by delete + insert-copy of the changed rows,
+ *                   ids KEPT (nothing is mapped), with the table's named
+ *                   triggers off for those statements only
+ *   relabelSet      extra SET fragments applied with the relabel (SQL, constant)
+ *   scrub           [{ column, to }] to: 'null' | 'empty' | 'token' | 'emptyArray'
+ *   sensitiveValues text columns holding a record-field answer (joined to
+ *                   collection_fields by field_id): nulled when the field is
+ *                   a phone / identifier / address (SENSITIVE_FIELD)
+ *   terminal        { set, where }: rows still live become terminal
+ *
+ * References with no foreign key (One has none to `public`, and several to
+ * staff_profiles were never declared). The catalog finds `class_id` /
+ * `student_id` by name and staff columns by their foreign key; everything
+ * else is listed here, and lib/vppsone-catalog.mjs unlistedRefColumns()
+ * stops the quarantine on a reference-shaped column that is in neither:
+ *   staffRefs       uuid columns holding a staff profile id
+ *   classRefs       uuid columns holding a class id (besides class_id)
+ *   staffArrays     uuid[] columns holding staff profile ids
+ *   classArrays     uuid[] columns holding class ids
+ *   studentArrays   uuid[] columns holding student ids
  */
-/** @type {Record<string, { bucket: string, why?: string, appendOnly?: boolean, relabelSet?: string, scrub?: { column: string, to: string }[], terminal?: { set: string, where: string }, staffArrays?: string[], classArrays?: string[] }>} */
+/** @type {Record<string, { bucket: string, why?: string, appendOnly?: boolean, relabelSet?: string, scrub?: { column: string, to: string }[], sensitiveValues?: string[], terminal?: { set: string, where: string }, staffRefs?: string[], classRefs?: string[], staffArrays?: string[], classArrays?: string[], studentArrays?: string[] }>} */
 export const TABLES = {
   // ---------------------------------------------------------------- A
   subjects: { bucket: "A", why: "subject master" },
@@ -66,7 +79,7 @@ export const TABLES = {
   bell_schedules: { bucket: "A", why: "bells" },
   cover_policies: { bucket: "A", why: "cover policy" },
   academic_calendar_days: { bucket: "A", why: "school calendar" },
-  calendar_events: { bucket: "A", why: "school calendar events" },
+  calendar_events: { bucket: "A", why: "school calendar events", classArrays: ["class_ids"] },
   report_schemes: { bucket: "A", why: "report-card schemes" },
   note_kinds: { bucket: "A", why: "note kinds" },
   message_templates: { bucket: "A", why: "message templates" },
@@ -147,7 +160,7 @@ export const TABLES = {
   assessments: { bucket: "B" },
   attendance_corrections: { bucket: "B" },
   attendance_marks: { bucket: "B" },
-  attendance_register_revisions: { bucket: "B" },
+  attendance_register_revisions: { bucket: "B", staffRefs: ["on_behalf_of"] },
   attendance_registers: { bucket: "B" },
   bulk_changes: { bucket: "B" },
   calendar_notices: {
@@ -165,10 +178,10 @@ export const TABLES = {
   },
   collection_round_fields: { bucket: "B" },
   collection_rounds: { bucket: "B" },
-  collection_submissions: { bucket: "B" },
+  collection_submissions: { bucket: "B", sensitiveValues: ["value", "previous_value"] },
   cover_commands: { bucket: "B" },
   cover_days: { bucket: "B" },
-  cover_duties: { bucket: "B", staffArrays: ["absent_staff_ids"] },
+  cover_duties: { bucket: "B", staffArrays: ["absent_staff_ids"], classArrays: ["class_ids"] },
   data_quality_skips: { bucket: "B" },
   document_upload_sessions: { bucket: "B" },
   enquiries: { bucket: "B", scrub: [{ column: "phone", to: "null" }] },
@@ -193,6 +206,7 @@ export const TABLES = {
   fee_desk_requests: { bucket: "B" },
   fee_reminder_batches: {
     bucket: "B",
+    studentArrays: ["student_ids"],
     terminal: { set: "status = 'cancelled'", where: "status in ('queued', 'scheduled', 'prepared')" },
   },
   marks: { bucket: "B" },
@@ -205,6 +219,7 @@ export const TABLES = {
   },
   message_sends: {
     bucket: "B",
+    staffRefs: ["approved_by"],
     // to_phone is NOT NULL: emptied. send_status has no 'suppressed' (critique0 #17).
     scrub: [
       { column: "to_phone", to: "empty" },
@@ -223,10 +238,10 @@ export const TABLES = {
   },
   parent_replies: { bucket: "B", scrub: [{ column: "from_phone", to: "empty" }] },
   parent_reply_answers: { bucket: "B" },
-  parent_route_flags: { bucket: "B", scrub: [{ column: "phone", to: "empty" }] },
+  parent_route_flags: { bucket: "B", staffRefs: ["cleared_by"], scrub: [{ column: "phone", to: "empty" }] },
   photo_proposals: { bucket: "B" },
   promotion_marks: { bucket: "B" },
-  record_commands: { bucket: "B" },
+  record_commands: { bucket: "B", staffRefs: ["actor_staff_id"] },
   report_card_issues: { bucket: "B", appendOnly: true },
   report_card_remarks: { bucket: "B" },
   report_cards: { bucket: "B" },
@@ -243,17 +258,17 @@ export const TABLES = {
     bucket: "B",
     terminal: { set: "status = 'suppressed', next_attempt_at = null", where: "status <> 'suppressed' or next_attempt_at is not null" },
   },
-  student_documents: { bucket: "B" },
+  student_documents: { bucket: "B", staffRefs: ["removed_by"] },
   student_followups: { bucket: "B" },
   student_photos: { bucket: "B" },
-  student_record_history: { bucket: "B", appendOnly: true },
-  student_records: { bucket: "B" },
-  substitution_assignments: { bucket: "B" },
+  student_record_history: { bucket: "B", appendOnly: true, staffRefs: ["actor_staff_id"], sensitiveValues: ["old_value", "new_value"] },
+  student_records: { bucket: "B", sensitiveValues: ["value"] },
+  substitution_assignments: { bucket: "B", classRefs: ["merge_host_class_id"] },
   substitution_plans: { bucket: "B" },
   support_plan_steps: { bucket: "B" },
   support_plans: { bucket: "B" },
   teacher_absence_history: { bucket: "B" },
-  teacher_absences: { bucket: "B" },
+  teacher_absences: { bucket: "B", staffRefs: ["updated_by"] },
   teacher_leave: { bucket: "B" },
   teacher_tasks: {
     bucket: "B",
@@ -332,15 +347,18 @@ export function scrubNeeded(column, to) {
  *  - no cutover row, and no applied load (after the first real load a
  *    whole-table quarantine would sweep real activity; re-running it then
  *    needs a restore first);
- *  - no unclassified table.
- * `rollbackOnly` (every write rolled back) lifts the marker, fee-writes and
- * backup guards — nothing persists — never the others.
+ *  - no unclassified table;
+ *  - no HELD real-teacher candidate (splitCandidates): the quarantine decides
+ *    which profiles get a test twin, so the owner's call on a day-run / QA
+ *    looking profile must come before it, not at the promotion.
+ * `rollbackOnly` (every write rolled back) lifts the marker, fee-writes,
+ * backup and held guards — nothing persists — never the others.
  */
 /**
  * @param {{ environment?: string | null, feeWritesEnabled?: string | null, hasCutover?: boolean, previousApplied?: number,
- *   backup?: { ok: boolean, reason?: string } | null, unclassifiedTables?: string[], rollbackOnly?: boolean }} state
+ *   backup?: { ok: boolean, reason?: string } | null, unclassifiedTables?: string[], held?: number, rollbackOnly?: boolean }} state
  */
-export function decideQuarantineGuard({ environment, feeWritesEnabled, hasCutover, previousApplied, backup, unclassifiedTables = [], rollbackOnly = false }) {
+export function decideQuarantineGuard({ environment, feeWritesEnabled, hasCutover, previousApplied, backup, unclassifiedTables = [], held = 0, rollbackOnly = false }) {
   const reasons = [];
   if (!rollbackOnly && environment !== "production") reasons.push(`vppsone.deployment says '${environment ?? "unreadable"}', not 'production': run convert-to-production first (runbook step 2).`);
   if (!rollbackOnly && String(feeWritesEnabled ?? "").trim() !== "false") {
@@ -352,6 +370,9 @@ export function decideQuarantineGuard({ environment, feeWritesEnabled, hasCutove
     reasons.push(`${previousApplied} applied load(s) exist: after the first real load a whole-table quarantine would sweep real activity. Restore the step-1 backup first (runbook step 3 rollback).`);
   }
   if (unclassifiedTables.length) reasons.push(`unclassified vppsone tables: ${unclassifiedTables.join(", ")} — place them in scripts/migrate/lib/quarantine-rules.mjs.`);
+  if (!rollbackOnly && held > 0) {
+    reasons.push(`${held} timetable teacher profile(s) are held (made by a day-run or named like QA tooling): the owner checks them in the sign-off list, fixes the display name, and passes --accept-held <short,…> here and to promote-master-data.`);
+  }
   return { ok: reasons.length === 0, reasons };
 }
 
@@ -482,28 +503,61 @@ export function planStudentMap(referencedIds, { students, classSession, classMap
   return { map, shells, missing };
 }
 
+/** A display name the QA / smoke / day-run tooling gave its own profiles. */
+export const QA_DISPLAY_NAME = /\b(qa|test|smoke|day[- ]?run|dummy|fixture)\b/i;
+
 /**
  * Which profiles are REAL teacher profiles (bucket A, critique1 A4):
  * active teaching profiles whose short name is a teacher of the school's
  * timetable fixture. On dev they are the profiles the smoke seats borrowed
  * (smoke_pool.linked_existing) — their display names may be real staff
  * names. Never the owner's (role admin), never a placeholder or twin.
+ *
+ * HELD, not promoted (critique0 #20, critique1 A4: nothing that is a QA,
+ * smoke or day-run profile becomes real): a matching profile that a day-run
+ * made (`in_dayrun`: vppsone.qa_dayrun_accounts.staff_profile_id) or whose
+ * display name reads like QA tooling. It stays a test account, and its
+ * timetable short name resolves to no real teacher — so promote-master-data
+ * refuses — until the owner has checked it is the real person (and fixed the
+ * display name) and passes its short name in `acceptHeld`
+ * (`--accept-held <short,…>` to quarantine-in-place AND promote-master-data).
  */
 /**
  * @param {any[]} profiles
  * @param {Iterable<string>} fixtureShortNames
+ * @param {{ acceptHeld?: Iterable<string> }} [options]
+ * @returns {{ candidates: any[], held: any[] }}
+ */
+export function splitCandidates(profiles, fixtureShortNames, { acceptHeld = [] } = {}) {
+  const names = new Set([...fixtureShortNames].map((s) => String(s).toLowerCase()));
+  const accepted = new Set([...acceptHeld].map((s) => String(s).trim().toLowerCase()).filter(Boolean));
+  const candidates = [];
+  const held = [];
+  for (const p of profiles) {
+    const short = String(p.short_name);
+    if (!p.is_active || !(p.role === "teacher" || p.is_teaching) || !names.has(short.toLowerCase())) continue;
+    if (short.startsWith("T-") || short.startsWith("TEST-")) continue;
+    const suspect = Boolean(p.in_dayrun) || QA_DISPLAY_NAME.test(String(p.display_name ?? ""));
+    if (suspect && !accepted.has(short.toLowerCase())) held.push(p);
+    else candidates.push(p);
+  }
+  return { candidates, held };
+}
+
+/**
+ * @param {any[]} profiles
+ * @param {Iterable<string>} fixtureShortNames
+ * @param {{ acceptHeld?: Iterable<string> }} [options]
  * @returns {any[]}
  */
-export function promoteCandidates(profiles, fixtureShortNames) {
-  const names = new Set([...fixtureShortNames].map((s) => String(s).toLowerCase()));
-  return profiles.filter(
-    (p) =>
-      p.is_active &&
-      (p.role === "teacher" || p.is_teaching) &&
-      names.has(String(p.short_name).toLowerCase()) &&
-      !String(p.short_name).startsWith("T-") &&
-      !String(p.short_name).startsWith("TEST-"),
-  );
+export function promoteCandidates(profiles, fixtureShortNames, options = {}) {
+  return splitCandidates(profiles, fixtureShortNames, options).candidates;
+}
+
+/** `--accept-held a,b` → ["a", "b"]; absent → []. */
+export function parseAcceptHeld(value) {
+  if (value === undefined || value === true || value === false) return [];
+  return String(value).split(",").map((s) => s.trim()).filter(Boolean);
 }
 
 /**
@@ -685,8 +739,9 @@ export function smokeEnforceIsConfined(body, pool) {
 /**
  * rebuild-enrolments --apply: only once the REAL students are in `public`
  * (a first load or a cutover row — before that `public.students` is the
- * masked replica), on production, with fee writes still shut (C8 runs on T0
- * before the owner opens them; afterwards the app keeps enrolments itself).
+ * masked replica), on production, with fee writes still shut. The runbook
+ * runs C8 right after step 5's reconcile, before step 8 opens fee writes;
+ * afterwards the app keeps enrolments itself.
  */
 export function decideEnrolmentRebuild({ environment, feeWritesEnabled, hasCutover, firstLoads }) {
   const reasons = [];
@@ -724,4 +779,87 @@ export function planEnrolments(students, existing, { onRoll = ["active"], left =
   const byStatus = {};
   for (const w of want.values()) byStatus[w.status] = (byStatus[w.status] ?? 0) + 1;
   return { insert, update, remove, total: want.size, byStatus };
+}
+
+/* ------------------------------------------- the TEST bed after go-live */
+
+/**
+ * The seed-timetable short-name → profile map (pure). Production promote
+ * (`realOnly`): real staff only. Confined (production without the flag):
+ * test accounts only — and, once promote-master-data has made the fixture's
+ * short names real, a short name X falls back to the test twin `T-X` the
+ * quarantine made for it, so the TEST timetable can still be re-seeded.
+ * Neither: every active profile. staff: [{ id, short_name, is_test_account }].
+ */
+export function teacherShortNameMap(staff, { realOnly = false, confined = false } = {}) {
+  const eligible = staff.filter((row) => (realOnly ? row.is_test_account === false : !confined || row.is_test_account === true));
+  const map = new Map(eligible.filter((row) => row.short_name).map((row) => [row.short_name.toLowerCase(), row.id]));
+  if (confined && !realOnly) {
+    for (const row of eligible) {
+      const short = String(row.short_name ?? "");
+      if (!/^T-/i.test(short)) continue;
+      const base = short.slice(2).toLowerCase();
+      if (base && !map.has(base)) map.set(base, row.id);
+    }
+  }
+  return map;
+}
+
+/**
+ * reset-test-session --apply (plan §4.5): refuses on a kept table pointing at
+ * TEST activity, and when more than `maxStudents` REAL-looking students sit in
+ * TEST classes (the 2026-08 bulk import moved 372 real children into TEST).
+ * The quarantine's own TEST-D- shells are not counted — after step 3 there
+ * are ~513 of them, by design. Pure; the dry run prints the same verdict.
+ */
+/**
+ * @param {{ blockers?: string[], students: number, shells?: number, maxStudents?: number }} state
+ */
+export function decideReset({ blockers = [], students, shells = 0, maxStudents = 150 }) {
+  const reasons = [...blockers];
+  if (!(Number.isFinite(students) && students >= 0)) reasons.push("the TEST students could not be counted");
+  else if (students > maxStudents) {
+    reasons.push(`${students} students (not counting ${shells} TEST-D- shell(s)) sit in ${TEST_SESSION} classes, more than ${maxStudents}: real children may have been moved into TEST (the 2026-08 bulk import).`);
+  }
+  return { ok: reasons.length === 0, reasons };
+}
+
+/**
+ * The statements that delete one reset step. A table's BEFORE DELETE guard
+ * triggers (append-only: exam_activity, report_card_issues,
+ * student_record_history; marks_class_lock on marks) are switched off for
+ * that one DELETE and back on after it, inside the reset's transaction — as
+ * quarantine-in-place rewrites append-only rows — so the rule is never
+ * relaxed for anyone else. Pure. deleteTriggers: Map table -> trigger names.
+ */
+export function resetStatements(step, deleteTriggers = new Map()) {
+  const q = (name) => {
+    if (!/^[a-z_][a-z0-9_]*$/.test(name)) throw new Error(`Not a plain identifier: ${name}`);
+    return `"${name}"`;
+  };
+  const relation = `vppsone.${q(step.table)}`;
+  const triggers = deleteTriggers.get(step.table) ?? [];
+  return [
+    ...triggers.map((t) => `alter table ${relation} disable trigger ${q(t)}`),
+    `delete from ${relation} where ${step.where}`,
+    ...triggers.map((t) => `alter table ${relation} enable trigger ${q(t)}`),
+  ];
+}
+
+/**
+ * load-snapshot --first-load --apply (critique0 #19): the first real load
+ * attaches every vppsone row to the real child with the same id, so it
+ * refuses while any bucket-B row is still labelled with a real session —
+ * the quarantine has not run, or real-session activity happened between
+ * step 3 and step 4. `leftovers`: [{ table, n }]. A rehearsal only warns.
+ */
+/**
+ * @param {{ firstLoad: boolean, rollbackOnly?: boolean, leftovers?: { table: string, n: number }[] }} state
+ * @returns {{ ok: boolean, warn: string | null, reasons: string[] }}
+ */
+export function decideFirstLoadQuarantine({ firstLoad, rollbackOnly = false, leftovers = [] }) {
+  const found = leftovers.filter((l) => l.n > 0);
+  if (!firstLoad || !found.length) return { ok: true, warn: null, reasons: [] };
+  const text = `${found.reduce((n, l) => n + l.n, 0)} bucket-B row(s) still carry a real session (${found.map((l) => `${l.table} ${l.n}`).join(", ")}): run quarantine-in-place (runbook step 3) and verify-quarantine.sql before the first load.`;
+  return rollbackOnly ? { ok: true, warn: text, reasons: [] } : { ok: false, warn: null, reasons: [text] };
 }

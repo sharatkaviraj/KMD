@@ -5,36 +5,45 @@ import { describe, expect, it } from "vitest";
 
 import { rolePermissions, staffRoles } from "@/platform/auth/permissions";
 
+import { classRefsWhere, ownerActivityWhere } from "../scripts/migrate/classify-dev-vppsone.mjs";
 import { missingMigrations, STEPS } from "../scripts/migrate/convert-to-production.mjs";
 import { realDataMarker } from "../scripts/migrate/load-snapshot.mjs";
-import { describeTables } from "../scripts/migrate/lib/vppsone-catalog.mjs";
+import { describeTables, unlistedRefColumns } from "../scripts/migrate/lib/vppsone-catalog.mjs";
 import {
   checkBackup,
   classesWithoutLivePartner,
   CONVERT_STEPS,
   decideEnrolmentRebuild,
+  decideFirstLoadQuarantine,
   decidePromoteSeed,
   decideQuarantineGuard,
+  decideReset,
   isTestSessionLabel,
+  parseAcceptHeld,
   permissionDiff,
   planClassMap,
   planEnrolments,
   planStaffMap,
   planStudentMap,
   promoteCandidates,
+  resetStatements,
   restoreCoverageOf,
   rolePermissionSeed,
   scrubNeeded,
   scrubValue,
+  SENSITIVE_FIELD,
   smokeEnforceIsConfined,
+  splitCandidates,
   TABLES,
+  teacherShortNameMap,
   TEST_SESSION,
   unclassified,
 } from "../scripts/migrate/lib/quarantine-rules.mjs";
 import { mapParams, planTableOps, planTestClassOps, uuidArray, whereParams } from "../scripts/migrate/lib/quarantine-sql.mjs";
 import { devId, uuidV5 } from "../scripts/migrate/lib/uuid5.mjs";
 import { groupOf, GROUPS } from "../scripts/migrate/quarantine-in-place.mjs";
-import { resetOrder, resetSessionRefusal, RESET_KEEP } from "../scripts/reset-test-session.mjs";
+import { beforeStateSql, revertStatements } from "../scripts/migrate/repoint-test-class-rows.mjs";
+import { offListSql, resetOrder, resetSessionRefusal, RESET_KEEP } from "../scripts/reset-test-session.mjs";
 
 const root = process.cwd();
 const migrationsDir = path.join(root, "supabase", "migrations");
@@ -46,9 +55,9 @@ const C = "00000000-0000-4000-8000-0000000000c3";
 const D = "00000000-0000-4000-8000-0000000000d4";
 
 /** A catalog entry as describeTables() makes it, for planTableOps. */
-function info(table: string, columns: string[], { staff = [] as string[], pk = ["id"] } = {}) {
+function info(table: string, columns: string[], { staff = [] as string[], pk = ["id"], types = {} as Record<string, string> } = {}) {
   return describeTables({
-    tables: { [table]: { columns: columns.map((name) => ({ name, type: "uuid", notNull: false, generated: false })), pk, triggers: [] } },
+    tables: { [table]: { columns: columns.map((name) => ({ name, type: types[name] ?? "uuid", notNull: false, generated: false })), pk, triggers: [] } },
     fks: staff.map((c) => ({ name: `${table}_${c}_fkey`, child: `vppsone.${table}`, parent: "vppsone.staff_profiles", childCols: [c] })),
   })[table];
 }
@@ -398,6 +407,224 @@ describe("reset-test-session (plan §4.5, critique1 B15)", () => {
   });
   it("keeps the TEST timetable", () => {
     expect(RESET_KEEP.has("timetable_versions")).toBe(true);
+  });
+});
+
+describe("references with no foreign key (review of PR #150)", () => {
+  const verifySql = readFileSync(path.join(root, "scripts", "migrate", "verify-quarantine.sql"), "utf8");
+
+  it("verify-quarantine.sql checks exactly the references TABLES lists", () => {
+    const block = verifySql.slice(verifySql.indexOf("-- @refs-start"), verifySql.indexOf("-- @refs-end"));
+    const inSql = new Set([...block.matchAll(/\('([a-z_]+)', '([a-z_]+)', '([a-z]+)', (true|false)\)/g)].map((m) => `${m[1]}.${m[2]} ${m[3]} ${m[4]}`));
+    const listed = new Set<string>();
+    for (const [t, spec] of Object.entries(TABLES)) {
+      for (const c of spec.staffRefs ?? []) listed.add(`${t}.${c} staff false`);
+      for (const c of spec.classRefs ?? []) listed.add(`${t}.${c} class false`);
+      for (const c of spec.staffArrays ?? []) listed.add(`${t}.${c} staff true`);
+      for (const c of spec.classArrays ?? []) listed.add(`${t}.${c} class true`);
+      for (const c of spec.studentArrays ?? []) listed.add(`${t}.${c} student true`);
+    }
+    expect(listed.size).toBeGreaterThan(10);
+    expect(inSql).toEqual(listed);
+  });
+
+  it("verify-quarantine.sql's record-answer checks use SENSITIVE_FIELD", () => {
+    expect(verifySql.split(`'${SENSITIVE_FIELD.source}'`).length - 1).toBe(6);
+  });
+
+  it("the catalog folds listed columns into the class / staff / array lists", () => {
+    const cover = info("cover_duties", ["id", "session_label", "absent_staff_ids", "class_ids"], { types: { absent_staff_ids: "uuid[]", class_ids: "uuid[]" } });
+    expect(cover.staffArrays).toEqual(["absent_staff_ids"]);
+    expect(cover.classArrays).toEqual(["class_ids"]);
+    expect(info("substitution_assignments", ["id", "session_label", "class_id", "merge_host_class_id"]).classCols).toEqual(["class_id", "merge_host_class_id"]);
+    expect(info("record_commands", ["id", "actor_staff_id"]).staffCols).toEqual(["actor_staff_id"]);
+    expect(info("fee_reminder_batches", ["id", "session_label", "student_ids"], { types: { student_ids: "uuid[]" } }).studentArrays).toEqual(["student_ids"]);
+  });
+
+  it("unlistedRefColumns stops on a reference-shaped column nobody re-points", () => {
+    const fresh = info("notes", ["id", "session_label", "class_id", "student_id", "reviewer_staff_id", "checked_by", "watcher_class_ids", "command_id"], {
+      types: { watcher_class_ids: "uuid[]" },
+    });
+    expect(unlistedRefColumns({ notes: fresh })).toEqual(["notes.checked_by", "notes.reviewer_staff_id", "notes.watcher_class_ids"]);
+    // A foreign key covers it; K / C tables are never touched; text columns are not references.
+    const fk = info("notes", ["id", "session_label", "checked_by"], { staff: ["checked_by"] });
+    expect(unlistedRefColumns({ notes: fk })).toEqual([]);
+    expect(unlistedRefColumns({ smoke_pool: info("smoke_pool", ["email", "owner_by"], { pk: ["email"] }) })).toEqual([]);
+    expect(unlistedRefColumns({ notes: info("notes", ["id", "made_by"], { types: { made_by: "text" } }) })).toEqual([]);
+  });
+
+  it("unlistedRefColumns reports a listed column the table no longer has", () => {
+    expect(unlistedRefColumns({ record_commands: info("record_commands", ["id", "session_label"]) })).toEqual(["record_commands.actor_staff_id"]);
+  });
+
+  it("planTableOps re-points the listed references, scalar and array", () => {
+    const maps = { classMap: new Map([[A, B]]), studentMap: new Map([[C, D]]), staffMap: new Map([[A, B]]) };
+    const cover = planTableOps(info("cover_duties", ["id", "session_label", "absent_staff_ids", "class_ids"], { types: { absent_staff_ids: "uuid[]", class_ids: "uuid[]" } }), maps);
+    expect(cover.map((o) => `${o.kind}:${o.column}`)).toEqual(["relabel:session_label", "class:class_ids", "staff:absent_staff_ids"]);
+    expect(cover[1].set).toContain("unnest(t.\"class_ids\")");
+    const batches = planTableOps(info("fee_reminder_batches", ["id", "session_label", "student_ids", "status"], { types: { student_ids: "uuid[]" } }), maps);
+    expect(batches.map((o) => `${o.kind}:${o.column}`)).toContain("student:student_ids");
+    const subs = planTableOps(info("substitution_assignments", ["id", "session_label", "class_id", "merge_host_class_id"]), maps);
+    expect(subs.filter((o) => o.kind === "class").map((o) => o.column)).toEqual(["class_id", "merge_host_class_id"]);
+    const commands = planTableOps(info("record_commands", ["id", "session_label", "actor_staff_id"]), maps);
+    expect(commands.map((o) => `${o.kind}:${o.column}`)).toContain("staff:actor_staff_id");
+  });
+
+  it("planTableOps nulls record answers to phone / identifier fields (records, history, submissions)", () => {
+    const maps = { classMap: new Map(), studentMap: new Map(), staffMap: new Map() };
+    const records = planTableOps(info("student_records", ["id", "session_label", "field_id", "value"]), maps).find((o) => o.kind === "scrub")!;
+    expect(records.set).toBe(`"value" = null`);
+    expect(records.where).toContain("vppsone.collection_fields f where f.id = t.field_id");
+    const history = planTableOps(info("student_record_history", ["id", "session_label", "field_id", "old_value", "new_value"]), maps).find((o) => o.kind === "scrub")!;
+    expect(history.set).toBe(`"old_value" = null, "new_value" = null`);
+    const subs = planTableOps(info("collection_submissions", ["id", "field_id", "value", "previous_value", "student_id"]), maps).find((o) => o.kind === "scrub")!;
+    expect(subs.where).toContain(`(true)`);
+  });
+});
+
+describe("held real-teacher candidates (critique0 #20, critique1 A4)", () => {
+  const base = { role: "teacher", is_active: true, is_teaching: true, is_test_account: true, created_at: "1" };
+  const profiles = [
+    { ...base, id: A, short_name: "RK", display_name: "R K", user_id: "u1" },
+    { ...base, id: B, short_name: "DR", display_name: "D R", user_id: "u2", in_dayrun: true },
+    { ...base, id: C, short_name: "QN", display_name: "QA teacher 3", user_id: "u3" },
+  ];
+  it("holds a day-run profile and a QA-looking name; promotes the rest", () => {
+    const { candidates, held } = splitCandidates(profiles, ["RK", "DR", "QN"]);
+    expect(candidates.map((p) => p.id)).toEqual([A]);
+    expect(held.map((p) => p.id)).toEqual([B, C]);
+    expect(promoteCandidates(profiles, ["RK", "DR", "QN"]).map((p) => p.id)).toEqual([A]);
+  });
+  it("--accept-held releases exactly the named short names", () => {
+    const { candidates, held } = splitCandidates(profiles, ["RK", "DR", "QN"], { acceptHeld: ["dr"] });
+    expect(candidates.map((p) => p.id)).toEqual([A, B]);
+    expect(held.map((p) => p.id)).toEqual([C]);
+    expect(parseAcceptHeld("DR, QN")).toEqual(["DR", "QN"]);
+    expect(parseAcceptHeld(undefined)).toEqual([]);
+    expect(parseAcceptHeld(true)).toEqual([]);
+  });
+  it("a held profile gets no twin and stays a test account (maps to itself)", () => {
+    const { candidates } = splitCandidates(profiles, ["RK", "DR", "QN"]);
+    const r = planStaffMap(profiles, candidates);
+    expect(r.twins.map((t) => t.source)).toEqual([A]);
+    expect(r.map.has(B)).toBe(false);
+    expect(r.map.has(C)).toBe(false);
+  });
+  it("the quarantine refuses while one is held; a rehearsal does not", () => {
+    const ok = { environment: "production", feeWritesEnabled: "false", hasCutover: false, previousApplied: 0, backup: { ok: true } };
+    expect(decideQuarantineGuard({ ...ok, held: 2 }).ok).toBe(false);
+    expect(decideQuarantineGuard({ ...ok, held: 2 }).reasons.join(" ")).toMatch(/--accept-held/);
+    expect(decideQuarantineGuard({ ...ok, held: 2, rollbackOnly: true }).ok).toBe(true);
+  });
+});
+
+describe("reset-test-session after the quarantine (review of PR #150)", () => {
+  it("does not count the quarantine's TEST-D- shells against the 150 limit", () => {
+    expect(decideReset({ students: 79, shells: 513 }).ok).toBe(true);
+    expect(decideReset({ students: 451, shells: 0 }).ok).toBe(false);
+    expect(decideReset({ students: Number.NaN }).ok).toBe(false);
+    expect(decideReset({ students: 10, blockers: ["x points at TEST activity"] }).ok).toBe(false);
+  });
+  it("switches a table's delete-guard triggers off for its one DELETE only", () => {
+    const step = { table: "student_record_history", where: `session_label = '${TEST_SESSION}'` };
+    const statements = resetStatements(step, new Map([["student_record_history", ["student_record_history_append_only"]]]));
+    expect(statements).toEqual([
+      `alter table vppsone."student_record_history" disable trigger "student_record_history_append_only"`,
+      `delete from vppsone."student_record_history" where session_label = '${TEST_SESSION}'`,
+      `alter table vppsone."student_record_history" enable trigger "student_record_history_append_only"`,
+    ]);
+    expect(resetStatements({ table: "notes", where: "true" })).toEqual([`delete from vppsone."notes" where true`]);
+  });
+  it("every append-only table is one the quarantine rewrites (and so the reset must unguard)", () => {
+    const appendOnly = Object.entries(TABLES).filter(([, s]) => s.appendOnly).map(([t]) => t).sort();
+    expect(appendOnly).toEqual(["exam_activity", "report_card_issues", "student_record_history"]);
+    for (const t of appendOnly) expect(RESET_KEEP.has(t)).toBe(false);
+  });
+  it("--null-test-phones compares the last ten digits with the allowlist", () => {
+    const sql = offListSql("primary_phone");
+    expect(sql).toContain(`s."primary_phone" is not null`);
+    expect(sql).toContain("vppsone.message_test_recipients");
+    expect(sql).toContain("right(regexp_replace(");
+  });
+});
+
+describe("the TEST timetable after promotion (seed-timetable confined)", () => {
+  const staff = [
+    { id: "real", short_name: "RK", is_test_account: false },
+    { id: "twin", short_name: "T-RK", is_test_account: true },
+    { id: "qa", short_name: "QA1", is_test_account: true },
+  ];
+  it("confined: a promoted short name falls back to its T- twin", () => {
+    const m = teacherShortNameMap(staff, { confined: true });
+    expect(m.get("rk")).toBe("twin");
+    expect(m.get("qa1")).toBe("qa");
+  });
+  it("production promote: real staff only; neither: everyone", () => {
+    expect([...teacherShortNameMap(staff, { realOnly: true })]).toEqual([["rk", "real"]]);
+    expect(teacherShortNameMap(staff).get("rk")).toBe("real");
+  });
+});
+
+describe("the first load refuses unquarantined rows (critique0 #19)", () => {
+  it("refuses a first load while a B row carries a real session; a rehearsal warns; later loads pass", () => {
+    const leftovers = [{ table: "notes", n: 2 }];
+    expect(decideFirstLoadQuarantine({ firstLoad: true, leftovers }).ok).toBe(false);
+    expect(decideFirstLoadQuarantine({ firstLoad: true, rollbackOnly: true, leftovers })).toMatchObject({ ok: true, warn: expect.stringContaining("notes 2") });
+    expect(decideFirstLoadQuarantine({ firstLoad: false, leftovers }).ok).toBe(true);
+    expect(decideFirstLoadQuarantine({ firstLoad: true, leftovers: [] }).ok).toBe(true);
+  });
+});
+
+describe("repoint-test-class-rows (the one phase-H script applied for real)", () => {
+  const classMap = new Map([[A, B]]);
+  const ct = info("class_teachers", ["id", "session_label", "class_id", "staff_profile_id", "role", "effective_from", "effective_to"], { staff: ["staff_profile_id"] });
+  it("plans the close-duplicate before the re-point, and records both columns' before-state", () => {
+    const ops = planTestClassOps(ct, classMap);
+    expect(ops.map((o) => o.kind)).toEqual(["close-duplicate", "class"]);
+    const q = beforeStateSql(ct, ops);
+    expect(q.sql).toContain(`t."id"::text as "id", t."effective_to"::text as "effective_to", t."class_id"::text as "class_id"`);
+    expect(q.params).toHaveLength(2); // the close-duplicate WHERE uses the target ids too
+  });
+  it("the revert writes every recorded column back by primary key, null included", () => {
+    const statements = revertStatements([{ table: "class_teachers", pk: ["id"], rows: [{ id: C, effective_to: null, class_id: A }] }]);
+    expect(statements).toEqual([{ sql: `update vppsone."class_teachers" set "effective_to" = $2, "class_id" = $3 where "id"::text = $1`, params: [C, null, A] }]);
+  });
+  it("refuses a table with no primary key", () => {
+    expect(() => beforeStateSql({ ...ct, pk: [] }, planTestClassOps(ct, classMap))).toThrow(/primary key/);
+  });
+});
+
+describe("classify-dev-vppsone", () => {
+  it("counts the owner's activity through FK and listed staff references, arrays and auth.users columns", () => {
+    const owner = { profile_id: A, user_id: B };
+    const cover = info("cover_duties", ["id", "session_label", "absent_staff_ids", "class_ids"], { types: { absent_staff_ids: "uuid[]", class_ids: "uuid[]" } });
+    expect(ownerActivityWhere(cover, owner)).toBe(`'${A}'::uuid = any(t."absent_staff_ids")`);
+    const withAuth = describeTables({
+      tables: { notes: { columns: [{ name: "id", type: "uuid" }, { name: "created_by", type: "uuid" }, { name: "author_staff_id", type: "uuid" }], pk: ["id"], triggers: [] } },
+      fks: [
+        { name: "a", child: "vppsone.notes", parent: "auth.users", childCols: ["created_by"] },
+        { name: "b", child: "vppsone.notes", parent: "vppsone.staff_profiles", childCols: ["author_staff_id"] },
+      ],
+    }).notes;
+    expect(ownerActivityWhere(withAuth, owner)).toBe(`t."author_staff_id" = '${A}'::uuid or t."created_by" = '${B}'::uuid`);
+    expect(ownerActivityWhere(info("subjects", ["id", "code"]), owner)).toBeNull();
+    expect(() => ownerActivityWhere(withAuth, { profile_id: "x'; drop", user_id: B })).toThrow();
+  });
+  it("finds rows on the extra class through class arrays too", () => {
+    expect(classRefsWhere(info("cover_duties", ["id", "class_ids"], { types: { class_ids: "uuid[]" } }))).toBe(`t."class_ids" && $1::uuid[]`);
+    expect(classRefsWhere(info("subjects", ["id"]))).toBeNull();
+  });
+});
+
+describe("the runbook runs C8 while fee writes are still shut", () => {
+  it("C8 (rebuild-enrolments --apply, which refuses after fee_writes_enabled='true') comes before step 8", () => {
+    const runbook = readFileSync(path.join(root, "docs", "cutover", "CUTOVER-RUNBOOK-2026-27.md"), "utf8");
+    const c8 = runbook.indexOf("### C8 — enrolments");
+    const step5 = runbook.indexOf("### Step 5 — Reconcile");
+    const step8 = runbook.indexOf("### Step 8 — Enable real fee writes");
+    expect(c8).toBeGreaterThan(step5);
+    expect(c8).toBeLessThan(step8);
+    expect(decideEnrolmentRebuild({ environment: "production", feeWritesEnabled: "true", hasCutover: true, firstLoads: 1 }).ok).toBe(false);
   });
 });
 

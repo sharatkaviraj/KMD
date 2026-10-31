@@ -147,10 +147,10 @@ accounts — otherwise unscheduled), `dispatch-flags` (`parent_dispatch` and
 ```
 node scripts/migrate/classify-dev-vppsone.mjs                                # read-only counts per bucket (phase H)
 node scripts/migrate/quarantine-in-place.mjs                                 # dry run: counts per table + guard
-node scripts/migrate/quarantine-in-place.mjs --rollback-only --with-promote  # rehearsal: all writes + checks, ROLLBACK
-node scripts/migrate/quarantine-in-place.mjs --apply                         # (phase H)
-node scripts/migrate/promote-master-data.mjs                                 # dry run: the owner's sign-off list
-node scripts/migrate/promote-master-data.mjs --apply                         # then re-seeds the timetable itself
+node scripts/migrate/promote-master-data.mjs                                 # dry run: the owner's sign-off list (candidates AND held)
+node scripts/migrate/quarantine-in-place.mjs --rollback-only --with-promote --with-reset  # rehearsal: all writes + checks + a TEST reset, ROLLBACK
+node scripts/migrate/quarantine-in-place.mjs --apply [--accept-held <short,…>]           # (phase H)
+node scripts/migrate/promote-master-data.mjs --apply [--accept-held <short,…>]           # then re-seeds the timetable itself
 psql … -f scripts/migrate/verify-quarantine.sql                              # (phase H)
 npm run migrate:backup-one                                                   # 3b: the restore point for step 4
 npm run migrate:backup-one -- --restore-test <run printed above>
@@ -163,12 +163,29 @@ every student not already in a TEST class, and at test-account profiles (each
 real-teacher profile gets a test twin `T-<short>` that takes over its QA /
 smoke login); phones, destinations and tokens nulled or rotated; sends
 `cancelled`, notices `suppressed`, queues / campaigns / tasks / links
-cancelled or revoked; append-only tables rewritten by delete + insert-copy
-with their named triggers off for those statements. Every new row and
-re-point is in `vppsone.migration_id_map`. It refuses unless the marker is
-`production`, fee writes are `false`, a `backup-one` run from the last 24 h is
-on this machine, no load has been applied and every table is classified.
+cancelled or revoked; record answers to phone / identifier / address fields
+nulled; append-only tables rewritten by delete + insert-copy (ids kept) with
+their named triggers off for those statements. References with no foreign
+key (`class_ids` arrays, `merge_host_class_id`, `actor_staff_id`, `*_by`, …)
+are listed in `lib/quarantine-rules.mjs` and re-pointed like the rest; a
+reference-shaped column that is not listed stops the run. Every new identity
+(shells, the twin class, twin / placeholder profiles) and every class / staff
+re-map is in `vppsone.migration_id_map`; per-table counts are in the run row.
+It refuses unless the marker is `production`, fee writes are `false`, a
+`backup-one` run from the last 24 h is on this machine, no load has been
+applied, every table is classified and no **held** profile is waiting.
 One transaction for the identities, then one per table group.
+
+**Held profiles.** A timetable short name whose only profile a day-run made
+(`qa_dayrun_accounts`) or whose display name reads like QA tooling is held:
+it stays a test account and gets no twin, and both `quarantine-in-place
+--apply` and `promote-master-data --apply` refuse while it is held. On
+31 Oct: 2 of 19. The owner opens `promote-<run>\sign-off.json` (the `held`
+list), confirms each is the real teacher, fixes its display name in
+`/staff`, and the Operator passes the short names to **both** scripts with
+`--accept-held`. A held profile that is not the real teacher: rename its
+short name (say `QA-<short>`) and give the real teacher a profile with the
+timetable short name, then re-run the dry runs.
 `promote-master-data --apply` (after the quarantine) resets
 `role_permissions` to the migration seed, drops real rows about QA / smoke /
 day-run profiles, QA-fixture rows and rows on the class with no live partner,
@@ -205,6 +222,12 @@ cutover).
 
 ### Step 4 — First load / final load = C1 (08:30, Operator) — owner sequence 4
 
+**Before the first load** (critique0 #19 — nothing freezes One between step 3
+and step 4, and a real-session row made in between would attach to a real
+child): re-run `psql … -f scripts/migrate/verify-quarantine.sql`; every row
+must still say `pass`. `load-snapshot --first-load --apply` checks the same
+thing itself and refuses while any bucket-B row carries a real session.
+
 ```
 node scripts/migrate/extract-live.mjs --run t0-<date>                         # read-only on fees live
 node scripts/migrate/control-totals.mjs --run t0-<date>                       # vs the fees MCP figures
@@ -216,6 +239,16 @@ node scripts/migrate/storage-copy.mjs --apply                                  #
 (`--first-load` only on the first ever load; it brings live's TEST-2026-27 rows
 once. Later loads omit it.) The extract's snapshot is the **watermark**; its
 control-totals hash is the cutover baseline.
+
+**After the first load only — the TEST students' phones** (critique1 B15):
+live's 79 TEST students arrive with real numbers (31 Oct: 78 not on the test
+allowlist). The owner chose between nulling and allowlisting; record which:
+```
+node scripts/reset-test-session.mjs --session TEST-2026-27 --null-test-phones                  # dry run: counts per column
+node scripts/reset-test-session.mjs --session TEST-2026-27 --null-test-phones --apply          # nulls every TEST-class phone off the allowlist
+```
+(or the owner adds the numbers to `vppsone.message_test_recipients` and this
+is skipped). Later loads never touch TEST rows, so it is done once.
 - **Check:** load-snapshot prints written = planned for every table, 0
   orphans, matviews refreshed; `select summary->'watermark' from
   vppsone.migration_runs where script='load-snapshot' order by finished_at desc limit 1;`
@@ -251,6 +284,43 @@ node scripts/migrate/access-email-check.mjs        # Q6: must print ok (exit 0) 
 - **Rollback:** read-only. A mismatch stops the cutover: no step after this
   one runs; the desk stays on the fees app (`ROLLBACK-2026-27.md` is not
   needed — nothing was switched on).
+
+### C8 — enrolments and class teachers (09:30, Operator, Admin) — (phase H)
+Rebuild 2026-27 enrolments from the loaded students (the count equals on
+roll plus left, critique1 B21), after the final load and its reconcile and
+**before step 8**: `rebuild-enrolments --apply` refuses once
+`fee_writes_enabled` is `'true'` (from then on the app keeps enrolments
+itself), so it cannot run after 11:30.
+
+```
+node scripts/migrate/rebuild-enrolments.mjs                  # dry run: target = on roll + left, inserts/corrections/deletes, classes without a class teacher
+node scripts/migrate/rebuild-enrolments.mjs --apply          # one transaction; refuses unless marker production, fee writes 'false', a first load or cutover row
+```
+It enrols every `active` student of the session's classes in their class and
+gives every `left` student a `left` enrolment; existing rows keep their id and
+roll number; a row whose student is not in the session any more is deleted;
+TEST-2026-27 is never touched. It prints the classes with no current class
+teacher (assign them in `/staff` before C9). The same checks by hand
+(read-only, SQL editor):
+
+```sql
+-- 1. enrolments = students of the session (on roll + left), by status
+select status, count(*) from vppsone.enrolments where session_label = '2026-27' group by 1;
+select s.status, count(*) from public.students s join public.classes c on c.id = s.class_id
+where c.session_label = '2026-27' group by 1;
+-- 2. every 2026-27 class has a current class teacher (so its teacher's my_class_keys is non-empty)
+select c.id from public.classes c
+where c.session_label = '2026-27'
+  and not exists (
+    select 1 from vppsone.class_teachers ct
+    where ct.class_id = c.id and ct.session_label = c.session_label
+      and (ct.effective_from is null or ct.effective_from <= vppsone.school_today())
+      and (ct.effective_to is null or ct.effective_to >= vppsone.school_today()));
+```
+**Check:** query 1's two totals are equal (on 31 Oct, on the replica: 511
+enrolled against 513 active + 28 left — why the rebuild is needed); query 2
+returns **zero rows** (on 31 Oct: 1 of 20 classes had none); the totals match
+step 5's reconcile.
 
 ### C3 — the cutover line and One's settings (09:45, Owner in the SQL editor)
 
@@ -402,40 +472,6 @@ select vppsone.fee_writes_open();                         -- true
   — every money RPC refuses real students again at once (fee-migration
   `20261030230000_fee_writes_guard`).
 
-### C8 — enrolments and class teachers (12:00, Admin) — (phase H)
-Rebuild 2026-27 enrolments from the loaded students (the count equals on
-roll plus left, critique1 B21), after the final load:
-
-```
-node scripts/migrate/rebuild-enrolments.mjs                  # dry run: target = on roll + left, inserts/corrections/deletes, classes without a class teacher
-node scripts/migrate/rebuild-enrolments.mjs --apply          # one transaction; refuses unless marker production, fee writes 'false', a first load or cutover row
-```
-It enrols every `active` student of the session's classes in their class and
-gives every `left` student a `left` enrolment; existing rows keep their id and
-roll number; a row whose student is not in the session any more is deleted;
-TEST-2026-27 is never touched. It prints the classes with no current class
-teacher (assign them in `/staff` before C9). The same checks by hand
-(read-only, SQL editor):
-
-```sql
--- 1. enrolments = students of the session (on roll + left), by status
-select status, count(*) from vppsone.enrolments where session_label = '2026-27' group by 1;
-select s.status, count(*) from public.students s join public.classes c on c.id = s.class_id
-where c.session_label = '2026-27' group by 1;
--- 2. every 2026-27 class has a current class teacher (so its teacher's my_class_keys is non-empty)
-select c.id from public.classes c
-where c.session_label = '2026-27'
-  and not exists (
-    select 1 from vppsone.class_teachers ct
-    where ct.class_id = c.id and ct.session_label = c.session_label
-      and (ct.effective_from is null or ct.effective_from <= vppsone.school_today())
-      and (ct.effective_to is null or ct.effective_to >= vppsone.school_today()));
-```
-**Check:** query 1's two totals are equal (on 31 Oct, on the replica: 511
-enrolled against 513 active + 28 left — why the rebuild is needed); query 2
-returns **zero rows** (on 31 Oct: 1 of 20 classes had none); the totals match
-step 5's reconcile.
-
 ### Step 9 — Parent message categories, one by one = C9 (14:00, Owner) — owner sequence 9
 
 Before the first: Vercel Production `MESSAGE_PROVIDER=aisensy`, redeploy;
@@ -496,6 +532,7 @@ no duplicate-message query hits — `PARALLEL-RUN.md`):
 | 3 Quarantine + promote + verify | 20 min | | |
 | 4 Extract + load + storage | 45 min | | |
 | 5 Reconcile + parity | 20 min | | |
+| C8 enrolments rebuild (before step 8) | 10 min | | |
 | C3–C6 | 45 min | | |
 | 6–8 | 30 min | | |
 | Total in the freeze | under 3 h | | |

@@ -7,6 +7,8 @@
  * not know stops the run.
  */
 
+import { TABLES } from "./quarantine-rules.mjs";
+
 export async function readVppsoneCatalog(tx) {
   const [row] = await tx`
     select jsonb_build_object(
@@ -52,7 +54,9 @@ export async function readVppsoneCatalog(tx) {
 
 /**
  * Per table: has a session_label, which columns hold a class / student /
- * staff-profile id, self-references and who points in from outside. Pure.
+ * staff-profile id (by name, by foreign key, and the no-foreign-key columns
+ * TABLES lists: staffRefs, classRefs and the uuid[] arrays), self-references
+ * and who points in from outside. Pure.
  */
 /**
  * @param {{ tables: Record<string, any>, fks: any[] }} meta
@@ -64,21 +68,59 @@ export function describeTables(meta) {
     const columns = t.columns.filter((c) => !c.generated);
     const names = new Set(columns.map((c) => c.name));
     const fks = meta.fks.filter((fk) => fk.child === `vppsone.${table}`);
+    const spec = TABLES[table] ?? {};
+    const listed = (key) => (spec[key] ?? []).filter((c) => names.has(c));
+    const staffFk = fks.filter((fk) => fk.parent === "vppsone.staff_profiles" && fk.childCols.length === 1).map((fk) => fk.childCols[0]);
     out[table] = {
       table,
       columns,
       pk: t.pk ?? [],
       triggers: t.triggers ?? [],
       hasSession: names.has("session_label"),
-      classCols: names.has("class_id") ? ["class_id"] : [],
+      classCols: [...(names.has("class_id") ? ["class_id"] : []), ...listed("classRefs")],
       studentCols: names.has("student_id") ? ["student_id"] : [],
-      staffCols: fks.filter((fk) => fk.parent === "vppsone.staff_profiles" && fk.childCols.length === 1).map((fk) => fk.childCols[0]),
+      staffCols: [...new Set([...staffFk, ...listed("staffRefs")])],
+      classArrays: listed("classArrays"),
+      studentArrays: listed("studentArrays"),
+      staffArrays: listed("staffArrays"),
       authCols: fks.filter((fk) => fk.parent === "auth.users" && fk.childCols.length === 1).map((fk) => fk.childCols[0]),
+      fkCols: new Set(fks.flatMap((fk) => fk.childCols)),
       selfRefs: fks.filter((fk) => fk.parent === `vppsone.${table}` && fk.childCols.length === 1).map((fk) => fk.childCols[0]),
       referencedBy: meta.fks.filter((fk) => fk.parent === `vppsone.${table}` && fk.child !== `vppsone.${table}`).map((fk) => fk.child),
       notNull: new Set(columns.filter((c) => c.notNull).map((c) => c.name)),
       columnNames: names,
+      // TABLES lists a column the table does not have: the list is stale.
+      missingListed: ["staffRefs", "classRefs", "classArrays", "studentArrays", "staffArrays", "sensitiveValues"].flatMap((key) =>
+        (spec[key] ?? []).filter((c) => !names.has(c)).map((c) => `${table}.${c}`),
+      ),
     };
   }
   return out;
+}
+
+/** A column name that reads like a person or class reference. */
+export const REFERENCE_NAME = /(^|_)(staff|class|student|profile)_ids?$|_by$|^on_behalf_of$/;
+
+/**
+ * Reference-shaped uuid / uuid[] columns of the tables the quarantine owns
+ * (bucket B; the TEST rows of A / R tables with a session) that it would NOT
+ * re-point: no foreign key, not found by name, not listed in TABLES — plus
+ * listed columns the table no longer has. The quarantine refuses while any
+ * exist (fail closed: a new `*_staff_id` column must be placed first). Pure.
+ */
+export function unlistedRefColumns(described) {
+  const out = [];
+  for (const info of Object.values(described)) {
+    const bucket = TABLES[info.table]?.bucket;
+    const owned = bucket === "B" || ((bucket === "A" || bucket === "R") && info.hasSession && info.table !== "staff_profiles");
+    if (!owned) continue;
+    out.push(...info.missingListed);
+    const known = new Set([...info.classCols, ...info.studentCols, ...info.staffCols, ...info.classArrays, ...info.studentArrays, ...info.staffArrays, ...info.authCols]);
+    for (const c of info.columns) {
+      if (!/^uuid(\[\])?$/.test(c.type) || c.name === "id") continue;
+      if (!REFERENCE_NAME.test(c.name) || known.has(c.name) || info.fkCols.has(c.name)) continue;
+      out.push(`${info.table}.${c.name}`);
+    }
+  }
+  return out.sort();
 }

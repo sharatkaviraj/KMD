@@ -37,6 +37,38 @@ import { readVppsoneCatalog } from "./lib/vppsone-catalog.mjs";
 
 const rel = (table) => `vppsone.${quoteIdent(table)}`;
 
+/**
+ * The before-state select for one table's ops: the primary key and every
+ * column an op changes, as text, of every row any op would change — so the
+ * revert writes back exactly what was there. Pure.
+ */
+export function beforeStateSql(info, ops) {
+  if (!info.pk.length) throw new Error(`${info.table} has no primary key to record the before-state by.`);
+  const cols = [...info.pk, ...new Set(ops.map((o) => o.column))].map((c) => `t.${quoteIdent(c)}::text as ${quoteIdent(c)}`).join(", ");
+  const where = ops.map((o) => `(${o.where})`).join(" or ");
+  const params = ops.some((o) => o.where.includes("$2")) ? ops[0].params : ops[0].params.slice(0, 1);
+  return { sql: `select ${cols} from ${rel(info.table)} as t where ${where}`, params };
+}
+
+/**
+ * --revert: one UPDATE per recorded row, matched on its primary key as text,
+ * setting every recorded column back (effective_to null included). Pure.
+ * before: [{ table, pk, rows: [{ <pk>…, <column>… }] }].
+ */
+export function revertStatements(before) {
+  const out = [];
+  for (const { table, pk, rows } of before) {
+    for (const r of rows) {
+      const cols = Object.keys(r).filter((c) => !pk.includes(c));
+      if (!cols.length) continue;
+      const sets = cols.map((c, i) => `${quoteIdent(c)} = $${pk.length + i + 1}`).join(", ");
+      const match = pk.map((c, i) => `${quoteIdent(c)}::text = $${i + 1}`).join(" and ");
+      out.push({ sql: `update ${rel(table)} set ${sets} where ${match}`, params: [...pk.map((c) => r[c]), ...cols.map((c) => r[c])] });
+    }
+  }
+  return out;
+}
+
 async function plan(tx) {
   const catalog = await readVppsoneCatalog(tx);
   const classes = await readClasses(tx);
@@ -75,12 +107,8 @@ async function apply(sql, { write }) {
         found.push({ op, n });
       }
       if (!found.some((f) => f.n)) continue;
-      if (!info.pk.length) throw new Error(`${info.table} has no primary key to record the before-state by.`);
-      // Keyed by the primary key, as text, so the revert writes back exactly what was there.
-      const cols = [...info.pk, ...new Set(ops.map((o) => o.column))].map((c) => `t.${quoteIdent(c)}::text as ${quoteIdent(c)}`).join(", ");
-      const where = ops.map((o) => `(${o.where})`).join(" or ");
-      const params = ops.some((o) => o.where.includes("$2")) ? ops[0].params : ops[0].params.slice(0, 1);
-      const rows = await tx.unsafe(`select ${cols} from ${rel(info.table)} as t where ${where}`, params);
+      const q = beforeStateSql(info, ops);
+      const rows = await tx.unsafe(q.sql, q.params);
       before.push({ table: info.table, pk: info.pk, rows: rows.map((r) => ({ ...r })) });
       for (const { op, n } of found) {
         if (write && n) await tx.unsafe(updateSql(op, rel(info.table)), op.params);
@@ -109,15 +137,8 @@ async function revert(sql, runRef) {
     if (!row) throw new Error(`No repoint-test-class-rows run ${runRef}.`);
     const summary = typeof row.summary === "string" ? JSON.parse(row.summary) : row.summary;
     let n = 0;
-    for (const { table, pk, rows } of summary.before ?? []) {
-      for (const r of rows) {
-        const keys = pk.map((c) => r[c]);
-        const cols = Object.keys(r).filter((c) => !pk.includes(c));
-        const sets = cols.map((c, i) => `${quoteIdent(c)} = $${pk.length + i + 1}`).join(", ");
-        const match = pk.map((c, i) => `${quoteIdent(c)}::text = $${i + 1}`).join(" and ");
-        const res = await tx.unsafe(`update ${rel(table)} set ${sets} where ${match}`, [...keys, ...cols.map((c) => r[c])]);
-        n += res.count;
-      }
+    for (const statement of revertStatements(summary.before ?? [])) {
+      n += (await tx.unsafe(statement.sql, statement.params)).count;
     }
     await tx`
       insert into vppsone.migration_runs (script, kind, source_project, target_project, snapshot_id, finished_at, status, summary, note)

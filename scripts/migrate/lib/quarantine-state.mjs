@@ -16,12 +16,12 @@ import {
   planClassMap,
   planStaffMap,
   planStudentMap,
-  promoteCandidates,
+  splitCandidates,
   TABLES,
   unclassified,
 } from "./quarantine-rules.mjs";
 import { mapParams, scopeOf, uuidArray } from "./quarantine-sql.mjs";
-import { readVppsoneCatalog } from "./vppsone-catalog.mjs";
+import { readVppsoneCatalog, unlistedRefColumns } from "./vppsone-catalog.mjs";
 
 export const FIXTURE_TIMETABLE = path.join(repoRoot, "tests", "fixtures", "timetable-2026-27.csv");
 
@@ -63,7 +63,8 @@ export async function readProfiles(sql) {
   return sql`
     select p.id::text, p.user_id::text, p.role::text, p.short_name, p.display_name, p.is_active, p.is_teaching,
            p.is_test_account, p.preferred_language, p.created_at, p.phone is not null or p.whatsapp_phone is not null as has_phone,
-           lower(split_part(u.email, '@', 2)) as email_domain
+           lower(split_part(u.email, '@', 2)) as email_domain,
+           exists (select 1 from vppsone.qa_dayrun_accounts d where d.staff_profile_id = p.id) as in_dayrun
     from vppsone.staff_profiles p left join auth.users u on u.id = p.user_id`;
 }
 
@@ -84,7 +85,7 @@ async function distinctRefs(sql, info, column, isArray) {
  * Everything the quarantine decides before it writes: the catalog, the
  * candidates, and the class, student and staff maps (with the rows to create).
  */
-export async function planIdentities(sql) {
+export async function planIdentities(sql, { acceptHeld = [] } = {}) {
   const catalog = await readVppsoneCatalog(sql);
   const notPlaced = unclassified(Object.keys(catalog));
   const [classes, profiles, shortNames] = await Promise.all([readClasses(sql), readProfiles(sql), fixtureTeacherShortNames()]);
@@ -93,10 +94,10 @@ export async function planIdentities(sql) {
   const studentIds = new Set();
   for (const info of Object.values(catalog)) {
     if (!TABLES[info.table]) continue;
-    const spec = TABLES[info.table];
     for (const c of info.classCols) for (const v of await distinctRefs(sql, info, c, false)) classIds.add(v);
-    for (const c of spec.classArrays ?? []) if (info.columnNames.has(c)) for (const v of await distinctRefs(sql, info, c, true)) classIds.add(v);
+    for (const c of info.classArrays) for (const v of await distinctRefs(sql, info, c, true)) classIds.add(v);
     for (const c of info.studentCols) for (const v of await distinctRefs(sql, info, c, false)) studentIds.add(v);
+    for (const c of info.studentArrays) for (const v of await distinctRefs(sql, info, c, true)) studentIds.add(v);
   }
 
   const students = new Map();
@@ -120,11 +121,15 @@ export async function planIdentities(sql) {
   const existing = new Map(existingRows.map((r) => [r.source_id, { id: r.target_id, admission_no: r.admission_no }]));
   const studentPlan = planStudentMap([...studentIds], { students, classSession, classMap: classMapPlan.map, existing });
 
-  const candidates = promoteCandidates(profiles, shortNames);
+  // Held profiles (a day-run made them, or a QA-looking name) are not
+  // candidates: they stay test accounts and get no twin (splitCandidates).
+  const { candidates, held } = splitCandidates(profiles, shortNames, { acceptHeld });
   const staffPlan = planStaffMap(profiles, candidates);
 
   const blockers = [];
   if (notPlaced.length) blockers.push(`unclassified vppsone tables: ${notPlaced.join(", ")}`);
+  const unlisted = unlistedRefColumns(catalog);
+  if (unlisted.length) blockers.push(`reference columns the quarantine would not re-point (list them in lib/quarantine-rules.mjs TABLES): ${unlisted.join(", ")}`);
   const shortTaken = new Map(profiles.map((p) => [String(p.short_name).toLowerCase(), p.id]));
   for (const p of [...staffPlan.twins, ...staffPlan.placeholders]) {
     const holder = shortTaken.get(p.short_name.toLowerCase());
@@ -143,6 +148,7 @@ export async function planIdentities(sql) {
     profiles,
     shortNames,
     candidates,
+    held,
     classPlan: classMapPlan,
     studentPlan,
     staffPlan,
@@ -167,6 +173,22 @@ export async function readLiveClasses() {
   } catch (error) {
     return { error: error.message };
   }
+}
+
+/**
+ * Bucket-B rows still labelled with a real session (verify-quarantine.sql
+ * check 3), per table: [{ table, n }] with n > 0. load-snapshot --first-load
+ * refuses while any exist (lib/quarantine-rules.mjs decideFirstLoadQuarantine).
+ */
+export async function readQuarantineLeftovers(sql) {
+  const catalog = await readVppsoneCatalog(sql);
+  const out = [];
+  for (const info of Object.values(catalog).sort((a, b) => a.table.localeCompare(b.table))) {
+    if (TABLES[info.table]?.bucket !== "B" || !info.hasSession) continue;
+    const [{ n }] = await sql.unsafe(`select count(*)::int as n from vppsone."${info.table}" as t where not vppsone.is_test_session_label(t.session_label)`);
+    if (n) out.push({ table: info.table, n });
+  }
+  return out;
 }
 
 export { mapParams };

@@ -28,6 +28,11 @@ export function mapParams(map) {
   return [uuidArray(entries.map(([s]) => s)), uuidArray(entries.map(([, t]) => t))];
 }
 
+/** `t.field_id` names a record field that may hold a phone, an identifier or an address. */
+export const SENSITIVE_FIELD_SQL =
+  `exists (select 1 from vppsone.collection_fields f where f.id = t.field_id ` +
+  `and (f.key ~* '${SENSITIVE_FIELD.source}' or coalesce(f.label_en, '') ~* '${SENSITIVE_FIELD.source}' or coalesce(f.input_type::text, '') ~* 'phone|tel|email'))`;
+
 /** Which rows of a table the quarantine owns. null = none. */
 export function scopeOf(info) {
   const bucket = TABLES[info.table]?.bucket;
@@ -96,24 +101,28 @@ export function planTableOps(info, maps) {
     }
   }
 
+  // Columns from the catalog: by name, by foreign key, and the no-foreign-key
+  // references TABLES lists (lib/vppsone-catalog.mjs describeTables).
   for (const c of info.classCols) repoint("class", c, maps.classMap);
-  for (const c of spec.classArrays ?? []) if (has(c)) repointArray("class", c, maps.classMap);
+  for (const c of info.classArrays ?? []) repointArray("class", c, maps.classMap);
   for (const c of info.studentCols) repoint("student", c, maps.studentMap);
+  for (const c of info.studentArrays ?? []) repointArray("student", c, maps.studentMap);
   for (const c of info.staffCols) repoint("staff", c, maps.staffMap);
-  for (const c of spec.staffArrays ?? []) if (has(c)) repointArray("staff", c, maps.staffMap);
+  for (const c of info.staffArrays ?? []) repointArray("staff", c, maps.staffMap);
 
   for (const { column, to } of spec.scrub ?? []) {
     if (!has(column)) continue;
     ops.push({ kind: "scrub", column, where: `${scrubNeeded(column, to)} and (${scope})`, set: `${q(column)} = ${scrubValue(to)}`, params: [] });
   }
-  if (info.table === "collection_submissions") {
+  // Record-field answers (collection submissions, student records and their
+  // history): a phone / identifier / address field's answer is nulled.
+  const sensitive = (spec.sensitiveValues ?? []).filter(has);
+  if (sensitive.length && has("field_id")) {
     ops.push({
       kind: "scrub",
-      column: "value",
-      where:
-        `(t.value is not null or t.previous_value is not null) and (${scope}) and exists (select 1 from vppsone.collection_fields f where f.id = t.field_id ` +
-        `and (f.key ~* '${SENSITIVE_FIELD.source}' or coalesce(f.label_en, '') ~* '${SENSITIVE_FIELD.source}' or coalesce(f.input_type::text, '') ~* 'phone|tel|email'))`,
-      set: `value = null, previous_value = null`,
+      column: sensitive[0],
+      where: `(${sensitive.map((c) => `t.${q(c)} is not null`).join(" or ")}) and (${scope}) and ${SENSITIVE_FIELD_SQL}`,
+      set: sensitive.map((c) => `${q(c)} = null`).join(", "),
       params: [],
     });
   }

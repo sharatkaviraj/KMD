@@ -6,6 +6,8 @@
  *
  *   node scripts/migrate/quarantine-in-place.mjs                  # dry run: counts per table, blockers, guard verdict
  *   node scripts/migrate/quarantine-in-place.mjs --rollback-only  # every write, then ROLLBACK (rehearsal; nothing persists)
+ *       [--with-promote] [--with-reset]   # … then promote-master-data and reset-test-session in the same transaction
+ *   … [--accept-held <short,…>]           # held timetable profiles the owner has confirmed are the real teacher
  *   node scripts/migrate/quarantine-in-place.mjs --apply          # for real (the orchestrator, after step 2)
  *
  * Every `vppsone` row on `wtgxcptmucjerhufzjcf` is test activity until
@@ -21,17 +23,21 @@
  *     each real-teacher candidate (short name 'T-<short>'), to which the
  *     candidate's QA / smoke login moves; a placeholder test profile per role
  *     for any other real profile (the owner) when no test account of that
- *     role exists — no login; the owner links one later. Every new row and
- *     every re-point is recorded in vppsone.migration_id_map.
+ *     role exists — no login; the owner links one later. Every new identity
+ *     (shell, twin class, twin / placeholder profile) and every class / staff
+ *     re-map is recorded in vppsone.migration_id_map; row-level re-points are
+ *     not (each table's count is in the run row and apply.json). A held
+ *     profile (lib/quarantine-rules.mjs splitCandidates) gets no twin.
  *  2. per table group (one transaction each, a savepoint per table, the
  *     table's named triggers off for its statements): session_label →
  *     TEST-2026-27; class / student / staff ids → the maps above; every
  *     phone, destination and token nulled or rotated; message_sends →
  *     cancelled with sent_at null; staff_notices → suppressed; queues,
- *     campaigns, tasks and links → cancelled / revoked. Append-only tables
+ *     campaigns, tasks and links → cancelled / revoked; record answers to
+ *     phone / identifier / address fields nulled. Append-only tables
  *     (report_card_issues, student_record_history, exam_activity) are
- *     rewritten by delete + insert-copy under new ids (uuid v5
- *     'dev:<table>:<id>'), mapped in migration_id_map.
+ *     rewritten by delete + insert-copy of the changed rows with their ids
+ *     KEPT (nothing is mapped), the named triggers off for those statements.
  *
  * Idempotent: ids are uuid v5, every UPDATE's WHERE only finds rows not yet
  * moved, tokens are rotated once ('q' + 31 hex). A re-run reports 0.
@@ -40,7 +46,9 @@
  * marker is 'production' and fee_writes_enabled is 'false' (so only after
  * convert-to-production), a backup-one run from the last 24 h is on this
  * machine, no load has been applied, no cutover row exists and every table is
- * classified. --rollback-only lifts the first three (nothing persists).
+ * classified, every reference-shaped column is re-pointable, and no held
+ * real-teacher profile waits for the owner (--accept-held). --rollback-only
+ * lifts the marker, fee-writes, backup and held guards (nothing persists).
  * Undo: backup-one --restore <step 1 run> (both schemas: the shells and twin
  * classes are in public), then step 2 again (runbook step 3 rollback).
  *
@@ -57,7 +65,7 @@ import { isMain, loadOneEnv, newRunId, parseArgs, runDir } from "./lib/env.mjs";
 import { readGuardState } from "./lib/guards.mjs";
 import { openOneDb } from "./lib/one-db.mjs";
 import { RESTORE_KEEP } from "./backup-one.mjs";
-import { decideQuarantineGuard, restoreCoverageOf, TABLES, TEST_SESSION } from "./lib/quarantine-rules.mjs";
+import { decideQuarantineGuard, parseAcceptHeld, restoreCoverageOf, TABLES, TEST_SESSION } from "./lib/quarantine-rules.mjs";
 import { countSql, planTableOps, quoteIdent, updateSql, whereParams } from "./lib/quarantine-sql.mjs";
 import { backupState, planIdentities, readBackupManifest } from "./lib/quarantine-state.mjs";
 
@@ -246,9 +254,9 @@ async function prepare(tx) {
 }
 
 /** The guard, read inside the transaction that will write. */
-async function guardIn(tx, { rollbackOnly, backup, blockers }) {
+async function guardIn(tx, { rollbackOnly, backup, blockers, held }) {
   const state = await readGuardState(tx);
-  return decideQuarantineGuard({ ...state, backup, unclassifiedTables: blockers.filter((b) => b.startsWith("unclassified")), rollbackOnly });
+  return decideQuarantineGuard({ ...state, backup, unclassifiedTables: blockers.filter((b) => b.startsWith("unclassified")), held, rollbackOnly });
 }
 
 class Rehearsal extends Error {
@@ -259,13 +267,14 @@ class Rehearsal extends Error {
 }
 
 function printPlan(identities, guard, backup) {
-  const { classPlan, studentPlan, staffPlan, candidates, profiles, shortNames } = identities;
+  const { classPlan, studentPlan, staffPlan, candidates, held, profiles, shortNames } = identities;
   console.log(`  identities: ${classPlan.map.size} real class(es) → TEST (${classPlan.created.length} TEST twin class(es) to create); ` +
     `${studentPlan.map.size} student(s) → TEST-D- shells (${studentPlan.shells.length} to create, ${studentPlan.missing.length} no longer in public.students); ` +
     `students already in a TEST class kept as they are`);
   console.log(`  staff: ${profiles.length} profiles, ${profiles.filter((p) => p.is_test_account).length} test accounts; timetable teachers ${shortNames.length}; ` +
     `real-teacher candidates ${candidates.length} → ${staffPlan.twins.length} test twin(s) (${staffPlan.twins.filter((t) => t.moveUserFrom).length} login(s) move to the twin); ` +
-    `other real profiles → test account by role (${staffPlan.placeholders.length} placeholder(s) to create)`);
+    `other real profiles → test account by role (${staffPlan.placeholders.length} placeholder(s) to create); ` +
+    `HELD (a day-run made them or a QA-looking name; stay test accounts until --accept-held): ${held.length}`);
   console.log(`  backup (last 24 h, on this machine): ${backup.ok ? `ok — ${backup.runId}` : `MISSING — ${backup.reason}`}`);
   for (const b of identities.blockers) console.log(`  !! ${b}`);
   console.log(`  guard for --apply: ${guard.ok ? "would pass" : `would refuse — ${guard.reasons.join(" ")}`}`);
@@ -277,18 +286,20 @@ async function main() {
   const rollbackOnly = Boolean(args["rollback-only"]);
   if (apply && rollbackOnly) throw new Error("Pass --apply or --rollback-only, not both.");
   const mode = rollbackOnly ? "REHEARSAL (every write rolled back)" : apply ? "APPLY" : "dry run";
+  const acceptHeld = parseAcceptHeld(args["accept-held"]);
   const runId = `quarantine-${newRunId()}`;
   console.log(`quarantine-in-place: ${mode} on ${ONE_MAIN_PROJECT_REF}`);
 
   const sql = await openOneDb(loadOneEnv());
   try {
     const backup = await backupState(sql);
-    const identities = await planIdentities(sql);
+    const identities = await planIdentities(sql, { acceptHeld });
     const state = await readGuardState(sql);
     const unclassifiedTables = identities.blockers.filter((b) => b.startsWith("unclassified"));
-    // Printed as --apply would see it; a rehearsal lifts the marker, fee-writes and backup guards.
-    printPlan(identities, decideQuarantineGuard({ ...state, backup, unclassifiedTables }), backup);
-    const guard = decideQuarantineGuard({ ...state, backup, unclassifiedTables, rollbackOnly });
+    const held = identities.held.length;
+    // Printed as --apply would see it; a rehearsal lifts the marker, fee-writes, backup and held guards.
+    printPlan(identities, decideQuarantineGuard({ ...state, backup, unclassifiedTables, held }), backup);
+    const guard = decideQuarantineGuard({ ...state, backup, unclassifiedTables, held, rollbackOnly });
     const groups = planAll(identities);
 
     if (!apply && !rollbackOnly) {
@@ -347,7 +358,7 @@ async function main() {
             // run with the real-teacher profiles already real (critique0 #16).
             if (args["with-promote"]) {
               const { planPromotion, writePromotion } = await import("./promote-master-data.mjs");
-              outcome.promote = await writePromotion(tx, await planPromotion(tx));
+              outcome.promote = await writePromotion(tx, await planPromotion(tx, { acceptHeld }));
             }
             // Every table this transaction wrote (triggers included — the
             // shells' audit rows, the twins' fee users): each must be one a
@@ -360,10 +371,25 @@ async function main() {
             // Inside the same transaction, before it rolls back: the §4.6
             // checks, and a re-plan that must find nothing left to do.
             outcome.verify = await runVerify(tx);
-            const again = await planIdentities(tx);
+            const again = await planIdentities(tx, { acceptHeld });
             let left = again.studentPlan.shells.length + again.classPlan.created.length + again.staffPlan.twins.filter((t) => !identities.staffPlan.twins.some((x) => x.id === t.id)).length;
             for (const [, entries] of planAll(again)) for (const entry of entries) for (const c of await countOps(tx, entry)) left += c.n;
             outcome.rerun = left;
+            // --with-reset: reset-test-session's deletes on the quarantined
+            // state (append-only TEST rows included), proving the reset still
+            // works after step 3. Its verdict is reported with the rest.
+            if (args["with-reset"]) {
+              const { planReset, runReset } = await import("../reset-test-session.mjs");
+              const resetPlan = await planReset(tx);
+              const r = { verdict: resetPlan.verdict, students: resetPlan.students, shells: resetPlan.shells, deleted: 0, error: null };
+              try {
+                const deleted = await tx.savepoint((sp) => runReset(sp, resetPlan, { write: true }));
+                r.deleted = [...deleted.values()].reduce((a, b) => a + b, 0);
+              } catch (error) {
+                r.error = error.message;
+              }
+              outcome.reset = r;
+            }
             throw new Rehearsal(outcome);
           });
         } catch (error) {
@@ -372,7 +398,7 @@ async function main() {
       } else {
         await sql.begin(async (tx) => {
           await prepare(tx);
-          const g = await guardIn(tx, { rollbackOnly: false, backup, blockers: identities.blockers });
+          const g = await guardIn(tx, { rollbackOnly: false, backup, blockers: identities.blockers, held });
           if (!g.ok) throw new Error(`refusing: ${g.reasons.join(" ")}`);
           outcome.identities = await writeIdentities(tx, identities, runRow.id);
         });
@@ -380,7 +406,7 @@ async function main() {
           if (!entries.length) continue;
           await sql.begin(async (tx) => {
             await prepare(tx);
-            const g = await guardIn(tx, { rollbackOnly: false, backup, blockers: identities.blockers });
+            const g = await guardIn(tx, { rollbackOnly: false, backup, blockers: identities.blockers, held });
             if (!g.ok) throw new Error(`refusing at group ${name}: ${g.reasons.join(" ")}`);
             for (const entry of entries) {
               outcome.tables[entry.info.table] = await tx.savepoint((sp) => (entry.appendOnly ? rewriteAppendOnly(sp, entry) : writeTable(sp, entry)));
@@ -397,7 +423,8 @@ async function main() {
     if (!rollbackOnly) outcome.verify = await sql.begin("read only", (tx) => runVerify(tx));
     const failedChecks = (outcome.verify ?? []).filter((c) => c.failing > 0 && !(rollbackOnly && NEEDS_CONVERT.has(c.check_name)));
     const changed = Object.values(outcome.tables).flat().reduce((n, c) => n + c.n, 0);
-    const ok = !outcome.errors.length && !failedChecks.length && (outcome.rerun ?? 0) === 0 && !(outcome.restoreCoverage?.missed.length);
+    const resetFailed = Boolean(outcome.reset && (outcome.reset.error || !outcome.reset.verdict.ok));
+    const ok = !outcome.errors.length && !failedChecks.length && (outcome.rerun ?? 0) === 0 && !(outcome.restoreCoverage?.missed.length) && !resetFailed;
     await sql`
       update vppsone.migration_runs set status = ${ok ? "succeeded" : "failed"}, finished_at = now(),
         summary = ${sql.json({
@@ -424,6 +451,11 @@ async function main() {
       console.log(`  with promote: dropped ${p.dropped}, authors nulled ${p.authorsNulled}, permissions -${p.permsRemoved}/+${p.permsAdded}, profiles promoted ${p.promoted}`);
     }
     if (outcome.rerun !== undefined) console.log(`  a re-run would change: ${outcome.rerun} row(s)`);
+    if (outcome.reset) {
+      const r = outcome.reset;
+      const verdict = r.verdict.ok ? "would pass" : `!! would refuse — ${r.verdict.reasons.join("; ")}`;
+      console.log(`  with reset: ${r.error ? `!! FAILED — ${r.error}` : `${r.deleted} TEST row(s) deleted`}; TEST students ${r.students} + ${r.shells} shell(s); reset verdict ${verdict}`);
+    }
     if (outcome.restoreCoverage) {
       const c = outcome.restoreCoverage;
       console.log(`  tables written (triggers included): ${c.written.length}; a backup-one --restore of ${c.schemas.join(" + ") || "nothing"} puts them back${c.missed.length ? `; NOT covered: ${c.missed.join(", ")}` : " — all covered"}`);

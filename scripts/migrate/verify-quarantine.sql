@@ -44,6 +44,25 @@ with
     'restore_drills','sampark_import_batches','sampark_import_rows','smoke_findings','smoke_passes','smoke_pool','smoke_runs',
     'teacher_task_previews'])),
   -- @buckets-end
+  -- References with no foreign key that the catalog does not find by name
+  -- (lib/quarantine-rules.mjs TABLES: staffRefs, classRefs, staffArrays,
+  -- classArrays, studentArrays; the test pins this list equal to it).
+  -- @refs-start
+  extra_refs(t, col, kind, is_array) as (values
+    ('attendance_register_revisions', 'on_behalf_of', 'staff', false),
+    ('calendar_events', 'class_ids', 'class', true),
+    ('cover_duties', 'absent_staff_ids', 'staff', true),
+    ('cover_duties', 'class_ids', 'class', true),
+    ('fee_reminder_batches', 'student_ids', 'student', true),
+    ('message_campaigns', 'class_ids', 'class', true),
+    ('message_sends', 'approved_by', 'staff', false),
+    ('parent_route_flags', 'cleared_by', 'staff', false),
+    ('record_commands', 'actor_staff_id', 'staff', false),
+    ('student_documents', 'removed_by', 'staff', false),
+    ('student_record_history', 'actor_staff_id', 'staff', false),
+    ('substitution_assignments', 'merge_host_class_id', 'class', false),
+    ('teacher_absences', 'updated_by', 'staff', false)),
+  -- @refs-end
   quarantined_at as (
     select coalesce(
       (select max(finished_at) from vppsone.migration_runs
@@ -115,6 +134,24 @@ with
               where (%s) and not p.is_test_account', t, col, scope), false, true, '')))[1]::text::int as failing
     from staff_cols
   ),
+  extra_counted as (
+    -- 1-2-4 again for the listed no-foreign-key references, scalar or array:
+    -- no TEST row names a real class, a student outside TEST or a real profile.
+    select case e.kind when 'class' then 'class outside TEST: ' when 'student' then 'student outside TEST: ' else 'real staff on a TEST row: ' end
+             || e.t || '.' || e.col as check_name,
+           (xpath('/row/n/text()', query_to_xml(format(
+             'select count(*) as n from vppsone.%I x cross join lateral %s as u(v) where (%s) and u.v is not null and %s',
+             e.t,
+             case when e.is_array then format('unnest(x.%I)', e.col) else format('(select x.%I)', e.col) end,
+             s.scope,
+             case e.kind
+               when 'class' then 'not coalesce((select vppsone.is_test_session_label(c.session_label) from public.classes c where c.id = u.v), false)'
+               when 'student' then 'not coalesce((select vppsone.is_test_session_label(c.session_label) from public.students st join public.classes c on c.id = st.class_id where st.id = u.v), false)'
+               else 'exists (select 1 from vppsone.staff_profiles p where p.id = u.v and not p.is_test_account)'
+             end), false, true, '')))[1]::text::int as failing
+    from extra_refs e join scoped s on s.t = e.t
+    where s.scope is not null
+  ),
   fixed as (
     -- 5. No TEST row carries a phone, destination or live token (critique0 #17).
     select 'phone on a TEST message_send' as check_name,
@@ -134,6 +171,32 @@ with
               where vppsone.is_test_session_label(n.session_label) and a.started_at <= (select at from quarantined_at) and a.destination <> '')
     union all select 'phone on a route flag',
            (select count(*)::int from vppsone.parent_route_flags where phone <> '' and flagged_at <= (select at from quarantined_at))
+    -- Record answers to a phone / identifier / address field (critique0 #17;
+    -- the pattern is lib/quarantine-rules.mjs SENSITIVE_FIELD, pinned by the test).
+    union all select 'phone / identifier answer on a TEST record',
+           (select count(*)::int from vppsone.student_records t
+              where vppsone.is_test_session_label(t.session_label) and t.updated_at <= (select at from quarantined_at)
+                and t.value is not null
+                and exists (select 1 from vppsone.collection_fields f where f.id = t.field_id
+                  and (f.key ~* '(phone|mobile|whatsapp|aadhaar|aadhar|apaar|email|address|contact)'
+                       or coalesce(f.label_en, '') ~* '(phone|mobile|whatsapp|aadhaar|aadhar|apaar|email|address|contact)'
+                       or coalesce(f.input_type::text, '') ~* 'phone|tel|email')))
+    union all select 'phone / identifier answer in TEST record history',
+           (select count(*)::int from vppsone.student_record_history t
+              where vppsone.is_test_session_label(t.session_label) and t.recorded_at <= (select at from quarantined_at)
+                and (t.old_value is not null or t.new_value is not null)
+                and exists (select 1 from vppsone.collection_fields f where f.id = t.field_id
+                  and (f.key ~* '(phone|mobile|whatsapp|aadhaar|aadhar|apaar|email|address|contact)'
+                       or coalesce(f.label_en, '') ~* '(phone|mobile|whatsapp|aadhaar|aadhar|apaar|email|address|contact)'
+                       or coalesce(f.input_type::text, '') ~* 'phone|tel|email')))
+    union all select 'phone / identifier answer on a collection submission',
+           (select count(*)::int from vppsone.collection_submissions t
+              where t.updated_at <= (select at from quarantined_at)
+                and (t.value is not null or t.previous_value is not null)
+                and exists (select 1 from vppsone.collection_fields f where f.id = t.field_id
+                  and (f.key ~* '(phone|mobile|whatsapp|aadhaar|aadhar|apaar|email|address|contact)'
+                       or coalesce(f.label_en, '') ~* '(phone|mobile|whatsapp|aadhaar|aadhar|apaar|email|address|contact)'
+                       or coalesce(f.input_type::text, '') ~* 'phone|tel|email')))
     -- 6. Terminal states: nothing quarantined can still be sent.
     union all select 'TEST message_send not cancelled (before the quarantine)',
            (select count(*)::int from vppsone.message_sends where vppsone.is_test_session_label(session_label)
@@ -177,6 +240,7 @@ select check_name, failing, case when failing = 0 then 'pass' else 'FAIL' end as
 from (
   select * from counted
   union all select * from staff_counted
+  union all select * from extra_counted
   union all select * from fixed
 ) checks
 order by (failing = 0), check_name;

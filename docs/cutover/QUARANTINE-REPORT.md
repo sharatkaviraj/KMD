@@ -195,12 +195,74 @@ rows**: the `TEST-D-` shells and the TEST twin class (named in
 also writes a `vppsone.data_replica` row saying `REAL fee data loaded by …`
 with nothing masked; the newest row answers "is this live data?".
 
+## 9. After the review of PR #150 — re-run on the same state (31 Oct, 14:40 UTC)
+
+The review found references the quarantine did not move, a reset that could
+not run after it, a runbook slot C8 could not use and two day-run profiles
+about to become real teachers. Fixed, and §3–§7 re-run (dry runs and
+rehearsals only; nothing applied):
+
+- **References with no foreign key** are now listed per table in
+  `lib/quarantine-rules.mjs` and re-pointed: `cover_duties.class_ids` (26
+  rows held real class ids), `calendar_events.class_ids` (TEST rows),
+  `substitution_assignments.merge_host_class_id`,
+  `fee_reminder_batches.student_ids`, and the staff columns
+  `record_commands.actor_staff_id` (3 rows on a real profile),
+  `student_record_history.actor_staff_id` (9), `attendance_register_revisions.on_behalf_of`,
+  `teacher_absences.updated_by`, `message_sends.approved_by`,
+  `parent_route_flags.cleared_by`, `student_documents.removed_by`. A
+  reference-shaped uuid column (`*_staff_id`, `*_class_id(s)`,
+  `*_student_id(s)`, `*_by`, `on_behalf_of`) that is neither a foreign key
+  nor listed now stops the quarantine (0 on wtgx). `verify-quarantine.sql`
+  checks every listed column (scalar and array) — **248 checks** now.
+- **Record answers**: `student_records.value` and
+  `student_record_history.old_value / new_value` of phone / identifier /
+  address fields are nulled like `collection_submissions` (3 + 3 hold
+  10-digit numbers today), with three new checks.
+- **Held profiles**: the 2 timetable profiles a day-run made are held — no
+  twin, still test accounts; `quarantine-in-place --apply` and
+  `promote-master-data --apply` refuse until the owner passes
+  `--accept-held <short,…>` (runbook step 3). Without it: **17 twins**, and
+  promote's re-seed resolves 17/19 (so it refuses).
+- Dry run: **35,652 row changes** (timetable 5,147 · attendance 20,596 ·
+  exams and marks 7,858 · records and notes 412 · collection 135 · messages
+  and notices 1,478 · fees desk 26).
+- `--rollback-only --with-promote --with-reset`: 1 TEST class, 513 shells,
+  17 twins, 17 logins moved, 17 smoke seats, 551 id-map rows; **35,675 rows
+  changed in 94 tables**; promote dropped 7 (the held teacher's real class
+  teacher row now among them), nulled 4 authors, made 17 real;
+  **`verify-quarantine.sql` 246 of 248 pass** (the 2 left need step 2);
+  **re-run 0**; 69 tables written, all covered by backup-one; **the TEST
+  reset ran on the quarantined state: 25,930 TEST rows deleted** (append-only
+  rows included), verdict *would pass* (79 TEST students + 513 shells not
+  counted) — **REHEARSAL PASSED**, rolled back.
+- `reset-test-session`: the 150-student guard no longer counts `TEST-D-`
+  shells (only those also in `migration_id_map`); the dry run prints the
+  verdict; each table's BEFORE DELETE guard triggers (`exam_activity`,
+  `report_card_issues`, `student_record_history`, `marks_class_lock`) are off
+  for its one DELETE. `--rollback-only` on today's state: 14 rows, PASSED.
+  `--null-test-phones` (dry run and rehearsal): primary 78, guardian 1,
+  emergency contact 1 would be nulled — the runbook step after the first
+  load, or the owner allowlists instead.
+- **C8 moved** to 09:30, after step 5 and before step 8 (it refuses once
+  fee writes are `'true'`); a test pins the order.
+- `load-snapshot --first-load --apply` refuses while any bucket-B row still
+  carries a real session (the runbook also re-runs `verify-quarantine.sql`
+  before step 4); a rehearsal only warns.
+- `seed-timetable` confined (the TEST timetable) falls back from a promoted
+  short name `X` to its twin `T-X`, so the TEST bed can still be re-seeded.
+
 ## What the orchestrator runs, in order
 
 1. `npm run migrate:backup-one` (+ `--restore-test`) — the step-1 backup must
    be < 24 h old when the quarantine runs.
 2. `convert-to-production.mjs --apply`.
-3. `quarantine-in-place.mjs --rollback-only --with-promote` (expect PASSED,
-   all 232 checks), then `--apply`; `promote-master-data.mjs --apply`;
+3. `promote-master-data.mjs` (dry run; the owner reads `held` in
+   sign-off.json); `quarantine-in-place.mjs --rollback-only --with-promote
+   --with-reset` (expect PASSED, 246 + the 2 step-2 checks), then `--apply
+   --accept-held <…>`; `promote-master-data.mjs --apply --accept-held <…>`;
    `verify-quarantine.sql`; backup 3b.
-4. C8 after the final load: `rebuild-enrolments.mjs --apply`.
+4. Before the first load `verify-quarantine.sql` again; after it,
+   `reset-test-session --null-test-phones --apply` (or the owner's allowlist).
+5. C8 after the final load and its reconcile, before step 8:
+   `rebuild-enrolments.mjs --apply`.

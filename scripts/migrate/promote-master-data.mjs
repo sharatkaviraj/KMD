@@ -21,6 +21,11 @@
  *    its content and loses the author (nullable author columns set null);
  *  - QA fixture record fields (collection_fields key 'qa_%') are switched off
  *    (records still point at them, so they are not deleted);
+ *  - a timetable profile a day-run made, or one named like QA tooling, is
+ *    HELD (lib/quarantine-rules.mjs splitCandidates): it stays a test
+ *    account and --apply refuses until the owner has confirmed it is the
+ *    real teacher, fixed its display name and passed --accept-held <short,…>
+ *    (to quarantine-in-place too, which decides the twins);
  *  - the real-teacher candidates become real profiles: is_test_account false,
  *    no login (user_id null — their QA / smoke login already moved to a test
  *    twin), no phone, no WhatsApp opt-in. The real staff sign in again;
@@ -49,11 +54,12 @@ import { readGuardState } from "./lib/guards.mjs";
 import { openOneDb } from "./lib/one-db.mjs";
 import {
   classesWithoutLivePartner,
+  parseAcceptHeld,
   permissionDiff,
   PROMOTE_SUBJECT_STAFF,
   PROMOTE_TEXT_FLAGS,
-  promoteCandidates,
   rolePermissionSeed,
+  splitCandidates,
   TABLES,
 } from "./lib/quarantine-rules.mjs";
 import { quoteIdent, uuidArray } from "./lib/quarantine-sql.mjs";
@@ -71,11 +77,13 @@ function promotedTables(catalog) {
 }
 
 /** Everything the promotion decides, read in the caller's transaction. */
-export async function planPromotion(tx) {
+export async function planPromotion(tx, { acceptHeld = [] } = {}) {
   const catalog = await readVppsoneCatalog(tx);
   const session = await readRealSession(tx);
   const [profiles, classes, shortNames, live] = await Promise.all([readProfiles(tx), readClasses(tx), fixtureTeacherShortNames(), readLiveClasses()]);
-  const candidates = promoteCandidates(profiles, shortNames);
+  // Held (a day-run made it, or a QA-looking name): never promoted without
+  // the owner's --accept-held (critique0 #20, critique1 A4).
+  const { candidates, held } = splitCandidates(profiles, shortNames, { acceptHeld });
   const candidateIds = new Set(candidates.map((p) => p.id));
   // QA / smoke / day-run identities: every test account that is not a candidate (twins and placeholders included).
   const qaProfiles = profiles.filter((p) => p.is_test_account && !candidateIds.has(p.id)).map((p) => p.id);
@@ -134,12 +142,16 @@ export async function planPromotion(tx) {
   let testRefsToCandidates = 0;
   if (candidates.length) {
     for (const info of Object.values(catalog)) {
-      if (!info.staffCols.length || ["staff_profiles"].includes(info.table)) continue;
+      if ((!info.staffCols.length && !info.staffArrays.length) || ["staff_profiles"].includes(info.table)) continue;
       const bucket = TABLES[info.table]?.bucket;
       const scope = bucket === "B" ? "true" : (bucket === "A" || bucket === "R") && info.hasSession ? "vppsone.is_test_session_label(t.session_label)" : null;
       if (!scope) continue;
       for (const c of info.staffCols) {
         const [{ n }] = await tx.unsafe(`select count(*)::int as n from ${rel(info.table)} as t where (${scope}) and t.${quoteIdent(c)} = any($1::uuid[])`, [uuidArray([...candidateIds])]);
+        testRefsToCandidates += n;
+      }
+      for (const c of info.staffArrays) {
+        const [{ n }] = await tx.unsafe(`select count(*)::int as n from ${rel(info.table)} as t where (${scope}) and t.${quoteIdent(c)} && $1::uuid[]`, [uuidArray([...candidateIds])]);
         testRefsToCandidates += n;
       }
     }
@@ -158,7 +170,7 @@ export async function planPromotion(tx) {
     classesResolved: parsed.classNames.filter((c) => aliases.includes(c.toLowerCase())).length,
   };
 
-  return { session, candidates, qaProfiles, tables, perms, testRefsToCandidates, qaFields: qaFields[0].n, live, extraClasses, reseed };
+  return { session, candidates, held, qaProfiles, tables, perms, testRefsToCandidates, qaFields: qaFields[0].n, live, extraClasses, reseed };
 }
 
 export async function writePromotion(tx, plan) {
@@ -208,6 +220,7 @@ function printPlan(plan) {
   }
   console.log(`  QA fixture record fields still active (switched off): ${plan.qaFields}`);
   console.log(`  real-teacher profiles to promote: ${plan.candidates.length} (sign-off list in the private folder); TEST rows still pointing at them: ${plan.testRefsToCandidates}`);
+  if (plan.held.length) console.log(`  !! HELD, not promoted: ${plan.held.length} timetable profile(s) a day-run made or named like QA tooling (listed in the sign-off file)`);
   console.log(`  timetable re-seed (fixture): teachers resolved ${plan.reseed.teachersResolved}/${plan.reseed.teachers}, classes resolved ${plan.reseed.classesResolved}/${plan.reseed.classes}`);
 }
 
@@ -218,17 +231,20 @@ async function main() {
   const apply = Boolean(args.apply);
   const rollbackOnly = Boolean(args["rollback-only"]);
   if (apply && rollbackOnly) throw new Error("Pass --apply or --rollback-only, not both.");
+  const acceptHeld = parseAcceptHeld(args["accept-held"]);
   const runId = `promote-${newRunId()}`;
   console.log(`promote-master-data: ${rollbackOnly ? "REHEARSAL (every write rolled back)" : apply ? "APPLY" : "dry run"} on ${ONE_MAIN_PROJECT_REF}`);
   const sql = await openOneDb(loadOneEnv());
   try {
-    const plan = await sql.begin("read only", (tx) => planPromotion(tx));
+    const plan = await sql.begin("read only", (tx) => planPromotion(tx, { acceptHeld }));
     printPlan(plan);
     const dir = runDir(runId);
     // The sign-off list: names stay in the private folder (I-5), never the terminal.
     writeFileSync(
       path.join(dir, "sign-off.json"),
-      JSON.stringify({ runId, session: plan.session, candidates: plan.candidates.map((p) => ({ short_name: p.short_name, display_name: p.display_name, role: p.role })), tables: plan.tables.map((t) => ({ table: t.table, rows: t.rows, drops: t.dropCounts, authors: t.authors.map((a) => ({ column: a.column, n: a.n })), flags: t.flags })), perms: plan.perms, reseed: plan.reseed }, null, 2),
+      JSON.stringify({ runId, session: plan.session, candidates: plan.candidates.map((p) => ({ short_name: p.short_name, display_name: p.display_name, role: p.role })),
+        held: plan.held.map((p) => ({ short_name: p.short_name, display_name: p.display_name, role: p.role, made_by_day_run: Boolean(p.in_dayrun), note: "stays a test account; promoted only with --accept-held <short> after the owner confirms it is the real teacher and fixes the display name" })),
+        tables: plan.tables.map((t) => ({ table: t.table, rows: t.rows, drops: t.dropCounts, authors: t.authors.map((a) => ({ column: a.column, n: a.n })), flags: t.flags })), perms: plan.perms, reseed: plan.reseed }, null, 2),
     );
     console.log(`  sign-off list: %USERPROFILE%\\.vppsone-migration\\${runId}\\sign-off.json`);
 
@@ -241,6 +257,7 @@ async function main() {
     if (state.hasCutover) reasons.push("a cutover row exists");
     if (!plan.live.classes) reasons.push("the live classes could not be read");
     if (!rollbackOnly && plan.testRefsToCandidates) reasons.push(`${plan.testRefsToCandidates} TEST row(s) still point at a candidate (run quarantine-in-place)`);
+    if (plan.held.length) reasons.push(`${plan.held.length} timetable profile(s) are held (day-run / QA-looking): the owner confirms each in sign-off.json, fixes its display name, and passes --accept-held <short,…> to quarantine-in-place and here`);
     if (plan.reseed.teachersResolved < plan.reseed.teachers || plan.reseed.classesResolved < plan.reseed.classes) reasons.push("the timetable re-seed would not resolve every teacher and class");
     console.log(`  guard for --apply: ${reasons.length ? `would refuse — ${reasons.join("; ")}` : "would pass"}`);
     if (!apply && !rollbackOnly) {
@@ -254,7 +271,7 @@ async function main() {
     try {
       await sql.begin(async (tx) => {
         await tx.unsafe("set local lock_timeout = '10s'");
-        const again = await planPromotion(tx);
+        const again = await planPromotion(tx, { acceptHeld });
         done = await writePromotion(tx, again);
         if (rollbackOnly) {
           // The quarantine checks with the candidates now real (critique0 #16).
