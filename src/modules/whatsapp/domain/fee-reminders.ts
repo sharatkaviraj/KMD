@@ -24,6 +24,7 @@ import {
   campaignNameFor,
   isLedgerQuotedSituation,
   noticeValuesFrom,
+  scopeLinesFor,
   DEFAULT_LANGUAGE,
   DEFAULT_SITUATION,
   isNoticeLanguage,
@@ -34,6 +35,7 @@ import {
   type NoticeValues,
 } from "@/modules/whatsapp/domain/campaigns";
 import { campaignNamesForNotice } from "@/modules/whatsapp/domain/family-notice";
+import { familyKeysFor } from "@/modules/whatsapp/domain/family-grouping";
 import {
   DEFAULT_AUDIENCE_FILTERS,
   DEFAULT_MAX_TOTAL_PAID as AUDIENCE_DEFAULT_MAX_TOTAL_PAID,
@@ -52,8 +54,18 @@ import {
   type PromiseFilter,
   type Tri,
 } from "@/modules/whatsapp/domain/audience";
+import {
+  DEFAULT_PROFILE_SELECTION,
+  effectiveProfile,
+  isReminderProfile,
+  parseProfileSelection,
+  REMINDER_PROFILE_VALUES,
+  suggestReminderProfile,
+  type ReminderProfile,
+} from "@/modules/whatsapp/domain/reminder-profile";
 import { daysBetweenIsoDates, normalizeDdMmYyyy } from "@/platform/helpers/date";
 import { formatInr } from "@/platform/helpers/currency";
+import { fetchAllPages } from "@/platform/helpers/chunk";
 
 /**
  * Who is eligible for a WhatsApp fee reminder, and what the message says.
@@ -134,6 +146,12 @@ export type ReminderFilters = AudienceFilters & {
    * see would message a different set of families than the office ticked.
    */
   preDueWindowDays: number;
+  /**
+   * The saved campaign this screen was opened from. Not a filter — it changes
+   * nobody's eligibility — but it rides along on every link and form, so a tile
+   * tap or an Apply does not drop the run's attribution to the campaign.
+   */
+  campaignId?: string | null;
 };
 
 /**
@@ -207,7 +225,17 @@ export function parseReminderFilters(
    * charged" whatever was last used, because carry-forward never accrues one.
    */
   defaultLateFeeBasis: LateFeeBasis | null = null,
-  options: { policyLateFeeAmount?: number } = {},
+  options: {
+    policyLateFeeAmount?: number;
+    /**
+     * Does the Last-year tile open ON when the query string does not say? The
+     * calendar's answer from `defaultLastYearFor`: yes once an installment has
+     * passed, because last session's balance is older than any of them and a
+     * parent asked for "the fees overdue" should hear about it too. A choice
+     * the office makes is kept as it was.
+     */
+    defaultLastYear?: boolean;
+  } = {},
 ): ReminderFilters {
   const number = (key: string, fallback: number) => {
     const raw = read(key);
@@ -220,14 +248,15 @@ export function parseReminderFilters(
     ? (read("situation") as NoticeSituation)
     : DEFAULT_SITUATION;
 
-  // The tiles. `last_year` is the carry-forward tile and clears the four.
-  // Absent, blank or garbage (`0,9,banana` from a hand-edited URL) opens on the
-  // calendar's default rather than on nobody: zero tiles is not a state,
-  // because the amount the message quotes is derived from the tiles and an
-  // empty set would quote ₹0 — and garbage must never be read as a choice.
-  const tiles = parseInstallmentsValue(read("installments")) ?? {
+  // The tiles. `last_year` is the carry-forward tile and combines with the
+  // four. Absent, blank or garbage (`0,9,banana` from a hand-edited URL) opens
+  // on the calendar's default rather than on nobody: zero tiles is not a
+  // state, because the amount the message quotes is derived from the tiles and
+  // an empty set would quote ₹0 — and garbage must never be read as a choice.
+  const chosenTiles = parseInstallmentsValue(read("installments"));
+  const tiles = chosenTiles ?? {
     installments: [...defaultInstallments],
-    lastYear: false,
+    lastYear: options.defaultLastYear === true,
   };
 
   const pick = <T,>(key: string, guard: (value: unknown) => value is T, fallback: T): T => {
@@ -239,10 +268,16 @@ export function parseReminderFilters(
     sessionLabel,
     installments: tiles.installments,
     lastYear: tiles.lastYear,
+    // "Owing on ANY of them" when the tiles are the calendar's own default and
+    // nobody has chosen a match. That default is every passed installment, and
+    // money settles oldest-first, so "owing on ALL of 1, 2 and 3" meant "still
+    // owing on installment 1": 134 families on 27 October against 431 overdue.
+    // A choice the office makes — tiles or the match — is kept as it was, and
+    // every link built from here carries the match explicitly from then on.
     installmentMatch: pick<InstallmentMatch>(
       "installmentMatch",
       isInstallmentMatch,
-      DEFAULT_AUDIENCE_FILTERS.installmentMatch,
+      chosenTiles ? DEFAULT_AUDIENCE_FILTERS.installmentMatch : "any",
     ),
     paid: pick<PaidFilter>("paid", isPaidFilter, DEFAULT_AUDIENCE_FILTERS.paid),
     minDueAmount: number("minDueAmount", DEFAULT_AUDIENCE_FILTERS.minDueAmount),
@@ -252,6 +287,8 @@ export function parseReminderFilters(
     skipOverdue: read("skipOverdue") === "on",
     classId: read("classId")?.trim() || null,
     includeRte: read("includeRte") === "on",
+    // Absent or garbage opens on the default, never on nobody.
+    profiles: parseProfileSelection(read("profiles")) ?? [...DEFAULT_PROFILE_SELECTION],
     // Named by hand, and therefore the office's most recent word on this
     // family — see `loadReminderAudience` for exactly what an include gets
     // past and what it never does.
@@ -292,6 +329,9 @@ export function parseReminderFilters(
       : read("situation") === "prevyear"
         ? situationFallbackBasis("prevyear")
         : (defaultLateFeeBasis ?? situationFallbackBasis(read("situation"))),
+    campaignId: /^[0-9a-f-]{36}$/i.test(read("campaignId")?.trim() ?? "")
+      ? read("campaignId")!.trim()
+      : null,
   };
 }
 
@@ -318,16 +358,27 @@ export type ReminderCandidate = {
   /** What this student is charged for transport, however it was arranged. */
   transportFeeAmount: number;
   destination: string;
+  /**
+   * Which family this child's message belongs to: children on one number or
+   * linked as siblings are one family (`familyKeysFor`). The screen, the budget
+   * guard and the sender all group by it.
+   */
+  familyKey: string;
   /** True when the father's number was missing and the mother's was used. */
   usedMotherPhone: boolean;
   /**
    * The figure the notice will quote, whole rupees: fees still pending on the
-   * selected installments, or what is left of last session's balance on the
-   * Last-year tile. Derived from the tiles — see `quotedAmountFor`.
+   * selected installments, plus what is left of last session's balance when
+   * the Last-year tile is on. Derived from the tiles — see `quotedAmountFor`.
    */
   dueAmount: number;
   totalPaid: number;
-  /** balance {{5}} — everything still owed on installments 1-4. */
+  /**
+   * balance {{5}} — everything still owed on installments 1-4, plus last
+   * session's balance when the Last-year tile is on: the Balance notice's
+   * headline is "what you still owe", like the amount on every other notice.
+   * Added here rather than in `noticeValuesFrom`, which the browser runs too.
+   */
   balanceDue: number;
   /** prevyear {{5}} — what is left of the carried-forward balance. */
   prevYearBalance: number;
@@ -338,6 +389,14 @@ export type ReminderCandidate = {
   /** How often this family may be messaged, and any temporary skip. */
   cadence: ReminderCadence;
   snoozedUntil: string | null;
+  /**
+   * How hard this family is chased — the office's choice, or the ledger's
+   * suggestion when there is none. See `domain/reminder-profile`.
+   */
+  profile: ReminderProfile;
+  profileSource: "set" | "suggested";
+  /** Why, in the office's own terms: "Late on installments 1 and 2". */
+  profileReason: string;
   /** Last date a reminder actually went out, from the send log. */
   lastSentOn: string | null;
   /**
@@ -355,6 +414,18 @@ export type ReminderCandidate = {
   lateFeeFeesPending: number;
   /** The selected installments the ledger is charging a late fee on. */
   lateFeeInstallments: number[];
+  /**
+   * The SELECTED installments this family still owes on — fees, or a late fee
+   * on the row. The message names these, not every tile: with "owing on any of
+   * them", a family who had paid installment 1 was told "किश्त 1 एवं 2" beside
+   * installment 2's fees (exam-clearance run, 27 October 2026).
+   */
+  owedInstallments: number[];
+  /**
+   * Slot {{4}} in both languages when the Last-year tile is on — those
+   * installments plus last session's balance (`scopeLinesFor`). Null otherwise.
+   */
+  scopeLine?: Record<NoticeLanguage, string> | null;
   /**
    * The passed installments this family still owes fees on, per the calendar
    * — `overdue_final` names these. Late fee or not: a family whose late fee
@@ -423,6 +494,8 @@ export type ReminderSkipCounts = {
   whatsappSnoozed: number;
   /** Messaged too recently for their cadence. */
   whatsappTooSoon: number;
+  /** Their reminder profile is not one this run reaches. */
+  profileNotSelected: number;
   /**
    * The family has already told the office when they will pay, and that date has
    * not arrived yet.
@@ -453,8 +526,10 @@ export type PausedFamily = {
   transportRoute: string | null;
   parentName: string;
   destination: string | null;
-  reason: "never" | "snoozed" | "too_soon" | "promise_open";
+  reason: "never" | "snoozed" | "too_soon" | "promise_open" | "profile";
   cadence: ReminderCadence;
+  /** Their reminder profile, so a `profile` hold-back can say which. */
+  profile: ReminderProfile;
   /** When they come back, for `snoozed` and `too_soon`. */
   returnsOn: string | null;
   dueAmount: number;
@@ -463,11 +538,42 @@ export type PausedFamily = {
 export type ReminderFlags = {
   cadence: ReminderCadence;
   snoozedUntil: string | null;
+  /** Null is the normal state: follow the ledger's suggestion. */
+  profile: ReminderProfile | null;
   /** Null is the normal state and means "follow the run", not "Hindi". */
   preferredLanguage: NoticeLanguage | null;
 };
 
 export type ClassOption = { classId: string; label: string; count: number };
+
+/** The Narrow down ledger questions `reachesUnnarrowed` clears. */
+export type NarrowingKey = "paid" | "lateFee" | "minDueAmount" | "skipOverdue";
+
+/**
+ * Why the list is the size it is.
+ *
+ * Every collectable family who owes on the SELECTED tiles with Narrow down's
+ * ledger questions cleared (`owing`), split by the FIRST thing that keeps them
+ * off the list, in the order the list applies them. The parts sum to `owing`
+ * exactly; `onList` is the families on the list who owe on these tiles, so a
+ * family added by hand who owes nothing on them is the only gap between it and
+ * the list's length.
+ *
+ * The session-wide "Left out:" line answers a different question — how many
+ * families each guard holds across the whole session, tiles or not — and
+ * cannot say why Installment 1 reads 1.
+ */
+export type AudienceFunnel = {
+  owing: number;
+  removedByHand: number;
+  noCall: number;
+  rte: number;
+  noNumber: number;
+  otherClass: number;
+  heldBack: number;
+  hiddenByNarrowing: number;
+  onList: number;
+};
 
 export type TileCounts = {
   /** Installments 1-4, in order. */
@@ -550,8 +656,39 @@ export type ReminderAudience = {
    * hand-picked, that tile's number IS the list.
    */
   tileCounts: TileCounts;
+  /**
+   * The same counts with Narrow down's ledger questions cleared — see
+   * `reachesUnnarrowed` — under the SAME class, guards and hold-backs. Equal to
+   * `tileCounts` unless one of those is set; the gap is what the narrowing
+   * hides, and the tile says so ("1 of 134").
+   *
+   * Added on 2026-10-26: a "late fee: yes" left over from the waiver
+   * suggestion made Installment 1 read 1 when 134 families owed on it — the
+   * other 133 had their installment-1 late fee waived. Every number was right
+   * for the filter, and the filter was three screens down.
+   */
+  tileOwingCounts: TileCounts;
+  /**
+   * Families the SELECTED tiles would reach with those same questions cleared,
+   * whom the narrowing drops. Named in the sentence with a one-tap clear.
+   */
+  hiddenByNarrowing: number;
+  /**
+   * For each Narrow down ledger question that is set, how many families come
+   * back if THAT one alone is cleared. The number on its chip ("−118").
+   */
+  droppedByFilter: Partial<Record<NarrowingKey, number>>;
+  /** "Why this number?" — see `AudienceFunnel`. */
+  funnel: AudienceFunnel;
   /** Where the money on the selected tiles sits — see `TileMoney`. */
   money: TileMoney;
+  /**
+   * How many families each PROFILE holds among those the tiles, the narrowing
+   * controls and the class landed on — before the run's own profile choice,
+   * and after every other hold-back. So ticking a profile in adds exactly its
+   * number to the list.
+   */
+  profileCounts: Record<ReminderProfile, number>;
   /**
    * How many families ON THE CURRENT LIST each template would have to quote a
    * missing fact at.
@@ -669,44 +806,63 @@ function pendingOn(facts: CandidateFacts, installment: number): number {
   return facts.installmentPending[installment - 1] ?? 0;
 }
 
-/** The tiles: which installments, or last session's balance. */
+/** The tiles: which installments, and whether last session's balance is in. */
 export type InstallmentScope = Pick<AudienceFilters, "installments" | "lastYear">;
 
 /**
- * The installments a scope is actually about. An empty set with no Last-year
- * tile is unreachable from the parser, but a caller building filters from
- * `DEFAULT_AUDIENCE_FILTERS` directly gets all four rather than nothing.
+ * The installments a scope is actually about. With Last year on, exactly the
+ * installment tiles beside it — none, when it is on alone. An empty set with
+ * no Last-year tile is unreachable from the parser, but a caller building
+ * filters from `DEFAULT_AUDIENCE_FILTERS` directly gets all four rather than
+ * nothing.
  */
 function selectedInstallments(scope: InstallmentScope): readonly number[] {
-  if (scope.lastYear) return [];
+  if (scope.lastYear) return scope.installments;
   return scope.installments.length > 0 ? scope.installments : [1, 2, 3, 4];
 }
 
 /**
  * The figure the message will name — DERIVED from the tiles, never chosen.
  *
- * Fees still pending on the selected installments, or what is left of last
- * session's balance. Until 2026-09-10 this was a six-way "quote basis" the
- * office had to pick beside the filters, and before that a `switch` on the
- * template; both let the amount and the audience describe different rows.
+ * Fees still pending on the selected installments, plus what is left of last
+ * session's balance when the Last-year tile is on. Until 2026-09-10 this was a
+ * six-way "quote basis" the office had to pick beside the filters, and before
+ * that a `switch` on the template; both let the amount and the audience
+ * describe different rows.
  *
  * Fees only, never fees plus the late fee — those reach the message in
  * separate slots because the ledger keeps them in separate columns, and
  * folding them together is the first place "a late fee is not a fee" would
- * break.
+ * break. Last year's balance IS a fee (tuition carried forward, rate 0), so
+ * adding it does not.
  */
 export function quotedAmountFor(scope: InstallmentScope, facts: CandidateFacts): number {
-  if (scope.lastYear) return facts.prevYearBalance;
-  return selectedInstallments(scope).reduce(
+  const fees = selectedInstallments(scope).reduce(
     (sum, installment) => sum + pendingOn(facts, installment),
     0,
+  );
+  return fees + (scope.lastYear ? facts.prevYearBalance : 0);
+}
+
+/**
+ * The selected installments this family still owes on — fees pending, or a
+ * late fee the ledger is charging on that row. What the message's installment
+ * line names, so the line and the amount describe the same rows.
+ */
+export function owedSelectedInstallments(
+  scope: InstallmentScope,
+  facts: CandidateFacts,
+): number[] {
+  return selectedInstallments(scope).filter(
+    (installment) =>
+      pendingOn(facts, installment) > 0 || (facts.lateFeeByInstallment[installment - 1] ?? 0) > 0,
   );
 }
 
 /**
  * What the LEDGER charges in late fees on the selected installments — the
  * figure the ledger-quoted notices print, scoped to the same rows the fees
- * were. Zero on the Last-year tile: carry-forward rows never charge one.
+ * were. Last year adds nothing here: carry-forward rows never charge one.
  */
 export function lateFeeOnSelected(scope: InstallmentScope, facts: CandidateFacts): number {
   return selectedInstallments(scope).reduce(
@@ -769,26 +925,27 @@ export function matchesAudienceFilters(
   >,
   facts: CandidateFacts,
 ): boolean {
-  if (filters.lastYear) {
-    if (facts.prevYearBalance <= 0) return false;
-  } else {
-    // "Owing on" an installment is what a cashier would collect against it:
-    // fees still pending, OR a late fee the ledger is charging on that row. A
-    // family who paid the fees late and owes only the late fee still owes on
-    // installment 1 — they quote ₹0 in fees, so the ₹1 minimum keeps them off
-    // an ordinary list, and a minimum of 0 is how the office reaches them.
-    const owing = selectedInstallments(filters).map(
-      (installment) =>
-        pendingOn(facts, installment) > 0 ||
-        (facts.lateFeeByInstallment[installment - 1] ?? 0) > 0,
-    );
-    // "all" is "still owing on every one of these"; "any" is "still owing on at
-    // least one". Asking the wrong one is what put 87 fully paid-up families
-    // on the live balance list.
-    const ok =
-      filters.installmentMatch === "all" ? owing.every(Boolean) : owing.some(Boolean);
-    if (!ok) return false;
-  }
+  // "Owing on" an installment is what a cashier would collect against it:
+  // fees still pending, OR a late fee the ledger is charging on that row. A
+  // family who paid the fees late and owes only the late fee still owes on
+  // installment 1 — they quote ₹0 in fees, so the ₹1 minimum keeps them off
+  // an ordinary list, and a minimum of 0 is how the office reaches them.
+  const installments = selectedInstallments(filters);
+  const owing = installments.map(
+    (installment) =>
+      pendingOn(facts, installment) > 0 || (facts.lateFeeByInstallment[installment - 1] ?? 0) > 0,
+  );
+  // "all" is "still owing on every one of these"; "any" is "still owing on at
+  // least one". Asking the wrong one is what put 87 fully paid-up families
+  // on the live balance list. The match is among the INSTALLMENTS only.
+  const owesInstallments =
+    installments.length > 0 &&
+    (filters.installmentMatch === "all" ? owing.every(Boolean) : owing.some(Boolean));
+  // Last year beside installments is an OR: a family who has cleared this
+  // year but still carries last session's balance is still chased for it,
+  // and one who owes this year but nothing from last year is chased for that.
+  const owesLastYear = filters.lastYear && facts.prevYearBalance > 0;
+  if (!owesInstallments && !owesLastYear) return false;
 
   // `nothing` is an inclusive ceiling — a family who paid exactly the academic
   // fee has paid nothing real, which is the whole point of that threshold.
@@ -818,6 +975,35 @@ export function matchesAudienceFilters(
   }
 
   return true;
+}
+
+/**
+ * Would these tiles reach this family with Narrow down's LEDGER questions at
+ * rest — paid so far, a late fee on the ledger, "not overdue on anything
+ * earlier", and a minimum above the default? What `tileOwingCounts` and
+ * `hiddenByNarrowing` count, and exactly what the screen's "Show all" clears.
+ *
+ * The class, the promise setting and RTE stay as the caller has them: they are
+ * not questions about the ledger, the promise setting also decides a hold-back,
+ * and a "Show all N" that moved them would land on a different N. A minimum
+ * the office lowered below the default stays lowered — relaxing must never be
+ * stricter than what is set.
+ */
+export function reachesUnnarrowed(
+  scope: Parameters<typeof matchesAudienceFilters>[0] & { minDueAmount: number },
+  facts: CandidateFacts,
+): boolean {
+  const unnarrowed = {
+    ...scope,
+    paid: DEFAULT_AUDIENCE_FILTERS.paid,
+    lateFee: DEFAULT_AUDIENCE_FILTERS.lateFee,
+    skipOverdue: DEFAULT_AUDIENCE_FILTERS.skipOverdue,
+  };
+  return (
+    matchesAudienceFilters(unnarrowed, facts) &&
+    quotedAmountFor(unnarrowed, facts) >=
+      Math.min(scope.minDueAmount, DEFAULT_AUDIENCE_FILTERS.minDueAmount)
+  );
 }
 
 /**
@@ -957,26 +1143,55 @@ export async function loadReminderAudience(
     carryForward,
     appliedLateFees,
     promises,
+    lateFeeHistory,
+    planStudentIds,
+    rteStudentIds,
+    siblingGroups,
   ] = await Promise.all([
-    supabase
-      .from("v_workbook_student_financials")
-      .select(SELECT_COLUMNS)
-      .eq("session_label", filters.sessionLabel),
+    // Paged, like every read here that can pass PostgREST's 1,000 rows: 535
+    // students today, and a larger school would silently lose the rest.
+    fetchAllPages((from, to) =>
+      supabase
+        .from("v_workbook_student_financials")
+        .select(SELECT_COLUMNS)
+        .eq("session_label", filters.sessionLabel)
+        .order("student_id", { ascending: true })
+        .range(from, to),
+    ),
     loadNoCallStudentIds(supabase, filters.sessionLabel),
-    // Both names this notice can log under today — see `campaignNamesForNotice`.
+    // Every name this notice can log under today, in BOTH languages — see
+    // `campaignNamesForNotice`. A family follows its own language, so a Hindi
+    // run sends an English-preferring family the English template; checking
+    // only the run's language let a second run of the same notice in the other
+    // language message every such family twice in a day.
     loadSentToday(
       supabase,
       filters.sessionLabel,
-      campaignName ? campaignNamesForNotice(filters.situation, filters.language) : [],
+      campaignName
+        ? [
+            ...campaignNamesForNotice(filters.situation, "hi"),
+            ...campaignNamesForNotice(filters.situation, "en"),
+          ]
+        : [],
     ),
     loadReminderFlags(supabase, filters.sessionLabel),
     loadLastSentOn(supabase, filters.sessionLabel),
     loadCarryForward(supabase, filters.sessionLabel),
     loadAppliedLateFees(supabase, filters.sessionLabel, istToday()),
     loadLatestPromises(supabase, filters.sessionLabel),
+    loadLateFeeHistory(supabase, filters.sessionLabel, istToday()),
+    loadActivePlanStudentIds(supabase, filters.sessionLabel),
+    loadRteStudentIds(supabase, filters.sessionLabel),
+    loadSiblingGroups(supabase, filters.sessionLabel),
   ]);
 
-  if (error) throw new Error(`Could not read student financials: ${error.message}`);
+  if (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String((error as { message?: unknown }).message ?? error);
+    throw new Error(`Could not read student financials: ${message}`);
+  }
 
   const skipped: ReminderSkipCounts = {
     installmentsClear: 0,
@@ -989,6 +1204,7 @@ export async function loadReminderAudience(
     whatsappNever: 0,
     whatsappSnoozed: 0,
     whatsappTooSoon: 0,
+    profileNotSelected: 0,
     promiseOpen: 0,
   };
   const unreachable: ReminderAudience["unreachable"] = [];
@@ -996,6 +1212,34 @@ export async function loadReminderAudience(
   const candidates: ReminderCandidate[] = [];
   const classCounts = new Map<string, ClassOption>();
   const tileCounts: TileCounts = { byInstallment: [0, 0, 0, 0], lastYear: 0 };
+  const tileOwingCounts: TileCounts = { byInstallment: [0, 0, 0, 0], lastYear: 0 };
+  let hiddenByNarrowing = 0;
+  const funnel: AudienceFunnel = {
+    owing: 0,
+    removedByHand: 0,
+    noCall: 0,
+    rte: 0,
+    noNumber: 0,
+    otherClass: 0,
+    heldBack: 0,
+    hiddenByNarrowing: 0,
+    onList: 0,
+  };
+  // The ledger questions that are actually set — each gets its own chip count.
+  const setNarrowings: NarrowingKey[] = [
+    ...(filters.paid !== DEFAULT_AUDIENCE_FILTERS.paid ? (["paid"] as const) : []),
+    ...(filters.lateFee !== DEFAULT_AUDIENCE_FILTERS.lateFee ? (["lateFee"] as const) : []),
+    ...(filters.minDueAmount > DEFAULT_AUDIENCE_FILTERS.minDueAmount
+      ? (["minDueAmount"] as const)
+      : []),
+    ...(filters.skipOverdue ? (["skipOverdue"] as const) : []),
+  ];
+  const droppedByFilter: Partial<Record<NarrowingKey, number>> = Object.fromEntries(
+    setNarrowings.map((key) => [key, 0]),
+  );
+  const profileCounts = Object.fromEntries(
+    REMINDER_PROFILE_VALUES.map((value) => [value, 0]),
+  ) as Record<ReminderProfile, number>;
   const money: TileMoney = {
     owedByEveryone: 0,
     unreachable: 0,
@@ -1133,6 +1377,10 @@ export async function loadReminderAudience(
     // paid — the Dashboard's own money rule, so the reconciliation below counts
     // the same families the Dashboard does.
     const collectable = row.record_status === "active" || totalPaid > 0;
+    // Owes on the SELECTED tiles with Narrow down's ledger questions cleared:
+    // who "Why this number?" starts from.
+    const owesSelected = collectable && reachesUnnarrowed(filters, facts);
+    if (owesSelected) funnel.owing += 1;
     // The money this family owes on the selected tiles, wherever it ends up:
     // on the list, or in one of the named buckets below.
     const owesOnTiles = collectable && matchesTiles ? dueAmount : 0;
@@ -1144,6 +1392,7 @@ export async function loadReminderAudience(
     // filter they in fact matched.
     if (filters.excludeStudentIds.includes(row.student_id)) {
       excludedByHand += 1;
+      if (owesSelected) funnel.removedByHand += 1;
       money.removedByHand += owesOnTiles;
       continue;
     }
@@ -1155,13 +1404,21 @@ export async function loadReminderAudience(
 
     if (noCallIds.has(row.student_id)) {
       skipped.noCallFlagged += 1;
+      if (owesSelected) funnel.noCall += 1;
       money.noCall += owesOnTiles;
       continue;
     }
 
     const admissionNo = String(row.admission_no ?? "");
-    if (!filters.includeRte && /RTE/i.test(admissionNo)) {
+    // RTE is the RTE discount, not a spelling in the SR number: 54 students
+    // carry the discount on 2026-27 and only 13 of their SR numbers say "RTE",
+    // so 41 were messaged under a screen that said "RTE students left out".
+    // Both still count, so nothing that was held back is let through. Named by
+    // hand passes: typing a family's admission number is the more recent call.
+    const isRte = rteStudentIds.has(row.student_id) || /RTE/i.test(admissionNo);
+    if (!filters.includeRte && isRte && !namedByHand) {
       skipped.rteStudent += 1;
+      if (owesSelected) funnel.rte += 1;
       money.rte += owesOnTiles;
       continue;
     }
@@ -1175,6 +1432,7 @@ export async function loadReminderAudience(
     const motherDestination = toWhatsappDestination(row.mother_phone);
     const destination = fatherDestination ?? motherDestination;
     if (!destination) {
+      if (owesSelected) funnel.noNumber += 1;
       if (!row.father_phone && !row.mother_phone) {
         skipped.noPhoneOnRecord += 1;
         unreachable.push({
@@ -1218,9 +1476,22 @@ export async function loadReminderAudience(
     const snoozedUntil = flags?.snoozedUntil ?? null;
     const history = lastSent.get(row.student_id) ?? null;
     const lastSentOn = history?.lastSentOn ?? null;
+    // The office's choice, or what the ledger suggests — recomputed on every
+    // load, so a family who starts paying late moves on their own.
+    const profile = effectiveProfile(
+      flags?.profile ?? null,
+      suggestReminderProfile({
+        passedInstallments: calendar.overdue.length,
+        lateFeeInstallments: lateFeeHistory.get(row.student_id) ?? [],
+        overdueInstallments,
+        onRepaymentPlan: planStudentIds.has(row.student_id),
+      }),
+    );
     const holdBack = namedByHand
       ? null
       : holdBackFor({
+          profile: profile.profile,
+          profiles: filters.profiles,
           promiseOpen,
           promisedOn,
           promise: filters.promise,
@@ -1230,6 +1501,24 @@ export async function loadReminderAudience(
           today,
         });
     const inClass = !filters.classId || row.class_id === filters.classId;
+    // The same hold-backs with every profile allowed, so the profile chips can
+    // say how many each one would add.
+    const heldOtherwise =
+      !namedByHand &&
+      holdBackFor({
+        profile: profile.profile,
+        profiles: REMINDER_PROFILE_VALUES,
+        promiseOpen,
+        promisedOn,
+        promise: filters.promise,
+        cadence,
+        snoozedUntil,
+        lastSentOn,
+        today,
+      }) !== null;
+    if (inClass && !heldOtherwise && (matchesFilters || namedByHand)) {
+      profileCounts[profile.profile] += 1;
+    }
 
     // Counted here — after the guards that decide whether we could contact this
     // family at all, under the SAME narrowing controls, class and hold-backs
@@ -1256,6 +1545,9 @@ export async function loadReminderAudience(
         ) {
           tileCounts.byInstallment[installment - 1] += 1;
         }
+        if (namedByHand || reachesUnnarrowed(tile, facts)) {
+          tileOwingCounts.byInstallment[installment - 1] += 1;
+        }
       }
       const lastYearTile = { ...filters, installments: [], lastYear: true, skipOverdue: false };
       if (
@@ -1265,6 +1557,35 @@ export async function loadReminderAudience(
       ) {
         tileCounts.lastYear += 1;
       }
+      if (namedByHand || reachesUnnarrowed(lastYearTile, facts)) {
+        tileOwingCounts.lastYear += 1;
+      }
+      if (!namedByHand && !matchesFilters && reachesUnnarrowed(filters, facts)) {
+        hiddenByNarrowing += 1;
+        // Which single question, cleared alone, would bring them back.
+        for (const key of setNarrowings) {
+          const relaxed = {
+            ...filters,
+            [key]: DEFAULT_AUDIENCE_FILTERS[key],
+          };
+          if (
+            matchesAudienceFilters(relaxed, facts) &&
+            quotedAmountFor(relaxed, facts) >= relaxed.minDueAmount
+          ) {
+            droppedByFilter[key] = (droppedByFilter[key] ?? 0) + 1;
+          }
+        }
+      }
+    }
+
+    // The rest of "Why this number?", in the order the list itself applies:
+    // another class, then a hold-back, then the narrowing. Named by hand skips
+    // the hold-back and the narrowing, exactly as the list does.
+    if (owesSelected) {
+      if (!inClass) funnel.otherClass += 1;
+      else if (holdBack) funnel.heldBack += 1;
+      else if (!matchesFilters && !namedByHand) funnel.hiddenByNarrowing += 1;
+      else funnel.onList += 1;
     }
 
     // Now the tiles the office actually selected. A family who does not match
@@ -1316,6 +1637,7 @@ export async function loadReminderAudience(
         destination,
         reason: holdBack.reason,
         cadence,
+        profile: profile.profile,
         returnsOn: holdBack.returnsOn,
         dueAmount,
       });
@@ -1333,20 +1655,37 @@ export async function loadReminderAudience(
       transportRoute,
       transportFeeAmount,
       destination,
+      // Drawn over the whole list once it is complete, below.
+      familyKey: destination,
       usedMotherPhone: !fatherDestination,
       dueAmount,
       totalPaid,
-      balanceDue,
+      // See the field's note: last session's balance joins it with the tile on.
+      balanceDue: balanceDue + (filters.lastYear ? prevYearBalance : 0),
       prevYearBalance,
       prevSessionLabel: carried?.sourceSession ?? null,
       sentToday: sentToday.get(row.student_id) ?? null,
       cadence,
       snoozedUntil,
+      profile: profile.profile,
+      profileSource: profile.source,
+      profileReason: profile.reason,
       lastSentOn,
       // Scoped to the tiles, like the fees — see the field's own note.
       lateFeeApplied: lateFeeQuoted,
       lateFeeFeesPending: ledgerFeesOnSelected(filters, facts),
       lateFeeInstallments: lateFeeInstallmentsSelected(filters, facts),
+      owedInstallments: owedSelectedInstallments(filters, facts),
+      scopeLine: filters.lastYear
+        ? scopeLinesFor(
+            {
+              owedInstallments: owedSelectedInstallments(filters, facts),
+              prevYearBalance,
+              prevSessionLabel: carried?.sourceSession ?? null,
+            },
+            filters.installments,
+          )
+        : null,
       overdueInstallments,
       promisedOn,
       promiseContactedOn: istDateOf(promise?.contactedAt ?? null),
@@ -1384,6 +1723,18 @@ export async function loadReminderAudience(
     }
   }
 
+  // One family, one message: a shared number OR the office's sibling link.
+  const familyKeys = familyKeysFor(
+    candidates.map((candidate) => ({
+      studentId: candidate.studentId,
+      destination: candidate.destination,
+      familyGroupId: siblingGroups.get(candidate.studentId) ?? null,
+    })),
+  );
+  for (const candidate of candidates) {
+    candidate.familyKey = familyKeys.get(candidate.studentId) ?? candidate.destination;
+  }
+
   candidates.sort((left, right) => right.dueAmount - left.dueAmount);
   paused.sort((left, right) => right.dueAmount - left.dueAmount);
 
@@ -1395,7 +1746,12 @@ export async function loadReminderAudience(
     paused,
     classOptions: [...classCounts.values()].sort((a, b) => a.label.localeCompare(b.label)),
     tileCounts,
+    tileOwingCounts,
+    hiddenByNarrowing,
+    droppedByFilter,
+    funnel,
     money,
+    profileCounts,
     noticeGaps,
   };
 }
@@ -1414,7 +1770,7 @@ export async function loadReminderAudience(
  * standing "₹0 elsewhere" on every load.
  */
 export function describeTileMoney(
-  filters: Pick<AudienceFilters, "lastYear">,
+  filters: Pick<AudienceFilters, "lastYear"> & Partial<Pick<AudienceFilters, "installments">>,
   money: TileMoney,
 ): string[] {
   const notes: string[] = [];
@@ -1425,7 +1781,11 @@ export function describeTileMoney(
     money.heldBack +
     money.otherClass +
     money.removedByHand;
-  const subject = filters.lastYear ? "last session's balance" : "these installments";
+  const subject = !filters.lastYear
+    ? "these installments"
+    : (filters.installments?.length ?? 0) > 0
+      ? "these installments and last session's balance"
+      : "last session's balance";
 
   if (money.owedByEveryone > 0 && away > 0) {
     const parts = [
@@ -1441,12 +1801,12 @@ export function describeTileMoney(
     );
   }
 
-  // The Dashboard's "overdue" folds last session's balance in; this list keeps
-  // it on its own tile. Saying so is what stops "32 lakhs there, 23 here" from
-  // reading as a bug.
+  // The Dashboard's "overdue" folds last session's balance in; this list only
+  // does with the Last year tile on. Saying so is what stops "32 lakhs there,
+  // 23 here" from reading as a bug — and tells the office how to add it.
   if (!filters.lastYear && money.carryForward > 0) {
     notes.push(
-      `Last session's ${formatInr(money.carryForward)} is the Last year tile — the Dashboard's overdue figure includes it.`,
+      `Last session's ${formatInr(money.carryForward)} is not in these amounts — tap Last year to add it. The Dashboard's overdue figure includes it.`,
     );
   }
 
@@ -1455,6 +1815,7 @@ export function describeTileMoney(
 
 /** Which skip counter each hold-back reason lands in. */
 const HOLD_BACK_COUNTER: Record<PausedFamily["reason"], keyof ReminderSkipCounts> = {
+  profile: "profileNotSelected",
   promise_open: "promiseOpen",
   never: "whatsappNever",
   snoozed: "whatsappSnoozed",
@@ -1468,12 +1829,20 @@ const HOLD_BACK_COUNTER: Record<PausedFamily["reason"], keyof ReminderSkipCounts
  * reflects the hold-backs; it used to be inline between the class filter and
  * the push, where the counts could not see it.
  *
- * Order matters and is unchanged: an open promise first, because `skip_open`
- * is the promise filter's default and the family's own word; then `never`;
- * then a snooze still in the future; then the cadence gap, measured against
- * the send log rather than a "last reminded" column so it cannot drift.
+ * Order matters: the reminder profile first — a quiet family is quiet whatever
+ * else is true of them, and it is the run's own choice of who to reach — then
+ * an open promise, because `skip_open` is the promise filter's default and the
+ * family's own word; then `never`; then a snooze still in the future; then the
+ * cadence gap, measured against the send log rather than a "last reminded"
+ * column so it cannot drift.
+ *
+ * A profile hold-back is a pause, not a filter, on purpose: the family still
+ * owes the money, so the collection lists keep them on a teacher's sheet, and
+ * the screen names them with a way back in.
  */
-function holdBackFor(args: {
+export function holdBackFor(args: {
+  profile: ReminderProfile;
+  profiles: readonly ReminderProfile[];
   promiseOpen: boolean;
   promisedOn: string | null;
   promise: PromiseFilter;
@@ -1482,6 +1851,7 @@ function holdBackFor(args: {
   lastSentOn: string | null;
   today: string;
 }): { reason: PausedFamily["reason"]; returnsOn: string | null } | null {
+  if (!args.profiles.includes(args.profile)) return { reason: "profile", returnsOn: null };
   // The family has already said when they will pay, and that day has not
   // come. Choosing any other promise filter is the office saying it means to
   // chase inside the window.
@@ -1536,17 +1906,30 @@ async function loadAppliedLateFees(
   sessionLabel: string,
   today: string,
 ): Promise<Map<string, AppliedLateFee>> {
-  const { data, error } = await supabase
-    .from("v_workbook_installment_balances")
-    .select(
-      "student_id, installment_no, due_date, pending_amount, late_fee_pending, late_fee_status, total_pending, is_carry_forward",
-    )
-    .eq("session_label", sessionLabel)
-    .gt("late_fee_pending", 0);
+  // Paged: 420 rows with a late fee on 27 October, past 1,000 once installment
+  // 4 falls due — and an unpaged read would drop families' late fees silently.
+  const { data, error } = await fetchAllPages<Record<string, unknown>>((from, to) =>
+    supabase
+      .from("v_workbook_installment_balances")
+      .select(
+        "student_id, installment_no, due_date, pending_amount, late_fee_pending, late_fee_status, total_pending, is_carry_forward",
+      )
+      .eq("session_label", sessionLabel)
+      .gt("late_fee_pending", 0)
+      .order("student_id", { ascending: true })
+      .order("installment_no", { ascending: true })
+      .range(from, to),
+  );
 
   // Failing open would send a "late fee applied" notice quoting nothing, which
   // is a message a parent would rightly bring to the counter.
-  if (error) throw new Error(`Could not read applied late fees: ${error.message}`);
+  if (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String((error as { message?: unknown }).message ?? error);
+    throw new Error(`Could not read applied late fees: ${message}`);
+  }
 
   const byStudent = new Map<string, AppliedLateFee>();
   for (const row of (data ?? []) as Array<{
@@ -1641,15 +2024,34 @@ async function loadLatestPromises(
   supabase: any,
   sessionLabel: string,
 ): Promise<Map<string, PromiseState>> {
-  const { data, error } = await supabase
-    .from("defaulter_contacts")
-    .select("student_id, outcome, snooze_until, contacted_at")
-    .eq("session_label", sessionLabel)
-    .order("contacted_at", { ascending: false });
+  // Paged: the session's call log passed PostgREST's 1,000-row cap in October
+  // (2,884 rows), and the unpaged read kept only the newest 1,000 — so a
+  // family whose last word was older than that read as never contacted, and a
+  // promise they were inside would not have held them back.
+  const { data, error } = await fetchAllPages<{
+    student_id: string;
+    outcome: string | null;
+    snooze_until: string | null;
+    contacted_at: string | null;
+  }>((from, to) =>
+    supabase
+      .from("defaulter_contacts")
+      .select("student_id, outcome, snooze_until, contacted_at")
+      .eq("session_label", sessionLabel)
+      .order("contacted_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
   // Failing open would message families who have already told the office when
   // they will pay — the single fastest way to lose a promise that was holding.
-  if (error) throw new Error(`Could not read contact history: ${error.message}`);
+  if (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String((error as { message?: unknown }).message ?? error);
+    throw new Error(`Could not read contact history: ${message}`);
+  }
 
   const latest = new Map<string, PromiseState>();
   for (const row of (data ?? []) as Array<{
@@ -1692,21 +2094,33 @@ async function loadCarryForward(
   supabase: any,
   sessionLabel: string,
 ): Promise<Map<string, { remaining: number; sourceSession: string | null }>> {
-  const { data, error } = await supabase
-    .from("v_student_carry_forward_balances")
-    .select("student_id, remaining_amount, source_session_label, status")
-    .eq("target_session_label", sessionLabel)
-    .neq("status", "cancelled");
-
-  // Failing open would send a previous-session notice quoting zero.
-  if (error) throw new Error(`Could not read carry-forward balances: ${error.message}`);
-
-  const byStudent = new Map<string, { remaining: number; sourceSession: string | null }>();
-  for (const row of (data ?? []) as Array<{
+  // Paged like the other reads here: one row per head carried, so a school
+  // that carries a few heads for each of 400 students passes 1,000 quietly —
+  // and a family on the second page would be told it owes nothing from last
+  // year.
+  const { data, error } = await fetchAllPages<{
     student_id: string;
     remaining_amount: number | null;
     source_session_label: string | null;
-  }>) {
+  }>((from, to) =>
+    supabase
+      .from("v_student_carry_forward_balances")
+      .select("id, student_id, remaining_amount, source_session_label, status")
+      .eq("target_session_label", sessionLabel)
+      .neq("status", "cancelled")
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+
+  // Failing open would send a previous-session notice quoting zero.
+  if (error) {
+    throw new Error(
+      `Could not read carry-forward balances: ${String((error as { message?: unknown }).message ?? error)}`,
+    );
+  }
+
+  const byStudent = new Map<string, { remaining: number; sourceSession: string | null }>();
+  for (const row of data) {
     const existing = byStudent.get(row.student_id);
     const remaining = Number(row.remaining_amount ?? 0);
     byStudent.set(row.student_id, {
@@ -1726,15 +2140,25 @@ async function loadCarryForward(
  * WhatsApp only, and conflating them is how "remind them monthly" would quietly
  * stop the fee collectors calling.
  */
-async function loadReminderFlags(
+export async function loadReminderFlags(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   sessionLabel: string,
 ): Promise<Map<string, ReminderFlags>> {
-  const { data, error } = await supabase
-    .from("student_collection_flags")
-    .select("student_id, whatsapp_cadence, whatsapp_snoozed_until, whatsapp_language")
-    .eq("session_label", sessionLabel);
+  const read = (columns: string) =>
+    supabase.from("student_collection_flags").select(columns).eq("session_label", sessionLabel);
+  let { data, error } = await read(
+    "student_id, whatsapp_cadence, whatsapp_snoozed_until, whatsapp_language, whatsapp_profile",
+  );
+  // `whatsapp_profile` arrives with migration 20261026120000. A deployment that
+  // lands before it must not take the send screen down — every family simply
+  // follows the ledger's suggestion until the column exists. Only an
+  // undefined-column error falls back; anything else still fails closed.
+  if (error && /whatsapp_profile/.test(String(error.message ?? ""))) {
+    ({ data, error } = await read(
+      "student_id, whatsapp_cadence, whatsapp_snoozed_until, whatsapp_language",
+    ));
+  }
 
   // Failing open here would message families the office asked us to hold back,
   // which is the whole thing this feature exists to prevent.
@@ -1747,12 +2171,14 @@ async function loadReminderFlags(
         whatsapp_cadence: ReminderCadence | null;
         whatsapp_snoozed_until: string | null;
         whatsapp_language: string | null;
+        whatsapp_profile?: string | null;
       }>
     ).map((row) => [
       row.student_id,
       {
         cadence: row.whatsapp_cadence ?? DEFAULT_CADENCE,
         snoozedUntil: row.whatsapp_snoozed_until,
+        profile: isReminderProfile(row.whatsapp_profile) ? row.whatsapp_profile : null,
         // Validated rather than cast: a value the check constraint somehow let
         // through must fall back to the run, not name a campaign that does not
         // exist.
@@ -1762,6 +2188,86 @@ async function loadReminderFlags(
       },
     ]),
   );
+}
+
+/**
+ * Which passed installments the ledger has ever charged each family a late fee
+ * on — still owed, paid, or waived.
+ *
+ * The reminder profile's evidence. A waived late fee still counts: the waiver
+ * forgave the charge, not the lateness, and a family who pays inside the waiver
+ * window every term is exactly the family the waiver ladder is for.
+ *
+ * Paged, because it is one row per family per charged installment and
+ * PostgREST truncates at 1000 with no error. Strictly past due dates only —
+ * the same boundary as `calendar.overdue`.
+ */
+export async function loadLateFeeHistory(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  sessionLabel: string,
+  today: string,
+): Promise<Map<string, number[]>> {
+  const { data, error } = await fetchAllPages<{
+    student_id: string;
+    installment_no: number | null;
+    is_carry_forward: boolean | null;
+  }>((from, to) =>
+    supabase
+      .from("v_workbook_installment_balances")
+      .select("student_id, installment_no, is_carry_forward")
+      .eq("session_label", sessionLabel)
+      .in("late_fee_status", ["pending", "paid", "waived"])
+      .lt("due_date", today)
+      .order("student_id", { ascending: true })
+      .order("installment_no", { ascending: true })
+      .range(from, to),
+  );
+
+  // A profile is a judgement about how hard to chase. Failing open would file
+  // every late payer as on-time and send them one polite note.
+  if (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String((error as { message?: unknown }).message ?? error);
+    throw new Error(`Could not read late-fee history: ${message}`);
+  }
+
+  const byStudent = new Map<string, number[]>();
+  for (const row of data) {
+    if (row.is_carry_forward) continue;
+    const installmentNo = Number(row.installment_no ?? 0);
+    if (installmentNo < 1 || installmentNo > 4) continue;
+    const list = byStudent.get(row.student_id) ?? [];
+    if (!list.includes(installmentNo)) list.push(installmentNo);
+    byStudent.set(row.student_id, list);
+  }
+  return byStudent;
+}
+
+/**
+ * Students on an active repayment plan this session — the `hardship` profile's
+ * evidence. The office already agreed terms with these families, and a final
+ * notice on top of a plan they are keeping is how a plan stops being kept.
+ *
+ * Best-effort, unlike the late-fee history: the worst a missing plan list does
+ * is suggest "standard" for a plan family, which the office can see and change
+ * on the row. It must not take the whole send screen down.
+ */
+export async function loadActivePlanStudentIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  sessionLabel: string,
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("v_student_repayment_plan_status")
+    .select("student_id")
+    .eq("session_label", sessionLabel)
+    .eq("lifecycle", "active");
+
+  if (error) return new Set();
+  return new Set(((data ?? []) as Array<{ student_id: string }>).map((row) => row.student_id));
 }
 
 /**
@@ -1788,15 +2294,29 @@ async function loadLastSentOn(
   supabase: any,
   sessionLabel: string,
 ): Promise<Map<string, { lastSentOn: string; sentCount: number }>> {
-  const { data, error } = await supabase
-    .from("whatsapp_reminder_sends")
-    .select("student_id, sent_on")
-    .eq("session_label", sessionLabel)
-    .eq("status", "sent")
-    .eq("notice_kind", "reminder")
-    .order("sent_on", { ascending: false });
+  // Paged: 3,457 sent reminders by October, and the unpaged read kept only the
+  // newest 1,000 — every older send dropped out of `sentCount`, which decides
+  // when the second parent's number is added.
+  const { data, error } = await fetchAllPages<{ student_id: string; sent_on: string }>(
+    (from, to) =>
+      supabase
+        .from("whatsapp_reminder_sends")
+        .select("student_id, sent_on")
+        .eq("session_label", sessionLabel)
+        .eq("status", "sent")
+        .eq("notice_kind", "reminder")
+        .order("sent_on", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
-  if (error) throw new Error(`Could not read the send history: ${error.message}`);
+  if (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String((error as { message?: unknown }).message ?? error);
+    throw new Error(`Could not read the send history: ${message}`);
+  }
 
   const latest = new Map<string, { lastSentOn: string; sentCount: number }>();
   for (const row of (data ?? []) as Array<{ student_id: string; sent_on: string }>) {
@@ -1809,6 +2329,28 @@ async function loadLastSentOn(
     latest.set(row.student_id, { lastSentOn: row.sent_on, sentCount: 1 });
   }
   return latest;
+}
+
+/**
+ * Students holding the RTE discount this session — the school's own record of
+ * who is an RTE admission, which the SR number only sometimes spells out.
+ *
+ * Throws rather than failing open: an empty set would message every RTE family
+ * under a screen still saying they are left out.
+ */
+async function loadRteStudentIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  sessionLabel: string,
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("student_conventional_discount_assignments")
+    .select("student_id, conventional_discount_policies!inner(code)")
+    .eq("academic_session_label", sessionLabel)
+    .eq("is_active", true)
+    .eq("conventional_discount_policies.code", "rte");
+  if (error) throw new Error(`Could not read RTE assignments: ${error.message}`);
+  return new Set(((data ?? []) as Array<{ student_id: string }>).map((row) => row.student_id));
 }
 
 /**
@@ -1833,6 +2375,34 @@ async function loadNoCallStudentIds(
   // message the exact families the office asked us to leave alone.
   if (error) throw new Error(`Could not read no-call flags: ${error.message}`);
   return new Set(((data ?? []) as Array<{ student_id: string }>).map((row) => row.student_id));
+}
+
+/**
+ * Each student's sibling group this session, as the office linked them.
+ *
+ * Fails soft, to an empty map: without the links the run groups by number
+ * alone, exactly as it did before they counted — one extra message to a linked
+ * family is far better than no reminders at all.
+ */
+async function loadSiblingGroups(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  sessionLabel: string,
+): Promise<Map<string, string>> {
+  try {
+    const { data, error } = await fetchAllPages<{ student_id: string; family_group_id: string }>((from, to) =>
+      supabase
+        .from("student_family_members")
+        .select("student_id, family_group_id")
+        .eq("academic_session_label", sessionLabel)
+        .order("student_id", { ascending: true })
+        .range(from, to),
+    );
+    if (error) return new Map();
+    return new Map(data.map((row) => [row.student_id, row.family_group_id]));
+  } catch {
+    return new Map();
+  }
 }
 
 export function istToday(): string {
@@ -1879,7 +2449,11 @@ async function loadSentToday(
     .select("student_id, status, created_at")
     .eq("session_label", sessionLabel)
     .eq("sent_on", istToday())
-    .in("campaign_name", campaignNames);
+    .in("campaign_name", campaignNames)
+    // A FAILED send reached nobody: that family is still to be messaged today,
+    // and the sender takes the failed row back on the retry. Counting it here
+    // locked the row and reported "already had today's reminder".
+    .neq("status", "failed");
 
   // A missing send history is not a reason to refuse to show the list — but it
   // does mean the screen cannot promise nobody was messaged today, so say so

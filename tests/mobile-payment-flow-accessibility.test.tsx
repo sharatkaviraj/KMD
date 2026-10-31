@@ -185,7 +185,7 @@ describe("payment flow modal accessibility", () => {
   it("includes visible fixed-position payment controls in the focus loop", () => {
     render(makeProps("payment-entry"));
     const modal = document.querySelector<HTMLElement>('[role="dialog"]')!;
-    const collect = Array.from(modal.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.includes(`Collect ${formatInr(125.5)}`))!;
+    const collect = Array.from(modal.querySelectorAll<HTMLButtonElement>("button:not([aria-pressed])")).find(button => button.textContent?.includes(`Collect ${formatInr(125.5)}`))!;
     collect.style.position = "fixed";
     Object.defineProperty(collect, "offsetParent", { configurable: true, get: () => null });
     collect.focus();
@@ -226,7 +226,10 @@ describe("payment flow modal accessibility", () => {
     expect(props.onSetPaymentDate).toHaveBeenCalledWith("2026-09-29");
     clickText("Bank");
     expect(props.onSetPaymentMode).toHaveBeenCalledWith("bank");
-    clickText("Waive (admin)");
+    // fees 1b932785 (P10): waiving is the default and the first choice; the
+    // late fee's second button reads "Collect ₹…", so the submit finders below
+    // skip the two-state late-fee buttons (aria-pressed).
+    clickText("Waive · default");
     expect(props.onToggleWaiveLateFee).toHaveBeenCalledOnce();
     clickText("Dismiss");
     expect(props.onDismissTodayReceipt).toHaveBeenCalledWith("receipt-1");
@@ -237,7 +240,7 @@ describe("payment flow modal accessibility", () => {
     const quick = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.includes("₹900"))!;
     act(() => quick.click());
     expect(props.onQuickAmount).toHaveBeenCalledWith(900);
-    const collect = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.includes(`Collect ${formatInr(125.5)}`))!;
+    const collect = Array.from(document.querySelectorAll<HTMLButtonElement>("button:not([aria-pressed])")).find(button => button.textContent?.includes(`Collect ${formatInr(125.5)}`))!;
     act(() => collect.click());
     expect(props.onOpenConfirm).toHaveBeenCalledOnce();
     expect(props.onAmountChange).toHaveBeenCalledTimes(1);
@@ -287,7 +290,7 @@ describe("payment flow modal accessibility", () => {
   it.each([{ isPosting: true }, { confirmDisabled: true }, { draftValidationOk: false }, { isLockedAfterSuccess: true }, { studentSummaryLoading: true }])("retains disabled Collect guard %j", guard => {
     const props = { ...makeProps("payment-entry"), ...guard };
     render(props);
-    const collect = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.includes("Collect ₹") || button.textContent?.includes("Saving payment"))!;
+    const collect = Array.from(document.querySelectorAll<HTMLButtonElement>("button:not([aria-pressed])")).find(button => button.textContent?.includes("Collect ₹") || button.textContent?.includes("Saving payment"))!;
     expect(collect.disabled).toBe(true);
     act(() => collect.click());
     expect(props.onOpenConfirm).not.toHaveBeenCalled();

@@ -28,6 +28,15 @@
  */
 
 import type { NoticeSituation } from "@/modules/whatsapp/domain/campaigns";
+import {
+  DEFAULT_PROFILE_SELECTION,
+  isDefaultProfileSelection,
+  parseProfileSelection,
+  profileLabel,
+  profileSelectionValue,
+  REMINDER_PROFILE_VALUES,
+  type ReminderProfile,
+} from "@/modules/whatsapp/domain/reminder-profile";
 import { formatInr } from "@/platform/helpers/currency";
 
 /**
@@ -121,8 +130,14 @@ export type AudienceFilters = {
   installments: number[];
   /**
    * The "Last year" tile: a balance carried forward from the previous session.
-   * Exclusive with the installments by construction — both ride the ONE query
-   * key `installments`, as the token `last_year` — so no URL can carry both.
+   *
+   * Combines with the installments. Both ride the ONE query key `installments`
+   * — `1,2,last_year` — and together they mean "chase these installments AND
+   * last session's balance": a family owing on either is on the list, and the
+   * amount they are asked for is both added. Until 2026-10-28 the two were
+   * exclusive, so a fee notice to the 24 families still carrying ₹2,57,700
+   * from 2025-26 named only this year's installments — and the office could
+   * not ask for both in one message.
    */
   lastYear: boolean;
   installmentMatch: InstallmentMatch;
@@ -142,6 +157,15 @@ export type AudienceFilters = {
   skipOverdue: boolean;
   classId: string | null;
   includeRte: boolean;
+  /**
+   * Which reminder profiles this run reaches — see `domain/reminder-profile`.
+   *
+   * A narrowing control like the class, never a property of the template. The
+   * default leaves out hardship and quiet, and a family held out by it is
+   * counted on the screen, never silently missing. A hand-named student joins
+   * whatever their profile, like every other filter.
+   */
+  profiles: ReminderProfile[];
   /**
    * Students the office named by hand. They join the list whatever the filters
    * say — and whatever the cadence says, because naming a family IS the more
@@ -175,6 +199,7 @@ export const DEFAULT_AUDIENCE_FILTERS: AudienceFilters = {
   skipOverdue: false,
   classId: null,
   includeRte: false,
+  profiles: [...DEFAULT_PROFILE_SELECTION],
   includeStudentIds: [],
   excludeStudentIds: [],
 };
@@ -197,11 +222,12 @@ export const LAST_YEAR_TOKEN = "last_year";
  * The ONE reader for the `installments` value, whether it came off a query
  * string, a posted form or a saved campaign's JSON.
  *
- * `last_year` anywhere in the value wins and clears the four. Numbers 1-4 are
- * kept, sorted and deduplicated. Anything else — absent, blank, `0,9,banana`
- * from a hand-edited URL — returns null so the caller can open on the
- * calendar's default rather than on nobody. Garbage must never be read as a
- * deliberate choice.
+ * `last_year` anywhere in the value turns the Last-year tile on, beside any
+ * installments it came with: `1,2,last_year` is both. Numbers 1-4 are kept,
+ * sorted and deduplicated. Anything else — absent, blank, `0,9,banana` from a
+ * hand-edited URL — returns null so the caller can open on the calendar's
+ * default rather than on nobody. Garbage must never be read as a deliberate
+ * choice.
  */
 export function parseInstallmentsValue(
   raw: string | null | undefined,
@@ -211,7 +237,7 @@ export function parseInstallmentsValue(
     .split(",")
     .map((token) => token.trim())
     .filter(Boolean);
-  if (tokens.includes(LAST_YEAR_TOKEN)) return { installments: [], lastYear: true };
+  const lastYear = tokens.includes(LAST_YEAR_TOKEN);
   const installments = [
     ...new Set(
       tokens
@@ -219,13 +245,13 @@ export function parseInstallmentsValue(
         .filter((value) => Number.isInteger(value) && value >= 1 && value <= 4),
     ),
   ].sort((a, b) => a - b);
-  if (installments.length === 0) return null;
-  return { installments, lastYear: false };
+  if (installments.length === 0 && !lastYear) return null;
+  return { installments, lastYear };
 }
 
 /** The `installments` value that `parseInstallmentsValue` reads back to `scope`. */
 export function installmentsValue(scope: Pick<AudienceFilters, "installments" | "lastYear">): string {
-  return scope.lastYear ? LAST_YEAR_TOKEN : scope.installments.join(",");
+  return [...scope.installments, ...(scope.lastYear ? [LAST_YEAR_TOKEN] : [])].join(",");
 }
 
 /**
@@ -275,7 +301,7 @@ export const NOTICE_FACT_CONSEQUENCE: Record<
   },
   prev_year: {
     effect: "the message carries an empty session name, and WhatsApp refuses those — they would fail rather than send",
-    fix: "select the Last year tile, or pick a different message",
+    fix: "select the Last year tile on its own, or pick a different message",
   },
   amount: {
     effect: "the message would quote ₹0",
@@ -349,6 +375,7 @@ export const REMINDER_QUERY_KEYS = [
   "skipOverdue",
   "classId",
   "includeRte",
+  "profiles",
   "include",
   "exclude",
   "campaignId",
@@ -368,6 +395,8 @@ export type ReminderQuerySource = AudienceFilters & {
   lateFeeBasis: string;
   lateFeeSource: string;
   preDueWindowDays: number;
+  /** See `ReminderFilters.campaignId`: carried, never a filter. */
+  campaignId?: string | null;
 };
 
 /**
@@ -405,8 +434,12 @@ export function reminderQuery(
   set("skipOverdue", source.skipOverdue ? "on" : null);
   set("classId", source.classId);
   set("includeRte", source.includeRte ? "on" : null);
+  set("profiles", profileSelectionValue(source.profiles));
   set("include", source.includeStudentIds.join(","));
   set("exclude", source.excludeStudentIds.join(","));
+  // Listed in REMINDER_QUERY_KEYS from the start and never emitted, so a saved
+  // campaign's attribution vanished on the first tile tap or Apply.
+  set("campaignId", source.campaignId ?? null);
 
   for (const [key, value] of Object.entries(override)) {
     set(key as ReminderQueryKey, value ?? null);
@@ -421,49 +454,80 @@ export function reminderQuery(
  * Built on `reminderQuery`, so the template, the language, the date, the late
  * fee, the class, the narrowing controls AND the hand-picked students all
  * carry: the office is refining a list, not rebuilding one. Tapping a tile
- * while Last year is on leaves Last year — the two share one key.
+ * while Last year is on keeps Last year on — the two combine.
  *
  * Returns null when the tap would leave zero tiles, which is not a state; the
- * builder renders that tile as selected-and-inert. `skipOverdue` is dropped
- * the moment the selection touches an OVERDUE installment (`calendar.overdue`,
- * strictly past — the row due today is not overdue), because "not overdue on
- * anything" and "owing on an installment whose date has gone" cannot both be
- * true of a family, and a hidden filter that empties the list is exactly the
- * kind of thing this screen must not do.
+ * builder renders that tile as selected-and-inert. With Last year on, the last
+ * installment CAN be untapped: Last year alone is a state. `skipOverdue` is
+ * dropped the moment the selection touches an OVERDUE installment
+ * (`calendar.overdue`, strictly past — the row due today is not overdue), or
+ * last session's balance, because "not overdue on anything" and "owing on
+ * money whose date has gone" cannot both be true of a family, and a hidden
+ * filter that empties the list is exactly the kind of thing this screen must
+ * not do.
  */
 export function installmentTileHref(
   filters: ReminderQuerySource,
   installmentNo: number,
   calendar: { overdue: readonly number[] },
 ): string | null {
-  const selected = filters.lastYear ? [] : filters.installments;
+  const selected = filters.installments;
   const next = selected.includes(installmentNo)
     ? selected.filter((value) => value !== installmentNo)
     : [...selected, installmentNo].sort((a, b) => a - b);
-  if (next.length === 0) return null;
-  const touchesOverdue = next.some((value) => calendar.overdue.includes(value));
+  if (next.length === 0 && !filters.lastYear) return null;
+  const touchesOverdue =
+    filters.lastYear || next.some((value) => calendar.overdue.includes(value));
   const params = reminderQuery(filters, {
-    installments: next.join(","),
+    installments: installmentsValue({ installments: next, lastYear: filters.lastYear }),
     skipOverdue: touchesOverdue ? null : filters.skipOverdue ? "on" : null,
   });
   return `?${params.toString()}`;
 }
 
 /**
- * The href that toggles the Last-year tile.
+ * The href that toggles the Last-year tile, keeping every installment tile as
+ * it is.
  *
- * On: the one token, and `skipOverdue` dropped — last session's balance has no
- * installment to be overdue on. Off: back to the calendar's own default rather
- * than to an empty set, for the same reason `installmentTileHref` returns null.
+ * On: the token is added and `skipOverdue` dropped — last session's balance is
+ * overdue by definition. Off: the installments stay; with none selected it
+ * goes back to the calendar's own default rather than to an empty set, for the
+ * same reason `installmentTileHref` returns null.
  */
 export function lastYearTileHref(
   filters: ReminderQuerySource,
   calendarDefault: readonly number[],
 ): string {
-  const params = filters.lastYear
-    ? reminderQuery(filters, { installments: calendarDefault.join(",") })
-    : reminderQuery(filters, { installments: LAST_YEAR_TOKEN, skipOverdue: null });
-  return `?${params.toString()}`;
+  if (filters.lastYear) {
+    const installments = filters.installments.length > 0 ? filters.installments : calendarDefault;
+    return `?${reminderQuery(filters, { installments: installments.join(",") }).toString()}`;
+  }
+  return `?${reminderQuery(filters, {
+    installments: installmentsValue({ installments: filters.installments, lastYear: true }),
+    skipOverdue: null,
+    // A carry-forward row never charges a late fee, so a late-fee choice left
+    // behind (a waiver suggestion sets "still charged") would empty Last year
+    // on its own. Beside installments the choice still means something — it
+    // asks about THEIR rows — so it stays.
+    ...(filters.installments.length === 0 ? { lateFee: null } : {}),
+  }).toString()}`;
+}
+
+/**
+ * The href that toggles one reminder profile in or out of the run.
+ *
+ * Null when the tap would leave no profile at all, which is not a state — the
+ * builder renders that chip as selected-and-inert, exactly like the last tile.
+ */
+export function profileToggleHref(
+  filters: ReminderQuerySource,
+  profile: ReminderProfile,
+): string | null {
+  const next = filters.profiles.includes(profile)
+    ? filters.profiles.filter((value) => value !== profile)
+    : [...filters.profiles, profile];
+  if (next.length === 0) return null;
+  return `?${reminderQuery(filters, { profiles: profileSelectionValue(next) }).toString()}`;
 }
 
 /** The href for "owing on all of them" / "owing on any of them". */
@@ -528,6 +592,12 @@ export function describeAudience(
      * above "292 families" looks like a bug until the difference is stated.
      */
     heldByCadence?: number;
+    /**
+     * Families left out because their reminder profile is not on this run —
+     * hardship and quiet, by default. Named, like the other two, because the
+     * office would otherwise wonder where they went.
+     */
+    heldByProfile?: number;
     /** A class label, when one is picked — the caller holds the lookup. */
     className?: string | null;
   },
@@ -537,7 +607,7 @@ export function describeAudience(
   // WHO — the tiles, stated as the question they ask.
   let who: string;
   let asking: string;
-  if (filters.lastYear) {
+  if (filters.lastYear && filters.installments.length === 0) {
     who = "who still owe a balance carried over from last session";
     asking = "what is left of that balance";
   } else if (filters.installments.length <= 1) {
@@ -548,6 +618,12 @@ export function describeAudience(
       filters.installmentMatch === "all" ? "every one of them" : "any of them"
     }`;
     asking = "the fees on those installments";
+  }
+  // Last year beside installments is an OR, and the amount is both added — the
+  // sentence has to say both, or "₹X" reads as this year's fees alone.
+  if (filters.lastYear && filters.installments.length > 0) {
+    who = `${who}, or on a balance carried over from last session`;
+    asking = `${asking} plus what is left of that balance`;
   }
   // No count in here: `headline` already carries it, and rendered one under
   // the other they read as one thought.
@@ -572,6 +648,9 @@ export function describeAudience(
   if (filters.promise === "any") narrowed.push("promises ignored");
   if (filters.minDueAmount > 1) narrowed.push(`at least ${formatInr(filters.minDueAmount)}`);
   if (!filters.includeRte) narrowed.push("RTE students left out");
+  if (!isDefaultProfileSelection(filters.profiles)) {
+    narrowed.push(`${filters.profiles.map(profileLabel).join(", ")} families only`);
+  }
   if (filters.includeStudentIds.length > 0) {
     narrowed.push(`${filters.includeStudentIds.length} added by hand`);
   }
@@ -599,7 +678,22 @@ export function describeAudience(
           ? "inside their own promise"
           : "by reminder cadence"
         : reasons.join(" and ");
-    sentences.push(`${more} held back ${why} — counted on the tile, not in this send.`);
+    // Not "counted on the tile": the tiles count only families who are NOT held
+    // back, and saying otherwise sent the office looking for a gap that was not
+    // there.
+    sentences.push(`${more} held back ${why} — not on the tiles or in this send.`);
+  }
+  // Its own sentence rather than a third reason above: the tiles do NOT count
+  // these families (a profile narrows the list, like the class), so "counted
+  // on the tile" would be untrue of them.
+  const heldProfile = totals.heldByProfile ?? 0;
+  if (heldProfile > 0) {
+    const left = profilesLeftOut(filters.profiles);
+    sentences.push(
+      `${heldProfile === 1 ? "1 family is" : `${heldProfile} families are`} left out by profile${
+        left ? ` (${left})` : ""
+      } — tick the profile in to reach them.`,
+    );
   }
 
   /**
@@ -619,6 +713,13 @@ export function describeAudience(
       ...sentences,
     ].join(" "),
   };
+}
+
+/** "Hardship, Quiet" — the profiles a run is NOT reaching, for the sentence. */
+function profilesLeftOut(selected: readonly ReminderProfile[]): string {
+  return REMINDER_PROFILE_VALUES.filter((value) => !selected.includes(value))
+    .map(profileLabel)
+    .join(", ");
 }
 
 /** A comma list of ids out of the query string, deduped and trimmed. */
@@ -654,6 +755,8 @@ export type SavedAudience = {
   skipOverdue: boolean;
   classId: string | null;
   includeRte: boolean;
+  /** A ladder step's profiles, e.g. Standard + Chronic for the T-10 notice. */
+  profiles: ReminderProfile[];
 };
 
 /**
@@ -679,10 +782,14 @@ export function savedAudienceFrom(raw: Record<string, unknown>): SavedAudience {
     : typeof raw.installments === "string"
       ? raw.installments
       : null;
+  const parsed = parseInstallmentsValue(installmentsRaw);
+  // `lastYear: true` beside an `installments` array is how a rule is stored;
+  // `last_year` inside the value is how a form or a link carries it. Either
+  // turns the tile on, and the installments come along with it.
   const tiles =
     raw.lastYear === true
-      ? { installments: [], lastYear: true }
-      : (parseInstallmentsValue(installmentsRaw) ?? {
+      ? { installments: parsed?.installments ?? [], lastYear: true }
+      : (parsed ?? {
           installments: [...DEFAULT_AUDIENCE_FILTERS.installments],
           lastYear: false,
         });
@@ -700,15 +807,19 @@ export function savedAudienceFrom(raw: Record<string, unknown>): SavedAudience {
     skipOverdue: raw.skipOverdue === true || raw.skipOverdue === "on",
     classId: typeof raw.classId === "string" && raw.classId ? raw.classId : null,
     includeRte: raw.includeRte === true || raw.includeRte === "on",
+    // Absent on every campaign saved before profiles existed, which then
+    // replays on the default — exactly who it reached before.
+    profiles: parseProfileSelection(raw.profiles) ?? [...DEFAULT_PROFILE_SELECTION],
   };
 }
 
 /**
  * A stored audience as query parameters, every key explicit.
  *
- * `installments` is always emitted — as the list, or as `last_year` — because
- * a Last-year campaign that omitted it would replay on the calendar's default
- * and chase this year's installments under last year's wording. An
+ * `installments` is always emitted — as the list, with `last_year` added when
+ * the tile is on — because a Last-year campaign that omitted it would replay
+ * on the calendar's default and chase this year's installments under last
+ * year's wording. An
  * `installments` of `[]` with no `lastYear` (a rule saved before any tile was
  * picked) is left absent so the parser opens it on the calendar.
  */
@@ -725,5 +836,6 @@ export function savedAudienceParams(saved: SavedAudience): Record<string, string
   if (saved.skipOverdue) out.skipOverdue = "on";
   if (saved.classId) out.classId = saved.classId;
   if (saved.includeRte) out.includeRte = "on";
+  out.profiles = profileSelectionValue(saved.profiles);
   return out;
 }

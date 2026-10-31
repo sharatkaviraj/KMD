@@ -37,8 +37,17 @@ export function isTestSessionLabel(label) {
  *    refreshes the matviews itself.
  *  - office_sync_events: realtime nudges for open screens. Copying them would
  *    broadcast fees-side events to One's screens; they carry no money.
+ *  - staff_push_subscriptions (fees 20261030170000): the fees app's browsers,
+ *    subscribed against the fees app's VAPID key. One has its own key pair
+ *    (`private.web_push_vapid` in One's database), so a copied endpoint could
+ *    never be pushed to — and One's staff subscribe in One.
  */
-export const SKIP_TABLES = new Set(["backup_runs", "workbook_materialized_view_refresh_queue", "office_sync_events"]);
+export const SKIP_TABLES = new Set([
+  "backup_runs",
+  "workbook_materialized_view_refresh_queue",
+  "office_sync_events",
+  "staff_push_subscriptions",
+]);
 
 /**
  * Non-terminal rows and what they become. Each target is a value the table's
@@ -73,6 +82,14 @@ export const SKIP_TABLES = new Set(["backup_runs", "workbook_materialized_view_r
  *  notification_outbox       queued/processing/failed -> suppressed
  *      (notification_outbox_claim takes queued, failed and stale processing;
  *      critique0 #3).
+ *  staff_payment_alerts      push_status queued -> no_devices, and
+ *      whatsapp_status queued/partial/failed -> off; locked_until cleared.
+ *      `staff_payment_alert_claim` (fees 20261030170000) takes push_status
+ *      queued, or whatsapp_status queued/partial/failed with fewer than five
+ *      attempts, for two days. Those alerts were the fees app's to deliver:
+ *      once One's sender runs (Phase F) it would otherwise tell the office a
+ *      second time about a payment the fees app already announced. Two
+ *      columns, so the second rides in `also`.
  */
 export const TERMINAL_RULES = {
   online_payment_orders: {
@@ -104,6 +121,13 @@ export const TERMINAL_RULES = {
     rewrite: "suppressed",
     clear: ["locked_until"],
   },
+  staff_payment_alerts: {
+    column: "push_status",
+    terminal: ["sent", "no_devices", "failed"],
+    rewrite: "no_devices",
+    also: [{ column: "whatsapp_status", terminal: ["sent", "off", "not_configured"], rewrite: "off" }],
+    clear: ["locked_until"],
+  },
 };
 
 /**
@@ -113,11 +137,11 @@ export const TERMINAL_RULES = {
 export function importTransform(table, row) {
   const rule = TERMINAL_RULES[table];
   if (!rule) return { row, action: "keep" };
-  const value = row?.[rule.column];
   let next = row;
-  if (!rule.terminal.includes(value)) {
-    if (rule.rewrite === null) return { row: null, action: "dropped" };
-    next = { ...row, [rule.column]: rule.rewrite };
+  for (const part of [rule, ...(rule.also ?? [])]) {
+    if (part.terminal.includes(next?.[part.column])) continue;
+    if (part.rewrite === null) return { row: null, action: "dropped" };
+    next = { ...next, [part.column]: part.rewrite };
     for (const column of rule.clear ?? []) if (column in next) next[column] = null;
   }
   const stamp = rule.stamp;
@@ -156,6 +180,12 @@ export const RECONCILER_FILTERS = {
   ],
   online_payment_captures: [(row) => ["pending", "review_required"].includes(row.application_status)],
   notification_outbox: [(row) => ["queued", "processing", "failed"].includes(row.status)],
+  staff_payment_alerts: [
+    // staff_payment_alert_claim: push_status = 'queued'
+    (row) => row.push_status === "queued",
+    //   or (whatsapp_status in ('queued','partial','failed') and whatsapp_attempts < 5)
+    (row) => ["queued", "partial", "failed"].includes(row.whatsapp_status) && Number(row.whatsapp_attempts ?? 0) < 5,
+  ],
 };
 
 /** Would any of One's ported reconcilers pick this imported row up? Pure. */

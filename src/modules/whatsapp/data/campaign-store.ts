@@ -221,6 +221,41 @@ export async function saveCampaign(
 }
 
 /**
+ * Turn a scheduled campaign's "sends itself" on or off, keeping the rest of its
+ * schedule exactly as it was.
+ *
+ * Read-modify-write on the jsonb rather than a fresh object, so the plan's
+ * extras (`ladderStep`, `messageDateOffsetDays`) survive the toggle. A campaign
+ * with no schedule has nothing to automate and is refused.
+ */
+export async function setCampaignAuto(
+  supabase: any,
+  id: string,
+  auto: boolean,
+  staffId: string | null,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("whatsapp_campaigns")
+    .select("schedule")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Could not read that campaign: ${error.message}`);
+  const schedule = data?.schedule;
+  if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) {
+    throw new Error("That campaign has no schedule to send on.");
+  }
+  const { error: updateError } = await supabase
+    .from("whatsapp_campaigns")
+    .update({
+      schedule: { ...(schedule as Record<string, unknown>), auto },
+      updated_by: staffId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (updateError) throw new Error(`Could not update that campaign: ${updateError.message}`);
+}
+
+/**
  * Archive rather than delete. A campaign is referenced by its runs, and a run is
  * evidence that parents were messaged.
  */
@@ -282,6 +317,14 @@ export async function openRun(
         late_fee_phrase: run.lateFeePhrase,
         selected_count: run.selectedCount,
         started_by: run.startedBy,
+        // All four were accepted above and never written, so no slot ever read
+        // as done (the plan showed a sent step as Due, then Missed, and the due
+        // card offered it for a week), cron runs read as manual, and every
+        // admin override lost its reason.
+        source: run.source ?? "manual",
+        scheduled_for: run.scheduledFor ?? null,
+        overridden_guards: run.overriddenGuards ?? [],
+        override_reason: run.overrideReason ?? null,
       })
       .select("id")
       .maybeSingle();

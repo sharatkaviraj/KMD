@@ -35,12 +35,75 @@ import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
  * matches and, when the update carries the error-message filter, the row is
  * not one whose delivery is unknown.
  */
-function takenSlotClient(existingStatus: "failed" | "sent", existingError: string | null = null) {
+type EarlierSend = {
+  student_id: string;
+  sent_on: string;
+  status?: string;
+  error_message?: string | null;
+  notice_kind?: string;
+  campaign_name?: string;
+  id?: string;
+};
+
+function takenSlotClient(
+  existingStatus: "failed" | "sent",
+  existingError: string | null = null,
+  earlierSends: EarlierSend[] = [],
+) {
   const updates: Array<Record<string, unknown>> = [];
+  const pageReads: Array<[number, number]> = [];
   return {
     updates,
+    pageReads,
     from() {
       const builder = {
+        // One's cross-campaign read (critique0 #11): every send this family
+        // had in the window, whatever its campaign. Applies the filters it is
+        // given to the rows above, and caps a response at 1,000 rows the way
+        // PostgREST does, so a read that forgets to page loses rows here too.
+        select() {
+          let rows = earlierSends.map((row, index) => ({
+            id: row.id ?? `e-${String(index).padStart(5, "0")}`,
+            status: "sent",
+            error_message: null,
+            notice_kind: "reminder",
+            ...row,
+          }));
+          let range: [number, number] | null = null;
+          const chain = {
+            in: (column: string, values: unknown[]) => {
+              rows = rows.filter((row) => values.includes((row as Record<string, unknown>)[column]));
+              return chain;
+            },
+            eq: (column: string, value: unknown) => {
+              rows = rows.filter((row) => (row as Record<string, unknown>)[column] === value);
+              return chain;
+            },
+            gte: (column: string, value: string) => {
+              rows = rows.filter((row) => String((row as Record<string, unknown>)[column]) >= value);
+              return chain;
+            },
+            order: (column: string, options?: { ascending?: boolean }) => {
+              const sign = options?.ascending === false ? -1 : 1;
+              rows = [...rows].sort((a, b) => {
+                const left = String((a as Record<string, unknown>)[column]);
+                const right = String((b as Record<string, unknown>)[column]);
+                return left === right ? 0 : left < right ? -sign : sign;
+              });
+              return chain;
+            },
+            range: (from: number, to: number) => {
+              range = [from, to];
+              pageReads.push([from, to]);
+              return chain;
+            },
+            then: (resolve: (value: { data: typeof rows; error: null }) => unknown) => {
+              const page = range ? rows.slice(range[0], range[1] + 1) : rows;
+              return resolve({ data: page.slice(0, 1000), error: null });
+            },
+          };
+          return chain;
+        },
         insert() {
           const chain = {
             select: () => chain,
@@ -109,10 +172,14 @@ function candidate(overrides: Partial<ReminderCandidate> = {}): ReminderCandidat
     sentToday: null,
     cadence: "weekly",
     snoozedUntil: null,
+    profile: "standard",
+    profileSource: "suggested",
+    profileReason: "Late on installment 1",
     lastSentOn: null,
     lateFeeApplied: 0,
     lateFeeFeesPending: 0,
     lateFeeInstallments: [],
+    owedInstallments: [],
     overdueInstallments: [],
     promisedOn: null,
     promiseContactedOn: null,
@@ -123,6 +190,8 @@ function candidate(overrides: Partial<ReminderCandidate> = {}): ReminderCandidat
     missingFacts: [],
     missingFactsLabel: "",
     ...overrides,
+    // The family follows the number unless a test links siblings itself.
+    familyKey: overrides.familyKey ?? overrides.destination ?? "+910000000001",
   };
 }
 
@@ -139,6 +208,7 @@ function filters(overrides: Partial<ReminderFilters> = {}): ReminderFilters {
     skipOverdue: false,
     classId: null,
     includeRte: false,
+    profiles: ["on_time", "standard", "chronic"],
     includeStudentIds: [],
     excludeStudentIds: [],
     situation: "fee_due",
@@ -224,6 +294,100 @@ describe("a family whose earlier send got no clear answer", () => {
     const last = client.updates.at(-1);
     expect(last).toMatchObject({ status: "failed" });
     expect(String(last?.error_message)).toMatch(new RegExp(`^${DELIVERY_UNKNOWN_PREFIX}`));
+  });
+});
+
+describe("a family the fees app already messaged under another campaign", () => {
+  // VPPS One only (critique0 #11): the claim index includes campaign_name, so
+  // a `_v6` send by the fees app this morning would not stop a One send.
+  it("is not messaged again today in a real session", async () => {
+    const client = takenSlotClient("failed", null, [{ student_id: "s1", sent_on: "2026-10-27" }]);
+    const outcome = await runWith(client);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(outcome.alreadySentToday).toBe(1);
+    expect(client.updates).toHaveLength(0);
+  });
+
+  it("is not messaged inside its cadence window either", async () => {
+    // candidate() is weekly; a send four days ago under any name holds it.
+    const client = takenSlotClient("failed", null, [{ student_id: "s1", sent_on: "2026-10-23" }]);
+    await runWith(client);
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("is still sent in a test session, which has no parents", async () => {
+    const client = takenSlotClient("failed", null, [{ student_id: "s1", sent_on: "2026-10-27" }]);
+    await runWith(client, "TEST-2026-27");
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts the fees app's _v6 reminder today as sent: no AiSensy call", async () => {
+    const client = takenSlotClient("failed", null, [
+      { student_id: "s1", sent_on: "2026-10-27", campaign_name: "vpps_app_fee_due_hi_v6" },
+    ]);
+    const outcome = await runWith(client);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(outcome.alreadySentToday).toBe(1);
+  });
+
+  it("is still reminded when its only recent message is a receipt notice", async () => {
+    // The fees app's loadLastSentOn reads reminders only: a family who just
+    // paid is not "messaged", and silencing them for a week is backwards.
+    const client = takenSlotClient("failed", null, [
+      { student_id: "s1", sent_on: "2026-10-27", notice_kind: "receipt", campaign_name: "vpps_app_receipt_hi" },
+    ]);
+    await runWith(client);
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts a delivery-unknown failure under another campaign as sent", async () => {
+    const client = takenSlotClient("failed", null, [
+      {
+        student_id: "s1",
+        sent_on: "2026-10-27",
+        status: "failed",
+        error_message: `${DELIVERY_UNKNOWN_PREFIX}timed out`,
+        campaign_name: "vpps_app_balance_hi_v3",
+      },
+    ]);
+    await runWith(client);
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("does not count a definite failure under another campaign", async () => {
+    const client = takenSlotClient("failed", null, [
+      { student_id: "s1", sent_on: "2026-10-27", status: "failed", error_message: "400 bad params" },
+    ]);
+    await runWith(client);
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("pages the read, so today's send is not lost past PostgREST's 1,000 rows", async () => {
+    // 1,200 older reminders in the chunk, then today's. An unordered, unpaged
+    // read could stop at 1,000 and miss it; this one orders and pages.
+    const older = Array.from({ length: 1200 }, (_, index) => ({
+      student_id: "s1",
+      sent_on: "2026-09-27",
+      id: `a-${String(index).padStart(5, "0")}`,
+    }));
+    const client = takenSlotClient("failed", null, [
+      ...older,
+      { student_id: "s1", sent_on: "2026-10-27", id: "z-today" },
+    ]);
+    const { loadLatestSends } = await import("@/modules/whatsapp/data/run-sender");
+    const latest = await loadLatestSends(client, ["s1"], "2026-10-27");
+    expect(latest?.get("s1")).toBe("2026-10-27");
+    expect(client.pageReads.length).toBeGreaterThan(1);
+
+    await runWith(client);
+    expect(send).not.toHaveBeenCalled();
   });
 });
 

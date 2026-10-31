@@ -2,15 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import { payNowButton, sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import { hasPayNowButton } from "@/modules/whatsapp/domain/campaign-bodies-v6";
+import { istToday } from "@/modules/whatsapp/domain/fee-reminders";
 import { signDocumentUrl } from "@/modules/whatsapp/data/document-store";
 import {
   importDeliveryReport,
   loadStuckSends,
   resolveStuckSends,
 } from "@/modules/whatsapp/data/delivery-store";
+import { onlineLedgerRecheck } from "@/modules/payments/data/online/service";
+import { readPayScope } from "@/modules/payments/domain/online/pay-scope";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
+import { isMissingColumn } from "@/platform/supabase/missing-column";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { writtenBeforeWatermark } from "@/platform/migration/cutover-watermark";
+import { readCutoverWatermark } from "@/platform/migration/cutover-watermark-reader";
 
 /**
  * The three things an admin does to a finished run: retry what failed, decide
@@ -60,30 +67,84 @@ export async function retryFailedSendsAction(
 
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from("whatsapp_reminder_sends")
-    .select("id, campaign_name, destination, template_params, attempts, document_path")
-    .eq("run_id", runId)
-    .eq("status", "failed")
-    .limit(RETRY_LIMIT);
+  const failedToday = (columns: string) =>
+    supabase
+      .from("whatsapp_reminder_sends")
+      .select(columns)
+      .eq("run_id", runId)
+      .eq("status", "failed")
+      // Today's only. A week-old failed row carries a week-old amount and
+      // pay-by date, and re-sending it would quote a family who has since paid.
+      .eq("sent_on", istToday())
+      .limit(RETRY_LIMIT);
+  const baseColumns =
+    "id, campaign_name, destination, template_params, attempts, document_path, pay_code, due_amount, sent_on, session_label, created_at";
+  let { data, error } = await failedToday(`${baseColumns}, pay_scope`);
+  // Before `20261028140100` there is no `pay_scope`: retry as before, unchecked.
+  if (isMissingColumn(error, "pay_scope")) ({ data, error } = await failedToday(baseColumns));
 
   if (error) return { status: "error", message: `Could not read the failed rows: ${error.message}` };
 
-  const rows = (data ?? []) as Array<{
+  const rows = (data ?? []) as unknown as Array<{
     id: string;
     campaign_name: string;
     destination: string;
     template_params: string[];
     attempts: number | null;
     document_path: string | null;
+    pay_code: string | null;
+    pay_scope: unknown;
+    due_amount: number | null;
+    sent_on: string;
+    session_label: string;
+    created_at: string;
   }>;
-  if (rows.length === 0) return { status: "error", message: "Nothing failed on this run." };
+  if (rows.length === 0) {
+    return {
+      status: "error",
+      message: "Nothing failed on this run today. Older failures are not re-sent — their amounts and dates have moved on; run the notice again from the Send tab.",
+    };
+  }
+
+  // A row the fees app wrote before cutover is never re-sent from One: the
+  // fees app may already have retried it, with a pay code of its own
+  // (critique0 #12). Unreadable line: nothing real is retried.
+  const watermark = await readCutoverWatermark("public.whatsapp_reminder_sends");
+  let imported = 0;
 
   let sent = 0;
   let stillFailing = 0;
   let missingDocument = 0;
+  let stoppedByLedger = 0;
+  // A retry re-sends the STORED params, so with online payments on, each
+  // one-child Pay now row is re-quoted first: a family who paid since this
+  // morning is not chased, and a figure that moved is not re-sent.
+  const recheck = await onlineLedgerRecheck();
 
   for (const row of rows) {
+    if (writtenBeforeWatermark(row, watermark)) {
+      imported += 1;
+      continue;
+    }
+    const scope = readPayScope(row.pay_scope);
+    if (recheck && scope && scope.studentIds.length === 1 && row.pay_code) {
+      const quote = await recheck({
+        studentId: scope.studentIds[0],
+        installments: scope.installments,
+        lastYear: scope.lastYear,
+        situation: scope.situation,
+      });
+      if (
+        quote === null ||
+        (quote !== "not_applicable" &&
+          (quote.reasons.includes("nothing_due") ||
+            (quote.eligible && quote.total !== Number(row.due_amount ?? 0))))
+      ) {
+        stoppedByLedger += 1;
+        continue;
+      }
+    }
+
     /**
      * Re-sign, never re-send the old link.
      *
@@ -119,8 +180,15 @@ export async function retryFailedSendsAction(
       // `userName` is only used for its own reporting.
       userName: row.template_params?.[0] ?? "",
       templateParams: row.template_params ?? [],
-      source: "veerpatta-fees-app/retry",
+      source: "vppsone/retry",
+      gate: { kind: "fee_reminder", sessionLabel: row.session_label, actor: staffId ? { userId: staffId } : "unknown" },
       ...(media ? { media } : {}),
+      // The `_v6` notices carry Pay now, whose code is NOT in the stored
+      // params (it rides as the param after them). Without it AiSensy refused
+      // every v6 retry: "Template params does not match the campaign".
+      ...(row.pay_code && hasPayNowButton(row.campaign_name)
+        ? { buttons: [payNowButton(row.pay_code)] }
+        : {}),
     });
 
     await supabase
@@ -145,12 +213,19 @@ export async function retryFailedSendsAction(
   revalidatePath(`/fees/reminders/runs/${runId}`);
 
   const skipped =
-    missingDocument > 0
+    (missingDocument > 0
       ? ` ${missingDocument} could not be retried because the attached document is no longer on file.`
-      : "";
+      : "") +
+    (stoppedByLedger > 0
+      ? ` ${stoppedByLedger} not re-sent: paid since, or the amount has changed — send the notice again from the Send tab.`
+      : "") +
+    (imported > 0
+      ? ` ${imported} not re-sent: they were sent by the fees app before the move to VPPS One.`
+      : "");
 
   return {
-    status: stillFailing > 0 || missingDocument > 0 ? "error" : "success",
+    status:
+      stillFailing > 0 || missingDocument > 0 || stoppedByLedger > 0 || imported > 0 ? "error" : "success",
     message:
       stillFailing > 0
         ? `${sent} went through, ${stillFailing} failed again.${skipped}`
@@ -197,10 +272,22 @@ export async function reconcileStuckSendsAction(
     if (stuck.length === 0) {
       return { status: "error", message: "Nothing on this run is still pending." };
     }
+    // The fees app's own pending rows are the fees app's to decide
+    // (critique0 #12): One never writes a verdict on a send it did not make.
+    const watermark = await readCutoverWatermark("public.whatsapp_reminder_sends");
+    const ours = stuck.filter(
+      (row) => !writtenBeforeWatermark({ created_at: row.createdAt, session_label: row.sessionLabel }, watermark),
+    );
+    if (ours.length === 0) {
+      return {
+        status: "error",
+        message: "These were sent by the fees app before the move to VPPS One; reconcile them there.",
+      };
+    }
 
     const count = await resolveStuckSends({
       supabase,
-      sendIds: stuck.map((row) => row.id),
+      sendIds: ours.map((row) => row.id),
       outcome,
       reason,
       staffId,

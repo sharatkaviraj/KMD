@@ -9,6 +9,12 @@ import {
   type NoticeSituation,
 } from "@/modules/whatsapp/domain/campaigns";
 import type { ReminderFamily } from "@/modules/whatsapp/domain/family-grouping";
+import {
+  isV6Approved,
+  isV7Approved,
+  v6CampaignName,
+  v7CampaignName,
+} from "@/modules/whatsapp/domain/campaign-generation";
 import { lateFeePhrase, type LateFeeBasis } from "@/modules/whatsapp/domain/late-fee";
 
 /**
@@ -118,5 +124,13 @@ export function campaignNamesForNotice(
     ? describeFamilyCampaign(situation, language)?.campaignName
     : null;
   if (family) names.push(family);
+  // And the `_v6` name once it is approved: the day it is switched on, a family
+  // messaged that morning under the old name must not read as un-contacted
+  // under the new one, and vice versa.
+  if (isV6Approved(situation, language)) names.push(v6CampaignName(situation, language));
+  // VPPS One sends `_v7` where the fees app sent `_v6`; both are read, so a
+  // family the fees app messaged under `_v6` this morning is not un-contacted
+  // under `_v7` (the run-sender's cross-campaign check is the hard stop).
+  if (isV7Approved(situation, language)) names.push(v7CampaignName(situation, language));
   return names.filter(Boolean);
 }

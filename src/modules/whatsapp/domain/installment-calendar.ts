@@ -209,6 +209,19 @@ export function defaultInstallmentsFor(
   return [1];
 }
 
+/**
+ * Does the Last-year tile open ON beside `defaultInstallmentsFor`?
+ *
+ * Yes once an installment has passed. The tiles then open on the money the
+ * office is chasing, and last session's balance is older than all of it — the
+ * Dashboard's overdue figure has always counted it. Before the first due date
+ * the tiles open on a courtesy notice about installment 1, and last year's
+ * debt stays out of that unless somebody adds it.
+ */
+export function defaultLastYearFor(calendar: Pick<InstallmentCalendar, "passed">): boolean {
+  return calendar.passed.length > 0;
+}
+
 export type InstallmentTileState = "passed" | "today" | "upcoming" | "future" | "unknown";
 
 /** One installment as the audience tile row shows it. */
@@ -361,8 +374,15 @@ export const DERIVED_LAST_DATE_DAYS_AHEAD = 7;
 export function derivedLastDateIso(
   calendar: Pick<InstallmentCalendar, "nextAhead">,
   today: string,
+  /**
+   * The notice is about an installment that is ALREADY overdue. Then the next
+   * due date is the wrong answer: on 27 October it told families charged a
+   * late fee on installment 3 to "pay by 20-01-2027 to avoid the late fee".
+   * A week from today instead — the `overdue_final` rule.
+   */
+  options: { overdue?: boolean } = {},
 ): string | null {
-  const fromCalendar = calendar.nextAhead?.dueDate ?? null;
+  const fromCalendar = options.overdue ? null : (calendar.nextAhead?.dueDate ?? null);
   const candidate = fromCalendar ?? addIsoDays(today, DERIVED_LAST_DATE_DAYS_AHEAD);
   if (!candidate) return null;
   // A real installment due date stands as it is, Sunday or not — that IS the

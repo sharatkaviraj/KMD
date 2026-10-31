@@ -3,15 +3,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useActionState, useMemo, useState } from "react";
-import { AlertTriangle, MessageCircle, Send, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Send, UserPlus, X } from "lucide-react";
 
 import { sendRemindersAction, type SendRemindersState } from "@/app/(app)/fees/reminders/actions";
 import { PendingSubmitButton } from "@/ui/shell/pending-submit-button";
 import { MobileEmptyRows, MobileNote, MobileRecordCard } from "@/ui/mobile/mobile-kit";
-import {
-  ReminderCadenceControl,
-  ResumeReminderButton,
-} from "@/modules/whatsapp/ui/reminder-controls";
+import { ReminderCadenceControl } from "@/modules/whatsapp/ui/reminder-controls";
+import { ProfileBadge } from "@/modules/whatsapp/ui/profile-badge";
 import { Button } from "@/ui/primitives/button";
 import { Checkbox } from "@/ui/primitives/checkbox";
 import { Input } from "@/ui/primitives/input";
@@ -20,26 +18,19 @@ import { Notice } from "@/ui/primitives/notice";
 import { useActionFeedback } from "@/ui/hooks/use-action-feedback";
 import { formatInr } from "@/platform/helpers/currency";
 import { cn } from "@/platform/utils";
-import { cadenceLabel } from "@/modules/whatsapp/domain/reminder-cadence";
-import type { ReminderAudience } from "@/modules/whatsapp/domain/fee-reminders";
+import type { WorkspaceCandidate } from "@/modules/whatsapp/ui/workspace-candidate";
 
 type Props = {
-  audience: ReminderAudience;
+  candidates: WorkspaceCandidate[];
   canSend: boolean;
   campaignName: string | null;
   /** Set when the office arrived via a saved campaign's Load button. */
   savedCampaign: { id: string; name: string } | null;
   /**
-   * The whole notice card — which template, which language, the date, the late
-   * fee — rendered on the server.
-   *
-   * A `ReactNode` prop, like `holdoutControl` below, because it is links and
-   * form fields with no client state. Moving it off the browser took the twelve
-   * notice labels, the campaign approval table and `lateFeePhrase` out of a
-   * bundle with ~480 gzip bytes of headroom, which is what paid for the
-   * audience builder.
+   * Step 1: the notice picker, the saved-campaign line and the WhatsApp
+   * preview, composed on the server — see `ui/message-block.tsx`.
    */
-  noticeControls: ReactNode;
+  messageBlock: ReactNode;
   /**
    * The audience builder: presets, every filter, and the students named by
    * hand. Server-rendered for the same reason — see `AudienceBuilder`.
@@ -76,40 +67,41 @@ type Props = {
    *  `holdoutControl`, so this route gains no client JavaScript for them. */
   listActions: ReactNode;
   /**
-   * The body the top family on the list will read, rendered on the server.
-   *
-   * Was `campaignFor(...).renderPreview(...)` right here, which was wrong twice
-   * over. `campaignFor` THROWS for a notice awaiting Meta approval, so
-   * `?situation=upcoming` in a hand-edited URL took the whole screen down inside
-   * a client render — the very thing `parseReminderFilters` falls back rather
-   * than throws to prevent. And it pulled every approved template body into the
-   * browser to render one of them, on a route with a gzip ceiling.
-   *
-   * Null when the selected notice has no sendable campaign, which is exactly
-   * when there is no message to preview.
+   * Who is NOT on the list and why — the "Left out" line, the held-back and
+   * no-number disclosures, and the all-messaged notice — rendered on the
+   * server (`ui/audience-panels.tsx`). They were markup here until 2026-10-26
+   * and every label of them shipped to the browser; moving them out is what
+   * paid for the profile pill and the cost line.
    */
-  previewBody: string | null;
+  everyoneMessagedNotice: ReactNode;
+  leftOutSummary: ReactNode;
+  pausedPanel: ReactNode;
+  unreachablePanel: ReactNode;
+  /**
+   * What one message costs, in rupees, so the send bar can say what the run
+   * costs before anybody presses it. Passed in rather than imported so the
+   * figure lives in one place on the server.
+   */
+  messageCost: number;
+  /**
+   * `whatsapp_one_message_per_family`. On, children who share a number get one
+   * message, so the bill and the confirmation count PHONES, not children.
+   */
+  onePerPhone: boolean;
+  /**
+   * `ESCALATE_TO_SECOND_NUMBER_AFTER`, passed in so the grouping module stays
+   * out of the browser bundle: after this many delivered reminders the other
+   * parent's number gets the message too, and that is a second billed message.
+   */
+  secondNumberAfter: number;
 };
 
 const IDLE_SEND: SendRemindersState = { status: "idle" };
 
-const SKIP_LABELS: Array<{ key: keyof ReminderAudience["skipped"]; label: string }> = [
-  // `installmentsClear` now counts "did not match your filters" rather than
-  // "this notice is not about them" — the notice stopped deciding that.
-  { key: "installmentsClear", label: "did not match these filters" },
-  { key: "leftAndNeverPaid", label: "left and never paid" },
-  { key: "noCallFlagged", label: "flagged no-call by the office" },
-  { key: "rteStudent", label: "RTE students" },
-  { key: "belowMinimum", label: "below the minimum amount" },
-  { key: "noPhoneOnRecord", label: "no phone on record" },
-  { key: "phoneUnusable", label: "phone number unusable" },
-  // Named in the office's own terms. This is not the ledger saying nothing is
-  // owed — it is the family having already said when they will pay.
-  { key: "promiseOpen", label: "inside a promise they have already given" },
-  { key: "whatsappNever", label: "set to never remind" },
-  { key: "whatsappSnoozed", label: "skipped for now" },
-  { key: "whatsappTooSoon", label: "messaged too recently for their cadence" },
-];
+/** "about ₹24 to send" — rounded up, because a bill is never smaller than this. */
+function costLine(count: number, messageCost: number): string {
+  return `about ${formatInr(Math.max(1, Math.ceil(count * messageCost)))} to send`;
+}
 
 /**
  * What the TODAY column says. A sibling named inside the family's one message
@@ -123,22 +115,36 @@ function sentTodayLabel(status: string | undefined, sentLabel: string): string {
 }
 
 export function RemindersWorkspace({
-  audience,
+  candidates,
   canSend,
   campaignName,
   savedCampaign,
-  noticeControls,
+  messageBlock,
   audienceControls,
   sendFormFields,
   amountNote,
   excludeHrefPrefix,
-  previewBody,
+  messageCost,
+  onePerPhone,
+  secondNumberAfter,
   holdoutControl,
   listActions,
+  everyoneMessagedNotice,
+  leftOutSummary,
+  pausedPanel,
+  unreachablePanel,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [sendState, sendFormAction] = useActionState(sendRemindersAction, IDLE_SEND);
+  // A send that went clears the ticks, adjusted during render rather than in
+  // an effect: the families it messaged are greyed out next, and keeping them
+  // ticked is what made the bar promise a second send.
+  const [handledSend, setHandledSend] = useState(sendState);
+  if (sendState !== handledSend) {
+    setHandledSend(sendState);
+    if (sendState.status === "success" || sendState.status === "partial") setSelected(new Set());
+  }
 
   // Announce the result and re-derive the list, so the families just messaged
   // drop off on their own. `partial` is a warning status in the hook, which is
@@ -154,8 +160,8 @@ export function RemindersWorkspace({
   // would reject it anyway, so the checkbox says so up front rather than
   // letting staff select a row that will silently come back as "already sent".
   const selectable = useMemo(
-    () => audience.candidates.filter((candidate) => !candidate.sentToday),
-    [audience.candidates],
+    () => candidates.filter((candidate) => !candidate.sentToday),
+    [candidates],
   );
 
   const toggle = (studentId: string) => {
@@ -178,49 +184,46 @@ export function RemindersWorkspace({
     setSelected(new Set());
   };
 
-  const selectedCandidates = audience.candidates.filter((candidate) =>
-    selected.has(candidate.studentId),
+  // Ticked AND still on this list AND not yet sent today. The raw set keeps
+  // ids across a tile tap and after a send (the page segment survives both),
+  // so counting it showed families that had left the list or already been
+  // messaged — "This sends 141 messages" after a send that would send none.
+  const selectedCandidates = candidates.filter(
+    (candidate) => selected.has(candidate.studentId) && !candidate.sentToday,
   );
+  const pickedCount = selectedCandidates.length;
   const selectedTotal = selectedCandidates.reduce(
     (sum, candidate) => sum + candidate.dueAmount,
     0,
   );
-  const sample = selectedCandidates[0] ?? audience.candidates[0] ?? null;
+  // What is billed, the way the run decides it (`groupIntoFamilies` and
+  // `chooseDestinations`): one message per family — a shared number or linked
+  // siblings, `familyKey` — when siblings are grouped, plus a second number once
+  // the family is past the threshold and has one.
+  const families = new Map<string, { numbers: Set<string>; sent: number }>();
+  for (const candidate of selectedCandidates) {
+    const key = onePerPhone ? candidate.familyKey : candidate.studentId;
+    const family = families.get(key) ?? { numbers: new Set<string>(), sent: 0 };
+    family.numbers.add(candidate.destination);
+    if (candidate.secondaryDestination) family.numbers.add(candidate.secondaryDestination);
+    family.sent = Math.max(family.sent, candidate.sentCount);
+    families.set(key, family);
+  }
+  let messages = 0;
+  for (const family of families.values()) {
+    messages += family.numbers.size > 1 && family.sent >= secondNumberAfter ? 2 : 1;
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      {audience.candidates.length > 0 && selectable.length === 0 ? (
-        // First thing on the screen, not buried under the filters: it explains
-        // why every row below is greyed and why "Select all" reads 0.
-        <div className="max-md:order-0">
-          <Notice tone="success" title="Everyone on this list has been messaged today">
-            <p>
-              All {audience.candidates.length} of them, through{" "}
-              <span className="font-mono">{campaignName}</span>. The same notice cannot go to a
-              family twice in one day, which is why nothing below can be ticked.
-            </p>
-            <p className="mt-1.5">
-              A <strong>different</strong> message still can, and so can the same one tomorrow —
-              the list rebuilds without whoever pays tonight.
-            </p>
-          </Notice>
-        </div>
-      ) : null}
+      {/* First thing on the screen, not buried under the filters: it explains
+          why every row below is greyed and why "Select all" reads 0. */}
+      <div className="max-md:order-0 empty:hidden">{everyoneMessagedNotice}</div>
 
       {/* ------------------------------------------------------- what it says */}
-      {/* Server-rendered: the notice card and the audience builder are links,
-          GET forms and server actions, so neither costs the browser a byte. */}
-      <div className="max-md:order-1">
-        {savedCampaign ? (
-          <p className="mb-2 text-xs text-muted-foreground">
-            Running the saved campaign{" "}
-            <strong className="font-semibold text-foreground">{savedCampaign.name}</strong>. The
-            list below is rebuilt from today&rsquo;s ledger, so anyone who has paid since the last
-            run is already gone from it.
-          </p>
-        ) : null}
-        {noticeControls}
-      </div>
+      {/* Server-rendered (`ui/message-block.tsx`): the picker, the saved
+          campaign line and the preview cost the browser nothing. */}
+      <div className="max-md:order-1">{messageBlock}</div>
 
       {/* ------------------------------------------------------ who gets it */}
       <div className="max-md:order-2">{audienceControls}</div>
@@ -236,84 +239,12 @@ export function RemindersWorkspace({
           them — see `describeAudience`. This paragraph answers the other
           question, the one exclusion counts genuinely do answer: why is a
           family I expected NOT here. */}
-      <p className="-mt-3 text-sm text-muted-foreground max-md:order-5 max-md:-mt-1">
-        Left out:{" "}
-        {[
-          ...SKIP_LABELS.map((entry) => ({
-            count: audience.skipped[entry.key],
-            label: entry.label,
-          })),
-          { count: audience.excludedByHand, label: "removed by hand" },
-        ]
-          .filter((entry) => entry.count > 0)
-          .map((entry) => `${entry.count} ${entry.label}`)
-          .join(" · ") || "nobody"}
-        .
-      </p>
+      <div className="-mt-3 max-md:order-5 max-md:-mt-1">{leftOutSummary}</div>
 
-      {/* ------------------------------------------------------------ paused */}
-      {audience.paused.length > 0 ? (
-        <details className="rounded-lg border border-border bg-surface-2 p-4 text-sm max-md:order-6">
-          <summary className="cursor-pointer font-medium">
-            {audience.paused.length} famil{audience.paused.length === 1 ? "y is" : "ies are"} being
-            held back by your settings — tap to review or undo
-          </summary>
-          <p className="mt-2 text-xs text-muted-foreground">
-            These owe money and would otherwise be on the list. Nothing here is permanent: a skip
-            expires on its own, and a cadence can be changed back at any time.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {audience.paused.map((family) => (
-              <li
-                key={family.studentId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-foreground">
-                    {family.studentName}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      · {family.studentClass} · {formatInr(family.dueAmount)}
-                    </span>
-                  </p>
-                  <p className="text-[11.5px] text-muted-foreground">
-                    {family.reason === "never"
-                      ? "Set to never remind"
-                      : family.reason === "snoozed"
-                        ? `Skipped until ${family.returnsOn}`
-                        : family.reason === "promise_open"
-                          ? `Promised to pay by ${family.returnsOn}`
-                          : `${cadenceLabel(family.cadence)} — next reminder from ${family.returnsOn}`}
-                  </p>
-                </div>
-                {canSend ? <ResumeReminderButton studentId={family.studentId} /> : null}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-
-      {audience.unreachable.length > 0 ? (
-        <details className="rounded-lg border border-border bg-surface-2 p-4 text-sm max-md:order-6">
-          <summary className="cursor-pointer font-medium">
-            {audience.unreachable.length} families have no phone number at all — they need a call
-          </summary>
-          <ul className="mt-3 grid gap-1 md:grid-cols-2">
-            {audience.unreachable.slice(0, 20).map((entry) => (
-              <li key={entry.studentId} className="text-muted-foreground">
-                {entry.admissionNo} · {entry.studentName} · {entry.studentClass}
-              </li>
-            ))}
-          </ul>
-          {/* The full list, class-wise, with a printable slip and a link to fix
-              each number. Only the second of those gets a family off the list. */}
-          <Link
-            href="/fees/reminders/unreachable"
-            className="focus-ring mt-3 inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs font-semibold"
-          >
-            Open all {audience.unreachable.length} — print slips, fix numbers
-          </Link>
-        </details>
-      ) : null}
+      {/* ------------------------------------------------- paused, unreachable */}
+      {/* Server-rendered — see `ui/audience-panels.tsx`. */}
+      <div className="max-md:order-6 empty:hidden">{pausedPanel}</div>
+      <div className="max-md:order-6 empty:hidden">{unreachablePanel}</div>
 
       {/* ------------------------------------------------------------------ results */}
       {sendState.status === "success" || sendState.status === "partial" ? (
@@ -333,8 +264,8 @@ export function RemindersWorkspace({
             </ul>
           ) : null}
           <p className="mt-2 text-sm">
-            The list has been re-read from the ledger, so the families just messaged are already
-            gone from it.
+            The list has been re-read from the ledger. The families just messaged stay on it,
+            greyed out as sent today, and cannot be sent this notice again until tomorrow.
           </p>
         </Notice>
       ) : null}
@@ -414,13 +345,13 @@ export function RemindersWorkspace({
             Clear
           </Button>
           <span className="text-sm text-muted-foreground">
-            {selected.size} selected · {formatInr(selectedTotal)} of dues behind them
+            {pickedCount} selected · {formatInr(selectedTotal)} of dues behind them
           </span>
         </div>
 
         <div className="mb-2.5 flex items-center justify-between gap-2 md:hidden">
           <span className="text-[11.5px] font-semibold text-muted-foreground">
-            {selected.size} of {selectable.length} picked
+            {pickedCount} of {selectable.length} picked
           </span>
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={selectAll}>
@@ -451,7 +382,7 @@ export function RemindersWorkspace({
               "calc(var(--mobile-bottom-nav-offset, 0px) + var(--mobile-safe-area-bottom, 0px) + 7.5rem)",
           }}
         >
-          {audience.candidates.map((candidate) => {
+          {candidates.map((candidate) => {
             const already = Boolean(candidate.sentToday);
             const picked = selected.has(candidate.studentId);
             const locked = already || !canSend;
@@ -459,7 +390,9 @@ export function RemindersWorkspace({
             return (
               <MobileRecordCard
                 key={candidate.studentId}
-                className={already ? "opacity-60" : undefined}
+                // `cv-row`: a card off screen is not laid out until it is
+                // scrolled to, so 400 families do not all render on each tap.
+                className={cn("cv-row", already && "opacity-60")}
                 title={candidate.studentName}
                 subtitle={`${candidate.studentClass} · ${candidate.parentName}`}
                 amount={formatInr(candidate.dueAmount)}
@@ -470,6 +403,10 @@ export function RemindersWorkspace({
                         {sentTodayLabel(candidate.sentToday?.status, "Sent today")}
                       </span>
                     ) : null}
+                    <ProfileBadge
+                      profile={candidate.profile}
+                      suggested={candidate.profileSource === "suggested"}
+                    />
                     {candidate.includedByHand ? (
                       // The one row on the list a filter cannot explain.
                       <span className="inline-flex items-center gap-1 rounded bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-foreground">
@@ -574,7 +511,7 @@ export function RemindersWorkspace({
               />
             );
           })}
-          {audience.candidates.length === 0 ? (
+          {candidates.length === 0 ? (
             <MobileEmptyRows>
               Nobody matches these filters. Either everyone has paid, or the filters are too narrow
               — widen them above, or start from one of the presets.
@@ -600,7 +537,7 @@ export function RemindersWorkspace({
               </tr>
             </thead>
             <tbody>
-              {audience.candidates.map((candidate) => {
+              {candidates.map((candidate) => {
                 const already = Boolean(candidate.sentToday);
                 return (
                   <tr
@@ -618,6 +555,11 @@ export function RemindersWorkspace({
                     <td className="px-3 py-2 font-mono text-xs">{candidate.admissionNo}</td>
                     <td className="px-3 py-2 font-medium">
                       {candidate.studentName}
+                      <ProfileBadge
+                        profile={candidate.profile}
+                        suggested={candidate.profileSource === "suggested"}
+                        className="ml-1.5"
+                      />
                       {candidate.includedByHand ? (
                         <span
                           title="Added by hand — the filters did not find this family"
@@ -683,7 +625,7 @@ export function RemindersWorkspace({
                   </tr>
                 );
               })}
-              {audience.candidates.length === 0 ? (
+              {candidates.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
                     Nobody matches these filters. Either everyone has paid, or the filters are too
@@ -703,31 +645,31 @@ export function RemindersWorkspace({
         <div
           className={cn(
             "mt-4 hidden flex-wrap items-center gap-3 md:flex",
-            selected.size > 0 &&
+            pickedCount > 0 &&
               "sticky bottom-4 z-30 rounded-xl border border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur print:static print:border-0 print:bg-transparent print:shadow-none",
           )}
         >
-          {selected.size > 0 && !confirming ? (
+          {pickedCount > 0 && !confirming ? (
             <span className="text-sm text-muted-foreground">
-              <strong className="font-semibold text-foreground">{selected.size} selected</strong> ·{" "}
-              {formatInr(selectedTotal)} of dues behind them
+              <strong className="font-semibold text-foreground">{pickedCount} selected</strong> ·{" "}
+              {formatInr(selectedTotal)} of dues behind them · {costLine(messages, messageCost)}
             </span>
           ) : null}
           {!confirming ? (
             <Button
               type="button"
               variant="primary"
-              disabled={!canSend || selected.size === 0}
+              disabled={!canSend || pickedCount === 0}
               onClick={() => setConfirming(true)}
             >
               <Send className="size-4" aria-hidden="true" />
-              Send to {selected.size} {selected.size === 1 ? "family" : "families"}
+              Send to {pickedCount} {pickedCount === 1 ? "family" : "families"}
             </Button>
           ) : (
             <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3">
               <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
               <span className="text-sm">
-                This sends {selected.size} real WhatsApp {selected.size === 1 ? "message" : "messages"}
+                This sends {messages} real WhatsApp {messages === 1 ? "message" : "messages"}
                 {campaignName ? ` through "${campaignName}"` : ""}, billed per message. It cannot be
                 undone.
               </span>
@@ -745,7 +687,7 @@ export function RemindersWorkspace({
         </div>
 
         {/* ------------------------------------------------------------ send (phone) */}
-        {selected.size > 0 ? (
+        {pickedCount > 0 ? (
           <div
             // A tab screen, not a takeover: the bottom nav is there, so this bar
             // sits ON TOP of it rather than over the home indicator. `md:bottom-0`
@@ -757,10 +699,10 @@ export function RemindersWorkspace({
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-extrabold text-foreground">
-                    {selected.size} selected
+                    {pickedCount} selected
                   </p>
                   <p className="truncate text-[11px] text-muted-foreground">
-                    {formatInr(selectedTotal)} of dues behind them
+                    {formatInr(selectedTotal)} · {costLine(messages, messageCost)}
                   </p>
                 </div>
                 <Button
@@ -782,7 +724,7 @@ export function RemindersWorkspace({
                 <p className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-[11.5px] leading-relaxed">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                   <span>
-                    {selected.size} real WhatsApp {selected.size === 1 ? "message" : "messages"}
+                    {messages} real WhatsApp {messages === 1 ? "message" : "messages"}
                     {campaignName ? ` through "${campaignName}"` : ""}, billed per message. It
                     cannot be undone.
                   </span>
@@ -808,22 +750,6 @@ export function RemindersWorkspace({
         ) : null}
       </form>
 
-      {/* ----------------------------------------------------------------- preview */}
-      {sample && previewBody ? (
-        <div className="rounded-lg border border-border bg-surface-2 p-4 max-md:order-7">
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <MessageCircle className="size-4" aria-hidden="true" />
-            What {sample.parentName} will receive
-          </div>
-          <pre className="whitespace-pre-wrap break-words font-sans text-sm text-muted-foreground">
-            {previewBody}
-          </pre>
-          <p className="mt-2 text-xs text-muted-foreground">
-            A copy of the approved template for preview only — WhatsApp sends whatever Meta
-            approved, not this text. The rest of the message carries the UPI link and office number.
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }
