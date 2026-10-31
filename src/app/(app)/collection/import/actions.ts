@@ -6,6 +6,12 @@ import { redirect } from "next/navigation";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
+import {
+  assertImportBatchVisible,
+  assertSessionWritable,
+  assertStudentVisible,
+  passesFence,
+} from "@/platform/auth/test-session-access";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import {
   applySamparkImport,
@@ -29,6 +35,7 @@ export async function stageSamparkImportAction(_previous: CollectionState, formD
   const actor = await assertPermission("collection:manage");
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);
+  if (!(await passesFence(() => assertSessionWritable(actor, sessionLabel)))) return failure(m.accessDenied);
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return failure(ms.importChooseFile);
@@ -68,6 +75,8 @@ export async function applySamparkImportAction(_previous: CollectionState, formD
   const batchId = (formData.get("batchId") ?? "").toString();
   const commandId = (formData.get("commandId") ?? "").toString();
   if (!UUID.test(batchId) || !UUID.test(commandId)) return failure(m.notSaved);
+  // The batch's own session: its children were matched in it (Phase 3 fence).
+  if (!(await passesFence(() => assertImportBatchVisible(actor, batchId)))) return failure(m.accessDenied);
 
   const receipt = await applySamparkImport({ commandId, batchId, actorStaffId: actor.id });
   if (!receipt.ok) return failure(receipt.reason === "not_permitted" ? m.accessDenied : m.notSaved);
@@ -105,6 +114,12 @@ export async function resolveSamparkRowAction(_previous: CollectionState, formDa
   } else {
     return failure(ms.importNeedsChild);
   }
+  // The batch's session, and the child chosen for the row (Phase 3 fence).
+  const chosen = studentId;
+  const fenced =
+    (await passesFence(() => assertImportBatchVisible(actor, batchId))) &&
+    (chosen === null || (await passesFence(() => assertStudentVisible(actor, chosen))));
+  if (!fenced) return failure(m.accessDenied);
 
   const receipt = await resolveSamparkRow({ commandId, batchId, rowNo, studentId, dismiss, note, actorStaffId: actor.id });
   if (!receipt.ok) {

@@ -20,7 +20,25 @@ const AISENSY_ENDPOINT = "https://backend.aisensy.com/campaign/t1/api/v2";
 
 export type AisensySendResult =
   | { ok: true; status: number; messageId: string | null }
-  | { ok: false; status: number; error: string };
+  | {
+      ok: false;
+      status: number;
+      error: string;
+      /**
+       * True when we cannot tell whether AiSensy took the message: the request
+       * got no answer, or the answer was a 5xx a gateway may have sent after
+       * AiSensy accepted it. Absent on a definite rejection (a 4xx, or no key
+       * configured), which is the only kind of failure safe to send again.
+       */
+      deliveryUnknown?: true;
+    };
+
+/**
+ * Prefix on `error_message` of a send whose fate is unknown. The same-day
+ * retry in `run-sender.ts` skips rows carrying it in a real session, so a
+ * parent whose message may already have gone is not messaged twice.
+ */
+export const DELIVERY_UNKNOWN_PREFIX = "delivery-unknown: ";
 
 /**
  * The document a template's HEADER carries.
@@ -98,6 +116,7 @@ export async function sendAisensyCampaignMessage(
       ok: false,
       status: 0,
       error: caught instanceof Error ? caught.message : "Network error calling AiSensy.",
+      deliveryUnknown: true,
     };
   }
 
@@ -114,7 +133,12 @@ export async function sendAisensyCampaignMessage(
       typeof body === "object" && body !== null && "message" in body
         ? String((body as { message: unknown }).message)
         : text.slice(0, 300);
-    return { ok: false, status: response.status, error: message };
+    return {
+      ok: false,
+      status: response.status,
+      error: message,
+      ...(response.status >= 500 ? { deliveryUnknown: true as const } : {}),
+    };
   }
 
   const messageId =

@@ -360,6 +360,36 @@ screen or RPC, fields to carry, order, and how to avoid double-applying
 against what the fees crons did meanwhile (critique1 A11, B12) — is
 [`ROLLBACK-REENTRY.md`](ROLLBACK-REENTRY.md).
 
+## `export-parity.mjs` — are the two apps' exports the same shape?
+
+```
+npm run migrate:export-parity -- <fees.xlsx> <one.xlsx> [--ignore-row-counts] [--json]
+```
+
+Plan §5.4 / critique1 B5, at rehearsal. Download the same export from the
+fees app and from One **on the same snapshot and session**, save both in
+`%USERPROFILE%\.vppsone-migration\exports-<date>\` (never the repo: they hold
+names, phones and amounts), and compare. Sheet names and order, each sheet's
+column headers and order, and each sheet's data row count; it never prints a
+cell below the header. Exit 1 on any difference. Read-only; touches no
+database.
+
+Run it for every export, `ai-context-bundle` first — the owner's
+`vpps-fee-list` skill reads `VPPSaicontextbundle*.xlsx` by sheet and column
+name, so a renamed column there breaks it silently: ai-context-bundle,
+student master, previous-year dues, left-student dues, EMI, receipt register,
+defaulters, class-wise dues, concessions, transactions. Use
+`--ignore-row-counts` only when the two files are knowingly from different
+snapshots.
+
+Rehearsal checklist items this tool and Phase 5 leave open (also on the
+Phase 10 row of `docs/PROGRESS.md`):
+
+- [ ] every export above compared, fees vs One, on one snapshot — 0 differences;
+- [ ] 10 receipts printed from both apps on A4 **and** on the office printer —
+      cash, UPI, online, cheque, discount, family, carry-forward — checking
+      Hindi fonts, the `NEXT_PUBLIC_SCHOOL_*` header and One's footer.
+
 ---
 
 ## Libraries

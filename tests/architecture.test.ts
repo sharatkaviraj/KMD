@@ -460,6 +460,10 @@ describe("actions handed a session label check it is writable", () => {
  * `input.studentId`, or the id's name as a string literal anywhere in the
  * action (`formData.get("studentId")`, `readText(formData, "studentId")`).
  */
+/** Any of the test-session fence's checks. Shared by the two tests below. */
+const SESSION_GUARD =
+  /assert(?:Students?|Receipts?|Family|Class|CollectionRequest|CollectionRound|MessageSend|ImportBatch|PhotoProposal)Visible\(|assertSessionWritable\(|assertSessionVisible\(|filterVisibleStudentIds\(|assertNotTestAccount\(|workingSessionFor\(/;
+
 describe("actions that name a student, receipt, family or class check its session", () => {
   const ID =
     "(?:studentId|studentIds|receiptId|receiptIds|receiptNumber|familyGroupId|classId|student_id|receipt_id|family_group_id|class_id)";
@@ -467,8 +471,7 @@ describe("actions that name a student, receipt, family or class check its sessio
   const AS_STRING = new RegExp(`["']${ID}["']`);
   const FROM_INPUT = new RegExp(`\\b(?:input|args|params|payload|data|values|form|parsed\\.data|body)\\.${ID}\\b`);
   const ACTIVE = /getActiveSessionLabel\(/;
-  const GUARD =
-    /assert(?:Students?|Receipts?|Family|Class)Visible\(|assertSessionWritable\(|assertSessionVisible\(|filterVisibleStudentIds\(|assertNotTestAccount\(|workingSessionFor\(/;
+  const GUARD = SESSION_GUARD;
   const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
 
   /**
@@ -529,5 +532,44 @@ describe("actions that name a student, receipt, family or class check its sessio
       expect(byId.has(id), `${id} no longer names a record; remove it from OPEN`).toBe(true);
       expect(GUARD.test(byId.get(id) ?? ""), `${id} is guarded now; remove it from OPEN`).toBe(false);
     }
+  });
+});
+
+/**
+ * Every collection server action passes the test-session fence (PR #144
+ * review). The test above finds actions by the ids they name, and collection
+ * writes name a request, a queued message or a submission by a bare `id` it
+ * cannot recognise — so it passed while a test account could close a real
+ * request, rotate its parents' link, or send a real queued message. Every
+ * collection write goes through the service-role client, which the database's
+ * own fence never sees. So here the rule is simply: every exported action in
+ * a collection "use server" file calls one of the fence's checks.
+ */
+describe("collection actions pass the test-session fence", () => {
+  const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
+  const collectionRoot = `${relative(srcRoot)}/app/(app)/collection/`;
+
+  const actions = sourceFiles
+    .filter((file) => relative(file).startsWith(collectionRoot))
+    .map((file) => ({ file, source: readFileSync(file, "utf8").replace(/\r\n/g, "\n") }))
+    .filter(({ source }) => /^["']use server["']/.test(source.trimStart()))
+    .flatMap(({ file, source }) => {
+      const starts = [...source.matchAll(EXPORTED)].map((match) => ({ name: match[1], index: match.index ?? 0 }));
+      return starts.map((start, i) => ({
+        id: `${relative(file)} :: ${start.name}`,
+        body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
+      }));
+    });
+
+  it("finds the collection actions", () => {
+    expect(actions.length).toBeGreaterThan(20);
+  });
+
+  it.each(actions.map(({ id, body }) => [id, body]))("%s checks the fence", (id, body) => {
+    expect(
+      SESSION_GUARD.test(body),
+      `${id} writes collection data through the service-role client without asking whether this ` +
+        "viewer may. Check the record's own session, or refuse test accounts for a school-wide write.",
+    ).toBe(true);
   });
 });

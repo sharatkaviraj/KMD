@@ -27,10 +27,15 @@ vi.mock("@/modules/activity/data/events", () => ({
   recordActivity: async () => undefined,
 }));
 
+import { DELIVERY_UNKNOWN_PREFIX } from "@/modules/whatsapp/data/aisensy";
 import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
 
-/** Every insert collides; an update finds the row only when its status filter matches. */
-function takenSlotClient(existingStatus: "failed" | "sent") {
+/**
+ * Every insert collides; an update finds the row only when its status filter
+ * matches and, when the update carries the error-message filter, the row is
+ * not one whose delivery is unknown.
+ */
+function takenSlotClient(existingStatus: "failed" | "sent", existingError: string | null = null) {
   const updates: Array<Record<string, unknown>> = [];
   return {
     updates,
@@ -56,12 +61,21 @@ function takenSlotClient(existingStatus: "failed" | "sent") {
               filters.push([column, values]);
               return chain;
             },
+            or(expression: string) {
+              filters.push(["or", expression]);
+              return chain;
+            },
             select: async () => {
-              const matches = filters.some(
+              const statusMatches = filters.some(
                 ([c, v]) =>
                   c === "status" &&
                   (v === existingStatus || (Array.isArray(v) && v.includes(existingStatus))),
               );
+              const orFilter = filters.find(([c]) => c === "or")?.[1] as string | undefined;
+              const unknownExcluded =
+                orFilter?.includes(`not.like.${DELIVERY_UNKNOWN_PREFIX.trim()}*`) === true &&
+                existingError?.startsWith(DELIVERY_UNKNOWN_PREFIX.trim()) === true;
+              const matches = statusMatches && !unknownExcluded;
               return { data: matches ? [{ id: "row-1" }] : [], error: null };
             },
             then: (resolve: (value: { error: null }) => unknown) => resolve({ error: null }),
@@ -177,6 +191,39 @@ describe("a family whose send failed earlier today", () => {
 
     expect(send).not.toHaveBeenCalled();
     expect(outcome.alreadySentToday).toBe(1);
+  });
+});
+
+describe("a family whose earlier send got no clear answer", () => {
+  // A timeout or a 5xx can come after AiSensy took the message. Sending again
+  // could message a real parent twice in one day, so the row stays claimed.
+  it("is NOT sent again in a real session", async () => {
+    const outcome = await runWith(
+      takenSlotClient("failed", `${DELIVERY_UNKNOWN_PREFIX}fetch failed`),
+    );
+
+    expect(send).not.toHaveBeenCalled();
+    expect(outcome.alreadySentToday).toBe(1);
+  });
+
+  it("is sent again in a test session, which has no parents", async () => {
+    const outcome = await runWith(
+      takenSlotClient("failed", `${DELIVERY_UNKNOWN_PREFIX}fetch failed`),
+      "TEST-2026-27",
+    );
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(outcome.sent).toBe(1);
+  });
+
+  it("records a network failure with the unknown-delivery prefix", async () => {
+    send.mockResolvedValue({ ok: false, status: 0, error: "fetch failed", deliveryUnknown: true });
+    const client = takenSlotClient("failed");
+    await runWith(client);
+
+    const last = client.updates.at(-1);
+    expect(last).toMatchObject({ status: "failed" });
+    expect(String(last?.error_message)).toMatch(new RegExp(`^${DELIVERY_UNKNOWN_PREFIX}`));
   });
 });
 

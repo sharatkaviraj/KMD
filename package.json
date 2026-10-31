@@ -48,6 +48,7 @@
     "verify:archive": "node --import ./scripts/alias-hook.mjs scripts/verify-archive.mjs",
     "recovery": "node --import ./scripts/alias-hook.mjs scripts/recovery-key.mjs",
     "verify:fee-parity": "node scripts/verify-fee-parity.mjs",
+    "migrate:export-parity": "node scripts/migrate/export-parity.mjs",
     "verify:native-recovery": "node --import ./scripts/alias-hook.mjs scripts/verify-native-recovery.mjs",
     "smoke:pool": "node scripts/smoke-pool.mjs",
     "smoke:sweep": "node scripts/smoke/sweep.mjs",

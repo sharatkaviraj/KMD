@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionWritable, passesFence } from "@/platform/auth/test-session-access";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { createRound, resolveAudience } from "@/modules/collection/data/rounds-repo";
 import {
@@ -26,6 +27,7 @@ export async function createRoundAction(formData: FormData): Promise<void> {
   const staff = await requirePermission("collection:manage", "/collection/rounds/new");
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) redirect("/collection/rounds");
+  if (!(await passesFence(() => assertSessionWritable(staff, sessionLabel)))) redirect("/collection/rounds");
 
   const audience = audienceFromParams({
     class: formData.getAll("class").map(String),

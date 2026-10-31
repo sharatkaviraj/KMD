@@ -212,6 +212,66 @@ export async function assertReceiptVisible(
   if (data?.student_id) await assertStudentVisible(viewer, data.student_id);
 }
 
+/**
+ * A `vppsone` row that carries its own `session_label` — a collection request,
+ * a round, a queued message, a SamPark import batch — by id. A row that does
+ * not exist is not refused here: the write that follows finds nothing, which
+ * is the truthful answer.
+ *
+ * Collection actions update these by id through the service-role client, so
+ * the `test_session_fence` policy on them never runs: without this, a test
+ * account could close a real request, rotate its parents' link, or send a real
+ * queued message (PR #144 review).
+ */
+async function assertOwnSessionRowVisible(
+  staff: ViewerArg,
+  table: "collection_requests" | "collection_rounds" | "message_sends" | "sampark_import_batches",
+  id: string,
+): Promise<void> {
+  const viewer = await viewerOf(staff);
+  if (isRealAdmin(viewer) || !UUID.test(id)) return;
+  const { data, error } = await createAdminClient()
+    .from(table)
+    .select("session_label")
+    .eq("id", id)
+    .maybeSingle<{ session_label: string | null }>();
+  if (error) throw new SessionAccessDenied("Could not check which session this record is in.");
+  if (data) await assertSessionVisible(viewer, data.session_label);
+}
+
+/** A collection request by id → its own `session_label`. */
+export async function assertCollectionRequestVisible(staff: ViewerArg, requestId: string): Promise<void> {
+  return assertOwnSessionRowVisible(staff, "collection_requests", requestId);
+}
+
+/** A collection round by id → its own `session_label`. */
+export async function assertCollectionRoundVisible(staff: ViewerArg, roundId: string): Promise<void> {
+  return assertOwnSessionRowVisible(staff, "collection_rounds", roundId);
+}
+
+/** A queued or sent message by id → its own `session_label`. */
+export async function assertMessageSendVisible(staff: ViewerArg, sendId: string): Promise<void> {
+  return assertOwnSessionRowVisible(staff, "message_sends", sendId);
+}
+
+/** A SamPark import batch by id → the session its children were matched in. */
+export async function assertImportBatchVisible(staff: ViewerArg, batchId: string): Promise<void> {
+  return assertOwnSessionRowVisible(staff, "sampark_import_batches", batchId);
+}
+
+/** A photo proposal by its command id → the child it is of → that child's session. */
+export async function assertPhotoProposalVisible(staff: ViewerArg, proposalId: string): Promise<void> {
+  const viewer = await viewerOf(staff);
+  if (isRealAdmin(viewer) || !UUID.test(proposalId)) return;
+  const { data, error } = await createAdminClient()
+    .from("photo_proposals")
+    .select("student_id")
+    .eq("command_id", proposalId)
+    .maybeSingle<{ student_id: string }>();
+  if (error) throw new SessionAccessDenied("Could not check which session this photograph is in.");
+  if (data) await assertStudentVisible(viewer, data.student_id);
+}
+
 /** A family is visible only if every child in it is (fail closed on a mixed family). */
 export async function assertFamilyVisible(staff: ViewerArg, familyGroupId: string): Promise<void> {
   const viewer = await viewerOf(staff);

@@ -1,7 +1,10 @@
 import "server-only";
 
 import { recordActivity } from "@/modules/activity/data/events";
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import {
+  DELIVERY_UNKNOWN_PREFIX,
+  sendAisensyCampaignMessage,
+} from "@/modules/whatsapp/data/aisensy";
 import { closeRun, openRun } from "@/modules/whatsapp/data/campaign-store";
 import {
   campaignFor,
@@ -666,10 +669,16 @@ async function sendOne(args: {
     // link needed a second message to the office's own number the same day.
     // A `pending` row is never taken — that is a send still in flight.
     //
+    // In a real session a failure whose fate is unknown is NOT taken back: a
+    // timeout or a 5xx can come after AiSensy accepted the message, and one
+    // parent missed beats one parent messaged twice. Only a definite rejection
+    // is retried. The fees app retries every failed row; One differs here.
+    //
     // Ported from the fees app's 1b932785 (the failed-row reclaim) and
     // 31e85d27 (#86, the test-session rule) together: One's base predates both.
-    const reclaimable = isTestAcademicSessionLabel(sessionLabel) ? ["failed", "sent"] : ["failed"];
-    const { data: reclaimed } = await supabase
+    const isTestSession = isTestAcademicSessionLabel(sessionLabel);
+    const reclaimable = isTestSession ? ["failed", "sent"] : ["failed"];
+    let reclaim = supabase
       .from("whatsapp_reminder_sends")
       .update({
         status: "pending",
@@ -689,8 +698,13 @@ async function sendOne(args: {
       .eq("sent_on", today)
       .eq("campaign_name", campaignName)
       .eq("destination_role", destinationRole)
-      .in("status", reclaimable)
-      .select("id");
+      .in("status", reclaimable);
+    if (!isTestSession) {
+      reclaim = reclaim.or(
+        `error_message.is.null,error_message.not.like.${DELIVERY_UNKNOWN_PREFIX.trim()}*`,
+      );
+    }
+    const { data: reclaimed } = await reclaim.select("id");
     const row = ((reclaimed ?? []) as Array<{ id: string }>)[0];
     if (!row) return { kind: "already" };
     claimId = row.id;
@@ -709,7 +723,11 @@ async function sendOne(args: {
     .update({
       status: result.ok ? "sent" : "failed",
       provider_message_id: result.ok ? result.messageId : null,
-      error_message: result.ok ? null : result.error,
+      error_message: result.ok
+        ? null
+        : result.deliveryUnknown
+          ? `${DELIVERY_UNKNOWN_PREFIX}${result.error}`
+          : result.error,
       updated_at: new Date().toISOString(),
     })
     .eq("id", claimId);

@@ -139,13 +139,6 @@ export async function writeNote(
   if (error) throw error;
 }
 
-/**
- * Remove a note.
- *
- * Only the person who wrote it, and only their own — enforced in the query
- * rather than checked beforehand, so a tampered id cannot delete somebody
- * else's note even if the guard above it were wrong.
- */
 /** A note's own session, for the test-session fence. Null when there is no such note. */
 export async function noteSessionLabel(noteId: string): Promise<string | null> {
   if (!/^[0-9a-f-]{36}$/i.test(noteId)) return null;
@@ -158,6 +151,13 @@ export async function noteSessionLabel(noteId: string): Promise<string | null> {
   return data?.session_label ?? null;
 }
 
+/**
+ * Remove a note.
+ *
+ * Only the person who wrote it, and only their own — enforced in the query
+ * rather than checked beforehand, so a tampered id cannot delete somebody
+ * else's note even if the guard above it were wrong.
+ */
 export async function deleteOwnNote(
   noteId: string,
   writtenByStaffId: string,

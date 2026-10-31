@@ -232,7 +232,17 @@ export function MobileSessionPill({
         disabled={isTransitioning}
         aria-busy={isTransitioning}
       >
-        <span className="min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]">{displayLabel}</span>
+        {/* A long label (`TEST-2026-27`) is set a size smaller so it stays on
+            one line at 375px instead of breaking at its hyphen; it still wraps,
+            never truncates, if a longer one ever comes (One-only, Phase C). */}
+        <span
+          className={cn(
+            "min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]",
+            displayLabel.length > 9 && "text-xs tracking-tight",
+          )}
+        >
+          {displayLabel}
+        </span>
         <span className="grid size-4 place-items-center" aria-hidden="true">
           {isTransitioning ? (
             <Loader2 className="size-4 motion-safe:animate-spin" />

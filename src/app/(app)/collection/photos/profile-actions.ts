@@ -1,7 +1,12 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { assertStaff } from "@/platform/auth/current-staff";
-import { assertNotTestAccount, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
+import {
+  assertNotTestAccount,
+  assertPhotoProposalVisible,
+  assertStudentVisible,
+  passesFence,
+} from "@/platform/auth/test-session-access";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { photoAuthority, readPhotoContext, PHOTO_UUID } from "@/modules/collection/data/profile-photo-context";
@@ -84,6 +89,11 @@ export async function reviewPhotoAction(proposalId: string, accept: boolean, not
   // Sending a photograph back says why (U03): the teacher reads it as "Changes requested".
   const reason = accept ? null : rejectionNote(note);
   if (!accept && !reason) return { ok: false, reason: "reason_required" };
+  // The photograph's child decides (Phase 3 fence): a test admin never
+  // approves a real child's photo.
+  if (!(await passesFence(() => assertPhotoProposalVisible(actor, proposalId)))) {
+    return { ok: false, reason: "not_permitted" };
+  }
   try {
     const result = await createAdminClient().rpc("review_student_photo", { p_actor: actor.id, p_proposal: proposalId, p_accept: accept, p_note: reason });
     const outcome = photoOutcome(result.data, result.error);

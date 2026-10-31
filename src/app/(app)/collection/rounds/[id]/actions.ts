@@ -6,6 +6,12 @@ import {taskDeliveryMessages} from "@/messages/setup";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import {
+  assertCollectionRequestVisible,
+  assertCollectionRoundVisible,
+  assertSessionWritable,
+  passesFence,
+} from "@/platform/auth/test-session-access";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { roundById } from "@/modules/collection/data/rounds-repo";
 import {
@@ -40,6 +46,11 @@ export async function createLinksAction(
   if (!roundId || !sessionLabel) {
     return { status: "error", message: m.notSaved };
   }
+  // The round's own session, and the one its links are made in (Phase 3 fence).
+  const fenced =
+    (await passesFence(() => assertSessionWritable(staff, sessionLabel))) &&
+    (await passesFence(() => assertCollectionRoundVisible(staff, roundId)));
+  if (!fenced) return { status: "error", message: m.notFound };
 
   const round = await roundById(roundId);
   if (!round) return { status: "error", message: m.notSaved };
@@ -75,9 +86,12 @@ export async function openRoundAction(
   _previous: CollectionState,
   formData: FormData,
 ): Promise<CollectionState> {
-  await requirePermission("collection:manage", "/collection/rounds");
+  const staff = await requirePermission("collection:manage", "/collection/rounds");
   const roundId = (formData.get("roundId") ?? "").toString();
   if (!roundId) return { status: "error", message: m.notSaved };
+  if (!(await passesFence(() => assertCollectionRoundVisible(staff, roundId)))) {
+    return { status: "error", message: m.notFound };
+  }
 
   await openRound(roundId);
   revalidatePath(`/collection/rounds/${roundId}`);
@@ -101,6 +115,9 @@ export async function markSentAction(
   const requestId = (formData.get("requestId") ?? "").toString();
   const roundId = (formData.get("roundId") ?? "").toString();
   if (!requestId) return { status: "error", message: m.notSaved };
+  if (!(await passesFence(() => assertCollectionRequestVisible(staff, requestId)))) {
+    return { status: "error", message: m.notFound };
+  }
   if((await managedTasksForRequests([requestId])).has(requestId))return {status:"error",message:taskDeliveryMessages.review};
 
   await markSent(requestId, staff.id);
@@ -118,6 +135,9 @@ export async function markRemindedAction(
   const roundId = (formData.get("roundId") ?? "").toString();
   const previous = Number.parseInt((formData.get("reminderCount") ?? "0").toString(), 10);
   if (!requestId) return { status: "error", message: m.notSaved };
+  if (!(await passesFence(() => assertCollectionRequestVisible(staff, requestId)))) {
+    return { status: "error", message: m.notFound };
+  }
   if((await managedTasksForRequests([requestId])).has(requestId))return {status:"error",message:taskDeliveryMessages.review};
 
   await markReminded(requestId, staff.id, Number.isFinite(previous) ? previous : 0);

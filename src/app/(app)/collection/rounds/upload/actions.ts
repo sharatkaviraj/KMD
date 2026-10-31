@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
-import { assertStudentsVisible, passesFence } from "@/platform/auth/test-session-access";
+import { assertSessionWritable, assertStudentsVisible, passesFence } from "@/platform/auth/test-session-access";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { createRound } from "@/modules/collection/data/rounds-repo";
 import { matchableRoll } from "@/modules/collection/data/ask-list-repo";
@@ -40,9 +40,13 @@ export async function checkAskListAction(
   _previous: AskListState,
   formData: FormData,
 ): Promise<AskListState> {
-  await requirePermission("collection:manage", "/collection/rounds/upload");
+  const staff = await requirePermission("collection:manage", "/collection/rounds/upload");
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { ...idleAskList, status: "error", message: m.noSessionFound };
+  // Reads only, but the roll it matches against is the session's (Phase 3 fence).
+  if (!(await passesFence(() => assertSessionWritable(staff, sessionLabel)))) {
+    return { ...idleAskList, status: "error", message: m.noSessionFound };
+  }
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
