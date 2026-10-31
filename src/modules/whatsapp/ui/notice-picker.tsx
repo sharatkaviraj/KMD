@@ -1,4 +1,3 @@
-import Link from "next/link";
 
 import {
   isCampaignApproved,
@@ -24,6 +23,7 @@ import { reminderQuery, type ReminderQueryKey } from "@/modules/whatsapp/domain/
 import { isoFromDdMmYyyy } from "@/platform/helpers/date";
 import { CarriedFilterFields } from "@/modules/whatsapp/ui/carried-filter-fields";
 import type { ReminderFilters } from "@/modules/whatsapp/domain/fee-reminders";
+import { NavLink } from "@/ui/shell/nav-link";
 
 /**
  * Which notice is going out, in which language, by when, and with what late fee.
@@ -73,7 +73,27 @@ type Props = {
    * layering holds.
    */
   applyAction: (formData: FormData) => void | Promise<void>;
+  /**
+   * The notices the fee calendar would pick today (`domain/today-suggestions`),
+   * starred on their chips. A hint, never a default: the office still picks.
+   */
+  suggested?: readonly NoticeSituation[];
 };
+
+/**
+ * The twelve notices in the order a term runs, under five plain headings.
+ *
+ * A flat row of twelve looked like twelve unrelated choices. Grouped, the row
+ * reads as a timeline — before the date, just after, still unpaid — and the
+ * one to send is the one under today's heading.
+ */
+const STAGES: ReadonlyArray<{ label: string; situations: readonly NoticeSituation[] }> = [
+  { label: "Before the date", situations: ["upcoming", "upcoming_final"] },
+  { label: "Just after", situations: ["late_fee_waiver", "waiver_last_call", "late_fee_applied"] },
+  { label: "Still unpaid", situations: ["fee_due", "balance", "overdue_final", "exam_clearance"] },
+  { label: "Promises", situations: ["promise_due", "promise_lapsed"] },
+  { label: "Last session", situations: ["prevyear"] },
+];
 
 /**
  * Keeps every other setting while changing one thing.
@@ -100,7 +120,7 @@ const CHIP_BASE =
   // control on this screen, which chips were quietly exempt from at 36px. The
   // tighter horizontal padding on a phone is what lets four fit per row rather
   // than three, so wrapping twelve of them costs three rows instead of four.
-  "focus-ring inline-flex h-11 shrink-0 snap-start items-center gap-1 rounded-full border px-3 text-[12px] font-bold transition-colors md:h-9 md:gap-1.5 md:px-4 md:text-[12.5px]";
+  "tap focus-ring inline-flex h-11 shrink-0 snap-start items-center gap-1 rounded-full border px-3 text-[12px] font-bold md:h-9 md:gap-1.5 md:px-4 md:text-[12.5px]";
 
 export function NoticePicker({
   filters,
@@ -110,6 +130,7 @@ export function NoticePicker({
   today,
   lateFeeWarning,
   applyAction,
+  suggested = [],
 }: Props) {
   const isPrevYear = filters.situation === "prevyear";
   const isWaiver =
@@ -217,9 +238,17 @@ export function NoticePicker({
           point: five chips the office retunes every run must all be visible at
           once; twelve messages picked once need only be reachable. */}
       <div className="relative md:static">
-        <div className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-0.5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
-        {NOTICE_SITUATIONS.map((entry) => {
+        <div className="no-scrollbar -mx-1 flex snap-x items-center gap-2 overflow-x-auto px-1 pb-0.5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+        {STAGES.flatMap((stage) => [
+          <span
+            key={`stage-${stage.label}`}
+            className="shrink-0 snap-start pl-1 text-[10.5px] font-bold uppercase tracking-wide text-muted-foreground first:pl-0 md:pl-2"
+          >
+            {stage.label}
+          </span>,
+          ...NOTICE_SITUATIONS.filter((entry) => stage.situations.includes(entry.value)).map((entry) => {
           const active = entry.value === filters.situation;
+          const isSuggested = suggested.includes(entry.value);
           const gap = noticeGaps[entry.value] ?? 0;
           // A notice whose template Meta has not approved yet is shown and
           // disabled, never hidden. The office needs to know the notice exists
@@ -245,7 +274,7 @@ export function NoticePicker({
           }
 
           return (
-            <Link
+            <NavLink
               key={entry.value}
               href={hrefWith(filters, { situation: entry.value })}
               scroll={false}
@@ -258,6 +287,17 @@ export function NoticePicker({
                   : "border-border bg-card text-foreground hover:border-border-strong",
               )}
             >
+              {isSuggested ? (
+                <span
+                  title="The fee calendar suggests this one today"
+                  className={cn(
+                    "rounded-full px-1.5 text-[9.5px] font-extrabold uppercase tracking-wide",
+                    active ? "bg-accent-foreground/20" : "bg-accent/15 text-accent",
+                  )}
+                >
+                  today
+                </span>
+              ) : null}
               <span className="whitespace-nowrap">{entry.label}</span>
               {/* NEVER dimmed for a gap. A template whose slots this audience
                   cannot fill is still a template the office may deliberately
@@ -280,9 +320,10 @@ export function NoticePicker({
                   ⚠ {gap}
                 </span>
               ) : null}
-            </Link>
+            </NavLink>
           );
-        })}
+          }),
+        ])}
         </div>
         {/* The affordance, phone only: `from-card` matches the card it sits on,
             so the last chip fades out rather than being cut flat. */}
@@ -300,20 +341,20 @@ export function NoticePicker({
           {NOTICE_LANGUAGES.map((entry) => {
             const active = entry.value === (filters.language as NoticeLanguage);
             return (
-              <Link
+              <NavLink
                 key={entry.value}
                 href={hrefWith(filters, { language: entry.value })}
                 scroll={false}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "focus-ring grid h-8 min-w-[72px] place-items-center rounded-[10px] px-3 text-xs font-extrabold transition-colors",
+                  "tap focus-ring grid h-8 min-w-[72px] place-items-center rounded-[10px] px-3 text-xs font-extrabold",
                   active
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {entry.label}
-              </Link>
+              </NavLink>
             );
           })}
         </div>
@@ -366,7 +407,7 @@ export function NoticePicker({
               {LATE_FEE_SOURCES.map((entry) => {
                 const active = entry.value === filters.lateFeeSource;
                 return (
-                  <Link
+                  <NavLink
                     key={entry.value}
                     href={hrefWith(filters, { lateFeeSource: entry.value })}
                     scroll={false}
@@ -374,14 +415,14 @@ export function NoticePicker({
                     title={entry.hint}
                     aria-current={active ? "true" : undefined}
                     className={cn(
-                      "focus-ring grid h-9 min-w-[104px] place-items-center rounded-[10px] px-3 text-[11.5px] font-extrabold transition-colors",
+                      "tap focus-ring grid h-9 min-w-[104px] place-items-center rounded-[10px] px-3 text-[11.5px] font-extrabold",
                       active
                         ? "bg-card text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {entry.label}
-                  </Link>
+                  </NavLink>
                 );
               })}
             </div>
@@ -538,8 +579,9 @@ export function NoticePicker({
  * through an Apply.
  */
 const NOTICE_FORM_KEYS = [
-  "situation",
-  "language",
+  // NOT "situation" or "language": the chips that pick them are links, so this
+  // form has no input for either. Listing them here kept them out of the
+  // carried fields too, and every Apply reset the notice to Fee due in Hindi.
   "lastDate",
   "lateFeeAmount",
   "lateFeeBasis",

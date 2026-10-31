@@ -276,7 +276,12 @@ export function PaymentDeskClient({
   }, []);
   const [paymentAmountInput, setPaymentAmountInput] = useState("");
   const [quickDiscountInput, setQuickDiscountInput] = useState("");
-  const [waiveFullLateFee, setWaiveFullLateFee] = useState(false);
+  // ON by default for anyone allowed to waive (the office's call, 2026-10-27):
+  // the counter collects fees and lets the late fee go unless the cashier
+  // unticks it to take the late fee too. Someone without
+  // `payments:waive_late_fee` starts — and stays — on collecting it, because
+  // the server refuses their waiver and the post with it.
+  const [waiveFullLateFee, setWaiveFullLateFee] = useState(canWaiveLateFee);
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [dateAwareBreakdown, setDateAwareBreakdown] = useState<InstallmentBalanceItem[] | null>(null);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
@@ -499,7 +504,8 @@ export function PaymentDeskClient({
   // B1): it never reached the balance. The server refuses one as well.
   const quickDiscountAmount = COUNTER_CONCESSION;
   const pendingLateFeeAmount = calculatePendingLateFeeAmount(previewBreakdown);
-  const quickLateFeeWaiverAmount = concessionsLocked || !waiveFullLateFee ? 0 : pendingLateFeeAmount;
+  const quickLateFeeWaiverAmount =
+    !canWaiveLateFee || concessionsLocked || !waiveFullLateFee ? 0 : pendingLateFeeAmount;
   const quickLateFeeWaiverInput = quickLateFeeWaiverAmount > 0 ? String(quickLateFeeWaiverAmount) : "";
   const creditBalance = selectedStudent?.creditBalance ?? 0;
   const refundableAmount = selectedStudent?.refundableAmount ?? 0;
@@ -970,11 +976,18 @@ export function PaymentDeskClient({
       return [];
     }
 
+    // With the late fee waived (the default) "Full Due" and "Next Installment"
+    // are the fees alone, and there is no late fee to collect — or the chips
+    // would ask for money the waiver has just taken off.
+    const waived = quickLateFeeWaiverAmount > 0;
+    const nextLateFee = previewNextDue ? calculatePendingLateFeeAmount([previewNextDue]) : 0;
     return buildPaymentQuickAmounts({
-      totalPending: previewTotalPending,
-      nextDueAmount: previewNextDue?.outstandingAmount ?? null,
+      totalPending: Math.max(previewTotalPending - quickLateFeeWaiverAmount, 0),
+      nextDueAmount: previewNextDue
+        ? Math.max(previewNextDue.outstandingAmount - (waived ? nextLateFee : 0), 0)
+        : null,
       overdueAmount: previewOverdueAmount,
-      lateFeeAmount: pendingLateFeeAmount,
+      lateFeeAmount: waived ? 0 : pendingLateFeeAmount,
       lastPaidAmount: latestStudentPaymentAmount,
       plan: activeRepaymentPlan,
     });
@@ -985,6 +998,7 @@ export function PaymentDeskClient({
     previewNextDue,
     previewOverdueAmount,
     previewTotalPending,
+    quickLateFeeWaiverAmount,
     selectedStudent,
   ]);
   const primaryQuickAmounts = quickAmounts
@@ -1556,7 +1570,7 @@ export function PaymentDeskClient({
     setPreviewUnavailable(false);
     setPaymentAmountInput("");
     setQuickDiscountInput("");
-    setWaiveFullLateFee(false);
+    setWaiveFullLateFee(canWaiveLateFee);
     setFormError(null);
     setDismissedTodayReceiptId(null);
     lastAmountFocusStudentIdRef.current = null;
@@ -1642,7 +1656,7 @@ export function PaymentDeskClient({
       setPaymentAmountInput("");
     }
     setQuickDiscountInput("");
-    setWaiveFullLateFee(false);
+    setWaiveFullLateFee(canWaiveLateFee);
     setFormError(null);
     setDismissedTodayReceiptId(null);
     setIsStudentPickerOpen(false);
@@ -1791,7 +1805,7 @@ export function PaymentDeskClient({
 
     setPaymentAmountInput(resetValues.amountInput);
     setQuickDiscountInput("");
-    setWaiveFullLateFee(false);
+    setWaiveFullLateFee(canWaiveLateFee);
     setRemarks(resetValues.remarks);
     setPaymentMode(resetValues.paymentMode as typeof paymentMode);
     setReceivedBy(resetValues.receivedBy);
@@ -2374,8 +2388,8 @@ export function PaymentDeskClient({
                           aria-pressed={waiveFullLateFee}
                         >
                           {waiveFullLateFee
-                            ? `✓ Late fee waived permanently — saving ${formatInr(pendingLateFeeAmount)}`
-                            : `Waive late fee permanently (−${formatInr(pendingLateFeeAmount)})`}
+                            ? `✓ Late fee waived (${formatInr(pendingLateFeeAmount)}) · tap to collect it`
+                            : `Collecting the late fee · tap to waive (−${formatInr(pendingLateFeeAmount)})`}
                         </button>
                       ) : null}
                     </div>
@@ -2603,6 +2617,7 @@ export function PaymentDeskClient({
                         }}
                       />
                       Waive late fee permanently
+                      <span className="text-xs font-normal opacity-80">· on by default, untick to collect</span>
                     </label>
                     <span className="text-sm font-semibold tabular-nums text-info-soft-foreground">
                       {formatInr(pendingLateFeeAmount)}
@@ -3088,7 +3103,8 @@ export function PaymentDeskClient({
                         <span>
                           Waive late fee permanently ({formatInr(pendingLateFeeAmount)})
                           <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                            Cuts the late fee and removes it permanently from this student&apos;s record.
+                            On by default. Cuts the late fee and removes it permanently from this
+                            student&apos;s record; untick to collect it with the fees.
                           </span>
                         </span>
                       </label>

@@ -35,12 +35,27 @@ import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
  * matches and, when the update carries the error-message filter, the row is
  * not one whose delivery is unknown.
  */
-function takenSlotClient(existingStatus: "failed" | "sent", existingError: string | null = null) {
+function takenSlotClient(
+  existingStatus: "failed" | "sent",
+  existingError: string | null = null,
+  earlierSends: Array<{ student_id: string; sent_on: string }> = [],
+) {
   const updates: Array<Record<string, unknown>> = [];
   return {
     updates,
     from() {
       const builder = {
+        // One's cross-campaign read (critique0 #11): every send this family
+        // had in the window, whatever its campaign.
+        select() {
+          const chain = {
+            in: () => chain,
+            gte: () => chain,
+            then: (resolve: (value: { data: typeof earlierSends; error: null }) => unknown) =>
+              resolve({ data: earlierSends, error: null }),
+          };
+          return chain;
+        },
         insert() {
           const chain = {
             select: () => chain,
@@ -109,10 +124,14 @@ function candidate(overrides: Partial<ReminderCandidate> = {}): ReminderCandidat
     sentToday: null,
     cadence: "weekly",
     snoozedUntil: null,
+    profile: "standard",
+    profileSource: "suggested",
+    profileReason: "Late on installment 1",
     lastSentOn: null,
     lateFeeApplied: 0,
     lateFeeFeesPending: 0,
     lateFeeInstallments: [],
+    owedInstallments: [],
     overdueInstallments: [],
     promisedOn: null,
     promiseContactedOn: null,
@@ -123,6 +142,8 @@ function candidate(overrides: Partial<ReminderCandidate> = {}): ReminderCandidat
     missingFacts: [],
     missingFactsLabel: "",
     ...overrides,
+    // The family follows the number unless a test links siblings itself.
+    familyKey: overrides.familyKey ?? overrides.destination ?? "+910000000001",
   };
 }
 
@@ -139,6 +160,7 @@ function filters(overrides: Partial<ReminderFilters> = {}): ReminderFilters {
     skipOverdue: false,
     classId: null,
     includeRte: false,
+    profiles: ["on_time", "standard", "chronic"],
     includeStudentIds: [],
     excludeStudentIds: [],
     situation: "fee_due",
@@ -224,6 +246,34 @@ describe("a family whose earlier send got no clear answer", () => {
     const last = client.updates.at(-1);
     expect(last).toMatchObject({ status: "failed" });
     expect(String(last?.error_message)).toMatch(new RegExp(`^${DELIVERY_UNKNOWN_PREFIX}`));
+  });
+});
+
+describe("a family the fees app already messaged under another campaign", () => {
+  // VPPS One only (critique0 #11): the claim index includes campaign_name, so
+  // a `_v6` send by the fees app this morning would not stop a One send.
+  it("is not messaged again today in a real session", async () => {
+    const client = takenSlotClient("failed", null, [{ student_id: "s1", sent_on: "2026-10-27" }]);
+    const outcome = await runWith(client);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(outcome.alreadySentToday).toBe(1);
+    expect(client.updates).toHaveLength(0);
+  });
+
+  it("is not messaged inside its cadence window either", async () => {
+    // candidate() is weekly; a send four days ago under any name holds it.
+    const client = takenSlotClient("failed", null, [{ student_id: "s1", sent_on: "2026-10-23" }]);
+    await runWith(client);
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("is still sent in a test session, which has no parents", async () => {
+    const client = takenSlotClient("failed", null, [{ student_id: "s1", sent_on: "2026-10-27" }]);
+    await runWith(client, "TEST-2026-27");
+
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
 

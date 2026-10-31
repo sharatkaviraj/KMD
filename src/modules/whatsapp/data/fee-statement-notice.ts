@@ -239,7 +239,8 @@ export async function sendFeeStatementNotice(
     destination,
     userName: values.parentName,
     templateParams,
-    source: "veerpatta-fees-app/statement",
+    source: "vppsone/statement",
+    gate: { kind: "fee_statement", sessionLabel, actor: staffId ? { userId: staffId } : "system" },
     media: { url: prepared.document.signedUrl, filename: prepared.filename },
   });
 

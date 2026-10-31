@@ -401,9 +401,9 @@ export async function submitPaymentEntryAction(
        * drawer and the receipt is printed, and a WhatsApp hiccup must never
        * turn that into a failed posting at the counter.
        *
-       * In VPPS One this never sends: only a staff member pressing Send on a
-       * receipt messages a parent (D-270). The call stays so the fee app's
-       * code reads the same; `sendReceiptNotice` refuses the automatic trigger. It also honours `no_call` and
+       * In VPPS One it goes only through the parent-send gate (D-353, which
+       * supersedes D-270 at cutover): live deployment, `parent_dispatch` on,
+       * and `receipt` among the named categories. It also honours `no_call` and
        * a `never` cadence, because a family who asked not to be contacted did
        * not ask only about reminders.
        */

@@ -12,11 +12,10 @@ import {
   loadRanScheduleSlots,
 } from "@/modules/whatsapp/data/campaign-store";
 import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
+import { onlineLedgerRecheck } from "@/modules/payments/data/online/service";
 import { oneMessagePerFamilyEnabled } from "@/modules/whatsapp/data/reminder-settings";
-import { campaignsDueOn } from "@/modules/whatsapp/domain/campaign-schedule";
+import { campaignsDueOn, messageDateFor } from "@/modules/whatsapp/domain/campaign-schedule";
 import {
-  campaignFor,
-  campaignNameFor,
   isCampaignApproved,
   type NoticeLanguage,
   type NoticeSituation,
@@ -31,8 +30,13 @@ import {
 import {
   buildInstallmentCalendar,
   defaultInstallmentsFor,
+  defaultLastYearFor,
 } from "@/modules/whatsapp/domain/installment-calendar";
 import { evaluateSendGuards, firstBlockingMessage } from "@/modules/whatsapp/domain/send-guards";
+import {
+  activeCampaignName,
+  activeCampaignNameOrNull,
+} from "@/modules/whatsapp/domain/campaign-generation";
 import { savedAudienceParams } from "@/modules/whatsapp/domain/audience";
 import { formatDdMmYyyy, isoFromDdMmYyyy } from "@/platform/helpers/date";
 
@@ -65,24 +69,53 @@ import { formatDdMmYyyy, isoFromDdMmYyyy } from "@/platform/helpers/date";
  * doc for the day the plan changes.
  */
 
-function authorize(
+async function authorize(
   request: Request,
-): { ok: true } | { ok: false; reason: string; misconfigured: boolean } {
-  const expectedSecret = process.env.CRON_SECRET;
-  if (!expectedSecret) {
-    return { ok: false, reason: "CRON_SECRET is not set on this deployment.", misconfigured: true };
-  }
+): Promise<{ ok: true } | { ok: false; reason: string; misconfigured: boolean }> {
+  // Three ways in. `CRON_SECRET` is the one every cron route here shares;
+  // `WHATSAPP_CRON_SECRET` is this route's own; and the database's morning
+  // timer (`20261026120020`) sends Vault's `VPPS_WHATSAPP_CRON_SECRET`, which is
+  // checked IN the database rather than copied into a Vercel env var — the one
+  // place it lives is the one place it is read. A separate secret means the one
+  // in Postgres can only ever start a reminder run: it cannot close the day or
+  // take a backup.
+  const expected = [process.env.CRON_SECRET, process.env.WHATSAPP_CRON_SECRET].filter(
+    (value): value is string => Boolean(value),
+  );
   const url = new URL(request.url);
   const provided =
     url.searchParams.get("secret") ??
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (provided && expected.includes(provided)) return { ok: true };
+  // Only a secret shaped like the Vault one (32 random bytes, hex) costs a
+  // database round trip, so a prober's junk never reaches Postgres.
+  if (provided && /^[0-9a-f]{64}$/.test(provided) && (await vaultSecretMatches(provided))) {
+    return { ok: true };
+  }
+  if (expected.length === 0 && !provided) {
+    return { ok: false, reason: "CRON_SECRET is not set on this deployment.", misconfigured: true };
+  }
   // One word back to the caller. The reason is for the log: handing an
   // unauthenticated prober the name of a server-only env var is how the
   // day-close route used to answer.
-  if (provided !== expectedSecret) {
-    return { ok: false, reason: "Secret missing or does not match.", misconfigured: false };
+  return { ok: false, reason: "Secret missing or does not match.", misconfigured: false };
+}
+
+/**
+ * Does `secret` equal Vault's `VPPS_WHATSAPP_CRON_SECRET`? Asked of
+ * `public.whatsapp_cron_secret_matches` (`20261027090000`), which answers yes or
+ * no and never returns the secret; only the service role may call it. Any
+ * failure reads as no.
+ */
+async function vaultSecretMatches(secret: string): Promise<boolean> {
+  try {
+    const { data, error } = await createAdminClient().rpc("whatsapp_cron_secret_matches", {
+      p_secret: secret,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
   }
-  return { ok: true };
 }
 
 type RunReport = {
@@ -97,7 +130,7 @@ type RunReport = {
 };
 
 export async function GET(request: Request) {
-  const auth = authorize(request);
+  const auth = await authorize(request);
   if (!auth.ok) {
     if (auth.misconfigured) {
       logError("cron.whatsapp-scheduled-runs.unauthorized", { reason: auth.reason });
@@ -163,15 +196,20 @@ export async function GET(request: Request) {
       // Rebuild the audience from the saved RULE against today's ledger, exactly
       // as loading the campaign on the screen would. The audience is never
       // stored, so a family who paid this morning is simply absent.
-      // `savedAudienceParams` emits every key — including `installments` as
-      // `last_year` for a Last-year campaign, without which the rule would
+      // `savedAudienceParams` emits every key — including `last_year` in
+      // `installments` for a Last-year campaign, without which the rule would
       // replay on the calendar's default and chase this year's installments
       // under last year's wording.
+      // The date the schedule says this slot's message prints — a waiver window
+      // measured from its own installment, an every-morning promise notice —
+      // or the saved date for a campaign whose schedule does not move it.
+      const messageDateIso =
+        messageDateFor(entry.schedule, calendar, entry.scheduledFor) ?? saved.lastDate;
       const search = new URLSearchParams({
         ...savedAudienceParams(saved.filters),
         situation: saved.situation,
         language: saved.language,
-        lastDate: saved.lastDate ? formatDdMmYyyy(saved.lastDate) : "",
+        lastDate: messageDateIso ? formatDdMmYyyy(messageDateIso) : "",
         lateFeeAmount: String(saved.lateFeeAmount),
         lateFeeBasis: saved.lateFeeBasis,
         ...(saved.lateFeeSource ? { lateFeeSource: saved.lateFeeSource } : {}),
@@ -189,6 +227,9 @@ export async function GET(request: Request) {
         {
           // `ledger` mode quotes this to a family with nothing charged yet.
           policyLateFeeAmount: Number(policy?.lateFeeFlatAmount ?? 0),
+          // A rule saved with no tiles (the every-morning steps) replays on the
+          // screen's own default, last session's balance included.
+          defaultLastYear: defaultLastYearFor(calendar),
         },
       );
 
@@ -213,7 +254,7 @@ export async function GET(request: Request) {
         supabase,
         lastDateIso,
         campaignName:
-          campaignNameFor(
+          activeCampaignNameOrNull(
             filters.situation as NoticeSituation,
             filters.language as NoticeLanguage,
           ) ?? "",
@@ -232,9 +273,17 @@ export async function GET(request: Request) {
         lastDateLabel: filters.lastDate,
         today,
         recipientCount: audience.candidates.length,
+        // Families the template cannot fill (a ₹0 amount, no promise date): the
+        // manual Send counts these; the timer did not, so it could send them.
+        noticeFactGaps: audience.candidates.filter((candidate) => candidate.missingFacts.length > 0)
+          .length,
         ...facts,
       });
-      const blocked = firstBlockingMessage(guards);
+      // Nobody is here to override anything, so an OVERRIDABLE finding — the
+      // budget cap, quiet hours, a holiday, the final-notice window — stops a
+      // scheduled run exactly as a blocking one does. Only the blocking list
+      // was read, and the rest were worked out and thrown away.
+      const blocked = firstBlockingMessage(guards) ?? guards.overridable[0]?.message ?? null;
       if (blocked) {
         reports.push({
           campaignId: saved.id,
@@ -265,10 +314,10 @@ export async function GET(request: Request) {
         sessionLabel,
         today,
         lastDateIso,
-        campaignName: campaignFor(
+        campaignName: activeCampaignName(
           filters.situation as NoticeSituation,
           filters.language as NoticeLanguage,
-        ).campaignName,
+        ),
         campaignId: saved.id,
         // Null, not the campaign's author. Attributing an automatic send to
         // whoever last edited the campaign would be a lie in the record.
@@ -279,6 +328,8 @@ export async function GET(request: Request) {
         // The same switch the manual path reads, so a scheduled run and a
         // pressed Send never disagree about what a two-child phone gets.
         oneMessagePerFamily: await oneMessagePerFamilyEnabled(supabase),
+        // The same last look at the ledger a pressed Send gets.
+        recheckLedger: await onlineLedgerRecheck(),
       });
 
       reports.push({

@@ -32,7 +32,7 @@ import {
   snapshotNow,
   staleness,
 } from "@/modules/collection/data/parent-messages-repo";
-import { mayDispatchToParent } from "@/modules/collection/domain/parent-policy";
+import { mayDispatchToParent, type ParentCategory } from "@/modules/collection/domain/parent-policy";
 import type { DeliveryReason, DeliveryResult } from "@/modules/teacher-tasks/domain/delivery";
 import { managedTasksForRequests } from "@/modules/teacher-tasks/data/delivery-routing";
 
@@ -376,6 +376,7 @@ export async function confirmDispatchReceived(id: string, attempt: string | null
 export async function dispatch(send: MessageSend): Promise<DispatchResult> {
   if (isTeacherTaskCampaign(send.templateCode)||send.taskId||(send.requestId&&(await managedTasksForRequests([send.requestId])).has(send.requestId))) return { ok: false, outcome:"rejected", error: "Use reviewed task delivery in Needs you." };
   if (needsProviderReconciliation(send)) return { ok: false, error: "Check the provider result before sending again." };
+  let category: ParentCategory | undefined;
   if (send.audience === "parent") {
     // A parent message goes from the app only under the school's switch, a
     // named automatic exception for its category, and nothing stale (P9) —
@@ -389,7 +390,8 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
       parentPolicies(),
       staleness(send),
     ]);
-    const policy = policies.find((entry) => entry.category === (check.extras?.category ?? categoryFor(send))) ?? null;
+    category = check.extras?.category ?? categoryFor(send);
+    const policy = policies.find((entry) => entry.category === category) ?? null;
     const verdict = mayDispatchToParent({ switchOn, policy, stale: check.reasons });
     if (!verdict.ok) {
       if (check.reasons.length > 0) await markStale(send.id, check.reasons);
@@ -428,7 +430,7 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
   const { data: claimed, error: claimError } = await claim.select("id");
   if (claimError || claimed?.length !== 1) return { ok: false, error: "The message changed or another send is being checked. Reload before continuing." };
   let result: DispatchResult;
-  try { result = await provider.send(send); }
+  try { result = await provider.send(send, { category }); }
   catch { result = { ok: false, outcome: "unknown", error: "Provider result unknown. Check its delivery log; do not resend." }; }
   try { await recordDispatch(send.id, result, attempt); }
   catch { return { ok: false, outcome: "unknown", error: "The provider result could not be recorded. Check its delivery log; do not resend." }; }

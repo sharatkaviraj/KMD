@@ -208,7 +208,7 @@ sealed auth rows are deleted.
 |---|---|---|
 | `feature_flags` | 4 | `NOT_MIGRATED`: the fees app's own feature toggles; One switches features through `app_settings` and its own code |
 | `job_runs` | 1 | `NOT_MIGRATED`: the fees app's cron history; One keeps its own |
-| `staff_payment_alerts` | 0 | Live's new fees migration `20261030170000_online_payment_staff_alerts`, a fee table that **will fill**. Not in the synced fees checkout (main 8a0cd47c), so its SQL could not be ported here; it needs its catch-up in `supabase/fee-migrations/` before the first real load. The loader refuses the moment it has a row |
+| ~~`staff_payment_alerts`~~ | 0 | **In One since 31 Oct (Phase D)**: fees `20261030170000_online_payment_staff_alerts` caught up in `supabase/fee-migrations/`, with the failure desk's `20261030190000` (`whatsapp_send_attempts`, `whatsapp_number_health`, seven `whatsapp_reminder_sends` columns). Dry run of extract `20261031-pd-catchup`: no live table or column refused |
 | `class_aliases`, `enrolments`, `subjects`, `teaching_assignments`, `timetable_slots`, `timetable_versions` | 0 | One-style academic tables the fees schema grew; One keeps these in `vppsone`. Empty; the loader refuses if one gains a row |
 | `staff_directory`, `staff_profiles`, `staff_access_links`, `staff_push_subscriptions` | 0 | One-style staff tables; One's staff live in `vppsone.staff_profiles`. Empty; same refusal |
 

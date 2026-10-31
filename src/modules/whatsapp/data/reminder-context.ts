@@ -34,6 +34,7 @@ import { getFeePolicyForSession } from "@/modules/fees/data/policy";
 import {
   buildInstallmentCalendar,
   defaultInstallmentsFor,
+  defaultLastYearFor,
   derivedLastDateIso,
   type InstallmentCalendar,
 } from "@/modules/whatsapp/domain/installment-calendar";
@@ -120,19 +121,23 @@ export async function resolveReminderContext(
 ): Promise<ReminderContext> {
   // Free unless a fee change is actually queued (~386ms when one is), and it
   // keeps the figure on screen equal to the one a send would re-derive.
-  await drainPendingFinancialRefresh(supabase);
-
+  //
   // FOR THIS SESSION, not the school's live one. `getFeePolicySummary` resolves
   // through `getActiveSessionLabel`, so a screen opened on TEST-2026-27 built
   // its calendar, its installment tiles and its late-fee figure from 2026-27's
   // policy — the wrong due dates and the wrong money, under the right label.
-  const policy = await getFeePolicyForSession(sessionLabel, { useAdmin: true }).catch(
-    () => null,
-  );
+  //
+  // The three at once: none reads what another writes. Only the audience
+  // below must wait for the drain, and it does. Run one after another they
+  // were three round trips in front of every tile tap.
+  const [, policy, remembered] = await Promise.all([
+    drainPendingFinancialRefresh(supabase),
+    getFeePolicyForSession(sessionLabel, { useAdmin: true }).catch(() => null),
+    loadLastUsedNoticeSettings(supabase, sessionLabel),
+  ]);
 
   const today = istToday();
   const ledgerLateFee = Number(policy?.lateFeeFlatAmount ?? 0);
-  const remembered = await loadLastUsedNoticeSettings(supabase, sessionLabel);
 
   const windowDays = parseReminderFilters(read, sessionLabel).preDueWindowDays;
   const calendar = buildInstallmentCalendar({
@@ -160,15 +165,14 @@ export async function resolveReminderContext(
    * every family still carrying one.
    */
   const rememberedIso = isoFromDdMmYyyy(remembered?.lastDate ?? null);
-  const openingLastDate =
-    rememberedIso && rememberedIso >= today
-      ? remembered!.lastDate
-      : formatDdMmYyyy(derivedLastDateIso(calendar, today));
 
-  const filters = parseReminderFilters(
+  // Parsed once without an opening date, so the date can follow the tiles: a
+  // notice about an installment that is already overdue opens a week out, not
+  // on the next installment's due date (see `derivedLastDateIso`).
+  const parsed = parseReminderFilters(
     read,
     sessionLabel,
-    openingLastDate,
+    "",
     remembered?.lateFeeAmount ?? ledgerLateFee,
     // 5. What the tiles open on: every installment past its due date. The
     //    calendar's answer, not a constant, so October's screen knows about
@@ -180,8 +184,21 @@ export async function resolveReminderContext(
       //    quotes this to a family the ledger has not charged yet, which is
       //    exactly who a forward-looking notice is warning.
       policyLateFeeAmount: ledgerLateFee,
+      // 7. Last session's balance rides along with the passed installments,
+      //    so the amount a parent reads is everything overdue.
+      defaultLastYear: defaultLastYearFor(calendar),
     },
   );
+  // The installment tiles decide this; Last year on its own keeps the
+  // calendar's next date, as it always has.
+  const aboutOverdue = parsed.installments.some((installment) =>
+    calendar.overdue.includes(installment),
+  );
+  const openingLastDate =
+    rememberedIso && rememberedIso >= today
+      ? remembered!.lastDate
+      : formatDdMmYyyy(derivedLastDateIso(calendar, today, { overdue: aboutOverdue }));
+  const filters = parsed.lastDate ? parsed : { ...parsed, lastDate: openingLastDate };
 
   const audience = await loadReminderAudience(supabase, filters, calendar);
 

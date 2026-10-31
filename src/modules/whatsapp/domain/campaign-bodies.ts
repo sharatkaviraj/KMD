@@ -4,6 +4,7 @@ import {
   type NoticeSituation,
   type NoticeValues,
 } from "@/modules/whatsapp/domain/campaigns";
+import { approvedV6Campaign, fillBody } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 
 /**
  * The per-student template bodies — every one of them, approved or pending.
@@ -676,6 +677,11 @@ export function renderNoticePreview(
   language: NoticeLanguage,
   values: NoticeValues,
 ): string | null {
+  // The template that will actually GO: the `_v6` one once approved. The test
+  // panel previewed the older body while the test itself sent v6, so what the
+  // office read was not what landed on the phone.
+  const v6 = approvedV6Campaign(situation, language);
+  if (v6) return fillBody(v6.body, v6.buildParams(values));
   const campaign = describeCampaign(situation, language);
   if (!campaign) return null;
   return renderNoticeBody(situation, language, campaign.buildParams(values));

@@ -142,3 +142,23 @@ also read these:
 `scripts/verify-fee-parity.mjs` compares `public`/`private` with live, so these
 `vppsone` helpers never show as drift; the `public` triggers they back are
 One-only and listed in `docs/cutover/SCHEMA-PARITY.md`.
+
+## Added by go-live Phase D (31 Oct), applied to `wtgxcptmucjerhufzjcf`
+
+Live got two fees migrations after fees `main` 8a0cd47c; both are on fees
+`origin/main` (b96525ba) now, and `load-snapshot` refused the first real load
+until One had their tables and columns.
+
+| File | Kind | Ledger name | Ledger version |
+|---|---|---|---|
+| `20261030170000_online_payment_staff_alerts.sql` | fees copy; the seeded staff phone list blanked (rule 6) | `fee_20261030170000_online_payment_staff_alerts` | 20261031042015 |
+| `20261030190000_whatsapp_failure_desk.sql` | fees copy, body verbatim | `fee_20261030190000_whatsapp_failure_desk` | 20261031042059 |
+| `20261031042100_failure_desk_service_grants.sql` | One-only: service_role on the two failure-desk tables (live has it through default privileges, One has none) | `fee_20261031042100_failure_desk_service_grants` | 20261031042122 |
+
+Neither fees file schedules a cron job. Checked after applying: `cron.job`
+holds nothing that calls `schoolfees-two` or `vercel.app` (0); `anon` cannot
+read `whatsapp_send_attempts` or execute `staff_payment_alert_claim` /
+`web_push_vapid_keys`; `service_role` can read and update both failure-desk
+tables. The app code behind them (the failure desk's Fix tab; the staff
+payment alerts' push and WhatsApp sender, Phase F) is not ported yet — until
+it is, the tables fill from their triggers alone.

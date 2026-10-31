@@ -1,6 +1,7 @@
-import Link from "next/link";
 
 import { describeSchedule, type DueCampaign } from "@/modules/whatsapp/domain/campaign-schedule";
+import { NavLink } from "@/ui/shell/nav-link";
+import { SCHEDULED_SENDS_LIVE } from "@/modules/whatsapp/domain/campaign-schedule";
 
 /**
  * The campaigns whose scheduled slot has arrived and has not gone out.
@@ -59,11 +60,11 @@ export function DueTodayCard({ due, hrefFor, compact = false }: Props) {
         <ul className="flex flex-col gap-2">
           {due.map((campaign) => (
             <li key={campaign.id}>
-              <Link
+              <NavLink
                 href={hrefFor(campaign)}
                 // min-h-11 so the row is a comfortable tap target on a phone;
                 // the desk gets the same row and loses nothing by it.
-                className="focus-ring flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-2 px-3 py-2 transition-colors hover:border-border-strong"
+                className="tap focus-ring flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-2 px-3 py-2 hover:border-border-strong"
               >
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate text-sm font-semibold text-foreground">
@@ -76,7 +77,7 @@ export function DueTodayCard({ due, hrefFor, compact = false }: Props) {
                 <span className="flex shrink-0 items-center gap-2">
                   {campaign.auto ? (
                     <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning-foreground">
-                      sends itself
+                      {SCHEDULED_SENDS_LIVE ? "sends itself" : "auto · timer off"}
                     </span>
                   ) : null}
                   <span
@@ -89,7 +90,7 @@ export function DueTodayCard({ due, hrefFor, compact = false }: Props) {
                     {overdueLabel(campaign.daysOverdue)}
                   </span>
                 </span>
-              </Link>
+              </NavLink>
             </li>
           ))}
         </ul>

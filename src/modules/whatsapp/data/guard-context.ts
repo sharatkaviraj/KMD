@@ -36,7 +36,7 @@ export type GuardFacts = {
  * be sending on, so it derives its own weekday from `lastDateIso` now and this
  * answers one question again.
  */
-function istHour(now: Date): number {
+export function istHour(now: Date): number {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
@@ -45,7 +45,7 @@ function istHour(now: Date): number {
   return Number(parts.find((part) => part.type === "hour")?.value ?? 12);
 }
 
-async function readNumberSetting(
+export async function readNumberSetting(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   key: string,

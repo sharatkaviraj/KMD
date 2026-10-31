@@ -776,8 +776,10 @@ export function MobilePaymentFlowSheet({
             {pendingLateFeeAmount > 0 ? (
               (() => {
                 /* Late-fee decision card — replaces the old waive checkbox.
-                   States: Include (default, amber) / Waive (admin, success).
-                   The waiver is permanent and stamped on the receipt + audit. */
+                   States: Waive (the default for anyone allowed to, success)
+                   / Collect (amber). The waiver is permanent and stamped on
+                   the receipt + audit. Waive comes first because it is the
+                   counter's default since 2026-10-27. */
                 const overdueRows = previewBreakdown.filter(
                   (item) => item.balanceStatus === "overdue" && item.outstandingAmount > 0,
                 );
@@ -840,22 +842,6 @@ export function MobilePaymentFlowSheet({
                       >
                         <button
                           type="button"
-                          aria-pressed={!waiveFullLateFee}
-                          disabled={disablePaymentActions}
-                          onClick={() => {
-                            if (waiveFullLateFee) onToggleWaiveLateFee();
-                          }}
-                          className={cn(
-                            "rounded-md px-2 py-1.5 text-xs font-semibold transition-colors",
-                            !waiveFullLateFee
-                              ? "bg-primary text-primary-foreground shadow-xs"
-                              : "text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          Include {formatInr(pendingLateFeeAmount)}
-                        </button>
-                        <button
-                          type="button"
                           aria-pressed={waiveFullLateFee}
                           disabled={disablePaymentActions}
                           onClick={() => {
@@ -868,7 +854,23 @@ export function MobilePaymentFlowSheet({
                               : "text-muted-foreground hover:text-foreground",
                           )}
                         >
-                          Waive (admin)
+                          Waive · default
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={!waiveFullLateFee}
+                          disabled={disablePaymentActions}
+                          onClick={() => {
+                            if (waiveFullLateFee) onToggleWaiveLateFee();
+                          }}
+                          className={cn(
+                            "rounded-md px-2 py-1.5 text-xs font-semibold transition-colors",
+                            !waiveFullLateFee
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          Collect {formatInr(pendingLateFeeAmount)}
                         </button>
                       </div>
                     ) : null}

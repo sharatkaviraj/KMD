@@ -1,6 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { Plus, RotateCcw, X } from "lucide-react";
+import { Check, Plus, RotateCcw, X } from "lucide-react";
 
 import { Button } from "@/ui/primitives/button";
 import { PendingSubmitButton } from "@/ui/shell/pending-submit-button";
@@ -17,9 +16,9 @@ import {
   installmentTileHref,
   lastYearTileHref,
   PAID_OPTIONS,
+  profileToggleHref,
   PROMISE_OPTIONS,
   reminderQuery,
-  TRI_OPTIONS,
   type ReminderQueryKey,
 } from "@/modules/whatsapp/domain/audience";
 import {
@@ -34,6 +33,9 @@ import {
 } from "@/modules/whatsapp/domain/fee-reminders";
 import type { StudentBrief } from "@/modules/whatsapp/data/student-lookup";
 import { CarriedFilterFields } from "@/modules/whatsapp/ui/carried-filter-fields";
+import { REMINDER_PROFILES } from "@/modules/whatsapp/domain/reminder-profile";
+import { ProfileBadge } from "@/modules/whatsapp/ui/profile-badge";
+import { NavLink } from "@/ui/shell/nav-link";
 
 /**
  * Who gets this message — the installment tiles, and nothing the template
@@ -53,6 +55,10 @@ import { CarriedFilterFields } from "@/modules/whatsapp/ui/carried-filter-fields
  * yes/no/either facts nobody could explain without knowing the rule they were
  * extracted from. The owner's words were "very confusing", and the owner's
  * mental model was installment-first, so this is installment-first.
+ *
+ * Every link is the shell's `NavLink`, already in the shared bundle, so a tap
+ * starts the top progress bar the moment it lands instead of looking ignored
+ * until the server answers; `tap` (globals.css) gives the press itself.
  *
  * A SERVER component, and that is not a style choice. `/fees/reminders`
  * sits ~1000 gzip bytes under its ceiling in `quality/route-bundle-baseline.json`,
@@ -87,6 +93,11 @@ type Props = {
    * and the architecture gate counts every edge that does.
    */
   addAction: (formData: FormData) => void | Promise<void>;
+  /**
+   * `app_settings.whatsapp_one_message_per_family`. On, children who share a
+   * number get ONE message, so the headline says how many phones the list is.
+   */
+  onePerPhone: boolean;
 };
 
 /** A label above a compact control. */
@@ -114,6 +125,49 @@ function Field({
   );
 }
 
+/**
+ * One Narrow down question as a row of one-tap choices.
+ *
+ * Each option is a link that sets this key and keeps every other, so picking
+ * one is a single tap that lands on the new list — not a select, then a
+ * scroll, then Apply. Plain links in a server component: no browser bytes.
+ */
+function Choice({
+  label,
+  hint,
+  options,
+}: {
+  label: string;
+  hint?: string;
+  options: ReadonlyArray<{ label: string; href: string; active: boolean }>;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-col gap-1.5">
+      <p className="text-[11.5px] font-semibold leading-tight text-foreground">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((option) => (
+          <NavLink
+            key={option.label}
+            href={option.href}
+            scroll={false}
+            prefetch={false}
+            aria-current={option.active ? "true" : undefined}
+            className={cn(
+              "tap focus-ring inline-flex min-h-11 items-center rounded-full border px-3 text-[12px] font-semibold md:min-h-8",
+              option.active
+                ? "border-accent bg-accent/12 text-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground",
+            )}
+          >
+            {option.label}
+          </NavLink>
+        ))}
+      </div>
+      {hint ? <p className="text-[10.5px] leading-tight text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
 // 44px on a phone, the desk's own 36 above md. Every control on this panel, so
 // a thumb never has to find a 28px select between two others.
 const CONTROL = "h-11 w-full text-[13px] md:h-9";
@@ -129,19 +183,25 @@ function Tile({
   title,
   subtitle,
   count,
+  owing,
 }: {
   href: string | null;
   selected: boolean;
   title: string;
   subtitle: string;
   count: number;
+  /**
+   * Who this tile would reach with Narrow down cleared. Shown as "1 of 134"
+   * only when it is more — the gap is what the narrowing hides.
+   */
+  owing: number;
 }) {
   // A zero-count tile is dimmed by COLOUR, never by opacity: opacity composites
   // the text too, and took a chip label to 2.88:1 against the 4.5 axe requires.
   // `text-muted-foreground` on `surface-2` measures 5.21:1 in light and 8.04:1
   // in dark, so the tile still reads as quiet without becoming unreadable.
   const className = cn(
-    "focus-ring flex min-h-11 min-w-0 flex-col justify-center gap-0.5 rounded-xl border px-3 py-2 text-left transition-colors md:min-h-14",
+    "tap focus-ring flex min-h-11 min-w-0 flex-col justify-center gap-0.5 rounded-xl border px-3 py-2 text-left md:min-h-14",
     selected
       ? "border-accent bg-accent/12 text-foreground"
       : count === 0
@@ -150,15 +210,24 @@ function Tile({
   );
   const body = (
     <>
-      <span className="flex w-full items-baseline justify-between gap-2">
+      <span className="flex w-full items-start justify-between gap-2">
         <span className="whitespace-nowrap text-[13px] font-extrabold">{title}</span>
-        <span
-          className={cn(
-            "tabular-nums text-[12px] font-extrabold",
-            selected ? "text-foreground" : "text-muted-foreground",
-          )}
-        >
-          {count}
+        {/* "of 416" sits UNDER the count, not beside it: "Installment 3" and
+            "357 of 416" on one line overflow a half-width tile at 375px. */}
+        <span className="flex shrink-0 flex-col items-end leading-tight">
+          <span
+            className={cn(
+              "tabular-nums text-[12px] font-extrabold",
+              selected ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {count}
+          </span>
+          {owing > count ? (
+            <span className="tabular-nums text-[10px] font-semibold text-muted-foreground">
+              of {owing}
+            </span>
+          ) : null}
         </span>
       </span>
       <span className="truncate text-[10.5px] leading-tight text-muted-foreground">{subtitle}</span>
@@ -172,7 +241,7 @@ function Tile({
     );
   }
   return (
-    <Link
+    <NavLink
       href={href}
       scroll={false}
       prefetch={false}
@@ -180,7 +249,7 @@ function Tile({
       className={className}
     >
       {body}
-    </Link>
+    </NavLink>
   );
 }
 
@@ -208,7 +277,7 @@ function StudentChip({
       <span className="max-w-[11rem] truncate">
         {brief.studentName} · {brief.admissionNo}
       </span>
-      <Link
+      <NavLink
         href={href}
         scroll={false}
         prefetch={false}
@@ -221,7 +290,7 @@ function StudentChip({
         ) : (
           <RotateCcw className="size-3.5" aria-hidden="true" />
         )}
-      </Link>
+      </NavLink>
     </span>
   );
 }
@@ -235,6 +304,7 @@ export function AudienceBuilder({
   searchQuery,
   calendar,
   addAction,
+  onePerPhone,
 }: Props) {
   /** Drop `id` from a comma list in the query string, keeping everything else. */
   const without = (key: "include" | "exclude", id: string) => {
@@ -243,7 +313,9 @@ export function AudienceBuilder({
     return `?${reminderQuery(filters, { [key]: next.join(",") || null }).toString()}`;
   };
 
-  const selectedInstallments = filters.lastYear ? [] : filters.installments;
+  // Last year combines with the installments, so the installment tiles stay
+  // as they are whether it is on or not.
+  const selectedInstallments = filters.installments;
   const calendarDefault = defaultInstallmentsFor(calendar);
   // The courtesy-notice rule only means something when nothing selected is
   // overdue (`calendar.overdue`, strictly past — the row due today is not); on
@@ -256,19 +328,117 @@ export function AudienceBuilder({
 
   const classLabel =
     audience.classOptions.find((option) => option.classId === filters.classId)?.label ?? null;
+  /**
+   * What Narrow down has set, each with the link that clears it alone.
+   *
+   * Shown as chips in the sentence, not only on Narrow down's folded summary
+   * line. On 2026-10-26 a "late fee: yes" left over from the waiver suggestion
+   * made Installment 1 read 1 when 134 families owed on it, and the only place
+   * that said so was that summary line, under the profiles.
+   */
+  const clearHref = (key: ReminderQueryKey) => `?${reminderQuery(filters, { [key]: null })}`;
+  /** Set one Narrow down key (null = its default), keeping every other. */
+  const choiceHref = (key: ReminderQueryKey, value: string | null) =>
+    `?${reminderQuery(filters, { [key]: value })}`;
   const narrowing = [
-    classLabel,
+    classLabel ? { label: classLabel, href: clearHref("classId") } : null,
     filters.paid !== "any"
-      ? (PAID_OPTIONS.find((entry) => entry.value === filters.paid)?.label ?? null)
+      ? {
+          label: PAID_OPTIONS.find((entry) => entry.value === filters.paid)?.label ?? filters.paid,
+          href: clearHref("paid"),
+          drops: audience.droppedByFilter.paid,
+        }
       : null,
-    filters.lateFee !== "any" ? `late fee: ${filters.lateFee}` : null,
-    filters.minDueAmount > 1 ? `at least ${formatInr(filters.minDueAmount)}` : null,
+    filters.lateFee !== "any"
+      ? {
+          label: filters.lateFee === "yes" ? "late fee still charged" : "no late fee charged",
+          href: clearHref("lateFee"),
+          drops: audience.droppedByFilter.lateFee,
+        }
+      : null,
+    filters.minDueAmount > 1
+      ? {
+          label: `owing at least ${formatInr(filters.minDueAmount)}`,
+          href: clearHref("minDueAmount"),
+          drops: audience.droppedByFilter.minDueAmount,
+        }
+      : null,
     filters.promise !== "skip_open"
-      ? (PROMISE_OPTIONS.find((entry) => entry.value === filters.promise)?.label ?? null)
+      ? {
+          label:
+            PROMISE_OPTIONS.find((entry) => entry.value === filters.promise)?.label ?? filters.promise,
+          href: clearHref("promise"),
+        }
       : null,
-    filters.skipOverdue ? "not overdue on anything earlier" : null,
-    filters.includeRte ? "RTE included" : null,
-  ].filter((entry): entry is string => Boolean(entry));
+    filters.skipOverdue
+      ? {
+          label: "not overdue on anything earlier",
+          href: clearHref("skipOverdue"),
+          drops: audience.droppedByFilter.skipOverdue,
+        }
+      : null,
+    filters.includeRte ? { label: "RTE included", href: clearHref("includeRte") } : null,
+  ].filter(
+    (entry): entry is { label: string; href: string; drops?: number } => entry !== null,
+  );
+  // Clears exactly the ledger questions `reachesUnnarrowed` relaxes, so the
+  // number on the link is the list it lands on. A minimum the office LOWERED
+  // below the default stays where they put it.
+  const showAllHref = `?${reminderQuery(filters, {
+    paid: null,
+    lateFee: null,
+    minDueAmount: filters.minDueAmount > 1 ? null : String(filters.minDueAmount),
+    skipOverdue: null,
+  })}`;
+  const clearAllHref = `?${reminderQuery(filters, {
+    classId: null,
+    paid: null,
+    lateFee: null,
+    minDueAmount: null,
+    promise: null,
+    skipOverdue: null,
+    includeRte: null,
+  })}`;
+  const hidden = audience.hiddenByNarrowing;
+
+  // The audience, every Narrow down setting and every hand-pick at rest; the
+  // message above (notice, language, date, late-fee wording) is kept.
+  const startOverHref = `?${reminderQuery(filters, {
+    installments: null,
+    installmentMatch: null,
+    paid: null,
+    minDueAmount: null,
+    lateFee: null,
+    promise: null,
+    skipOverdue: null,
+    classId: null,
+    includeRte: null,
+    profiles: null,
+    include: null,
+    exclude: null,
+  })}`;
+
+  // Children who share a number or are linked as siblings get one message —
+  // what the bill counts (`familyKey`, as the run groups).
+  const phones = onePerPhone
+    ? new Set(audience.candidates.map((candidate) => candidate.familyKey)).size
+    : audience.candidates.length;
+
+  // "Why this number?", in the order the list applies its guards. Zero rows are
+  // dropped, so the common case is two lines.
+  const funnel = audience.funnel;
+  const tileWord =
+    selectedInstallments.length + (filters.lastYear ? 1 : 0) === 1 ? "this tile" : "these tiles";
+  const funnelRows = [
+    { count: funnel.removedByHand, label: "removed by hand" },
+    { count: funnel.noCall, label: "marked “don’t contact”" },
+    { count: funnel.rte, label: "RTE students, left out" },
+    { count: funnel.noNumber, label: "no usable WhatsApp number" },
+    { count: funnel.otherClass, label: "in another class" },
+    { count: funnel.heldBack, label: "held back by their reminder setting or a promise" },
+    { count: funnel.hiddenByNarrowing, label: "hidden by Narrow down" },
+  ].filter((row) => row.count > 0);
+  const addedByHand = audience.candidates.length - funnel.onList;
 
   const handPicked = included.length + excluded.length;
 
@@ -287,7 +457,10 @@ export function AudienceBuilder({
     // messaged too recently. The tile counts these families and the send does
     // not, so the sentence has to account for them or the two numbers look
     // like they disagree.
-    heldByCadence: audience.paused.filter((family) => family.reason !== "promise_open").length,
+    heldByCadence: audience.paused.filter(
+      (family) => family.reason !== "promise_open" && family.reason !== "profile",
+    ).length,
+    heldByProfile: audience.paused.filter((family) => family.reason === "profile").length,
     className: classLabel,
   });
   // The reconciliation with the Dashboard, composed server-side (this is a
@@ -309,8 +482,18 @@ export function AudienceBuilder({
           Who gets it
         </h3>
         <p className="text-[11.5px] text-muted-foreground">
-          Pick the installments they still owe on. Changing the message above never changes the list.
+          Pick the installments they still owe on, and Last year to add last session&rsquo;s balance to
+          the amount. Changing the message above never changes the list.
         </p>
+        <NavLink
+          href={startOverHref}
+          scroll={false}
+          prefetch={false}
+          className="tap focus-ring inline-flex min-h-11 items-center gap-1 rounded-lg px-1 text-[12px] font-bold text-accent hover:underline md:min-h-0"
+        >
+          <RotateCcw className="size-3.5" aria-hidden />
+          Start over
+        </NavLink>
       </div>
 
       {/* ------------------------------------------------------- the sentence */}
@@ -334,6 +517,88 @@ export function AudienceBuilder({
         <p className="text-[12.5px] font-semibold leading-snug text-foreground">
           {sentence.claim}
         </p>
+        {phones < audience.candidates.length ? (
+          <p className="text-[12px] leading-snug text-foreground">
+            Goes to <strong className="font-extrabold tabular-nums">{phones}</strong>{" "}
+            {phones === 1 ? "family" : "families"}: children who share a number or are linked as siblings get
+            one message.
+          </p>
+        ) : null}
+        {/* What Narrow down is doing to these numbers, where the numbers are.
+            Each chip clears itself alone; "Show all" clears every one. */}
+        {narrowing.length > 0 ? (
+          <div className="flex flex-col gap-1.5 border-t border-accent/20 pt-2">
+            <p className="text-[12px] font-bold leading-snug text-foreground">
+              {hidden > 0
+                ? `Narrow down hides ${hidden} more ${
+                    hidden === 1 ? "family who owes" : "families who owe"
+                  } on ${tileWord}${classLabel ? ` in ${classLabel}` : ""}.`
+                : "Narrowed by:"}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {narrowing.map((entry) => (
+                <NavLink
+                  key={entry.label}
+                  href={entry.href}
+                  scroll={false}
+                  prefetch={false}
+                  aria-label={`Remove the filter: ${entry.label}`}
+                  className="tap focus-ring inline-flex min-h-11 items-center gap-1 rounded-full border border-accent/40 bg-card px-3 text-[12px] font-semibold text-foreground hover:border-accent md:min-h-8"
+                >
+                  {entry.label}
+                  {entry.drops ? (
+                    <span className="tabular-nums font-bold text-accent">−{entry.drops}</span>
+                  ) : null}
+                  <X className="size-3.5 text-muted-foreground" aria-hidden />
+                </NavLink>
+              ))}
+              {hidden > 0 || narrowing.length > 1 ? (
+                <NavLink
+                  href={hidden > 0 ? showAllHref : clearAllHref}
+                  scroll={false}
+                  prefetch={false}
+                  className="tap focus-ring inline-flex min-h-11 items-center rounded-full px-2 text-[12px] font-bold text-accent underline-offset-2 hover:underline md:min-h-8"
+                >
+                  {hidden > 0 ? `Show all ${audience.candidates.length + hidden}` : "Clear all"}
+                </NavLink>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {/* No JavaScript: a <details>, like Narrow down. Each row is the FIRST
+            thing keeping those families off, so the rows add up. */}
+        {funnel.owing > 0 ? (
+          <details className="reveal group border-t border-accent/20 pt-1.5">
+            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-md text-[12px] font-bold text-accent md:min-h-8">
+              Why {audience.candidates.length}?
+              <span className="font-semibold text-muted-foreground group-open:hidden">
+                See who is left out
+              </span>
+            </summary>
+            <ul className="flex flex-col gap-1 pb-1 text-[12px] leading-snug text-foreground">
+              <li className="flex justify-between gap-3">
+                <span>Owe on {tileWord}</span>
+                <span className="tabular-nums font-bold">{funnel.owing}</span>
+              </li>
+              {funnelRows.map((row) => (
+                <li key={row.label} className="flex justify-between gap-3 text-muted-foreground">
+                  <span>− {row.label}</span>
+                  <span className="tabular-nums font-semibold">{row.count}</span>
+                </li>
+              ))}
+              {addedByHand > 0 ? (
+                <li className="flex justify-between gap-3 text-muted-foreground">
+                  <span>+ added by hand</span>
+                  <span className="tabular-nums font-semibold">{addedByHand}</span>
+                </li>
+              ) : null}
+              <li className="flex justify-between gap-3 border-t border-accent/20 pt-1 font-bold">
+                <span>On the list</span>
+                <span className="tabular-nums">{audience.candidates.length}</span>
+              </li>
+            </ul>
+          </details>
+        ) : null}
         {/* The reconciliation runs to a paragraph of figures; it answers "why
             this number" when somebody asks, so it waits to be opened. */}
         {notes.length > 0 ? (
@@ -377,6 +642,7 @@ export function AudienceBuilder({
               title={`Installment ${installment}`}
               subtitle={tile.label}
               count={audience.tileCounts.byInstallment[installment - 1] ?? 0}
+              owing={audience.tileOwingCounts.byInstallment[installment - 1] ?? 0}
             />
           );
         })}
@@ -384,8 +650,13 @@ export function AudienceBuilder({
           href={lastYearTileHref(filters, calendarDefault)}
           selected={filters.lastYear}
           title="Last year"
-          subtitle="Carried forward from last session"
+          subtitle={
+            selectedInstallments.length > 0
+              ? "Adds last session’s balance"
+              : "Carried forward from last session"
+          }
           count={audience.tileCounts.lastYear}
+          owing={audience.tileOwingCounts.lastYear}
         />
       </div>
 
@@ -401,39 +672,169 @@ export function AudienceBuilder({
           {INSTALLMENT_MATCHES.map((entry) => {
             const active = entry.value === filters.installmentMatch;
             return (
-              <Link
+              <NavLink
                 key={entry.value}
                 href={installmentMatchHref(filters, entry.value)}
                 scroll={false}
                 prefetch={false}
                 aria-current={active ? "true" : undefined}
                 className={cn(
-                  "focus-ring inline-flex min-h-11 items-center px-3.5 text-[12px] font-bold transition-colors md:min-h-9",
+                  "tap focus-ring inline-flex min-h-11 items-center px-3.5 text-[12px] font-bold md:min-h-9",
                   active
                     ? "bg-accent/12 text-foreground"
                     : "bg-card text-muted-foreground hover:text-foreground",
                 )}
               >
                 {entry.label}
-              </Link>
+              </NavLink>
             );
           })}
         </div>
       ) : null}
 
+      {/* ---------------------------------------------------------- profiles */}
+      {/* Always open, unlike Narrow down: how hard each family is chased is
+          the decision the office makes every run, and Hardship and Quiet are
+          OUT by default — a choice that changes who is messaged is never
+          folded away. Each chip's number is who it would add. */}
+      <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <p className="text-[12.5px] font-bold text-foreground">Reminder profiles</p>
+          <NavLink
+            href="/fees/reminders/families"
+            prefetch={false}
+            className="focus-ring rounded text-[11.5px] font-semibold text-accent underline-offset-2 hover:underline"
+          >
+            Change a family&rsquo;s profile
+          </NavLink>
+        </div>
+        <div
+          role="group"
+          aria-label="Which reminder profiles this run reaches"
+          className="flex flex-wrap gap-1.5"
+        >
+          {REMINDER_PROFILES.map((entry) => {
+            const on = filters.profiles.includes(entry.value);
+            const href = profileToggleHref(filters, entry.value);
+            const chip = (
+              <>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "grid size-4 place-items-center rounded border",
+                    on ? "border-accent bg-accent text-accent-foreground" : "border-border-strong",
+                  )}
+                >
+                  {on ? <Check className="size-3" strokeWidth={3} /> : null}
+                </span>
+                <ProfileBadge profile={entry.value} />
+                <span className="tabular-nums text-[12px] font-extrabold text-foreground">
+                  {audience.profileCounts[entry.value] ?? 0}
+                </span>
+              </>
+            );
+            const className = cn(
+              "tap focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-full border px-2.5 md:min-h-9",
+              on
+                ? "border-accent/50 bg-accent/[0.06]"
+                : "border-border bg-card hover:border-border-strong",
+            );
+            return href === null ? (
+              <span
+                key={entry.value}
+                aria-current="true"
+                aria-disabled="true"
+                title={entry.hint}
+                className={className}
+              >
+                {chip}
+              </span>
+            ) : (
+              <NavLink
+                key={entry.value}
+                href={href}
+                scroll={false}
+                prefetch={false}
+                title={entry.hint}
+                aria-current={on ? "true" : undefined}
+                className={className}
+              >
+                {chip}
+              </NavLink>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ------------------------------------------------------- narrow down */}
       {/* Folded on every viewport. Open by itself the moment any of it is
           applied, so a narrowed list never hides the fact; the summary line
           carries what is applied either way. */}
-      <details open={narrowing.length > 0} className="border-t border-border pt-3">
+      <details open={narrowing.length > 0} className="reveal border-t border-border pt-3">
         <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 text-[12.5px] font-bold text-foreground md:min-h-0">
           <span>Narrow down</span>
           <span className="max-w-[62%] truncate text-[11px] font-semibold text-muted-foreground">
-            {narrowing.length > 0 ? narrowing.join(" · ") : "Every class, whatever they have paid"}
+            {narrowing.length > 0
+              ? narrowing.map((entry) => entry.label).join(" · ")
+              : "Every class, whatever they have paid"}
           </span>
         </summary>
-        <form method="get" className="pt-3">
-          <div className="grid grid-cols-2 gap-x-3 gap-y-3.5 md:grid-cols-4">
+        {/* One tap each — see `Choice`. Only the two typed values (a class,
+            an amount) still need the small form below. */}
+        <div className="grid gap-x-4 gap-y-3.5 pt-3 md:grid-cols-2">
+          <Choice
+            label="Paid so far"
+            hint={`Nothing yet is at most ${formatInr(DEFAULT_MAX_TOTAL_PAID)} received.`}
+            options={PAID_OPTIONS.map((entry) => ({
+              label: entry.label === "Either" ? "Anyone" : entry.label,
+              href: choiceHref("paid", entry.value === "any" ? null : entry.value),
+              active: filters.paid === entry.value,
+            }))}
+          />
+          <Choice
+            label="Late fee on these installments"
+            options={[
+              { value: "any", label: "Anyone" },
+              { value: "yes", label: "Still charged" },
+              { value: "no", label: "Not charged" },
+            ].map((entry) => ({
+              label: entry.label,
+              href: choiceHref("lateFee", entry.value === "any" ? null : entry.value),
+              active: filters.lateFee === entry.value,
+            }))}
+          />
+          <Choice
+            label="Promise to pay"
+            hint="From the office's own contact log."
+            options={PROMISE_OPTIONS.map((entry) => ({
+              label: entry.label,
+              href: choiceHref("promise", entry.value === "skip_open" ? null : entry.value),
+              active: filters.promise === entry.value,
+            }))}
+          />
+          <Choice
+            label="Also"
+            options={[
+              ...(offerSkipOverdue
+                ? [
+                    {
+                      label: "Skip families already overdue earlier",
+                      href: choiceHref("skipOverdue", filters.skipOverdue ? null : "on"),
+                      active: filters.skipOverdue,
+                    },
+                  ]
+                : []),
+              {
+                label: "Include RTE students",
+                href: choiceHref("includeRte", filters.includeRte ? null : "on"),
+                active: filters.includeRte,
+              },
+            ]}
+          />
+        </div>
+
+        <form method="get" className="pt-3.5">
+          <div className="grid grid-cols-2 items-end gap-x-3 gap-y-3.5 md:grid-cols-[1fr_1fr_auto]">
             <Field id="classId" label="Class">
               <SelectNative
                 id="classId"
@@ -451,40 +852,6 @@ export function AudienceBuilder({
                 ))}
               </SelectNative>
             </Field>
-
-            <Field
-              id="paid"
-              label="Paid so far"
-              hint={`Nothing yet is at most ${formatInr(DEFAULT_MAX_TOTAL_PAID)} received.`}
-            >
-              <SelectNative id="paid" name="paid" defaultValue={filters.paid} className={CONTROL}>
-                {PAID_OPTIONS.map((entry) => (
-                  <option key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-
-            <Field
-              id="lateFee"
-              label="Late fee on the ledger"
-              hint="On the selected installments."
-            >
-              <SelectNative
-                id="lateFee"
-                name="lateFee"
-                defaultValue={filters.lateFee}
-                className={CONTROL}
-              >
-                {TRI_OPTIONS.map((entry) => (
-                  <option key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-
             <Field id="minDueAmount" label="Owing at least">
               <Input
                 id="minDueAmount"
@@ -496,51 +863,7 @@ export function AudienceBuilder({
                 className={CONTROL}
               />
             </Field>
-
-            <Field
-              id="promise"
-              label="Promise to pay"
-              hint="From the office's own contact log."
-              className="col-span-2"
-            >
-              <SelectNative
-                id="promise"
-                name="promise"
-                defaultValue={filters.promise}
-                className={CONTROL}
-              >
-                {PROMISE_OPTIONS.map((entry) => (
-                  <option key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-
-            <div className="col-span-2 flex flex-col justify-end gap-1.5">
-              {offerSkipOverdue ? (
-                <label className="flex min-h-11 items-center gap-2 text-[12.5px] font-semibold md:min-h-0">
-                  <input
-                    type="checkbox"
-                    name="skipOverdue"
-                    defaultChecked={filters.skipOverdue}
-                    className="size-4 rounded border-border-strong accent-accent"
-                  />
-                  Skip families already overdue on an earlier installment
-                </label>
-              ) : null}
-              <label className="flex min-h-11 items-center gap-2 text-[12.5px] font-semibold md:min-h-0">
-                <input
-                  type="checkbox"
-                  name="includeRte"
-                  defaultChecked={filters.includeRte}
-                  className="size-4 rounded border-border-strong accent-accent"
-                />
-                Include RTE students
-              </label>
-            </div>
-
-            <div className="col-span-2 flex justify-end md:col-span-4">
+            <div className="col-span-2 flex justify-end md:col-span-1">
               {/* `max-md:h-11`, not `h-11`: the button primitive carries a
                   compound variant `{ size: "sm", class: "max-md:h-10" }` that a
                   bare `h-11` loses to inside the media query, so Apply measured
@@ -550,8 +873,9 @@ export function AudienceBuilder({
               </Button>
             </div>
           </div>
-          {/* The tiles are NOT this form's keys, so they ride along as hidden
-              inputs and pressing Apply cannot reset them. */}
+          {/* The tiles and the one-tap choices are NOT this form's keys, so
+              they ride along as hidden inputs and pressing Apply cannot reset
+              them. */}
           <CarriedFilterFields filters={filters} except={FILTER_FORM_KEYS} />
         </form>
       </details>
@@ -621,7 +945,7 @@ export function AudienceBuilder({
             </p>
             <div className="flex flex-wrap gap-1.5">
               {matches.map((brief) => (
-                <Link
+                <NavLink
                   key={brief.studentId}
                   href={`?${reminderQuery(filters, {
                     include: [...filters.includeStudentIds, brief.studentId].join(","),
@@ -632,7 +956,7 @@ export function AudienceBuilder({
                 >
                   {brief.studentName} · {brief.admissionNo} · {brief.studentClass}
                   {brief.phoneOnRecord ? "" : " · no phone"}
-                </Link>
+                </NavLink>
               ))}
             </div>
           </div>
@@ -683,12 +1007,4 @@ export function AudienceBuilder({
  * hidden input, or pressing Apply would reset choices the office made, all of
  * which a parent then reads.
  */
-const FILTER_FORM_KEYS = [
-  "paid",
-  "minDueAmount",
-  "lateFee",
-  "promise",
-  "skipOverdue",
-  "classId",
-  "includeRte",
-] as const satisfies readonly ReminderQueryKey[];
+const FILTER_FORM_KEYS = ["minDueAmount", "classId"] as const satisfies readonly ReminderQueryKey[];

@@ -1,6 +1,10 @@
 import "server-only";
 
 import { getOptionalEnvVar, getSiteUrl, getVppsOneEnvironment } from "@/platform/env";
+import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import type { ParentCategory } from "@/modules/collection/domain/parent-policy";
+import type { ParentNoticeKind, ParentSendActor } from "@/platform/messaging/parent-send-gate";
 import { classifyResponse, type TransportOutcome } from "@/modules/staff-notices/domain/notices";
 import { isTeacherTaskCampaign, type MessageSend } from "@/modules/collection/domain/messages";
 import {
@@ -37,8 +41,51 @@ export type DispatchResult =
 export type MessageProvider = {
   /** Recorded in evidence so a run can say which provider produced it. */
   readonly id: "aisensy" | "mock";
-  send(send: MessageSend): Promise<DispatchResult>;
+  send(send: MessageSend, context?: DispatchContext): Promise<DispatchResult>;
 };
+
+/** What the dispatcher knows about a parent message that the row does not carry. */
+export type DispatchContext = { category?: ParentCategory };
+
+/** A native parent category as the parent-send gate names it (absences share one kind). */
+export function parentNoticeKindFor(category: ParentCategory | undefined): ParentNoticeKind {
+  return category === "absence_notice" ? "absent_notice" : (category ?? "general");
+}
+
+/**
+ * A parent message goes through the same choke point as the ported fee
+ * senders (go-live Phase D, critique0 #10): `sendAisensyCampaignMessage`,
+ * which asks the parent-send gate first. An absence here is the `native`
+ * path, so it goes only when `runtime_flags.absent_notice_owner` says so —
+ * never alongside the fees app's "Absent today" notice.
+ */
+async function sendParentThroughGate(send: MessageSend, context?: DispatchContext): Promise<DispatchResult> {
+  const actor: ParentSendActor = await getCurrentStaff()
+    .then((staff): ParentSendActor => (staff ? { userId: staff.userId } : "system"))
+    .catch((): ParentSendActor => "unknown");
+  const kind = parentNoticeKindFor(context?.category);
+  const result = await sendAisensyCampaignMessage({
+    campaignName: send.templateCode,
+    destination: `+91${send.toPhone}`,
+    userName: send.toName ?? "",
+    templateParams: send.variables,
+    source: "vppsone/messages",
+    gate: {
+      kind,
+      ...(kind === "absent_notice" ? { absentPath: "native" as const } : {}),
+      sessionLabel: null,
+      actor,
+    },
+  });
+  if (result.ok) return { ok: true, providerMessageId: result.messageId?.trim() ?? "" };
+  return {
+    ok: false,
+    outcome: result.deliveryUnknown ? "unknown" : "rejected",
+    error: result.refused ? result.error : result.deliveryUnknown
+      ? "The provider result is unknown. Check its delivery log before doing anything else."
+      : `The provider refused it (${result.status}).`,
+  };
+}
 
 /** Explicit deployment contract; dev database mode never enables a task mock. */
 export function taskDeliveryAvailability(): "ready" | "test_mode" | "unavailable" {
@@ -64,7 +111,8 @@ export function classifyTaskResponse(status: number, body: unknown): TransportOu
 const aisensyProvider: MessageProvider = {
   id: "aisensy",
 
-  async send(send) {
+  async send(send, context) {
+    if (send.audience === "parent" && !send.taskId) return sendParentThroughGate(send, context);
     if (isTeacherTaskCampaign(send.templateCode) && (!send.taskId || !send.buttonSuffix || !Array.isArray(send.variables) || send.variables.length !== 3)) return { ok: false, outcome: "rejected", error: "Task campaigns require reviewed task delivery." };
     if (send.taskId && !isTeacherTaskCampaign(send.templateCode)) return { ok: false, outcome: "rejected", error: "Invalid task campaign." };
     if (send.taskId && taskDeliveryAvailability() !== "ready") return { ok: false, outcome: "rejected", error: "Task delivery is unavailable or in test mode." };

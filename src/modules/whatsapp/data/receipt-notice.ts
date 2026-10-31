@@ -161,11 +161,14 @@ export async function sendReceiptNotice(
 ): Promise<ReceiptNoticeResult> {
   const { supabase, receiptId, receiptNumber, studentId, sessionLabel, staffId } = args;
 
-  // VPPS One never messages a parent on its own (D-270). The fee app's toggle
-  // came across in the replica as 'true', so on save this sent without anyone
-  // pressing Send. Only a person pressing Send on a receipt reaches a parent.
-  if (args.trigger !== "manual") {
-    return { sent: false, reason: "Receipt notices are only sent when staff press Send." };
+  // As in the fees app: the automatic notice on posting follows the office's
+  // switch. D-270 ("only a person pressing Send") is superseded at cutover by
+  // D-353: every receipt notice, automatic or pressed, now also passes the
+  // parent-send gate in `sendAisensyCampaignMessage`, which refuses unless the
+  // deployment is live, `parent_dispatch` is on and `receipt` is a named
+  // category — so the replica's 'true' toggle alone reaches nobody.
+  if (args.trigger !== "manual" && !(await isReceiptNoticeEnabled(supabase))) {
+    return { sent: false, reason: "Receipt notices are switched off." };
   }
 
   // One read for everything about this family: the number to use, the language
@@ -312,7 +315,8 @@ export async function sendReceiptNotice(
     destination,
     userName: values.parentName,
     templateParams,
-    source: "veerpatta-fees-app/receipt",
+    source: "vppsone/receipt",
+    gate: { kind: "receipt", sessionLabel, actor: staffId ? { userId: staffId } : "system" },
     ...(prepared
       ? { media: { url: prepared.document.signedUrl, filename: prepared.filename } }
       : {}),
