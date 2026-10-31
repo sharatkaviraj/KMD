@@ -6,6 +6,7 @@ import {
   revalidateAfterPaymentPosting,
   revalidateSessionFinance,
 } from "@/modules/system-sync/data/finance-revalidation";
+import { isTransientParentRefusal } from "@/modules/whatsapp/data/aisensy";
 import { sendReceiptNotice } from "@/modules/whatsapp/data/receipt-notice";
 import { logWarn } from "@/platform/observability/log";
 
@@ -74,10 +75,18 @@ export function createReceiptSender(supabase: Db): ReceiptSender {
       }
       return { outcome: "failed", reason: "The first send failed. Resend from the receipt screen." };
     }
-    // One only: `Not sent: …` is the parent-send gate's refusal (D-353). It is
-    // definite — nothing reached AiSensy — and a rule, not a fault, so it is
-    // suppressed rather than retried.
-    if (/^Not sent: |switched off|no-call|never|No usable WhatsApp|awaiting Meta approval|No receipt campaign/i.test(result.reason)) {
+    // One only: the parent-send gate's refusal (D-353). Nothing reached
+    // AiSensy either way, and the gate's CODE says which kind it was: a rule
+    // (dispatch or the category off, a number not on the allowlist, a bad
+    // destination) is suppressed for good; a read that failed this once
+    // (`read_failed`, `actor_unknown`) is retried at the next pass, or one
+    // database hiccup would lose the parent's receipt for good.
+    if (result.refusalCode) {
+      return isTransientParentRefusal(result.refusalCode)
+        ? { outcome: "failed", reason: result.reason }
+        : { outcome: "suppressed", reason: result.reason };
+    }
+    if (/switched off|no-call|never|No usable WhatsApp|awaiting Meta approval|No receipt campaign/i.test(result.reason)) {
       return { outcome: "suppressed", reason: result.reason };
     }
     return { outcome: "failed", reason: result.reason };

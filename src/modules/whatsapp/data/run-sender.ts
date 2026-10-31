@@ -33,6 +33,11 @@ import { isMissingColumn } from "@/platform/supabase/missing-column";
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { crossCampaignSince, familyMessagedRecently } from "@/modules/whatsapp/domain/cross-campaign-dedupe";
+import {
+  familyHoldsFeesPayCode,
+  loadFeesPayCodeHolders,
+  type FeesPayCodeHolders,
+} from "@/modules/whatsapp/data/fees-pay-codes";
 
 import { lateFeePhrase } from "@/modules/whatsapp/domain/late-fee";
 import { splitHoldout } from "@/modules/whatsapp/domain/run-measurement";
@@ -317,6 +322,23 @@ export async function executeReminderRun(
     ? undefined
     : await loadLatestSends(supabase, toMessage.map((candidate) => candidate.studentId), today);
 
+  // One only (critique0 #4): families who can still pay through a Pay now
+  // link the fees app sent get the text-only notice, never a second, One
+  // Pay now for the same money. Null (could not tell): nobody gets Pay now.
+  // A TEST session has no fees links of its own to collide with.
+  const feesPayCodes = isTestAcademicSessionLabel(sessionLabel)
+    ? undefined
+    : await loadFeesPayCodeHolders(supabase, {
+        studentIds: toMessage.map((candidate) => candidate.studentId),
+        destinations: toMessage.flatMap((candidate) =>
+          [candidate.destination, candidate.secondaryDestination].filter((value): value is string => Boolean(value)),
+        ),
+        today,
+      });
+  if (feesPayCodes === null) {
+    console.warn("[whatsapp-reminders] could not read the fees app's pay codes; this run sends no Pay now button");
+  }
+
   for (let index = 0; index < families.length; index += SEND_CONCURRENCY) {
     const batch = families.slice(index, index + SEND_CONCURRENCY);
     const outcomes = await Promise.all(
@@ -332,6 +354,7 @@ export async function executeReminderRun(
           runId,
           recheckLedger,
           latestSentOn,
+          feesPayCodes,
         }),
       ),
     );
@@ -495,6 +518,8 @@ async function sendFamily(args: {
   recheckLedger?: LedgerRecheck;
   /** Newest send per child under any campaign; undefined in a test session, null when unreadable. */
   latestSentOn?: ReadonlyMap<string, string> | null;
+  /** Fees pay codes still payable; undefined in a test session, null when unreadable. */
+  feesPayCodes?: FeesPayCodeHolders | null;
 }): Promise<FamilyOutcome> {
   const { supabase, family, byStudentId, filters, sessionLabel, today, staffId, runId } = args;
   const outcome = EMPTY_FAMILY_OUTCOME();
@@ -557,7 +582,16 @@ async function sendFamily(args: {
   // several, quoting the phone's total, with a Pay now button. Every member's
   // values come from the same `noticeValuesFor` the per-child path uses, so
   // the figures cannot mean something different in the family message.
-  const v6 = approvedV6Campaign(filters.situation, family.language);
+  //
+  // One only (critique0 #4): not for a family that can still pay through a
+  // fees app link — they get the earlier text-only notice instead.
+  const holdsFeesPayCode =
+    args.feesPayCodes !== undefined &&
+    familyHoldsFeesPayCode(args.feesPayCodes, {
+      studentIds: family.members.map((member) => member.studentId),
+      destinations: family.destinations.map((target) => target.destination),
+    });
+  const v6 = holdsFeesPayCode ? null : approvedV6Campaign(filters.situation, family.language);
   const memberValues = v6
     ? family.members
         .map((member) => byStudentId.get(member.studentId))

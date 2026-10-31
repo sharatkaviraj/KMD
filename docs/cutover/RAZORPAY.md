@@ -79,6 +79,26 @@ Then **add** (the one dashboard change, made by the owner at C6, live mode):
   `payment.dispute.created`. (The fees app's webhook subscribes to 55;
   critique1 B16 — confirming, not changing, that one.)
 
+### 3a. Parents, and the limits they meet (critique1 B16)
+
+- [ ] **A notice to families before the first `_v7` send**, so a Pay now
+  that opens on `one.vpps.co.in` instead of the old address is not taken for
+  a scam: the `school_notice` template (AiSensy, `docs/cutover/AISENSY-TEMPLATES.md`),
+  text approved by the owner, sent by the office from One's school-notice
+  screen once the parent-send gate allows `school_notice` (D-353). Not before
+  the gate is open; never from the fees app.
+- [ ] **The HDFC static UPI QR fallback**: on the open UPI panel (Path A —
+  more than 4 children, a waiver notice, a code minted by the fees app, or no
+  Razorpay key) the owner confirms the payee VPA and name printed under the
+  QR (`SCHOOL_UPI_PAYMENT_CONFIG`, `src/modules/payments/domain/upi.ts`) are
+  the school's HDFC account, unchanged. Money paid there has no Razorpay
+  record and is posted at the desk (§7).
+- [ ] **The limits are the fees app's**: `CHECKOUT_MAX_CHILDREN = 4`
+  (`domain/online/pay-scope.ts`; more children open Path A) and at most **15
+  orders per hour per send** (`public.online_payment_open_order`, fee
+  migration `20261029190000`). Unchanged in One; confirm with
+  `git diff` against the fees app that nobody changed either in the port.
+
 **Both webhooks receive every event.** That is safe because the two apps never
 process each other's payments: One mints `vp1_…` link references and
 `vp1_o_…` order receipts, the fees app `vpps_…` / `vpps_o_…`. The fees app
@@ -103,6 +123,12 @@ posted.
   to 9998 **refuses every posting** (SQLSTATE VPP02) rather than silently
   dropping the band. Removing the key never reaches back below numbers
   already issued (the next is still the day's highest + 1).
+- [ ] **Preflight, before C3 and again before C7:**
+  `node scripts/migrate/online-preflight.mjs` (read-only). It answers GO only
+  when `app_settings.receipt_suffix_floor = '5000'` **and**
+  `vppsone.receipt_suffix_floor()` returns 5000, and exits 2 (NO-GO)
+  otherwise — then stop; do not post or switch anything on. On 31 Oct it
+  answers NO-GO, as it should before T0 (the key is unset).
 - Online receipts take the session's own prefix from
   `fee_policy_configs.receipt_prefix` (SVP for 2026-27, TST for TEST-2026-27),
   the same as the desk.
@@ -168,12 +194,59 @@ Afterwards assert no job calls the fees app:
 | | What happens | Tail after T0 |
 |---|---|---|
 | **(a) Recommended** | At T0 the **owner** turns off the fees app's `online_payment_links_enabled` and `online_payment_checkout_enabled` on the fees app's own online screen — a settings change made through normal use of the fees app, by the owner, never by tooling. Fees orders already open (two-hour links) still post in the fees app. | about 2 hours |
-| (b) No fees change at all | The tail runs to the latest Path A `pay_code_expires_on`. Every tail payment goes to a review queue in One and is posted through One's own engine with its fees receipt number; raw `payments` rows are never copied. One's Pay now skips any student with a fees code still payable. Overpayments are refunded by hand. | up to the latest Path A expiry (2027-01-31 on the 30 Oct extract) |
+| (b) No fees change at all | The tail runs to the tail end below. Every tail receipt `tail-sync.mjs` brings lands in One's tail review (`vppsone` `tail_receipts_review`, Phase 2, D-349) and is posted through One's own engine with its fees receipt number; raw `payments` rows are never copied. One's Pay now skips any family with a fees code still payable (below). Overpayments are refunded by hand. | to the tail end (2027-01-31 on the 30 Oct extract) |
+
+**Under option (a) too, fees Path A codes still open the fees page** — with
+links and checkout off there it shows its static HDFC UPI QR (and the amount
+for a code with one) instead of a Razorpay payment, so the static-QR tail
+below applies to every fees code until it expires, not only to option (b).
 
 With either option, money paid to the HDFC static UPI QR is a manual tail
 with no end date. `tail-sync.mjs` (Phase 2) brings fees receipts, captures and
 events after the watermark, upserting `online_payment_events` on
 `provider_event_id` because both webhooks see every event.
+
+### When the tail ends (critique0 #5)
+
+Over the fees app's `whatsapp_reminder_sends` rows that carry a `pay_code`:
+
+    tail end = the later of
+      max(IST date of created_at) + 21 days      over Path B sends (pay_scope is set)
+      max(pay_code_expires_on)                   over Path A sends
+    and "open-ended" while any such send has no pay_code_expires_on.
+
+`scripts/migrate/fees-quiet-check.mjs` computes it at T0 from the fees app,
+read-only through the sealed reader (`lib/tail.mjs#tailEnd`), and prints
+`TAIL END`. On One's database, against the imported rows (the same rule; run
+it read-only at T0 and again on any day of the tail; `<line>` is the cutover
+watermark, `vppsone.migration_runs` `kind = 'cutover'`):
+
+```sql
+select
+  max((created_at at time zone 'Asia/Kolkata')::date + 21) filter (where pay_scope is not null) as path_b_end,
+  max(pay_code_expires_on)                                                                     as path_a_end,
+  count(*) filter (where pay_code_expires_on is null)                                          as open_ended,
+  count(*) filter (where pay_code_expires_on >= (now() at time zone 'Asia/Kolkata')::date
+                      or (pay_scope is not null
+                          and (created_at at time zone 'Asia/Kolkata')::date + 21 >= (now() at time zone 'Asia/Kolkata')::date)) as still_payable
+from public.whatsapp_reminder_sends
+where pay_code is not null
+  and created_at < '<line>'
+  and session_label !~* '^(test|uat|demo)-';
+```
+
+**One's Pay now skip** (built, critique0 #4): `executeReminderRun` reads the
+same rows (`modules/whatsapp/data/fees-pay-codes.ts`, by the family's
+children, the children in each send's `pay_scope`, and the family's phones)
+and sends any family that can still pay through a fees code the text-only
+notice — no `_v7`, no Pay now — using the rule in
+`platform/migration/cutover-watermark.ts#feesPayCodeStillPayable`. If the
+line or the sends cannot be read, nobody gets Pay now on that run. TEST
+sessions are never held back. A same-day retry of a One send re-uses that
+send's own (already checked) template. Note the open-ended codes: a fees
+Path A code with no expiry (a `late_fee_applied` notice prints no date) holds
+its family to the text-only notice for good, because the fees page would
+take money on it for good; the count is `open_ended` above.
 
 ## 8. Proof, all rolled back on wtgx (31 Oct)
 

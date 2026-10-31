@@ -33,7 +33,12 @@ vi.mock("@/modules/payments/data/online/staff-alerts", () => ({
   drainStaffPaymentAlerts: () => drainStaffPaymentAlerts(),
 }));
 
-import { afterOnlinePosting, postingsForPayments } from "@/modules/payments/data/online/after-posting";
+import {
+  afterOnlinePosting,
+  createReceiptSender,
+  postingsForPayments,
+} from "@/modules/payments/data/online/after-posting";
+import { sendReceiptNotice } from "@/modules/whatsapp/data/receipt-notice";
 
 type Capture = {
   provider_payment_id: string;
@@ -198,5 +203,53 @@ describe("after an online payment posts", () => {
       { studentId: "stu-1", sessionLabel: "TEST-2026-27", paymentId: "pay_Applied1" },
     ]);
     expect(await postingsForPayments(db, ["drop table"])).toEqual([]);
+  });
+});
+
+// One only (go-live Phase E review): the parent-send gate's refusal is judged
+// by its CODE. A rule is suppressed for good; a failed read is retried at the
+// next reconciler pass, or one database hiccup loses the parent's receipt.
+describe("the receipt sender reads the gate's refusal code", () => {
+  const receiptJob = {
+    receiptId: "rcpt-1",
+    receiptNumber: "TSTSVP20261029-0016",
+    studentId: "stu-1",
+    sessionLabel: "TEST-2026-27",
+    amountPaid: 50,
+    paymentDate: "2026-10-29",
+  };
+
+  async function outcomeFor(result: Record<string, unknown>) {
+    vi.mocked(sendReceiptNotice).mockResolvedValueOnce(result as never);
+    return createReceiptSender({})(receiptJob as never);
+  }
+
+  it("retries a refusal that was a failed read", async () => {
+    await expect(
+      outcomeFor({ sent: false, reason: "Not sent: Could not read the parent-message switch. Not sent.", refusalCode: "read_failed" }),
+    ).resolves.toMatchObject({ outcome: "failed" });
+    await expect(
+      outcomeFor({ sent: false, reason: "Not sent: The send gate could not be checked. Not sent.", refusalCode: "read_failed" }),
+    ).resolves.toMatchObject({ outcome: "failed" });
+    await expect(
+      outcomeFor({ sent: false, reason: "Not sent: Could not read the sender's account. Not sent.", refusalCode: "actor_unknown" }),
+    ).resolves.toMatchObject({ outcome: "failed" });
+  });
+
+  it("suppresses a refusal that is a rule", async () => {
+    for (const refusalCode of ["dispatch_off", "category_off", "not_test_recipient", "bad_destination", "not_live"]) {
+      await expect(outcomeFor({ sent: false, reason: "Not sent: rule.", refusalCode })).resolves.toMatchObject({
+        outcome: "suppressed",
+      });
+    }
+  });
+
+  it("still suppresses the receipt notice's own rules, and retries anything else", async () => {
+    await expect(outcomeFor({ sent: false, reason: "Receipt notices are switched off." })).resolves.toMatchObject({
+      outcome: "suppressed",
+    });
+    await expect(outcomeFor({ sent: false, reason: "Could not read the student's ledger." })).resolves.toMatchObject({
+      outcome: "failed",
+    });
   });
 });

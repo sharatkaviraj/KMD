@@ -184,5 +184,5 @@ holds nothing that calls `schoolfees-two` or `vercel.app` (0); `anon` cannot
 read `whatsapp_send_attempts` or execute `staff_payment_alert_claim` /
 `web_push_vapid_keys`; `service_role` can read and update both failure-desk
 tables. The app code behind them (the failure desk's Fix tab; the staff
-payment alerts' push and WhatsApp sender, Phase F) is not ported yet — until
+payment alerts' push and WhatsApp sender, go-live Phase 8, plan §8.4) is not ported yet — until
 it is, the tables fill from their triggers alone.

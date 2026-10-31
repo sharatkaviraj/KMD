@@ -5,6 +5,7 @@ import {
   checkParentSend,
   type ParentSendGate,
   type ParentSendReader,
+  type ParentSendRefusal,
 } from "@/platform/messaging/parent-send-gate";
 
 /**
@@ -41,6 +42,8 @@ export type AisensySendResult =
        * definite "not sent", safe to record as an ordinary failure.
        */
       refused?: true;
+      /** With `refused`: the gate's reason code, so a caller can tell a rule from a failed read. */
+      refusalCode?: ParentSendRefusal;
     };
 
 /**
@@ -163,12 +166,30 @@ export async function parentSendRefusal(
   args: Pick<AisensySendArgs, "campaignName" | "destination" | "gate">,
   reader?: ParentSendReader,
 ): Promise<string | null> {
+  return (await parentSendRefusalWithCode(args, reader))?.sentence ?? null;
+}
+
+/**
+ * The same answer with the gate's code beside the sentence. A caller that
+ * decides between "never retry" and "retry later" branches on the code, never
+ * on the text: `read_failed` and `actor_unknown` are a database read that
+ * failed this once, and every other code is a rule.
+ */
+export async function parentSendRefusalWithCode(
+  args: Pick<AisensySendArgs, "campaignName" | "destination" | "gate">,
+  reader?: ParentSendReader,
+): Promise<{ code: ParentSendRefusal; sentence: string } | null> {
   const verdict = await (async () =>
     checkParentSend(
       { ...args.gate, campaignName: args.campaignName, destination: args.destination },
       reader ?? (await defaultReader()),
     ))().catch(() => ({ ok: false as const, code: "read_failed" as const, reason: "The send gate could not be checked. Not sent." }));
-  return verdict.ok ? null : `Not sent: ${verdict.reason}`;
+  return verdict.ok ? null : { code: verdict.code, sentence: `Not sent: ${verdict.reason}` };
+}
+
+/** Gate refusals that are a failed read, not a rule: worth trying again later. */
+export function isTransientParentRefusal(code: ParentSendRefusal | undefined | null): boolean {
+  return code === "read_failed" || code === "actor_unknown";
 }
 
 /**
@@ -181,9 +202,9 @@ export async function sendAisensyCampaignMessage(
   args: AisensySendArgs,
   reader?: ParentSendReader,
 ): Promise<AisensySendResult> {
-  const refusal = await parentSendRefusal(args, reader);
+  const refusal = await parentSendRefusalWithCode(args, reader);
   if (refusal) {
-    return { ok: false, status: 0, error: refusal, refused: true };
+    return { ok: false, status: 0, error: refusal.sentence, refused: true, refusalCode: refusal.code };
   }
 
   const apiKey = getOptionalEnvVar("AISENSY_API_KEY")?.trim();

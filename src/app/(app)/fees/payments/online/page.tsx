@@ -1,4 +1,5 @@
 import { readRazorpayConfig } from "@/modules/payments/data/online/razorpay-client";
+import { readOnlineScreen } from "@/modules/payments/data/online/screen-reads";
 import { readCheckoutOptions, readOnlineSwitches } from "@/modules/payments/data/online/service";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { formatInr } from "@/platform/helpers/currency";
@@ -25,7 +26,9 @@ import { postOnlinePaymentAction, resolveOnlineReviewAction, setOnlineSwitchActi
  *
  * One only (go-live Phase E): the screen also needs One's `fees:accounts`, the
  * permission its nav entry is gated on, so the fee vocabulary's broader
- * `payments:write` (every collector) does not reach it by URL. The fees app's
+ * `payments:write` (every collector) does not reach it by URL. Every list is
+ * fenced by session (`data/online/screen-reads.ts`): a test account sees TEST
+ * payments only, real staff never see them, a real admin sees both. The fees app's
  * "Staff alerts" section (push to staff phones, WhatsApp to office numbers)
  * arrives with the staff alerts sender in go-live Phase 8; its switch,
  * `online_payment_staff_whatsapp_enabled`, is not offered here until then.
@@ -130,6 +133,8 @@ const NOTICES: Record<string, { tone: "success" | "warning"; text: string }> = {
   note_needed: { tone: "warning", text: "Write what was done before marking it resolved." },
   switched: { tone: "success", text: "Switch changed." },
   not_switched: { tone: "warning", text: "Not changed: that switch cannot be set from here." },
+  switch_refused: { tone: "warning", text: "Not changed: fee settings cannot be written right now. Nothing was recorded." },
+  not_resolved: { tone: "warning", text: "Not resolved: the change was refused. Nothing was recorded." },
 };
 
 export default async function OnlinePaymentsPage({
@@ -139,7 +144,7 @@ export default async function OnlinePaymentsPage({
 }) {
   const resolvedSearchParams = await searchParams;
   const notice = typeof resolvedSearchParams.notice === "string" ? NOTICES[resolvedSearchParams.notice] : undefined;
-  await requirePermission("fees:accounts", "/fees/payments/online");
+  const viewer = await requirePermission("fees:accounts", "/fees/payments/online");
   const staff = await requireStaffPermission("payments:write");
   const canResolve = hasStaffPermission(staff, "finance:approve");
   const canSwitch = hasStaffPermission(staff, "settings:write");
@@ -147,34 +152,17 @@ export default async function OnlinePaymentsPage({
   const config = readRazorpayConfig();
   const webhookConfigured = Boolean(process.env.RAZORPAY_WEBHOOK_SECRET?.trim());
 
-  const [switches, recon, attention, intents, outbox, audit, orders, checkoutSetting, checkoutOptions] = await Promise.all([
+  // One only: every list below is fenced by session (`screen-reads.ts`). A
+  // test account sees TEST payments only, real staff never see them, a real
+  // admin sees both — the service-role client bypasses the database's fence.
+  const [switches, screen, checkoutSetting, checkoutOptions] = await Promise.all([
     readOnlineSwitches(supabase),
-    supabase.from("v_online_payment_reconciliation").select("*").order("captured_on", { ascending: false }).limit(14),
-    supabase
-      .from("online_payment_captures")
-      .select("id, provider_payment_id, amount_paise, method, application_status, review_reason, resolution_note, created_at, intent_id, online_payment_intents(public_ref, students(admission_no, full_name)), online_payment_orders(public_ref, online_payment_order_lines(amount_rupees, students(admission_no, full_name)))")
-      .in("application_status", ["pending", "review_required"])
-      .order("created_at", { ascending: true })
-      .limit(50),
-    supabase
-      .from("online_payment_intents")
-      .select("id, status, amount_rupees, provider_mode, superseded_reason, last_error, created_at, students(admission_no, full_name)")
-      .order("created_at", { ascending: false })
-      .limit(30),
-    supabase
-      .from("notification_outbox")
-      .select("id, status, attempts, last_error, updated_at, payload")
-      .order("created_at", { ascending: false })
-      .limit(30),
-    supabase.from("online_payment_audit").select("id, action, actor, created_at, detail").order("id", { ascending: false }).limit(40),
-    supabase
-      .from("online_payment_orders")
-      .select("id, status, amount_rupees, provider_mode, superseded_reason, last_error, created_at, online_payment_order_lines(line_no, amount_rupees, students(admission_no, full_name))")
-      .order("created_at", { ascending: false })
-      .limit(20),
+    readOnlineScreen(supabase, { role: viewer.role, isTestAccount: viewer.isTestAccount === true }),
     supabase.from("app_settings").select("value").eq("key", "online_payment_checkout_enabled").maybeSingle(),
     readCheckoutOptions(supabase),
   ]);
+  const { recon, attention, intents, outbox, audit, orders } = screen;
+  const fenced = screen.scope !== "all";
   const orderRows = (orders.data ?? []) as unknown as OrderListRow[];
   const checkoutOn = String((checkoutSetting.data as { value?: string } | null)?.value ?? "").toLowerCase() === "true";
 
@@ -270,7 +258,14 @@ export default async function OnlinePaymentsPage({
         </ul>
       </SectionCard>
 
-      <SectionCard title="Reconciliation" description="By the day the money was captured (India time).">
+      <SectionCard
+        title="Reconciliation"
+        description={
+          fenced
+            ? "By the day the money was captured (India time), for the sessions you can open."
+            : "By the day the money was captured (India time)."
+        }
+      >
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-xs text-muted-foreground">
@@ -414,7 +409,14 @@ export default async function OnlinePaymentsPage({
         </ul>
       </SectionCard>
 
-      <SectionCard title="History" description="Every decision about online money, newest first. It cannot be edited.">
+      <SectionCard
+        title="History"
+        description={
+          fenced
+            ? "Switch changes, newest first. The full trail names payments in every session and is shown to the administrator."
+            : "Every decision about online money, newest first. It cannot be edited."
+        }
+      >
         <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
           {(audit.data ?? []).map((row: { id: number; action: string; actor: string; created_at: string }) => (
             <li key={row.id}>

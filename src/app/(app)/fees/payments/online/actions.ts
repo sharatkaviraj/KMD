@@ -99,11 +99,14 @@ export async function resolveOnlineReviewAction(formData: FormData): Promise<voi
   if (!/^[0-9a-f-]{36}$/i.test(captureId) || note.length < 5) redirect(`${PATH}?notice=note_needed`);
   const supabase = createAdminClient();
   if (!(await captureVisible(viewer, supabase, captureId))) redirect(`${PATH}?notice=note_needed`);
-  await supabase.rpc("online_payment_resolve_review", {
+  // One only: a refused call (the fee write guard, or the function itself) is
+  // reported as refused, never as "resolved".
+  const { error } = await supabase.rpc("online_payment_resolve_review", {
     p_capture_id: captureId,
     p_staff_id: staff.id,
     p_note: note,
   });
+  if (error) redirect(`${PATH}?notice=not_resolved`);
   revalidatePath(PATH);
   redirect(`${PATH}?notice=resolved`);
 }
@@ -123,9 +126,13 @@ export async function setOnlineSwitchAction(formData: FormData): Promise<void> {
   if (!(ONLINE_SWITCH_KEYS as readonly string[]).includes(key)) redirect(`${PATH}?notice=not_switched`);
   if (!(await passesFence(() => assertNotTestAccount(viewer)))) redirect(`${PATH}?notice=not_switched`);
   const supabase = createAdminClient();
-  await supabase
+  // One only: while fee writes are test-only the fee write guard refuses this
+  // upsert (403 VPP01). Then nothing moved, so nothing is audited and the
+  // screen says so — never "Switch changed." over a switch that did not.
+  const { error } = await supabase
     .from("app_settings")
     .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) redirect(`${PATH}?notice=switch_refused`);
   await supabase.from("online_payment_audit").insert({
     action: "switch_changed",
     detail: { key, value },

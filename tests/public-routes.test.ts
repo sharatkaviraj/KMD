@@ -111,6 +111,76 @@ describe("routes that authenticate by a secret, signature or token", () => {
   });
 });
 
+/**
+ * The converse (go-live Phase E review): everything a signed-out request can
+ * reach — every route handler, every page and every server-action file under
+ * a public prefix — checks a credential of its own, or is on this list with
+ * the reason it needs none. A new `route.ts` under `/api/fees/cron` that
+ * forgot its secret, or a page under `/pay` that skipped the pay-code check,
+ * fails here instead of being quietly public.
+ */
+const PUBLIC_TOKEN =
+  /isPayCodeShaped|loadCheckoutSend|resolveToken|resolveStaffToken|resolveTaskToken|limitByToken|resolvePass/;
+
+const OPEN_BY_DESIGN: Record<string, string> = {
+  "src/app/rv/[code]/page.tsx":
+    "The parent's receipt check (the fees app's /r/{number}): shows a receipt number, date, amount and reversal state for the number in the URL, nothing about the child.",
+};
+
+/** The file's own source, plus the source of any module it re-exports from (`export … from "@/…"`). */
+function sourceWithReexports(file: string): string {
+  const own = readFileSync(file, "utf8");
+  const targets = [...own.matchAll(/export\s+(?:\*|\{[^}]*\})\s+from\s+"@\/([^"]+)"/g)].map((match) => match[1]);
+  return [
+    own,
+    ...targets.map((target) => {
+      for (const ext of [".ts", ".tsx"]) {
+        const candidate = path.join(ROOT, "src", `${target}${ext}`);
+        try {
+          return readFileSync(candidate, "utf8");
+        } catch {
+          // try the next extension
+        }
+      }
+      return "";
+    }),
+  ].join("\n");
+}
+
+const reachableWithoutSession = walk(APP)
+  .filter((file) => /[\\/](route\.tsx?|page\.tsx)$/.test(file) || /^\s*["']use server["']/.test(readFileSync(file, "utf8")))
+  .map((file) => ({ file: path.relative(ROOT, file).replace(/\\/g, "/"), url: urlOf(file), abs: file }))
+  // The prefixes, not PUBLIC_PATHS: those are the sign-in pages themselves.
+  .filter((entry) => PUBLIC_PREFIXES.some((prefix) => entry.url === prefix || entry.url.startsWith(`${prefix}/`)));
+
+describe("everything under a public prefix checks its own credential", () => {
+  it("finds the routes, pages and actions a signed-out request reaches", () => {
+    const files = reachableWithoutSession.map((entry) => entry.file);
+    expect(files).toContain("src/app/pay/[code]/page.tsx");
+    expect(files).toContain("src/app/pay/[code]/actions.ts");
+    expect(files).toContain("src/app/pay/[code]/checkout-actions.ts");
+    expect(files).toContain("src/app/api/fees/webhooks/razorpay/route.ts");
+    expect(files).toContain("src/app/r/[token]/page.tsx");
+    expect(files).toContain("src/app/rv/[code]/page.tsx");
+  });
+
+  it.each(reachableWithoutSession.filter((entry) => !(entry.file in OPEN_BY_DESIGN)).map((entry) => [entry.file, entry.abs]))(
+    "%s checks a secret, a signature or a token",
+    (file, abs) => {
+      const source = sourceWithReexports(abs);
+      expect(
+        MACHINE_CREDENTIAL.test(source) || PUBLIC_TOKEN.test(source),
+        `${file} is reachable without a session but checks no credential; add the check or list it in OPEN_BY_DESIGN with a reason`,
+      ).toBe(true);
+    },
+  );
+
+  it("keeps the open-by-design list honest", () => {
+    const files = new Set(reachableWithoutSession.map((entry) => entry.file));
+    for (const file of Object.keys(OPEN_BY_DESIGN)) expect(files.has(file), `${file} is gone; remove it`).toBe(true);
+  });
+});
+
 describe("a cold request with no cookie", () => {
   beforeEach(() => {
     signedIn = false;

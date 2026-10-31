@@ -87,7 +87,7 @@ export const SKIP_TABLES = new Set([
  *      `staff_payment_alert_claim` (fees 20261030170000) takes push_status
  *      queued, or whatsapp_status queued/partial/failed with fewer than five
  *      attempts, for two days. Those alerts were the fees app's to deliver:
- *      once One's sender runs (Phase F) it would otherwise tell the office a
+ *      once One's sender runs (go-live Phase 8, plan §8.4) it would otherwise tell the office a
  *      second time about a payment the fees app already announced. Two
  *      columns, so the second rides in `also`.
  */

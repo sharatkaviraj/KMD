@@ -9,6 +9,7 @@ import {
   isOneOwnedAppSetting,
   reconcilerWouldPickUp,
 } from "../scripts/migrate/lib/import-rules.mjs";
+import { receiptFloorVerdict } from "../scripts/migrate/lib/online-preflight.mjs";
 import { ONLINE_SWITCH_KEYS } from "@/modules/payments/domain/online/switches";
 
 /**
@@ -77,6 +78,36 @@ describe("every non-terminal online row is made terminal or left out on import",
     },
   };
 
+  it("staff_payment_alerts: every push and WhatsApp state, within the claim's two days, is left for nobody", () => {
+    // staff_payment_alert_claim (fees 20261030170000): push_status queued, or
+    // whatsapp_status queued/partial/failed with fewer than five attempts,
+    // created in the last two days. Imported rows are made terminal, so One's
+    // sender (Phase 8) never announces a payment the fees app already did.
+    expect(TERMINAL_RULES.staff_payment_alerts).toBeDefined();
+    for (const push of ["queued", "sent", "no_devices", "failed"]) {
+      for (const whatsapp of ["queued", "partial", "failed", "sent", "off", "not_configured"]) {
+        const source = {
+          id: "x",
+          push_status: push,
+          whatsapp_status: whatsapp,
+          whatsapp_attempts: 0,
+          locked_until: "2026-12-13T00:05:00Z",
+          created_at: "2026-12-13T00:00:00Z",
+        };
+        const { row } = importTransform("staff_payment_alerts", source);
+        expect(row, `${push}/${whatsapp}`).not.toBeNull();
+        expect(reconcilerWouldPickUp("staff_payment_alerts", row), `${push}/${whatsapp}`).toBe(false);
+        if (row !== source) expect(row.locked_until).toBeNull();
+      }
+    }
+  });
+
+  it("the extract reads public base tables only, so private.web_push_vapid is never copied", () => {
+    const catalog = read("scripts/migrate/lib/catalog.mjs");
+    expect(catalog).toContain("c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p')");
+    expect(read("scripts/migrate/lib/import-rules.mjs")).toMatch(/"staff_push_subscriptions",\n\]\);/);
+  });
+
   for (const [table, { column, values }] of Object.entries(STATES)) {
     it(`${table}: no imported row is one a reconciler would take`, () => {
       expect(TERMINAL_RULES[table as keyof typeof TERMINAL_RULES]).toBeDefined();
@@ -87,6 +118,23 @@ describe("every non-terminal online row is made terminal or left out on import",
       }
     });
   }
+});
+
+describe("the receipt-band preflight before C3/C7 (critique0 #9)", () => {
+  it("goes only with the setting at '5000' and the function answering 5000", () => {
+    expect(receiptFloorVerdict({ settingValue: "5000", functionValue: 5000 })).toEqual({ ok: true, problems: [] });
+  });
+
+  it("stops on a missing key, another value, or a refusal", () => {
+    expect(receiptFloorVerdict({ settingValue: null, functionValue: 0 }).ok).toBe(false);
+    expect(receiptFloorVerdict({ settingValue: "500", functionValue: 500 }).ok).toBe(false);
+    expect(receiptFloorVerdict({ settingValue: "50x0", functionValue: new Error("VPP02") }).problems).toHaveLength(2);
+    expect(receiptFloorVerdict({ settingValue: "5000", functionValue: 0 }).ok).toBe(false);
+  });
+
+  it("is named in the cutover sheet", () => {
+    expect(read("docs/cutover/RAZORPAY.md")).toContain("scripts/migrate/online-preflight.mjs");
+  });
 });
 
 describe("the seven switches are One's own", () => {
