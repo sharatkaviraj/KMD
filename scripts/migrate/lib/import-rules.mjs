@@ -87,7 +87,7 @@ export const SKIP_TABLES = new Set([
  *      `staff_payment_alert_claim` (fees 20261030170000) takes push_status
  *      queued, or whatsapp_status queued/partial/failed with fewer than five
  *      attempts, for two days. Those alerts were the fees app's to deliver:
- *      once One's sender runs (Phase F) it would otherwise tell the office a
+ *      once One's sender runs (go-live Phase 8, plan §8.4) it would otherwise tell the office a
  *      second time about a payment the fees app already announced. Two
  *      columns, so the second rides in `also`.
  */
@@ -154,11 +154,14 @@ export function importTransform(table, row) {
 }
 
 /**
- * The fees reconcilers' own selection filters, as One will port them
- * (fees src/modules/payments/data/online/orders.ts reconcileOpenOrders and
- * service.ts reconcileOnlinePayments, main 8a0cd47c). An imported row must
- * match none of them. `now` and created_at are ignored on purpose: an import
- * can land within 24 hours of the row's creation. Pure.
+ * The fees reconcilers' own selection filters (fees
+ * src/modules/payments/data/online/orders.ts reconcileOpenOrders and
+ * service.ts reconcileOnlinePayments, main 8a0cd47c). Ported to One in go-live
+ * Phase E from fees origin/main 78e27e4f, unchanged except that One's also
+ * skip every `vpps_` (fees app) link and order; tests/online-import-rules.test.ts
+ * reads the ported source and holds it to these. An imported row must match
+ * none of them. `now` and created_at are ignored on purpose: an import can land
+ * within 24 hours of the row's creation. Pure.
  */
 /** @type {Record<string, Array<(row: any) => boolean>>} */
 export const RECONCILER_FILTERS = {

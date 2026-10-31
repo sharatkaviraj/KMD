@@ -61,6 +61,14 @@ const GUARDS = [
 const OPEN_BY_DESIGN = new Set([
   "src/app/login/actions.ts",
   "src/app/r/[token]/actions.ts",
+  // A parent's Pay now page (go-live Phase E, ported from the fees app): the
+  // visitor is a parent with no account, and the random pay code is the whole
+  // authorization. Each action takes only the code (and, after checkout, which
+  // payment to look at) and re-derives the send, the students and every amount
+  // from the database (`loadCheckoutSend`, `online_payment_open_*`); a code the
+  // fees app minted opens nothing (`cutover-line.ts`).
+  "src/app/pay/[code]/actions.ts",
+  "src/app/pay/[code]/checkout-actions.ts",
 ]);
 
 // These photo actions accept either a signed-in actor or a scoped task/request

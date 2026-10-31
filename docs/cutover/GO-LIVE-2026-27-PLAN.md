@@ -1015,6 +1015,29 @@ the same installment again on an old fees link. Choose one (Q8):
 - All staff templates, existing and new, are on the pre-flight approval
   list.
 
+**8.4 The fees app's staff payment alerts** (added 31 Oct by the Phase 7/E
+review: Phase 7 ported the online payments but not these, and they had no
+owner). The database half is already on wtgx (fee-migration
+`20261030170000_online_payment_staff_alerts`: `staff_payment_alerts`, its
+trigger on `receipts`, `staff_payment_alert_claim`, `staff_push_subscriptions`,
+`private.web_push_vapid`), and the trigger queues an alert for every online
+receipt while nothing sends them. Port from fees `origin/main` 78e27e4f, with
+their tests, routing the staff WhatsApp half through 8.1's
+`vppsone.staff_notices` outbox and transport (One sends nothing to staff
+through the parent gate):
+- `src/modules/payments/data/online/staff-alerts.ts` (the sender; One has a
+  no-op stub today) and `src/modules/payments/domain/online/staff-alert-message.ts`;
+- `src/platform/push/web-push.ts` (Web Push to staff phones, One's own VAPID
+  key pair — never the fees app's);
+- the four staff-alert actions in `src/app/protected/payments/online/actions.ts`
+  and the page's *Staff alerts* section (One: `src/app/(app)/fees/payments/online/`);
+- tests `tests/unit/staff-alert-message.test.ts`,
+  `tests/integration/online-staff-alerts.test.ts`, `tests/unit/web-push.test.ts`.
+- The switch `online_payment_staff_whatsapp_enabled` stays `false` until then
+  (fee-migration `20261031120200`); imported fees alert rows are made terminal
+  (`scripts/migrate/lib/import-rules.mjs`, `TERMINAL_RULES.staff_payment_alerts`),
+  so One never re-announces a payment the fees app already did.
+
 ---
 
 ### Phase 9 — Monitoring, backups, env (PR-9)

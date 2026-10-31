@@ -192,8 +192,10 @@ describe("fee writes are deliberate", () => {
    * must not be is open, so they are held to proving a machine credential
    * instead.
    */
+  // Razorpay's webhook proves its HMAC with `verifyRazorpaySignature` over the
+  // raw body, keyed on RAZORPAY_WEBHOOK_SECRET (go-live Phase E).
   const CHECKS_MACHINE_CREDENTIAL =
-    /CRON_SECRET|JOBS_SECRET|x-aisensy-signature|SCHOOLFEES_DOC_TOKEN|timingSafeEqual/;
+    /CRON_SECRET|JOBS_SECRET|x-aisensy-signature|SCHOOLFEES_DOC_TOKEN|timingSafeEqual|verifyRazorpaySignature\(raw, request\.headers\.get\("x-razorpay-signature"\), secret\)/;
 
   const feeWriteDoors = reachesFeeData.filter((file) => {
     const rel = relative(file);

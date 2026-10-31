@@ -155,10 +155,34 @@ until One had their tables and columns.
 | `20261030190000_whatsapp_failure_desk.sql` | fees copy, body verbatim | `fee_20261030190000_whatsapp_failure_desk` | 20261031042059 |
 | `20261031042100_failure_desk_service_grants.sql` | One-only: service_role on the two failure-desk tables (live has it through default privileges, One has none) | `fee_20261031042100_failure_desk_service_grants` | 20261031042122 |
 
+## Added by go-live Phase E (31 Oct), applied to `wtgxcptmucjerhufzjcf`
+
+All One-only. Proof, rolled back, before and after applying:
+`scripts/migrate/verify-online-vp1-and-floor.sql` (D-354).
+
+| File | What | Ledger name | Ledger version |
+|---|---|---|---|
+| `20261031120000_online_vp1_ownership.sql` | One mints `vp1_` / `vp1_o_`; the four record/apply functions refuse `vpps_` (critique0 #2). Creates `vppsone.replace_in_fee_function()` / `undo_replace_in_fee_function()` for exact, reversible swaps inside a fee body | `fee_20261031120000_online_vp1_ownership` | 20261031064009 |
+| `20261031120100_receipt_suffix_floor.sql` | `app_settings.receipt_suffix_floor` in the three numbering functions (`vppsone.receipt_suffix_floor()`, 0 when unset, refuses a bad value with VPP02); the two online apply functions post with `vppsone.online_receipt_prefix()` instead of `'SVP'` | `fee_20261031120100_receipt_suffix_floor` | 20261031064037 |
+| `20261031120200_online_switches_default_off.sql` | the seven online switches (and the staff-alert one) `'false'`, registered One-owned | `fee_20261031120200_online_switches_default_off` | 20261031064046 |
+
+Checked after applying: grants unchanged on all nine rewritten functions
+(service_role only on the online ones, authenticated + service_role on the
+posting ones, never anon); the two new `vppsone` functions executable by
+authenticated and service_role, not anon; the two rewrite helpers by nobody
+but the owner; `cron.job` still calls nothing on `schoolfees-two` or
+`vercel.app`; `verify:fee-parity` saw exactly the nine functions change and
+its baseline was re-recorded (642 objects).
+
+`vppsone` objects: `replace_in_fee_function`, `undo_replace_in_fee_function`,
+`receipt_suffix_floor`, `online_receipt_prefix`.
+
+## Phase D, checked after applying
+
 Neither fees file schedules a cron job. Checked after applying: `cron.job`
 holds nothing that calls `schoolfees-two` or `vercel.app` (0); `anon` cannot
 read `whatsapp_send_attempts` or execute `staff_payment_alert_claim` /
 `web_push_vapid_keys`; `service_role` can read and update both failure-desk
 tables. The app code behind them (the failure desk's Fix tab; the staff
-payment alerts' push and WhatsApp sender, Phase F) is not ported yet — until
+payment alerts' push and WhatsApp sender, go-live Phase 8, plan §8.4) is not ported yet — until
 it is, the tables fill from their triggers alone.

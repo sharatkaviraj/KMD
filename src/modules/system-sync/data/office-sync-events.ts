@@ -21,7 +21,23 @@ export type PublishOfficeSyncEventPayload = {
 
 export async function publishOfficeSyncEvent(payload: PublishOfficeSyncEventPayload) {
   try {
-    const supabase = await createClient();
+    await publishOfficeSyncEventWith(await createClient(), payload);
+  } catch (error) {
+    console.warn("Unable to publish office sync event.", error);
+  }
+}
+
+/**
+ * The same event through a client the caller already holds. A webhook or a
+ * cron has no staff session, so the cookie client above would insert nothing
+ * under RLS; they pass the service-role client instead.
+ */
+export async function publishOfficeSyncEventWith(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  payload: PublishOfficeSyncEventPayload,
+) {
+  try {
     const { error } = await supabase.from("office_sync_events").insert({
       session_label: payload.sessionLabel,
       entity_type: payload.entityType,
