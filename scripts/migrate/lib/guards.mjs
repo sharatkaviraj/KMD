@@ -51,6 +51,7 @@ export function decideLoadGuard({ environment, hasCutover, feeWritesEnabled, fee
     );
   }
   if (firstLoad && previousApplied > 0) {
+    // previousApplied leaves out loads a backup-one --restore undid (readGuardState).
     reasons.push(`--first-load, but ${previousApplied} applied load(s) already ran: TEST-session rows are copied from live once only (T1).`);
   }
   return { ok: reasons.length === 0, reasons };
@@ -73,6 +74,37 @@ export function decideStorageGuard({ environment, allowDevTarget = false }) {
   return { ok: false, reasons: [`vppsone.deployment says '${environment ?? "unreadable"}', not 'production'.`] };
 }
 
+/**
+ * backup-one --restore (the rollback of cutover steps 3 and 4,
+ * CUTOVER-RUNBOOK-2026-27.md): puts One's tables back to a backup.
+ *  - never once a `cutover` row exists: after T0 One's own postings are the
+ *    record, and a restore would erase them (the way back then is
+ *    ROLLBACK-2026-27.md, never a restore) — not even rehearsed, as its locks
+ *    would stall real postings;
+ *  - only on a database marked production (the restore follows step 2), and
+ *    only while `vppsone.fee_writes_open()` is false (unreadable = open), so
+ *    nothing is being posted while the tables are emptied and refilled.
+ * `rollbackOnly` (--rollback-only: every write rolled back) lifts the last
+ * two, as for load-snapshot: nothing it does persists.
+ */
+export function decideRestoreGuard({ environment, hasCutover, feeWritesOpen, rollbackOnly = false }) {
+  const reasons = [];
+  if (hasCutover) {
+    reasons.push("vppsone.migration_runs has a cutover row: One's postings are the record now; a restore would erase them. Use ROLLBACK-2026-27.md.");
+  }
+  if (!rollbackOnly && environment !== "production") {
+    reasons.push(`vppsone.deployment says '${environment ?? "unreadable"}', not 'production': a restore follows cutover step 2.`);
+  }
+  if (!rollbackOnly && feeWritesOpen !== false) {
+    reasons.push(
+      feeWritesOpen === true
+        ? "vppsone.fee_writes_open() is true: set fee_writes_enabled='false' first, so nothing is posted while the tables are refilled."
+        : "vppsone.fee_writes_open() could not be read; refusing as if fee writes were open.",
+    );
+  }
+  return { ok: reasons.length === 0, reasons };
+}
+
 /** Read the guard inputs over an open `postgres` connection. */
 export async function readGuardState(sql) {
   const [row] = await sql`
@@ -81,8 +113,15 @@ export async function readGuardState(sql) {
       exists (select 1 from vppsone.migration_runs r where r.kind = 'cutover') as has_cutover,
       (select a.value from public.app_settings a where a.key = 'fee_writes_enabled') as fee_writes_enabled,
       vppsone.fee_writes_open() as fee_writes_open,
+      -- A load a later restore undid (backup-one --restore names it in
+      -- undid_runs) no longer counts: the next load is a first load again.
       (select count(*)::int from vppsone.migration_runs r
-        where r.script = 'load-snapshot' and r.kind = 'run' and r.status = 'succeeded') as previous_applied
+        where r.script = 'load-snapshot' and r.kind = 'run' and r.status = 'succeeded'
+          and not exists (
+            select 1 from vppsone.migration_runs u
+            where u.script = 'backup-one-restore' and u.kind = 'rollback' and u.status = 'succeeded'
+              and coalesce(u.summary -> 'undid_runs', '[]'::jsonb) @> to_jsonb(array[r.id::text])
+          )) as previous_applied
   `;
   return {
     environment: row.environment ?? null,

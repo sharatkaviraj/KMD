@@ -22,11 +22,19 @@ import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
-import { FEE_SCHEMA } from "@/platform/env";
+import { createAbsoluteUrl, FEE_SCHEMA } from "@/platform/env";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { addDays, SCHOOL_UTC_OFFSET_MINUTES } from "@/platform/dates";
-import { alertKey, alertPayload, evaluateHealth, healthSummary, needsAttention } from "@/modules/ops-health/domain/health";
+import {
+  alertKey,
+  alertPayload,
+  evaluateHealth,
+  healthSummary,
+  needsAttention,
+  WEBHOOK_PROBE_REQUEST,
+  webhookProbeFinding,
+} from "@/modules/ops-health/domain/health";
 
 /**
  * What each job actually does.
@@ -851,12 +859,34 @@ async function driveBackup(): Promise<Summary> {
  * it queues its alert on a TEST session only, which the outbox sends only to
  * numbers on the test list (D-346). Production uses the real session.
  */
+/**
+ * POST a deliberately wrong signature to this deployment's own webhook. The
+ * route refuses before it reads or writes anything, so the probe leaves no
+ * row. The status, or null when no answer came (a finding, never quiet).
+ */
+async function probeRazorpayWebhook(): Promise<number | null> {
+  try {
+    const response = await fetch(createAbsoluteUrl("/api/webhooks/razorpay"), {
+      ...WEBHOOK_PROBE_REQUEST,
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+    return response.status;
+  } catch {
+    return null;
+  }
+}
+
 export async function healthCheck(day: string): Promise<Summary> {
   const counts = await must(
     createAdminClient().rpc("ops_health_counts", { p_hours: 24 }),
     "the health counts",
   );
-  const result = evaluateHealth(counts as Record<string, unknown>);
+  // The uptime check on the Razorpay webhook (plan §9.1): production only —
+  // a confined deployment has no webhook of its own to answer for.
+  const probe = isConfinedDeployment() ? [] : [webhookProbeFinding(await probeRazorpayWebhook(), counts as Record<string, unknown>)];
+  const result = evaluateHealth(counts as Record<string, unknown>, probe);
   const summary = healthSummary(result);
   if (!needsAttention(result)) return summary;
 

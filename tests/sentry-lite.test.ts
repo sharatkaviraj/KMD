@@ -37,9 +37,9 @@ describe("the DSN", () => {
     expect(authHeader(parseDsn(DSN)!)).toContain("sentry_key=abc123");
   });
 
-  it("reads SENTRY_DSN, else the fee app's NEXT_PUBLIC_SENTRY_DSN, else nothing", () => {
+  it("reads One's own SENTRY_DSN only — never NEXT_PUBLIC_SENTRY_DSN, which may be the fee app's project", () => {
     expect(configuredDsn({})).toBeNull();
-    expect(configuredDsn({ NEXT_PUBLIC_SENTRY_DSN: DSN })?.projectId).toBe("4500000000000001");
+    expect(configuredDsn({ NEXT_PUBLIC_SENTRY_DSN: DSN })).toBeNull();
     expect(configuredDsn({ SENTRY_DSN: "https://k@h.example/7", NEXT_PUBLIC_SENTRY_DSN: DSN })?.projectId).toBe("7");
   });
 });

@@ -11,8 +11,11 @@
  * `onRequestError` hook (src/instrumentation.ts) hands us exactly those, and
  * Sentry accepts a plain HTTP envelope — so this file is the whole client.
  *
- * Off unless a DSN is set (`SENTRY_DSN`, else `NEXT_PUBLIC_SENTRY_DSN`, the
- * name the fee app's project already uses). What it sends is deliberately
+ * Off unless `SENTRY_DSN` is set — One's own Sentry project. Never
+ * `NEXT_PUBLIC_SENTRY_DSN`: that name is set on both Vercel projects and
+ * nothing records whether One's copy is the fee app's project, so reading it
+ * would mix One's errors into the fees project from the day this merged
+ * (review of PR #149). What it sends is deliberately
  * thin, because this app holds children's and families' data:
  *
  *  - the route **template** (`/fees/students/[id]`), never the path with an id
@@ -153,7 +156,7 @@ function newEventId(): string {
 
 /** The DSN this deployment reports to, or null (then nothing is sent). */
 export function configuredDsn(env: Record<string, string | undefined> = process.env): SentryDsn | null {
-  return parseDsn(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN);
+  return parseDsn(env.SENTRY_DSN);
 }
 
 /**

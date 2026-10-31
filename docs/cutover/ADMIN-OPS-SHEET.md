@@ -37,6 +37,9 @@ where key = 'staff_notice_kinds_enabled';
 ```
 (and the template `vx_staff_ops_alert_v1` approved with a Live campaign —
 `STAFF-WHATSAPP.md` §6). The same check in a terminal: `npm run migrate:health`.
+Until that WhatsApp is live (staff dispatch starts at T+7), **nobody is
+alerted automatically**: the Operator runs the terminal check at 08:00 and
+16:00 IST (`PARALLEL-RUN.md` check 1).
 
 When the system check says…
 
@@ -51,7 +54,17 @@ When the system check says…
 | staff WhatsApp failed / uncertain | Messages → Staff | settle unknowns there |
 | fee reminders / school notices / parent messages failed | the provider refused | Fees → WhatsApp → failures desk |
 | … this month (n of cap) | 80% of the month's WhatsApp cap used | slow down, or raise the cap (§6) |
+| AiSensy total this month | every lane together (reminders, notices, receipt notices, One's parent sends, staff) at 80% of the plan (`aisensy_month_plan_cap`, §6) | slow down; check the wallet (below); the owner decides on a bigger plan |
+| Razorpay events waiting over 30 minutes | the 10-minute reconciler is not running (often a wrong timer token — next line) | `select status_code, count(*) from net._http_response group by 1;`; fix the Vault secret by name |
+| timer calls One refused or missed | a pg_cron timer called One and got 401/404/5xx or no answer (pg_cron itself says "succeeded") | 401: the Vault token does not match One's `CRON_SECRET`/`JOBS_SECRET` — re-store it (`one-live-cron-jobs.sql` header); 404: route or env missing; 5xx: Jobs screen / Sentry |
+| Razorpay webhook probe | a wrong signature was not refused with 401 (404 = `RAZORPAY_WEBHOOK_SECRET` missing on Production; before the cutover line a 404 shows as "not configured yet" and is fine) | owner: Vercel Production env, then Razorpay → Webhooks shows the hook enabled (Razorpay disables a hook that keeps failing) |
 | … could not be read | the check itself broke | tell the engineer; treat as unknown, not as fine |
+
+Two weekly checks no script can make (`PARALLEL-RUN.md` W1–W2, Mondays):
+the **AiSensy wallet** balance (Owner, AiSensy dashboard → Wallet: covers
+two more weeks at this month's rate) and the **Supabase advisors**
+(Operator, Supabase dashboard → Advisors, Security and Performance: no new
+ERROR-level finding).
 
 ## 3. Test accounts
 
@@ -101,4 +114,5 @@ than a day.
 | Parent fee reminders a month | `app_settings.whatsapp_month_message_cap` (fees screen *WhatsApp settings*) | 5,000 (wtgx, 31 Oct) |
 | School notices a month | code (`SCHOOL_NOTICE_MONTHLY_BUDGET`) | 3,000 |
 | Staff WhatsApp a month | `update vppsone.runtime_flags set value = '1500'::jsonb where key = 'staff_whatsapp_month_cap';` | 1,000 |
+| AiSensy plan, every lane together (the health pack warns from 80%) | `update vppsone.runtime_flags set value = '<the plan's monthly messages>'::jsonb, enabled = true where key = 'aisensy_month_plan_cap';` | off (not judged) until the owner sets it |
 | Receipt number band | `app_settings.receipt_suffix_floor` | 5000 from C3 until written sign-off |

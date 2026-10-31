@@ -27,8 +27,8 @@ The owner fixed the order of the steps that cannot be undone:
 |---|---|---|---|
 | 1 | **Backup** | Operator | nothing to undo (read-only) |
 | 2 | **Convert to production** | Operator (owner's yes) | `convert-to-production.mjs --revert` per step |
-| 3 | **Quarantine** One's test activity | Operator | restore from step 1's backup |
-| 4 | **First load** (`--first-load`) | Operator | restore `public` from step 1's backup |
+| 3 | **Quarantine** One's test activity | Operator | `backup-one.mjs --restore <step 1 run> --schema vppsone --apply`, then step 2 again |
+| 4 | **First load** (`--first-load`) | Operator | `backup-one.mjs --restore <step 1 run> --schema public --apply` |
 | 5 | **Reconcile** | Operator, Accountant | read-only |
 | 6 | Owner turns **OFF the fees app's New payment links** | Owner | owner turns it back on |
 | 7 | **Tail-sync** | Operator | delete the run's tail review rows |
@@ -63,9 +63,11 @@ line must be yes at T-1, or T0 moves.
 | Real staff have One logins; test accounts exist and are marked | `/staff`; `select count(*) filter (where is_test_account), count(*) from vppsone.staff_profiles where is_active;` | Admin |
 | Training done | `TRAINING-SHEET.md` signed per role; `ADMIN-OPS-SHEET.md` walked through | Admin |
 | **7 green nightly reconciles in a row** (mirror mode) | `reconcile.mjs` exit 0 seven nights running, reports in the run folders | Operator, Accountant |
-| Env inventory settled | `npm run migrate:env-names -- --check` exit 0; `ENV-INVENTORY.md` "To do at C5" list ready | Operator |
-| Health pack quiet (except known items) | `npm run migrate:health` | Operator |
+| Env inventory settled | `npm run migrate:env-names -- --check` exit 0 **and** `npm run migrate:env-names -- --vercel` exit 0 (live Production names, both projects, equal to the committed snapshot — names only); `ENV-INVENTORY.md` "To do at C5" list ready | Operator |
+| Health pack quiet (except known items) | `npm run migrate:health -- --probe https://one.vpps.co.in` (webhook "not configured yet" is expected before C6) | Operator |
 | A fresh backup restores | `npm run migrate:backup-one` then `-- --restore-test <run>` → OK | Operator |
+| **The rollback restore is rehearsed** (steps 3–4 can only be undone by it) | at rehearsal 1 and 2: `npm run migrate:backup-one -- --restore <run>` (dry run: no `!!` line) then `-- --restore <run> --rollback-only` → `REHEARSAL PASSED`; time it (31 Oct: 37 s for 226 tables / 51,481 rows) | Operator |
+| Alerts reach an admin, or the manual check is staffed | either `vx_staff_ops_alert_v1` approved with a Live campaign **and** an admin's consent recorded (then at T0 `ops_alert` on — see "After 14:00"), or the Operator named for the 08:00 and 16:00 manual health check until T+7 (`PARALLEL-RUN.md` check 1) | Owner |
 | A read-only `pg_dump` of fees live, offline | plan I-3 (read-only session, exported snapshot) | Operator |
 | Parents told about the new pay address | `PARENT-NOTICE.md` sent (school notice) at least 3 days before the first `_v7` | Owner |
 | The owner's written go | in the office file | Owner |
@@ -97,11 +99,14 @@ measures them).
 ```
 npm run migrate:backup-one
 npm run migrate:backup-one -- --restore-test <run printed above>
+npm run migrate:backup-one -- --restore <run>        # dry run of the rollback restore: must show no !! line
 ```
 - **Check:** the restore test prints `OK` (every table equal on rows, money
   sums and content hash; the throw-away schema gone). A `backup-one` row is in
-  `vppsone.migration_runs`. Also: last night's `drive-backup` is `ok`
-  (`npm run migrate:health` shows `Drive backup overdue` ok).
+  `vppsone.migration_runs`. The restore dry run lists no blocker (its guard
+  line says "would refuse" until step 2 — expected). Also: last night's
+  `drive-backup` is `ok` (`npm run migrate:health` shows `Drive backup
+  overdue` ok).
 - **Rollback:** none (read-only on the database; the folder can be deleted).
 - Note the run id in the log: it is the restore point for steps 2–4.
 
@@ -140,8 +145,20 @@ fee writes are `false` (so it can only follow step 2).
   `2026-27` that point at a dev student, zero phone numbers on quarantined
   rows, both `class_teachers` TEST rows handled — `ct_mismatch = 0`). The
   owner signs the promote list.
-- **Rollback:** restore the `vppsone` tables from step 1's backup
-  (`BACKUP-EVIDENCE.md`, "The restore procedure"), then re-run step 3.
+- **Rollback:** put `vppsone` back to step 1's backup, then step 2 again
+  (the backup predates it, so its test-account conversions are undone; the
+  marker itself is never restored), then step 3 again:
+  ```
+  npm run migrate:backup-one -- --restore <step 1 run> --schema vppsone            # dry run: no !! line
+  npm run migrate:backup-one -- --restore <step 1 run> --schema vppsone --apply
+  node scripts/migrate/convert-to-production.mjs --apply                         # (phase H)
+  ```
+  One transaction (rehearsed at rehearsals 1–2): refuses unless the marker is
+  `production` and fee writes are shut; every table compared with the backup
+  on rows, money sums and content; leaves `parent_dispatch` and
+  `staff_notice_dispatch` off whatever the backup held. **Check:** it prints
+  `RESTORED`; a `backup-one-restore` / `rollback` row is in
+  `vppsone.migration_runs`.
 
 ### Step 4 — First load / final load = C1 (08:30, Operator) — owner sequence 4
 
@@ -161,9 +178,16 @@ control-totals hash is the cutover baseline.
   vppsone.migration_runs where script='load-snapshot' order by finished_at desc limit 1;`
   is the extract's; `vppsone.data_replica` says real data.
 - **Rollback:** the load is one transaction — a failure leaves nothing. After
-  a commit: restore `public` from step 1's backup (restore procedure), then
-  start again at step 4. `replicate-live.mjs` refuses production and is never
-  the way back.
+  a commit:
+  ```
+  npm run migrate:backup-one -- --restore <step 1 run> --schema public            # dry run
+  npm run migrate:backup-one -- --restore <step 1 run> --schema public --apply
+  ```
+  then start again at step 4, `--first-load` included: the restore names the
+  load it undid in its run row (`undid_runs`) and load-snapshot no longer
+  counts it as applied. The restore leaves `fee_writes_enabled = 'false'`
+  whatever the backup held. `replicate-live.mjs` refuses production and is
+  never the way back.
 
 ### Step 5 — Reconcile = C2 (09:15, Operator, Accountant) — owner sequence 5
 
@@ -200,10 +224,12 @@ order by r.finished_at desc limit 1;
 ```
 ```
 node scripts/migrate/online-preflight.mjs     # must answer GO
+npm run migrate:reconcile-post -- --baseline  # freezes One's ledger at the line, once (PARALLEL-RUN check 5)
 ```
 - **Check:** one `cutover` row (`select count(*) from vppsone.migration_runs where kind='cutover';` → 1);
   online-preflight GO; `load-snapshot.mjs --apply` now refuses (try the dry
-  run: its guard verdict says "cutover row").
+  run: its guard verdict says "cutover row"); the baseline prints the real
+  session's receipts per mode, equal to step 5's reconcile figures.
 - **Rollback:** before anything is posted in One: `delete from
   vppsone.migration_runs where kind = 'cutover';` and remove the floor key.
   After postings: `ROLLBACK-2026-27.md` (the floor stays until sign-off).
@@ -213,11 +239,16 @@ node scripts/migrate/online-preflight.mjs     # must answer GO
 1. Store the seven Vault secrets by name (`one-live-cron-jobs.sql` header;
    job tokens from `npm run jobs:tokens` with One's `JOBS_SECRET`).
 2. Run `docs/cutover/one-live-cron-jobs.sql` as postgres.
-- **Check:** its last two SELECTs: 12 active jobs, none named
-  `refresh-sibling-groups-matview`, and **0** jobs calling the fees app; after
-  10 minutes `cron.job_run_details` shows `online-payments-reconcile` and
-  `staff-notices-dispatch` succeeded and `net._http_response` shows 200s.
-  `auto-day-close` exists **once** (exactly one place).
+- **Check:** its last two SELECTs: the first returns **zero rows** — it
+  compares the timers by name, so a MISSING, EXTRA or INACTIVE job is named
+  (`smoke-enforce` may be there or not, as phase H's convert left it: 11 or
+  12 jobs are both right; `refresh-sibling-groups-matview` would show as
+  EXTRA); the second **0** jobs calling the fees app. After 10 minutes
+  `cron.job_run_details` shows `online-payments-reconcile` and
+  `staff-notices-dispatch` succeeded and `net._http_response` shows 200s —
+  and from then on the health pack counts any non-2xx there
+  (`timer calls One refused or missed`). `auto-day-close` exists **once**
+  (exactly one place).
 - **Rollback:** the unschedule block in the script's header.
 
 ### C5 — Production env and redeploy (10:15, Owner)
@@ -225,12 +256,18 @@ node scripts/migrate/online-preflight.mjs     # must answer GO
 Set on One's Vercel **Production** the names in `ENV-INVENTORY.md` → "To do at
 C5" (`VPPSONE_ENV=live` with `APP_MODE=production` together, `AISENSY_API_KEY`,
 `RAZORPAY_KEY_ID` / `_SECRET` / `_ACCOUNT_ID`, `REPAYMENT_PLANS`,
-`NEXT_PUBLIC_SCHOOL_PHONE` / `_ADDRESS` / `_EMAIL`), rotate `QA_LOGIN_KEY`,
+`NEXT_PUBLIC_SCHOOL_PHONE` / `_ADDRESS` / `_EMAIL`, `SENTRY_DSN` of a
+One-owned Sentry project — never the fees project's), rotate `QA_LOGIN_KEY`,
 then redeploy. `MESSAGE_PROVIDER` and `STAFF_NOTICE_TRANSPORT` stay unset for
 now (no parent or staff WhatsApp yet).
 - **Check:** `https://one.vpps.co.in` loads; a real admin signs in; a test
   account signs in and sees TEST only; `/login/test` works for a test account
-  only; `npm run migrate:health` quiet.
+  only; `npm run migrate:health -- --probe https://one.vpps.co.in` quiet —
+  which also asks the test-only doors **cold** (no session, no key) and needs
+  each refused, as observed on 31 Oct: `/login/test` 404, `/login/dayrun`
+  404, `/lab/clock` 404, `/lab/enter` 307 → `/lab/ended`, `/login/test/clock`
+  307 → `/login` (any 2xx, or a redirect anywhere else, is a `!!` line and
+  stops the cutover).
 - **Rollback:** Vercel → Deployments → promote the previous deployment
   (instant), then remove the added names.
 
@@ -244,14 +281,21 @@ Razorpay dashboard → Webhooks → add `https://one.vpps.co.in/api/webhooks/raz
 with a new secret; put that secret in Vercel Production
 `RAZORPAY_WEBHOOK_SECRET`; redeploy. The fees webhook stays.
 - **Check:** `npm run migrate:health -- --probe https://one.vpps.co.in` →
-  "401 on a bad signature".
+  "401 on a bad signature". From here the `health` job probes the same way
+  every morning; after the cutover line a 404 is a problem (an alert), not
+  "not configured yet".
 - **Rollback:** disable the webhook in the Razorpay dashboard.
 
 ### Step 6 — the fees app's New payment links OFF = C7 (11:00, Owner) — owner sequence 6
 
 1. One's online switches (`/fees/payments/online` → Switches, a real admin):
    per `RAZORPAY.md` §5 — links, checkout, auto-posting, receipts on;
-   `checkout_all_sessions` per Q14; modal off.
+   `checkout_all_sessions` per Q14; modal off. **Between here and step 8 the
+   money RPCs refuse real students** (fee writes open only at step 8), so a
+   parent who pays a real student in that half hour has paid and gets no
+   receipt yet: the capture lands `review_required` (or its event retries).
+   Send no One pay link to a real parent before step 8; step 8's check
+   clears whatever came in anyway.
 2. The owner pays ₹100 live on a TEST student in One: posted once in One
    (`TST<date>-5001`), and in the fees app only an `ignored` event row
    (checked read-only).
@@ -294,15 +338,48 @@ select vppsone.fee_writes_open();                         -- true
 - **Check:** the Accountant opens the Payment Desk on a real student and the
   "fee changes are switched off" notice is gone (do not post a test amount on
   a real child); a TEST-student receipt still numbers `TST<date>-5001…`; the
-  first real receipt on Monday numbers `SVP<date>-5001` (the floor).
+  first real receipt on Monday numbers `SVP<date>-5001` (the floor). Then the
+  real-student payments that came in between step 6 and now (refused while
+  writes were shut):
+  ```sql
+  select application_status, count(*) from public.online_payment_captures
+  where created_at > '<step 6 time>' group by 1;
+  select status, count(*) from public.online_payment_events
+  where received_at > '<step 6 time>' group by 1;
+  ```
+  Every `review_required` capture is posted from One → Fees → Online payments
+  → *Review* (`ADMIN-OPS-SHEET.md`), and every `pending`/`failed` event is
+  left to the next 10-minute `online-payments-reconcile` run — re-check after
+  it: 0 `review_required` from this window, 0 events `pending` older than 30
+  minutes (`npm run migrate:health`).
 - **Rollback:** `update public.app_settings set value = 'false' where key = 'fee_writes_enabled';`
   — every money RPC refuses real students again at once (fee-migration
   `20261030230000_fee_writes_guard`).
 
-### C8 — enrolments and class teachers (12:00, Admin)
-Rebuild 2026-27 enrolments (the count equals on roll plus left, plan B21);
-every class has its class teacher (`my_class_keys` non-empty for each teacher
-seat). **Check:** counts match the reconcile's.
+### C8 — enrolments and class teachers (12:00, Admin) — rebuild is (phase H)
+Rebuild 2026-27 enrolments from the loaded students (the count equals on
+roll plus left, critique1 B21) — the rebuild script is built in **phase H**;
+until that PR is merged this step cannot run. The checks exist now (read-only,
+SQL editor):
+
+```sql
+-- 1. enrolments = students of the session (on roll + left), by status
+select status, count(*) from vppsone.enrolments where session_label = '2026-27' group by 1;
+select s.status, count(*) from public.students s join public.classes c on c.id = s.class_id
+where c.session_label = '2026-27' group by 1;
+-- 2. every 2026-27 class has a current class teacher (so its teacher's my_class_keys is non-empty)
+select c.id from public.classes c
+where c.session_label = '2026-27'
+  and not exists (
+    select 1 from vppsone.class_teachers ct
+    where ct.class_id = c.id and ct.session_label = c.session_label
+      and (ct.effective_from is null or ct.effective_from <= vppsone.school_today())
+      and (ct.effective_to is null or ct.effective_to >= vppsone.school_today()));
+```
+**Check:** query 1's two totals are equal (on 31 Oct, on the replica: 511
+enrolled against 513 active + 28 left — why the rebuild is needed); query 2
+returns **zero rows** (on 31 Oct: 1 of 20 classes had none); the totals match
+step 5's reconcile.
 
 ### Step 9 — Parent message categories, one by one = C9 (14:00, Owner) — owner sequence 9
 
@@ -338,6 +415,15 @@ no duplicate-message query hits — `PARALLEL-RUN.md`):
 ### After 14:00
 - `update vppsone.runtime_flags set enabled = true where key = 'staff_notice_dispatch';`
   only on T+7 with `STAFF_NOTICE_TRANSPORT=aisensy` (STAFF-WHATSAPP.md §4).
+- **Alerting in the first week.** The `ops_alert` WhatsApp needs staff
+  dispatch, the AiSensy transport, an approved `vx_staff_ops_alert_v1` and an
+  admin's consent — none of which is on before T+7. So **until T+7 the alert
+  is the Operator**: `npm run migrate:health -- --probe https://one.vpps.co.in`
+  at 08:00 and 16:00 IST every day (the go/no-go names who), each `!!` line
+  acted on per `ADMIN-OPS-SHEET.md`. If the go/no-go recorded the template
+  and consent, the owner may instead turn on staff dispatch at T0 with only
+  `ops_alert` true in `staff_notice_kinds_enabled` (every other kind set
+  false first — they are seeded on) and `STAFF_NOTICE_TRANSPORT=aisensy`.
 - The admin-only "Fees app (read-only)" link stays for the parallel run.
 - Tell the owner: the fees MCP and Notion now show figures frozen at T0
   (`MCP-AND-NOTION.md`).
@@ -350,6 +436,7 @@ no duplicate-message query hits — `PARALLEL-RUN.md`):
 | Step | Target | Rehearsal 1 | Rehearsal 2 |
 |---|---|---|---|
 | 1 Backup + restore test | 5 min (31 Oct: under 2 min for 51k rows) | | |
+| Rollback restore, rehearsed (`--restore --rollback-only`) | 2 min (31 Oct: 37 s, 226 tables) | | |
 | 2 Convert | 5 min | | |
 | 3 Quarantine + promote + verify | 20 min | | |
 | 4 Extract + load + storage | 45 min | | |

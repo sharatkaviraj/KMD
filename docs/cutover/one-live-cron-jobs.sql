@@ -62,7 +62,10 @@
 --   4. Nothing calls the fees app: checked at the end.
 --
 -- Check afterwards (the last two SELECTs print it):
---   - 12 active jobs: the 4 kept + the 8 added; no 'refresh-sibling-groups-matview';
+--   - the timers by NAME, not a count: the first SELECT returns zero rows —
+--     no MISSING, EXTRA or INACTIVE job (the 3 kept + the 8 added, and
+--     smoke-enforce only if phase H kept it: 11 or 12); so no
+--     'refresh-sibling-groups-matview';
 --   - 0 jobs whose command mentions schoolfees-two / fees.vpps.co.in / vgqyilgstjvgohrsiwkb;
 --   - after 10 minutes: `select j.jobname, d.status, d.start_time from cron.job_run_details d
 --       join cron.job j using (jobid) order by d.start_time desc limit 20;` shows
@@ -183,7 +186,28 @@ begin
   end loop;
 end $$;
 
-select jobname, schedule, active from cron.job order by jobname;
+-- The timers by name against the list this script leaves: every expected
+-- name present and active, nothing else. `smoke-enforce` may be there or not
+-- (convert-to-production, phase H, decides), so it is never "missing".
+-- Expect zero rows; each row names what is wrong.
+with expected(jobname, optional) as (
+  values
+    ('refresh-workbook-materialized-views', false), ('enqueue-workbook-refresh-daily', false),
+    ('charge-emi-late-fees-daily', false), ('smoke-enforce', true),
+    ('whatsapp-scheduled-runs', false), ('online-payments-reconcile', false), ('auto-day-close', false),
+    ('fees-nightly-backup', false), ('staff-notices-dispatch', false), ('staff-fee-day-summary', false),
+    ('staff-fee-day-not-closed', false), ('ops-health', false)
+)
+select coalesce(e.jobname, c.jobname) as jobname,
+       case when c.jobname is null then 'MISSING'
+            when e.jobname is null then 'EXTRA (not on the list)'
+            else 'INACTIVE' end as problem
+from expected e
+full join cron.job c on c.jobname = e.jobname
+where (c.jobname is null and not e.optional)
+   or e.jobname is null
+   or (c.jobname is not null and not c.active)
+order by 1;
 
 select count(*) as jobs_calling_the_fees_app
 from cron.job

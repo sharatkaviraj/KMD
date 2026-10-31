@@ -11,11 +11,11 @@ D-339) and counts only. Results go in the day's line of the log at the end
 
 | # | Check | Command / screen | Pass | If not |
 |---|---|---|---|---|
-| 1 | The health pack | `npm run migrate:health -- --probe https://one.vpps.co.in` (and the 08:00 `ops_alert` WhatsApp, once the owner turns that kind on) | exit 0; probe 401 | each `!!` line: `ADMIN-OPS-SHEET.md` "When the system check says…" |
+| 1 | The health pack | `npm run migrate:health -- --probe https://one.vpps.co.in` — **until T+7 this is the only alert** (the `ops_alert` WhatsApp needs staff dispatch, which starts at T+7): the Operator runs it at **08:00 and again at 16:00 IST** every day (the go/no-go names who); from T+7, once `ops_alert` is on, the 08:00 WhatsApp replaces the 16:00 run | exit 0; probe 401; cold doors refused | each `!!` line: `ADMIN-OPS-SHEET.md` "When the system check says…" |
 | 2 | The fees app is quiet | `node scripts/migrate/fees-quiet-check.mjs` | no fees desk receipts, no fees reminder sends or school notices, 0 automatic campaigns; tail payments listed | a fees desk receipt = someone used the old desk: find out who, re-enter it in One from the fees receipt (tail review) and tell them |
 | 3 | The tail comes in | `node scripts/migrate/tail-sync.mjs --apply` | new tail rows = the tail payments in check 2 | stop and compare by `provider_payment_id` |
 | 4 | Tail receipts posted | **No screen yet** (open gap): SQL editor, `select status, count(*), sum(total_amount) from vppsone.tail_receipts_review group by 1;` and the pending ids | 0 `pending` older than a day | the Accountant posts each at One's desk (mode as the fees receipt, the fees receipt number as the reference); the Operator then marks the row `posted` with `posted_receipt_id`, `resolved_by`, `resolved_at` (or `duplicate` / `rejected` with a note) |
-| 5 | Money adds up | `node scripts/migrate/reconcile.mjs --live --as-of <today IST>` | frozen baseline + One's postings + tail imports = One's totals, real sessions; EMI late fees charged in One on their own line | any unexplained difference is a **rollback trigger** (`ROLLBACK-2026-27.md`) — stop and call the owner |
+| 5 | Money adds up | `npm run migrate:reconcile-post -- --as-of <today IST>` (One only; the baseline was frozen at C3 with `--baseline`). Not `reconcile.mjs`: after T0 One and the fees app differ by design | exit 0 — per real session and mode, baseline + One's desk postings + tail postings = One's receipts now, and the baseline itself unchanged (receipts, allocations, EMI late fees from before the line); no receipt number twice; none at or under the floor; every posted tail row's receipt exists for its amount. Printed apart: EMI late fees charged since the line, the money summary's change, TEST | exit 1 is a **rollback trigger** (`ROLLBACK-2026-27.md`) — stop and call the owner; a `note:` line (allocations ≠ total, pending tail) the Accountant explains in the log |
 | 6 | The online invariant | the reconcile's online section; One → Fees → Online payments → *Review* | captured = on receipts + in review + waiting; every applied capture has its receipt; 0 in review older than a day | the Accountant resolves each `review_required` (see the admin sheet) |
 | 7 | Day close matches the cash | One → Receipts → Day close for yesterday | closed by the Accountant; cash counted = cash total | a gap is written down and signed, and is a rollback trigger if unexplained |
 | 8 | No duplicate parent messages | the SQL below | 0 rows | a duplicate is a **rollback trigger** — `parent_dispatch` off first |
@@ -41,6 +41,18 @@ where status in ('provider_accepted', 'delivered') and created_at > now() - inte
 group by 1 having count(*) > 1;
 ```
 (Ids only on screen; never paste a row into chat.)
+
+## Every week (Mondays, with check 10)
+
+Two things no script here can read, so a person looks:
+
+| # | Check | Who | Where | Pass | If not |
+|---|---|---|---|---|---|
+| W1 | **AiSensy wallet** | Owner | AiSensy dashboard → Wallet / Billing | the balance covers at least two more weeks at this month's rate (`AiSensy total this month` in the health pack ÷ days so far) | top up before the next reminder run; until then no new category (the plan's sends stop when the wallet is empty, silently for the desk) |
+| W2 | **Supabase advisors** on `wtgxcptmucjerhufzjcf` | Operator | Supabase dashboard → Advisors → Security and Performance (or the MCP's `get_advisors`, both types) | no new **ERROR**-level security finding since last week (an RLS-disabled table, an exposed function); new WARNs written in the log | an ERROR is fixed in a migration that week; a new performance WARN goes to the next PR |
+
+Also weekly: set `aisensy_month_plan_cap` once (`ADMIN-OPS-SHEET.md`) so the
+health pack judges the AiSensy total against the plan's allowance.
 
 ## What gets switched on, and when (plan §12.2)
 
@@ -75,6 +87,6 @@ separate decision.
 
 ## The log
 
-| Date | 1 health | 2 quiet | 3–4 tail | 5 reconcile | 6 online | 7 day close | 8 dupes | 9 staff | 10 backup | Signed |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 14 Dec | | | | | | | | | | |
+| Date | 1 health (08:00 / 16:00) | 2 quiet | 3–4 tail | 5 reconcile-post | 6 online | 7 day close | 8 dupes | 9 staff | 10 backup | W1–W2 (Mon) | Signed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 14 Dec | | | | | | | | | | | |

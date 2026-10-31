@@ -7,6 +7,7 @@
  * no script of it is run).
  *
  *   npm run migrate:env-names -- [--fees-repo <path>] [--out docs/cutover/ENV-INVENTORY.md] [--check]
+ *   npm run migrate:env-names -- --vercel   # live Production names (CLI) against the snapshot below; exit 1 on drift
  *
  * Code side: a static scan (lib/env-scan.mjs) of `src/` and the root config
  * files of each repo, plus the fees MCP worker (`workers/`, Cloudflare, not
@@ -20,6 +21,7 @@
  * exits 1, so a new variable cannot reach the cutover unexamined.
  */
 
+import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -164,8 +166,8 @@ export const ANNOTATIONS = {
   OPENAI_MODEL: ["fees", "fees only; not read by One"],
   OAUTH_PROVIDER: ["fees MCP worker", "fees only"],
   // Monitoring
-  NEXT_PUBLIC_SENTRY_DSN: [OWNER, "set — One posts server errors to it (src/instrumentation.ts)"],
-  SENTRY_DSN: [OWNER, "leave unset — NEXT_PUBLIC_SENTRY_DSN is used"],
+  NEXT_PUBLIC_SENTRY_DSN: [OWNER, "set on both projects; which Sentry project One's copy names is NOT recorded (owner: write the project name here). One's code does not read it, so One's errors never land in the fees project by accident"],
+  SENTRY_DSN: [OWNER, "add at C5 — the DSN of a One-owned Sentry project (never the fees project's); unset = server errors are not reported (src/instrumentation.ts)"],
   SENTRY_AUTH_TOKEN: ["fees build", "fees only (source maps); One has no Sentry build step"],
   PERF_TIMING: [OWNER, "leave unset (off)"],
   VPPS_OBSERVABILITY_VERBOSE: [OWNER, "leave unset (off)"],
@@ -268,8 +270,59 @@ function gitHead(dir) {
   }
 }
 
+/** The Vercel project behind each side of VERCEL_PRODUCTION. */
+export const VERCEL_PROJECTS = { one: "vppsone", fees: "schoolfees" };
+
+/**
+ * The variable names in `vercel env ls` output: the first column of each
+ * row. The CLI prints values as "Encrypted", so nothing secret is in the
+ * text; only names are kept. Pure.
+ */
+export function namesFromVercelLs(text) {
+  const names = new Set();
+  for (const line of String(text).split(/\r?\n/)) {
+    const first = line.trim().split(/\s+/)[0] ?? "";
+    if (/^[A-Z][A-Z0-9_]{1,}$/.test(first) && first !== "NAME") names.add(first);
+  }
+  return [...names].sort();
+}
+
+/** Names added to or removed from a project's Production since the committed snapshot. Pure. */
+export function vercelDrift(expected, live) {
+  const want = new Set(expected);
+  const have = new Set(live);
+  return { added: [...have].filter((n) => !want.has(n)).sort(), removed: [...want].filter((n) => !have.has(n)).sort() };
+}
+
+/**
+ * `--vercel`: ask the CLI for each project's Production names now and compare
+ * them with VERCEL_PRODUCTION (critique1 B7: a scripted name-only diff, so a
+ * Production env that changed after 31 Oct cannot reach C5 unseen). Exit 1
+ * on any difference: refresh the list (and the annotations), then re-run.
+ */
+function checkVercel() {
+  let drift = 0;
+  for (const [side, project] of Object.entries(VERCEL_PROJECTS)) {
+    const run = spawnSync("vercel", ["env", "ls", "production", "--project", project], { encoding: "utf8", shell: process.platform === "win32" });
+    if (run.status !== 0) {
+      console.error(`env-names-diff --vercel: \`vercel env ls production --project ${project}\` failed (exit ${run.status}); log in with \`vercel login\` and link the scope.`);
+      process.exitCode = 2;
+      return;
+    }
+    const live = namesFromVercelLs(`${run.stdout}\n${run.stderr}`);
+    const { added, removed } = vercelDrift(VERCEL_PRODUCTION[side], live);
+    const same = !added.length && !removed.length;
+    console.log(`  ${same ? "ok" : "!!"} ${project} Production: ${live.length} names${same ? ", as committed" : ""}`);
+    if (added.length) console.log(`     added since the snapshot: ${added.join(", ")}`);
+    if (removed.length) console.log(`     gone since the snapshot: ${removed.join(", ")}`);
+    if (!same) drift += 1;
+  }
+  if (drift) process.exitCode = 1;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.vercel) return checkVercel();
   const feesRepo = typeof args["fees-repo"] === "string" ? args["fees-repo"] : DEFAULT_FEES_REPO;
   const out = typeof args.out === "string" ? args.out : "docs/cutover/ENV-INVENTORY.md";
 

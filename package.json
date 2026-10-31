@@ -52,6 +52,7 @@
     "migrate:health": "node --import ./scripts/alias-hook.mjs scripts/migrate/health.mjs",
     "migrate:env-names": "node scripts/migrate/env-names-diff.mjs",
     "migrate:backup-one": "node scripts/migrate/backup-one.mjs",
+    "migrate:reconcile-post": "node scripts/migrate/reconcile-post.mjs",
     "verify:native-recovery": "node --import ./scripts/alias-hook.mjs scripts/verify-native-recovery.mjs",
     "smoke:pool": "node scripts/smoke-pool.mjs",
     "smoke:sweep": "node scripts/smoke/sweep.mjs",

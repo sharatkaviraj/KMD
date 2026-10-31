@@ -10,7 +10,7 @@ import type { Instrumentation } from "next";
  * user). Imported lazily so a deployment without a DSN loads nothing extra.
  */
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
-  if (!process.env.SENTRY_DSN && !process.env.NEXT_PUBLIC_SENTRY_DSN) return;
+  if (!process.env.SENTRY_DSN) return;
   const { reportServerError } = await import("@/platform/observability/sentry-lite");
   await reportServerError(error, {
     method: request.method,

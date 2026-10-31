@@ -10,7 +10,8 @@ nothing in this repo performs it. The per-change procedures (R1–R12) are in
 ## When
 
 Any one of these, or the owner's call:
-- an unexplained money difference (reconcile-post or day close);
+- an unexplained money difference (`npm run migrate:reconcile-post -- --as-of <today>`
+  exit 1 — `PARALLEL-RUN.md` check 5 — or the day close);
 - a payment posted twice;
 - a receipt number collision;
 - a wrong or duplicate parent message;
@@ -42,9 +43,10 @@ Run the unschedule block in `docs/cutover/one-live-cron-jobs.sql` (header,
 `ops-health` **and `charge-emi-late-fees-daily`**, so One's EMI late-fee
 charge and auto day close stop changing One's database once it is no longer
 the record (critique0 #25). The matview refresh stays (derived data only).
-- **Check:** `select jobname from cron.job order by 1;` → only
-  `refresh-workbook-materialized-views`, `enqueue-workbook-refresh-daily`
-  (and `smoke-enforce` if kept).
+- **Check:** `select jobname from cron.job order by 1;` → exactly
+  `enqueue-workbook-refresh-daily` and `refresh-workbook-materialized-views`,
+  plus `smoke-enforce` only if phase H's convert kept it — by name, not by
+  count; any other name is a timer still writing.
 
 Vercel crons: set `STAFF_NOTICE_TRANSPORT=disabled` and remove
 `MESSAGE_PROVIDER` on One Production and redeploy (the runtime flags above

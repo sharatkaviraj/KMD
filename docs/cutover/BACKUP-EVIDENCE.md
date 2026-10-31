@@ -243,28 +243,83 @@ Every table with rows (the empty ones were restored and compared too). Equal = r
 
 empty tables restored and equal: 74
 
-## The restore procedure (for real, not a test)
+## The restore (for real, not a test) — `backup-one.mjs --restore`
 
-A restore replaces data; it is the owner's decision. With a backup run
-`<run>`:
+A restore replaces data; it is the owner's decision. It is the rollback of
+cutover steps 3 (quarantine: `--schema vppsone`) and 4 (first load:
+`--schema public`), and is one command — dry run by default:
 
-1. Stop writers: `fee_writes_enabled = 'false'` (owner, SQL editor),
-   `runtime_flags.parent_dispatch` and `staff_notice_dispatch` off, One's
-   timers unscheduled (`one-live-cron-jobs.sql`, rollback block).
-2. Take a fresh `npm run migrate:backup-one` of the current state first, so
-   the restore can itself be undone.
-3. `npm run migrate:backup-one -- --restore-test <run>` must print OK.
-4. Restore table by table inside one transaction, in `load-snapshot.mjs`'s
-   order (parents first on insert, children first on delete): disable the
-   table's **named** user triggers (`alter table … disable trigger "<name>"`,
-   never `session_replication_role`, so foreign keys stay on), `delete from`
-   the table, `copy <table> (<manifest columns>) from stdin` from the file,
-   re-enable the triggers; then the orphan check per foreign key and `setval`
-   of owned sequences (load-snapshot's last steps). No `truncate … cascade`
-   on fee tables. Rehearse into a throw-away schema first — the restore-test
-   code is the model.
-5. `npm run migrate:health` and `node scripts/migrate/reconcile.mjs` before
-   anything is switched back on.
+```
+npm run migrate:backup-one -- --restore <run> [--schema public|vppsone] [--tables s.t,…]   # dry run
+npm run migrate:backup-one -- --restore <run> … --rollback-only                           # rehearsal
+npm run migrate:backup-one -- --restore <run> … --apply                                   # for real
+```
+
+Before `--apply`: writers stopped (`fee_writes_enabled = 'false'` — the
+restore refuses otherwise — and, after C4, One's timers unscheduled), and a
+fresh `npm run migrate:backup-one` of the current state, so the restore can
+itself be undone. What `--apply` does, in ONE transaction:
+
+1. every file read and checked against its manifest hash before the
+   database is opened; today's columns against the backup's (a column gone,
+   retyped, or a new NOT NULL one without a default refuses);
+2. the tables locked ACCESS EXCLUSIVE (10 s lock timeout, so a busy table
+   fails the run instead of queueing the app behind it), **then** the guard
+   (`lib/guards.mjs` `decideRestoreGuard`): never once a `cutover` row exists
+   (after T0 the way back is `ROLLBACK-2026-27.md`); only with the marker at
+   `production` and `fee_writes_open()` false;
+3. the **named** user triggers off (never `session_replication_role`, so the
+   foreign keys stay on); every table emptied in one `TRUNCATE` — which itself
+   refuses if a table outside the restore still points in (an empty one, like
+   `private.vpps_student_source_mapping`, is emptied along);
+4. `COPY … FROM STDIN` parents first; live's one foreign-key cycle
+   (`installments` ↔ `student_carry_forward_balances` ↔
+   `prev_year_import_rows`, none deferrable) is closed by loading
+   `installments.carry_forward_balance_id` null and setting it in a second
+   pass; the two deferrable self-references checked at once (`set constraints
+   all immediate`);
+5. every table compared with the manifest: rows, every money sum, and the
+   content (byte for byte, or as a sorted set where the second pass reordered
+   rows) — any difference rolls back;
+6. whatever the backup held, `fee_writes_enabled = 'false'` and
+   `parent_dispatch` / `staff_notice_dispatch` off; triggers back on;
+7. an orphan count on every foreign key touching the restore (a user deleted
+   from `auth.users` since the backup would show here) — any orphan rolls
+   back; owned sequences moved forward only (a number handed out after the
+   backup is never handed out again); matviews refreshed; the guard re-read;
+8. a `backup-one-restore` / `rollback` row in `vppsone.migration_runs`
+   naming the loads it undid (`undid_runs`): load-snapshot then counts them as
+   not applied, so the next load may be `--first-load` again.
+
+Never restored (`RESTORE_KEEP`): `vppsone.deployment` (the production marker
+step 2 set) and `vppsone.migration_runs` (the record). A `vppsone` restore
+puts back the backup's test-account flags too, so step 2
+(`convert-to-production --apply`, phase H) runs again right after it.
+Afterwards: `npm run migrate:health` and step 5's `reconcile.mjs` before
+anything is switched back on.
+
+### Rehearsed on wtgx, 31 Oct 2026 (`--rollback-only`)
+
+`npm run migrate:backup-one -- --restore backup-20261031T121335Z --rollback-only`
+— both schemas, the whole path, then rolled back:
+
+| | |
+|---|---|
+| Tables restored and compared | 226 (228 in the backup less the 2 kept) |
+| Rows | 51,481 — every table equal on rows, money sums and content |
+| Second pass | `installments_carry_forward_balance_id_fkey` |
+| Emptied along | `private.vpps_student_source_mapping` (0 rows) |
+| Matviews refreshed | `v_workbook_installment_balances`, `v_workbook_student_financials`, `v_student_financial_state` |
+| Forced afterwards | `fee_writes_enabled = 'false'`; both dispatches off |
+| Time | 37 s (locks held for that long; run it outside desk hours) |
+| After the rollback | `fee_writes_enabled` still unset, `staff_notice_dispatch` still on, marker `dev` — nothing persisted but a `backup-one-restore` / `dry_run` row |
+
+The first attempt stopped with "cannot ALTER TABLE student_repayment_plans
+because it has pending trigger events" (a deferrable self-reference); the
+fix is step 4's `set constraints all immediate`. Its dry run, before that:
+226 tables, row counts equal, no blocker; guard "would refuse" (marker `dev`,
+fee writes open) — as it must until step 2. Evidence file:
+`%USERPROFILE%\.vppsone-migration\backup-20261031T121335Z\restore-rehearsal-20261031T125346Z.json`.
 
 ## Retention (D-334)
 

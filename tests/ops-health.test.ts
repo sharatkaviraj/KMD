@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -13,6 +13,8 @@ const state = vi.hoisted(() => ({
   sessions: ["2026-27", "TEST-2026-27"] as string[],
   queued: [] as Array<Record<string, unknown>>,
   dispatched: 0,
+  probeStatus: 401 as number | null,
+  probes: [] as Array<{ url: string; init: RequestInit }>,
 }));
 
 vi.mock("@/platform/deployment/confinement", () => ({ isConfinedDeployment: () => state.confined }));
@@ -66,7 +68,10 @@ import {
   healthSummary,
   needsAttention,
   PARENT_REMINDER_CAP_DEFAULT,
+  probeVerdict,
   SCHOOL_NOTICE_BUDGET,
+  WEBHOOK_PROBE_KEY,
+  webhookProbeFinding,
 } from "@/modules/ops-health/domain/health";
 import { assertNoPhoneNumber, renderPayloadNotice } from "@/modules/staff-notices/domain/notices";
 import { KINDS } from "@/modules/staff-notices/domain/kinds";
@@ -102,6 +107,14 @@ const QUIET = {
   school_notices_month: 0,
   staff_month: 0,
   staff_cap: 1000,
+  // Added by 20261031125856 (review of PR #149).
+  net_http_failed: 0,
+  online_events_pending_old: 0,
+  receipt_notices_month: 0,
+  one_sends_month: 6,
+  aisensy_month_total: 6,
+  aisensy_plan_cap: null,
+  cutover_rows: 0,
 };
 
 describe("what is a problem", () => {
@@ -127,6 +140,8 @@ describe("what is a problem", () => {
       "parent_reminders_failed",
       "school_notices_failed",
       "one_sends_failed",
+      "net_http_failed",
+      "online_events_pending_old",
     ]) {
       const result = evaluateHealth({ ...QUIET, [key]: 1 });
       expect(result.problems.map((f) => f.key), key).toEqual([key]);
@@ -172,6 +187,32 @@ describe("what is a problem", () => {
     expect(evaluateHealth({ ...QUIET, staff_month: 800 }).problems.map((f) => f.key)).toEqual(["staff_month"]);
     // Staff cap off: nothing goes on that lane, so nothing to warn about.
     expect(evaluateHealth({ ...QUIET, staff_cap: null, staff_month: 5000 }).problems).toEqual([]);
+  });
+
+  it("AiSensy across every lane: judged only once the owner sets the plan's allowance", () => {
+    expect(evaluateHealth({ ...QUIET, aisensy_month_total: 9000 }).problems).toEqual([]);
+    const capped = evaluateHealth({ ...QUIET, aisensy_plan_cap: 10000, aisensy_month_total: 8000 });
+    expect(capped.problems.map((f) => f.key)).toEqual(["aisensy_month_total"]);
+    expect(capped.problems[0].detail?.en).toBe("8000 of 10000");
+    // A lane that could not be read makes the total unreadable, never a smaller number.
+    expect(evaluateHealth({ ...QUIET, aisensy_month_total: null }).unreadable.map((f) => f.key)).toEqual(["aisensy_month_total"]);
+  });
+
+  it("the webhook probe: 401 is healthy; 404 is 'not configured yet' before the line and a problem after; no answer is unreadable", () => {
+    expect(probeVerdict(401).ok).toBe(true);
+    expect(probeVerdict(404, { cutover: false })).toMatchObject({ ok: true });
+    expect(probeVerdict(404, { cutover: true })).toMatchObject({ ok: false });
+    expect(probeVerdict(200).ok).toBe(false);
+    expect(probeVerdict(500).ok).toBe(false);
+    expect(webhookProbeFinding(401, QUIET)).toMatchObject({ key: WEBHOOK_PROBE_KEY, status: "ok", value: 401 });
+    expect(webhookProbeFinding(404, QUIET)).toMatchObject({ status: "ok", detail: { en: "not configured yet (C6)" } });
+    expect(webhookProbeFinding(404, { ...QUIET, cutover_rows: 1 })).toMatchObject({ status: "problem", value: 404 });
+    // The line unreadable: treated as drawn, so a 404 is never silenced by a broken count.
+    expect(webhookProbeFinding(404, { ...QUIET, cutover_rows: null })).toMatchObject({ status: "problem" });
+    expect(webhookProbeFinding(null, QUIET)).toMatchObject({ status: "unreadable", value: null });
+    const result = evaluateHealth(QUIET, [webhookProbeFinding(500, QUIET)]);
+    expect(result.problems.map((f) => f.key)).toEqual([WEBHOOK_PROBE_KEY]);
+    expect(HEALTH_SUMMARY_LABELS[WEBHOOK_PROBE_KEY]).toBeDefined();
   });
 
   it("keeps its copies of the caps equal to the fee code's", () => {
@@ -229,6 +270,43 @@ describe("the health job", () => {
     state.sessions = ["2026-27", "TEST-2026-27"];
     state.queued = [];
     state.dispatched = 0;
+    state.probeStatus = 401;
+    state.probes = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        state.probes.push({ url: String(url), init });
+        if (state.probeStatus === null) throw new Error("no answer");
+        return new Response(null, { status: state.probeStatus });
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("probes its own webhook with a wrong signature on production; a confined deployment does not", async () => {
+    await healthCheck("2026-11-02");
+    expect(state.probes).toHaveLength(1);
+    expect(state.probes[0].url).toMatch(/\/api\/webhooks\/razorpay$/);
+    expect(state.probes[0].init).toMatchObject({ method: "POST", redirect: "manual" });
+    expect((state.probes[0].init.headers as Record<string, string>)["x-razorpay-signature"]).toBe("0".repeat(64));
+    state.probes = [];
+    state.confined = true;
+    await healthCheck("2026-11-02");
+    expect(state.probes).toEqual([]);
+  });
+
+  it("a 404 from the webhook after the cutover line alerts the admins; before it, it is quiet", async () => {
+    state.probeStatus = 404;
+    expect(await healthCheck("2026-11-02")).toEqual({ problems: 0, unreadable: 0 });
+    state.counts = { ...QUIET, cutover_rows: 1 };
+    const summary = await healthCheck("2026-11-02");
+    expect(summary).toMatchObject({ problems: 1, [WEBHOOK_PROBE_KEY]: 404, queued: 1 });
+    state.queued = [];
+    state.probeStatus = null;
+    expect(await healthCheck("2026-11-02")).toMatchObject({ unreadable: 1, not_read: WEBHOOK_PROBE_KEY });
   });
 
   it("reads the counts over 24 hours and queues nothing when all is quiet", async () => {
@@ -271,21 +349,34 @@ describe("the health job", () => {
   });
 });
 
-describe("the migration", () => {
-  const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261031115621_ops_health_and_alerts.sql"), "utf8").replace(
-    /\r\n/g,
-    "\n",
-  );
+describe("the migrations", () => {
+  const read = (file: string) => readFileSync(join(process.cwd(), "supabase/migrations", file), "utf8").replace(/\r\n/g, "\n");
+  // The latest definition of ops_health_counts is the one the database runs.
+  const sql = read("20261031125856_ops_health_more_counts.sql");
+  const first = read("20261031115621_ops_health_and_alerts.sql");
 
-  it("grants the counts to the service role only", () => {
-    expect(sql).toContain("revoke all on function vppsone.ops_health_counts(integer) from public, anon, authenticated;");
-    expect(sql).toContain("grant execute on function vppsone.ops_health_counts(integer) to service_role;");
-    expect(sql).toMatch(/security definer\nset search_path = ''/);
+  it("grants the counts to the service role only, both times", () => {
+    for (const text of [first, sql]) {
+      expect(text).toContain("revoke all on function vppsone.ops_health_counts(integer) from public, anon, authenticated;");
+      expect(text).toContain("grant execute on function vppsone.ops_health_counts(integer) to service_role;");
+      expect(text).toMatch(/security definer\nset search_path = ''/);
+    }
   });
 
   it("reads every count on its own, so one broken source is null and not a failed check", () => {
-    const keys = HEALTH_CHECKS.map((check) => check.key);
+    // aisensy_month_total is a sum of lanes read on their own: null when any of them is.
+    const keys = HEALTH_CHECKS.map((check) => check.key).filter((key) => key !== "aisensy_month_total");
     for (const key of keys) expect(sql, key).toMatch(new RegExp(`'${key}', null`));
+    for (const lane of ["parent_reminders_month", "school_notices_month", "receipt_notices_month", "one_sends_month", "staff_month"]) {
+      expect(sql, lane).toContain(`(v_out ->> '${lane}')::bigint`);
+    }
+    expect(sql).toMatch(/'cutover_rows', null/);
+    expect(sql).toMatch(/'aisensy_plan_cap', null/);
+  });
+
+  it("adds the AiSensy plan allowance switched off, and to the known keys", () => {
+    expect(sql).toContain("'aisensy_month_plan_cap', false, null,");
+    expect(sql).toMatch(/runtime_flags_key_known check \([\s\S]*'staff_notice_student_names',\n\s+'aisensy_month_plan_cap'/);
   });
 
   it("never selects a name, a phone or a payload — counts, caps and job names only", () => {

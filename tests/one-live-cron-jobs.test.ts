@@ -87,4 +87,26 @@ describe("one-live-cron-jobs.sql", () => {
       expect(rollback, name).toContain(`'${name}'`);
     }
   });
+
+  it("checks the timers by name, not by a count — smoke-enforce optional, every scheduled job expected", () => {
+    const check = body.slice(body.indexOf("with expected(jobname, optional)"), body.indexOf("as jobs_calling_the_fees_app"));
+    expect(check).toContain("('smoke-enforce', true)");
+    for (const name of [
+      "refresh-workbook-materialized-views",
+      "enqueue-workbook-refresh-daily",
+      "charge-emi-late-fees-daily",
+      "whatsapp-scheduled-runs",
+      "online-payments-reconcile",
+      "auto-day-close",
+      "fees-nightly-backup",
+      "staff-notices-dispatch",
+      "staff-fee-day-summary",
+      "staff-fee-day-not-closed",
+      "ops-health",
+    ]) {
+      expect(check, name).toContain(`('${name}', false)`);
+    }
+    expect(check).toMatch(/'MISSING'[\s\S]*'EXTRA \(not on the list\)'[\s\S]*'INACTIVE'/);
+    expect(check).not.toContain("refresh-sibling-groups-matview");
+  });
 });

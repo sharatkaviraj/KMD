@@ -96,10 +96,15 @@ const cronJobs = (counts: Counts): Localized | undefined => {
 
 export const HEALTH_CHECKS: readonly Check[] = [
   anyIs("online_events_stuck", t("अटके Razorpay संदेश", "Razorpay events stuck")),
+  // A reconciler that never runs (a wrong timer token) never raises attempts.
+  anyIs("online_events_pending_old", t("Razorpay संदेश 30 मिनट से रुके", "Razorpay events waiting over 30 minutes")),
   anyIs("online_captures_review", t("ऑनलाइन भुगतान जाँच बाकी", "online payments to review")),
   anyIs("outbox_uncertain", t("रसीद संदेश अनिश्चित", "receipt messages uncertain")),
   anyIs("outbox_failed", t("रसीद संदेश विफल", "receipt messages failed")),
   anyIs("cron_failed", t("डेटाबेस टाइमर विफल", "database timer failures"), cronJobs),
+  // pg_cron calls One through pg_net and records "succeeded" whatever One
+  // answered: a 401 from a rotated token shows only here.
+  anyIs("net_http_failed", t("टाइमर के कॉल पर ऐप ने मना किया", "timer calls One refused or missed")),
   anyIs("job_runs_failed", t("ऐप के काम विफल", "app jobs failed")),
   anyIs("job_runs_stale", t("ऐप के काम अटके", "app jobs stuck")),
   {
@@ -127,12 +132,63 @@ export const HEALTH_CHECKS: readonly Check[] = [
   ),
   usage("school_notices_month", t("स्कूल सूचनाएँ इस महीने", "school notices this month"), () => SCHOOL_NOTICE_BUDGET),
   usage("staff_month", t("स्टाफ़ WhatsApp इस महीने", "staff WhatsApp this month"), (counts) => countOf(counts, "staff_cap")),
+  // Every lane together (receipt notices and One's parent sends included)
+  // against the AiSensy plan, when the owner has set its allowance.
+  usage("aisensy_month_total", t("AiSensy कुल इस महीने", "AiSensy total this month"), (counts) => countOf(counts, "aisensy_plan_cap")),
 ];
 
+/* ------------------------------------------------- the webhook probe */
+
+/** The health job's key for the Razorpay webhook probe. */
+export const WEBHOOK_PROBE_KEY = "razorpay_webhook_probe";
+const WEBHOOK_PROBE_LABEL = t("Razorpay webhook जाँच", "Razorpay webhook probe");
+
+/**
+ * What the webhook's answer to a deliberately wrong signature means (plan
+ * §9.1; critique1 B9). Only 401 is healthy. A 404 means
+ * `RAZORPAY_WEBHOOK_SECRET` is not set on the deployment: expected until C6
+ * puts One's webhook in, so before the cutover line it is "not configured
+ * yet", and after it a problem — Razorpay disables a webhook that keeps
+ * failing, and online payments would stop posting without a sound.
+ */
+export function probeVerdict(status: number, { cutover = true }: { cutover?: boolean } = {}): { ok: boolean; note: string } {
+  if (status === 401) return { ok: true, note: "401 on a bad signature, as it should" };
+  if (status === 404) {
+    return cutover
+      ? { ok: false, note: "404: RAZORPAY_WEBHOOK_SECRET is not set on this deployment (webhook off)" }
+      : { ok: true, note: "404: not configured yet (RAZORPAY_WEBHOOK_SECRET is set at cutover step C6)" };
+  }
+  return { ok: false, note: `unexpected ${status}: a bad signature must be refused with 401` };
+}
+
+/**
+ * The probe as a finding. `status` null = the request itself failed (no
+ * answer): unreadable, never quiet. `cutoverRows` from the counts.
+ */
+export function webhookProbeFinding(status: number | null, counts: Counts): HealthFinding {
+  if (status === null) return { key: WEBHOOK_PROBE_KEY, label: WEBHOOK_PROBE_LABEL, status: "unreadable", value: null };
+  const cutover = (countOf(counts, "cutover_rows") ?? 1) > 0;
+  const verdict = probeVerdict(status, { cutover });
+  return {
+    key: WEBHOOK_PROBE_KEY,
+    label: WEBHOOK_PROBE_LABEL,
+    status: verdict.ok ? "ok" : "problem",
+    value: status,
+    detail: verdict.ok && status === 404 ? t("अभी लगाया नहीं (C6)", "not configured yet (C6)") : undefined,
+  };
+}
+
+/** The request the probe sends: a wrong signature, so the route refuses before it reads or writes anything. */
+export const WEBHOOK_PROBE_REQUEST = {
+  method: "POST",
+  headers: { "content-type": "application/json", "x-razorpay-signature": "0".repeat(64) },
+  body: JSON.stringify({ event: "health.probe", payload: {} }),
+} as const;
+
 /** Every check's verdict, the problems, and what could not be read. */
-export function evaluateHealth(counts: Counts | null | undefined): HealthResult {
+export function evaluateHealth(counts: Counts | null | undefined, extra: readonly HealthFinding[] = []): HealthResult {
   const source = counts && typeof counts === "object" ? counts : {};
-  const findings = HEALTH_CHECKS.map((check) => ({ key: check.key, label: check.label, ...check.evaluate(source) }));
+  const findings = [...HEALTH_CHECKS.map((check) => ({ key: check.key, label: check.label, ...check.evaluate(source) })), ...extra];
   return {
     findings,
     problems: findings.filter((finding) => finding.status === "problem"),
@@ -165,6 +221,7 @@ export const HEALTH_SUMMARY_LABELS: Record<string, Localized> = {
   unreadable: t("पढ़ी नहीं जा सकीं", "could not be read"),
   not_read: t("नहीं पढ़ी गईं", "not read"),
   ...Object.fromEntries(HEALTH_CHECKS.map((check) => [check.key, check.label])),
+  [WEBHOOK_PROBE_KEY]: WEBHOOK_PROBE_LABEL,
 };
 
 /** WhatsApp allows 1,024 characters a variable; the list stays well inside it. */

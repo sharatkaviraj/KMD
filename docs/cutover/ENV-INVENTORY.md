@@ -32,7 +32,7 @@ No value appears here or in the script.
 | `NEXT_PUBLIC_SCHOOL_EMAIL` | `src/platform/config/school.ts` | `src/platform/config/school.ts` | — | yes | copy the fees Production value (owner) | add at C5 — receipt header |
 | `NEXT_PUBLIC_SCHOOL_NAME` | `src/platform/config/school.ts`, `src/platform/env.ts` +1 | `src/platform/config/school.ts` | yes | yes | fees Production value (owner) | set |
 | `NEXT_PUBLIC_SCHOOL_PHONE` | `src/platform/config/school.ts`, `src/vx/screens/settings/data.ts` | `src/platform/config/school.ts` | — | yes | copy the fees Production value (owner) | add at C5 — receipt header (critique1 B6) |
-| `NEXT_PUBLIC_SENTRY_DSN` | `src/instrumentation.ts`, `src/platform/observability/sentry-lite.ts` | `src/instrumentation-client.ts`, `src/sentry.edge.config.ts` +1 | yes | yes | owner | set — One posts server errors to it (src/instrumentation.ts) |
+| `NEXT_PUBLIC_SENTRY_DSN` | — | `src/instrumentation-client.ts`, `src/sentry.edge.config.ts` +1 | yes | yes | owner | set on both projects; which Sentry project One's copy names is NOT recorded (owner: write the project name here). One's code does not read it, so One's errors never land in the fees project by accident |
 | `NEXT_PUBLIC_SITE_URL` | `src/platform/env.ts`, `src/vx/screens/exams/data.ts` | `src/platform/env.ts` | yes | yes | owner | set — `https://one.vpps.co.in` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | — | — | — | yes | fees | fees only — One uses the publishable key |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `src/modules/fees/platform/supabase/client.ts`, `src/modules/fees/platform/supabase/server.ts` +5 | `src/platform/env.ts`, `src/platform/supabase/client.ts` +2 | yes | yes | Supabase wtgx → API keys (owner) | set — wtgx's key |
@@ -60,7 +60,7 @@ No value appears here or in the script.
 | `REPAYMENT_PLANS` | `src/platform/env.ts` | `src/platform/env.ts` | — | yes | copy the fees Production value (owner) | add at C5 — EMI plan creation is off in production without it |
 | `SCHOOLFEES_DOC_TOKEN` | `src/app/api/fees/service/documents/route.ts` | `src/app/api/service/documents/route.ts` | — | yes | new value (owner) for One's document bridge | add only if a One MCP worker needs documents (MCP-AND-NOTION.md); unset = route answers 503 |
 | `SENTRY_AUTH_TOKEN` | — | `next.config.ts` | — | yes | fees build | fees only (source maps); One has no Sentry build step |
-| `SENTRY_DSN` | `src/instrumentation.ts`, `src/platform/observability/sentry-lite.ts` | — | — | — | owner | leave unset — NEXT_PUBLIC_SENTRY_DSN is used |
+| `SENTRY_DSN` | `src/instrumentation.ts`, `src/platform/observability/sentry-lite.ts` | — | — | — | owner | add at C5 — the DSN of a One-owned Sentry project (never the fees project's); unset = server errors are not reported (src/instrumentation.ts) |
 | `STAFF_NOTICE_TRANSPORT` | `src/modules/staff-notices/data/dispatcher.ts` | — | — | — | owner | add when staff WhatsApp starts (T+7) — `aisensy`; unset on live = disabled (STAFF-WHATSAPP.md §4) |
 | `SUPABASE_ANON_KEY` | — | — | — | yes | Supabase integration (fees) | fees only |
 | `SUPABASE_JWT_SECRET` | — | — | — | yes | Supabase integration (fees) | fees only |
@@ -111,6 +111,7 @@ Cloudflare wrangler vars and secrets of `schoolfees-live-mcp` — frozen at T0 w
 - `RAZORPAY_KEY_ID`: add at C5 (`rzp_live_` counts only with VERCEL_ENV=production and VPPSONE_ENV=live)
 - `RAZORPAY_KEY_SECRET`: add at C5
 - `REPAYMENT_PLANS`: add at C5 — EMI plan creation is off in production without it
+- `SENTRY_DSN`: add at C5 — the DSN of a One-owned Sentry project (never the fees project's); unset = server errors are not reported (src/instrumentation.ts)
 - `VPPSONE_ENV`: set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it
 
 Unsettled names: none.

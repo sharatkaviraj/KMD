@@ -15,7 +15,11 @@
  * webhook: a POST with a deliberately wrong signature must be answered 401
  * (a 404 means `RAZORPAY_WEBHOOK_SECRET` is not set on that deployment). The
  * route checks the signature before it reads or writes anything, so the probe
- * leaves no row. Only One's own hosts are probed.
+ * leaves no row. Only One's own hosts are probed. Before the cutover line
+ * a 404 is "not configured yet" (C6 sets the secret); after it, a problem.
+ * The scheduled `health` job runs the same probe against its own origin.
+ * `--probe` also asks the test-only doors cold (COLD_ROUTES): each must
+ * refuse a stranger.
  *
  * Exit 0 when quiet, 1 when something needs a person, 2 when the counts could
  * not be read at all.
@@ -23,7 +27,13 @@
 
 import process from "node:process";
 
-import { alertPayload, evaluateHealth, healthSummary } from "../../src/modules/ops-health/domain/health.ts";
+import {
+  alertPayload,
+  evaluateHealth,
+  healthSummary,
+  probeVerdict,
+  WEBHOOK_PROBE_REQUEST,
+} from "../../src/modules/ops-health/domain/health.ts";
 import { isMain, loadOneEnv, parseArgs } from "./lib/env.mjs";
 import { openOneDb } from "./lib/one-db.mjs";
 
@@ -46,22 +56,51 @@ export function probeOrigin(value) {
   return url.origin;
 }
 
-/** What the webhook's answer means. */
-export function probeVerdict(status) {
-  if (status === 401) return { ok: true, note: "401 on a bad signature, as it should" };
-  if (status === 404) return { ok: false, note: "404: RAZORPAY_WEBHOOK_SECRET is not set on this deployment (webhook off)" };
-  return { ok: false, note: `unexpected ${status}: a bad signature must be refused with 401` };
-}
+/** What the webhook's answer means — the app's own rule (ops-health/domain/health.ts), so the job and the terminal agree. */
+export { probeVerdict };
 
-async function probeWebhook(origin) {
+async function probeWebhook(origin, { cutover }) {
   const response = await fetch(`${origin}/api/webhooks/razorpay`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-razorpay-signature": "0".repeat(64) },
-    body: JSON.stringify({ event: "health.probe", payload: {} }),
+    ...WEBHOOK_PROBE_REQUEST,
     redirect: "manual",
     signal: AbortSignal.timeout(15000),
   });
-  return probeVerdict(response.status);
+  return probeVerdict(response.status, { cutover });
+}
+
+/**
+ * The test-only doors, asked cold (no session, no key) — critique1 B17 under
+ * the owner's override T1: on production they act for test accounts only, so
+ * a stranger must be refused. Observed on one.vpps.co.in, 31 Oct 2026:
+ * `/login/test` 404, `/login/dayrun` 404, `/lab/clock` 404, `/lab/enter`
+ * 307 → /lab/ended, `/login/test/clock` 307 → /login.
+ */
+export const COLD_ROUTES = ["/login/test", "/login/test/clock", "/login/dayrun", "/lab/enter", "/lab/clock"];
+
+/** A cold answer is a refusal: 401/403/404/405, or a redirect to sign-in or to the lab's "ended" page. Anything 2xx is not. */
+export function coldRouteVerdict(status, location = "") {
+  if ([401, 403, 404, 405].includes(status)) return { ok: true, note: String(status) };
+  if (status >= 300 && status < 400) {
+    const to = (() => {
+      try {
+        return new URL(location, "https://one.vpps.co.in").pathname;
+      } catch {
+        return "";
+      }
+    })();
+    const refused = to === "/login" || to.startsWith("/lab/ended");
+    return { ok: refused, note: `${status} → ${to || "?"}` };
+  }
+  return { ok: false, note: `${status}: answered a stranger` };
+}
+
+async function probeColdRoutes(origin) {
+  const out = [];
+  for (const route of COLD_ROUTES) {
+    const response = await fetch(`${origin}${route}`, { redirect: "manual", signal: AbortSignal.timeout(15000) });
+    out.push({ route, ...coldRouteVerdict(response.status, response.headers.get("location") ?? "") });
+  }
+  return out;
 }
 
 async function main() {
@@ -84,10 +123,13 @@ async function main() {
   }
 
   const result = evaluateHealth(counts);
-  const probe = typeof args.probe === "string" ? await probeWebhook(probeOrigin(args.probe)) : null;
+  const origin = typeof args.probe === "string" ? probeOrigin(args.probe) : null;
+  const probe = origin ? await probeWebhook(origin, { cutover: Number(counts.cutover_rows ?? 1) > 0 }) : null;
+  const cold = origin ? await probeColdRoutes(origin) : [];
+  const coldBad = cold.filter((c) => !c.ok);
 
   if (args.json) {
-    console.log(JSON.stringify({ counts, summary: healthSummary(result), probe }, null, 2));
+    console.log(JSON.stringify({ counts, summary: healthSummary(result), probe, cold }, null, 2));
   } else {
     console.log(`health: ${counts.at} — last ${counts.window_hours} h; month from ${counts.month_start} (IST). Read-only, counts only.`);
     for (const finding of result.findings) {
@@ -97,11 +139,12 @@ async function main() {
       console.log(`${mark}${finding.label.en}: ${value}${detail}`);
     }
     if (probe) console.log(`${probe.ok ? "  ok " : "  !! "}Razorpay webhook probe: ${probe.note}`);
+    for (const c of cold) console.log(`${c.ok ? "  ok " : "  !! "}cold ${c.route}: ${c.note}`);
     if (result.problems.length || result.unreadable.length) {
       console.log(`\nThe admin alert would say: ${alertPayload(result, String(counts.at).slice(0, 10)).what_en}`);
     }
   }
-  if (result.problems.length || result.unreadable.length || (probe && !probe.ok)) process.exitCode = 1;
+  if (result.problems.length || result.unreadable.length || (probe && !probe.ok) || coldBad.length) process.exitCode = 1;
 }
 
 if (isMain(import.meta.url)) {
