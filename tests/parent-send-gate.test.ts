@@ -164,7 +164,7 @@ describe("the parent-send gate", () => {
     });
 
     it("the migration seeds it OFF, adds no grant and no number", () => {
-      const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261031084012_parent_dispatch_test_only.sql"), "utf8");
+      const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261031084012_parent_dispatch_test_only.sql"), "utf8").replace(/\r\n/g, "\n");
       expect(sql).toContain("('parent_dispatch_test_only', false, null,");
       expect(sql).toContain("'parent_dispatch_test_only'\n  )");
       expect(sql).not.toMatch(/^\s*grant\b/im);
