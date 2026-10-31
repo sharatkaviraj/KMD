@@ -220,9 +220,60 @@ describe("what a parent taps", () => {
     expect(source).toContain("payment.vpa");
   });
 
-  // Four pay-page cases of fees HEAD (dead-end fallback, Android UPI buttons,
-  // the one-tap checkout view twice) belong to the Razorpay pay page, which
-  // arrives with go-live Phase E/7 and brings them with it.
+  // The four pay-page cases of fees HEAD, ported with the Razorpay pay page in
+  // go-live Phase E. One difference: the order migration is a fee-migration
+  // here (supabase/fee-migrations/), not a fees app migration.
+  it("never ends Pay now at a dead end", () => {
+    // A mistyped, expired or test link used to say "not valid" and stop. The
+    // office's own test send landed there. It now still pays the school by UPI,
+    // with the amount left for the parent to type.
+    const source = read("src/app/pay/[code]/page.tsx");
+    expect(source).not.toContain("This link is not valid");
+    const invalid = source.slice(source.indexOf('result.state === "invalid"'));
+    expect(invalid.slice(0, 200)).toContain("<OpenPayPanel");
+    const expired = source.slice(source.indexOf('result.state === "expired"'));
+    expect(expired.slice(0, 200)).toContain("<OpenPayPanel");
+    expect(source).toContain("buildOpenSchoolUpiPayment()");
+  });
+
+  it("gives an Android phone UPI buttons to tap, never Razorpay's redirect to upi://", () => {
+    // WhatsApp's own browser will not follow a 302 to `upi://` ("Web page not
+    // available", 2026-10-29), but does open a UPI app from a tapped link.
+    const action = read("src/app/pay/[code]/actions.ts");
+    expect(action).toContain("isAndroidUserAgent(userAgent)");
+    expect(action).toContain("?step=open");
+    const page = read("src/app/pay/[code]/page.tsx");
+    expect(page).toContain("<LaunchPanel");
+    expect(page).toContain("href={offer.upiUri}");
+    expect(page).toContain("readRazorpayUpiUri(");
+    expect(page).toContain("chromeIntentUrl(");
+    // Absolute URLs come from the request's host: the env default is localhost
+    // in production, which left the app fallbacks and the Chrome escape dead.
+    expect(page).toContain("originFromHeaders(await headers())");
+    expect(action).toContain("createAbsoluteUrl(`${back}?returned=1`, origin)");
+  });
+
+  it("the one-tap checkout view names a child by first name and class, and nothing else", () => {
+    // Widened on purpose (2026-10-30): a breakdown a parent can read needs the
+    // child's name. Never the admission number, a parent's name or a phone.
+    const view = read("src/app/pay/[code]/checkout-view.tsx");
+    const panel = read("src/app/pay/[code]/checkout-panel.tsx");
+    for (const source of [view, panel]) {
+      for (const forbidden of ["admission_no", "father_name", "full_name", "student_name", "father_phone", "destination"]) {
+        expect(source).not.toContain(forbidden);
+      }
+    }
+    expect(view).toContain("child.first_name");
+    const migration = read("supabase/fee-migrations/20261029190000_online_payment_orders.sql");
+    expect(migration).toContain("'first_name', split_part(trim(coalesce(student.full_name, '')), ' ', 1)");
+    expect(migration).not.toMatch(/'admission_no'|'father_name'|'destination'/);
+  });
+
+  it("the one-tap checkout keeps the late fee on its own line and never hand-writes money", () => {
+    const view = read("src/app/pay/[code]/checkout-view.tsx");
+    expect(view).toContain("row.late_fee_pending");
+    expect(view).toContain("formatInr(row.fees_pending)");
+  });
 
   it("leaks nothing about the student on the public pay page", () => {
     // A payment link, not a portal. Someone who guesses a code must learn that

@@ -610,6 +610,11 @@ function redesign(): RouteExpectation[] {
     row("/reports", FEE_READERS, "Money reports belong to the fee desk and the office."),
     row("/accounts", FEE_READERS, "The accountant's home: the day's money at a glance."),
     row("/accounts/books", FEE_READERS, "The books: ledger and day closes, read-only for the fee desk."),
+    row(
+      "/fees/payments/online",
+      ["admin", "accountant"],
+      "Razorpay money (go-live Phase E): the back office's (`fees:accounts`, the nav gate), like the bank books — a payment to post or a review to close is accounts work, not the counter's.",
+    ),
     row("/admissions", ["admin"], "Admitting a child creates a fee record; the fee app keeps that to the admin."),
     row("/admissions/new", ["admin"], "The admission wizard creates the fee record, so it sits behind the same door as Admissions."),
     row("/admissions/seats", ["admin"], "Seats per class are school policy, set by the admin; Admissions reads seats left from them."),

@@ -46,6 +46,18 @@ export type WriteScope = {
   academicSessionIds: string[];
   /** public.fee_policy_configs.id -> its academic_session_label. */
   policyIds: string[];
+  /** public.whatsapp_reminder_sends.id -> its session_label (an online order's send). */
+  sendIds: string[];
+  /** public.online_payment_intents.id -> its student. */
+  intentIds: string[];
+  /** public.online_payment_intents.provider_reference_id -> its student. */
+  intentRefs: string[];
+  /** public.online_payment_orders.id -> its send. */
+  orderIds: string[];
+  /** public.online_payment_orders.provider_order_id -> its send. */
+  providerOrderIds: string[];
+  /** public.online_payment_captures.id -> its intent or its order. */
+  captureIds: string[];
 };
 
 export type FeeRequestTarget =
@@ -60,17 +72,39 @@ export const FREE_TABLES = new Set([
   "office_sync_events",
   "workbook_materialized_view_refresh_queue",
   "backup_runs",
+  // Razorpay's inbox (status of a delivered event) and the online audit trail
+  // (append-only notes): records of what happened, never fee data. Refusing
+  // the inbox would make Razorpay redeliver for a day and then switch the
+  // webhook off.
+  "online_payment_events",
+  "online_payment_audit",
 ]);
 
-/** RPCs that only refresh derived views. */
+/** RPCs that only refresh derived views, or only queue and log (go-live Phase E). */
 export const FREE_RPCS = new Set([
   "refresh_workbook_materialized_views_if_requested",
   "queue_workbook_materialized_view_refresh",
   "refresh_financial_materialized_views",
+  // A Razorpay event written to the inbox. Acting on it is a separate,
+  // guarded call (`online_payment_record_capture` and the rest).
+  "online_payment_record_event",
+  // The receipt-notice outbox: a lease and a status. The message itself
+  // passes the parent-send gate (D-353), which holds a TEST session or a
+  // confined deployment to the test-recipient allowlist.
+  "notification_outbox_claim",
+  "notification_outbox_complete",
 ]);
 
+/**
+ * Online payment rows whose only change is the reconciler's "last looked at"
+ * stamp. Bookkeeping for the next pass, never money — and the pay page's
+ * eight-second poll claims it with an `or=` filter this guard cannot place.
+ */
+const STAMP_ONLY_TABLES = new Set(["online_payment_orders", "online_payment_intents"]);
+const STAMP_COLUMNS = new Set(["last_reconciled_at"]);
+
 /** RPCs that read. Anything not here, not free and not a known writer is treated as a write. */
-const READ_RPC = /^(get_|preview_|has_|is_|my_)|^(active_session_label|online_payment_quote|online_payment_quote_for|online_payment_pay_page|fee_contract_fingerprints|generate_schema_snapshot)$/;
+const READ_RPC = /^(get_|preview_|has_|is_|my_)|^(active_session_label|online_payment_quote|online_payment_quote_for|online_payment_pay_page|online_payments_cron_secret_matches|fee_contract_fingerprints|generate_schema_snapshot)$/;
 
 type Args = Record<string, unknown>;
 
@@ -95,7 +129,38 @@ const WRITE_RPCS: Record<string, (args: Args) => Partial<WriteScope> | "read"> =
     a.p_dry_run === true ? "read" : { sessionLabels: str(a.p_session_label) },
   // Deletes one academic session (and refuses if it has data): placed by that session.
   delete_academic_session_safe: (a) => ({ academicSessionIds: str(a.p_session_id) }),
+
+  // Online payments (go-live Phase E). Each is placed by the student, send,
+  // intent, order or capture it names, so a TEST family can pay online while
+  // writes are TEST-only and a real one is refused — on the webhook, the
+  // reconciler and the pay page alike. A capture or apply that cannot be
+  // placed (money on a link this database does not know) is refused, and the
+  // inbox keeps it for the reconciler once writes open.
+  online_payment_open_intent: (a) => ({ studentIds: str(a.p_student_id) }),
+  online_payment_open_order: (a) => ({ sendIds: str(a.p_send_id) }),
+  online_payment_link_recorded: (a) => ({ intentIds: str(a.p_intent_id) }),
+  online_payment_link_failed: (a) => ({ intentIds: str(a.p_intent_id) }),
+  online_payment_link_closed: (a) => ({ intentIds: str(a.p_intent_id) }),
+  online_payment_order_recorded: (a) => ({ orderIds: str(a.p_order_id) }),
+  online_payment_order_failed: (a) => ({ orderIds: str(a.p_order_id) }),
+  online_payment_order_closed: (a) => ({ orderIds: str(a.p_order_id) }),
+  online_payment_record_capture: (a) => ({ intentRefs: str(factOf(a.p_facts, "reference_id")) }),
+  online_payment_record_order_capture: (a) => ({ providerOrderIds: str(factOf(a.p_facts, "provider_order_id")) }),
+  online_payment_apply_capture: (a) => ({ captureIds: str(a.p_capture_id) }),
+  online_payment_apply_order_capture: (a) => ({ captureIds: str(a.p_capture_id) }),
+  online_payment_resolve_review: (a) => ({ captureIds: str(a.p_capture_id) }),
 };
+
+/** An update body that sets the reconciler's stamp and nothing else. */
+function isStampOnly(body: unknown): boolean {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return false;
+  const columns = Object.keys(body as Record<string, unknown>);
+  return columns.length > 0 && columns.every((column) => STAMP_COLUMNS.has(column));
+}
+
+function factOf(facts: unknown, key: string): unknown {
+  return facts && typeof facts === "object" ? (facts as Record<string, unknown>)[key] : undefined;
+}
 
 export const KNOWN_WRITE_RPCS = Object.keys(WRITE_RPCS);
 
@@ -114,6 +179,12 @@ function emptyScope(): WriteScope {
     importRowIds: [],
     academicSessionIds: [],
     policyIds: [],
+    sendIds: [],
+    intentIds: [],
+    intentRefs: [],
+    orderIds: [],
+    providerOrderIds: [],
+    captureIds: [],
   };
 }
 
@@ -174,6 +245,9 @@ function scopeKeyOf(table: string, column: string): keyof WriteScope | null {
   if (table === "import_rows" && column === "id") return "importRowIds";
   if (table === "academic_sessions" && column === "id") return "academicSessionIds";
   if (table === "fee_policy_configs" && column === "id") return "policyIds";
+  if (table === "online_payment_intents" && column === "id") return "intentIds";
+  if (table === "online_payment_orders" && column === "id") return "orderIds";
+  if (table === "online_payment_captures" && column === "id") return "captureIds";
   return null;
 }
 
@@ -247,11 +321,13 @@ export function classifyFeeRequest(request: { method: string; url: string; body:
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return { kind: "read" };
   if (FREE_TABLES.has(resource)) return { kind: "free", resource };
 
+  const body = parseBody(request.body);
+  if (method === "PATCH" && STAMP_ONLY_TABLES.has(resource) && isStampOnly(body)) return { kind: "free", resource };
+
   const filters = scopeOfFilters(resource, url.searchParams);
   const scope = emptyScope();
   merge(scope, filters.scope);
 
-  const body = parseBody(request.body);
   const rows = Array.isArray(body) ? body : body ? [body] : [];
 
   // A row whose ids say nothing makes the whole insert unscoped: one real row

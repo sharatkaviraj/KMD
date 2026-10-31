@@ -53,10 +53,42 @@ function isPublicPath(pathname: string) {
   // (the fees app's `/r/{receiptNumber}`, moved because `/r/` is a request
   // token here). It shows a receipt number, date, amount and reversal state,
   // nothing about the child — see `src/app/rv/[code]/page.tsx`.
-  return ["/r", "/rv", "/t", "/w", "/api/jobs", "/api/lab"].some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
+  return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
+
+/**
+ * The prefixes a signed-out request may reach. Each route under them carries
+ * its own credential and checks it itself (go-live Phase E, plan §7.2,
+ * critique0 #1, critique1 A1):
+ *
+ *  - `/pay/*`             a parent's Pay now page and its status poll — the
+ *                         random pay code is the only input;
+ *  - `/api/webhooks/*`    Razorpay's webhook — its HMAC signature, and a 404
+ *    `/api/fees/webhooks/*` until `RAZORPAY_WEBHOOK_SECRET` is set (and
+ *                         AiSensy's, by `x-aisensy-signature`);
+ *  - `/api/fees/cron/*`   pg_cron and Vercel cron — `CRON_SECRET` or the
+ *                         route's own secret, refused without one.
+ *
+ * Without these a Razorpay delivery is a 307 to /login, which Razorpay counts
+ * as a failure and eventually disables the webhook; a cron "succeeds" while
+ * doing nothing; a parent tapping Pay now lands on the staff sign-in page.
+ * `tests/public-routes.test.ts` lists every route that authenticates by a
+ * secret, signature or token and holds it to being under one of these.
+ */
+export const PUBLIC_PREFIXES = [
+  "/r",
+  "/rv",
+  "/t",
+  "/w",
+  "/pay",
+  "/api/jobs",
+  "/api/lab",
+  "/api/webhooks",
+  "/api/fees/webhooks",
+  "/api/fees/cron",
+] as const;
+
+export { isPublicPath };
 
 /**
  * Keep the Supabase auth cookies fresh and decide, before anything renders,

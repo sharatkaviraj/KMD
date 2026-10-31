@@ -47,6 +47,16 @@ const TEST_BATCH = "00000000-0000-4000-8000-00000000e002";
 const TEST_BATCH_ROW = "00000000-0000-4000-8000-00000000e012";
 const REAL_SESSION_ID = "00000000-0000-4000-8000-00000000f001";
 const REAL_POLICY = "00000000-0000-4000-8000-00000000f101";
+const REAL_SEND = "00000000-0000-4000-8000-0000000a0001";
+const TEST_SEND = "00000000-0000-4000-8000-0000000a0002";
+const REAL_INTENT = "00000000-0000-4000-8000-0000000b0001";
+const TEST_INTENT = "00000000-0000-4000-8000-0000000b0002";
+const REAL_ORDER = "00000000-0000-4000-8000-0000000c0001";
+const TEST_ORDER = "00000000-0000-4000-8000-0000000c0002";
+const TEST_LINK_CAPTURE = "00000000-0000-4000-8000-0000000d0001";
+const TEST_ORDER_CAPTURE = "00000000-0000-4000-8000-0000000d0002";
+const REAL_ORDER_CAPTURE = "00000000-0000-4000-8000-0000000d0003";
+const UNKNOWN_CAPTURE = "00000000-0000-4000-8000-0000000d0009";
 
 /** The database, as far as the guard's lookups can see it: table -> id -> { column: value }. */
 const DB: Record<string, Record<string, Record<string, string>>> = {
@@ -57,16 +67,38 @@ const DB: Record<string, Record<string, Record<string, string>>> = {
   payment_import_rows: { [TEST_BATCH_ROW]: { batch_id: TEST_BATCH } },
   academic_sessions: { [REAL_SESSION_ID]: { session_label: "2026-27" } },
   fee_policy_configs: { [REAL_POLICY]: { academic_session_label: "2026-27" } },
+  // Online payments (go-live Phase E).
+  whatsapp_reminder_sends: { [REAL_SEND]: { session_label: "2026-27" }, [TEST_SEND]: { session_label: "TEST-2026-27" } },
+  online_payment_intents: {
+    [TEST_INTENT]: { student_id: TEST_STUDENT },
+    [REAL_INTENT]: { student_id: REAL_STUDENT },
+    "provider_reference_id:vp1_test": { student_id: TEST_STUDENT },
+    "provider_reference_id:vp1_real": { student_id: REAL_STUDENT },
+  },
+  online_payment_orders: {
+    [TEST_ORDER]: { send_id: TEST_SEND },
+    [REAL_ORDER]: { send_id: REAL_SEND },
+    "provider_order_id:order_TEST1": { send_id: TEST_SEND },
+    "provider_order_id:order_REAL1": { send_id: REAL_SEND },
+  },
+  online_payment_captures: {
+    [TEST_LINK_CAPTURE]: { intent_id: TEST_INTENT },
+    [TEST_ORDER_CAPTURE]: { order_id: TEST_ORDER },
+    [REAL_ORDER_CAPTURE]: { order_id: REAL_ORDER },
+  },
 };
 
 function lookups(url: string): Response {
   const u = new URL(url);
   const table = u.pathname.split("/").pop() ?? "";
   if (table === "app_settings") return Response.json(setting === null ? [] : [{ value: setting }]);
-  const column = (u.searchParams.get("select") ?? "").split(",")[1];
-  const ids = (u.searchParams.get("id") ?? "").replace(/^in\.\(|\)$/g, "").split(",").map((id) => id.replace(/"/g, ""));
+  // `select=<key>,<column>&<key>=in.(…)`: the key is `id`, or (online
+  // payments) a Razorpay reference or order id, stored here as `key:<value>`.
+  const [key, column] = (u.searchParams.get("select") ?? "").split(",");
+  const keys = (u.searchParams.get(key) ?? "").replace(/^in\.\(|\)$/g, "").split(",").map((id) => id.replace(/"/g, ""));
   const found = DB[table] ?? {};
-  return Response.json(ids.filter((id) => found[id]?.[column]).map((id) => ({ id, [column]: found[id][column] })));
+  const rowOf = (value: string) => (key === "id" ? found[value] : found[`${key}:${value}`]);
+  return Response.json(keys.filter((value) => rowOf(value)?.[column]).map((value) => ({ [key]: value, [column]: rowOf(value)[column] })));
 }
 
 const sent = vi.fn(async () => Response.json({ ok: true }));
@@ -232,5 +264,63 @@ describe("the guarded fetch", () => {
   it("never blocks reads or the operational tables", async () => {
     expect((await guarded()(`${BASE}/students?select=id`, { method: "GET" })).status).toBe(200);
     expect((await guarded()(`${BASE}/user_activity_events`, { method: "POST", body: "{}" })).status).toBe(200);
+  });
+});
+
+/**
+ * Online payments while fee writes are TEST-only (go-live Phase E): a TEST
+ * family pays online end to end — the pay page, the webhook, the reconciler,
+ * "post now" — and a real family is refused at every step that touches money,
+ * on production before the key is 'true' and on every confined deployment.
+ */
+describe("the guarded fetch and online payments", () => {
+  it("opens an intent or an order for a TEST family only", async () => {
+    expect((await rpc("online_payment_open_intent", { p_student_id: TEST_STUDENT })).status).toBe(200);
+    expect((await rpc("online_payment_open_order", { p_send_id: TEST_SEND })).status).toBe(200);
+    await refusedWith(await rpc("online_payment_open_intent", { p_student_id: REAL_STUDENT }));
+    await refusedWith(await rpc("online_payment_open_order", { p_send_id: REAL_SEND }));
+  });
+
+  it("records and posts a capture by what it is on: link, order, or the capture itself", async () => {
+    expect((await rpc("online_payment_record_capture", { p_facts: { reference_id: "vp1_test" } })).status).toBe(200);
+    expect((await rpc("online_payment_record_order_capture", { p_facts: { provider_order_id: "order_TEST1" } })).status).toBe(200);
+    expect((await rpc("online_payment_apply_capture", { p_capture_id: TEST_LINK_CAPTURE })).status).toBe(200);
+    expect((await rpc("online_payment_apply_order_capture", { p_capture_id: TEST_ORDER_CAPTURE })).status).toBe(200);
+    await refusedWith(await rpc("online_payment_record_capture", { p_facts: { reference_id: "vp1_real" } }));
+    await refusedWith(await rpc("online_payment_record_order_capture", { p_facts: { provider_order_id: "order_REAL1" } }));
+    await refusedWith(await rpc("online_payment_apply_order_capture", { p_capture_id: REAL_ORDER_CAPTURE }));
+    await refusedWith(await rpc("online_payment_resolve_review", { p_capture_id: REAL_ORDER_CAPTURE }));
+  });
+
+  it("refuses money it cannot place: an unknown link, order or capture", async () => {
+    await refusedWith(await rpc("online_payment_record_capture", { p_facts: { reference_id: "vpps_somebody" } }));
+    await refusedWith(await rpc("online_payment_record_capture", { p_facts: {} }));
+    await refusedWith(await rpc("online_payment_apply_capture", { p_capture_id: UNKNOWN_CAPTURE }));
+  });
+
+  it("places the link and order bookkeeping calls", async () => {
+    expect((await rpc("online_payment_link_recorded", { p_intent_id: TEST_INTENT })).status).toBe(200);
+    expect((await rpc("online_payment_order_failed", { p_order_id: TEST_ORDER })).status).toBe(200);
+    await refusedWith(await rpc("online_payment_link_closed", { p_intent_id: REAL_INTENT }));
+    await refusedWith(await rpc("online_payment_order_closed", { p_order_id: REAL_ORDER }));
+  });
+
+  it("never blocks the inbox, the outbox, the audit trail, the reconciler's stamp or the cron's secret check", async () => {
+    sent.mockClear();
+    expect((await rpc("online_payment_record_event", { p_provider_event_id: "evt_1" })).status).toBe(200);
+    expect((await rpc("notification_outbox_claim", { p_limit: 10 })).status).toBe(200);
+    expect((await rpc("notification_outbox_complete", { p_id: "x" })).status).toBe(200);
+    expect((await rpc("online_payments_cron_secret_matches", { p_secret: "x" })).status).toBe(200);
+    expect((await guarded()(`${BASE}/online_payment_events?id=eq.x`, { method: "PATCH", body: JSON.stringify({ status: "ignored" }) })).status).toBe(200);
+    expect((await guarded()(`${BASE}/online_payment_audit`, { method: "POST", body: JSON.stringify({ action: "switch_changed" }) })).status).toBe(200);
+    const stamp = JSON.stringify({ last_reconciled_at: "2026-12-13T00:00:00Z" });
+    expect((await guarded()(`${BASE}/online_payment_orders?id=eq.${REAL_ORDER}&or=(last_reconciled_at.is.null)`, { method: "PATCH", body: stamp })).status).toBe(200);
+    expect(sent).toHaveBeenCalledTimes(7);
+  });
+
+  it("does not let a stamp carry anything else with it", async () => {
+    const body = JSON.stringify({ last_reconciled_at: "2026-12-13T00:00:00Z", status: "accounted" });
+    await refusedWith(await guarded()(`${BASE}/online_payment_orders?id=eq.${REAL_ORDER}`, { method: "PATCH", body }));
+    expect((await guarded()(`${BASE}/online_payment_orders?id=eq.${TEST_ORDER}`, { method: "PATCH", body })).status).toBe(200);
   });
 });

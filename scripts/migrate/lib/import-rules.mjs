@@ -154,11 +154,14 @@ export function importTransform(table, row) {
 }
 
 /**
- * The fees reconcilers' own selection filters, as One will port them
- * (fees src/modules/payments/data/online/orders.ts reconcileOpenOrders and
- * service.ts reconcileOnlinePayments, main 8a0cd47c). An imported row must
- * match none of them. `now` and created_at are ignored on purpose: an import
- * can land within 24 hours of the row's creation. Pure.
+ * The fees reconcilers' own selection filters (fees
+ * src/modules/payments/data/online/orders.ts reconcileOpenOrders and
+ * service.ts reconcileOnlinePayments, main 8a0cd47c). Ported to One in go-live
+ * Phase E from fees origin/main 78e27e4f, unchanged except that One's also
+ * skip every `vpps_` (fees app) link and order; tests/online-import-rules.test.ts
+ * reads the ported source and holds it to these. An imported row must match
+ * none of them. `now` and created_at are ignored on purpose: an import can land
+ * within 24 hours of the row's creation. Pure.
  */
 /** @type {Record<string, Array<(row: any) => boolean>>} */
 export const RECONCILER_FILTERS = {

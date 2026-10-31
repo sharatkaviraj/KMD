@@ -79,17 +79,90 @@ const CHUNK = 100;
 
 /** id -> value for a single-column lookup, chunked. Null when any read fails. */
 async function lookup(table: string, column: string, ids: string[]): Promise<Map<string, string | null> | null> {
+  return lookupBy(table, "id", column, ids);
+}
+
+/** key -> value, where `keyColumn` is any unique column. Chunked; null when any read fails. */
+async function lookupBy(
+  table: string,
+  keyColumn: string,
+  column: string,
+  keys: string[],
+): Promise<Map<string, string | null> | null> {
   const out = new Map<string, string | null>();
-  for (let at = 0; at < ids.length; at += CHUNK) {
-    const chunk = ids.slice(at, at + CHUNK);
-    const list = chunk.map((id) => encodeURIComponent(`"${id}"`)).join(",");
-    const rows = await restGet(`${table}?select=id,${column}&id=in.(${list})`);
+  for (let at = 0; at < keys.length; at += CHUNK) {
+    const chunk = keys.slice(at, at + CHUNK);
+    const list = chunk.map((key) => encodeURIComponent(`"${key}"`)).join(",");
+    const rows = await restGet(`${table}?select=${keyColumn},${column}&${keyColumn}=in.(${list})`);
     if (!rows) return null;
     for (const row of rows as Array<Record<string, unknown>>) {
-      out.set(String(row.id), row[column] == null ? null : String(row[column]));
+      out.set(String(row[keyColumn]), row[column] == null ? null : String(row[column]));
     }
   }
   return out;
+}
+
+/**
+ * Online payment ids (go-live Phase E) -> the students and sessions they
+ * belong to: a capture -> its intent or its order; an intent (by id or by its
+ * Razorpay reference) -> its student; an order (by id or by Razorpay's order
+ * id) -> its send; a send -> its session. False when any id cannot be placed.
+ */
+async function placeOnlinePayment(
+  scope: WriteScope,
+  addStudent: (id: string) => void,
+  addLabel: (label: string) => void,
+): Promise<boolean> {
+  const intentIds = new Set(scope.intentIds);
+  const orderIds = new Set(scope.orderIds);
+  const sendIds = new Set(scope.sendIds);
+
+  if (scope.captureIds.length > 0) {
+    const [byIntent, byOrder] = await Promise.all([
+      lookup("online_payment_captures", "intent_id", scope.captureIds),
+      lookup("online_payment_captures", "order_id", scope.captureIds),
+    ]);
+    if (!byIntent || !byOrder) return false;
+    for (const id of scope.captureIds) {
+      const intentId = byIntent.get(id);
+      const orderId = byOrder.get(id);
+      if (intentId) intentIds.add(intentId);
+      else if (orderId) orderIds.add(orderId);
+      else return false;
+    }
+  }
+
+  const resolve = async (map: Map<string, string | null> | null, keys: readonly string[], add: (value: string) => void) => {
+    if (!map) return false;
+    for (const key of keys) {
+      const value = map.get(key);
+      if (!value) return false;
+      add(value);
+    }
+    return true;
+  };
+
+  if (scope.intentRefs.length > 0) {
+    const found = await lookupBy("online_payment_intents", "provider_reference_id", "student_id", scope.intentRefs);
+    if (!(await resolve(found, scope.intentRefs, addStudent))) return false;
+  }
+  if (intentIds.size > 0) {
+    const ids = [...intentIds];
+    if (!(await resolve(await lookup("online_payment_intents", "student_id", ids), ids, addStudent))) return false;
+  }
+  if (scope.providerOrderIds.length > 0) {
+    const found = await lookupBy("online_payment_orders", "provider_order_id", "send_id", scope.providerOrderIds);
+    if (!(await resolve(found, scope.providerOrderIds, (id) => sendIds.add(id)))) return false;
+  }
+  if (orderIds.size > 0) {
+    const ids = [...orderIds];
+    if (!(await resolve(await lookup("online_payment_orders", "send_id", ids), ids, (id) => sendIds.add(id)))) return false;
+  }
+  if (sendIds.size > 0) {
+    const ids = [...sendIds];
+    if (!(await resolve(await lookup("whatsapp_reminder_sends", "session_label", ids), ids, addLabel))) return false;
+  }
+  return true;
 }
 
 /**
@@ -124,6 +197,7 @@ export async function sessionsTouched(scope: WriteScope): Promise<string[] | nul
   if (!(await through("fee_policy_configs", "academic_session_label", scope.policyIds, addLabel))) return null;
 
   const studentIds = new Set(scope.studentIds);
+  if (!(await placeOnlinePayment(scope, (id) => studentIds.add(id), addLabel))) return null;
 
   for (const [table, ids] of [
     ["receipts", scope.receiptIds],
