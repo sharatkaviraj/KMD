@@ -25,6 +25,13 @@ vi.mock("@/modules/whatsapp/data/aisensy", async (importOriginal) => ({
   sendAisensyCampaignMessage: (args: unknown) => send(args),
 }));
 
+// Since fees 3cc2de4b (ported in Phase F) the run page's retry hands its
+// failed rows to the failure desk's resend; One filters the line first.
+const resend = vi.fn();
+vi.mock("@/app/(app)/fees/reminders/fix/actions", () => ({
+  resendFailuresAction: (_prev: unknown, data: FormData) => resend(data.getAll("sendId")),
+}));
+
 const stuck = vi.fn();
 const resolve = vi.fn();
 vi.mock("@/modules/whatsapp/data/delivery-store", () => ({
@@ -41,6 +48,8 @@ vi.mock("@/modules/fees/platform/supabase/admin", () => ({
       select: () => {
         const chain = {
           eq: () => chain,
+          or: () => chain,
+          is: () => chain,
           limit: () => chain,
           then: (done: (value: { data: unknown[]; error: null }) => unknown) => done({ data: failedRows, error: null }),
         };
@@ -93,6 +102,8 @@ beforeEach(() => {
   stuck.mockReset();
   resolve.mockReset();
   resolve.mockImplementation(async (args: { sendIds: string[] }) => args.sendIds.length);
+  resend.mockReset();
+  resend.mockResolvedValue({ status: "success", message: "2 messages sent" });
   updated.length = 0;
 });
 
@@ -102,8 +113,9 @@ describe("retrying a run's failed sends", () => {
     const result = await retryFailedSendsAction({ status: "idle" }, form({ runId: "run-1" }));
 
     expect(send).not.toHaveBeenCalled();
+    expect(resend).not.toHaveBeenCalled();
     expect(updated).toEqual([]);
-    expect(result.message).toMatch(/1 not re-sent: they were sent by the fees app/);
+    expect(result.message).toMatch(/1 were sent by the fees app/);
   });
 
   it("re-sends One's own rows, and TEST-session rows from either side of the line", async () => {
@@ -112,10 +124,11 @@ describe("retrying a run's failed sends", () => {
       failed("test-row", BEFORE, "TEST-2026-27"),
       failed("one-row", AFTER, "2026-27"),
     ];
-    await retryFailedSendsAction({ status: "idle" }, form({ runId: "run-1" }));
+    const result = await retryFailedSendsAction({ status: "idle" }, form({ runId: "run-1" }));
 
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(updated.sort()).toEqual(["one-row", "test-row"]);
+    expect(resend).toHaveBeenCalledTimes(1);
+    expect((resend.mock.calls[0]![0] as string[]).sort()).toEqual(["one-row", "test-row"]);
+    expect(result.message).toMatch(/1 not re-sent: they were sent by the fees app/);
   });
 });
 

@@ -29,6 +29,7 @@ import {
   getStaffById,
   updateStaff,
 } from "@/modules/staff/data/staff-repo";
+import { writeStaffConsent } from "@/modules/staff-notices/data/consent";
 
 export type StaffFormState = {
   status: "idle" | "error";
@@ -298,5 +299,37 @@ export async function setTestAccountAction(formData: FormData) {
   }
 
   revalidatePath("/staff");
+  revalidatePath(`/staff/${id}`);
+}
+
+/**
+ * An administrator records WhatsApp consent collected in person or on the
+ * training form (go-live Phase F, plan §8.3), or that the person said no.
+ * Administrators only, never a test account on a real profile (D-351 (4)),
+ * and stamped with who recorded it. A plain form action, like the two above:
+ * the form is only rendered for an administrator, so a refusal is a replay.
+ */
+export async function recordWhatsappConsentAction(formData: FormData) {
+  const actor = await assertPermission("staff:manage");
+  await assertNotPreviewing();
+  if (!mayChangeAuthority(actor.role)) {
+    throw new Error(authorityRefusalMessages.not_admin.en);
+  }
+  const id = (formData.get("id") ?? "").toString();
+  const choice = (formData.get("consent") ?? "").toString();
+  if (choice !== "form" && choice !== "admin_recorded" && choice !== "no") {
+    throw new Error("Choose what was recorded.");
+  }
+  const target = await getStaffById(id);
+  if (!target) throw new Error("That profile was not found.");
+  if (!(await actorMayManage(actor, target.id))) {
+    throw new Error(authorityRefusalMessages.test_account.en);
+  }
+  await writeStaffConsent({
+    staffId: target.id,
+    optIn: choice !== "no",
+    source: choice === "no" ? "admin_recorded" : choice,
+    recordedBy: actor.id,
+  });
   revalidatePath(`/staff/${id}`);
 }

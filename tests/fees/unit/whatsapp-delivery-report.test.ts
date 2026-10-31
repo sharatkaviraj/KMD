@@ -298,3 +298,50 @@ describe("matchDeliveryReport", () => {
     expect(result.unmatched).toBe(1);
   });
 });
+
+describe("the failure reason, kept since 2026-10-30", () => {
+  it("reads the reason and the WhatsApp code off a failed row", () => {
+    const parsed = parseDeliveryReport(
+      [
+        "Message Id,Destination,Status,Failure Reason,Error Code,Updated At",
+        "msg-1,+919352205884,Failed,Message undeliverable,131026,2026-10-29T10:15:00Z",
+        "msg-2,+919876543210,Delivered,,,2026-10-29T10:16:00Z",
+      ].join("\n"),
+    );
+    expect(parsed.rows[0]).toMatchObject({
+      status: "failed",
+      reason: "Message undeliverable",
+      errorCode: "131026",
+    });
+    // A delivered row has no reason worth keeping, and none is invented.
+    expect(parsed.rows[1]).not.toHaveProperty("reason");
+    expect(parsed.rows[1]).not.toHaveProperty("errorCode");
+  });
+
+  it("pulls the code out of the reason when the report has no code column", () => {
+    const parsed = parseDeliveryReport(
+      ["msg id,mobile,status,error", "msg-1,9352205884,undelivered,(#131049) ecosystem engagement"].join("\n"),
+    );
+    expect(parsed.rows[0]).toMatchObject({ status: "failed", errorCode: "131049" });
+  });
+
+  it("carries the reason through to the update", () => {
+    const result = matchDeliveryReport(
+      [{ providerMessageId: "msg-1", destinationDigits: null, status: "failed", at: null, reason: "Blocked", errorCode: "131050" }],
+      [send()],
+    );
+    expect(result.updates[0]).toMatchObject({ status: "failed", reason: "Blocked", errorCode: "131050" });
+  });
+
+  it("never matches an old message's result onto a resent one by phone", () => {
+    // The resend took the row back with a NEW id. The morning message's
+    // "failed" carries the OLD id, which matches nothing — and must not then
+    // fall back to the phone and mark the resend failed.
+    const result = matchDeliveryReport(
+      [{ providerMessageId: "msg-old", destinationDigits: "9352205884", status: "failed", at: "2026-09-03T10:00:00.000Z" }],
+      [send({ providerMessageId: "msg-new" })],
+    );
+    expect(result.updates).toEqual([]);
+    expect(result.unmatched).toBe(1);
+  });
+});

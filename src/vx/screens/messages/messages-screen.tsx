@@ -27,6 +27,8 @@ import { TemplateAssist } from "@/vx/assist/template-assist";
 
 import type { CampaignView, MessagesData, RecipientView, ReplyView, TemplateView } from "./data";
 import { Outbox } from "./outbox";
+import { StaffLog } from "./staff-log";
+import type { StaffLogData } from "./staff-log-data";
 import type { OutboxData } from "./outbox-data";
 import {
   campaignStatus,
@@ -64,7 +66,7 @@ import {
  * outcome, AiSensy templates and parent replies.
  */
 
-export type MessagesView = "sent" | "outbox" | "replies" | "templates";
+export type MessagesView = "sent" | "outbox" | "replies" | "templates" | "staff";
 export type MessagesState = {
   view: MessagesView;
   compose: boolean;
@@ -223,7 +225,7 @@ function PhonePreview({ title, lines }: { title: string; lines: string[] }) {
 
 /* ------------------------------------------------------------------ screen */
 
-export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { data: MessagesData; state: MessagesState; outbox: OutboxData | null; outboxCount: number; /** A filled-in notice, for the design fixture only; the page never passes it. */ draft?: { title: string; hi: string; en: string } }) {
+export function MessagesScreen({ data, state, outbox, outboxCount, staffLog = null, draft }: { data: MessagesData; state: MessagesState; outbox: OutboxData | null; outboxCount: number; /** Messages → Staff (go-live Phase F); null unless that tab is open. */ staffLog?: StaffLogData | null; /** A filled-in notice, for the design fixture only; the page never passes it. */ draft?: { title: string; hi: string; en: string } }) {
   const { tx } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -250,6 +252,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
         { value: "outbox", label: `${tx(p("To send", "भेजने को"))}${outboxCount ? ` · ${outboxCount}` : ""}` },
         { value: "replies", label: `${tx(p("Replies", "जवाब"))}${openReplies ? ` · ${openReplies}` : ""}` },
         { value: "templates", label: tx(p("Templates", "टेम्पलेट")) },
+        { value: "staff", label: tx(p("Staff", "स्टाफ़")) },
       ]}
     />
   );
@@ -283,7 +286,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
       mBack="/menu"
       actions={
         <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ width: 460 }}>{tabs}</div>
+          <div style={{ width: 540 }}>{tabs}</div>
           <Btn variant="pri" icon="plus" href={href({ compose: true })}>{tx(p("New notice", "नई सूचना"))}</Btn>
           <HelpButton
             title={tx(p("Messages", "संदेश"))}
@@ -317,6 +320,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
           </>
         ) : null}
         {state.view === "outbox" && outbox ? <Outbox data={outbox} tabs={tabs} /> : null}
+        {state.view === "staff" && staffLog ? <StaffLog data={staffLog} tabs={phoneTabs} /> : null}
         {state.view === "templates" ? (
           <Templates templates={data.templates} tabs={phoneTabs} onNew={() => go({ view: "templates", sheet: "template-new" })} />
         ) : null}

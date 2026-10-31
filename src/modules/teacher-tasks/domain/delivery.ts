@@ -1,4 +1,4 @@
-export type DeliveryReason = "changed" | "complete" | "phone" | "reconcile" | "already_handled" | "unavailable" | "test_mode" | "rejected";
+export type DeliveryReason = "changed" | "complete" | "phone" | "reconcile" | "already_handled" | "unavailable" | "test_mode" | "rejected" | "no_consent";
 export type DeliveryResult = { ok: true; state: "accepted" | "manual_opened"; url?: string } | { ok: false; reason: DeliveryReason };
 export type DeliveryPreview = { ok: true; id: string; digest: string; taskId: string; kind: "initial" | "reminder"; phone: string; name: string; title: string; due: string | null; expected: number; answered: number; textHi: string; textEn: string;
   studentCount: number; fields: {id:string;hi:string;en:string}[]; scope: {session:string;classLabel:string|null;subject:{hi:string;en:string}|null;day:string|null};

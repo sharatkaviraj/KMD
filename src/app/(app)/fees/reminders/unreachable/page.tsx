@@ -142,6 +142,15 @@ export default async function UnreachableFamiliesPage() {
                         <span className="font-semibold tabular-nums">{family.admissionNo}</span>
                         <span className="mx-2 text-muted-foreground">·</span>
                         {family.studentName}
+                        {/* Why, so the office knows whether to type a number or
+                            correct one. Screen only: the slip just asks for it. */}
+                        <span className="ml-2 text-xs text-muted-foreground print:hidden">
+                          {family.reason === "unusable"
+                            ? `number on record (${family.phoneOnRecord ?? ""}) is not a mobile`
+                            : family.reason === "dead"
+                            ? "WhatsApp rejected the number on record"
+                            : "no number on record"}
+                        </span>
                       </span>
                       {/* min-h-11 tap target, and hidden on the printed slip —
                           a link is no use on paper. */}
@@ -149,7 +158,7 @@ export default async function UnreachableFamiliesPage() {
                         href={`/fees/students/${family.studentId}/edit`}
                         className="focus-ring inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-semibold text-accent underline-offset-2 hover:underline print:hidden"
                       >
-                        Add a number
+                        {family.reason === "none" || !family.reason ? "Add a number" : "Fix the number"}
                       </Link>
                       <span className="hidden text-xs text-muted-foreground print:block">
                         Phone: ______________________

@@ -422,16 +422,27 @@ export async function loadRunRecipients(
     destination: string;
     dueAmount: number;
     status: string;
+    /** The LATEST reason: the delivery failure, else the last refusal, else the first. */
     error: string | null;
+    deliveryStatus: string | null;
+    failureCause: string | null;
+    resolution: string | null;
   }>
 > {
-  const { data, error } = await supabase
-    .from("whatsapp_reminder_sends")
-    // `full_name` on the base table — `student_name` exists only on the
-    // matview, which is not what this joins to.
-    .select("student_id, destination, due_amount, status, error_message, students(admission_no, full_name)")
-    .eq("run_id", runId)
-    .order("due_amount", { ascending: false });
+  // `full_name` on the base table — `student_name` exists only on the
+  // matview, which is not what this joins to.
+  const base = "student_id, destination, due_amount, status, error_message, last_error, delivery_status, students(admission_no, full_name)";
+  const read = (columns: string) =>
+    supabase
+      .from("whatsapp_reminder_sends")
+      .select(columns)
+      .eq("run_id", runId)
+      .order("due_amount", { ascending: false });
+  let { data, error } = await read(`${base}, delivery_error, failure_cause, resolution`);
+  // Before `20261030190000` there are no failure columns.
+  if (error && /failure_cause|delivery_error|resolution/.test(String(error.message))) {
+    ({ data, error } = await read(base));
+  }
 
   if (error) throw new Error(`Could not read who this run messaged: ${error.message}`);
 
@@ -442,7 +453,14 @@ export async function loadRunRecipients(
     destination: String(row.destination ?? ""),
     dueAmount: Number(row.due_amount ?? 0),
     status: String(row.status ?? ""),
-    error: row.error_message ? String(row.error_message) : null,
+    error:
+      (row.delivery_status === "failed" ? row.delivery_error : null) ??
+      row.last_error ??
+      row.error_message ??
+      null,
+    deliveryStatus: row.delivery_status ?? null,
+    failureCause: row.failure_cause ?? null,
+    resolution: row.resolution ?? null,
   }));
 }
 

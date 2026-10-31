@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 
 import { PageHeader } from "@/ui/shell/page-header";
 import { SectionCard } from "@/ui/shell/section-card";
@@ -69,6 +70,7 @@ import {
 } from "@/modules/whatsapp/ui/audience-panels";
 import { NoticePreview } from "@/modules/whatsapp/ui/notice-preview";
 import { RemindersNav } from "@/modules/whatsapp/ui/reminders-nav";
+import { FixNudge } from "@/modules/whatsapp/ui/fix-nudge";
 import { TodayStrip } from "@/modules/whatsapp/ui/today-strip";
 import { suggestionsForToday } from "@/modules/whatsapp/domain/today-suggestions";
 import { readerFor, resolveReminderContext } from "@/modules/whatsapp/data/reminder-context";
@@ -356,6 +358,12 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
         // same page was one more thing to read before the first tap.
       />
       <RemindersNav active="send" />
+
+      {/* Reminders that did not reach families since yesterday. Server-only and
+          streamed: no client JavaScript, and the list never waits for it. */}
+      <Suspense fallback={null}>
+        <FixNudge sessionLabel={sessionLabel} />
+      </Suspense>
 
       {/* Phone: straight after the tabs — the first thing worth knowing in the
           morning. No `order` class at md and up, so the desk keeps source order. */}

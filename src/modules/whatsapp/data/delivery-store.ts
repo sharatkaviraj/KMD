@@ -5,8 +5,12 @@ import {
   parseDeliveryReport,
   phoneDigits,
   type DeliveryStatus,
+  type DeliveryUpdate,
   type SendRowForMatching,
 } from "@/modules/whatsapp/domain/delivery-report";
+import { classifyFailure } from "@/modules/whatsapp/domain/failure-cause";
+import { fetchAllPages } from "@/platform/helpers/chunk";
+import { isMissingColumn } from "@/platform/supabase/missing-column";
 
 /**
  * Writing delivery results, retrying failures, and unsticking pending rows.
@@ -22,52 +26,149 @@ export type DeliveryImportSummary = {
   unmatched: number;
   unchanged: number;
   skipped: number;
+  /** Of `matched`, how many were failures — the number the office came for. */
+  failed: number;
+  delivered: number;
   error: string | null;
 };
 
 /**
- * Import an AiSensy campaign report onto one run's sends.
+ * Write one delivery result onto one send row.
  *
- * Scoped to a run rather than applied globally: an admin uploads the report for
- * the campaign they just sent, and a file covering a different day should not
- * quietly rewrite months of history because a phone number recurs.
+ * The ONE write the report import and the webhook share, so a failure learned
+ * from either carries the same cause, reason and code. The attempt history and
+ * the number's health are written by the database trigger on this update
+ * (`20261030190000`), which is why nothing here inserts them.
+ *
+ * Falls back to the pre-migration columns when the new ones are missing, so a
+ * deploy that lands before the migration still records the status.
+ */
+export async function applyDeliveryResult(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  update: DeliveryUpdate,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const base = {
+    delivery_status: update.status,
+    // `delivered_at` and `read_at` are set only by the status that earns
+    // them, so a later "read" does not overwrite the delivery time.
+    ...(update.status === "delivered" ? { delivered_at: update.at ?? now } : {}),
+    ...(update.status === "read" ? { read_at: update.at ?? now } : {}),
+    updated_at: now,
+  };
+  const withCause =
+    update.status === "failed"
+      ? {
+          ...base,
+          delivery_error: update.reason ?? null,
+          delivery_error_code: update.errorCode ?? null,
+          failure_cause: classifyFailure({ text: update.reason, code: update.errorCode }),
+        }
+      : base;
+
+  const { error } = await supabase
+    .from("whatsapp_reminder_sends")
+    .update(withCause)
+    .eq("id", update.id);
+
+  if (error && (isMissingColumn(error, "failure_cause") || isMissingColumn(error, "delivery_error"))) {
+    await supabase.from("whatsapp_reminder_sends").update(base).eq("id", update.id);
+  }
+}
+
+type SendForImport = {
+  id: string;
+  provider_message_id: string | null;
+  destination: string | null;
+  sent_on: string;
+  status: string;
+  delivery_status: string | null;
+};
+
+/** The report's earliest and latest day, padded, for the session-wide read. */
+function reportWindow(rows: ReadonlyArray<{ at: string | null }>): { from: string; to: string } {
+  const days = rows
+    .map((row) => row.at?.slice(0, 10))
+    .filter((day): day is string => Boolean(day))
+    .sort();
+  const pad = (iso: string, by: number) => {
+    const date = new Date(`${iso}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + by);
+    return date.toISOString().slice(0, 10);
+  };
+  if (days.length === 0) {
+    // No dates in the file: the last two months, which covers any campaign
+    // report the office could have downloaded this term.
+    const today = new Date().toISOString().slice(0, 10);
+    return { from: pad(today, -62), to: pad(today, 1) };
+  }
+  return { from: pad(days[0]!, -2), to: pad(days[days.length - 1]!, 2) };
+}
+
+/**
+ * Import an AiSensy campaign report.
+ *
+ * Two scopes:
+ *
+ * - **One run** (`runId`), from that run's page, as before.
+ * - **The whole session** (`sessionLabel`), from the failure desk. One AiSensy
+ *   campaign report covers every run that used that template, so per-run
+ *   meant uploading the same file on every run's page. The session-wide read is
+ *   bounded by the report's own dates, and the phone fallback still only fires
+ *   for a report row with no id and exactly one same-day match — so a phone
+ *   number recurring across months cannot rewrite history.
  */
 export async function importDeliveryReport(args: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
-  runId: string;
   csv: string;
+  runId?: string;
+  sessionLabel?: string;
 }): Promise<DeliveryImportSummary> {
+  const empty = { matched: 0, unmatched: 0, unchanged: 0, failed: 0, delivered: 0 };
   const parsed = parseDeliveryReport(args.csv);
   if (parsed.error) {
-    return { matched: 0, unmatched: 0, unchanged: 0, skipped: parsed.skipped, error: parsed.error };
+    return { ...empty, skipped: parsed.skipped, error: parsed.error };
+  }
+  if (!args.runId && !args.sessionLabel) {
+    return { ...empty, skipped: parsed.skipped, error: "No run or session given for the report." };
   }
 
-  const { data, error } = await args.supabase
-    .from("whatsapp_reminder_sends")
-    .select("id, provider_message_id, destination, sent_on, status, delivery_status")
-    .eq("run_id", args.runId);
+  const columns = "id, provider_message_id, destination, sent_on, status, delivery_status";
+  let data: SendForImport[] = [];
+  let error: unknown = null;
+  if (args.runId) {
+    const result = await args.supabase
+      .from("whatsapp_reminder_sends")
+      .select(columns)
+      .eq("run_id", args.runId);
+    data = (result.data ?? []) as SendForImport[];
+    error = result.error;
+  } else {
+    const window = reportWindow(parsed.rows);
+    const result = await fetchAllPages<SendForImport>((from, to) =>
+      args.supabase
+        .from("whatsapp_reminder_sends")
+        .select(columns)
+        .eq("session_label", args.sessionLabel)
+        .eq("status", "sent")
+        .gte("sent_on", window.from)
+        .lte("sent_on", window.to)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    data = result.data;
+    error = result.error;
+  }
 
   if (error) {
-    return {
-      matched: 0,
-      unmatched: 0,
-      unchanged: 0,
-      skipped: parsed.skipped,
-      error: `Could not read this run's sends: ${error.message}`,
-    };
+    const message =
+      error instanceof Error ? error.message : String((error as { message?: unknown }).message ?? error);
+    return { ...empty, skipped: parsed.skipped, error: `Could not read the sends: ${message}` };
   }
 
-  const sends: SendRowForMatching[] = (
-    (data ?? []) as Array<{
-      id: string;
-      provider_message_id: string | null;
-      destination: string | null;
-      sent_on: string;
-      status: string;
-      delivery_status: string | null;
-    }>
-  ).map((row) => ({
+  const sends: SendRowForMatching[] = data.map((row) => ({
     id: row.id,
     providerMessageId: row.provider_message_id,
     destinationDigits: phoneDigits(row.destination),
@@ -78,29 +179,102 @@ export async function importDeliveryReport(args: {
 
   const result = matchDeliveryReport(parsed.rows, sends);
 
-  // One update per row. Small by construction — a run is a few hundred rows and
-  // only the ones whose status actually moved are written.
+  // One update per row whose status actually moved. A few hundred at most.
   for (const update of result.updates) {
-    await args.supabase
-      .from("whatsapp_reminder_sends")
-      .update({
-        delivery_status: update.status,
-        // `delivered_at` and `read_at` are set only by the status that earns
-        // them, so a later "read" does not overwrite the delivery time.
-        ...(update.status === "delivered" ? { delivered_at: update.at ?? new Date().toISOString() } : {}),
-        ...(update.status === "read" ? { read_at: update.at ?? new Date().toISOString() } : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", update.id);
+    await applyDeliveryResult(args.supabase, update);
   }
 
   return {
     matched: result.updates.length,
     unmatched: result.unmatched,
     unchanged: result.unchanged,
+    failed: result.updates.filter((update) => update.status === "failed").length,
+    delivered: result.updates.filter(
+      (update) => update.status === "delivered" || update.status === "read",
+    ).length,
     skipped: parsed.skipped,
     error: null,
   };
+}
+
+/** A person's word on a failure. Stored in `whatsapp_reminder_sends.resolution`. */
+export type SendResolution = "called" | "slip_sent" | "dismissed";
+
+/**
+ * Close failures by hand: the family was rung, a slip went home, or the office
+ * has decided not to chase this one. The history row is written by trigger.
+ *
+ * Only OPEN failures are touched — a row that has since been resent and gone
+ * through is not a failure any more, and stamping "called" on it would be a
+ * claim about a message that arrived.
+ */
+export async function resolveFailedSends(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
+  sendIds: string[];
+  resolution: SendResolution;
+  note: string;
+  staffId: string | null;
+}): Promise<number> {
+  if (args.sendIds.length === 0) return 0;
+  const { data, error } = await args.supabase
+    .from("whatsapp_reminder_sends")
+    .update({
+      resolution: args.resolution,
+      resolution_note: args.note || null,
+      resolved_by: args.staffId,
+      resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .in("id", args.sendIds)
+    .is("resolution", null)
+    .or("status.eq.failed,status.eq.pending,delivery_status.eq.failed")
+    .select("id");
+  if (error) throw new Error(`Could not record that: ${error.message}`);
+  return ((data ?? []) as unknown[]).length;
+}
+
+/**
+ * A person's word on a NUMBER: "this one does not work" or "try it again".
+ *
+ * The audience switches a family away from a dead number on its own once
+ * WhatsApp has said so. This is the same lever by hand — for a failure whose
+ * reason was unclear, or for a number the office has checked and knows works.
+ */
+export async function markNumberHealth(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
+  phoneKey: string;
+  working: boolean;
+  note: string;
+  staffId: string | null;
+}): Promise<void> {
+  if (!/^[0-9]{10}$/.test(args.phoneKey)) throw new Error("That is not a 10-digit number.");
+  const now = new Date().toISOString();
+  const { data: existing } = await args.supabase
+    .from("whatsapp_number_health")
+    .select("failures_in_a_row")
+    .eq("phone_key", args.phoneKey)
+    .maybeSingle();
+  const row = args.working
+    ? { phone_key: args.phoneKey, failures_in_a_row: 0 }
+    : {
+        phone_key: args.phoneKey,
+        failures_in_a_row: Number(existing?.failures_in_a_row ?? 0) + 1,
+        last_failed_at: now,
+        last_cause: "not_on_whatsapp",
+      };
+  const { error } = await args.supabase.from("whatsapp_number_health").upsert(
+    {
+      ...row,
+      marked_by: args.staffId,
+      marked_at: now,
+      marked_note: args.note || null,
+      updated_at: now,
+    },
+    { onConflict: "phone_key" },
+  );
+  if (error) throw new Error(`Could not record that: ${error.message}`);
 }
 
 /** A row still `pending` long after its run finished. */

@@ -18,6 +18,11 @@ import { loadStuckSends } from "@/modules/whatsapp/data/delivery-store";
 import { RunDeliveryPanel } from "./run-delivery-panel";
 import { RunMeasurementPanel } from "@/modules/whatsapp/ui/run-measurement-panel";
 import { NOTICE_SITUATIONS } from "@/modules/whatsapp/domain/campaigns";
+import {
+  CAUSE_COPY,
+  classifyFailure,
+  isFailureCause,
+} from "@/modules/whatsapp/domain/failure-cause";
 import { formatInr } from "@/platform/helpers/currency";
 import { formatDdMmYyyy, formatDateTimeIst } from "@/platform/helpers/date";
 import { isUuid } from "@/platform/helpers/uuid";
@@ -46,7 +51,30 @@ export default async function ReminderRunPage({ params }: Props) {
   const situationLabel =
     NOTICE_SITUATIONS.find((entry) => entry.value === run.situation)?.label ?? run.situation;
 
-  const failedRows = recipients.filter((row) => row.status === "failed");
+  // Refused by AiSensy OR reported undelivered by WhatsApp. Until 2026-10-30
+  // only the first counted, so a run whose report came back full of
+  // undelivered messages said "Nothing failed and nothing is stuck".
+  const failedRows = recipients.filter(
+    (row) =>
+      !row.resolution &&
+      (row.status === "failed" || (row.status === "sent" && row.deliveryStatus === "failed")),
+  );
+  const causeOf = (row: (typeof recipients)[number]) =>
+    isFailureCause(row.failureCause) ? row.failureCause : classifyFailure({ text: row.error });
+  const statusLabel = (row: (typeof recipients)[number]) =>
+    row.status === "failed"
+      ? "refused"
+      : row.status === "covered_by_sibling"
+      ? "with sibling"
+      : row.deliveryStatus === "failed"
+      ? "not delivered"
+      : row.deliveryStatus === "read"
+      ? "read"
+      : row.deliveryStatus === "delivered"
+      ? "delivered"
+      : row.status;
+  const isBad = (row: (typeof recipients)[number]) =>
+    row.status === "failed" || row.deliveryStatus === "failed";
 
   // Rows the provider never answered about. Best-effort: a run page that cannot
   // load this is still worth showing.
@@ -112,15 +140,22 @@ export default async function ReminderRunPage({ params }: Props) {
       </SectionCard>
 
       {failedRows.length > 0 ? (
-        <OfficeNotice title={`${failedRows.length} did not go out`} tone="warning">
-          <ul className="mt-1 space-y-1 text-xs">
+        <OfficeNotice title={`${failedRows.length} did not reach the family`} tone="warning">
+          <ul className="mt-1 flex flex-col gap-1 text-xs">
             {failedRows.slice(0, 10).map((row) => (
               <li key={row.studentId}>
                 <span className="font-semibold">{row.studentName}</span> ({row.admissionNo}) —{" "}
-                {row.error ?? "no reason recorded"}
+                <span className="font-semibold">{CAUSE_COPY[causeOf(row)].label}</span>
+                {row.error ? `: ${row.error}` : ""}
               </li>
             ))}
           </ul>
+          <Link
+            href="/fees/reminders/fix"
+            className="focus-ring mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-accent underline-offset-2 hover:underline"
+          >
+            Fix numbers and resend on the Fix tab
+          </Link>
         </OfficeNotice>
       ) : null}
 
@@ -135,14 +170,14 @@ export default async function ReminderRunPage({ params }: Props) {
           {recipients.map((row) => (
             <MobileRecordCard
               key={row.studentId}
-              className={row.status === "failed" ? "opacity-70" : undefined}
+              className={isBad(row) ? "opacity-70" : undefined}
               title={row.studentName}
               subtitle={row.admissionNo}
               amount={formatInr(row.dueAmount)}
               status={
-                row.status === "failed" ? (
+                isBad(row) ? (
                   <span className="rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive">
-                    Failed
+                    {statusLabel(row)}
                   </span>
                 ) : null
               }
@@ -172,13 +207,9 @@ export default async function ReminderRunPage({ params }: Props) {
                   <td className="px-3 py-2 text-right tabular-nums">{formatInr(row.dueAmount)}</td>
                   <td className="px-3 py-2">
                     <span
-                      className={
-                        row.status === "sent"
-                          ? "text-muted-foreground"
-                          : "font-semibold text-danger"
-                      }
+                      className={isBad(row) ? "font-semibold text-destructive" : "text-muted-foreground"}
                     >
-                      {row.status}
+                      {statusLabel(row)}
                     </span>
                   </td>
                 </tr>

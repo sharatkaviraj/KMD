@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -24,6 +25,7 @@ import { resolveReminderDateDefaults } from "@/modules/whatsapp/data/reminder-co
 import { sendRemindersAction } from "@/app/(app)/fees/reminders/actions";
 import { sendFeeStatementAction } from "@/app/(app)/fees/students/actions";
 import { NOTICE_SITUATIONS } from "@/modules/whatsapp/domain/campaigns";
+import { StudentWhatsappHistory } from "@/modules/whatsapp/ui/student-whatsapp-history";
 import { StudentInfoGroupEditButton } from "@/modules/students-fees/ui/student-info-sheet";
 import { StudentFeePlanEditButton } from "@/modules/students-fees/ui/student-fee-plan-edit-button";
 import { StudentMoneyBand } from "@/modules/students-fees/ui/student-money-band";
@@ -1186,6 +1188,10 @@ export default async function StudentDetailPage({
         )}
       </MobileSectionCard>
 
+      <Suspense fallback={null}>
+        <StudentWhatsappHistory studentId={student.id} />
+      </Suspense>
+
       {/* The annual half of the desktop "Fee plan" tab. Collapsed: it answers a
           policy question, not the one a parent is asking at the counter. */}
       {financialSnapshot ? (
@@ -1526,6 +1532,9 @@ export default async function StudentDetailPage({
           <div className="space-y-6">
             {receiptsContent}
             {paymentsContent}
+            <Suspense fallback={null}>
+              <StudentWhatsappHistory studentId={student.id} />
+            </Suspense>
           </div>
         }
         duesContent={duesContent}

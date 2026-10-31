@@ -21,6 +21,8 @@ export const jobNames = [
   "missing-marks-nudge",
   "daily-summary",
   "staff-notices",
+  "fee-day-summary",
+  "fee-day-not-closed",
   "document-backup",
   "drive-backup",
 ] as const;
@@ -108,15 +110,40 @@ export const JOBS: Record<JobName, JobDefinition> = {
   },
   "staff-notices": {
     name: "staff-notices",
-    label: t("व्यवस्था की सूचनाएँ", "Cover notices"),
+    label: t("स्टाफ़ की WhatsApp सूचनाएँ", "Staff WhatsApp notices"),
     what: t(
-      "व्यवस्था की बाकी सूचनाएँ भेजता है और अटकी हुई जाँचता है। हर बदलाव के बाद भी अपने-आप चलता है।",
-      "Sends any cover notices still waiting and settles stuck ones. Also runs by itself after every cover change.",
+      "स्टाफ़ की बाकी सूचनाएँ (व्यवस्था, हाज़िरी, फ़ीस…) भेजता है — सिर्फ़ उन्हें जिन्होंने हामी भरी है, सुबह 7 से रात 8 के बीच — और अटकी हुई जाँचता है। हर बदलाव के बाद भी अपने-आप चलता है।",
+      "Sends staff notices still waiting (cover, registers, fees…) — only to people who agreed, between 07:00 and 20:00 — and settles stuck ones. Also runs by itself after every change.",
     ),
     schedule: "0 2 * * *",
     when: t("हर सुबह 7:30 बजे, और हर बदलाव के बाद", "Every morning at 7:30, and after every change"),
     // A safety net, not the main path — running it twice only sends what is
     // still due, because every send is claimed under a lease first (P4).
+    oncePerDay: false,
+  },
+  "fee-day-summary": {
+    name: "fee-day-summary",
+    label: t("दिन के संग्रह की सूचना", "Day's collection to the office"),
+    what: t(
+      "आज कितनी फ़ीस आई — कुल, रसीदें और किस तरह (नकद, UPI…) — लेखाकार और प्रशासक को WhatsApp पर भेजता है, जिन्होंने हामी भरी है। आज कोई रसीद नहीं तो कुछ नहीं।",
+      "WhatsApps the accountant and the admin, if they agreed to it, what came in today: the total, the receipts and how (cash, UPI…). Nothing on a day with no receipts.",
+    ),
+    // 13:30 UTC is 19:00 in school.
+    schedule: "30 13 * * *",
+    when: t("हर शाम 7:00 बजे", "Every evening at 19:00"),
+    // Keyed by day: a second run queues nothing new.
+    oncePerDay: false,
+  },
+  "fee-day-not-closed": {
+    name: "fee-day-not-closed",
+    label: t("दिन बंद नहीं हुआ", "Day not closed"),
+    what: t(
+      "रात 8 बजे देखता है कि आज का दिन (नकद गिनकर) बंद हुआ या नहीं; नहीं हुआ तो लेखाकार और प्रशासक को WhatsApp करता है।",
+      "At 20:00, checks whether today was closed (cash counted); if not, WhatsApps the accountant and the admin.",
+    ),
+    // 14:30 UTC is 20:00 in school, the moment the staff send window closes.
+    schedule: "30 14 * * *",
+    when: t("हर रात 8:00 बजे", "Every night at 20:00"),
     oncePerDay: false,
   },
   "document-backup": {

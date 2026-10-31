@@ -33,7 +33,9 @@ import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
 /**
  * Every insert collides; an update finds the row only when its status filter
  * matches and, when the update carries the error-message filter, the row is
- * not one whose delivery is unknown.
+ * not one whose delivery is unknown. The second argument is either what a
+ * report said about today's row ("failed" / "delivered") or the row's own
+ * error message.
  */
 type EarlierSend = {
   student_id: string;
@@ -47,9 +49,11 @@ type EarlierSend = {
 
 function takenSlotClient(
   existingStatus: "failed" | "sent",
-  existingError: string | null = null,
+  existing: string | null = null,
   earlierSends: EarlierSend[] = [],
 ) {
+  const existingDelivery = existing === "failed" || existing === "delivered" ? existing : null;
+  const existingError = existingDelivery ? null : existing;
   const updates: Array<Record<string, unknown>> = [];
   const pageReads: Array<[number, number]> = [];
   return {
@@ -124,6 +128,9 @@ function takenSlotClient(
               filters.push([column, values]);
               return chain;
             },
+            // The live reclaim: a definite refusal (never a delivery-unknown
+            // one in a real session), or a sent row WhatsApp reported
+            // undelivered — one `or` expression (run-sender.ts).
             or(expression: string) {
               filters.push(["or", expression]);
               return chain;
@@ -131,8 +138,13 @@ function takenSlotClient(
             select: async () => {
               const statusMatches = filters.some(
                 ([c, v]) =>
-                  c === "status" &&
-                  (v === existingStatus || (Array.isArray(v) && v.includes(existingStatus))),
+                  (c === "status" &&
+                    (v === existingStatus || (Array.isArray(v) && v.includes(existingStatus)))) ||
+                  (c === "or" &&
+                    (existingStatus === "failed" ||
+                      (existingStatus === "sent" &&
+                        existingDelivery === "failed" &&
+                        String(v).includes("delivery_status.eq.failed")))),
               );
               const orFilter = filters.find(([c]) => c === "or")?.[1] as string | undefined;
               const unknownExcluded =
@@ -261,6 +273,33 @@ describe("a family whose send failed earlier today", () => {
 
     expect(send).not.toHaveBeenCalled();
     expect(outcome.alreadySentToday).toBe(1);
+  });
+
+  it("is NOT sent again when a report says it was delivered", async () => {
+    const outcome = await runWith(takenSlotClient("sent", "delivered"));
+
+    expect(send).not.toHaveBeenCalled();
+    expect(outcome.alreadySentToday).toBe(1);
+  });
+
+  it("IS sent again when WhatsApp reported today's message undelivered", async () => {
+    // Accepted by AiSensy, then not delivered: it reached nobody, exactly like
+    // a refusal. Until 2026-10-30 the row read "sent" and the family was told
+    // they had today's reminder.
+    const client = takenSlotClient("sent", "failed");
+    const outcome = await runWith(client);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(outcome.sent).toBe(1);
+    expect(client.updates[0]).toMatchObject({ status: "pending" });
+  });
+
+  it("records the cause with the outcome when the retry is refused", async () => {
+    send.mockResolvedValueOnce({ ok: false, status: 400, error: "Template params does not match the campaign" });
+    const client = takenSlotClient("failed");
+    await runWith(client);
+
+    expect(client.updates.at(-1)).toMatchObject({ status: "failed", failure_cause: "template" });
   });
 });
 

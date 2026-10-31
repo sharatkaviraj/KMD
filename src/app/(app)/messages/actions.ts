@@ -89,13 +89,21 @@ export async function cancelNoticeAction(campaignId: string): Promise<MessageRes
     .in("status", ["queued", "draft"])
     .select("id");
   if (error) return fail(p("Not stopped. Try again.", "रोका नहीं गया।"));
+  // A staff notice goes through the staff outbox (go-live Phase F): stop what has not gone.
+  const { data: staffRows, error: staffError } = await admin
+    .from("staff_notices")
+    .update({ status: "cancelled", status_reason: "notice stopped" })
+    .like("notice_key", `broadcast:${campaignId}:%`)
+    .eq("status", "pending")
+    .select("id");
+  if (staffError) return fail(p("Not stopped. Try again.", "रोका नहीं गया।"));
   await admin
     .from("message_campaigns")
     .update({ status: "cancelled", cancelled_by: actor.id, cancelled_at: new Date().toISOString() })
     .eq("id", campaignId)
     .eq("status", "queued");
   revalidatePath("/messages");
-  const n = rows?.length ?? 0;
+  const n = (rows?.length ?? 0) + (staffRows?.length ?? 0);
   return { ok: true, message: p(`Stopped · ${n} not sent`, `रोका गया · ${n} नहीं भेजे गए`) };
 }
 

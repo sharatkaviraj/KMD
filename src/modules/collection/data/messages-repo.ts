@@ -35,6 +35,9 @@ import {
 import { mayDispatchToParent, type ParentCategory } from "@/modules/collection/domain/parent-policy";
 import type { DeliveryReason, DeliveryResult } from "@/modules/teacher-tasks/domain/delivery";
 import { managedTasksForRequests } from "@/modules/teacher-tasks/data/delivery-routing";
+import { teacherTaskGateFacts } from "@/modules/staff-notices/data/consent";
+import { evaluateTeacherTaskSend } from "@/modules/staff-notices/domain/gates";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 
 /**
  * Templates and the send queue.
@@ -457,6 +460,11 @@ export async function dispatchTeacherTaskMessage(actorId: string, id: string): P
   if (available !== "ready") return { ok: false, reason: available };
   const provider = selectProvider();
   if (provider.id !== "aisensy") return { ok: false, reason: "test_mode" };
+  // The staff gate (go-live Phase F): consent, the teacher_task switch, their
+  // own switch and the test allowlist, asked before anything is claimed. A
+  // refusal leaves the task free for the WhatsApp link (manual mode).
+  const gate = evaluateTeacherTaskSend({ facts: await teacherTaskGateFacts(id).catch(() => null), confined: isConfinedDeployment() });
+  if (!gate.ok) return { ok: false, reason: "no_consent" };
   const admin = createAdminClient();
   const attempt = `attempt:${randomUUID()}`;
   const claim = await admin.rpc("claim_teacher_task_delivery", { p_actor: actorId, p_id: id, p_attempt: attempt, p_transport: provider.id, p_manual: false });

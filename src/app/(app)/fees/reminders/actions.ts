@@ -76,6 +76,14 @@ export type SendRemindersState = {
   failed?: number;
   alreadySentToday?: number;
   failures?: Array<{ admissionNo: string; studentName: string; error: string }>;
+  /**
+   * Ticked students the rebuilt list no longer has: paid in full, left with
+   * nothing paid, flagged no-call, or no number WhatsApp can use. The failure
+   * desk's resend reports them instead of saying "0 sent" with no reason.
+   */
+  notOnList?: string[];
+  /** Dropped by `skipNothingDue`: owe nothing now on what the notice asks for. */
+  paidSince?: string[];
 };
 
 
@@ -185,6 +193,8 @@ export async function sendRemindersAction(
   let candidates: ReminderCandidate[];
   let finalWindowOpen: boolean | null = null;
   let calendar: InstallmentCalendar | null = null;
+  let notOnList: string[] = [];
+  let paidSince: string[] = [];
   try {
     sessionLabel = await resolveReminderSessionLabel(supabase);
     // The SAME resolution the screen ran — the drain, the policy, the
@@ -228,6 +238,35 @@ export async function sendRemindersAction(
     candidates = context.audience.candidates.filter((candidate) =>
       selected.has(candidate.studentId),
     );
+    notOnList = [...selected].filter(
+      (studentId) => !candidates.some((candidate) => candidate.studentId === studentId),
+    );
+
+    // The failure desk's resend. It names the child the failed message was
+    // addressed to; `withFamily` brings in everyone the sender would group onto
+    // that message today, so a two-child family is re-quoted as two children
+    // and not resent as one.
+    if (formData.get("withFamily") === "1") {
+      const families = new Set(candidates.map((candidate) => candidate.familyKey));
+      const already = new Set(candidates.map((candidate) => candidate.studentId));
+      candidates = [
+        ...candidates,
+        ...context.audience.candidates.filter(
+          (candidate) => families.has(candidate.familyKey) && !already.has(candidate.studentId),
+        ),
+      ];
+    }
+
+    // A hand-picked student joins the list whatever the filters say — including
+    // one who has paid in full since, who would be quoted ₹0. The resend asks
+    // for that to be refused rather than sent.
+    if (formData.get("skipNothingDue") === "1") {
+      const owesNothing = (candidate: ReminderCandidate) =>
+        candidate.dueAmount <= 0 &&
+        !(filters.situation === "late_fee_applied" && candidate.lateFeeApplied > 0);
+      paidSince = candidates.filter(owesNothing).map((candidate) => candidate.studentId);
+      candidates = candidates.filter((candidate) => !owesNothing(candidate));
+    }
   } catch (caught) {
     return {
       status: "error",
@@ -330,6 +369,8 @@ export async function sendRemindersAction(
     return {
       status: "error",
       message: resolved.message ?? "This run was refused.",
+      notOnList,
+      paidSince,
       // So the screen can render the tick-boxes for exactly what is in the way —
       // and NOTHING when the refusal is a blocking one, because no tick-box and
       // no reason can clear those. Offering the override anyway is what made a
@@ -449,6 +490,8 @@ export async function sendRemindersAction(
     failed,
     alreadySentToday,
     failures: failures.slice(0, 20),
+    notOnList,
+    paidSince,
   };
 }
 

@@ -23,6 +23,14 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/jobs/fee-day-summary",
+      "schedule": "30 13 * * *"
+    },
+    {
+      "path": "/api/jobs/fee-day-not-closed",
+      "schedule": "30 14 * * *"
+    },
+    {
       "path": "/api/jobs/document-backup",
       "schedule": "30 21 * * *"
     },
