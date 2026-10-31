@@ -361,6 +361,24 @@ export type DeskDraft = {
   waiveReason: string;
 };
 
+/**
+ * The reason a default waiver is saved with: the text the ported desk's
+ * posting already writes for its quick waiver (`post_student_payment_core`:
+ * 'Payment Desk late fee waiver'), so the two desks record the same thing.
+ */
+export const DESK_DEFAULT_WAIVE_REASON = "Payment Desk late fee waiver";
+
+/**
+ * Where the late-fee choice starts for a new student (owner, 31 Oct, plan
+ * Q20; the office's call of 27 Oct, fees 1b932785): WAIVED for anyone allowed
+ * to waive, with the standard reason filled in so it saves without typing;
+ * "Take with fees" stays one tap away. Anyone else starts — and stays — on
+ * taking it, because the server refuses their waiver and the post with it.
+ */
+export function deskLateDefault(canWaive: boolean): { late: "take" | "waive"; waiveReason: string } {
+  return canWaive ? { late: "waive", waiveReason: DESK_DEFAULT_WAIVE_REASON } : { late: "take", waiveReason: "" };
+}
+
 /** Everything that stops "Review & save", in the order the cashier should fix it. */
 export function deskProblems(
   draft: DeskDraft,

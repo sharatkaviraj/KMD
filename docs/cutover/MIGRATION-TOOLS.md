@@ -341,6 +341,31 @@ fees write outside the tail allow-list. Exit 2 when not quiet.
 240 (latest 2026-11-20). Without the fees online switch-off at T0 (plan §7.8
 option a), the tail runs to 31 Jan.
 
+## `access-email-check.mjs` — before any sign-in email (Q6)
+
+```
+node scripts/migrate/access-email-check.mjs
+```
+
+Read-only on both databases (the sealed reader on live; a `read only`
+transaction on One). The owner answered plan Q6 on 31 Oct: the fees users
+with **no** One account sign in at cutover by password reset / sign-in link;
+the ones whose email is already a One account are remapped onto it
+(`lib/auth-import.mjs`, D-350) and keep their One login and password — the
+loader never writes their `auth.users` row, and never copies or overwrites
+any password hash (pinned by `tests/access-email-check.test.ts`).
+
+For each user of the first kind it prints the fees role and whether the
+address One holds for that id equals live's — compared as lowercase, trimmed
+SHA-256 hashes (`lib/access-email.mjs`), never printed. `not loaded` means the
+first real load has not brought the user yet. Exit 2 on any `no` or an
+ambiguous email. **Run it after the load that will be live, and before any
+access email is sent**; nothing is sent by it or by this phase.
+
+31 Oct, before the first real load: 4 fees users with no One account
+(admin 1, accountant 2, view_only 1), all `not loaded`; 6 remapped; 0
+ambiguous.
+
 ## `rollback-export.mjs` — what One changed, for a rollback
 
 ```

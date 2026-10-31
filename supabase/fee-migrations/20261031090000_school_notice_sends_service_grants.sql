@@ -1,0 +1,26 @@
+-- ============================================================================
+-- VPPS One fee-migration, One-only (owner decisions phase, 31 Oct). Applied to
+-- wtgxcptmucjerhufzjcf through the Supabase MCP; never to the fees database.
+--
+-- Why it differs from the fees app: the fees app's
+-- 20261026120040_school_notice_sends.sql grants nothing on its new table,
+-- because live's ALTER DEFAULT PRIVILEGES in `public` hand anon, authenticated
+-- and service_role ALL on every new table. One's database has no default
+-- privileges there (SCHEMA-PARITY.md: "One stricter"), so after the catch-up
+-- `public.school_notice_sends` had NO grant at all: only its owner could use
+-- it, and the ported school-notice sender — which reads and writes it with the
+-- SERVICE-ROLE client (`createAdminClient()` in
+-- src/app/(app)/fees/reminders/notices/{page,actions}.ts →
+-- src/modules/whatsapp/data/school-notice-sender.ts: select, insert, update;
+-- never delete) — would fail on its first read. Found by the 31 Oct
+-- live-vs-One catalog diff.
+--
+-- These are exactly the privileges that code uses. Nothing for anon, and
+-- nothing for authenticated: no app path reads this table through the user's
+-- client (the fees file's "staff read" policy stays, unused). Pinned by
+-- tests/fee-migrations-owner-decisions.test.ts.
+--
+-- Rollback: revoke select, insert, update on public.school_notice_sends from service_role;
+-- ============================================================================
+
+grant select, insert, update on public.school_notice_sends to service_role;

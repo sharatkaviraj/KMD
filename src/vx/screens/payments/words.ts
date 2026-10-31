@@ -136,8 +136,16 @@ export const W = {
   lateNoWaivePlan: p("This student is on an EMI plan, so the late fee cannot be waived here."),
   lateNoneOn: (d: string, which: string) =>
     p(`No late fee on ${d} — ${which} was not overdue yet. If this payment clears it, no late fee is charged.`),
+  /** Shown whenever the late fee is being waived, before anything is saved (plan Q20). */
+  lateWaivedNow: (amt: string) =>
+    p(
+      `Late fee ${amt} is waived — it will not be collected. Choose “Take with fees” to collect it.`,
+      `विलंब शुल्क ${amt} माफ़ है — यह नहीं लिया जाएगा। लेना हो तो “फीस के साथ लें” चुनें।`,
+    ),
   whyWaive: p("Why waive? (needed)", "माफ़ी का कारण (ज़रूरी)"),
   waiveReasons: [
+    // First, and picked by default: the desk's standard reason (DESK_DEFAULT_WAIVE_REASON).
+    p("Payment Desk late fee waiver", "पेमेंट डेस्क पर विलंब शुल्क माफ़ी"),
     p("First time late", "पहली बार देर"),
     p("Family hardship", "पारिवारिक कठिनाई"),
     p("Staff child", "स्टाफ़ का बच्चा"),

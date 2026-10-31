@@ -1,62 +1,21 @@
-import { PageHeader } from "@/ui/shell/page-header";
-import { SectionCard } from "@/ui/shell/section-card";
-import { StatusBadge } from "@/ui/shell/status-badge";
-import { StaffManagementClient } from "@/modules/staff-fees/ui/staff-management-client";
-import {
-  createStaffAccountAction,
-  resetStaffPasswordAction,
-  updateStaffAccountAction,
-} from "@/app/(app)/fees/staff/actions";
-import { staffRoles } from "@/modules/fees/platform/roles";
-import {
-  INITIAL_STAFF_FORM_ACTION_STATE,
-  isStaffManagementConfigured,
-  listStaffAccounts,
-} from "@/modules/staff-fees/data/queries";
+import { redirect } from "next/navigation";
+
 import { requireStaffPermission } from "@/modules/fees/platform/session";
 
+/**
+ * The fees app's staff screen, closed in One (D-350, approved by the owner on
+ * 31 Oct; D-355). In the fees app this screen IS the staff record: it writes
+ * `public.users.role` and creates sign-ins with a fee role. In One the staff
+ * list on Staff & roles (`/staff`) is the source of truth, and
+ * `public.users` is derived from `vppsone.staff_profiles` by the
+ * `staff_profiles_sync_fee_user` trigger. A second writer here could only
+ * contradict it — a role set here was silently undone at the profile's next
+ * change, and an account made here had no profile at all. So the screen sends
+ * an admin to `/staff`, after the same permission check it always made.
+ */
 export default async function StaffPage() {
-  const staff = await requireStaffPermission("staff:manage", {
+  await requireStaffPermission("staff:manage", {
     onDenied: "redirect",
   });
-  const staffManagementConfigured = isStaffManagementConfigured();
-  const accounts = staffManagementConfigured ? await listStaffAccounts() : [];
-  // All five roles (admin, accountant, teacher, fee_collector, view_only)
-  // are first-class once the rebalance migration has shipped. No more
-  // rollout flag — admins can assign any role from this page.
-  const assignableRoles = staffRoles;
-
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Admin"
-        title="Staff account management"
-        description="Create internal staff accounts, assign roles, reset passwords, and deactivate access without exposing a public signup path."
-        actions={<StatusBadge label="Admin only" tone="accent" />}
-      />
-
-      {!staffManagementConfigured ? (
-        <SectionCard
-          title="Server-side staff admin is not configured"
-          description="Add SUPABASE_SERVICE_ROLE_KEY to the server environment before using staff account creation, password resets, or bootstrap provisioning."
-        >
-          <p className="rounded-xl border bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground">
-            Login can still work for already-seeded accounts. Admin staff
-            management features stay blocked until the server-only service role
-            key is configured.
-          </p>
-        </SectionCard>
-      ) : (
-        <StaffManagementClient
-          currentStaffId={staff.id ?? staff.sub ?? ""}
-          accounts={accounts}
-          assignableRoles={assignableRoles}
-          initialState={INITIAL_STAFF_FORM_ACTION_STATE}
-          createStaffAccountAction={createStaffAccountAction}
-          updateStaffAccountAction={updateStaffAccountAction}
-          resetStaffPasswordAction={resetStaffPasswordAction}
-        />
-      )}
-    </div>
-  );
+  redirect("/staff");
 }

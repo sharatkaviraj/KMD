@@ -20,6 +20,7 @@ import {
 import {
   COUNTER_CONCESSION,
   deskChips,
+  deskLateDefault,
   deskProblems,
   deskTotals,
   findRecentDuplicate,
@@ -168,8 +169,8 @@ function freshForm(boot: DeskBoot): Form {
     chequeNo: "",
     chequeBank: "",
     chequeDate: boot.today,
-    late: "take",
-    waiveReason: "",
+    // Waived by default for anyone allowed to waive (plan Q20, owner 31 Oct).
+    ...deskLateDefault(boot.me.canWaive),
     waiveNote: "",
     notes: "",
     receivedBy: boot.me.name,
@@ -946,8 +947,9 @@ export function PaymentDesk({
                 value={form.late}
                 onChange={(v) => set({ late: v })}
                 options={[
-                  { value: "take", label: tx(W.lateTake) },
+                  // Waive first: it is the default (plan Q20).
                   { value: "waive", label: tx(W.lateWaive) },
+                  { value: "take", label: tx(W.lateTake) },
                 ]}
               />
             </div>
@@ -956,6 +958,9 @@ export function PaymentDesk({
           )}
           {waiveLate ? (
             <div className="pd-c fadein" style={{ gap: 8, color: "var(--warnfg)" }}>
+              <span role="status" data-testid="late-waived-now" style={{ fontSize: 13, fontWeight: 700, color: "var(--ok)" }}>
+                {tx(W.lateWaivedNow(rupees(walk.waiverAmount)))}
+              </span>
               <span style={{ fontSize: 12, fontWeight: 700 }}>{tx(W.whyWaive)}</span>
               <div className="pd-chips">
                 {W.waiveReasons.map((r) => (

@@ -35,6 +35,12 @@ import {
  *
  * A live deployment with nothing set is `disabled`. A real WhatsApp to a
  * member of staff is the school's decision, not a default (CLAUDE.md rule 8).
+ *
+ * Hook for go-live Phase F (staff consent gates): while staff sending is off,
+ * a staff test send is to follow the parent rule — `checkTestOnlySend` in
+ * `platform/messaging/parent-send-gate.ts`, i.e. only a number in
+ * `vppsone.message_test_recipients`, and only with test-only mode switched on
+ * (owner, 31 Oct). Nothing here calls it yet.
  */
 
 export type StaffTransportName = "disabled" | "mock" | "aisensy";

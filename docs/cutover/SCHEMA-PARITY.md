@@ -39,10 +39,11 @@ the fee schema is equal (`supabase_realtime: office_sync_events`).
 | Relations live has, One has not | 117 | 103 | `class_aliases`, `enrolments`, `feature_flags`, `job_runs`, `staff_access_links`, `staff_directory` (view), `staff_profiles`, `subjects`, `teaching_assignments`, `timetable_slots`, `timetable_versions` | **expected** | The earlier "School One" placeholders the fees ledger carries as `select 1` files (20260916*). One keeps these in `vppsone`. Their constraints (50), indexes (30), policies (11), RLS flags (10), triggers (8) and grants account for every other live-only row in those kinds. Phase 2's importer must skip them |
 | ~~Relations live has, One has not~~ | | | `staff_payment_alerts`, `staff_push_subscriptions`, `private.web_push_vapid`; functions `private.queue_staff_payment_alert()`, `public.staff_payment_alert_claim(int,int)`, `public.web_push_vapid_keys(text,text)`; trigger `receipts.queue_staff_payment_alert` | **fixed 31 Oct (Phase D)** | fees `20261030170000_online_payment_staff_alerts` (now on fees `origin/main`) copied to `supabase/fee-migrations/`, its seeded staff phone list blanked (rule 6; `online_payment_*` settings are One-owned, so the load never brings live's). The sender (push + staff WhatsApp) is go-live Phase 8 app code (plan §8.4 lists the files and tests) |
 | ~~Relations/columns live has, One has not~~ | | | `whatsapp_send_attempts`, `whatsapp_number_health`; `whatsapp_reminder_sends.failure_cause, delivery_error_code, delivery_error, resolution, resolution_note, resolved_by, resolved_at`; functions `private.whatsapp_phone_key`, `whatsapp_mark_number`, `whatsapp_send_after_write`, `whatsapp_send_before_update`, `whatsapp_send_attempts_are_append_only`; their triggers and 5 indexes | **fixed 31 Oct (Phase D)** | fees `20261030190000_whatsapp_failure_desk` (live applied it after 8a0cd47c) copied verbatim. One adds `service_role` grants on the two tables (`20261031042100_failure_desk_service_grants.sql`): live has them through its default privileges, One has none. The Fix tab that reads them is not ported yet |
-| `auth.users` triggers | 1 | 0 | `sync_staff_profile_from_auth_users` | **to-fix, blocked on Q5 / D-207** | Recreating it gives every account made in One's `/staff` (test accounts included) a `public.users` row as `read_only_staff`, and `current_staff_role()` reads `public.users` first — One's admins and accountants would lose `payments:write` (critique1 B2). Decide role precedence, then apply |
+| `auth.users` triggers | 1 | 0 | `sync_staff_profile_from_auth_users` | **expected, One-only (decided 31 Oct)** | Q5 answered: the staff profile is the authority and `public.users` is derived from it (D-350, approved). Not recreated, and no corrected version either (D-355 (1)): public sign-up is on for this project, so a profile trigger on `auth.users` would give access to anyone who signs up; One's `/staff` makes the profile before the login. Proof: `scripts/verify-staff-login-fee-role.sql` |
 | Table grants | 406 | 343 | 227 rows differ only by `MAINTAIN` (live grants it to anon/authenticated/service_role on every table; One's replica granted the explicit list without it) | **expected (accepted)** | `MAINTAIN` is VACUUM/ANALYZE/REFRESH; the refreshes run as the owner. Not added: it would only widen anon |
-| Table grants | | | `academic_calendar`, `backup_runs`, `student_external_ids` (authenticated SELECT only on One), `v_online_payment_reconciliation` (service_role SELECT only), `school_notice_sends` (no anon on One) | **expected (One stricter)** | No app path needs the wider grant; widening anon is not parity worth having |
-| Table grants | | | 22 rows for `notion_fee_sync_role` | **expected** | That role exists only on live (the fees Notion sync, B18) |
+| Table grants | | | `academic_calendar`, `backup_runs`, `student_external_ids` (authenticated SELECT only on One; service_role without TRUNCATE/REFERENCES/TRIGGER, and `backup_runs` INSERT/SELECT only), `v_online_payment_reconciliation` (service_role SELECT only), `whatsapp_send_attempts`, `whatsapp_number_health` (authenticated SELECT; service_role SELECT/INSERT/UPDATE/DELETE, `20261031042100`) | **expected (One stricter)** | No app path needs the wider grant; widening anon is not parity worth having |
+| ~~Table grants~~ | anon, authenticated, service_role | **none** | `school_notice_sends` | **fixed 31 Oct (owner decisions phase)** | The 30 Oct note "no anon on One" was wrong: One had no grant at all (live's come from default privileges), so the ported school-notice sender, which uses the service-role client, could not read it. `20261031090000_school_notice_sends_service_grants.sql` grants service_role SELECT, INSERT, UPDATE — what the sender uses; still nothing for anon or authenticated (no user-client read). Ledger 20261031084233 |
+| Table grants | | | rows for `notion_fee_sync_role` — 22 on 30 Oct, 24 in the orchestrator's 31 Oct count (22 table rows and the schema USAGE row are in its diff file) | **expected** | That role exists only on live (the fees Notion sync, B18) |
 | Schema grants | | | `public`: live has `PUBLIC USAGE`, `notion_fee_sync_role USAGE`, `pg_database_owner CREATE,USAGE`; One has `postgres`/`service_role` `CREATE,USAGE` instead of `USAGE` | **expected** | anon/authenticated USAGE is equal; no fee path depends on PUBLIC USAGE |
 | Default privileges | 22 | 0 | `ALTER DEFAULT PRIVILEGES` in `public` for postgres / supabase_admin | **expected (One stricter)** | Every One fee-migration grants explicitly (the 20261029030619 lesson: defaults hand PUBLIC EXECUTE on new functions) |
 | Extensions | 8 | 8 | versions differ | **expected** | Project-managed |
@@ -83,6 +84,27 @@ grants that no file here carries. The step, both halves read-only:
 
 The Phase D fixer did not run it either: its brief reads live only through
 the sealed client, and the sealed reader has no SQL path (no `LIVE_DB_URL`).
+
+### Re-checked 31 Oct (owner decisions phase), with the live catalog
+
+The orchestrator ran the full live-vs-One catalog diff on 31 Oct
+(`catalog-fingerprint.sql` on both, read-only; working files outside the
+repo). Every difference it found, and where it stands:
+
+| Found | Class | Note |
+|---|---|---|
+| `public.school_notice_sends`: no ACL at all on One | **unexpected — fixed** | the row above; `20261031090000_school_notice_sends_service_grants.sql`, checked after applying with `has_table_privilege` (service_role S/I/U true, D false; anon and authenticated nothing), pinned in `tests/fee-migrations-owner-decisions.test.ts` |
+| 24 functions changed | **expected, One-only** | `current_staff_role`, `has_permission` (D-191); the 15 money functions of the fee-writes guard (D-345, three of them also carry Phase E's suffix floor); Phase E's six online functions (`vp1_` ownership, merged in PR #146: fee-migrations `20261031120000`, `20261031120100`, `20261031120200` — the switches default off); and `private.whatsapp_send_after_write`, below |
+| `private.whatsapp_send_after_write` | **expected (comment-only drift)** | the statements are the same; the two copies differ only by three `--` comment lines (`The provider answered the send.`, `A delivery result arrived…`, `A person closed the failure.`) inside the body. No behaviour differs |
+| failure-desk tables narrower than live | **expected (One stricter)** | in the grants row above |
+| `app_settings.fee_writes_switch_truncate_guard` (and the other One-only triggers) | **expected, One-only** | the triggers row above; the truncate guard comes with `fee_writes_switch_owner_only` from `20261030230200` |
+| `notion_fee_sync_role` grant rows | **expected** | now 24 by the orchestrator's count |
+| narrower `service_role` on `academic_calendar`, `backup_runs`, `student_external_ids` | **expected (One stricter)** | the grants row above |
+| `auth.users` trigger `sync_staff_profile_from_auth_users` | **expected (decided)** | D-355 (1) |
+| live migration `20261031071000_cancel_duplicate_student_charges` (fees `a0ed1b1c`) | **recorded, not replayed** | data only: an UPDATE on `installments` that cancels two duplicate students' charges, no schema change. It arrives with the data load; there is nothing for `supabase/fee-migrations/` to carry |
+
+**Verdict (31 Oct): no unexpected difference blocks the first real load.**
+The one unexpected difference is fixed.
 
 Everything else — enums (12 = 12), every other table/view/matview, index,
 constraint, policy, trigger and RLS flag in `public`/`private` — is equal.
