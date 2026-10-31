@@ -11,8 +11,10 @@ import { addDays, cadenceGapDays, type ReminderCadence } from "@/modules/whatsap
  * out under. So before One sends, it asks the send log about the family's
  * children by student alone.
  *
- * `latestSentOn` is each child's newest `sent_on` with status sent, pending or
- * covered_by_sibling (a failed send reached nobody). A child whose cadence is
+ * `latestSentOn` is each child's newest REMINDER `sent_on` with status sent,
+ * pending or covered_by_sibling, or failed with a delivery-unknown error (it
+ * may have reached the parent); a definite failure reached nobody, and a
+ * receipt notice is not a reminder (`loadLatestSends`). A child whose cadence is
  * `every_run` is still held to one message a day; `never` holds for the whole
  * window the caller read. Test sessions skip this check altogether — they have
  * no parents to protect, and the office re-tests on its own number.

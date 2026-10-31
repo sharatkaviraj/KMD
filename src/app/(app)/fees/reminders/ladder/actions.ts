@@ -135,7 +135,9 @@ export async function setUpInstallmentPlanAction(formData: FormData): Promise<vo
   if (!Number.isInteger(installment) || installment < 1 || installment > 4) {
     back({ error: "Pick an installment." });
   }
-  const auto = formData.get("auto") === "on";
+  // One only: never "sends itself" while the timer is off
+  // (SCHEDULED_SENDS_LIVE), as setStepAutoAction and the campaign form hold.
+  const auto = SCHEDULED_SENDS_LIVE && formData.get("auto") === "on";
   const language = languageFrom(formData);
 
   let result: Record<string, string>;
@@ -159,7 +161,8 @@ export async function setUpInstallmentPlanAction(formData: FormData): Promise<vo
 /** Create the every-morning promise steps. */
 export async function setUpDailyStepsAction(formData: FormData): Promise<void> {
   const staff = await requireStaffPermission("settings:write", { onDenied: "redirect" });
-  const auto = formData.get("auto") === "on";
+  // One only: never "sends itself" while the timer is off (as above).
+  const auto = SCHEDULED_SENDS_LIVE && formData.get("auto") === "on";
   const language = languageFrom(formData);
   let result: Record<string, string>;
   try {

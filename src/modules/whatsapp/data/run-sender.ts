@@ -30,7 +30,7 @@ import { randomBytes } from "node:crypto";
 import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { isoFromDdMmYyyy } from "@/platform/helpers/date";
 import { isMissingColumn } from "@/platform/supabase/missing-column";
-import { fetchInChunks } from "@/platform/helpers/chunk";
+import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { crossCampaignSince, familyMessagedRecently } from "@/modules/whatsapp/domain/cross-campaign-dedupe";
 
@@ -940,8 +940,17 @@ async function sendOne(args: {
 /**
  * Each child's newest reminder `sent_on` in the cross-campaign window, by
  * student alone — not by campaign, not by session. Null when the read fails.
+ *
+ * - **Reminders only** (`notice_kind = 'reminder'`), as the fees app's
+ *   `loadLastSentOn` reads it: a receipt notice to a family that just paid is
+ *   not a reminder, and counting it would silence them for a whole cadence.
+ * - **A delivery-unknown failure counts as sent.** A timeout or a 5xx may
+ *   follow AiSensy's acceptance; the same-day retry refuses those rows for
+ *   that reason, and so does this.
+ * - **Paged, newest first.** PostgREST stops at 1,000 rows without saying so,
+ *   and an unordered cut could drop exactly today's send.
  */
-async function loadLatestSends(
+export async function loadLatestSends(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   studentIds: readonly string[],
@@ -949,21 +958,29 @@ async function loadLatestSends(
 ): Promise<Map<string, string> | null> {
   if (studentIds.length === 0) return new Map();
   const since = crossCampaignSince(today);
+  type Row = { student_id: string; sent_on: string; status: string; error_message: string | null };
   try {
-    const { data, error } = await fetchInChunks<{ student_id: string; sent_on: string }>(
+    const { data, error } = await fetchInChunks<Row>(
       studentIds,
       IN_FILTER_CHUNK_SIZE,
       (chunk) =>
-        supabase
-          .from("whatsapp_reminder_sends")
-          .select("student_id, sent_on")
-          .in("student_id", chunk)
-          .gte("sent_on", since)
-          .in("status", ["sent", "pending", "covered_by_sibling"]),
+        fetchAllPages<Row>((from, to) =>
+          supabase
+            .from("whatsapp_reminder_sends")
+            .select("id, student_id, sent_on, status, error_message")
+            .in("student_id", chunk)
+            .eq("notice_kind", "reminder")
+            .gte("sent_on", since)
+            .in("status", ["sent", "pending", "covered_by_sibling", "failed"])
+            .order("sent_on", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
     );
     if (error) return null;
     const latest = new Map<string, string>();
     for (const row of data) {
+      if (row.status === "failed" && !String(row.error_message ?? "").startsWith(DELIVERY_UNKNOWN_PREFIX)) continue;
       const seen = latest.get(row.student_id);
       if (!seen || row.sent_on > seen) latest.set(row.student_id, row.sent_on);
     }

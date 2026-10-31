@@ -113,6 +113,28 @@ export function toE164(destination: string | null | undefined): string | null {
   return null;
 }
 
+/**
+ * The gate for One's own parent messages (`vppsone.message_sends`). The row's
+ * own session goes in, so a TEST-session message is held to the test-recipient
+ * allowlist even when a real admin or a cron sends it: TEST rows were copied
+ * from live and carry real parents' numbers. A row whose session cannot be
+ * read is held to the allowlist too. An absence here is the `native` path.
+ */
+export function nativeParentGate(
+  sessionLabel: string | null | undefined,
+  kind: ParentNoticeKind,
+  actor: ParentSendActor,
+): ParentSendGate {
+  const label = sessionLabel?.trim() || null;
+  return {
+    kind,
+    ...(kind === "absent_notice" ? { absentPath: "native" as const } : {}),
+    sessionLabel: label,
+    ...(label ? {} : { testSend: true }),
+    actor,
+  };
+}
+
 /** One never sends a `_v6` template (plan §6.2). */
 export function isRefusedGeneration(campaignName: string): boolean {
   return /_v6$/i.test(campaignName.trim());

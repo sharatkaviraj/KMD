@@ -8,6 +8,7 @@ vi.mock("server-only", () => ({}));
 import {
   checkParentSend,
   isRefusedGeneration,
+  nativeParentGate,
   toE164,
   type ParentSendGate,
   type ParentSendReader,
@@ -162,6 +163,39 @@ describe("the parent-send gate", () => {
       });
       expect(isTestAccount).not.toHaveBeenCalled();
     });
+
+    it("binds One's own TEST-session parent message, sent by a real admin or a cron on production", async () => {
+      for (const actor of [{ userId: "u-real" }, "system"] as const) {
+        const gate = nativeParentGate("TEST-2026-27", "collection_request", actor);
+        const dests = [REAL_PHONE, TEST_PHONE];
+        const [real, test] = await Promise.all(
+          dests.map((destination) =>
+            checkParentSend(
+              { ...gate, campaignName: "vppsone_collection_request", destination },
+              reader({ dispatchCategories: async () => ["collection_request"] }),
+              LIVE_PROD,
+            ),
+          ),
+        );
+        expect(real).toMatchObject({ code: "not_test_recipient" });
+        expect(test).toEqual({ ok: true, allowlistRequired: true });
+      }
+    });
+
+    it("holds One's own parent message without a readable session to the allowlist", async () => {
+      for (const label of [null, undefined, "  "]) {
+        const gate = nativeParentGate(label, "general", { userId: "u-real" });
+        expect(
+          await checkParentSend({ ...gate, campaignName: "vppsone_general", destination: REAL_PHONE }, reader(), LIVE_PROD),
+        ).toMatchObject({ code: "not_test_recipient" });
+      }
+      // A real session by a real admin on production is not held to it.
+      const real = nativeParentGate("2026-27", "general", { userId: "u-real" });
+      expect(
+        await checkParentSend({ ...real, campaignName: "vppsone_general", destination: REAL_PHONE }, reader(), LIVE_PROD),
+      ).toEqual({ ok: true, allowlistRequired: false });
+      expect(nativeParentGate("2026-27", "absent_notice", "system")).toMatchObject({ absentPath: "native" });
+    });
   });
 
   it("normalises a number the way the allowlist stores it", () => {
@@ -269,7 +303,10 @@ describe("every parent send goes through the choke point", () => {
 
   it("the native parent path sends an absence as the native owner", () => {
     const provider = read("src/modules/collection/data/message-provider.ts");
-    expect(provider).toContain('absentPath: "native"');
+    // nativeParentGate names the native owner and carries the row's session.
+    expect(provider).toContain("gate: nativeParentGate(send.sessionLabel,");
+    expect(read("src/platform/messaging/parent-send-gate.ts")).toContain('absentPath: "native"');
+    expect(read("src/modules/collection/data/messages-repo.ts")).toMatch(/"id, session_label, template_id/);
     expect(read("src/modules/whatsapp/data/school-notice-sender.ts")).toContain('absentPath: "fees_notice"');
   });
 });

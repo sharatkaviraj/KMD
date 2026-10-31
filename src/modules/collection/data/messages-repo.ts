@@ -129,6 +129,7 @@ export async function setTemplateActive(
 
 type SendRow = {
   id: string;
+  session_label: string | null;
   template_id: string;
   to_phone: string;
   to_name: string | null;
@@ -156,7 +157,7 @@ type SendRow = {
 };
 
 const SEND_COLUMNS =
-  "id, template_id, to_phone, to_name, student_id, request_id, staff_profile_id, " +
+  "id, session_label, template_id, to_phone, to_name, student_id, request_id, staff_profile_id, " +
   "variables, rendered_hi, rendered_en, status, provider_message_id, error, " +
   "requested_at, sent_at, updated_at, approved_at, stale_reason, " +
   "message_templates!inner(code, label_hi, label_en, audience), " +
@@ -170,6 +171,7 @@ const SEND_COLUMNS =
 
 const toSend = (row: SendRow): MessageSend => ({
   id: row.id,
+  sessionLabel: row.session_label ?? null,
   templateId: row.template_id,
   templateCode: row.message_templates?.code ?? "—",
   templateLabelHi: row.message_templates?.label_hi ?? "—",

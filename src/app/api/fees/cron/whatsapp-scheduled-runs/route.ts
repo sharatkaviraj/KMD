@@ -14,7 +14,11 @@ import {
 import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
 import { onlineLedgerRecheck } from "@/modules/payments/data/online/service";
 import { oneMessagePerFamilyEnabled } from "@/modules/whatsapp/data/reminder-settings";
-import { campaignsDueOn, messageDateFor } from "@/modules/whatsapp/domain/campaign-schedule";
+import {
+  campaignsDueOn,
+  messageDateFor,
+  SCHEDULED_SENDS_LIVE,
+} from "@/modules/whatsapp/domain/campaign-schedule";
 import {
   isCampaignApproved,
   type NoticeLanguage,
@@ -142,6 +146,16 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
+
+  // One only (go-live Phase D): while the timer is off no screen offers an
+  // automatic send, so nothing here sends either — a campaign saved with
+  // `auto` before the clamp, or by the fees app, is not an instruction to One.
+  // A dry run still reports, because it claims nothing and calls no provider.
+  if (!SCHEDULED_SENDS_LIVE && !dryRun) {
+    logInfo("cron.whatsapp-scheduled-runs.timer-off");
+    return NextResponse.json({ ok: true, skipped: "Scheduled sends are off (SCHEDULED_SENDS_LIVE).", reports: [] });
+  }
+
   const today = istToday();
   const supabase = createAdminClient();
   const reports: RunReport[] = [];

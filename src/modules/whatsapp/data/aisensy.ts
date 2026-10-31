@@ -153,6 +153,25 @@ async function defaultReader(): Promise<ParentSendReader> {
 }
 
 /**
+ * The gate's answer on its own, without sending: `null` when the send may go,
+ * otherwise the sentence to record. A sender whose claim row is permanent (the
+ * receipt notice, whose `(receipt_id, notice_kind)` index also covers failed
+ * rows) asks this BEFORE claiming, so a refusal leaves nothing behind and a
+ * later send can still claim. `sendAisensyCampaignMessage` asks it again.
+ */
+export async function parentSendRefusal(
+  args: Pick<AisensySendArgs, "campaignName" | "destination" | "gate">,
+  reader?: ParentSendReader,
+): Promise<string | null> {
+  const verdict = await (async () =>
+    checkParentSend(
+      { ...args.gate, campaignName: args.campaignName, destination: args.destination },
+      reader ?? (await defaultReader()),
+    ))().catch(() => ({ ok: false as const, code: "read_failed" as const, reason: "The send gate could not be checked. Not sent." }));
+  return verdict.ok ? null : `Not sent: ${verdict.reason}`;
+}
+
+/**
  * Every WhatsApp message to a parent goes through here — the ported fee
  * senders and One's own parent messages alike — and the gate is asked first.
  * `tests/architecture.test.ts` holds that no other file names AiSensy's
@@ -162,12 +181,9 @@ export async function sendAisensyCampaignMessage(
   args: AisensySendArgs,
   reader?: ParentSendReader,
 ): Promise<AisensySendResult> {
-  const verdict = await checkParentSend(
-    { ...args.gate, campaignName: args.campaignName, destination: args.destination },
-    reader ?? (await defaultReader()),
-  ).catch(() => ({ ok: false as const, code: "read_failed" as const, reason: "The send gate could not be checked. Not sent." }));
-  if (!verdict.ok) {
-    return { ok: false, status: 0, error: `Not sent: ${verdict.reason}`, refused: true };
+  const refusal = await parentSendRefusal(args, reader);
+  if (refusal) {
+    return { ok: false, status: 0, error: refusal, refused: true };
   }
 
   const apiKey = getOptionalEnvVar("AISENSY_API_KEY")?.trim();

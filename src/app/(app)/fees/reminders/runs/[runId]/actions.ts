@@ -276,7 +276,7 @@ export async function reconcileStuckSendsAction(
     // (critique0 #12): One never writes a verdict on a send it did not make.
     const watermark = await readCutoverWatermark("public.whatsapp_reminder_sends");
     const ours = stuck.filter(
-      (row) => !writtenBeforeWatermark({ created_at: row.createdAt }, watermark),
+      (row) => !writtenBeforeWatermark({ created_at: row.createdAt, session_label: row.sessionLabel }, watermark),
     );
     if (ours.length === 0) {
       return {

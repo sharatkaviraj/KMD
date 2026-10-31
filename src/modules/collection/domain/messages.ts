@@ -67,6 +67,12 @@ export type MessageSend = {
   taskId?: string;
   buttonSuffix?: string;
   id: string;
+  /**
+   * The academic session the message belongs to (`message_sends.session_label`).
+   * The parent-send gate holds a TEST-session message to the test-recipient
+   * allowlist whoever presses Send; a send without one is held to it too.
+   */
+  sessionLabel?: string | null;
   templateId: string;
   templateCode: string;
   templateLabelHi: string;

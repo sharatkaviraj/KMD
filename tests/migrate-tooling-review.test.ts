@@ -13,6 +13,7 @@ import {
   NOT_MIGRATED,
   RECONCILER_FILTERS,
   reconcilerWouldPickUp,
+  SKIP_TABLES,
   unmigratedSourceData,
 } from "../scripts/migrate/lib/import-rules.mjs";
 import { eventTwinViolations, oneMatviewFresh } from "../scripts/migrate/lib/reconcile-checks.mjs";
@@ -56,6 +57,34 @@ describe("imported online rows match none of the reconcilers' actual filters", (
       }
     });
   }
+
+  it("staff_payment_alerts: no imported alert is claimable, whatever its two statuses and attempts", () => {
+    // Every pair the table's CHECKs allow (fees 20261030170000), and an
+    // alert created "now", inside the claim's two-day window.
+    const push = ["queued", "sent", "no_devices", "failed"];
+    const whatsapp = ["queued", "sent", "partial", "failed", "off", "not_configured"];
+    for (const p of push) {
+      for (const w of whatsapp) {
+        for (const attempts of [0, 4, 5]) {
+          const source = { id: "x", push_status: p, whatsapp_status: w, whatsapp_attempts: attempts, locked_until: "2026-10-31T00:00:00Z", created_at: "2026-10-31T00:00:00Z" };
+          const { row, action } = importTransform("staff_payment_alerts", source);
+          expect(action, `${p}/${w}`).not.toBe("dropped");
+          expect(reconcilerWouldPickUp("staff_payment_alerts", row), `${p}/${w}/${attempts}`).toBe(false);
+          if (action === "rewritten") expect(row?.locked_until).toBeNull();
+        }
+      }
+    }
+    const done = { push_status: "sent", whatsapp_status: "sent", locked_until: null };
+    expect(importTransform("staff_payment_alerts", done)).toEqual({ row: done, action: "keep" });
+    expect(importTransform("staff_payment_alerts", { push_status: "sent", whatsapp_status: "partial" }).row).toEqual({
+      push_status: "sent",
+      whatsapp_status: "off",
+    });
+  });
+
+  it("never carries the fees app's push subscriptions (its own VAPID key)", () => {
+    expect(SKIP_TABLES.has("staff_push_subscriptions")).toBe(true);
+  });
 
   it("a superseded order is rewritten (reconcileOpenOrders scans open/superseded/paid)", () => {
     expect(importTransform("online_payment_orders", { status: "superseded" }).row?.status).toBe("abandoned");

@@ -1323,3 +1323,13 @@ Steps:
       previews.
     - The fees app's local `.env.local` and its dry-run scripts. You
       repoint these; this plan never edits the fees repo.
+
+**Added in the Phase D review — needed before T0**
+
+20. **Late fee at One's Payment Desk.** The fees app now waives the late
+    fee by default at the desk (fees 1b932785, the office's call of 27 Oct),
+    and One's two ported desk screens do the same. One's own vx Payment
+    Desk, the one staff use, still takes it by default, because waiving
+    there asks for a reason (D-353 (7)). Should the vx desk waive by
+    default too, for staff allowed to waive, with a standard reason filled
+    in, or keep taking it?

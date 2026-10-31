@@ -4,7 +4,11 @@ import { getOptionalEnvVar, getSiteUrl, getVppsOneEnvironment } from "@/platform
 import { getCurrentStaff } from "@/platform/auth/current-staff";
 import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
 import type { ParentCategory } from "@/modules/collection/domain/parent-policy";
-import type { ParentNoticeKind, ParentSendActor } from "@/platform/messaging/parent-send-gate";
+import {
+  nativeParentGate,
+  type ParentNoticeKind,
+  type ParentSendActor,
+} from "@/platform/messaging/parent-send-gate";
 import { classifyResponse, type TransportOutcome } from "@/modules/staff-notices/domain/notices";
 import { isTeacherTaskCampaign, type MessageSend } from "@/modules/collection/domain/messages";
 import {
@@ -63,19 +67,13 @@ async function sendParentThroughGate(send: MessageSend, context?: DispatchContex
   const actor: ParentSendActor = await getCurrentStaff()
     .then((staff): ParentSendActor => (staff ? { userId: staff.userId } : "system"))
     .catch((): ParentSendActor => "unknown");
-  const kind = parentNoticeKindFor(context?.category);
   const result = await sendAisensyCampaignMessage({
     campaignName: send.templateCode,
     destination: `+91${send.toPhone}`,
     userName: send.toName ?? "",
     templateParams: send.variables,
     source: "vppsone/messages",
-    gate: {
-      kind,
-      ...(kind === "absent_notice" ? { absentPath: "native" as const } : {}),
-      sessionLabel: null,
-      actor,
-    },
+    gate: nativeParentGate(send.sessionLabel, parentNoticeKindFor(context?.category), actor),
   });
   if (result.ok) return { ok: true, providerMessageId: result.messageId?.trim() ?? "" };
   return {

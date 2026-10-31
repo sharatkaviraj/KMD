@@ -1,6 +1,7 @@
 import "server-only";
 
-import { fetchAllPages } from "@/platform/helpers/chunk";
+import { chunkArray, fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
 import type { InstallmentCalendar } from "@/modules/whatsapp/domain/installment-calendar";
 import {
@@ -188,14 +189,23 @@ export async function writeReminderProfiles(
 ): Promise<number> {
   if (changes.length === 0) return 0;
 
+  // Chunked (rule 3b): the ids ride in the URL, and a bulk change on a large
+  // selection passes the ~300-id limit long before 583 children.
   const ids = [...new Set(changes.map((change) => change.studentId))];
-  const { data: existing, error: readError } = await supabase
-    .from("student_collection_flags")
-    .select("student_id")
-    .eq("session_label", sessionLabel)
-    .in("student_id", ids);
-  if (readError) throw new Error(readError.message);
-  const hasRow = new Set(((existing ?? []) as Array<{ student_id: string }>).map((r) => r.student_id));
+  const { data: existing, error: readError } = await fetchInChunks<{ student_id: string }>(
+    ids,
+    IN_FILTER_CHUNK_SIZE,
+    (chunk) =>
+      supabase
+        .from("student_collection_flags")
+        .select("student_id")
+        .eq("session_label", sessionLabel)
+        .in("student_id", chunk),
+  );
+  if (readError) {
+    throw new Error((readError as { message?: string }).message ?? "Could not read the families' profiles.");
+  }
+  const hasRow = new Set(existing.map((r) => r.student_id));
 
   const now = new Date().toISOString();
   const byValue = new Map<string, string[]>();
@@ -223,16 +233,18 @@ export async function writeReminderProfiles(
 
   for (const [value, studentIds] of byValue) {
     const profile = value ? value : null;
-    const { error } = await supabase
-      .from("student_collection_flags")
-      .update({
-        whatsapp_profile: profile,
-        whatsapp_profile_set_at: profile ? now : null,
-        whatsapp_profile_set_by: profile ? setBy : null,
-      })
-      .eq("session_label", sessionLabel)
-      .in("student_id", studentIds);
-    if (error) throw new Error(error.message);
+    for (const chunk of chunkArray(studentIds, IN_FILTER_CHUNK_SIZE)) {
+      const { error } = await supabase
+        .from("student_collection_flags")
+        .update({
+          whatsapp_profile: profile,
+          whatsapp_profile_set_at: profile ? now : null,
+          whatsapp_profile_set_by: profile ? setBy : null,
+        })
+        .eq("session_label", sessionLabel)
+        .in("student_id", chunk);
+      if (error) throw new Error(error.message);
+    }
   }
 
   if (inserts.length > 0) {

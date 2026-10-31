@@ -66,7 +66,22 @@ through the sealed client (D-339). What was checked instead:
   re-recorded (642 objects).
 
 A full `catalog-diff` (grants, policies, constraints) needs the live
-fingerprint pasted through the MCP — an orchestrator step.
+fingerprint pasted through the MCP — an orchestrator step. **It blocks the
+first real load** (tracked on the Phase 6 row of `docs/PROGRESS.md`): the
+dry run proves tables and columns only, and `20261030170000` reached live
+before fees `origin/main`, so live can gain functions, triggers, policies or
+grants that no file here carries. The step, both halves read-only:
+
+1. Run `scripts/migrate/catalog-fingerprint.sql` on `vgqyilgstjvgohrsiwkb`
+   (MCP `execute_sql`, a SELECT of catalog tables only), save it outside the
+   repo, then `node scripts/migrate/catalog-diff.mjs live.json --one-db`.
+2. List live's `supabase_migrations.schema_migrations` versions above
+   `20261030120000` and confirm each has a file in `supabase/fee-migrations/`
+   (today: `20261030170000`, `20261030190000`).
+3. Record anything new in the table above.
+
+The Phase D fixer did not run it either: its brief reads live only through
+the sealed client, and the sealed reader has no SQL path (no `LIVE_DB_URL`).
 
 Everything else — enums (12 = 12), every other table/view/matview, index,
 constraint, policy, trigger and RLS flag in `public`/`private` — is equal.

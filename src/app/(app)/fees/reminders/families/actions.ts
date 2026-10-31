@@ -59,6 +59,8 @@ export async function saveReminderProfilesAction(formData: FormData): Promise<vo
   const supabase = createAdminClient();
   try {
     const sessionLabel = await resolveReminderSessionLabel(supabase);
+    // One only (D-340): every student named is in a session this viewer may write.
+    if (changes.length > 0) await assertStudentsVisible(null, changes.map((change) => change.studentId));
     const saved = await writeReminderProfiles(
       supabase,
       sessionLabel,

@@ -43,6 +43,57 @@ describe("receipt notices", () => {
 
   it("sends every receipt notice through the parent-send gate as a receipt", () => {
     const source = readFileSync(join(process.cwd(), "src/modules/whatsapp/data/receipt-notice.ts"), "utf8");
-    expect(source).toContain('gate: { kind: "receipt"');
+    expect(source).toContain('const gate = { kind: "receipt" as const');
+    // Asked before the claim, so a refusal never writes the permanent row.
+    expect(source.indexOf("parentSendRefusal(")).toBeLessThan(source.indexOf('.from("whatsapp_reminder_sends")'));
+  });
+
+  it("claims nothing when the gate refuses, so a later send can still claim (fetch never called)", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    vi.stubEnv("VPPSONE_ENV", "dev"); // the gate refuses before any database read
+    const insert = vi.fn();
+    const from = vi.fn((table: string) => {
+      if (table === "whatsapp_reminder_sends") return { insert };
+      const row =
+        table === "app_settings"
+          ? { value: "true" }
+          : table === "v_workbook_student_financials"
+            ? {
+                student_id: "s",
+                student_name: "TEST CHILD",
+                father_name: "TEST PARENT",
+                father_phone: "9000000002",
+                mother_phone: null,
+                class_label: "5",
+                inst1_pending: 0,
+                inst2_pending: 0,
+                inst3_pending: 0,
+                inst4_pending: 0,
+              }
+            : null;
+      const chain = { eq: () => chain, maybeSingle: async () => ({ data: row, error: null }) };
+      return { select: () => chain };
+    });
+    try {
+      const result = await sendReceiptNotice({
+        supabase: { from },
+        receiptId: "r",
+        receiptNumber: "TST-1",
+        studentId: "s",
+        sessionLabel: "TEST-2026-27",
+        amountPaid: 100,
+        paymentDate: "2026-10-11",
+        staffId: null,
+        trigger: "auto",
+      });
+      expect(result).toMatchObject({ sent: false });
+      expect((result as { reason: string }).reason).toMatch(/^Not sent:/);
+      expect(insert).not.toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
   });
 });

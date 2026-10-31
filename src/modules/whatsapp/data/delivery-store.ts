@@ -110,6 +110,8 @@ export type StuckSend = {
   admissionNo: string;
   destination: string;
   createdAt: string;
+  /** The row's session, so the cutover line leaves TEST-session rows alone (One-only). */
+  sessionLabel: string | null;
 };
 
 /**
@@ -132,7 +134,7 @@ export async function loadStuckSends(args: {
 
   const { data, error } = await args.supabase
     .from("whatsapp_reminder_sends")
-    .select("id, destination, created_at, students(full_name, admission_no)")
+    .select("id, destination, created_at, session_label, students(full_name, admission_no)")
     // `pending` ONLY. `covered_by_sibling` is not pending and never will be —
     // no provider call is made for one — so sweeping it here would offer the
     // office a list of rows there is nothing to reconcile about.
@@ -147,6 +149,7 @@ export async function loadStuckSends(args: {
       id: string;
       destination: string | null;
       created_at: string;
+      session_label?: string | null;
       students: { full_name: string | null; admission_no: string | null } | null;
     }>
   ).map((row) => ({
@@ -155,6 +158,7 @@ export async function loadStuckSends(args: {
     admissionNo: row.students?.admission_no ?? "",
     destination: row.destination ?? "",
     createdAt: row.created_at,
+    sessionLabel: row.session_label ?? null,
   }));
 }
 
