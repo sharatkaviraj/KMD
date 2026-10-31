@@ -433,6 +433,61 @@ Phase 10 row of `docs/PROGRESS.md`):
       cash, UPI, online, cheque, discount, family, carry-forward — checking
       Hindi fonts, the `NEXT_PUBLIC_SCHOOL_*` header and One's footer.
 
+## `health.mjs` — the health pack in a terminal (Phase G)
+
+```
+npm run migrate:health -- [--hours 24] [--json] [--probe https://one.vpps.co.in]
+```
+
+Plan §9.1, critique1 B9. Reads `vppsone.ops_health_counts()` (counts only;
+service role / postgres) through One's direct connection, read-only, and
+judges it with the app's own rules (`src/modules/ops-health/domain/health.ts`)
+— the same verdict as the `health` job (`/api/jobs/health`, 08:00 IST), which
+WhatsApps the real admins (`ops_alert`, off until the owner turns it on). It
+counts Razorpay events stuck (pending/failed, attempts ≥ 3), captures in
+`review_required`, receipt outbox `uncertain`/`failed`, pg_cron failures in
+the window (with the job names), `vppsone.job_runs` failed or stuck, hours
+since the last good Drive backup, staff WhatsApp failed/unknown, parent sends
+failed (reminders, school notices, One's own), and this month's AiSensy sends
+against each cap (a problem from 80%). A count the database could not read is
+reported as such, never as zero. `--probe` POSTs a bad signature to One's own
+Razorpay webhook and expects 401 (404 = webhook secret unset). Exit 0 quiet,
+1 something to look at, 2 unreadable.
+
+**31 Oct on wtgx:** one problem — `refresh-sibling-groups-matview` failed 720
+times in 24 h (it calls a function that does not exist on wtgx; removed at C4
+by `one-live-cron-jobs.sql`); webhook probe 404 (secret not set yet, as
+expected before C6).
+
+## `env-names-diff.mjs` — the env inventory (Phase G)
+
+```
+npm run migrate:env-names -- [--fees-repo <path>] [--check]
+```
+
+Plan §9.3, critique1 B7. A static scan of which env variable NAMES each
+codebase reads (`lib/env-scan.mjs`; the fees repo by file reads only, no git,
+no script), against each Vercel Production project's names (`vercel env ls
+production`, values hidden), with an owner and a status per name. Writes
+`docs/cutover/ENV-INVENTORY.md`. `--check` exits 1 on any name nobody has
+settled. Names only, never a value.
+
+## `backup-one.mjs` — backup and restore test (Phase G)
+
+```
+npm run migrate:backup-one                          # dump
+npm run migrate:backup-one -- --restore-test <run>  # prove it restores
+```
+
+Plan §9.2, critique1 B8. Every table in `public` and `vppsone`, in one
+`REPEATABLE READ READ ONLY` snapshot, `COPY` text → gzip in
+`%USERPROFILE%\.vppsone-migration\backup-<run>\`, with a manifest of counts,
+money sums and SHA-256 per table, and a `migration_runs` row (`backup-one`).
+The restore test loads it into a throw-away schema inside one transaction,
+compares rows, sums and a re-dump's hash per table, drops the schema and
+rolls back (`backup-one-restore-test` row). Run on 31 Oct:
+`docs/cutover/BACKUP-EVIDENCE.md` (228 tables, 51,482 rows, all equal).
+
 ---
 
 ## Libraries
@@ -453,6 +508,7 @@ Phase 10 row of `docs/PROGRESS.md`):
 | `lib/reconcile-checks.mjs` | the figures reconcile compares |
 | `lib/tail.mjs`, `lib/tail-feed.mjs`, `lib/watermark.mjs` | the tail: end date, allow-list, actions, feed, watermark |
 | `lib/storage-list.mjs` | bucket listing and copy plan |
+| `lib/env-scan.mjs` | which env names a codebase reads (static scan) |
 
 Tests: `tests/migrate-readonly.test.ts` (both seals),
 `tests/migrate-tooling.test.ts` (every pure rule above),

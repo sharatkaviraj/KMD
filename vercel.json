@@ -37,6 +37,10 @@
     {
       "path": "/api/jobs/drive-backup",
       "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/jobs/health",
+      "schedule": "30 2 * * *"
     }
   ]
 }

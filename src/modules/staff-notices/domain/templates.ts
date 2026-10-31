@@ -117,6 +117,12 @@ export const STAFF_TEMPLATES: Record<string, TemplateBody> = {
     en: "{{1}}, your leave for {{2}} was {{3}}. {{4}}",
     variables: ["name", "dates", "decision", "link"],
   },
+  vx_staff_ops_alert_v1: {
+    label: { hi: "सिस्टम जाँच", en: "System check" },
+    hi: "{{1}} जी, {{2}} की सिस्टम जाँच में {{3}} बातें देखनी हैं: {{4}}। देखें: {{5}}",
+    en: "{{1}}, the system check for {{2}} found {{3}} things to look at: {{4}}. Details: {{5}}",
+    variables: ["name", "day", "count", "what", "link"],
+  },
   vx_staff_digest_v1: {
     label: { hi: "कई संदेश एक साथ", en: "Several messages at once" },
     hi: "{{1}} जी, आपके लिए {{2}} नए संदेश: {{3}}। सब यहाँ देखें: {{4}}",

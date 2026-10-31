@@ -129,4 +129,4 @@ export function parseArgs(argv) {
   return out;
 }
 
-const VALUE_FLAGS = new Set(["run", "as-of", "session", "since", "out", "tables", "bucket", "limit", "watermark", "max-attempts", "mcp"]);
+const VALUE_FLAGS = new Set(["run", "as-of", "session", "since", "out", "tables", "bucket", "limit", "watermark", "max-attempts", "mcp", "hours", "probe", "fees-repo", "restore-test"]);

@@ -113,7 +113,7 @@ describe("evaluateStaffSend — in order, every branch fails closed", () => {
   it("the seeded map keeps the existing kinds on and every new kind off", () => {
     const seeded = seededKindsMap();
     expect(seeded.cover_assigned && seeded.attendance_reminder && seeded.teacher_task).toBe(true);
-    for (const kind of ["online_review", "online_payment", "day_collection", "day_not_closed", "money_request", "money_decision", "leave_requested", "leave_decided", "marks_reminder", "weekly_summary", "staff_broadcast"] as const) {
+    for (const kind of ["online_review", "online_payment", "day_collection", "day_not_closed", "money_request", "money_decision", "leave_requested", "leave_decided", "marks_reminder", "weekly_summary", "staff_broadcast", "ops_alert"] as const) {
       expect(seeded[kind]).toBe(false);
     }
     expect(gate({ f: { kindsEnabled: seeded } })).toEqual({ action: "suppress", reason: "kind_off" });

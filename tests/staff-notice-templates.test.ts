@@ -29,7 +29,12 @@ const MIGRATION = readFileSync(
   join(process.cwd(), "supabase/migrations/20261031101234_staff_whatsapp_consent_and_gates.sql"),
   "utf8",
 ).replace(/\r\n/g, "\n");
-const DOC = readFileSync(join(process.cwd(), "docs/cutover/STAFF-WHATSAPP.md"), "utf8").replace(/\r\n/g, "\n");
+// Phase G added one kind, ops_alert, in its own migration (an applied one is never edited).
+const OPS_MIGRATION = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261031115621_ops_health_and_alerts.sql"),
+  "utf8",
+).replace(/\r\n/g, "\n");
+const DOC =readFileSync(join(process.cwd(), "docs/cutover/STAFF-WHATSAPP.md"), "utf8").replace(/\r\n/g, "\n");
 const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 const ctx = { staffName: "Test Teacher", origin: "https://one.example.test", studentNames: false } as const;
@@ -46,6 +51,7 @@ const PAYLOADS: Record<PayloadKind, Record<string, unknown>> = {
   money_decision: { request_id: "q1", request_kind: "reversal", decision: "declined", amount: 1200, student_name: "Test Child", class_label: "5 A" },
   leave_requested: { leave_id: "l1", teacher_name: "Test Teacher Two", from_day: "2026-11-03", to_day: "2026-11-04" },
   leave_decided: { leave_id: "l1", from_day: "2026-11-03", to_day: "2026-11-03", decision: "approved" },
+  ops_alert: { date: "2026-11-02", problem_count: 2, what_hi: "क्रॉन विफल 3 · बैकअप पुराना", what_en: "cron failures 3 · backup overdue" },
 };
 
 const PAYLOAD_KINDS = Object.keys(PAYLOADS) as PayloadKind[];
@@ -78,7 +84,7 @@ describe("every kind has its template, written down once", () => {
     const keep = new Set(["vppsone_marks_reminder", "vppsone_weekly_summary", "vx_staff_notice"]);
     for (const [code, body] of Object.entries(STAFF_TEMPLATES)) {
       if (keep.has(code)) continue;
-      expect(MIGRATION, code).toContain(`(${sqlString(code)}, ${sqlString(body.label.hi)}, ${sqlString(body.label.en)}, ${sqlString(body.hi)}, ${sqlString(body.en)},`);
+      expect(MIGRATION + OPS_MIGRATION, code).toContain(`(${sqlString(code)}, ${sqlString(body.label.hi)}, ${sqlString(body.label.en)}, ${sqlString(body.hi)}, ${sqlString(body.en)},`);
     }
   });
 
@@ -114,7 +120,14 @@ describe("every kind has its template, written down once", () => {
     const seeded = seededKindsMap();
     const match = MIGRATION.match(/\('staff_notice_kinds_enabled', true,\n\s+'(\{[^']+\})'::jsonb/);
     expect(match).not.toBeNull();
-    expect(JSON.parse(match![1])).toEqual(seeded);
+    // Phase F seeded every kind but ops_alert; Phase G adds it, off, only where the map lacks it.
+    const { ops_alert: opsAlert, ...phaseF } = seeded;
+    expect(JSON.parse(match![1])).toEqual(phaseF);
+    expect(opsAlert).toBe(false);
+    expect(OPS_MIGRATION).toContain(
+      "set value = value || '{\"ops_alert\": false}'::jsonb\nwhere key = 'staff_notice_kinds_enabled' and not (value ? 'ops_alert');",
+    );
+    expect(OPS_MIGRATION).toMatch(/'cover_assigned', [^)]*'leave_decided',\s+'ops_alert'\s*\)/);
     expect(Object.keys(seeded).sort()).toEqual([...STAFF_MESSAGE_KINDS].sort());
   });
 });

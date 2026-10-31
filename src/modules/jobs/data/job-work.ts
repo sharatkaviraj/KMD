@@ -26,6 +26,7 @@ import { FEE_SCHEMA } from "@/platform/env";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { addDays, SCHOOL_UTC_OFFSET_MINUTES } from "@/platform/dates";
+import { alertKey, alertPayload, evaluateHealth, healthSummary, needsAttention } from "@/modules/ops-health/domain/health";
 
 /**
  * What each job actually does.
@@ -837,6 +838,52 @@ async function driveBackup(): Promise<Summary> {
   return runDriveBackup(await vercelOidcToken());
 }
 
+/* ---------------------------------------------------------------- health */
+
+/**
+ * The health pack (go-live Phase G, plan §9.1): counts from
+ * `vppsone.ops_health_counts()`, judged by `ops-health/domain/health.ts`, and
+ * — when something needs a person — one `ops_alert` staff WhatsApp to every
+ * real admin (`settings:manage`) through the outbox, which asks consent, the
+ * kind switch (off until the owner names it), the window and the caps.
+ *
+ * The counts carry no personal data, so a confined deployment may read them;
+ * it queues its alert on a TEST session only, which the outbox sends only to
+ * numbers on the test list (D-346). Production uses the real session.
+ */
+export async function healthCheck(day: string): Promise<Summary> {
+  const counts = await must(
+    createAdminClient().rpc("ops_health_counts", { p_hours: 24 }),
+    "the health counts",
+  );
+  const result = evaluateHealth(counts as Record<string, unknown>);
+  const summary = healthSummary(result);
+  if (!needsAttention(result)) return summary;
+
+  let sessionLabel: string | null;
+  if (isConfinedDeployment()) {
+    sessionLabel = (await feeDaySessions()).test[0] ?? null;
+  } else {
+    const active = await currentSession();
+    sessionLabel = active && !isTestSessionLabel(active) ? active : null;
+  }
+  if (!sessionLabel) return { ...summary, queued: 0, note: "no session to alert under" };
+
+  const queued = await queueStaffNoticeToPermission({
+    key: alertKey(result, day),
+    kind: "ops_alert",
+    permission: "settings:manage",
+    sessionLabel,
+    payload: alertPayload(result, day),
+    // Tomorrow's check says it again if it is still true.
+    notAfter: schoolMoment(addDays(day, 1), 8 * 60),
+  });
+  const sent = queued > 0 ? await dispatchStaffNotices({ max: queued + 5 }) : null;
+  return sent
+    ? { ...summary, queued, accepted: sent.accepted, held: sent.held, suppressed: sent.suppressed }
+    : { ...summary, queued };
+}
+
 export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "open-registers": openRegisters,
   "attendance-reminder": attendanceReminder,
@@ -847,4 +894,5 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "fee-day-not-closed": feeDayNotClosed,
   "document-backup": documentBackup,
   "drive-backup": driveBackup,
+  health: healthCheck,
 };
