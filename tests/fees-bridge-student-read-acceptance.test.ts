@@ -7,7 +7,7 @@ const classId = "00000000-0000-4000-8000-000000000003";
 const config = { actorId, bridgeKey: "synthetic_private_bridge_key_of_at_least_32_characters", oneAuthKey: "synthetic_public_auth_key_long_enough", oneAccessToken: "synthetic_existing_access_token_long_enough", oneCookieHeader: "synthetic_cookie=private_value", sessionLabel: "2026-27", deniedSessionLabel: "TEST-2026-27", expectedStudentCount: 1, expectedPhotoCount: 1, samples: [{ studentId, hasPhoto: true, expected: { student: { fullName: "Synthetic Child" } } }] };
 const json = (data: unknown, status=200) => Response.json({ version: 1, ...(status === 200 ? { data } : { error: { code: "forbidden" } }) }, { status, headers: { "Cache-Control": "private, no-store" } });
 const workspace = { studentId, sessionLabel: "2026-27", student: { id: studentId, fullName: "Synthetic Child", classSessionLabel: "2026-27", hasPhoto: true }, financialSummary: { studentId, sessionLabel: "2026-27" }, installmentBalances: [], receipts: [], ledger: { payments: [] }, pagination: { receipts: { page:1,pageSize:40,totalCount: 0,hasMore:false }, ledgerPayments: { page:1,pageSize:40,totalCount: 0,hasMore:false } } };
-type RedirectFixture={location:(url:URL)=>string;status?:number;body?:string};
+type RedirectFixture={location:(url:URL)=>string;status?:number;body?:string;contentType?:string};
 const loginLocation=(url:URL)=>`https://one.vpps.co.in/login?${new URLSearchParams({next:`${url.pathname}${url.search}`})}`;
 function harness(options: { sourceFailed?: boolean; leak?: boolean; badImage?: boolean; document?:boolean; denialRedirect?:RedirectFixture; authenticatedRedirect?:"one_photo"|"source_photo"|"one_page" } = {}) {
   const requests: { origin: string; method: string; pathname:string; redirect:RequestRedirect|undefined }[] = [];
@@ -17,7 +17,7 @@ function harness(options: { sourceFailed?: boolean; leak?: boolean; badImage?: b
     const headers = new Headers(init?.headers);
     if(url.origin.includes("supabase")) return Response.json({ id: actorId, is_anonymous: false });
     if(url.pathname.includes("/photo")||url.pathname.includes("/documents/")) {
-      if(url.origin.includes("one.vpps") && !headers.has("cookie")) return options.denialRedirect?new Response(options.denialRedirect.body??null,{status:options.denialRedirect.status??307,headers:{Location:options.denialRedirect.location(url)}}):new Response(null,{status:401});
+      if(url.origin.includes("one.vpps") && !headers.has("cookie")) return options.denialRedirect?new Response(options.denialRedirect.body??null,{status:options.denialRedirect.status??307,headers:{Location:options.denialRedirect.location(url),...(options.denialRedirect.contentType?{"Content-Type":options.denialRedirect.contentType}:{})}}):new Response(null,{status:401});
       if((options.authenticatedRedirect==="one_photo"&&url.origin.includes("one.vpps"))||(options.authenticatedRedirect==="source_photo"&&url.origin.includes("fees.vpps")))return new Response(null,{status:307,headers:{Location:loginLocation(url)}});
       if(url.pathname.includes("/documents/"))return new Response("%PDF-1.7 synthetic stored document",{headers:{"Content-Type":"application/pdf","Cache-Control":"private, no-store"}});
       return new Response(new Uint8Array([255,216,255,options.badImage && url.origin.includes("one.vpps") ? 2 : 1]), { headers: { "Content-Type":"image/jpeg", "Cache-Control":"private, no-store", Vary:"Cookie" } });
@@ -60,8 +60,11 @@ describe("read-only deployed student acceptance", () => {
     expect(result.ok).toBe(false); expect(result.checks.some(c=>c.code==="private_token_in_response")).toBe(true);
     expect(JSON.stringify(result)).not.toContain(config.bridgeKey);
   });
-  it("accepts only the exact anonymous One login redirect for photo and stored-PDF probes without following",async()=>{
-    const {fetcher,requests}=harness({document:true,denialRedirect:{location:loginLocation}});
+  it.each([
+    ["empty body",{location:loginLocation}],
+    ["exact Vercel text marker",{location:loginLocation,body:"Redirecting...\n",contentType:"text/plain; charset=utf-8"}],
+  ] satisfies [string,RedirectFixture][])("accepts the exact anonymous One login redirect with %s without following",async(_label,denialRedirect)=>{
+    const {fetcher,requests}=harness({document:true,denialRedirect});
     const result=await runStudentReadAcceptance(config,{execute:true,fetcher});expect(result.ok).toBe(true);
     for(const name of ["anonymous_photo_denied","stored_document_1"])expect(result.checks.find(row=>row.name===name)).toMatchObject({status:"passed",denialMechanism:"login_redirect"});
     expect(requests.every(row=>row.redirect==="manual")).toBe(true);expect(requests.some(row=>row.pathname==="/login")).toBe(false);
@@ -76,6 +79,15 @@ describe("read-only deployed student acceptance", () => {
     ["wrong login path",{location:(url:URL)=>loginLocation(url).replace("/login?","/login/other?")}],
     ["wrong status",{location:loginLocation,status:302}],
     ["nonempty response",{location:loginLocation,body:"unexpected bytes"}],
+    ["marker without newline",{location:loginLocation,body:"Redirecting...",contentType:"text/plain"}],
+    ["marker with CRLF",{location:loginLocation,body:"Redirecting...\r\n",contentType:"text/plain"}],
+    ["marker with leading space",{location:loginLocation,body:" Redirecting...\n",contentType:"text/plain"}],
+    ["marker with extra data",{location:loginLocation,body:"Redirecting...\nprivate record",contentType:"text/plain"}],
+    ["marker as HTML",{location:loginLocation,body:"Redirecting...\n",contentType:"text/html"}],
+    ["marker as image",{location:loginLocation,body:"Redirecting...\n",contentType:"image/jpeg"}],
+    ["401 body",{location:loginLocation,status:401,body:"Redirecting...\n",contentType:"text/plain"}],
+    ["403 body",{location:loginLocation,status:403,body:"Redirecting...\n",contentType:"text/plain"}],
+    ["404 body",{location:loginLocation,status:404,body:"Redirecting...\n",contentType:"text/plain"}],
     ["reflected private token",{location:(url:URL)=>`${loginLocation(url)}&secret=${config.bridgeKey}`}],
   ] satisfies [string,RedirectFixture][])("rejects an anonymous denial redirect with %s",async(_label,denialRedirect)=>{
     const {fetcher,requests}=harness({document:true,denialRedirect});const result=await runStudentReadAcceptance(config,{execute:true,fetcher});expect(result.ok).toBe(false);

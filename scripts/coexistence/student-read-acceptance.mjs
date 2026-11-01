@@ -55,7 +55,7 @@ export async function runStudentReadAcceptance(raw,{execute=false,fetcher=fetch}
     if(reader)try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;need(size<=limit,'response_too_large');chunks.push(part.value);}}finally{await reader.cancel().catch(()=>{});}
     const bytes=Buffer.concat(chunks);const body=image||pdf?'':bytes.toString('utf8');
     need(privateTokensAbsent(body,c),'private_token_in_response');
-    if(redirected)need(bytes.length===0,'redirect_body_not_empty');
+    if(redirected)need(bytes.length===0||(response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()==='text/plain'&&bytes.equals(Buffer.from('Redirecting...\n','utf8'))),'redirect_body_unexpected');
     return {status:response.status,body,bytes,denialMechanism:redirected?'login_redirect':null,cache:response.headers.get('cache-control')??'',mime:response.headers.get('content-type')?.split(';')[0]??'',vary:response.headers.get('vary')??''};
   }
   async function api(route,options){
@@ -154,7 +154,7 @@ export async function runStudentReadAcceptance(raw,{execute=false,fetcher=fetch}
       const source=await request(FEES,`/api/one/v1${suffix}`,{pdf:true});const target=await request(ONE,`/api/fees-bridge${suffix}`,{pdf:true});
       need(source.status===200&&target.status===200&&source.mime==='application/pdf'&&target.mime==='application/pdf'&&target.bytes.subarray(0,5).toString()==='%PDF-','document_response_invalid');
       need(hash(source.bytes)===hash(target.bytes),'document_bytes_differ');need(source.cache.includes('no-store')&&target.cache.includes('no-store'),'document_cache_policy_invalid');
-      const denial=await request(ONE,`/api/fees-bridge${suffix}`,{pdf:true,anonymous:true,allowAnonymousLoginDenial:true});need((denial.denialMechanism==='login_redirect'||[401,403,404].includes(denial.status))&&denial.bytes.length===0,'anonymous_document_exposed');
+      const denial=await request(ONE,`/api/fees-bridge${suffix}`,{pdf:true,anonymous:true,allowAnonymousLoginDenial:true});need(denial.denialMechanism==='login_redirect'||([401,403,404].includes(denial.status)&&denial.bytes.length===0),'anonymous_document_exposed');
       return {bytes:target.bytes.length,sha256:hash(target.bytes),denialMechanism:denial.denialMechanism??'http_denial'};
     });
   }
@@ -174,7 +174,7 @@ export async function runStudentReadAcceptance(raw,{execute=false,fetcher=fetch}
       const r=await request(ONE,`/receipts/${encodeURIComponent(receipt.receiptNumber)}?receiptId=${receipt.id}&session=${session}`);
       need(r.status===200&&!r.body.includes('NEXT_REDIRECT;')&&r.body.includes('data-student-source-section="receipt"')&&htmlHas(r.body,receipt.receiptNumber)&&htmlHas(r.body,first.data.student.fullName),'native_receipt_missing');return {allocations:data.detail.breakdown.length};
     });
-    await check('anonymous_photo_denied',async()=>{const r=await request(ONE,`/api/fees-bridge/students/${id}/photo?session=${session}`,{anonymous:true,image:true,allowAnonymousLoginDenial:true});need((r.denialMechanism==='login_redirect'||[401,403,404].includes(r.status))&&r.bytes.length===0,'anonymous_photo_exposed');return {denialMechanism:r.denialMechanism??'http_denial'};});
+    await check('anonymous_photo_denied',async()=>{const r=await request(ONE,`/api/fees-bridge/students/${id}/photo?session=${session}`,{anonymous:true,image:true,allowAnonymousLoginDenial:true});need(r.denialMechanism==='login_redirect'||([401,403,404].includes(r.status)&&r.bytes.length===0),'anonymous_photo_exposed');return {denialMechanism:r.denialMechanism??'http_denial'};});
     await check('wrong_session_denied',async()=>{const r=await api(`/students/${id}/workspace?session=${encodeURIComponent(c.deniedSessionLabel)}`);need([400,403,404].includes(r.status)&&r.envelope.error&&!r.envelope.data,'wrong_session_exposed');return {};});
     await check('missing_bridge_key_denied',async()=>{const r=await api(`/students/${id}/workspace?session=${session}`,{key:null});need(r.status===401&&!r.envelope.data,'missing_key_accepted');return {};});
     if(c.deniedActorAccessToken)await check('unmapped_actor_denied',async()=>{const auth=await request(AUTH,'/auth/v1/user',{token:c.deniedActorAccessToken});need(auth.status===200&&JSON.parse(auth.body).id===c.deniedActorId,'denied_actor_pin_mismatch');const r=await api(`/students/${id}/workspace?session=${session}`,{token:c.deniedActorAccessToken});need(r.status===403&&!r.envelope.data,'unmapped_actor_exposed');return {};});

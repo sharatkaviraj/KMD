@@ -1,6 +1,51 @@
 # VPPS One — progress
 
-## Fees coexistence implementation — 1 November 2026
+## Native Fees student records in One — 1 November 2026
+
+Native current-session (`2026-27`) student reads are released through
+[PR #154](https://github.com/veerpatta/vppsone/pull/154), branch
+`codex/fees-one-student-details`, reviewed head `fdb6903`, production merge
+`8756ea6815dd3acb697d852b7757568c1beb9e0c`. All 22 checks passed before merge;
+CI recorded 411 files, 18,665 tests passed and one skipped, plus build and bundle
+checks. Four synthetic mobile flows passed separately. Source Fees PR120 is
+released at `4586d25b5d88a93431f1c726847a23298eed3f5d`; source migration
+`20261101063539_one_bridge_student_reads` is applied, and all 18 added profile
+projection fields match Fees across 537 students.
+
+One now displays the complete saved profile, private source photograph, native
+financial directory/filter results, installments, receipts, ledger/corrections,
+EMI, household and communication history, and existing stored PDFs. Fees remains
+the only financial authority; each read section intersects both applications'
+permissions. Source has 484 photographs; 53 missing photographs are absent in
+Fees itself. Teacher-login work remains deferred; this release does not change
+collection gates, send messages or create a competing financial writer.
+
+Initial deployed acceptance recorded 40 checks: 38 passed, including the real
+native pages, photos and receipt; two checks rejected the expected anonymous
+sign-in redirect. This was an operator-harness contract mismatch, not a failed
+authenticated application read. The harness-only correction is
+[PR #155](https://github.com/veerpatta/vppsone/pull/155), branch
+`codex/student-read-acceptance-denial`, commit `6d2f5be`. It accepts only the
+exact anonymous One 307 login denial, never follows redirects, and still rejects
+all authenticated/source redirects. Vercel's exact `text/plain` marker
+`Redirecting...\n` is accepted alongside an empty redirect body; other bodies
+remain rejected, and direct 401/403/404 denials must still be empty. Its 28
+focused tests, syntax, scoped lint and TypeScript checks passed; two independent
+reviews are clear. The updated anonymous denial probes passed live.
+
+Status: deployed; verification and source-availability recheck are underway.
+A later full rerun encountered intermittent source directory/workspace failures
+and dependent native-page failures after the earlier positive checks. Do not
+treat the earlier pass or the corrected denial probes as final acceptance.
+Remaining: diagnose availability, repeat the affected live checks, wait for
+PR155's ordinary CI checks before merging, and retain the separately stated
+limits on historical promoted-session receipts, audio playback and physical
+device/printer testing. See [implementation and evidence](cutover/COEXISTENCE-2026-11-01.md).
+
+## Fees coexistence implementation — initial notes, 1 November 2026
+
+The following initial-stage snapshot is historical; the release status above
+supersedes its in-progress, disabled and unpublished descriptions.
 
 Owner authorized implementation, required migrations and live deployment of
 the [coexistence plan](plans/2026-11-01-fees-one-coexistence-plan.md). Work is in
