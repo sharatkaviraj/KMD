@@ -2,6 +2,7 @@
 
 import { ProfilePhotoControl, type PhotoControlHandle } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { AssignmentLauncher, type AssignmentHandle } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ms, photoMessages as photoWords } from "@/messages/setup";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,8 @@ import "./student360.css";
 import { ChildSummary } from "@/vx/assist/summary-assist";
 import type { BridgeWorkspace } from "@/platform/fees-bridge/student-read-contracts";
 import { SourceFamilyHistory, SourceFeeDetails, SourceHousehold, SourcePages, SourceStudentInfo } from "./student360-source";
+
+const CertificateTools = dynamic(() => import("@/vx/screens/school-office/student-certificates").then((mod) => mod.StudentCertificateTools), { ssr: false });
 
 /*
  * Student 360 as the design draws it (F06–F08 on a phone, D02 on a desk).
@@ -167,6 +170,8 @@ export type Student360Props = {
   today: string;
   canCollect: boolean;
   canManageDocuments: boolean;
+  schoolOffice?: { sessionLabel: string; canIssue: boolean; editHref?: string };
+  officialResultsHref?: string;
   canManageFees: boolean;
   canAddNote: boolean;
   /** Family contacts this session, newest first; null when the reader may not see them (D-265). */
@@ -534,13 +539,15 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       body = unread("attendance") || unread("rules") ? unreadCard : <AttendanceTab p={p} />;
       break;
     case "marks":
-      body = unread("marks") ? unreadCard : <MarksTab p={p} />;
+      body = <>{p.officialResultsHref ? <div className="card s360-card"><strong>{tx(pair("Official board results", "आधिकारिक बोर्ड परिणाम"))}</strong><span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(pair("Verified results issued by the examination authority", "परीक्षा प्राधिकरण द्वारा जारी सत्यापित परिणाम"))}</span><Btn href={p.officialResultsHref} icon="award">{tx(pair("View official results", "आधिकारिक परिणाम देखें"))}</Btn></div> : null}{unread("marks") ? unreadCard : <MarksTab p={p} />}</>;
       break;
     case "family":
       body = <FamilyTab p={p} siblings={siblings} feesLoading={feesLoading} feesUnavailable={feesUnavailable} loadingCard={loadingCard} />;
       break;
     case "documents":
       body = (
+        <>
+        {p.schoolOffice ? <CertificateTools studentId={p.id} sessionLabel={p.schoolOffice.sessionLabel} canIssue={p.schoolOffice.canIssue} editHref={p.schoolOffice.editHref} mode="list" /> : null}
         <div className="card" style={{ overflow: "hidden" }}>
           {unread("documents") ? (
             <p style={{ padding: 18, margin: 0 }}>{tx(T.couldNotRead)}</p>
@@ -558,6 +565,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             ))
           )}
         </div>
+        </>
       );
       break;
     case "notes":
@@ -699,6 +707,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             </CloseLink>
           </div>
           <div className="s360-acts">
+            {p.schoolOffice?.canIssue ? <CertificateTools studentId={p.id} sessionLabel={p.schoolOffice.sessionLabel} canIssue editHref={p.schoolOffice.editHref} /> : null}
             {p.canCollect ? <Btn variant="pri" icon="rupee" href={payHref}>{collectLabel}</Btn> : null}
             {mobile ? <Btn icon="phone" href={`tel:${mobile}`} style={{ color: "var(--info)" }}>{tx(T.call)}</Btn> : null}
             {mobile ? <Btn icon="message" href={`https://wa.me/91${mobile}`} target="_blank" style={{ color: "var(--ok)" }}>{tx(T.whatsapp)}</Btn> : null}

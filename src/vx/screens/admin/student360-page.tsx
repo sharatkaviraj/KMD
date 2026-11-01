@@ -230,6 +230,8 @@ export async function Student360Content({ id, search }: { id: string; search: Re
           canCollect: can(staff, "fees:collect"),
           canAssignTasks: can(staff, "collection:manage") && !previewing,
           canManageDocuments: can(staff, "documents:manage"),
+          schoolOffice: can(staff, "certificates:view") && sessionLabel ? { sessionLabel, canIssue: can(staff, "certificates:issue") && !previewing, editHref: can(staff, "fees:manage") ? `/admissions/${id}` : undefined } : undefined,
+          officialResultsHref: can(staff, "outcomes:view") ? `/exam-office/official-results?student=${id}` : undefined,
           canManageFees: can(staff, "fees:manage"),
           canAddNote: tabs.includes("notes") && canWriteNotes(staff),
           contacts,

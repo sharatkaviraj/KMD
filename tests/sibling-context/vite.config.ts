@@ -6,6 +6,7 @@ export default defineConfig({
     if (source === './view-as-actions' && importer?.replace(/\\/g, '/').endsWith('/src/vx/shell/sidebar.tsx')) return path.resolve(__dirname, 'actions.ts');
   } }],
   resolve: { alias: {
+    '@/app/(app)/school-office/actions': path.resolve(__dirname, '../shared/school-office-action-adapters.ts'),
     '@/app/(app)/teach/tasks/actions': path.resolve(__dirname, '../shared/sampark-action-adapters.ts'),
     '@/app/(app)/collection/photos/profile-actions': path.resolve(__dirname, '../shared/sampark-action-adapters.ts'),
     '@/vx/screens/notes/actions': path.resolve(__dirname, 'actions.ts'),

@@ -30,6 +30,7 @@ const ADMIN: MenuGroup[] = [
     title: { en: "People", hi: "लोग" },
     tiles: [
       t("students", "Students", "विद्यार्थी", "users", "/students", "students:view"),
+      t("schooloffice", "School Office", "विद्यालय कार्यालय", "fileText", "/school-office", "certificates:view"),
       t("families", "Families", "परिवार", "home", "/student-tools?view=families", "fees:manage"),
       t("staff", "Staff & roles", "स्टाफ व अधिकार", "shield", "/staff", "staff:view"),
       t("admissions", "Admissions", "प्रवेश", "userPlus", "/admissions", "fees:manage"),
@@ -40,6 +41,8 @@ const ADMIN: MenuGroup[] = [
     tiles: [
       t("exams", "Marks & exams", "अंक व परीक्षा", "clipboard", "/exams", "assessments:view"),
       t("cards", "Report cards", "रिपोर्ट कार्ड", "grad", "/exam-office/results", "assessments:manage"),
+      t("board", "Board readiness", "बोर्ड की तैयारी", "clipboard", "/exam-office/board", "outcomes:view"),
+      t("officialresults", "Official results", "आधिकारिक परिणाम", "award", "/exam-office/official-results", "outcomes:view"),
       t("timetable", "Timetable", "समय-सारणी", "clock", "/timetable", "timetable:view"),
       t("calendar", "Calendar", "शैक्षणिक कैलेंडर", "calendar", "/calendar", "academics:view"),
       t("notes", "Notes on children", "बच्चों के नोट्स", "edit", "/notes", "notes:view"),

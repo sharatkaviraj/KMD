@@ -158,6 +158,7 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
       title: T.school,
       items: [
         { s: "school", icon: "building", tone: "acc", title: T.schoolProfile, sub: tx(T.schoolSub) },
+        { s: "school", icon: "fileText", tone: "info", title: p("Certificate settings", "प्रमाण पत्र की सेटिंग्स"), sub: tx(p("Wording, numbering and manual signature", "पाठ, संख्या और हस्ताक्षर")), href: "/school-office/template" },
         { s: "prefs", icon: "sliders", tone: "info", title: T.prefs, sub: status.prefs.sub },
         { s: "session", icon: "calendar", tone: "warn", title: T.session, sub: status.session.sub },
         { s: "users", icon: "shield", tone: "ok", title: T.users, sub: tx(data.staffTotal && data.staffTotal > data.staffCount ? p(`${data.staffCount} active of ${data.staffTotal} · ${data.roleCount} roles`, `${data.staffTotal} में से ${data.staffCount} सक्रिय · ${data.roleCount} भूमिकाएँ`) : p(`${data.staffCount} people · ${data.roleCount} roles`, `${data.staffCount} लोग · ${data.roleCount} भूमिकाएँ`)), href: "/staff?view=roles" },

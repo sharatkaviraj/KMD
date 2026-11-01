@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { Language } from "@/platform/i18n/language";
 import { Ic } from "@/vx/icons";
@@ -39,7 +39,7 @@ const TONE: Record<Badge["tone"], [string, string]> = {
 
 const delay = (i: number) => `${Math.min(i, 14) * 30}ms`;
 
-export function CalendarView({ model, addInitial }: { model: CalendarModel; addInitial?: AddInitial }) {
+export function CalendarView({ model, addInitial, officeDeadlines }: { model: CalendarModel; addInitial?: AddInitial; officeDeadlines?: ReactNode }) {
   if (model.screen === "closed") {
     const w = words(model.language);
     return (
@@ -57,6 +57,7 @@ export function CalendarView({ model, addInitial }: { model: CalendarModel; addI
     <VxPage>
       <Top c={c} w={w} />
       <main>
+        {officeDeadlines && (model.screen === "month" || model.screen === "agenda") ? <div className="pad" style={{ paddingBottom: 0 }}>{officeDeadlines}</div> : null}
         {c.head.top ? (
           <div className="only-m" style={{ padding: "14px 16px 0" }}>
             <ViewSeg c={c} w={w} />

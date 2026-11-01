@@ -1,5 +1,32 @@
 # VPPS One — progress
 
+## School Office, certificates and official records — 1 November 2026
+
+Branch `feat/school-office-operations`, based on `c3c05f1`; certificate commits
+`8a9a8fd` / `b198bd4`, followed by the government/board integration release.
+Owner approved implementation/live deployment, manual signature and numbering
+`VPPS/STUDY/<session>/0001`.
+
+Implemented contextual Study Certificate issuance, immutable private PDFs and
+exact issue recovery, School Office register/settings, supported government
+format mapping/reference exports/staged external-registration reconciliation,
+submission/full/partial acceptance evidence, sourced board readiness/deadlines,
+retained examination membership and separate official-result revisions. Today,
+Needs you, student Learning/Documents, Exam Office and Calendar use these stores.
+
+All five new One-only migrations are applied. Three rollback-only PostgreSQL
+scripts pass 19 command/security groups; no fixture rows remain. Full suite:
+428 files / 19,206 tests, typecheck and lint pass; 430 theme tokens and 828
+ported imports match. Production build/bundle gates pass. Browser evidence
+validates 46 distinct scenarios, including two artifact-write failures that
+passed targeted reruns after task cache space was recovered. Reviews' material
+findings were fixed and covered. Financial/provider authority is unchanged.
+
+Release CI, production SHA and live verification remain the final publication
+steps. Actual portal specimens/circulars and official outcomes remain operator
+configuration; no invented upload contract, physical-device or portal acceptance
+claim. See [release evidence](evidence/2026-11-01-school-office-release.md).
+
 ## Faster app frame and student views — 1 November 2026
 
 Implementation commit `5d54795` on `perf/one-student-loading-20261101`, based on

@@ -70,6 +70,16 @@ export const staffPermissions = [
   "documents:view",
   "documents:manage",
 
+  // School-issued records and official exchange have their own authority.
+  "certificates:view",
+  "certificates:issue",
+  "certificates:manage",
+  "government:view",
+  "government:export",
+  "government:import",
+  "outcomes:view",
+  "outcomes:manage",
+
   // Assessments and reports (Phase 6).
   "assessments:view",
   "assessments:manage",
@@ -168,6 +178,12 @@ const officePermissions: readonly StaffPermission[] = [
   "collection:manage",
   "documents:view",
   "documents:manage",
+  "certificates:view",
+  "certificates:issue",
+  "government:view",
+  "government:export",
+  "government:import",
+  "outcomes:view",
   "assessments:view",
   "marks:view",
   "reports:view",
@@ -212,6 +228,8 @@ const academicCoordinatorPermissions: readonly StaffPermission[] = [
 
 /** Exam coordinator: assessments, marks, report cards. */
 const examCoordinatorPermissions: readonly StaffPermission[] = [
+  "outcomes:view",
+  "outcomes:manage",
   "dashboard:view",
   "staff:view",
   "academics:view",
@@ -350,7 +368,7 @@ export type PermissionSubject = {
  * accounts, roles and permissions, or the school's settings. Without this the
  * admin seat could mint itself a password account that outlives its run.
  */
-export const SMOKE_LAB_DENIED: readonly StaffPermission[] = ["staff:manage", "settings:manage"];
+export const SMOKE_LAB_DENIED: readonly StaffPermission[] = ["staff:manage", "settings:manage", "certificates:manage"];
 
 /**
  * The permissions a role has in the matrix as the database holds it, narrowed

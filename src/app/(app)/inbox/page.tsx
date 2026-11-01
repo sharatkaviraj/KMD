@@ -1,4 +1,6 @@
 import { requirePermission } from "@/platform/auth/current-staff";
+import { Suspense } from "react";
+import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
@@ -81,7 +83,7 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
             <AssignmentLauncher language={staff.language} variant="pri" />
           </>
         ) : undefined}
-        taskPanel={canAssign ? <TeacherWork rows={tasks} language={staff.language} compact={params.tasks !== "all"} reviewPhotos={reviewPhotos} /> : undefined}
+        taskPanel={<><Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>{canAssign ? <TeacherWork rows={tasks} language={staff.language} compact={params.tasks !== "all"} reviewPhotos={reviewPhotos} /> : null}</>}
         taskDetail={selectedTask && chosen ? (
           <TaskDetailSheet title={chosen.title} sub={chosen.teacherName ?? undefined} back={queueHref}>
             <ManageTask id={selectedTask} language={staff.language} collection={chosen.kind === "collection"} />

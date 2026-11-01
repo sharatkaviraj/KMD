@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
@@ -118,6 +120,7 @@ export default async function TodayPage() {
     <VxPage label={lead(T.today, language)}>
       {seesMoney && canonicalMoney && <div className="mx-4 my-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm"><p>{flat(ms.bridgeLedger,language)}</p><div className="mt-2 flex flex-wrap gap-5"><a className="font-medium underline" href="/payments">{flat(ms.bridgeTitle,language)}</a><a className="font-medium underline" href={`${FEES_ORIGIN}/protected/dashboard`}>{flat(ms.bridgeOpenFees,language)}</a></div></div>}
       <TodayScreen
+        officeWork={<Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>}
         firstName={staff.displayName.split(/\s+/)[0] ?? staff.displayName}
         greeting={greeting}
         dayLine={longDay(today)}

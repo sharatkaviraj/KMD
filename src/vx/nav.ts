@@ -74,6 +74,8 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
       title: L("Academics", "पढ़ाई"),
       items: [
         { key: "exams", label: L("Exams & marks", "परीक्षा व अंक"), icon: "clipboard", href: "/exams", permission: "assessments:view" },
+        { key: "board", label: L("Board readiness", "बोर्ड की तैयारी"), icon: "clipboard", href: "/exam-office/board", permission: "outcomes:view" },
+        { key: "officialresults", label: L("Official results", "आधिकारिक परिणाम"), icon: "award", href: "/exam-office/official-results", permission: "outcomes:view" },
         { key: "timetable", label: L("Timetable", "समय सारणी"), icon: "clock", href: "/timetable", permission: "timetable:view" },
         { key: "calendar", label: L("Calendar", "कैलेंडर"), icon: "calendar", href: "/calendar", permission: "academics:view" },
         { key: "notes", label: L("Notes on children", "बच्चों के नोट्स"), icon: "note", href: "/notes", permission: "notes:view", badge: "notes" },
@@ -83,6 +85,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
       title: L("People", "लोग"),
       items: [
         { key: "admissions", label: L("Admissions", "दाख़िले"), icon: "userPlus", href: "/admissions", permission: "fees:manage" },
+        { key: "schooloffice", label: L("School Office", "विद्यालय कार्यालय"), icon: "fileText", href: "/school-office", permission: "certificates:view" },
         { key: "studenttools", label: L("Promote & import", "प्रमोशन व इम्पोर्ट"), icon: "upload", href: "/student-tools", permission: "fees:manage" },
         { key: "staff", label: L("Staff & roles", "स्टाफ़"), icon: "shield", href: "/staff", permission: "staff:view" },
       ],
@@ -142,6 +145,8 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "plan", label: L("Date sheet & seating", "डेटशीट व बैठक"), icon: "calendar", href: "/exam-office/plan", permission: "assessments:manage" },
         { key: "exams", label: L("Marks tracker", "अंक ट्रैकर"), icon: "clipboard", href: "/exams", permission: "assessments:view", badge: "marks" },
         { key: "results", label: L("Results & report cards", "परिणाम"), icon: "award", href: "/exam-office/results", permission: "assessments:manage" },
+        { key: "board", label: L("Board readiness", "बोर्ड की तैयारी"), icon: "clipboard", href: "/exam-office/board", permission: "outcomes:view" },
+        { key: "officialresults", label: L("Official results", "आधिकारिक परिणाम"), icon: "award", href: "/exam-office/official-results", permission: "outcomes:view" },
         { key: "calendar", label: L("Calendar", "कैलेंडर"), icon: "calendar", href: "/calendar", permission: "academics:view" },
         { key: "messages", label: L("Notices", "सूचनाएँ"), icon: "megaphone", href: "/messages", permission: "messages:send" },
       ],
@@ -165,6 +170,7 @@ const BOTTOM: Record<DesignMenu, { tabs: [string, string, string, string]; cente
  * "access denied" (smoke test, 10 Oct 2026).
  */
 export const QUICK_ACTIONS: readonly { key: string; label: Pair; sub: Pair; icon: IconName; tone: "pri" | "acc" | "info" | "ok" | "warn" | "plain"; href: string; permission: StaffPermission }[] = [
+  { key: "certificate", label: L("Study certificate", "अध्ययन प्रमाण पत्र"), sub: L("Find a student; details fill automatically", "विद्यार्थी चुनें; जानकारी अपने आप भरेगी"), icon: "fileText", tone: "info", href: "/students", permission: "certificates:issue" },
   { key: "collect", label: L("Collect fee", "फीस जमा"), sub: L("Opens the Payment Desk", "पेमेंट डेस्क खुलेगा"), icon: "rupee", tone: "pri", href: "/payments", permission: "fees:collect" },
   { key: "mark", label: L("Mark attendance", "हाज़िरी"), sub: L("Any class, today", "कोई भी कक्षा, आज"), icon: "calCheck", tone: "acc", href: "/attendance", permission: "attendance:mark_on_behalf" },
   { key: "notice", label: L("Send notice", "सूचना भेजें"), sub: L("WhatsApp to parents or staff", "अभिभावकों या स्टाफ़ को"), icon: "megaphone", tone: "info", href: "/messages?compose=1", permission: "messages:send" },

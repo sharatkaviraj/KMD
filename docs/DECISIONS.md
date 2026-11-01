@@ -1,5 +1,36 @@
 # Decisions
 
+## Integrated School Office — 1 November 2026
+
+The owner selected contextual actions plus a small School Office register and
+authorized implementation/live deployment. Seed the owner-approved Study
+Certificate with existing letterhead, manual signature/seal and
+`VPPS/STUDY/<session>/0001`; TEST uses a separate clearly marked series. Ordinary
+repeat use returns original stored bytes. Intentional new issues/corrections
+receive new numbers, with immutable history and exact reserved-issue recovery.
+Record download/print requests durably before navigation; neither establishes
+physical printing, signature or handover.
+
+Government formats activate only from a school-reviewed current supported
+specimen. Unsupported CSV/XLSX shapes use labelled reference workbooks. Returned
+files may update only One-owned external registration identity/status after
+frozen-preview, current-source and every-row revision checks. Preparing,
+submission, partial/full acceptance and rejection remain distinct with evidence.
+No second financial or parent-dispatch writer is introduced.
+
+Board authority/attempt/circular/subject requirements are explicit configuration.
+Verified registrations freeze exam-period identity/membership so later departure
+does not remove an outcome or denominator. New writes require a healthy current
+source fence; committed actor/hash-bound receipts replay before new-source checks.
+Authority-issued outcomes retain exact strings/statuses and correcting revisions,
+separately from internal marks. Calendar reads the same sourced deadline store.
+
+Post go-live immutable School Office tables belong to the legacy quarantine's
+untouched K bucket. Its retired first-load relabelling must not rewrite these
+records or counters. Current actor/session/TEST guards and private storage remain
+the live authority. Only One-owned additive migrations were applied; local
+filenames use their actual remote ledger timestamps.
+
 ## One student performance — 1 November 2026
 
 Reduce server waterfalls and client work before introducing persistent caches.

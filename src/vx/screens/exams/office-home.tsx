@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type CSSProperties } from "react";
+import { useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { logoutAction } from "@/app/login/actions";
 import { useVx } from "@/vx/i18n";
@@ -191,6 +191,7 @@ export function ExamHome({
   logCall,
   markStep,
   staffPhone,
+  officeLinks,
 }: {
   view: HomeView;
   hello: string;
@@ -207,6 +208,7 @@ export function ExamHome({
   markStep: (input: { examId: string; key: string; done: boolean }) => Promise<ActionResult>;
   /** The coordinator's own number, masked, for the menu card. */
   staffPhone?: string | null;
+  officeLinks?: ReactNode;
 }) {
   const { tx } = useVx();
   const toast = useToast();
@@ -407,7 +409,7 @@ export function ExamHome({
   return (
     <VxPage className="eoh">
       <OfficeTop crumb={crumb} title={tx(titles[view])} mSub={mSub[view]} back={back} logo={view === "home" || view === "menu"} lang help={help} actions={actions} />
-      <main>{body}</main>
+      <main>{officeLinks ? <div style={{ padding: "16px 20px 0" }}>{officeLinks}</div> : null}{body}</main>
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} help={help} />
       {results ? (
         <RemindSheet

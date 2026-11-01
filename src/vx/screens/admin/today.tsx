@@ -40,6 +40,7 @@ export type TodayMoneyView = {
 export type QuickTone = "pri" | "acc" | "info" | "ok" | "warn" | "plain";
 
 export type TodayProps = {
+  officeWork?: ReactNode;
   /** Morning: a part-day's money is not set against a whole average day (verification N7, as accountant B16). */
   beforeNoon?: boolean;
   firstName: string;
@@ -295,6 +296,7 @@ export function TodayScreen(props: TodayProps) {
         <div className="only-m" style={{ lineHeight: 1.4 }}>
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
           <PhoneNeeds inbox={inbox} />
+          {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
           <TodayBrief facts={briefFacts} style={{ padding: "18px 18px 0" }} />
           <section style={{ padding: "26px 18px 0", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -344,6 +346,7 @@ export function TodayScreen(props: TodayProps) {
           <aside style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
             <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
               {inbox ? <RailNeeds inbox={inbox} awaiting={awaiting} /> : null}
+              {props.officeWork}
               <section className="card" style={{ padding: "14px 18px 8px", animation: "xRise .45s .15s var(--ease) both" }}>
                 <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h3>
                 <Timeline items={props.timeline} closed={attendance !== null && !attendance.schoolOpen} />

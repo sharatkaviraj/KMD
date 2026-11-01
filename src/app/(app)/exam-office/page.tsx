@@ -11,6 +11,7 @@ import { plannedExams } from "@/vx/screens/exams/domain/current";
 import { maskPhone, readiness, setupSteps } from "@/vx/screens/exams/domain/office";
 import { paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { ExamHome, type HomeView, type NextExamView, type ResultsExamView, type TimelineItem } from "@/vx/screens/exams/office-home";
+import { BoardOfficeLinks } from "@/vx/screens/board-office/links";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
 
 import { logCallAction, markChecklistAction, remindTeachersAction } from "./actions";
@@ -139,6 +140,7 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
 
   return (
     <ExamHome
+      officeLinks={<BoardOfficeLinks />}
       view={view}
       hello={greeting(now)}
       staffName={staff.displayName}

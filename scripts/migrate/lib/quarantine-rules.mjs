@@ -72,6 +72,23 @@ export function isTestSessionLabel(label) {
  */
 /** @type {Record<string, { bucket: string, why?: string, appendOnly?: boolean, relabelSet?: string, scrub?: { column: string, to: string }[], sensitiveValues?: string[], terminal?: { set: string, where: string }, staffRefs?: string[], classRefs?: string[], staffArrays?: string[], classArrays?: string[], studentArrays?: string[] }>} */
 export const TABLES = {
+  // Post go-live records have immutable snapshots and explicit TEST fences.
+  // The retired first-load quarantine must never relabel these records.
+  school_board_candidates: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_board_commands: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_board_cycles: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_board_readiness: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_certificate_attention: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_certificate_commands: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_certificate_events: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_certificate_issues: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_certificate_series: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_certificate_templates: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_external_records: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_official_results: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_return_adapters: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_return_batches: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_return_events: { bucket: "K", why: "post go-live School Office authority and audit" },
   // Coexistence is a separately authenticated canonical projection. It is not
   // old One academic activity and must never be relabelled by quarantine.
   fees_bridge_state: { bucket: "K", why: "coexistence publication and source manifest" },
