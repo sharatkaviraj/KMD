@@ -70,11 +70,13 @@ export async function previewAssignment(raw: unknown): Promise<AssignmentPreview
   const input = assignmentSchema.parse(raw);
   const context = await assignmentContext();
   const db=createAdminClient();
+  const canonical=usesCanonicalFees(actor,context.session);
   const canonicalStudents=async(classId:string,roster:{data:unknown;error:unknown}):Promise<TaskStudent[]>=>{
     if(roster.error||!Array.isArray(roster.data))throw new Error("roster_unavailable");
     const ids=roster.data as string[];
-    const names=await fetchInChunks<{id:string;full_name:string}>(ids,IN_FILTER_CHUNK_SIZE,c=>db.schema(FEE_SCHEMA).from("students").select("id,full_name").in("id",c));
-    if(names.error||names.data.length!==ids.length)throw new Error("roster_unavailable");
+    const names=await fetchInChunks<{id:string;full_name:string}>(ids,IN_FILTER_CHUNK_SIZE,c=>(canonical?db.from("fees_action_students"):db.schema(FEE_SCHEMA).from("students")).select("id,full_name").eq("class_id",classId).in("id",c));
+    const found=new Set(names.data.map(s=>s.id));
+    if(names.error||names.data.length!==ids.length||ids.some(id=>!found.has(id)))throw new Error("roster_unavailable");
     return names.data.map(s=>({id:s.id,name:s.full_name,classId,classLabel:context.students.find(c=>c.classId===classId)?.classLabel??"-",house:null,routeId:null,values:{},hasPhoto:false}));
   };
   let chosen = context.students.filter(s=>input.selectedIds.includes(s.id));
