@@ -20,6 +20,9 @@ export async function runFeesBridgeSync(options: { forceVerification?: boolean }
   const key = process.env.FEES_BRIDGE_SYNC_KEY;
   if (!key || key.length < 32) throw new Error("bridge_sync_unconfigured");
   const db = createAdminClient();
+  const observed = await db.from("fees_bridge_state").select("last_checked_at").eq("id", true).single();
+  if (observed.error) throw new Error("bridge_target_status_failed");
+  const observedCheck = observed.data.last_checked_at as string | null;
   const leaseId = randomUUID();
   async function call(body: Record<string, unknown>): Promise<unknown> {
     const response = await fetch(`${origin}${SYNC_PATH}`, {
@@ -44,7 +47,7 @@ export async function runFeesBridgeSync(options: { forceVerification?: boolean }
   }
   try {
     const result = await synchronizeGeneration({
-      claim: async () => claimSchema.parse(await call({ operation: "claim", leaseId, limit: 500, leaseSeconds: 180 })),
+      claim: async () => claimSchema.parse(await call({ operation: "claim", leaseId, limit: 250, leaseSeconds: 180 })),
       skipUnchanged: async () => {
         if (options.forceVerification) return false;
         const { data, error } = await db.from("fees_bridge_state").select("last_revision,as_of_date,last_error_code").eq("id", true).single();
@@ -82,7 +85,12 @@ export async function runFeesBridgeSync(options: { forceVerification?: boolean }
     if (error instanceof Error && error.message === "bridge_source_busy") return { busy: true };
     const message = error instanceof Error && /^bridge_[a-z0-9_]+$/.test(error.message)
       ? error.message : "bridge_sync_failed";
-    await db.from("fees_bridge_state").update({ last_error_code: message, last_attempt_at: new Date().toISOString() }).eq("id", true);
+    // A lease can expire while a slow request is in flight. Never let its
+    // failure overwrite a successful newer worker's health (or this worker's
+    // already-verified commit when only acknowledgement was lost).
+    const failure = db.from("fees_bridge_state").update({ last_error_code: message, last_attempt_at: new Date().toISOString() }).eq("id", true);
+    if (observedCheck === null) await failure.is("last_checked_at", null);
+    else await failure.eq("last_checked_at", observedCheck);
     // Never log upstream bodies, student data, URLs with credentials or secrets.
     throw new Error(message);
   }

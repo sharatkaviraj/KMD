@@ -14,6 +14,8 @@ day-close jobs continue to own those operations.
   passwords for now. Revoke their old QA shortcuts before activation.
 - The reviewed 17 teacher identities plus the two held teachers form the real
   timetable master. TEST twins retain earlier activity.
+- QA Fee Collector remains TEST. Four unambiguous current Fees staff accounts
+  were provisioned with their existing passwords; no access emails were sent.
 - The two applications never independently post the same money. One's payment
   command invokes the existing source engine with a durable command UUID.
 - No new parent test send, plan purchase, password reset or fabricated real
@@ -106,6 +108,26 @@ before declaring rollout complete.
   listed exactly these two migrations. No migration history was repaired.
   Verified afterward: disabled, unpublished, revision zero, no projected rows,
   and no direct authenticated projection access.
+- Target follow-up `20261101045818_fees_bridge_current_identity_guards` applied
+  after eight actual-database rollback assertions. Historical identity labels
+  cannot authorize new actions. Leavers/transfers require an explicit academic
+  enrolment review before new whole-register/exam work; saved history remains.
+- Identity conversion committed: 248 checks passed, 513 TEST student shells,
+  22 TEST staff twins, five approved logins retained, three QA day-run shortcuts
+  revoked. Four new real accounts preserve source password hashes through
+  Supabase Admin import. QA Fee Collector has a TEST profile. Parent/staff
+  dispatch and One's native real fee writes are closed.
+- Source PR118 merged at `e6cf2781a4049e96a75dd2ca5c1e2affc95a6e5d`.
+  Source migration `20261101041255` is applied, with 32 capture tables verified.
+  Nine explicit real account mappings retain the intersection of existing
+  permissions: six readers, five potential collectors. Source commands remain
+  closed pending TEST acceptance. Initial sync scope is `2026-27`.
+- One production bridge configuration and dormant 30-second / 02:00 IST
+  schedules are installed; live publication and scheduled execution are pending.
+- Full initial One CI and preview passed at `9a53c4a`; additional reviewed
+  identity/clock/worker fixes are being submitted for another exact-commit check.
+  The owner selected API-only live acceptance; synthetic mobile checks are
+  separate evidence and do not establish physical-device or printer acceptance.
 
 - Source checkpoint: 1 November 2026 09:53 IST; public/private application
   archive 110 tables and 93,836 rows, with same-snapshot archive count parity.

@@ -4,6 +4,8 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { primary } from "@/platform/i18n/language";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { readFeesBridgeState } from "@/platform/fees-bridge/state";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -24,9 +26,11 @@ export type AssignmentPreview = TaskPlan & { previewId?: string; digest?: string
 
 /** Authorized school-wide read. Values returned to the browser are only missing/present flags. */
 export async function assignmentContext(): Promise<AssignmentContext> {
-  await assertPermission("collection:manage");
+  const viewer=await assertPermission("collection:manage");
   const session = await resolveSessionLabel();
   if (!session) throw new Error("no_session");
+  const canonical=usesCanonicalFees(viewer,session);
+  if(canonical)await readFeesBridgeState();
   const db = createAdminClient();
   const [roll, fields, labels, profiles, classTeachers, scopes, assignments, subjects, papers] = await Promise.all([
     fetchAllRows<{ student_id: string; class_id: string }>((from,to) => db.from("enrolments").select("student_id,class_id").eq("session_label",session).eq("status","enrolled").order("student_id").range(from,to), "task roster"),
@@ -43,7 +47,7 @@ export async function assignmentContext(): Promise<AssignmentContext> {
   const ids = roll.map(r => r.student_id);
   const columns = [...new Set(["id","full_name","house","transport_route_id",...active.flatMap(f => f.feeColumn ? [f.feeColumn] : [])])];
   const [students, records, photos] = await Promise.all([
-    fetchInChunks<Record<string,string|null>>(ids,IN_FILTER_CHUNK_SIZE,c => db.schema(FEE_SCHEMA).from("students").select(columns.join(",")).in("id",c).returns<Record<string,string|null>[]>()),
+    fetchInChunks<Record<string,string|null>>(ids,IN_FILTER_CHUNK_SIZE,c => (canonical?db.from("fees_action_students"):db.schema(FEE_SCHEMA).from("students")).select(columns.join(",")).in("id",c).returns<Record<string,string|null>[]>()),
     // Page within each bounded student chunk: students × fields can exceed 1000.
     (async () => { const rows: {student_id:string;field_id:string;value:string|null}[]=[]; for(let i=0;i<ids.length;i+=IN_FILTER_CHUNK_SIZE) rows.push(...await fetchAllRows<{student_id:string;field_id:string;value:string|null}>((from,to) => db.from("student_records").select("student_id,field_id,value").in("student_id",ids.slice(i,i+IN_FILTER_CHUNK_SIZE)).order("student_id").order("field_id").range(from,to),"approved values")); return rows; })(),
     fetchInChunks<{student_id:string}>(ids,IN_FILTER_CHUNK_SIZE,c => db.from("student_photos").select("student_id").is("replaced_at",null).in("student_id",c)),

@@ -1,5 +1,5 @@
 import "server-only";
-import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
@@ -57,7 +57,7 @@ export async function classRoll(input: {
 }): Promise<RollStudent[]> {
   const { classId, sessionLabel } = input;
 
-  await assertPermission("attendance:view");
+  const viewer = await assertPermission("attendance:view");
 
   const supabase = await createClient();
   const { data: enrolments, error } = await supabase
@@ -69,6 +69,12 @@ export async function classRoll(input: {
     .returns<RollRow[]>();
 
   if (error) throw new Error(`Could not read the roll: ${error.message}`);
+  if(usesCanonicalFees(viewer,sessionLabel)){
+    const checked=await createAdminClient().rpc("assert_fees_bridge_roster_current",{
+      p_ids:enrolments.map(row=>row.student_id),p_class:classId,p_session:sessionLabel,
+    });
+    if(checked.error)throw new Error("The Fees roster changed. Ask the office to review this class's academic enrolments.");
+  }
   if (enrolments.length === 0) return [];
 
   // Service-role, because the fee app's RLS would return zero rows and no

@@ -10,8 +10,8 @@ import { isQaEmail, qaToolsEnabled } from "@/platform/auth/test-accounts";
  * A pretend "now" for the QA accounts, so Today's time-of-day timetable can be
  * checked on a Sunday or after school (D-269).
  *
- * Read only for a signed-in `@qa.vpps.local` account, only while the QA tools
- * are on (not live, dev database, `QA_LOGIN_KEY` set), and only from a cookie
+ * Read only for a verified TEST `@qa.vpps.local` account, while the QA tools
+ * are on, and only from a cookie
  * set by `/login/test/clock` with the key. Everyone else, and every write,
  * uses the real clock: this changes what Today shows, nothing it saves.
  */
@@ -24,8 +24,8 @@ export function parseQaClock(value: string | null | undefined): Date | null {
   return Number.isNaN(at.getTime()) ? null : at;
 }
 
-export async function schoolNow(staff: { email: string | null } | null | undefined): Promise<Date> {
-  if (!staff || !isQaEmail(staff.email)) return new Date();
+export async function schoolNow(staff: { email: string | null; isTestAccount?: boolean } | null | undefined): Promise<Date> {
+  if (!staff || staff.isTestAccount !== true || !isQaEmail(staff.email)) return new Date();
   // A Smoke Lab account's clock is set by its pass (`/lab/enter`, `/lab/clock`).
   if (!qaToolsEnabled() && !(isSmokeEmail(staff.email) && smokeLabEnabled())) return new Date();
   const store = await cookies();
