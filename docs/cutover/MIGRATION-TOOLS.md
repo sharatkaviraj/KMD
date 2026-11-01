@@ -12,8 +12,16 @@ D-346, D-348). Built in phase A2 (`feat/golive-migrate-tooling`).
 | One (target) | `wtgxcptmucjerhufzjcf` | `lib/one-db.mjs` (direct Postgres, session pooler, refuses every other ref) and, for Storage, One's own service-role client |
 
 Personal data never enters the repo or the terminal. Every file with rows goes
-to `%USERPROFILE%\.vppsone-migration\<run>\`; the terminal shows counts, sums
+to `VPPSONE_MIGRATION_HOME\<run>\` when configured, otherwise
+`%USERPROFILE%\.vppsone-migration\<run>\`; the terminal shows counts, sums
 and md5s (and, from reconcile, student **ids** that differ — never names).
+
+On the current Windows operator machine set
+`$env:VPPSONE_MIGRATION_HOME = 'D:\Codex\scratch\vppsone-migration'` before
+running tools. The override must be absolute and outside the repository;
+existing extracts/backups are not moved automatically. HOME and USERPROFILE
+remain unchanged. `--accept-held <list>` and `--accept-held=<list>` both pass
+the owner's confirmed timetable identifiers to the conversion tools.
 
 Every script is `--dry-run` by default and writes only with `--apply`.
 
@@ -159,15 +167,20 @@ cannot commit between the check and the writes). `--apply` refuses when:
 - the run is a `--tables` subset, or its auth rows carry no identities
   (a user loaded without one cannot sign in).
 
-**`--rollback-only`** runs every step of `--apply` in the same transaction and
-then rolls it back: proof that the SQL path (staging, trigger disable/enable,
-detach, deletes, inserts, updates, deferred columns, count check, orphan check,
-matview refresh, setval, watermarks) works, with nothing persisted — not even
-the run row. It lifts the environment and fee-writes guards, never the
-cutover guard, and stops on the same plan blockers as `--apply`.
-**Not yet run:** every run today stops on the plan blockers (the 6 email
-clashes, and run `20261030-a2-first` has no identities), before the SQL path;
-it is the first thing to run once a fresh extract plans clean.
+**`--rollback-only`** exercises row writes in one transaction and rolls them
+back: staging, trigger disable/enable, detach, deletes, inserts, updates,
+deferred columns, count/orphan checks, matview refresh, a fresh row-plan
+reconciliation and watermarks. It requires zero residual row-plan changes.
+Explicit sequence `setval` is planned/reported but skipped because PostgreSQL
+does not roll it back. Default/trigger sequence consumption is also not
+transactional; this is a row rollback, not a guarantee of unchanged sequences.
+The run row rolls back. It lifts the environment and fee-writes guards, never
+the cutover guard, and stops on the same plan blockers as `--apply`.
+Financial/view reconciliation and export acceptance are separate checks.
+**1 November:** the ten JSON bindings in load/tail are repaired, but the fresh
+full rehearsal is blocked on newer household schema/source-reader drift;
+see `READINESS-2026-27.md`. The 31 October SQL run failed before the first
+table was loaded; its successful dry-run counts were only a plan.
 
 **Dry run is read-only**: one `READ ONLY` transaction; no staging table, no
 `migration_runs` row. It prints the per-table plan, blocked deletes, predicted

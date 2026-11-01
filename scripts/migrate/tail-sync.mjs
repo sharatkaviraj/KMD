@@ -158,7 +158,9 @@ function counts(actions) {
   return { review: actions.review.length, upsertEvents: actions.upsert.length, insert: sizes(actions.insert), skip: sizes(actions.skip), defer: sizes(actions.defer), evidence: sizes(actions.evidence) };
 }
 
-async function insertRows(tx, table, rows) {
+// postgres.js serializes jsonb parameters; these helpers pass objects, not
+// pre-encoded JSON strings (which would become JSON string scalars).
+export async function insertRows(tx, table, rows) {
   let inserted = 0;
   const columns = (await tx`select column_name from information_schema.columns where table_schema = 'public' and table_name = ${table} and is_generated = 'NEVER'`).map((r) => r.column_name);
   for (const raw of rows) {
@@ -169,14 +171,14 @@ async function insertRows(tx, table, rows) {
       `insert into public.${ident(table)} (${cols.map(ident).join(", ")})
        select ${cols.map(ident).join(", ")} from jsonb_populate_record(null::public.${ident(table)}, $1::jsonb)
        on conflict do nothing`,
-      [JSON.stringify(row)],
+      [row],
     );
     inserted += result.count;
   }
   return inserted;
 }
 
-async function upsertEvents(tx, rows) {
+export async function upsertEvents(tx, rows) {
   let n = 0;
   const columns = (await tx`select column_name from information_schema.columns where table_schema = 'public' and table_name = 'online_payment_events' and is_generated = 'NEVER'`).map((r) => r.column_name);
   for (const raw of rows) {
@@ -187,7 +189,7 @@ async function upsertEvents(tx, rows) {
        select ${cols.map(ident).join(", ")} from jsonb_populate_record(null::public.online_payment_events, $1::jsonb)
        on conflict (provider_event_id) do update set ${cols.filter((c) => c !== "provider_event_id").map((c) => `${ident(c)} = excluded.${ident(c)}`).join(", ")}
        where public.online_payment_events.status = 'ignored'`,
-      [JSON.stringify(row)],
+      [row],
     );
     n += result.count;
   }

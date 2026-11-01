@@ -991,7 +991,7 @@ export function TeachHome({
           </>
         }
       />
-      <main>
+      <div className="vx-pmain">
         <div className="pad" style={{ padding: "24px 28px 48px", display: "flex", flexDirection: "column", gap: 18, maxWidth: 1260, margin: "0 auto", width: "100%" }}>
           <div className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span className="serif tc-gr" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.15 }}>{tx(greet)}, {callName(shortName, name)}</span>
@@ -1017,7 +1017,7 @@ export function TeachHome({
             </div>
           </div>
         </div>
-      </main>
+      </div>
 
       {/* ------------------------------------------------------- notices */}
       <Sheet

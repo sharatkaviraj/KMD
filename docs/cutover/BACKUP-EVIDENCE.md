@@ -1,5 +1,25 @@
 # Backup and restore evidence — One's main database
 
+## Existing evidence verified again on 1 November
+
+`backup-20261101T023829Z`: snapshot 1 Nov 02:37:14.041 UTC (08:07 IST),
+228 tables / 51,509 rows. Temporary-schema restore-test: 228/228 equal on
+rows, money sums and content SHA-256; zero leftover restore schemas in the
+saved evidence. Both successful ledger records were re-read during the
+handoff continuation. This continuation did not create a backup or run a
+restore. Private files are under
+`D:\Codex\scratch\vppsone-readiness-2026-11-01\private-backups\backup-20261101T023829Z`.
+Manifest SHA-256:
+`3165236318bbff396eaa45630350db40a6fb30a1c95eb6aba10220a7fe9d4ad9`.
+The 24-hour window expires **2 Nov 08:07 IST**; any later T0 needs a fresh
+backup and restore-test. `VPPSONE_MIGRATION_HOME` can select the private D:
+output root for subsequent runs without changing the user's profile folder.
+
+The separate `backup-one --restore --rollback-only` path advances existing
+sequences with forward-only `setval`; row rollback does not undo that. Review
+this limitation before repeating a no-persistent-change restore rehearsal.
+It is different from the temporary-schema `--restore-test` evidence above.
+
 Go-live Phase G (plan §9.2; critique1 B8). Counts, money sums and hashes
 only; no row, name or phone. The backup files themselves are in the
 operator's private folder (`%USERPROFILE%\.vppsone-migration\`), never in the

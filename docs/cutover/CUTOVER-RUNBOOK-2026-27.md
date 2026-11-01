@@ -1,5 +1,19 @@
 # Cutover runbook — One takes over the 2026-27 fee data
 
+**1 November readiness: HOLD.** Read `READINESS-2026-27.md` first. The loader
+JSON repair does not resolve the newer household schema/source-reader blockers.
+None of the `--apply` commands below is authorized by the readiness task.
+
+On the current Windows operator machine, keep new private output on D: before
+running any migration command (do not change HOME or USERPROFILE):
+
+```powershell
+$env:VPPSONE_MIGRATION_HOME = 'D:\Codex\scratch\vppsone-migration'
+```
+
+Copy any required existing backup/extract into that private root deliberately;
+changing the root does not transfer or recreate older evidence.
+
 Go-live Phase G (plan §11, adapted to plan §0.1: One's main database is
 `wtgxcptmucjerhufzjcf` — read every "vppsone-live" in the plan as that
 project). This is the operator's script for the day. Each step has **who**,
@@ -230,7 +244,7 @@ thing itself and refuses while any bucket-B row carries a real session.
 
 ```
 node scripts/migrate/extract-live.mjs --run t0-<date>                         # read-only on fees live
-node scripts/migrate/control-totals.mjs --run t0-<date>                       # vs the fees MCP figures
+node scripts/migrate/control-totals.mjs --run t0-<date> --mcp <private-mcp-totals.json>
 node scripts/migrate/load-snapshot.mjs --run t0-<date>                        # dry run: read the plan
 node scripts/migrate/load-snapshot.mjs --run t0-<date> --apply --first-load   # first ever load
 node scripts/migrate/load-snapshot.mjs --run t0-<date> --purge-secrets        # sealed auth rows deleted
@@ -239,6 +253,22 @@ node scripts/migrate/storage-copy.mjs --apply                                  #
 (`--first-load` only on the first ever load; it brings live's TEST-2026-27 rows
 once. Later loads omit it.) The extract's snapshot is the **watermark**; its
 control-totals hash is the cutover baseline.
+
+The MCP JSON file must contain contemporaneous `get_session_money_summary`
+payloads keyed by `2026-27` and `TEST-2026-27` (and any other extracted session).
+Without `--mcp`, control-totals only prints figures and proves no comparison.
+Missing sessions or any mismatch must stop the load. Before approval, rehearse
+the repaired SQL path with a fresh full extract:
+
+```
+node scripts/migrate/load-snapshot.mjs --run <fresh-run> --first-load --rollback-only --allow-dev-target
+```
+
+Require written = planned, zero orphans and zero residual in-transaction
+row-plan changes. The rehearsal skips explicit sequence `setval`; it reports
+planned values. PostgreSQL sequence values consumed by defaults/triggers are
+not rolled back, so do not claim every possible sequence effect was reverted.
+This rehearsal is not financial/view/export reconciliation.
 
 **After the first load only — the TEST students' phones** (critique1 B15):
 live's 79 TEST students arrive with real numbers (31 Oct: 78 not on the test
@@ -274,7 +304,15 @@ is skipped). Later loads never touch TEST rows, so it is done once.
 node scripts/migrate/reconcile.mjs --run t0-<date> --as-of <IST date of the extract>
 npm run verify:fee-parity
 node scripts/migrate/access-email-check.mjs        # Q6: must print ok (exit 0) before any access email (C5a)
+npm run migrate:export-parity -- <private-D-path/fees.xlsx> <private-D-path/one.xlsx> --json
 ```
+- Run the export command on each pair from the same snapshot and session:
+  ai-context-bundle first, student master, previous-year dues, left-student
+  dues, EMI, receipt register, defaulters, class-wise dues, concessions,
+  transactions. Require zero sheet/header/order/row-count differences.
+  Do not use `--ignore-row-counts` for cutover acceptance. The comparator
+  checks workbook shape/counts; financial reconciliation and representative
+  cell/receipt acceptance remain separate.
 - **Check:** reconcile exit 0 — **exact**: counts, ordered md5 per table, the
   session money summary equal to the fees MCP's `get_session_money_summary`,
   per-class rollups, per-student checksums, receipts per mode per date,

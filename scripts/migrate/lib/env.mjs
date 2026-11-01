@@ -10,6 +10,8 @@
  *    outside the repo (I-5). `secrets/` under a run holds auth rows, encrypted
  *    (lib/secrets-box.mjs), and is deleted after a load (critique0 #28).
  *
+ * Set VPPSONE_MIGRATION_HOME to an absolute path outside the repo to move
+ * private output away from the default user-profile directory.
  * Env var NAMES only ever appear in messages, never values.
  */
 
@@ -26,7 +28,29 @@ export const FEES_SECRETS_FILE = path.join(
   "env.local.production.20260915-1137.bak",
 );
 
-export const MIGRATION_HOME = path.join(process.env.USERPROFILE ?? process.env.HOME ?? os.homedir(), ".vppsone-migration");
+/** Reject the repository itself and descendants, but not sibling path prefixes. */
+function assertOutsideRepo(dir, root = repoRoot) {
+  const relative = path.relative(path.resolve(root), path.resolve(dir));
+  if (relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))) {
+    throw new Error("Refusing a migration folder inside the repo (I-5).");
+  }
+}
+
+/**
+ * Pure resolution so operators can put private migration files on another drive.
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function resolveMigrationHome(env = process.env, root = repoRoot) {
+  const override = env.VPPSONE_MIGRATION_HOME;
+  if (override !== undefined && (typeof override !== "string" || !path.isAbsolute(override))) {
+    throw new Error("VPPSONE_MIGRATION_HOME must be an absolute path outside the repo.");
+  }
+  const home = path.resolve(override ?? path.join(env.USERPROFILE ?? env.HOME ?? os.homedir(), ".vppsone-migration"));
+  assertOutsideRepo(home, root);
+  return home;
+}
+
+export const MIGRATION_HOME = resolveMigrationHome();
 
 /** KEY=value lines; quotes stripped; comments and blanks skipped. */
 export function parseEnvText(text) {
@@ -64,9 +88,7 @@ export function newRunId(now = new Date()) {
 export function runDir(runId, { create = true } = {}) {
   if (!/^[0-9A-Za-z_-]{6,64}$/.test(runId ?? "")) throw new Error("A run id is letters, digits, - and _ only.");
   const dir = path.join(MIGRATION_HOME, runId);
-  if (path.resolve(dir).toLowerCase().startsWith(path.resolve(repoRoot).toLowerCase())) {
-    throw new Error("Refusing a migration folder inside the repo (I-5).");
-  }
+  assertOutsideRepo(dir);
   if (create) mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -129,4 +151,4 @@ export function parseArgs(argv) {
   return out;
 }
 
-const VALUE_FLAGS = new Set(["run", "as-of", "session", "since", "out", "tables", "bucket", "limit", "watermark", "max-attempts", "mcp", "hours", "probe", "fees-repo", "restore-test", "restore", "schema", "revert"]);
+const VALUE_FLAGS = new Set(["run", "as-of", "session", "since", "out", "tables", "bucket", "limit", "watermark", "max-attempts", "mcp", "hours", "probe", "fees-repo", "restore-test", "restore", "schema", "revert", "accept-held"]);

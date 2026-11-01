@@ -772,12 +772,31 @@ export async function getReceiptsList(
  */
 async function readOnlineMethod(receiptId: string): Promise<string | null> {
   try {
-    const { data } = await createAdminClient()
+    const admin = createAdminClient();
+    const { data } = await admin
       .from("online_payment_captures")
       .select("method")
       .eq("receipt_id", receiptId)
       .maybeSingle();
-    const method = (data as { method?: string | null } | null)?.method;
+    let method = (data as { method?: string | null } | null)?.method;
+    if (!method) {
+      // A one-tap checkout receipt sits on its order line; the capture is the order's.
+      const { data: line } = await admin
+        .from("online_payment_order_lines")
+        .select("order_id")
+        .eq("receipt_id", receiptId)
+        .maybeSingle();
+      const orderId = (line as { order_id?: string } | null)?.order_id;
+      if (orderId) {
+        const { data: capture } = await admin
+          .from("online_payment_captures")
+          .select("method")
+          .eq("order_id", orderId)
+          .eq("application_status", "applied")
+          .maybeSingle();
+        method = (capture as { method?: string | null } | null)?.method;
+      }
+    }
     return typeof method === "string" && method ? method : null;
   } catch {
     return null;

@@ -1,5 +1,45 @@
 # VPPS One — progress
 
+## Handoff repair and readiness report — 1 November 2026
+
+Code/report delivered in [PR #151](https://github.com/veerpatta/vppsone/pull/151),
+branch `codex/cutover-verification-fixes` from `da37090`, code commit `4ea0240`.
+[Consolidated readiness report](cutover/READINESS-2026-27.md):
+**HOLD for cutover**. The supplied 31 Oct verification is preserved with its
+provenance; the original local 1 Nov report and working changes were left
+untouched in the canonical checkout.
+
+Fixed the snapshot loader's eight and tail-sync's two JSON parameters, ported
+one-tap receipt method fallback from fees `a966a82`, removed `/teach`'s nested
+main landmark and refreshed stale role-home expectations. Rehearsals skip
+explicit non-transactional `setval`, and re-check imported row plans before
+staff-role derivation. MCP comparison now refuses missing sessions; migration
+output can use a private D: root; `--accept-held <list>` parsing is corrected.
+Runbook includes the explicit MCP file and ten post-load export comparisons.
+
+Local validation on the final code: **383 files / 18,285 tests passed**;
+typegen + TypeScript passed; full lint 0 errors (15 existing warnings);
+ported-import check clean (827 files); theme parity 430/430. Next 16.4.3
+matches the lockfile after a fresh install. Two independent local agent
+reviews resolved the staff-audit reconciliation ordering and command/parser
+issues. GitHub CI/build/mobile-fixture and merge state are recorded on PR #151;
+merge only when every required check is green. Authenticated role-home E2E,
+full PostgreSQL loader execution and provider transactions were not run.
+
+Fresh read-only evidence: 15 public household tables + 2 private views and
+19 columns missing from One; 10 populated missing tables contain 7,772 rows.
+Source REST reader lacks access to one of them. Full fresh load rehearsal
+therefore remains blocked independently of the JSON repair. Existing backup
+228 tables / 51,509 rows and restore-test 228/228 were verified; no new backup,
+load, conversion, quarantine, account/gate/provider change or send occurred.
+The dev-marker database fee gate remains open; deployed app restrictions are
+not the same as database lockdown. Parent gates off, all online switches off.
+
+Remaining: reviewed household compatibility/read-path work; complete fresh
+rehearsal and financial/export proof; four unavailable receipt arithmetic
+examples and consolidated owner decisions; authenticated UI/provider/office
+acceptance. Stop at the report; no cutover authorization is inferred.
+
 ## Go-live with the real 2026-27 data — started 30 October 2026
 
 Plan: `docs/cutover/GO-LIVE-2026-27-PLAN.md`, decisions D-338 to D-345. The
