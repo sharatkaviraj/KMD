@@ -23,10 +23,10 @@ day-close jobs continue to own those operations.
 
 ## Operation inventory
 
-The native read expansion below is implemented in One PR154 for the current
-real session, `2026-27`. Source support is merged; deployed One API acceptance
-for this expansion remains pending. The earlier release evidence below records
-what was verified before this expansion, not acceptance of its new screens.
+The native read expansion below is deployed through One PR154 for the current
+real session, `2026-27`. Source support is merged; post-capture-fix live API/SSR
+acceptance passed all 40 checks. The earlier release evidence below remains a
+separate historical record.
 
 | One entry | Canonical owner | Current behavior and recovery |
 | --- | --- | --- |
@@ -69,6 +69,14 @@ The service claims a consumer lease with a monotonically increasing fence,
 obtains a coherent complete snapshot and commits it to One before acknowledging
 the exact claimed event UUIDs. A failed target commit leaves source work pending.
 Late commits are not skipped by a timestamp or maximum-ID watermark.
+
+Source migration `20261101075630_one_bridge_changed_rows_capture` uses four
+verified capture triggers per covered table. The three DML triggers use
+transition tables. Zero-row INSERT, UPDATE
+and DELETE attempts produce no event; matched updates and every TRUNCATE remain
+captured in the originating transaction. This removes unnecessary journal work
+from existing household fingerprint lock checks without changing those checks
+or disabling Fees workflows. Health verifies all 128 triggers across 32 tables.
 
 One validates the source project, contract, revision, snapshot age, calculation
 day, counts, unique IDs and all class/session references. One applies only rows
@@ -118,7 +126,7 @@ command records and receipts; retries must reuse their original IDs.
 
 ## Evidence and release record
 
-### Native student-read expansion — live acceptance pending
+### Native student-read expansion — deployed and verified
 
 - Source schoolfees PR120 merged at
   `4586d25b5d88a93431f1c726847a23298eed3f5d` with the scoped directory,
@@ -126,7 +134,8 @@ command records and receipts; retries must reuse their original IDs.
 - Source migration `20261101063539_one_bridge_student_reads` is applied.
   All 18 added profile-projection fields matched Fees across all 537 students.
   These are identity/profile fields; the financial ledger remains solely in Fees.
-- One PR154 implements native current-real-session profile, photo, directory
+- One PR154 is deployed at `8756ea6815dd3acb697d852b7757568c1beb9e0c`, with
+  native current-real-session profile, photo, directory
   money/filter, fee workspace, receipt, ledger/history, EMI, household and saved
   PDF coverage. No new academic attachment store is implied: source PDFs are
   saved correspondence and may reflect their latest generated version. Voice
@@ -137,11 +146,45 @@ command records and receipts; retries must reuse their original IDs.
   warnings), 828-file port checks and 430-token theme parity passed.
 - Four synthetic 390px Student360 flows passed: English, Hindi, bilingual and
   Office permission denial. Independent source-contract and permission reviews
-  found no remaining blocker. These checks do not establish live acceptance.
-- Production verification of real DTOs, exact photo/PDF bytes, native directory
-  amounts/filters and authenticated Student360/receipt pages remains pending
-  One deployment. Historical promoted-session receipt access, teacher-login
-  rollout, real collections and message sends are not part of this read release.
+  found no remaining blocker. These checks remain separate from live acceptance.
+- One operator-harness PR155, reviewed head `9a945241`, passed all 22 checks:
+  411 files / 18,688 tests passed and one skipped, plus build and bundle checks.
+  Its 28 focused tests cover the existing anonymous-media sign-in denial:
+  exact same-origin 307 `/login?next=...`, an empty body or Vercel's exact plain
+  text marker, and no followed redirect. Authenticated/source redirects still
+  fail. This corrects the verifier; no application or middleware change was needed.
+- A later availability investigation found existing household fingerprint calls
+  causing journal events for zero-row insert attempts. Source PR121 at reviewed
+  head `960f94197f89b18816ed32fce0471f718a8dfe4c` merged after green CI as
+  `9111947f16696f103905b9da558b11caa4789a93`. It supplies migration
+  `20261101075630_one_bridge_changed_rows_capture`, applied after rollback
+  rehearsals and a dry run containing only that migration. Migration SHA256 is
+  `851dc46b0f4f9cf38d0a6da1f51ce791024561fb426d04038b16d7e11b3e8702`.
+  Independent review found no hidden business writes in the new student readers.
+  Isolated PostgreSQL checks covered no-op and real DML, upserts, rollback,
+  TRUNCATE, health failures and late-commit claim/ack ordering.
+- Actual-database rollback checks verified 128 healthy triggers on 32 tables,
+  zero events from zero-row DML, and zero events from 100 existing TEST-student
+  lock-helper calls with all 616 access-revision row contents unchanged. A forced
+  sync completed revision 274 in 5.545 seconds and verified all 537 students,
+  19 classes and 419 households.
+- Post-migration live acceptance passed **40/40 checks, 46 GETs and zero
+  application write requests**. Coverage includes real source DTOs, native
+  directory amounts/filters, authenticated profile/fees/household/receipt pages,
+  five exact source-photo hash comparisons, the 35,340-byte existing PDF with
+  exact byte parity, and anonymous photo/PDF denial. The private redacted result
+  is `live-student-read-post-capture.json`.
+- At the 08:07:57 UTC post-fix checkpoint, source capture was healthy with no
+  pending events; One revision 274 had no sync error and a 0.6-second check age.
+  Source counts remained at the acceptance baseline: one bridge command,
+  1,354 payments and 783 receipts.
+- The final One documentation/operator follow-up retains the normal green-CI
+  merge process. These measurements establish point-in-time acceptance,
+  not an availability SLA or a completed observation window. The bounded global
+  MVCC snapshot check is unchanged: unrelated concurrent transactions can still
+  cause retries or a `read_changed` response. Historical promoted-session receipt
+  access, teacher-login rollout, native voice-note playback, real collections
+  and message sends are outside this read release.
 
 ### Earlier coexistence release evidence
 
@@ -164,7 +207,9 @@ operator acceptance state rather than inferring it from a deployment alone.
 - Applied source migrations: `20261101041255_one_bridge_source` and
   `20261101051321_one_bridge_standing_paid_amount`. The forward correction uses
   canonical net cash for total paid, excluding write-off reversals. There are
-  32 healthy capture triggers. No source financial schema history was repaired.
+  32 healthy capture triggers at that stage; the later capture migration above
+  replaces them with 128 capture triggers. No source financial schema history
+  was repaired.
 - Applied One migrations: `20261101041404_fees_bridge_projection`,
   `20261101042523_fees_bridge_academic_identity` and
   `20261101045818_fees_bridge_current_identity_guards`. Remote migration history

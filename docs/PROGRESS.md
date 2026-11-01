@@ -25,22 +25,42 @@ native pages, photos and receipt; two checks rejected the expected anonymous
 sign-in redirect. This was an operator-harness contract mismatch, not a failed
 authenticated application read. The harness-only correction is
 [PR #155](https://github.com/veerpatta/vppsone/pull/155), branch
-`codex/student-read-acceptance-denial`, commit `6d2f5be`. It accepts only the
-exact anonymous One 307 login denial, never follows redirects, and still rejects
+`codex/student-read-acceptance-denial`, reviewed commit `9a945241`. It accepts
+only the exact anonymous One 307 login denial, never follows redirects, and rejects
 all authenticated/source redirects. Vercel's exact `text/plain` marker
 `Redirecting...\n` is accepted alongside an empty redirect body; other bodies
 remain rejected, and direct 401/403/404 denials must still be empty. Its 28
 focused tests, syntax, scoped lint and TypeScript checks passed; two independent
-reviews are clear. The updated anonymous denial probes passed live.
+reviews are clear. The updated anonymous denial probes passed live. That exact
+head passed all 22 checks, including 411 files / 18,688 tests passed and one
+skipped, the production build and bundle budgets.
 
-Status: deployed; verification and source-availability recheck are underway.
-A later full rerun encountered intermittent source directory/workspace failures
-and dependent native-page failures after the earlier positive checks. Do not
-treat the earlier pass or the corrected denial probes as final acceptance.
-Remaining: diagnose availability, repeat the affected live checks, wait for
-PR155's ordinary CI checks before merging, and retain the separately stated
-limits on historical promoted-session receipts, audio playback and physical
-device/printer testing. See [implementation and evidence](cutover/COEXISTENCE-2026-11-01.md).
+The later intermittent source failures were investigated before final acceptance.
+Existing household fingerprint checks attempted no-op inserts, and the original
+statement triggers still journaled them. The new student read paths were audited
+without finding hidden business writes. Source [PR #121](https://github.com/veerpatta/schoolfees/pull/121),
+reviewed head `960f9419`, merged as `9111947f16696f103905b9da558b11caa4789a93`
+after green CI. It contains forward migration
+`20261101075630_one_bridge_changed_rows_capture`, now applied after rollback
+rehearsals and a one-migration dry run. Its 128 triggers across 32 tables are
+healthy. Zero-row DML and 100 existing TEST-student lock-helper calls produced
+zero events in rollback checks; all 616 access-revision rows were unchanged.
+Forced sync revision 274 verified 537 students, 19 classes and 419 households
+in 5.545 seconds.
+
+Status: native current-session student reads are deployed and verified.
+Post-migration live API/SSR acceptance passed **40/40 checks with 46 GETs and zero
+application write requests**, including native profile/financial/family/receipt
+pages, five exact source-photo hash comparisons, the 35,340-byte saved PDF and
+anonymous media denials. Private redacted evidence is
+`live-student-read-post-capture.json`; no student data or credentials are committed.
+PR155's final documentation update follows the ordinary green-CI merge process.
+This is point-in-time acceptance: the bounded global-MVCC retry
+check remains and unrelated concurrent transactions can still cause a retry or
+`read_changed` response. No availability SLA or elapsed observation period is
+claimed. Teacher-login rollout remains deferred; historical promoted-session
+receipts, native audio playback and physical device/printer testing remain
+outside this read release. See [implementation and evidence](cutover/COEXISTENCE-2026-11-01.md).
 
 ## Fees coexistence implementation — initial notes, 1 November 2026
 
