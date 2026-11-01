@@ -25,6 +25,11 @@ import { studentReturnHref } from "@/vx/screens/admin/students-logic";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
+import { usesCanonicalFees, FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { getBridgeWorkspace } from "@/platform/fees-bridge/client";
+import { bridgeStudentPhotoHref } from "@/platform/fees-bridge/student-photo";
+import { feesFromBridge } from "@/modules/students-fees/vx/canonical-students";
+import { resolvePage } from "@/modules/students/domain/directory";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,12 +53,16 @@ export async function Student360Content({ id, search }: { id: string; search: Re
 
   const valid = UUID.test(id) && Boolean(sessionLabel);
   const seesMoney = can(staff, "fees:view");
+  const canonical=valid&&usesCanonicalFees(staff,sessionLabel);
+  const page=(key:string)=>resolvePage(typeof search[key]==="string"?search[key]:undefined);
+  const sourcePromise=canonical&&sessionLabel?getBridgeWorkspace(id,sessionLabel,{receiptsPage:page("receiptsPage"),ledgerPage:page("ledgerPage"),financePage:page("financePage"),contactsPage:page("contactsPage"),attemptsPage:page("attemptsPage"),remindersPage:page("remindersPage"),noticesPage:page("noticesPage"),documentsPage:page("documentsPage")}).catch(()=>"unavailable" as const):Promise.resolve(null);
 
   // Everything this card shows is independent of everything else, so it all
   // starts at once: the fee side (the fee app's own reads) and the notes no
   // longer wait for the school side to finish first. On a phone that was the
   // difference between one round of queries and three in a row.
-  const feesPromise = valid && seesMoney ? studentFees(id).catch(() => "unavailable" as const) : Promise.resolve(null);
+  const feesPromise = canonical ? sourcePromise.then(source=>source==="unavailable"?source:source&&seesMoney?feesFromBridge(source):null)
+    : valid && seesMoney ? studentFees(id).catch(() => "unavailable" as const) : Promise.resolve(null);
   const unavailable: string[] = [];
   const notesPromise = valid && sessionLabel ? notesForStudentTab(staff, id, sessionLabel).catch(() => { unavailable.push("notes"); return []; }) : Promise.resolve([]);
   const school = valid && sessionLabel ? await loadStudentSchool(staff, id, sessionLabel) : null;
@@ -82,16 +91,23 @@ export async function Student360Content({ id, search }: { id: string; search: Re
 
   // Not awaited: the card goes out with the school side, and the fee side
   // streams into it when the fee app's reads finish (Student360's Suspense).
-  const feesView: Promise<Student360Fees | null> | undefined = seesMoney
-    ? feesPromise.then((fees): Student360Fees | null =>
-        fees === "unavailable" ? { unavailable: true } : fees
+  const feesView: Promise<Student360Fees | null> | undefined = seesMoney||canonical
+    ? Promise.all([feesPromise,sourcePromise]).then(([fees,source]): Student360Fees | null => {
+        const profile:Student360Fees=source&&source!=="unavailable"?{
+          source,name:source.student.fullName,classLabel:source.student.classLabel,sr:source.student.admissionNo,rollNo:source.student.rollNo,
+          father:source.student.fatherName,mother:source.student.motherName,phone:source.student.guardianPhone||source.student.fatherPhone||source.student.motherPhone,
+          photoUrl:source.student.hasPhoto?bridgeStudentPhotoHref(id,source.sessionLabel,"full"):null,
+          status:source.student.status,address:source.student.address,dob:source.student.dateOfBirth,joined:source.student.joinedOn,route:source.student.transportRouteLabel||null,
+        }:{};
+        return fees === "unavailable" ? { ...profile,unavailable: true } : fees
           ? {
+              ...profile,
               status: fees.status ?? school.card.status,
               address: fees.address,
               dob: fees.dateOfBirth,
               joined: fees.joinedOn,
               route: fees.routeLabel,
-              money: moneyFromInstallments(fees.installments, today),
+              money: moneyFromInstallments(fees.installments, source&&source!=="unavailable"?source.asOfDate:today),
               installments: fees.installments.map((row) => ({
                 id: row.installmentId,
                 label: row.installmentLabel,
@@ -116,8 +132,8 @@ export async function Student360Content({ id, search }: { id: string; search: Re
               family: fees.family.map((m) => ({ id: m.id, name: m.fullName, sr: m.admissionNo, classLabel: m.classLabel, self: m.isSelf, total: m.totalDue, paid: m.totalPaid, remaining: m.outstanding })),
               familyGroupId: fees.familyGroupId,
             }
-          : null,
-      )
+          : source&&source!=="unavailable"?profile:null;
+      })
     : undefined;
 
   const closed = new Set(school.closedDays);
@@ -132,10 +148,12 @@ export async function Student360Content({ id, search }: { id: string; search: Re
         key={`${staff.id}:${sessionLabel}:${id}`}
         p={{
           id,
+          sourceExpected:canonical,
           returnTo,
           name: school.card.fullName,
           photoUrl,
-          canEditPhoto: !previewing && (((staff.role === "admin" || staff.role === "office") && can(staff,"collection:manage")) || (staff.role === "teacher" && contactAccess)),
+          canEditPhoto: !canonical && !previewing && (((staff.role === "admin" || staff.role === "office") && can(staff,"collection:manage")) || (staff.role === "teacher" && contactAccess)),
+          sourcePhotoEditHref:canonical&&!previewing&&can(staff,"fees:manage")?`${FEES_ORIGIN}/protected/students/${id}/edit?${new URLSearchParams({session:sessionLabel})}`:undefined,
           unavailable: [...(school.unavailable ?? []), ...unavailable],
           classLabel: school.classLabel,
           sr: school.card.admissionNo,

@@ -108,6 +108,8 @@ export type StudentListRow = {
 };
 
 export type StudentsProps = {
+  enrollment?: "active"|"inactive"|"left"|"graduated"|"all";
+  sourceData?: boolean;
   session: string;
   rows: StudentListRow[];
   total: number;
@@ -261,6 +263,11 @@ function withMissing(href: string, missing: string | undefined): string {
   url.searchParams.delete("page");
   return `${url.pathname}${url.search}`;
 }
+function withEnrollment(href:string,status:StudentsProps["enrollment"]):string {
+  const url=new URL(href,"https://students.invalid");
+  if(status)url.searchParams.set("status",status);else url.searchParams.delete("status");
+  return `${url.pathname}${url.search}`;
+}
 
 /** How long the list waits after the last key before it searches. */
 const SEARCH_PAUSE_MS = 450;
@@ -293,7 +300,7 @@ export function StudentsScreen(props: StudentsProps) {
     : [];
   const missingLabel = missingOptions.find((o) => o.value === missing)?.label;
   const hrefFor = (query: Parameters<typeof studentsHref>[0]) => {
-    const href = withSort(studentsHref({ ...here, ...query }), serverSort);
+    const href = withEnrollment(withSort(studentsHref({ ...here, ...query }), serverSort),props.enrollment);
     // A page link keeps its page; withMissing would drop it.
     return missing ? `${href}${href.includes("?") ? "&" : "?"}missing=${encodeURIComponent(missing)}` : href;
   };
@@ -353,7 +360,7 @@ export function StudentsScreen(props: StudentsProps) {
     } catch {
       // Not remembered, but the URL still opens the view chosen.
     }
-    router.push(studentsHref({ q: props.q, classId: props.classId, view: next, look: lookParam }));
+    router.push(withEnrollment(studentsHref({ q: props.q, classId: props.classId, view: next, look: lookParam }),next==="fees"?props.enrollment:undefined));
   };
 
   /** The Filter sheet's choices as one navigation: class, filters, order and layout together. */
@@ -377,7 +384,7 @@ export function StudentsScreen(props: StudentsProps) {
     });
     setSort(next.sort);
     const sorted = next.sort.key === "name" && next.sort.dir === 1 ? href : withSort(href, next.sort);
-    router.push(props.taskAssignment ? withMissing(sorted, next.missing) : sorted);
+    router.push(withEnrollment(props.taskAssignment ? withMissing(sorted, next.missing) : sorted,next.view==="fees"?props.enrollment:undefined));
   };
   const pickMissing = (value: string) => router.push(withMissing(`${location.pathname}${location.search}`, value));
 
@@ -393,13 +400,13 @@ export function StudentsScreen(props: StudentsProps) {
       const next = nextSort(sort, key);
       setSort(next);
       try {
-        const url = withSort(studentsHref(here), next);
+        const url = withEnrollment(withSort(studentsHref(here), next),props.enrollment);
         window.history.replaceState(window.history.state, "", url);
       } catch {
         // The order holds on screen; only a reload forgets it.
       }
     } else if (mode === "server") {
-      router.push(withSort(studentsHref(here), { key, dir: 1 }));
+      router.push(withEnrollment(withSort(studentsHref(here), { key, dir: 1 }),props.enrollment));
     }
   };
 
@@ -727,6 +734,7 @@ export function StudentsScreen(props: StudentsProps) {
   const hidden = (
     <>
       {props.taskAssignment?.missing ? <input type="hidden" name="missing" value={props.taskAssignment.missing}/> : null}
+      {props.enrollment?<input type="hidden" name="status" value={props.enrollment}/>:null}
       {props.classId ? <input type="hidden" name="class" value={props.classId} /> : null}
       {viewParam ? <input type="hidden" name="view" value={viewParam} /> : null}
       {filters.length ? <input type="hidden" name="seg" value={filters.join(",")} /> : null}
@@ -785,7 +793,7 @@ export function StudentsScreen(props: StudentsProps) {
           }
         />
       </div>
-      <div className="vx-pmain stu">
+      <div className="vx-pmain stu" data-student-source-directory={props.sourceData?"true":undefined}>
         {/* Phone: the design's own header, not a top bar (F05). */}
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
@@ -839,7 +847,10 @@ export function StudentsScreen(props: StudentsProps) {
           </div>
 
           {props.feesDirectoryHref ? <Banner>{tx(ST.sourceFeesHint)}{" "}<a href={props.feesDirectoryHref} style={{ textDecoration: "underline" }}>{tx(ST.sourceFeesLink)}</a></Banner> : null}
-          {props.failed ? <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
+          {props.enrollment?<nav className="hs" aria-label={tx(ST.enrollment)} style={{display:"flex",gap:6,padding:"8px 0",flexWrap:"wrap"}}>
+            {([['active',ST.statusActive],['inactive',ST.statusInactive],['left',ST.statusLeft],['graduated',ST.statusGraduated],['all',ST.statusAll]] as const).map(([value,label])=><Link prefetch={false} key={value} href={withEnrollment(hrefFor({page:1}),value)} className={`tap chip${props.enrollment===value?" on":""}`} aria-current={props.enrollment===value?"page":undefined}>{tx(label)}</Link>)}
+          </nav>:null}
+          {props.failed ? <p role="alert" data-student-source-unavailable="true" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
 
           {askBanner}
 

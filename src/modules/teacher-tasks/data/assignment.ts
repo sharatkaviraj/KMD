@@ -45,17 +45,17 @@ export async function assignmentContext(): Promise<AssignmentContext> {
   for (const result of [profiles,classTeachers,scopes,subjects]) if (result.error) throw new Error("assignment_unavailable");
   const active = fields.filter(f => f.isActive);
   const ids = roll.map(r => r.student_id);
-  const columns = [...new Set(["id","full_name","house","transport_route_id",...active.flatMap(f => f.feeColumn ? [f.feeColumn] : [])])];
+  const columns = [...new Set(["id","full_name","house","transport_route_id",...(canonical ? ["photo_path"] : []),...active.flatMap(f => f.feeColumn ? [f.feeColumn] : [])])];
   const [students, records, photos] = await Promise.all([
     fetchInChunks<Record<string,string|null>>(ids,IN_FILTER_CHUNK_SIZE,c => (canonical?db.from("fees_action_students"):db.schema(FEE_SCHEMA).from("students")).select(columns.join(",")).in("id",c).returns<Record<string,string|null>[]>()),
     // Page within each bounded student chunk: students × fields can exceed 1000.
     (async () => { const rows: {student_id:string;field_id:string;value:string|null}[]=[]; for(let i=0;i<ids.length;i+=IN_FILTER_CHUNK_SIZE) rows.push(...await fetchAllRows<{student_id:string;field_id:string;value:string|null}>((from,to) => db.from("student_records").select("student_id,field_id,value").in("student_id",ids.slice(i,i+IN_FILTER_CHUNK_SIZE)).order("student_id").order("field_id").range(from,to),"approved values")); return rows; })(),
-    fetchInChunks<{student_id:string}>(ids,IN_FILTER_CHUNK_SIZE,c => db.from("student_photos").select("student_id").is("replaced_at",null).in("student_id",c)),
+    canonical ? Promise.resolve({data:[] as {student_id:string}[],error:null}) : fetchInChunks<{student_id:string}>(ids,IN_FILTER_CHUNK_SIZE,c => db.from("student_photos").select("student_id").is("replaced_at",null).in("student_id",c)),
   ]);
   if (students.error || photos.error) throw new Error("students_unavailable");
   const studentOf = new Map(students.data.map(s => [s.id,s]));
   const recorded = new Map(records.map(r => [`${r.student_id}:${r.field_id}`,r.value]));
-  const hasPhoto = new Set(photos.data.map(p => p.student_id));
+  const hasPhoto = new Set(canonical ? students.data.filter(s => !!s.photo_path).map(s => s.id) : photos.data.map(p => p.student_id));
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
   return { session,
     students: roll.map(r => { const s=studentOf.get(r.student_id); if(!s) throw new Error("student_missing"); return { id:r.student_id,name:s.full_name??"-",classId:r.class_id,classLabel:labels.get(r.class_id)??"-",house:s.house||null,routeId:s.transport_route_id||null,hasPhoto:hasPhoto.has(r.student_id),values:Object.fromEntries(active.map(f => { const v=f.key==="student_photo" ? (hasPhoto.has(r.student_id)?"present":null) : recorded.get(`${r.student_id}:${f.id}`) ?? (f.feeColumn?s[f.feeColumn]:null); return [f.key,v?.trim()?"present":null]; })) }; }),
