@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { feesBridgeEnabled, FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { verifyOneTestReceipt } from "@/platform/fees-bridge/test-receipt";
 
 import { schoolProfile } from "@/platform/config/school";
 import { formatInr } from "@/platform/helpers/currency";
@@ -66,6 +69,11 @@ async function verifyReceipt(code: string): Promise<VerifyResult> {
   // Reject anything odd before touching the database.
   if (!isPlausibleReceiptNumber(receiptNumber)) {
     return { state: "invalid" };
+  }
+
+  if(feesBridgeEnabled()) {
+    if(/^TST[-/]/.test(receiptNumber))return verifyOneTestReceipt(receiptNumber);
+    redirect(`${FEES_ORIGIN}/r/${encodeURIComponent(receiptNumber)}`);
   }
 
   try {

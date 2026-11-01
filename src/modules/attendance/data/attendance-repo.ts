@@ -1,4 +1,6 @@
 import "server-only";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -167,7 +169,12 @@ export async function studentNames(ids: string[]): Promise<Map<string, string>> 
     (chunk) => createAdminClient().schema(FEE_SCHEMA).from("students").select("id, full_name").in("id", chunk),
   );
   if (error) throw new Error("Could not read the students.");
-  return new Map(data.map((row) => [row.id, row.full_name]));
+  const names=new Map(data.map((row) => [row.id, row.full_name]));
+  if(feesBridgeEnabled()){
+    const retired=await retiredStudentLabels(wanted.filter(id=>!names.has(id)));
+    for(const row of retired)names.set(row.id,row.full_name);
+  }
+  return names;
 }
 
 /* ------------------------------------------------------- the register */

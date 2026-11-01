@@ -1,4 +1,6 @@
 import "server-only";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -204,7 +206,7 @@ export async function previewReportCard(input: {
 
   const admin = createAdminClient();
 
-  const { data: student } = await admin
+  let { data: student } = await admin
     .schema(FEE_SCHEMA)
     .from("students")
     .select("id, full_name, admission_no, father_name")
@@ -216,6 +218,7 @@ export async function previewReportCard(input: {
       father_name: string | null;
     }>();
 
+  if(!student && feesBridgeEnabled())student=(await retiredStudentLabels([input.studentId],input.sessionLabel))[0]??null;
   if (!student) return null;
 
   const { data: enrolment } = await admin

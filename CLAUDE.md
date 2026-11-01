@@ -1,5 +1,24 @@
 # VPPS One — rules for AI agents
 
+## Current owner direction — 1 November 2026 coexistence
+
+The owner explicitly requested implementation, needed migrations and live
+deployment of `docs/plans/2026-11-01-fees-one-coexistence-plan.md`.
+This supersedes retirement of Fees and the older prohibition on any Fees
+backend change for this integration. Fees stays the financial authority.
+Source changes belong in the `schoolfees` repository: narrowly scoped
+`/api/one/v1` operations, explicit actor grants and durable source capture.
+One uses those APIs and One-owned roster projections. Its ordinary Supabase
+clients and migration readers still MUST NOT become generic writable clients
+for the Fees source. The sealed source reader remains read-only.
+
+Do not run the old cutover's source-link shutdown, independent One financial
+posting/provider jobs, or tail-payment re-entry. Preserve TEST isolation,
+current source permissions and one owner of receipt/message/provider effects.
+Deployment authorization is not permission to invent real collections, send
+parent test messages, promote ambiguous staff, or purchase a plan. Publish
+real academic identity only after classification/quarantine is verified.
+
 Read `docs/PLAN.md` first, then `docs/PROGRESS.md` to find the next task.
 
 **Active work is the 4 October plan pack: P0–P12 in `docs/PROGRESS.md`, sourced

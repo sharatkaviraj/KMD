@@ -2,11 +2,17 @@ import { getViewSessionCookie } from "@/modules/fees/platform/session-context/co
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { loadDeskBoot, loadDeskReceipt, loadDeskStudent } from "@/modules/payments/vx/data";
 import type { DeskReceipt, DeskStudentResult } from "@/modules/payments/vx/types";
-import { feeRoleFor } from "@/platform/auth/fee-roles";
+import { feeRoleFor, feePermissionsFor } from "@/platform/auth/fee-roles";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { schoolToday } from "@/vx/format";
 import { PaymentDesk } from "@/vx/screens/payments/desk";
 import { getViewer } from "@/vx/view-as";
+import { feesBridgeWritesEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getBridgeSessions, getBridgeStudent, listBridgeStudents, getBridgeReceipt } from "@/platform/fees-bridge/client";
+import type { BridgeReceipt } from "@/platform/fees-bridge/contracts";
+import { LiveFeesDesk } from "@/vx/screens/payments/live-fees-desk";
+import { ms } from "@/messages/setup";
+import { flat } from "@/platform/i18n/language";
 
 export const runtime = "nodejs";
 
@@ -35,7 +41,37 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   await requirePermission("fees:collect", "/payments");
   const { staff, previewing } = await getViewer();
   const params = await searchParams;
-  const view = await resolveViewSession({ searchParamSession: params.session, cookieSession: await getViewSessionCookie() });
+  const cookieSession = await getViewSessionCookie();
+  if (usesCanonicalFees(staff, one(params.session) || cookieSession)) {
+    let sessionLabel = "";
+    let initialStudents: Awaited<ReturnType<typeof listBridgeStudents>>["students"] = [];
+    let initialCursor:string|null = null;
+    let initialError:string|null = null;
+    let initialReceipt:BridgeReceipt|null=null;
+    const askedStudent = one(params.student) || one(params.studentId);
+    let initialStudentId = UUID.test(askedStudent) ? askedStudent : null;
+    const askedReceipt=one(params.receipt);
+    try {
+      const {sessions} = await getBridgeSessions();
+      const asked = one(params.session) || cookieSession;
+      sessionLabel = sessions.find(row=>row.sessionLabel===asked)?.sessionLabel ?? sessions.find(row=>row.isCurrent)?.sessionLabel ?? "";
+      if (!sessionLabel) throw new Error("No current source session.");
+      const [list,selected,receipt] = await Promise.all([
+        listBridgeStudents(sessionLabel),
+        initialStudentId ? getBridgeStudent(initialStudentId,sessionLabel) : Promise.resolve(null),
+        UUID.test(askedReceipt)?getBridgeReceipt(askedReceipt,sessionLabel):Promise.resolve(null),
+      ]);
+      initialStudents = list.students;
+      initialCursor = list.nextCursor;
+      if (selected && !initialStudents.some(student=>student.id===selected.student.id)) initialStudents=[selected.student,...initialStudents];
+      initialReceipt=receipt;
+      if(receipt){initialStudentId=receipt.student.id;if(!initialStudents.some(student=>student.id===receipt.student.id))initialStudents=[receipt.student,...initialStudents];}
+    } catch {
+      initialError=flat(ms.bridgeUnavailable,staff.language);
+    }
+    return <LiveFeesDesk language={staff.language} sessionLabel={sessionLabel} today={schoolToday()} canPost={feesBridgeWritesEnabled() && !previewing && Boolean(sessionLabel)} canWaive={feePermissionsFor(staff.role).includes("payments:waive_late_fee")} canDiscount={feePermissionsFor(staff.role).includes("payments:adjust")} initialStudents={initialStudents} initialCursor={initialCursor} initialStudentId={initialStudentId} initialReceipt={initialReceipt} initialError={initialError} userId={staff.userId}/>;
+  }
+  const view = await resolveViewSession({ searchParamSession: params.session, cookieSession });
   const today = schoolToday();
 
   const studentParam = one(params.student) || one(params.studentId);

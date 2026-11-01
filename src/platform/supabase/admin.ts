@@ -8,6 +8,7 @@ import {
   VPPSONE_SCHEMA,
 } from "@/platform/env";
 import { createGuardedFetch } from "@/platform/supabase/guarded-fetch";
+import { createProjectionFetch } from "@/platform/fees-bridge/projection-fetch";
 
 /**
  * The service-role client. It bypasses RLS, so every call site must already
@@ -46,7 +47,7 @@ export function createAdminClient() {
       db: { schema: VPPSONE_SCHEMA },
       // Refuses an over-long PostgREST URL at once instead of stalling eight
       // seconds and failing opaquely. See guarded-fetch.ts.
-      global: { fetch: createGuardedFetch() },
+      global: { fetch: createProjectionFetch(createGuardedFetch(), { privileged: true }) },
       auth: {
         // No session to persist and nothing to refresh: this client is one
         // request long and is never a user.

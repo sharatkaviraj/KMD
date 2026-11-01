@@ -1,4 +1,6 @@
 import "server-only";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { readAuthorizedRosterRows } from "@/platform/fees-bridge/authorized-roster";
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveLanguage, type Language } from "@/platform/i18n/language";
@@ -66,7 +68,11 @@ export async function loadTaskWork(auth:TaskCredential):Promise<TaskWork|null> {
   if(capability.error) throw new Error("task_unavailable");
   if(auth.token && capability.data.token!==auth.token) return null;
   const draftScope=academicDraftScope({taskId:task.id,actorId:auth.staffId??null,token:capability.data.token,session:task.session_label,scope:task.scope,studentIds:ids});
-  const names=await fetchInChunks<{id:string;full_name:string}>(ids,IN_FILTER_CHUNK_SIZE,c=>db.schema(FEE_SCHEMA).from("students").select("id,full_name").in("id",c));
+  const names=feesBridgeEnabled()
+    ? await readAuthorizedRosterRows({sessionLabel:task.session_label,studentIds:ids,columns:["id","full_name"],authorize:async()=>{
+      const current=await resolveTask(auth);return current?.id===task.id && current.session_label===task.session_label;
+    }})
+    : await fetchInChunks<{id:string;full_name:string}>(ids,IN_FILTER_CHUNK_SIZE,c=>db.schema(FEE_SCHEMA).from("students").select("id,full_name").in("id",c));
   if(names.error) throw new Error("names_unavailable");
   const nameOf=new Map(names.data.map(s=>[s.id,s.full_name]));
   const academic:AcademicWork={kind:task.kind as "marks"|"attendance",taskId:task.id,draftScope,session:task.session_label,paperId:task.paper_id,classId:task.class_id,day:task.day,revision:0,submitted:false,max:100,step:1,allowExempt:false,rows:ids.map(id=>({id,name:nameOf.get(id)??"-",state:task.kind==="marks"?"blank":"present",value:null}))};

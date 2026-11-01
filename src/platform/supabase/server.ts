@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { getRequiredEnvVar, getServerSupabaseUrl, VPPSONE_SCHEMA } from "@/platform/env";
+import { createProjectionFetch } from "@/platform/fees-bridge/projection-fetch";
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -39,6 +40,7 @@ export async function createClient(cookieStore?: CookieStore) {
         },
       },
       db: { schema: VPPSONE_SCHEMA },
+      global: { fetch: createProjectionFetch() },
     },
   );
 }

@@ -74,7 +74,8 @@ export function loadOneEnv() {
   return parseEnvText(readFileSync(file, "utf8"));
 }
 
-export function loadFeesSecrets(file = FEES_SECRETS_FILE) {
+export function loadFeesSecrets(file = process.env.VPPSONE_FEES_SECRETS_FILE ?? FEES_SECRETS_FILE) {
+  if (!path.isAbsolute(file)) throw new Error("VPPSONE_FEES_SECRETS_FILE must be an absolute path.");
   if (!existsSync(file)) throw new Error(`The fees secrets file is missing (${path.basename(file)}).`);
   return parseEnvText(readFileSync(file, "utf8"));
 }

@@ -72,6 +72,16 @@ export function isTestSessionLabel(label) {
  */
 /** @type {Record<string, { bucket: string, why?: string, appendOnly?: boolean, relabelSet?: string, scrub?: { column: string, to: string }[], sensitiveValues?: string[], terminal?: { set: string, where: string }, staffRefs?: string[], classRefs?: string[], staffArrays?: string[], classArrays?: string[], studentArrays?: string[] }>} */
 export const TABLES = {
+  // Coexistence is a separately authenticated canonical projection. It is not
+  // old One academic activity and must never be relabelled by quarantine.
+  fees_bridge_state: { bucket: "K", why: "coexistence publication and source manifest" },
+  fees_bridge_sessions: { bucket: "K", why: "canonical source session projection" },
+  fees_bridge_classes: { bucket: "K", why: "canonical source class projection" },
+  fees_bridge_students: { bucket: "K", why: "canonical source student projection" },
+  fees_bridge_households: { bucket: "K", why: "canonical source household projection" },
+  fees_bridge_runs: { bucket: "K", why: "coexistence snapshot verification evidence" },
+  fees_bridge_retired_students: { bucket: "K", why: "canonical retired identity for academic history" },
+  fees_bridge_retired_classes: { bucket: "K", why: "canonical retired class for academic history" },
   // ---------------------------------------------------------------- A
   subjects: { bucket: "A", why: "subject master" },
   class_aliases: { bucket: "A", why: "timetable labels of the real classes" },

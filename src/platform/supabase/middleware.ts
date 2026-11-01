@@ -2,6 +2,9 @@ import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
 import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { feesBridgeEnabled, feesDestination, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 
 import {
   getRequiredEnvVar,
@@ -181,6 +184,30 @@ export async function updateSession(request: NextRequest) {
     url.search = "";
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
+  }
+
+  // Financial features without an adapter stay in their existing Fees
+  // workflow. Never redirect/replay a POST or a provider callback. The data
+  // clients independently refuse local real reads/writes and forged actions.
+  if (feesBridgeEnabled() && (feesDestination(pathname) || pathname.startsWith("/api/fees/"))) {
+    const {data:profile,error} = hasUser
+      ? await supabase.schema("vppsone").from("staff_profiles").select("is_active,is_test_account,role").eq("user_id",userId!).maybeSingle<{is_active:boolean;is_test_account:boolean;role:string}>()
+      : {data:null,error:null};
+    const askedSession=request.nextUrl.searchParams.get("session") ?? request.cookies.get("vpps_view_session")?.value ?? null;
+    const testContext=profile && !error && profile.is_active &&
+      (profile.is_test_account || isConfinedDeployment() || (profile.role==="admin" && isTestSessionLabel(askedSession)));
+    if (!testContext && pathname.startsWith("/api/fees/")) {
+      return NextResponse.json({error:"Use the existing Fees service for this financial operation.",code:"ONE_CANONICAL_FEES_REQUIRED"},{status:409,headers:{"Cache-Control":"no-store"}});
+    }
+    if(profile && !error && usesCanonicalFees({isActive:profile.is_active,role:profile.role,isTestAccount:profile.is_test_account,confined:isConfinedDeployment()},testContext?askedSession:null)) {
+      if(request.method!=="GET" && request.method!=="HEAD") return NextResponse.json({error:"Use the live Fees connection for this operation.",code:"ONE_CANONICAL_FEES_REQUIRED"},{status:409});
+      const destination=feesDestination(pathname,askedSession);
+      if(destination){
+        const response=NextResponse.redirect(destination);
+        supabaseResponse.cookies.getAll().forEach(cookie=>response.cookies.set(cookie));
+        return response;
+      }
+    }
   }
 
   // Sending a signed-in visitor *away* from the login page is deliberately

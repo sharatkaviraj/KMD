@@ -5,6 +5,7 @@ export default defineConfig({
   root: path.resolve(__dirname),
   publicDir: path.resolve(__dirname, "../../public"),
   resolve: { alias: {
+    "@/app/(app)/payments/bridge-actions": path.resolve(__dirname, "fees-bridge-actions.ts"),
     "@/app/(app)/teach/tasks/actions": path.resolve(__dirname, "../shared/sampark-action-adapters.ts"),
     "@/app/(app)/collection/photos/profile-actions": path.resolve(__dirname, "../shared/sampark-action-adapters.ts"),
     "@/app/(app)/messages/outbox-actions": path.resolve(__dirname, "outbox-actions.ts"),

@@ -29,7 +29,7 @@ import process from "node:process";
 import { isMain, parseArgs, repoRoot } from "./lib/env.mjs";
 import { scanRoots, whereCell } from "./lib/env-scan.mjs";
 
-export const DEFAULT_FEES_REPO = "C:\\Users\\AnandKumari\\Projects\\school fees webapp project";
+export const DEFAULT_FEES_REPO = "D:\\github projects\\schoolfees";
 
 /** Where each repo's app code lives (the build reads these; scripts/ and tests/ are tooling). */
 export const APP_ROOTS = [
@@ -62,6 +62,11 @@ export const VERCEL_PRODUCTION = {
     "VPPSONE_ENV",
   ],
   fees: [
+    "ONE_BRIDGE_ENABLED",
+    "ONE_BRIDGE_KEY",
+    "ONE_BRIDGE_SYNC_SECRET",
+    "ONE_BRIDGE_AUTH_URL",
+    "ONE_BRIDGE_AUTH_ANON_KEY",
     "AISENSY_API_KEY",
     "AISENSY_CAMPAIGN",
     "APP_MODE",
@@ -109,6 +114,18 @@ const SYSTEM = "Vercel (automatic)";
  * at cutover step C5; "leave unset" = One's default is the intended value.
  */
 export const ANNOTATIONS = {
+  FEES_BRIDGE_ENABLED: [OWNER, "One production coexistence switch; configure after schema and identity verification"],
+  FEES_BRIDGE_ORIGIN: [OWNER, "One production; exact canonical Fees HTTPS origin only"],
+  FEES_BRIDGE_KEY: ["deployment operator", "new server-only bridge credential; shared with source ONE_BRIDGE_KEY; production only"],
+  FEES_BRIDGE_SYNC_KEY: ["deployment operator", "separate source sync credential; production only"],
+  FEES_BRIDGE_CRON_SECRET: ["deployment operator", "dedicated One scheduler credential; same value in Vault; production only"],
+  FEES_BRIDGE_WRITES_ENABLED: [OWNER, "false until canonical TEST command acceptance and named actor grants; never enables local real fee writes"],
+  ONE_BRIDGE_ENABLED: ["Fees deployment operator", "set on Fees production for coexistence; database read/command/sync gates remain independent"],
+  ONE_BRIDGE_KEY: ["Fees deployment operator", "set on Fees production; new server-only credential matching One; no preview copy"],
+  ONE_BRIDGE_SYNC_SECRET: ["Fees deployment operator", "set on Fees production; separate synchronization credential"],
+  ONE_BRIDGE_AUTH_URL: ["Fees deployment operator", "set on Fees production; pinned One Auth project URL"],
+  ONE_BRIDGE_AUTH_ANON_KEY: ["One publishable API key", "set on Fees production only to verify One access tokens; never a One service-role key"],
+  SCHOOLFEES_LOCAL_ISOLATION: ["Fees local test runtime", "local tests only; never set on production"],
   // Supabase — One's own project wtgx; never the fees project's keys.
   NEXT_PUBLIC_SUPABASE_URL: ["Supabase wtgx → Settings → API (owner)", "set — keep wtgx (D-338); never the fees URL"],
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ["Supabase wtgx → API keys (owner)", "set — wtgx's key"],

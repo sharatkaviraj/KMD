@@ -5,6 +5,7 @@ import { feeWritesMode, type FeeWritesMode } from "@/platform/deployment/decisio
 import { readEffectiveEnvironment } from "@/platform/deployment/marker";
 import { getOptionalEnvVar, getServerSupabaseUrl } from "@/platform/env";
 import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
 
 import { classifyFeeRequest, feeWriteRefusal, type WriteScope } from "@/modules/fees/domain/write-guard";
 
@@ -52,6 +53,9 @@ async function restGet(path: string): Promise<unknown[] | null> {
 }
 
 export async function currentFeeWritesMode(): Promise<FeeWritesMode> {
+  // Coexistence has one real ledger, in Fees. Even an old open setting here
+  // must never revive One's local real financial engine.
+  if (feesBridgeEnabled()) return "test-only";
   if (cachedMode && Date.now() - cachedMode.at < TTL_MS) return cachedMode.value;
   const confined = isConfinedDeployment();
   let value: FeeWritesMode = "test-only";

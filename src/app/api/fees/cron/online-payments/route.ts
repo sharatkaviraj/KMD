@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
 
 import {
   createReceiptSender,
@@ -59,6 +60,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const config = readRazorpayConfig();
+  if (feesBridgeEnabled()) return NextResponse.json({ok:true,skipped:true,reason:"fees_is_financial_owner"});
   if (!config) {
     logWarn("cron.online_payments.unconfigured", {});
     return NextResponse.json({ ok: true, skipped: "Razorpay keys are not configured." });
