@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Noto_Sans_Devanagari, Source_Serif_4 } from "next/font/google";
+import localFont from "next/font/local";
 import { getLocale } from "next-intl/server";
 import { shellMessages } from "@/platform/i18n/shell-messages";
 import { KeyboardOffsetProvider } from "@/ui/system/keyboard-offset-provider";
@@ -23,32 +23,36 @@ import "@/vx/vx.css";
  *
  * This repo deliberately shipped none of them — its note read "a webfont that
  * covers Devanagari properly is a payload teachers pay for on 3G", and that is
- * still true; this is roughly 250–400 KB, cached after the first visit.
+ * still true; the pinned local assets are 568 KB, cached after the first visit.
  * Janmejay chose it knowingly: the alternative was an accountant's screen and
  * a teacher's screen setting their headings in different typefaces inside one
  * application. Reversing it is this block plus the `--font-sans` line in
  * `globals.css`.
  */
-const fontSans = Inter({
-  subsets: ["latin"],
+// Pinned assets remove the build-time Google Fonts response dependency.
+// Exact sources, licenses and verified glyph hashes are in ./fonts/.
+const fontSans = localFont({
+  src: "./fonts/Inter-Variable.woff2",
+  weight: "100 900",
   variable: "--font-sans",
   display: "swap",
 });
 
-const fontDisplay = Source_Serif_4({
-  subsets: ["latin"],
+const fontDisplay = localFont({
+  src: "./fonts/SourceSerif4-Variable.woff2",
   variable: "--font-display",
   display: "swap",
-  weight: ["500", "600", "700"],
+  weight: "500 700",
+  adjustFontFallback: "Times New Roman",
 });
 
 // Devanagari for Hindi script (हिन्दी), bundled so the first paint in Hindi is
 // the same on every device rather than whatever the OS happens to ship.
-const fontDevanagari = Noto_Sans_Devanagari({
-  subsets: ["devanagari"],
+const fontDevanagari = localFont({
+  src: "./fonts/NotoSansDevanagari-Variable.woff2",
   variable: "--font-devanagari",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
 });
 
 /**

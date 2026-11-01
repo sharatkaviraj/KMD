@@ -88,7 +88,7 @@ export function groupOf(table) {
 const rel = (table) => `vppsone.${quoteIdent(table)}`;
 
 /** Every op of every table, grouped. */
-function planAll(identities) {
+export function planAll(identities) {
   const groups = new Map(GROUPS.map(([name]) => [name, []]));
   for (const info of Object.values(identities.catalog).sort((a, b) => a.table.localeCompare(b.table))) {
     if (!TABLES[info.table]) continue;
@@ -99,7 +99,7 @@ function planAll(identities) {
   return groups;
 }
 
-async function countOps(tx, entry) {
+export async function countOps(tx, entry) {
   const out = [];
   for (const op of entry.ops) {
     const [{ n }] = await tx.unsafe(countSql(op, rel(entry.info.table)), whereParams(op));
@@ -110,7 +110,7 @@ async function countOps(tx, entry) {
 
 /* ------------------------------------------------------------ identities */
 
-async function writeIdentities(tx, identities, runRowId) {
+export async function writeIdentities(tx, identities, runRowId) {
   const { classPlan, studentPlan, staffPlan } = identities;
   const done = { classes: 0, shells: 0, twins: 0, placeholders: 0, logins: 0, smokeSeats: 0, idMap: 0 };
   for (const c of classPlan.created) {
@@ -180,7 +180,7 @@ async function setTriggers(tx, info, on) {
 }
 
 /** Update in place: the table's named triggers off for these statements only. */
-async function writeTable(tx, entry) {
+export async function writeTable(tx, entry) {
   const { info, ops } = entry;
   const counts = [];
   await setTriggers(tx, info, false);
@@ -200,7 +200,7 @@ async function writeTable(tx, entry) {
  * are bigint on student_record_history; nothing outside points in — the
  * planner refuses an append-only table that is referenced).
  */
-async function rewriteAppendOnly(tx, entry) {
+export async function rewriteAppendOnly(tx, entry) {
   const { info, ops } = entry;
   if (!info.pk.length || info.pk.length > 1) throw new Error(`${info.table}: an append-only rewrite needs a one-column primary key.`);
   const pk = quoteIdent(info.pk[0]);
@@ -229,7 +229,7 @@ async function rewriteAppendOnly(tx, entry) {
 }
 
 /** restoreCoverageOf over a backup manifest read from disk; null when there is none. */
-function restoreCoverage(written, manifestFile) {
+export function restoreCoverage(written, manifestFile) {
   if (!manifestFile) return { schemas: [], missed: ["(no backup manifest on this machine)"], written };
   const manifest = JSON.parse(manifestFile.text);
   return { ...restoreCoverageOf(written, manifest.tables, RESTORE_KEEP), written };
@@ -238,14 +238,14 @@ function restoreCoverage(written, manifestFile) {
 export const VERIFY_SQL =path.join(path.dirname(fileURLToPath(import.meta.url)), "verify-quarantine.sql");
 
 /** scripts/migrate/verify-quarantine.sql in the caller's transaction: [{ check_name, failing, result }]. */
-async function runVerify(tx) {
+export async function runVerify(tx) {
   return tx.unsafe(readFileSync(VERIFY_SQL, "utf8"));
 }
 
 /** The two checks a rehearsal on a database not yet converted cannot pass. */
 const NEEDS_CONVERT = new Set(["marker is not production", "fee_writes_enabled is not false"]);
 
-async function prepare(tx) {
+export async function prepare(tx) {
   await tx.unsafe("set local timezone = 'UTC'");
   await tx.unsafe("set local statement_timeout = 0");
   // A lock that does not come within 10 s fails the run rather than queue
@@ -254,7 +254,7 @@ async function prepare(tx) {
 }
 
 /** The guard, read inside the transaction that will write. */
-async function guardIn(tx, { rollbackOnly, backup, blockers, held }) {
+export async function guardIn(tx, { rollbackOnly, backup, blockers, held }) {
   const state = await readGuardState(tx);
   return decideQuarantineGuard({ ...state, backup, unclassifiedTables: blockers.filter((b) => b.startsWith("unclassified")), held, rollbackOnly });
 }

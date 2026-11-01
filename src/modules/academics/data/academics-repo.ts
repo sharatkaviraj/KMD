@@ -11,6 +11,8 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import { CACHE_TAGS, expireTag, sharedCache } from "@/platform/performance/shared-cache";
 import { revalidateTag } from "next/cache";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { retiredClassLabels } from "@/platform/fees-bridge/history";
 import type {
   ClassAlias,
   ClassAliasInput,
@@ -195,9 +197,14 @@ const cachedClassLabels = sharedCache(
     }
 
     const aliasById = new Map(aliases.data.map(toAlias).map((alias) => [alias.classId, alias]));
+    const displayClasses=[...classes.data];
+    if(feesBridgeEnabled()){
+      const currentIds=new Set(displayClasses.map(row=>row.id));
+      displayClasses.push(...(await retiredClassLabels(sessionLabel)).filter(row=>!currentIds.has(row.id)));
+    }
 
     const ordered = inSchoolOrder(
-      classes.data.map((row) => {
+      displayClasses.map((row) => {
         const alias = aliasById.get(row.id);
         const preferred = alias?.displayName ?? alias?.timetableLabel;
 

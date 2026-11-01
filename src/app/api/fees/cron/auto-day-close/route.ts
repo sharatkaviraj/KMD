@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
 
 import { logError, logWarn } from "@/platform/observability/log";
 
@@ -71,6 +72,8 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+
+  if (feesBridgeEnabled()) return NextResponse.json({ok:true,skipped:true,reason:"fees_is_financial_owner"});
 
   // Allow ?date=YYYY-MM-DD for manual backfill; default to IST yesterday.
   const url = new URL(request.url);

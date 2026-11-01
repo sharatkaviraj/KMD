@@ -1,0 +1,60 @@
+{
+  "googleFontsRevision": "6c1dbe27dcf7d817d4b62cec033ba77fa8e2a5ec",
+  "tool": "fonttools 4.68.0 / brotli 1.2.1",
+  "fonts": [
+    {
+      "family": "Inter",
+      "sourceUrl": "https://raw.githubusercontent.com/google/fonts/6c1dbe27dcf7d817d4b62cec033ba77fa8e2a5ec/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf",
+      "sourceSha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
+      "file": "Inter-Variable.woff2",
+      "sha256": "b33cb85c06adfd76d777d9de472c8a33b85154e2e7e686af467387e1e43ed494",
+      "bytes": 236444,
+      "fixedAxes": {
+        "opsz": 14.0
+      },
+      "glyphs": 2849,
+      "weightRange": [
+        [
+          100.0,
+          900.0
+        ]
+      ]
+    },
+    {
+      "family": "SourceSerif4",
+      "sourceUrl": "https://raw.githubusercontent.com/google/fonts/6c1dbe27dcf7d817d4b62cec033ba77fa8e2a5ec/ofl/sourceserif4/SourceSerif4%5Bopsz%2Cwght%5D.ttf",
+      "sourceSha256": "97b2d4da6e3cb494b5a1e66ae176914d852ccabef49e0c02c0df25f3e39aca0b",
+      "file": "SourceSerif4-Variable.woff2",
+      "sha256": "024c5f740d695433be5bfb95df91aa2c5b553beab17349ced2ce1e84736c8885",
+      "bytes": 180492,
+      "fixedAxes": {
+        "opsz": 20.0
+      },
+      "glyphs": 918,
+      "weightRange": [
+        [
+          200.0,
+          900.0
+        ]
+      ]
+    },
+    {
+      "family": "NotoSansDevanagari",
+      "sourceUrl": "https://raw.githubusercontent.com/google/fonts/6c1dbe27dcf7d817d4b62cec033ba77fa8e2a5ec/ofl/notosansdevanagari/NotoSansDevanagari%5Bwdth%2Cwght%5D.ttf",
+      "sourceSha256": "14ec4af41f27482216d1c2229f417ff9b1425e1babb014e57d1d40d03229853e",
+      "file": "NotoSansDevanagari-Variable.woff2",
+      "sha256": "da90840d682368d656704c75ffb37d556e2d11e3810e80ddbb77a611049717a9",
+      "bytes": 150696,
+      "fixedAxes": {
+        "wdth": 100.0
+      },
+      "glyphs": 551,
+      "weightRange": [
+        [
+          100.0,
+          900.0
+        ]
+      ]
+    }
+  ]
+}

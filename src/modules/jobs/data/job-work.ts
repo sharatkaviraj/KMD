@@ -17,6 +17,8 @@ import { loadDeskReceipts } from "@/modules/receipts/vx/data";
 import { DESK_MODES, latestCloseState, summarizeReceipts } from "@/modules/receipts/vx/domain/day-close";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { readFeesBridgeState } from "@/platform/fees-bridge/state";
 import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
 import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
@@ -85,6 +87,7 @@ async function must<T>(
  * has a machine credential, not a member of staff.
  */
 async function currentSession(): Promise<string | null> {
+  if (feesBridgeEnabled()) return (await readFeesBridgeState()).active_session_label;
   const [setting, data] = await Promise.all([
     must(
       createAdminClient()
@@ -373,7 +376,9 @@ export async function attendanceReminder(day: string): Promise<Summary> {
   const outstanding = [...byClass.keys()].filter((classId) => !recorded.has(classId));
   const responsible = await responsibleForRegisters(sessionLabel, day);
   const classes = await must(
-    admin.schema(FEE_SCHEMA).from("classes").select("id, class_name"),
+    feesBridgeEnabled() && !isTestSessionLabel(sessionLabel)
+      ? admin.from("fees_bridge_classes").select("id, class_name").eq("session_label",sessionLabel)
+      : admin.schema(FEE_SCHEMA).from("classes").select("id, class_name").eq("session_label",sessionLabel),
     "the classes",
   );
   const labelOf = new Map(
@@ -739,6 +744,7 @@ async function feeDayPasses(
   day: string,
   pass: (figures: DayFigures) => Promise<Summary & { queued: number }>,
 ): Promise<Summary> {
+  if (feesBridgeEnabled()) return { queued: 0, note: "Fees owns financial day summaries during coexistence" };
   const sessions = await feeDaySessions();
   let summary: Summary = {};
   let queuedTotal = 0;

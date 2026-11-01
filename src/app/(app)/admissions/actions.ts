@@ -7,7 +7,7 @@ import { syncStudentEnrolments } from "@/modules/enrolments/data/enrolments-repo
 import { assertPermission } from "@/platform/auth/current-staff";
 import {
   admitStudent,
-  loadAdmissionsFeeContext,
+  loadAdmissionsRosterContext,
   countTcsIssued,
   editStudent,
   findNameMatches,
@@ -217,7 +217,7 @@ export async function saveSeatsAction(input: { seats: { classId: string; seats: 
   try {
     const actor = await assertPermission("settings:manage");
     await assertNotPreviewing();
-    const ctx = await loadAdmissionsFeeContext();
+    const ctx = await loadAdmissionsRosterContext();
     await assertSessionWritable(actor, ctx.sessionLabel);
     const known = new Set(ctx.classes.map((c) => c.id));
     if (!ctx.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };

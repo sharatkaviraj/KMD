@@ -1,9 +1,12 @@
 import "server-only";
 
-import { assertPermission } from "@/platform/auth/current-staff";
+import { assertPermission, getCurrentStaff } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
+import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getBridgeStudent } from "@/platform/fees-bridge/client";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 
 /**
  * One student, assembled from both sides.
@@ -108,6 +111,17 @@ export async function feeStanding(studentId: string): Promise<FeeStanding> {
     lastPaymentDate: null,
     available: false,
   };
+
+  const staff=feesBridgeEnabled() ? await getCurrentStaff() : null;
+  const session=staff ? await getViewSessionCookie() : null;
+  if(staff && usesCanonicalFees(staff,session)) {
+    try {
+      const {data,error}=await createAdminClient().from("fees_bridge_students").select("session_label").eq("id",studentId).maybeSingle<{session_label:string}>();
+      if(error || !data)return unavailable;
+      const {standing}=await getBridgeStudent(studentId,data.session_label);
+      return {feeDue:standing.feesPending,lateFeeDue:standing.lateFeePending,paid:standing.totalPaid,lastPaymentDate:standing.lastPaymentDate,available:true};
+    }catch{return unavailable;}
+  }
 
   const { data, error } = await createAdminClient()
     .schema(FEE_SCHEMA)

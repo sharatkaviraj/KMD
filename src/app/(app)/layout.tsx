@@ -11,6 +11,10 @@ import { getAppMode } from "@/platform/env";
 import { LanguageProvider } from "@/platform/i18n/use-language";
 import { VxShell } from "@/vx/shell/shell";
 import { getViewer, PREVIEW_ROLE, previewPermissions } from "@/vx/view-as";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { readFeesBridgeHealth } from "@/platform/fees-bridge/state";
+import { ms } from "@/messages/setup";
+import { flat } from "@/platform/i18n/language";
 
 export const runtime = "nodejs";
 
@@ -45,6 +49,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     : null;
   const academicSession = financeEnabled ? null : await resolveSessionLabel().catch(() => null);
   const sessionLabel = resolvedSession?.sessionLabel ?? academicSession ?? "";
+  const bridgeHealth=usesCanonicalFees(staff,sessionLabel) ? await readFeesBridgeHealth().catch(()=>({state:null,status:"error" as const})) : null;
 
   const previewRole = previewing ? PREVIEW_ROLE[previewing] : null;
   const pillViewer = {
@@ -75,6 +80,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             : null
         }
       >
+        {bridgeHealth && <div role="status" className={`mx-4 mt-3 rounded-lg px-3 py-2 text-xs ${bridgeHealth.status==="ready"?"bg-emerald-50 text-emerald-900":"bg-amber-50 text-amber-950"}`}>
+          {flat(bridgeHealth.status==="ready"?ms.bridgeRosterReady:bridgeHealth.status==="stale"?ms.bridgeRosterStale:bridgeHealth.status==="error"?ms.bridgeRosterError:ms.bridgeRosterPending,staff.language)}
+          {bridgeHealth.state?.last_checked_at && Number.isFinite(Date.parse(bridgeHealth.state.last_checked_at)) && <span className="ml-2">{new Intl.DateTimeFormat(staff.language==="hi"?"hi-IN":"en-IN",{timeZone:"Asia/Kolkata",dateStyle:"short",timeStyle:"short"}).format(new Date(bridgeHealth.state.last_checked_at))}</span>}
+        </div>}
         {children}
         <PerformanceReporter />
       </VxShell>

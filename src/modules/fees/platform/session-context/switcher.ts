@@ -9,6 +9,9 @@ import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/a
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { currentSessionViewer } from "@/platform/auth/test-session-access";
 import { filterSessionsForViewer, UNREADABLE_VIEWER, type SessionViewer } from "@/platform/auth/test-session-policy";
+import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { readBridgeSwitcherRows } from "@/platform/fees-bridge/sessions";
 
 export type SessionSwitcherData = {
   activeSessionLabel: string;
@@ -59,6 +62,14 @@ function timeoutAfter<T>(fallback: T, timeoutMs = SESSION_SWITCHER_TIMEOUT_MS): 
 export async function getSessionSwitcherData(
   viewer?: (SessionViewer & { feeReader: boolean }) | null,
 ): Promise<SessionSwitcherData> {
+  if(feesBridgeEnabled()) {
+    const staff=await getCurrentStaff();
+    if(staff && usesCanonicalFees(staff)) {
+      const rows=await readBridgeSwitcherRows();
+      const who=viewer ?? await currentSessionViewer() ?? {role:staff.role,isTestAccount:staff.isTestAccount===true,feeReader:false};
+      return {activeSessionLabel:rows.activeSessionLabel,availableSessions:filterSessionsForViewer(rows.availableSessions,who,rows.activeSessionLabel)};
+    }
+  }
   const [all, who] = await Promise.all([
     getUnfilteredSessionSwitcherData(),
     // Unreadable fails closed (TEST only), as in resolveViewSession.
@@ -74,7 +85,7 @@ export async function getSessionSwitcherData(
 async function getUnfilteredSessionSwitcherData(): Promise<SessionSwitcherData> {
   const now = Date.now();
 
-  if (cachedSessionSwitcherData && cachedSessionSwitcherData.expiresAt > now) {
+  if (!feesBridgeEnabled() && cachedSessionSwitcherData && cachedSessionSwitcherData.expiresAt > now) {
     return cachedSessionSwitcherData.data;
   }
 

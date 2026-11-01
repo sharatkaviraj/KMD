@@ -230,7 +230,7 @@ export function missingMigrations(ledger, vppsoneFiles, feeFiles) {
   };
 }
 
-async function preflight(sql) {
+export async function preflight(sql) {
   const backup = await backupState(sql);
   const ledger = await sql`select version, name from supabase_migrations.schema_migrations`;
   const list = (dir) => readdirSync(path.join(repoRoot, "supabase", dir)).filter((f) => /^\d+_.+\.sql$/.test(f)).sort();

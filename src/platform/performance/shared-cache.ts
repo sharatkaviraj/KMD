@@ -1,6 +1,7 @@
 import "server-only";
 
 import { revalidateTag, unstable_cache } from "next/cache";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
 
 /**
  * A cross-request cache for reads that change a few times a term — class
@@ -20,7 +21,7 @@ export function sharedCache<Args extends unknown[], Return>(
   keyParts: string[],
   options: { tags: string[]; revalidate: number },
 ): (...args: Args) => Promise<Return> {
-  if (process.env.NODE_ENV === "test" || process.env.VITEST) return fn;
+  if (process.env.NODE_ENV === "test" || process.env.VITEST || feesBridgeEnabled()) return fn;
   return unstable_cache(fn, keyParts, options);
 }
 

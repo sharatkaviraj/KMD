@@ -9,6 +9,8 @@ import { listCloseEvents } from "@/vx/screens/receipts/data";
 import { greeting, schoolToday } from "@/vx/format";
 import { AccountsHome } from "@/vx/screens/accounts/accounts-home";
 import { getViewer } from "@/vx/view-as";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { LiveFinanceHub } from "@/vx/screens/accounts/live-finance-hub";
 
 export const runtime = "nodejs";
 
@@ -23,6 +25,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const staff = await requirePermission("fees:view", "/accounts");
   const { previewing } = await getViewer();
   const sp = await searchParams;
+  const bridgeSession=typeof sp.session==="string"?sp.session:await getViewSessionCookie();
+  if(usesCanonicalFees(staff,bridgeSession))return <LiveFinanceHub language={staff.language}/>;
   const session = await resolveViewSession({ searchParamSession: sp.session, cookieSession: await getViewSessionCookie() });
   // The school clock: real for everyone, a QA/Smoke Lab account's pretend
   // time where one is set (D-269). It decides what the page says about the

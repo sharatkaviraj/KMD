@@ -19,6 +19,9 @@ import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { menuRoleLabel } from "@/vx/shell/role-line";
 import { getViewer } from "@/vx/view-as";
+import { usesCanonicalFees, FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { ms } from "@/messages/setup";
+import { flat } from "@/platform/i18n/language";
 
 export const runtime = "nodejs";
 
@@ -63,16 +66,17 @@ export default async function TodayPage() {
   }
 
   const seesMoney = can(staff, "fees:view");
+  const canonicalMoney = usesCanonicalFees(staff, sessionLabel);
   const [facts, fees, inbox, week] = await Promise.all([
     loadToday(staff, sessionLabel, today, minutes),
-    seesMoney
+    seesMoney && !canonicalMoney
       ? todayMoney(today)
           // Promises are counted in the fee session the money figures come from.
           .then(async (figures) => ({ figures, promised: await promisedToday(figures.sessionLabel, today).catch(() => null) }))
           .catch(() => null)
       : Promise.resolve(null),
     can(staff, "attendance:correct")
-      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingMoneyRequests : undefined, nowMinutes: minutes })
+      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney && !canonicalMoney ? pendingMoneyRequests : undefined, nowMinutes: minutes })
       : Promise.resolve(null),
     can(staff, "attendance:view") ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
   ]);
@@ -112,6 +116,7 @@ export default async function TodayPage() {
 
   return (
     <VxPage label={lead(T.today, language)}>
+      {seesMoney && canonicalMoney && <div className="mx-4 my-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm"><p>{flat(ms.bridgeLedger,language)}</p><div className="mt-2 flex flex-wrap gap-5"><a className="font-medium underline" href="/payments">{flat(ms.bridgeTitle,language)}</a><a className="font-medium underline" href={`${FEES_ORIGIN}/protected/dashboard`}>{flat(ms.bridgeOpenFees,language)}</a></div></div>}
       <TodayScreen
         firstName={staff.displayName.split(/\s+/)[0] ?? staff.displayName}
         greeting={greeting}

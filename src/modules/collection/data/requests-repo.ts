@@ -1,4 +1,6 @@
 import "server-only";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { readAuthorizedRosterRows } from "@/platform/fees-bridge/authorized-roster";
 
 import { randomBytes } from "node:crypto";
 import { fetchInChunks } from "@/platform/helpers/chunk";
@@ -280,7 +282,14 @@ export async function rollForRequest(
   ];
 
   const [students, records, answers] = await Promise.all([
-    fetchInChunks<Record<string, string | null>>(studentIds, IN_FILTER_CHUNK_SIZE, chunk => admin
+    feesBridgeEnabled() ? readAuthorizedRosterRows({
+      sessionLabel:request.sessionLabel,studentIds,
+      columns:["id","full_name","father_name",...(isFrozen?[]:feeColumns)],
+      authorize:async()=>{
+        const current=await resolveToken(request.token);
+        return current?.id===request.id && current.sessionLabel===request.sessionLabel;
+      },
+    }) : fetchInChunks<Record<string, string | null>>(studentIds, IN_FILTER_CHUNK_SIZE, chunk => admin
       .schema(FEE_SCHEMA)
       .from("students")
       .select(["id", "full_name", "father_name", ...feeColumns].join(", "))

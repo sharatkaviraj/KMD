@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
 
 import { getFeePolicySummary } from "@/modules/fees/data/policy";
 import { logError, logInfo, logWarn } from "@/platform/observability/log";
@@ -143,6 +144,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  if (feesBridgeEnabled()) return NextResponse.json({ok:true,skipped:true,reason:"fees_is_message_owner"});
 
   const url = new URL(request.url);
   const dryRun = url.searchParams.get("dryRun") === "1";

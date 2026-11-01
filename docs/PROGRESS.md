@@ -1,5 +1,27 @@
 # VPPS One — progress
 
+## Fees coexistence implementation — 1 November 2026
+
+Owner authorized implementation, required migrations and live deployment of
+the [coexistence plan](plans/2026-11-01-fees-one-coexistence-plan.md). Work is in
+`codex/fees-one-coexistence` from `de277a8`; source Fees work is
+`codex/one-coexistence-api` from `a966a82a`. Existing canonical checkouts and
+their unrelated local documentation are preserved.
+
+In progress: narrow source payment/read API, durable capture, fenced atomic
+One projections, explicit real/TEST routing and recovery. Initial isolated
+PostgreSQL and focused contract tests pass; independent review, full CI,
+deployment and live verification are still pending. Target migrations
+`20261101041404` and `20261101042523` are applied; the bridge is disabled,
+unpublished and empty. No financial posting has been performed.
+
+The old cutover report below is historical evidence. Its retirement/link
+shutdown and independent One financial processing steps do not apply to
+coexistence. Owner classification is now explicit: preserve all existing One
+activity as TEST; make the five named accounts real and retain existing logins.
+The transactional quarantine/activation adapter is being rehearsed before
+publication. See [implementation and evidence](cutover/COEXISTENCE-2026-11-01.md).
+
 ## Handoff repair and readiness report — 1 November 2026
 
 Code/report delivered in [PR #151](https://github.com/veerpatta/vppsone/pull/151),

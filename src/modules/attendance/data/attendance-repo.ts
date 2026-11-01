@@ -1,4 +1,6 @@
 import "server-only";
+import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -55,7 +57,7 @@ export async function classRoll(input: {
 }): Promise<RollStudent[]> {
   const { classId, sessionLabel } = input;
 
-  await assertPermission("attendance:view");
+  const viewer = await assertPermission("attendance:view");
 
   const supabase = await createClient();
   const { data: enrolments, error } = await supabase
@@ -67,6 +69,12 @@ export async function classRoll(input: {
     .returns<RollRow[]>();
 
   if (error) throw new Error(`Could not read the roll: ${error.message}`);
+  if(usesCanonicalFees(viewer,sessionLabel)){
+    const checked=await createAdminClient().rpc("assert_fees_bridge_roster_current",{
+      p_ids:enrolments.map(row=>row.student_id),p_class:classId,p_session:sessionLabel,
+    });
+    if(checked.error)throw new Error("The Fees roster changed. Ask the office to review this class's academic enrolments.");
+  }
   if (enrolments.length === 0) return [];
 
   // Service-role, because the fee app's RLS would return zero rows and no
@@ -167,7 +175,12 @@ export async function studentNames(ids: string[]): Promise<Map<string, string>> 
     (chunk) => createAdminClient().schema(FEE_SCHEMA).from("students").select("id, full_name").in("id", chunk),
   );
   if (error) throw new Error("Could not read the students.");
-  return new Map(data.map((row) => [row.id, row.full_name]));
+  const names=new Map(data.map((row) => [row.id, row.full_name]));
+  if(feesBridgeEnabled()){
+    const retired=await retiredStudentLabels(wanted.filter(id=>!names.has(id)));
+    for(const row of retired)names.set(row.id,row.full_name);
+  }
+  return names;
 }
 
 /* ------------------------------------------------------- the register */
