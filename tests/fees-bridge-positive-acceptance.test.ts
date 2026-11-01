@@ -1,12 +1,13 @@
 import {describe,expect,it,vi} from "vitest";
-import {runTestPaymentAcceptance} from "../scripts/coexistence/test-payment-acceptance.mjs";
+import {isCanonicalTestReceipt,runTestPaymentAcceptance} from "../scripts/coexistence/test-payment-acceptance.mjs";
 const student="00000000-0000-4000-8000-000000000001",real="00000000-0000-4000-8000-000000000002",actor="00000000-0000-4000-8000-000000000003",denied="00000000-0000-4000-8000-000000000004",receipt="00000000-0000-4000-8000-000000000005";
 const config={purpose:"approved-test-only-payment-acceptance",fixtureApproved:true,sessionLabel:"TEST-2026-27",sourceTestStudentId:student,sourceRealStudentId:real,actorId:actor,deniedActorId:denied,oneAccessToken:"synthetic-test-session-token",deniedActorAccessToken:"synthetic-denied-session-token",oneAuthKey:"synthetic-public-auth-key-12345",bridgeKey:"synthetic-bridge-secret-".repeat(3)};
 function fixture({loseFirst=false,wrongFixture=false,prefix="TST",receiptPrefix="TST"}={}){
   let command:Record<string,unknown>|null=null,commits=0,lost=false;
   const writes:Record<string,unknown>[]=[],snapshots:Record<string,unknown>[]=[];
   const persist=vi.fn(async(value:Record<string,unknown>)=>{snapshots.push(structuredClone(value));});
-  const result=(id:unknown)=>({status:"completed",commandId:id,studentId:student,sessionLabel:"TEST-2026-27",amountReceived:1,receiptId:receipt,receiptNumber:`${receiptPrefix}-SYN-001`});
+  const receiptNumber=()=>`${receiptPrefix}${String(command?.paymentDate??"2026-11-01").replaceAll("-","")}-0001`;
+  const result=(id:unknown)=>({status:"completed",commandId:id,studentId:student,sessionLabel:"TEST-2026-27",amountReceived:1,receiptId:receipt,receiptNumber:receiptNumber()});
   const request=vi.fn(async(raw:string|URL|Request,init?:RequestInit)=>{
     const url=new URL(String(raw));const token=new Headers(init?.headers).get("authorization");
     const response=(data:unknown,status=200)=>Response.json(status===200?{version:1,data}:{version:1,error:{code:data}},{status,headers:{"Cache-Control":"no-store"}});
@@ -29,12 +30,17 @@ function fixture({loseFirst=false,wrongFixture=false,prefix="TST",receiptPrefix=
       if(!command){command=input;commits++;}else expect(input).toEqual(command);
       return response(result(input.commandId));
     }
-    if(route.startsWith("/receipts/"))return response({receiptId:receipt,receiptNumber:`${receiptPrefix}-SYN-001`,student:{id:student,sessionLabel:"TEST-2026-27"},amountReceived:1,reversed:false,printUrl:`https://fees.vpps.co.in/protected/receipts/${receipt}`});
+    if(route.startsWith("/receipts/"))return response({receiptId:receipt,receiptNumber:receiptNumber(),student:{id:student,sessionLabel:"TEST-2026-27"},amountReceived:1,reversed:false,printUrl:`https://fees.vpps.co.in/protected/receipts/${receipt}`});
     throw new Error("unexpected_route");
   });
   return {request,persist,writes,snapshots,count:()=>commits};
 }
 describe("positive TEST API acceptance",()=>{
+  it("uses the source date-and-sequence receipt format and binds the payment date",()=>{
+    expect(isCanonicalTestReceipt("TST20261101-0001","2026-11-01")).toBe(true);
+    expect(isCanonicalTestReceipt("TST20270103-10000","2027-01-03")).toBe(true);
+    for(const number of ["SVP20261101-0001","TST-20261101-0001","TST20261101-001","TST20261101-0001junk","TST20261102-0001"]){expect(isCanonicalTestReceipt(number,"2026-11-01")).toBe(false);}
+  });
   it("defaults to no network and refuses broad or unpinned fixtures",async()=>{
     const f=fixture();expect((await runTestPaymentAcceptance(config,{fetcher:f.request})).mode).toBe("plan");expect(f.request).not.toHaveBeenCalled();
     await expect(runTestPaymentAcceptance({...config,sessionLabel:"2026-27"},{fetcher:f.request})).rejects.toThrow("exact_test_identity");

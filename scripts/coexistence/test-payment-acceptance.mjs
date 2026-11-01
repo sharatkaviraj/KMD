@@ -17,6 +17,12 @@ const SESSION='TEST-2026-27';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const need=(condition,code)=>{if(!condition)throw new Error(code);};
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+/** Source formats prefix + YYYYMMDD + '-' + lpad(sequence,4,'0').
+ * @param {unknown} number @param {string|undefined} [paymentDate] */
+export function isCanonicalTestReceipt(number,paymentDate){
+  return typeof number==='string'&&/^TST\d{8}-\d{4,}$/.test(number)&&
+    (!paymentDate||number.startsWith(`TST${paymentDate.replaceAll('-','')}-`));
+}
 function configOf(c){
   need(c?.purpose==='approved-test-only-payment-acceptance'&&c.fixtureApproved===true,'explicit_test_fixture_approval_required');
   need(c.sessionLabel===SESSION&&UUID.test(c.sourceTestStudentId)&&UUID.test(c.actorId),'exact_test_identity_required');
@@ -61,7 +67,7 @@ export async function runTestPaymentAcceptance(raw,{execute=false,checkpoint=nul
   }
   const ok=r=>{need(r.status===200&&r.body.data!==undefined,'source_request_refused');return r.body.data;};
   const rejection=(r,codes,statuses)=>need(statuses.includes(r.status)&&codes.includes(r.body.error?.code),'negative_probe_failed');
-  const matchesResult=result=>need(result?.status==='completed'&&result.commandId===state.payload.commandId&&result.studentId===c.sourceTestStudentId&&result.sessionLabel===SESSION&&result.amountReceived===1&&UUID.test(result.receiptId)&&/^TST(?:[-/])/.test(result.receiptNumber??''),'payment_result_mismatch');
+  const matchesResult=result=>need(result?.status==='completed'&&result.commandId===state.payload.commandId&&result.studentId===c.sourceTestStudentId&&result.sessionLabel===SESSION&&result.amountReceived===1&&UUID.test(result.receiptId)&&isCanonicalTestReceipt(result.receiptNumber,state.payload.paymentDate),'payment_result_mismatch');
   try{
     await auth(c.oneAccessToken,c.actorId);await auth(c.deniedActorAccessToken,c.deniedActorId);record('one_actor_pins');
     const sessions=ok(await api('/sessions')).sessions;
@@ -103,7 +109,7 @@ export async function runTestPaymentAcceptance(raw,{execute=false,checkpoint=nul
     const replay=ok(await api('/payments',{method:'POST',body:state.payload}));matchesResult(replay);need(replay.receiptId===result.receiptId&&replay.receiptNumber===result.receiptNumber,'same_id_replay_mismatch');record('same_command_replay');
     const finalStatus=ok(await api(`/commands/${state.payload.commandId}`));matchesResult(finalStatus);need(finalStatus.receiptId===result.receiptId,'status_receipt_mismatch');record('canonical_command_status');
     const receipt=ok(await api(`/receipts/${result.receiptId}?session=${SESSION}`));
-    need(receipt.receiptId===result.receiptId&&/^TST(?:[-/])/.test(receipt.receiptNumber??'')&&receipt.student?.id===c.sourceTestStudentId&&receipt.student.sessionLabel===SESSION&&receipt.amountReceived===1&&!receipt.reversed&&new URL(receipt.printUrl,FEES).origin===FEES,'canonical_receipt_mismatch');record('canonical_receipt');
+    need(receipt.receiptId===result.receiptId&&isCanonicalTestReceipt(receipt.receiptNumber,state.payload.paymentDate)&&receipt.student?.id===c.sourceTestStudentId&&receipt.student.sessionLabel===SESSION&&receipt.amountReceived===1&&!receipt.reversed&&new URL(receipt.printUrl,FEES).origin===FEES,'canonical_receipt_mismatch');record('canonical_receipt');
     const after=ok(await api(`/students/${c.sourceTestStudentId}?session=${SESSION}`));
     need(after.student?.id===c.sourceTestStudentId&&after.student.sessionLabel===SESSION&&after.standing.asOfDate===state.before.asOfDate&&after.standing.totalPaid===state.before.totalPaid+1&&after.standing.totalPending===state.before.totalPending-1,'canonical_standing_delta_mismatch');record('source_one_rupee_delta');
     state.stage='verified';state.verifiedAt=new Date().toISOString();state.checks=checks;await save();
