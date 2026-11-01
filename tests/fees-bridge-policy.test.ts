@@ -32,6 +32,9 @@ describe("one authoritative financial backend",()=>{
     expect(feesDestination("/fees-other")).toBeNull();
     expect(feesDestination("/payments")).toBeNull();
     expect(feesDestination("/students")).toBeNull();
+    expect(feesDestination("/receipts/SVP20261101-0001", "2026-27")).toBeNull();
+    expect(feesDestination("/receipts", "2026-27")).toBe("https://fees.vpps.co.in/protected/receipts?session=2026-27");
+    expect(feesDestination("/receipts/SVP20261101-0001/reverse", "2026-27")).toBe("https://fees.vpps.co.in/protected/receipts?session=2026-27");
   });
 });
 

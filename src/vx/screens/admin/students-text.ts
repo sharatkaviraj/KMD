@@ -6,6 +6,12 @@ import { p, type Pair } from "@/vx/text";
  * fact, and its detail line says the period and where the fact comes from.
  */
 export const ST = {
+  enrollment:p("Enrolment status","नामांकन की स्थिति"),
+  statusAll:p("Every status","सभी स्थितियाँ"),
+  statusActive:p("Active","सक्रिय"),
+  statusInactive:p("Inactive","निष्क्रिय"),
+  statusLeft:p("Left school","स्कूल छोड़ चुके"),
+  statusGraduated:p("Graduated","पढ़ाई पूरी कर चुके"),
   sourceFeesHint: p("School records are shown here.", "यहाँ स्कूल के रिकॉर्ड दिखते हैं।"),
   sourceFeesLink: p("Open fee balances and filters in Fees", "Fees में बकाया और फ़ीस फ़िल्टर खोलें"),
   sourceFeesTaskFilter: p("Fee filters are available in Fees. The teacher-task filter applies only to the school list; choose which list to open.", "फ़ीस फ़िल्टर Fees में उपलब्ध हैं। शिक्षक-कार्य का फ़िल्टर केवल स्कूल की सूची पर लागू होता है; चुनें कौन-सी सूची खोलनी है।"),

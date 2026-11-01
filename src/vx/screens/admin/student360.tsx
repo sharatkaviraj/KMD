@@ -24,6 +24,8 @@ import { FamilyContactLog, type ContactRecoveryScope } from "@/vx/screens/family
 
 import "./student360.css";
 import { ChildSummary } from "@/vx/assist/summary-assist";
+import type { BridgeWorkspace } from "@/platform/fees-bridge/student-read-contracts";
+import { SourceFamilyHistory, SourceFeeDetails, SourceHousehold, SourcePages, SourceStudentInfo } from "./student360-source";
 
 /*
  * Student 360 as the design draws it (F06–F08 on a phone, D02 on a desk).
@@ -72,12 +74,15 @@ type StudentFeeBreakup = {
 type Cell = { day: string; label: string; state: MarkStatus | "today" | "future" | "closed" | "none" };
 
 export type Student360Props = {
+  sourceExpected?: boolean;
+  source?: BridgeWorkspace;
+  sourcePhotoEditHref?: string;
   canEditPhoto?: boolean;
   canAssignTasks?: boolean;
   id: string;
   returnTo?: string;
   name: string;
-  /** Only a signed URL from the private collection photo store, after its permission check. */
+  /** A private One photo URL or authenticated source-photo proxy, after permission checks. */
   photoUrl?: string | null;
   unavailable?: string[];
   classLabel: string;
@@ -171,7 +176,7 @@ export type Student360Props = {
 
 /** Everything on the card that comes from the fee app's reads. */
 export type Student360Fees = Partial<
-  Pick<Student360Props, "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family" | "familyGroupId">
+  Pick<Student360Props, "source" | "name" | "classLabel" | "sr" | "rollNo" | "father" | "mother" | "phone" | "photoUrl" | "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family" | "familyGroupId">
 > & { unavailable?: boolean };
 
 const TAB_LABEL: Record<StudentTab, Pair> = {
@@ -615,6 +620,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   };
   const moreItems: ({ label: Pair; icon: "send" | "edit" | "file" | "note" | "receipt" | "camera" | "users" | "book" } & ({ href: string; run?: never } | { run: Launch; href?: never }))[] = [];
   if (p.canEditPhoto) moreItems.push({ label: photoWords.edit, icon: "camera", run: "photo" });
+  if (p.sourcePhotoEditHref) moreItems.push({label:photoWords.edit,icon:"camera",href:p.sourcePhotoEditHref});
   // The same words as the desk's "Ask a teacher" button and its two choices (smoke 20 Oct:
   // the phone called it "Request details from a teacher").
   const askAs = (what: Pair): Pair => pair(`${ms.taskAsk.en}: ${what.en}`, `${ms.taskAsk.hi}: ${what.hi ?? what.en}`);
@@ -622,7 +628,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   if (p.canAssignTasks) moreItems.push({ label: askAs(ms.taskAskMarks), icon: "book", run: "marks" });
   if (p.canAddNote) moreItems.push({ label: T.addNote, href: `${notesHref}&sheet=add`, icon: "note" });
   if (seesMoney) moreItems.push({ label: T.statement, href: `/fees/students/${p.id}/statement`, icon: "send" });
-  if (seesMoney) moreItems.push({ label: T.fullFeeRecord, href: `/fees/students/${p.id}?tab=dues`, icon: "receipt" });
+  if (seesMoney) moreItems.push({ label: T.fullFeeRecord, href: p.source ? studentProfileHref(p.id,p.returnTo,"fees") : `/fees/students/${p.id}?tab=dues`, icon: "receipt" });
   if (p.canManageFees) moreItems.push({ label: T.editDetails, href: `/fees/students/${p.id}/edit`, icon: "edit" });
   if (p.tabs.includes("documents")) moreItems.push({ label: T.tabDocuments, href: studentProfileHref(p.id, p.returnTo, "documents"), icon: "file" });
 
@@ -712,8 +718,8 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
         <div className="s360-body" key={tab}>
           {feesUnavailable || (p.unavailable?.length ?? 0) > 0 ? (
-            <div className="card s360-card" role="alert">
-              <p style={{ margin: 0 }}>{tx(feesUnavailable ? T.feesUnavailable : T.couldNotRead)}</p>
+            <div className="card s360-card" role="alert" data-student-source-unavailable={feesUnavailable&&p.sourceExpected?"true":undefined}>
+              <p style={{ margin: 0 }}>{tx(feesUnavailable && seesMoney ? T.feesUnavailable : T.couldNotRead)}</p>
               <span><Btn variant="sec" onClick={() => router.refresh()}>{tx(T.retryFees)}</Btn></span>
             </div>
           ) : null}
@@ -827,6 +833,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
   const total = summary.sessionFee;
   const ringLen = 2 * Math.PI * 26;
   const pct = Math.min(100, Math.max(0, money.percent));
+  const receiptHref=(r:NonNullable<Student360Props["receipts"]>[number])=>`/receipts/${encodeURIComponent(r.number)}${p.source?`?${new URLSearchParams({receiptId:r.id,session:p.source.sessionLabel})}`:""}`;
   return (
     <>
       <div className="card s360-card s360-m-only">
@@ -910,7 +917,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
         </div>
       </div>
 
-      <h2 className="sech" style={{ padding: "6px 4px 0" }}>{tx(T.receipts)}</h2>
+      {!p.source || p.source.permissions.receipts ? <><h2 className="sech" style={{ padding: "6px 4px 0" }}>{tx(T.receipts)}</h2>
       <div className="card" style={{ overflow: "hidden" }}>
         {receipts.length === 0 ? (
           <div style={{ padding: 16, fontSize: 13, color: "var(--mut)" }}>{tx(T.noReceipts)}</div>
@@ -918,7 +925,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
           receipts.map((r) => (
             <div key={r.id} className="s360-row">
               <span className="s360-sq40" style={{ background: "var(--s2)", color: "var(--pri)" }}><Ic n="receipt" size={18} /></span>
-              <Link href={`/receipts/${encodeURIComponent(r.number)}`} className="tap" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", color: "var(--fg)" }}>
+              <Link href={receiptHref(r)} className="tap" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", color: "var(--fg)" }}>
                 <span style={{ fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                   <span className="num">{r.number}</span>
                   {r.reversed ? <Pill tone="bad">{tx(T.reversed)}</Pill> : null}
@@ -927,19 +934,20 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
               </Link>
               <span className="num" style={{ fontSize: 15, fontWeight: 700, textDecoration: r.reversed ? "line-through" : undefined }}>{rupees(r.amount)}</span>
               {!r.reversed ? (
-                <Link href={`/receipts/${encodeURIComponent(r.number)}`} className="tap btn soft s360-d-only" style={{ height: 34, fontSize: 13 }}>
-                  <Ic n="send" size={15} />{tx(T.sendReceipt)}
+                <Link href={receiptHref(r)} className="tap btn soft s360-d-only" style={{ height: 34, fontSize: 13 }}>
+                  <Ic n={p.source?"receipt":"send"} size={15} />{tx(p.source?T.receipts:T.sendReceipt)}
                 </Link>
               ) : null}
               {!r.reversed ? (
-                <Link href={`/receipts/${encodeURIComponent(r.number)}`} aria-label={tx(T.sendReceiptTo)} className="tap s360-m-only" style={{ flex: "none", width: 44, height: 44, borderRadius: 22, background: "var(--oks)", color: "var(--ok)" }}>
-                  <span style={{ display: "flex", width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ic n="send" size={18} /></span>
+                <Link href={receiptHref(r)} aria-label={tx(p.source?T.receipts:T.sendReceiptTo)} className="tap s360-m-only" style={{ flex: "none", width: 44, height: 44, borderRadius: 22, background: "var(--oks)", color: "var(--ok)" }}>
+                  <span style={{ display: "flex", width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ic n={p.source?"receipt":"send"} size={18} /></span>
                 </Link>
               ) : null}
             </div>
           ))
         )}
       </div>
+      {p.source?<SourcePages source={p.source} section="receipts"/>:null}</>:null}
 
       {breakup ? (
         <div className="card" style={{ overflow: "hidden" }}>
@@ -965,7 +973,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
           ) : null}
         </div>
       ) : null}
-      <Link href={`/fees/students/${p.id}?tab=dues`} style={{ alignSelf: "flex-start", color: "var(--acc)", fontWeight: 600, fontSize: 14, minHeight: 44, display: "flex", alignItems: "center" }}>{tx(T.fullFeeRecord)}</Link>
+      {p.source?<SourceFeeDetails source={p.source}/>:<Link href={`/fees/students/${p.id}?tab=dues`} style={{ alignSelf: "flex-start", color: "var(--acc)", fontWeight: 600, fontSize: 14, minHeight: 44, display: "flex", alignItems: "center" }}>{tx(T.fullFeeRecord)}</Link>}
     </>
   );
 }
@@ -1140,6 +1148,8 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
           ) : null}
         </div>
       ) : null}
+      {p.source?<SourceHousehold source={p.source}/>:null}
+      {p.source?<SourceFamilyHistory source={p.source}/>:null}
       {p.contacts ? (
         <div className="card s360-card">
           <FamilyContactLog studentId={p.id} contacts={p.contacts} canLog today={p.today} recoveryScope={p.contactRecoveryScope} />
@@ -1152,6 +1162,7 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
 /** Info: the record as key and value, and Edit for those who may (the fee app's student form). */
 function InfoTab({ p }: { p: Student360Props }) {
   const { tx } = useVx();
+  if(p.source)return <><SourceStudentInfo source={p.source}/>{p.canManageFees?<Link href={`/fees/students/${p.id}/edit`} className="tap btn sec"><Ic n="edit" size={18}/>{tx(T.editDetails)}</Link>:null}</>;
   const rows: [Pair, string | null][] = [
     [T.admissionNo, p.sr],
     [T.rollNo, p.rollNo],

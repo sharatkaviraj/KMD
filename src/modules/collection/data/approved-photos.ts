@@ -9,6 +9,9 @@ import { PHOTOS_BUCKET } from "./photo-storage";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
+import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { readFeesBridgeState } from "@/platform/fees-bridge/state";
+import { bridgeStudentPhotoHref } from "@/platform/fees-bridge/student-photo";
 
 async function sign(rows: { id: string; path: string }[]) {
   const out = new Map<string, string>();
@@ -30,6 +33,21 @@ export async function approvedStudentPhotos(ids: readonly string[]): Promise<Map
   if (!directory && !can(actor,"attendance:view")) throw new Error("not_permitted");
   if (!ids.length) return new Map();
   let wanted=[...new Set(ids)];
+  if (directory && feesBridgeEnabled()) {
+    const session = await resolveSessionLabel();
+    if (usesCanonicalFees(actor, session)) {
+      if (!session) throw new Error("no_session");
+      await readFeesBridgeState();
+      // Canonical real photos stay owned by Fees. The projection only tells us
+      // whether a current student has one; the byte endpoint independently
+      // checks the signed-in actor, source grant, student and session.
+      const result = await fetchInChunks<{ id: string; photo_path: string | null }>(wanted, IN_FILTER_CHUNK_SIZE,
+        chunk => createAdminClient().from("fees_bridge_students").select("id,photo_path")
+          .eq("session_label", session).in("id", chunk));
+      if (result.error) throw new Error("photo_unavailable");
+      return new Map(result.data.filter(row => !!row.photo_path).map(row => [row.id, bridgeStudentPhotoHref(row.id, session)]));
+    }
+  }
   const db = directory ? await createClient() : createAdminClient();
   if (!directory) {
     const session=await resolveSessionLabel();

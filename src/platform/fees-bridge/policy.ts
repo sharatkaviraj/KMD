@@ -65,6 +65,9 @@ export function delegatedFeesPath(pathname: string): string | null {
   if(admission)return `/protected/students/${admission[1]}/edit`;
   // These are One-owned homes/CRM. Their source-data adapters keep them here.
   if(pathname==="/accounts" || pathname==="/admissions" || pathname==="/admissions/seats")return null;
+  // The single-receipt page validates number + source UUID + session and is
+  // read-only. The receipt desk and every nested operation remain delegated.
+  if (/^\/receipts\/[^/]+$/.test(pathname)) return null;
   for (const [route, destination] of Object.entries(NATIVE_FINANCE_ROUTES)) {
     if (pathname === route || pathname.startsWith(`${route}/`)) return destination;
   }
