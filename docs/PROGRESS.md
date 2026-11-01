@@ -2,8 +2,9 @@
 
 ## Handoff repair and readiness report — 1 November 2026
 
-Branch `codex/cutover-verification-fixes` from `da37090`; PR/validation recorded
-below when submitted. [Consolidated readiness report](cutover/READINESS-2026-27.md):
+Code/report delivered in [PR #151](https://github.com/veerpatta/vppsone/pull/151),
+branch `codex/cutover-verification-fixes` from `da37090`, code commit `4ea0240`.
+[Consolidated readiness report](cutover/READINESS-2026-27.md):
 **HOLD for cutover**. The supplied 31 Oct verification is preserved with its
 provenance; the original local 1 Nov report and working changes were left
 untouched in the canonical checkout.
@@ -15,6 +16,15 @@ explicit non-transactional `setval`, and re-check imported row plans before
 staff-role derivation. MCP comparison now refuses missing sessions; migration
 output can use a private D: root; `--accept-held <list>` parsing is corrected.
 Runbook includes the explicit MCP file and ten post-load export comparisons.
+
+Local validation on the final code: **383 files / 18,285 tests passed**;
+typegen + TypeScript passed; full lint 0 errors (15 existing warnings);
+ported-import check clean (827 files); theme parity 430/430. Next 16.4.3
+matches the lockfile after a fresh install. Two independent local agent
+reviews resolved the staff-audit reconciliation ordering and command/parser
+issues. GitHub CI/build/mobile-fixture and merge state are recorded on PR #151;
+merge only when every required check is green. Authenticated role-home E2E,
+full PostgreSQL loader execution and provider transactions were not run.
 
 Fresh read-only evidence: 15 public household tables + 2 private views and
 19 columns missing from One; 10 populated missing tables contain 7,772 rows.

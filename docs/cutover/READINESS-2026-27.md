@@ -31,8 +31,10 @@ is superseded.
 ## Repairs and current validation
 
 Branch: `codex/cutover-verification-fixes`, based on One `da37090`.
-The accompanying PR is the code-delivery record; final CI/review status is
-recorded in `PROGRESS.md` before completion.
+[PR #151](https://github.com/veerpatta/vppsone/pull/151) is the delivery record
+(code commit `4ea0240`); see it for CI/build/mobile-fixture and merge status.
+Two independent local reviews resolved the audit-row ordering and command
+issues; these are local agent reviews, not GitHub approval submissions.
 
 - The snapshot loader's eight JSON bindings and tail-sync's two bindings
   now pass arrays/objects directly to postgres.js, preventing double encoding.
@@ -53,8 +55,10 @@ recorded in `PROGRESS.md` before completion.
   are corrected. Authenticated browser acceptance is still outstanding.
 
 Dependencies were freshly installed from the lockfile (Next 16.4.3), avoiding
-the handoff's stale local Next version. Local test and CI results are recorded
-with the PR; no fresh successful full-data load rehearsal is claimed.
+the handoff's stale local Next version. **Local: 383 test files / 18,285 tests
+pass**, typegen/TypeScript pass, lint 0 errors (15 existing warnings), import
+check clean and 430/430 theme tokens match. CI is the build/deployment gate;
+no fresh successful full-data load rehearsal or authenticated E2E is claimed.
 
 ## A separate, freshly verified load blocker
 
