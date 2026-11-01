@@ -23,23 +23,43 @@ day-close jobs continue to own those operations.
 
 ## Operation inventory
 
+The native read expansion below is implemented in One PR154 for the current
+real session, `2026-27`. Source support is merged; deployed One API acceptance
+for this expansion remains pending. The earlier release evidence below records
+what was verified before this expansion, not acceptance of its new screens.
+
 | One entry | Canonical owner | Current behavior and recovery |
 | --- | --- | --- |
 | Payment Desk search and standing | Fees `/api/one/v1/students` | Verified One identity and explicit source actor/session grant; uncached source reads |
 | Review payment and default late-fee waiver | Fees `/quote` | Source permission checks, current balance and source policy; no write |
 | Collect payment | Fees `/payments` | Same source posting engine and receipt numbering; both environment and source command gates must be open |
 | Lost response/reload | Fees `/commands/:id` | Browser stores the original command before dispatch; checks status and retries only that ID |
-| Receipt display/print and real `/rv` | Fees receipt/public verification | Canonical receipt and source print link; no duplicate One receipt |
+| Student directory and financial filters | Fees `/directory` | Native One list with source-computed amounts, financial filters, search, class scope, enrollment statuses and pagination |
+| Student360 profile and photograph | Fees `/students/:id/workspace` and scoped photo endpoint | Complete saved profile fields and source-owned private image displayed inside One |
+| Student360 fees, ledger and EMI | Fees student workspace | Native installments, fee profile/concessions, receipts, paged payments/corrections/refunds/waivers, current and earlier EMI plans |
+| Student360 household and history | Fees student workspace | Native family balances, contact preferences, contact/recovery history, communication delivery/attempt history and existing saved correspondence PDFs |
+| Individual receipt display | Fees `/receipts/:id/detail` | Native read-only One receipt, pinned to exact receipt UUID, number and session; no duplicate One receipt |
+| Receipt printing and real `/rv` | Fees receipt/public verification | Source print/verification workflow; private PDFs use the scoped authenticated read proxy |
 | Reversal, refund, correction, duplicate override | Existing Fees screens | One opens the supported canonical workflow |
-| Households, student master, fee setup, bulk operations | Existing Fees screens | One opens the supported canonical workflow |
+| Student/photo/household edits, fee setup, bulk operations | Existing Fees screens | One opens the supported canonical mutation workflow |
 | Financial reports/exports, day close, reminders, payment links | Existing Fees screens/jobs | One never runs a competing financial schedule/provider |
 | Academic roster, attendance, marks, enquiries, seats | One | Authorized real roster projection; earlier academic activity remains TEST |
 | TEST financial rehearsal | One isolated TEST engine | Does not fall back to the source or use real command credentials |
 
-Current native One collection supports ordinary payments. Advanced financial
-operations remain fully available through Fees. Source photos are placeholders
-in One until a separate source-owned media contract is introduced. Retired
-identity snapshots are retained; existing academic rows are never cascaded away.
+Current native One collection supports ordinary payments, subject to the
+existing collection gates. Advanced writes, financial reports/exports and
+provider operations remain available through Fees. Real financial reads do not
+use One's local fee tables or recalculate a competing ledger. Source media is
+served through authenticated, uncached, same-origin One proxies; source paths
+and credentials never reach the browser. Each section intersects One's existing
+permissions with the source actor's permissions. Denied sections and their
+pagination metadata are removed together.
+
+The source has photographs for 484 of the 537 current-session students. The
+remaining 53 photographs are missing in Fees itself; their initials/placeholder
+in One reflects that source state. This release does not invent photographs,
+create a competing real-photo editor or change teacher logins. Retired identity
+snapshots are retained; existing academic rows are never cascaded away.
 
 ## Sync and reconciliation
 
@@ -98,6 +118,34 @@ command records and receipts; retries must reuse their original IDs.
 
 ## Evidence and release record
 
+### Native student-read expansion — live acceptance pending
+
+- Source schoolfees PR120 merged at
+  `4586d25b5d88a93431f1c726847a23298eed3f5d` with the scoped directory,
+  workspace, receipt-detail, photograph and existing-document read APIs.
+- Source migration `20261101063539_one_bridge_student_reads` is applied.
+  All 18 added profile-projection fields matched Fees across all 537 students.
+  These are identity/profile fields; the financial ledger remains solely in Fees.
+- One PR154 implements native current-real-session profile, photo, directory
+  money/filter, fee workspace, receipt, ledger/history, EMI, household and saved
+  PDF coverage. No new academic attachment store is implied: source PDFs are
+  saved correspondence and may reflect their latest generated version. Voice
+  note availability is shown when recorded; audio playback remains in Fees.
+- Local validation passed 411 test files / 18,665 tests before the final
+  dependent-permission guard, followed by 33 focused tests after that guard.
+  Next route generation and TypeScript, full lint (zero errors; 15 existing
+  warnings), 828-file port checks and 430-token theme parity passed.
+- Four synthetic 390px Student360 flows passed: English, Hindi, bilingual and
+  Office permission denial. Independent source-contract and permission reviews
+  found no remaining blocker. These checks do not establish live acceptance.
+- Production verification of real DTOs, exact photo/PDF bytes, native directory
+  amounts/filters and authenticated Student360/receipt pages remains pending
+  One deployment. Historical promoted-session receipt access, teacher-login
+  rollout, real collections and message sends are not part of this read release.
+
+### Earlier coexistence release evidence
+
+The following records the earlier release and its acceptance at that time.
 Source runtime shipped through schoolfees PR118 and PR119. One's main runtime
 shipped through PR152. The verified source projection and approved real
 timetable are published; the 30-second scheduler, 02:00 IST full verification
@@ -185,10 +233,10 @@ operator acceptance state rather than inferring it from a deployment alone.
 The owner selected API-only live verification. Synthetic mobile tests are
 separate evidence; no physical phone, printer, browser interaction, real money
 collection, parent test send or marks/attendance save is claimed. Proposed
-seven-day observation windows have not elapsed. Advanced financial lists,
-filters, reports, corrections and bulk workflows remain available in Fees;
-One's school directory uses the verified academic roster and links to those
-canonical financial screens. Existing login addresses remain unchanged as
-requested, including the five QA-domain addresses that cannot receive reset
+seven-day observation windows have not elapsed. One's school directory retains
+its verified academic roster; PR154 adds the native financial directory and
+student read coverage described above. Financial reports, corrections and bulk
+mutation workflows remain available in Fees. Existing login addresses remain
+unchanged as requested, including the five QA-domain addresses that cannot receive reset
 email. Operational class-teacher assignments and longer observation remain
 school follow-up work.
