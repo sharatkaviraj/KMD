@@ -1,5 +1,26 @@
 # Decisions
 
+## One student performance — 1 November 2026
+
+Reduce server waterfalls and client work before introducing persistent caches.
+The directory overlaps optional field metadata, attendance and portraits;
+Student 360 overlaps its already-authorized portrait; the shell streams its
+informational bridge status while data readers retain their readiness checks.
+Individual marks queries add a pupil filter and bounded paper-ID chunks under
+the current cookie/RLS client, while class reports retain the unfiltered mode.
+
+Search controls share an isolated draft provider, so typing does not rebuild the
+directory row tree. Use the same query normalization as the server, retain newer
+drafts across owned request acknowledgments, and keep the search URL independent
+of result page count. Enter is immediate; the debounce is 250 ms; composition and
+external navigation cancel obsolete work. A scrolling touch cancels IntentLink's
+90 ms full-prefetch timer; keyboard focus remains immediate.
+
+No auth, money or private-photo cache was introduced and no permission grant or
+database migration is needed. Existing TEST access refusals are not latency
+evidence. Historical migration author/apply timestamp differences remain recorded
+history, not migrations to replay. Implementation: `5d54795`.
+
 ## Go-live on One's own database — 2026-10-30
 
 The owner approved `docs/cutover/GO-LIVE-2026-27-PLAN.md` on 30 Oct ("implement the plan end to end"), with one constraint stated beforehand: never change the fee app's code or data. The decisions below put that plan into effect. Where the plan left an owner question open, the plan's recommended answer is recorded here and the owner can still overturn it; the plan's question number is given.

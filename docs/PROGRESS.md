@@ -1,5 +1,38 @@
 # VPPS One — progress
 
+## Faster app frame and student views — 1 November 2026
+
+Implementation commit `5d54795` on `perf/one-student-loading-20261101`, based on
+`b666e38`. The target is One at `one.vpps.co.in`.
+
+The directory overlaps optional task metadata with its main read and reads
+portraits beside attendance. Student 360 starts its authorized portrait beside
+the school model. The informational bridge banner streams after the authenticated
+shell. Individual profile/report marks queries request only the opened pupil and
+chunk paper IDs; class-wide exports keep their existing behavior.
+
+Search draft state is isolated from the cards, with a 250 ms pause instead of
+450 ms, immediate Enter and IME support. Regression checks cover newer typing
+during old results, clearing an in-flight query, normalized whitespace and the
+transition between multiple pages and one page. Scrolling touches cancel full
+profile prefetches before they begin; held intent and keyboard focus retain them.
+
+Validation: 416 test files, 18,728 passed and one skipped; typecheck and lint pass
+(15 existing warnings), 828 ported imports clean and 430 theme tokens match.
+Synthetic browser coverage passes the 27 existing profile/stream cases plus the
+two new 390/1280px search cases (the 390px search also passed the first run).
+Fresh review's three search races were reproduced, fixed and retested. Production
+build/bundle gates and the deployment record belong to this branch's release PR.
+
+No migration was added. A read-only audit of all 103 repository migrations against
+361 live ledger entries found six historical timestamp aliases already documented
+in the October assessment evidence, all matched by migration name; relevant
+objects/columns exist. No historic migration was replayed. Existing non-smoke TEST
+accounts lack `students:view`, so their denied responses are excluded from latency
+measurements. No permissions were granted for benchmarking; no real student,
+payment or message action was performed. Release evidence is retained in the PR
+and `D:\Codex\scratch\vppsone-performance-20261101`.
+
 ## Native Fees student records in One — 1 November 2026
 
 Native current-session (`2026-27`) student reads are released through
