@@ -711,9 +711,9 @@ describe("rollback export", () => {
 
 describe("run folders stay out of the repo", () => {
   it("refuses a run id that is not a plain name", async () => {
-    const { runDir } = await import("../scripts/migrate/lib/env.mjs");
+    const { MIGRATION_HOME, runDir } = await import("../scripts/migrate/lib/env.mjs");
     expect(() => runDir("../escape", { create: false })).toThrow();
     expect(() => runDir("a/b", { create: false })).toThrow();
-    expect(runDir("20261030T120000Z", { create: false })).toContain(".vppsone-migration");
+    expect(runDir("20261030T120000Z", { create: false })).toContain(MIGRATION_HOME);
   });
 });

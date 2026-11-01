@@ -46,16 +46,19 @@
  *      updates parents-first, cyclic foreign-key columns in a second pass;
  *   8. triggers re-enabled; written counts must equal the plan's, table by
  *      table (a cascade would otherwise lose rows silently); staging tables
- *      dropped; an orphan count per foreign-key constraint in pg_constraint
- *      (any orphan aborts); matviews refreshed in dependency order and the
- *      refresh queue told so; owned sequences setval'd (bigint identities to
- *      at least ONE_IDENTITY_FLOOR); watermarks written;
+ *      dropped; the imported row plan re-read and required to have no remaining
+ *      changes before One staff-role derivation; an orphan count per foreign-key
+ *      constraint in pg_constraint (any orphan aborts); matviews refreshed in
+ *      dependency order and the refresh queue told so; owned sequences setval'd
+ *      (bigint identities to at least ONE_IDENTITY_FLOOR; planned only in
+ *      rehearsals); watermarks written;
  * then a `migration_runs` row records the counts, and the run's sealed auth
  * rows are deleted (critique0 #28).
  *
- * --rollback-only runs all of APPLY and then rolls the transaction back:
- * proof the SQL path works, nothing persisted (no run row either). It lifts
- * the environment and fee-writes guards, never the cutover guard.
+ * --rollback-only rehearses row writes and then rolls the transaction back
+ * (no run row either). Sequence advancement is planned but skipped: setval
+ * does not roll back in Postgres. It lifts the environment and fee-writes
+ * guards, never the cutover guard.
  *
  * Never touched: protected rows (TEST-D- shells, migration_id_map targets and
  * everything keyed on them), One-owned settings, and — except on --first-load
@@ -286,17 +289,41 @@ export function countMismatches(plan, counts) {
   return out;
 }
 
+/** A fresh, in-transaction row plan must need no further writes. */
+export function assertRowPlanReconciled(plan) {
+  const differences = [];
+  for (const [table, p] of Object.entries(plan.tables)) {
+    const counts = { table, insert: p.insert.length, update: p.update.length, delete: p.delete.length };
+    if (counts.insert || counts.update || counts.delete) differences.push(counts);
+  }
+  if (differences.length) {
+    throw new Error(`in-transaction row-plan reconciliation failed: ${differences.map((d) => `${d.table} +${d.insert} ~${d.update} -${d.delete}`).join("; ")}`);
+  }
+  return { ok: true, tables: Object.keys(plan.tables).length, remaining: { insert: 0, update: 0, delete: 0 } };
+}
+
+/** Staff derivation may emit One-owned audit rows after import equality is checked. */
+export async function reconcileImportedRowsThenSettle(readPlan, settleStaff) {
+  const after = await readPlan();
+  const remainingBlockers = blockers(after);
+  if (remainingBlockers.length) throw new Error(`post-write plan refused: ${remainingBlockers.join("; ")}`);
+  const reconciliation = assertRowPlanReconciled(after.plan);
+  const staff = await settleStaff();
+  return { reconciliation, staff };
+}
+
 /** A row id at or above which One's own identity values start (see refreshAndSetval). */
 export const ONE_IDENTITY_FLOOR = 1_000_000_000;
 
-async function applyPlan(tx, { meta, plan }) {
+export async function applyPlan(tx, { meta, plan }) {
   const loaded = plan.order.filter((t) => plan.tables[t]);
   const touched = loaded.filter((t) => {
     const p = plan.tables[t];
     return p.insert.length || p.update.length || p.delete.length;
   });
 
-  // Stage every source row of every touched table.
+  // Stage every source row of every touched table. Pass JSON values, not
+  // strings: postgres.js serializes parameters inferred as jsonb itself.
   await tx.unsafe("create schema if not exists import_stage");
   await tx.unsafe("revoke all on schema import_stage from public, anon, authenticated");
   for (const table of touched) {
@@ -306,7 +333,7 @@ async function applyPlan(tx, { meta, plan }) {
     for (const part of chunks(rows)) {
       await tx.unsafe(
         `insert into import_stage.${ident(table)} select * from jsonb_populate_recordset(null::import_stage.${ident(table)}, $1::jsonb)`,
-        [JSON.stringify(part)],
+        [part],
       );
     }
   }
@@ -336,7 +363,7 @@ async function applyPlan(tx, { meta, plan }) {
          where exists (select 1 from public.${ident(fk.parent)} p
            join jsonb_populate_recordset(null::public.${ident(fk.parent)}, $1::jsonb) k on ${pkJoin(parentPk, "p", "k")}
            where ${match})`,
-        [JSON.stringify(part)],
+        [part],
       );
       n += row.n;
     }
@@ -354,7 +381,7 @@ async function applyPlan(tx, { meta, plan }) {
       const result = await tx.unsafe(
         `update public.${ident(r.child)} x set ${r.columns.map((c) => `${ident(c)} = null`).join(", ")}
          from jsonb_populate_recordset(null::public.${ident(r.child)}, $1::jsonb) k where ${pkJoin(pk, "x", "k")}`,
-        [JSON.stringify(part)],
+        [part],
       );
       n += result.count;
     }
@@ -367,11 +394,10 @@ async function applyPlan(tx, { meta, plan }) {
     const pk = meta.tables[table].pk;
     if (!p.delete.length) continue;
     for (const part of chunks(deleteKeyRows(p.delete, pk))) {
-      const json = JSON.stringify(part);
       for (const column of plan.deferred[table] ?? []) {
         await tx.unsafe(
           `update public.${ident(table)} x set ${ident(column)} = null from jsonb_populate_recordset(null::public.${ident(table)}, $1::jsonb) k where ${pkJoin(pk, "x", "k")}`,
-          [json],
+          [part],
         );
       }
     }
@@ -383,7 +409,7 @@ async function applyPlan(tx, { meta, plan }) {
     for (const part of chunks(deleteKeyRows(p.delete, pk))) {
       const result = await tx.unsafe(
         `delete from public.${ident(table)} x using jsonb_populate_recordset(null::public.${ident(table)}, $1::jsonb) k where ${pkJoin(pk, "x", "k")}`,
-        [JSON.stringify(part)],
+        [part],
       );
       counts[table].deleted += result.count;
     }
@@ -405,7 +431,7 @@ async function applyPlan(tx, { meta, plan }) {
         `insert into public.${ident(table)} (${columns.map(ident).join(", ")}) ${identity ? "overriding system value" : ""}
          select ${select} from import_stage.${ident(table)} s
          join jsonb_populate_recordset(null::import_stage.${ident(table)}, $1::jsonb) k on ${pkJoin(pk, "s", "k")}`,
-        [JSON.stringify(part)],
+        [part],
       );
       counts[table].inserted += result.count;
     }
@@ -416,7 +442,7 @@ async function applyPlan(tx, { meta, plan }) {
            from import_stage.${ident(table)} s
            join jsonb_populate_recordset(null::import_stage.${ident(table)}, $1::jsonb) k on ${pkJoin(pk, "s", "k")}
            where ${pkJoin(pk, "x", "s")}`,
-          [JSON.stringify(part)],
+          [part],
         );
         counts[table].updated += result.count;
       }
@@ -440,7 +466,7 @@ async function applyPlan(tx, { meta, plan }) {
          from import_stage.${ident(table)} s
          join jsonb_populate_recordset(null::import_stage.${ident(table)}, $1::jsonb) k on ${pkJoin(pk, "s", "k")}
          where ${pkJoin(pk, "x", "s")}`,
-        [JSON.stringify(part)],
+        [part],
       );
       n += result.count;
     }
@@ -490,23 +516,34 @@ async function orphanCheck(tx, meta) {
  * cutover) take ids live will never reach and the next load cannot collide
  * with them.
  */
-async function refreshAndSetval(tx, meta, touched) {
+export async function refreshAndSetval(tx, meta, touched, { rollbackOnly = false } = {}) {
   const order = matviewOrder(await tx.unsafe(MATVIEW_ORDER_SQL));
   for (const view of order) await tx.unsafe(`refresh materialized view public.${ident(view)}`);
   if (meta.tables.workbook_materialized_view_refresh_queue) {
     await tx.unsafe("update public.workbook_materialized_view_refresh_queue set pending = false, last_refreshed_at = now()");
   }
+  const sequencePlan = [];
   for (const table of touched) {
     for (const { column, sequence } of meta.tables[table].sequences) {
       const type = meta.tables[table].columns.find((c) => c.name === column)?.type;
       const floor = type === "bigint" ? ONE_IDENTITY_FLOOR : 1;
-      await tx.unsafe(
-        `select setval($1::regclass, greatest(coalesce((select max(${ident(column)}) from public.${ident(table)}), 0) + 1, $2::bigint), false)`,
-        [sequence, floor],
-      );
+      if (rollbackOnly) {
+        // setval is not transactional. Read the intended value, but never
+        // advance an existing sequence during a rollback-only rehearsal.
+        const [next] = await tx.unsafe(
+          `select greatest(coalesce((select max(${ident(column)}) from public.${ident(table)}), 0) + 1, $1::bigint)::text as next_value`,
+          [floor],
+        );
+        sequencePlan.push({ table, column, sequence, nextValue: next.next_value, applied: false });
+      } else {
+        await tx.unsafe(
+          `select setval($1::regclass, greatest(coalesce((select max(${ident(column)}) from public.${ident(table)}), 0) + 1, $2::bigint), false)`,
+          [sequence, floor],
+        );
+      }
     }
   }
-  return order;
+  return { refreshed: order, sequencePlan };
 }
 
 /** Thrown at the end of a --rollback-only rehearsal so the transaction rolls back. */
@@ -629,10 +666,23 @@ async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rol
   if (stop.length) throw new Error(`plan refused: ${stop.join("; ")}`);
 
   const { counts, touched } = await applyPlan(tx, built);
-  auth.staff = await settleFeeUsers(tx, { authPlan, feeUserRows: source.get("users") ?? [], authUsers, runRowId });
+  // Re-read through the same remapping, ownership and TEST rules, while all
+  // load locks are still held. This checks row content, not just write counts.
+  // Do this BEFORE staff derivation: deriving public.users intentionally
+  // creates One-owned audit rows which are not part of the imported snapshot.
+  // Post-derivation financial/views/export reconciliation remains separate.
+  const { reconciliation, staff } = await reconcileImportedRowsThenSettle(
+    () => buildPlan(tx, { manifest, source, authUsers, firstLoad }),
+    () => settleFeeUsers(tx, { authPlan, feeUserRows: source.get("users") ?? [], authUsers, runRowId }),
+  );
+  auth.staff = staff;
+  console.log(`  in-transaction imported row-plan reconciliation (before staff derivation): ${reconciliation.tables} tables, 0 remaining inserts/updates/deletes.`);
   const orphans = await orphanCheck(tx, built.meta);
   if (orphans.length) throw new Error(`orphans after apply: ${orphans.map((o) => `${o.constraint} ${o.count}`).join(", ")}`);
-  const refreshed = await refreshAndSetval(tx, built.meta, touched);
+  const { refreshed, sequencePlan } = await refreshAndSetval(tx, built.meta, touched, { rollbackOnly });
+  if (rollbackOnly) {
+    console.log(`  sequence advancement skipped (--rollback-only): ${sequencePlan.length} planned value(s); ${JSON.stringify(sequencePlan)}.`);
+  }
 
   for (const t of manifest.tables) {
     await tx`
@@ -654,7 +704,7 @@ async function writeLoad(tx, { args, manifest, source, authUsers, firstLoad, rol
     insert into vppsone.data_replica (source_project, target_project, tables_copied, rows_copied, tables_skipped, masked_columns, carried_exceptions, note)
     values (${marker.source_project}, ${marker.target_project}, ${marker.tables_copied}, ${marker.rows_copied},
             ${tx.json(marker.tables_skipped)}, ${tx.json(marker.masked_columns)}, ${tx.json(marker.carried_exceptions)}, ${marker.note})`;
-  const outcome = { summary, counts, auth, refreshed, runId };
+  const outcome = { summary, counts, auth, refreshed, sequencePlan, reconciliation, runId };
   if (rollbackOnly) throw new RehearsalRollback(outcome);
   return outcome;
 }
@@ -726,7 +776,7 @@ async function main() {
       } catch (error) {
         if (!(error instanceof RehearsalRollback)) throw error;
         const o = error.outcome;
-        console.log(`load-snapshot: REHEARSAL PASSED and rolled back — every write, the orphan check, the matview refresh and setval ran; nothing persisted. Tables written ${Object.keys(o.counts).length}; auth ${JSON.stringify(o.auth)}.`);
+        console.log(`load-snapshot: REHEARSAL PASSED — row writes, orphan checks, matview refresh and row-plan reconciliation ran and rolled back. Sequence advancement was planned only, not executed. Tables written ${Object.keys(o.counts).length}; auth ${JSON.stringify(o.auth)}.`);
         return;
       }
     }

@@ -30,6 +30,9 @@ async function main() {
 
   let failed = false;
   const theirs = typeof args.mcp === "string" ? JSON.parse(readFileSync(args.mcp, "utf8")) : null;
+  if (typeof args.mcp === "string" && (!theirs || typeof theirs !== "object" || Array.isArray(theirs))) {
+    throw new Error("MCP figures must be an object keyed by session label.");
+  }
   for (const [label, summary] of Object.entries(ours)) {
     const m = summary.money;
     console.log(
@@ -38,6 +41,7 @@ async function main() {
     if (!theirs) continue;
     if (!theirs[label]) {
       console.log(`  MCP: no figures for ${label} in the file.`);
+      failed = true;
       continue;
     }
     const diffs = compareWithMcp(summary, theirs[label]);
@@ -45,6 +49,13 @@ async function main() {
     else {
       failed = true;
       for (const d of diffs) console.log(`  MCP: MISMATCH ${d.field}: ours ${d.ours}, MCP ${d.theirs}`);
+    }
+  }
+  if (theirs) {
+    for (const label of Object.keys(theirs)) {
+      if (Object.hasOwn(ours, label)) continue;
+      console.log(`  MCP: session ${label} is missing from the extract.`);
+      failed = true;
     }
   }
   if (failed) process.exit(1);

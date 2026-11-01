@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { qaAccount } from "../fixtures/qa-accounts";
 import { db, openAs, signIn } from "./support/harness";
@@ -6,11 +6,11 @@ import { db, openAs, signIn } from "./support/harness";
 /**
  * Where each role lands, and what the first screen tells them.
  *
- * The three product requirements behind the Ledger Calm 2 role homes:
+ * The three product requirements behind the current role homes:
  *
  *  1. accounts staff open the **School Fees workspace**;
  *  2. a teacher opens **her own class and day**;
- *  3. an administrator opens the **combined school overview**.
+ *  3. an administrator opens **Today**, with school activity and fee collection.
  *
  * Asserted against a signed-in browser rather than against the resolver's unit
  * tests, because the resolver being right and the door using it are different
@@ -54,11 +54,6 @@ async function setStart(profileId: string, value: string | null) {
   if (error) throw new Error(`Could not set the start screen: ${error.message}`);
 }
 
-/** What the page actually says, without the shell. */
-async function mainText(page: Page): Promise<string> {
-  return (await page.locator("main").innerText()).replace(/\s+/g, " ");
-}
-
 test.describe("where a role lands", () => {
   test("a teacher opens her own class and day", async ({ page }) => {
     const account = await signIn(page, "teacher", "/");
@@ -68,32 +63,29 @@ test.describe("where a role lands", () => {
     // address on it (B-03).
     await expect(page).toHaveURL(/\/teach$/);
 
-    const text = await mainText(page);
-
-    // Her class is named on the first screen — the design's "Your class VI A".
-    expect(text).toMatch(/Your class|आपकी कक्षा/);
-    // And the day, which is the other half of "class and day".
-    expect(text).toMatch(/Today's timetable|आज का समय-चक्र/);
+    const main = page.getByRole("main");
+    await expect(main).toHaveCount(1);
+    // The seeded teacher holds a class. Today names that assignment in the
+    // greeting, including on days when school is closed, then shows her periods.
+    // Locator assertions wait for the streamed page instead of reading its shell.
+    await expect(main).toContainText(/class teacher|की कक्षा अध्यापक/);
+    await expect(main).toContainText(/My periods today|आज मेरे पीरियड/);
 
     expect(account.role).toBe("teacher");
   });
 
-  test("an administrator opens the combined school overview", async ({ page, browser }) => {
+  test("an administrator opens Today with school activity and fee collection", async ({ page, browser }) => {
     await openAs(page, browser, "admin", "/dashboard");
+    // The legacy bookmark forwards to the admin's current home.
+    await expect(page).toHaveURL(/\/$/);
 
-    const text = await mainText(page);
-
-    // The five things the design's administrator home puts together.
-    expect(text).toMatch(/School overview|स्कूल की स्थिति/);
-    expect(text).toMatch(/Needs attention|ध्यान चाहिए/);
-    expect(text).toMatch(/Today at school|आज स्कूल में/);
-    expect(text).toMatch(/Your workspaces|आपके कार्यक्षेत्र/);
-    expect(text).toMatch(/Fee collection|फ़ीस का हिसाब/);
-
-    // **No invented rupees.** The fee source is not read here until R6, and
-    // the handoff is explicit: unavailable with a next step, never ₹0.
-    expect(text).not.toMatch(/₹/);
-    await expect(page.locator('[aria-labelledby="admin-workspaces"] a[href="/fees"]')).toBeVisible();
+    const main = page.getByRole("main");
+    await expect(main).toHaveCount(1);
+    await expect(main).toContainText(/Today at school|आज स्कूल में/);
+    await expect(main).toContainText(/Teaching exceptions|पढ़ाई में बदलाव/);
+    // The native fee module now supplies real TEST-session money to this home.
+    await expect(main).toContainText(/Money taken|जमा राशि|Fees collected today|आज जमा फ़ीस/);
+    await expect(main.locator('a[href="/payments"]:visible').first()).toBeVisible();
   });
 
   test("accounts staff open the School Fees workspace", async ({ request }) => {
