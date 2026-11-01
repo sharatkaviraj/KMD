@@ -1,5 +1,6 @@
 import { approvedStudentPhotos } from "@/modules/collection/data/approved-photos";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
@@ -32,6 +33,9 @@ import { EmptyState } from "@/vx/ui/primitives";
 import { assignmentContext } from "@/modules/teacher-tasks/data/assignment";
 import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
 import { missingDirectoryPage } from "@/modules/teacher-tasks/data/missing-directory";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { canonicalStudentDirectoryUrl } from "@/platform/fees-bridge/student-directory";
+import { ST } from "@/vx/screens/admin/students-text";
 
 export const runtime = "nodejs";
 
@@ -88,18 +92,23 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   }
 
   const seesMoney = can(staff, "fees:view");
+  const canonicalDirectory = usesCanonicalFees(staff, directorySession);
+  // Real school browsing reads the authorized roster/enrolments directly.
+  // The canonical API does not expose the legacy bulk financial predicates;
+  // invoking that local query then falling back produced a false error banner.
+  const readsLocalMoney = seesMoney && !canonicalDirectory;
   const jar = await cookies();
   const remembered = readStudentViewCookie(jar.get(STUDENT_VIEW_COOKIE)?.value, staff.id);
   // `?seg=` is one quick chip in an old link, or any fee filters from the phone's sheet (UI-94).
   const asked = parseStudentFilters(one(params.seg));
-  const view = resolveStudentView({ param: one(params.view), seg: parseSegment(one(params.seg)), filters: asked, remembered, seesMoney });
+  const view = resolveStudentView({ param: one(params.view), seg: parseSegment(one(params.seg)), filters: asked, remembered, seesMoney: readsLocalMoney });
   const filters = view === "fees" ? asked : [];
   const seg = quickSegment(filters);
   const layout = resolveStudentLayout(one(params.look), readStudentLayoutCookie(jar.get(STUDENT_LAYOUT_COOKIE)?.value, staff.id));
 
   // One session for the money list, its class filter and the attendance
   // beside it: the view-session, as on every other money screen.
-  const moneySession = seesMoney
+  const moneySession = readsLocalMoney
     ? await getViewSessionCookie()
         .then((cookieSession) => resolveViewSession({ cookieSession }))
         .then((resolved) => resolved.sessionLabel)
@@ -109,7 +118,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   let rows: StudentListRow[] = [];
   let total = 0;
   let counts: StudentsProps["counts"] = null;
-  let failed = seesMoney && !moneySession;
+  let failed = readsLocalMoney && !moneySession;
   let moneyMode = false;
   let session = directorySession;
 
@@ -123,6 +132,23 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     !classParam && q ? classFromQuery(q, [...((await labelsRead) ?? new Map<string, string>()).entries()].map(([id, label]) => ({ id, label }))) : null;
   const classId = classParam ?? typedClass?.id ?? null;
   const text = typedClass ? "" : q;
+  const feesDirectoryHref = canonicalDirectory && seesMoney ? canonicalStudentDirectoryUrl({
+    sessionLabel: directorySession, query: text, classId, filters: asked,
+    sort: sort.key === "class" || layout === "class" ? "class" : "name",
+  }) : undefined;
+  const asksFeeView = one(params.view) === "fees" || (one(params.view) !== "school" && asked.length > 0);
+  if (feesDirectoryHref && asksFeeView) {
+    // A One-only missing-field predicate cannot be transferred to Fees.
+    // Offer both explicit scopes without showing an expanded task selection.
+    if (missing) return (
+      <VxPage><TopBar title={lead(T.students, language)} /><main><Section>
+        <p>{lead(ST.sourceFeesTaskFilter, language)}</p>
+        <a className="tap btn" href={feesDirectoryHref}>{lead(ST.sourceFeesLink, language)}</a>
+        <a className="tap btn" href={`/students?${new URLSearchParams({ view: "school", missing, ...(q ? { q } : {}), ...(classParam ? { class: classParam } : {}) })}`}>{lead(ST.viewSchool, language)}</a>
+      </Section></main></VxPage>
+    );
+    redirect(feesDirectoryHref);
+  }
   const missingIds = missing
     ? new Set((await assignmentContext()).students.filter(s => missing === "photo" ? !s.hasPhoto : !s.values[missing]).map(s => s.id))
     : null;
@@ -165,7 +191,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
 
   let directoryLabels: Map<string, string> | null = null;
   if (!moneyMode) {
-    if (missingIds && seesMoney && !moneySession) throw new Error("directory_unavailable");
+    if (missingIds && readsLocalMoney && !moneySession) throw new Error("directory_unavailable");
     const read = (page: number) => searchStudents({ text, classId, page }, directorySession);
     const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.studentId, page) : null;
     const [labels, results] = await Promise.all([
@@ -230,7 +256,8 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         viewKey={staff.id}
         canCollect={can(staff, "fees:collect")}
         canAdmit={staff.role === "admin"}
-        canRemind={seesMoney}
+        canRemind={readsLocalMoney}
+        feesDirectoryHref={feesDirectoryHref}
         quick={quickActionsFor((p) => can(staff, p))}
         failed={failed}
         taskAssignment={canAssignTasks?{matchingIds:taskMatchingIds??ids,missing,fields:taskFields.map(f=>({key:f.key,hi:f.labelHi,en:f.labelEn}))}:undefined}

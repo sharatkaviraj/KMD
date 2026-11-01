@@ -20,6 +20,7 @@ import { isYearCleared } from "@/modules/fees/domain/year-clear";
 import { calculateOverdueBaseAmount, calculatePendingLateFeeAmount } from "@/modules/fees/domain/due-amounts";
 import { getStudentFinancialSnapshot } from "@/modules/fees/data/policy";
 import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules/prev-year-dues/domain/display";
+import { STUDENT_LIST_FEE_SEGMENTS } from "@/platform/fees-bridge/student-directory";
 
 /**
  * The fee side of the admin's Students list and Student 360 (P5).
@@ -36,20 +37,7 @@ import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules
  * phone's Filter sheet (UI-94). The fee app combines them — either of two in
  * one family (Pending or Paid up), both across families (Pending and on a bus).
  */
-const SEGMENT_OF = {
-  pending: "overdue",
-  late: "lateFeePending",
-  never: "neverPaid",
-  part: "partlyPaid",
-  paid: "yearClear",
-  emi: "onEmi",
-  emiMissed: "emiMissed",
-  old: "oldBalanceDue",
-  bus: "onTransport",
-  new: "newThisYear",
-  concession: "hasDiscount",
-  noPhone: "missingPhone",
-} as const satisfies Record<string, SegmentId>;
+const SEGMENT_OF = STUDENT_LIST_FEE_SEGMENTS;
 
 type ListFilter = keyof typeof SEGMENT_OF;
 

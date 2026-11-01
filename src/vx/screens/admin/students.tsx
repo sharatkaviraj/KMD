@@ -136,6 +136,8 @@ export type StudentsProps = {
   canCollect: boolean;
   canAdmit: boolean;
   canRemind: boolean;
+  /** Real financial lists stay on the canonical Fees service during coexistence. */
+  feesDirectoryHref?: string;
   /** The quick actions this reader may open from "New" in the top bar. */
   quick?: string[];
   failed: boolean;
@@ -836,6 +838,7 @@ export function StudentsScreen(props: StudentsProps) {
             {props.canAdmit ? <Btn variant="pri" icon="userPlus" href="/admissions/new">{tx(T.addStudent)}</Btn> : null}
           </div>
 
+          {props.feesDirectoryHref ? <Banner>{tx(ST.sourceFeesHint)}{" "}<a href={props.feesDirectoryHref} style={{ textDecoration: "underline" }}>{tx(ST.sourceFeesLink)}</a></Banner> : null}
           {props.failed ? <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
 
           {askBanner}

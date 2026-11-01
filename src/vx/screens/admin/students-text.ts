@@ -6,6 +6,9 @@ import { p, type Pair } from "@/vx/text";
  * fact, and its detail line says the period and where the fact comes from.
  */
 export const ST = {
+  sourceFeesHint: p("School records are shown here.", "यहाँ स्कूल के रिकॉर्ड दिखते हैं।"),
+  sourceFeesLink: p("Open fee balances and filters in Fees", "Fees में बकाया और फ़ीस फ़िल्टर खोलें"),
+  sourceFeesTaskFilter: p("Fee filters are available in Fees. The teacher-task filter applies only to the school list; choose which list to open.", "फ़ीस फ़िल्टर Fees में उपलब्ध हैं। शिक्षक-कार्य का फ़िल्टर केवल स्कूल की सूची पर लागू होता है; चुनें कौन-सी सूची खोलनी है।"),
   /* the list as the design draws it (F05/D01) */
   search: p("Name, SR no., class or parent", "नाम, SR नं., कक्षा या अभिभावक"),
   searchPhone: p("Name, SR no. or class", "नाम, SR नं. या कक्षा"),

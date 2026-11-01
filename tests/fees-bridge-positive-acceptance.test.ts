@@ -2,7 +2,7 @@ import {describe,expect,it,vi} from "vitest";
 import {isCanonicalTestReceipt,runTestPaymentAcceptance} from "../scripts/coexistence/test-payment-acceptance.mjs";
 const student="00000000-0000-4000-8000-000000000001",real="00000000-0000-4000-8000-000000000002",actor="00000000-0000-4000-8000-000000000003",denied="00000000-0000-4000-8000-000000000004",receipt="00000000-0000-4000-8000-000000000005";
 const config={purpose:"approved-test-only-payment-acceptance",fixtureApproved:true,sessionLabel:"TEST-2026-27",sourceTestStudentId:student,sourceRealStudentId:real,actorId:actor,deniedActorId:denied,oneAccessToken:"synthetic-test-session-token",deniedActorAccessToken:"synthetic-denied-session-token",oneAuthKey:"synthetic-public-auth-key-12345",bridgeKey:"synthetic-bridge-secret-".repeat(3)};
-function fixture({loseFirst=false,wrongFixture=false,prefix="TST",receiptPrefix="TST"}={}){
+function fixture({loseFirst=false,wrongFixture=false,prefix="TST",receiptPrefix="TST",wrongReceiptNumber=false}={}){
   let command:Record<string,unknown>|null=null,commits=0,lost=false;
   const writes:Record<string,unknown>[]=[],snapshots:Record<string,unknown>[]=[];
   const persist=vi.fn(async(value:Record<string,unknown>)=>{snapshots.push(structuredClone(value));});
@@ -30,12 +30,17 @@ function fixture({loseFirst=false,wrongFixture=false,prefix="TST",receiptPrefix=
       if(!command){command=input;commits++;}else expect(input).toEqual(command);
       return response(result(input.commandId));
     }
-    if(route.startsWith("/receipts/"))return response({receiptId:receipt,receiptNumber:receiptNumber(),student:{id:student,sessionLabel:"TEST-2026-27"},amountReceived:1,reversed:false,printUrl:`https://fees.vpps.co.in/protected/receipts/${receipt}`});
+    if(route.startsWith("/receipts/"))return response({receiptId:receipt,receiptNumber:wrongReceiptNumber?receiptNumber().replace(/0001$/,"0002"):receiptNumber(),student:{id:student,sessionLabel:"TEST-2026-27"},amountReceived:1,reversed:false,printUrl:`https://fees.vpps.co.in/protected/receipts/${receipt}`});
     throw new Error("unexpected_route");
   });
   return {request,persist,writes,snapshots,count:()=>commits};
 }
 describe("positive TEST API acceptance",()=>{
+  it("rejects a canonical-looking receipt number that differs from the command result",async()=>{
+    const f=fixture({wrongReceiptNumber:true});
+    await expect(runTestPaymentAcceptance(config,{execute:true,fetcher:f.request,persistCheckpoint:f.persist})).resolves.toMatchObject({ok:false,code:"canonical_receipt_mismatch",checkpointPreserved:true});
+    expect(f.count()).toBe(1);
+  });
   it("uses the source date-and-sequence receipt format and binds the payment date",()=>{
     expect(isCanonicalTestReceipt("TST20261101-0001","2026-11-01")).toBe(true);
     expect(isCanonicalTestReceipt("TST20270103-10000","2027-01-03")).toBe(true);
