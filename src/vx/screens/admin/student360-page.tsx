@@ -65,6 +65,9 @@ export async function Student360Content({ id, search }: { id: string; search: Re
     : valid && seesMoney ? studentFees(id).catch(() => "unavailable" as const) : Promise.resolve(null);
   const unavailable: string[] = [];
   const notesPromise = valid && sessionLabel ? notesForStudentTab(staff, id, sessionLabel).catch(() => { unavailable.push("notes"); return []; }) : Promise.resolve([]);
+  // The portrait reader enforces its own current permission/class scope. It
+  // can run beside the school model once the session visibility fence passed.
+  const photoPromise = valid ? approvedStudentPhotos([id]).then(photos => photos.get(id) ?? null).catch(() => null) : Promise.resolve(null);
   const school = valid && sessionLabel ? await loadStudentSchool(staff, id, sessionLabel) : null;
   if (!school || !sessionLabel) {
     return <Student360Missing returnTo={returnTo} title={lead(sessionLabel ? T.notFound : T.noSession, language)} action={lead(T.backToStudents, language)} />;
@@ -85,7 +88,7 @@ export async function Student360Content({ id, search }: { id: string; search: Re
   const [notes, contactAccess, photoUrl] = await Promise.all([
     notesPromise,
     familyContactAccess(staff, sessionLabel, school.classId).catch(() => { unavailable.push("contacts"); return false; }),
-    approvedStudentPhotos([id]).then(photos => photos.get(id) ?? null).catch(() => null),
+    photoPromise,
   ]);
   const contacts = contactAccess ? await familyContacts(id, sessionLabel).catch(() => { unavailable.push("contacts"); return null; }) : null;
 

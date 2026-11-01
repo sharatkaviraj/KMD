@@ -245,7 +245,7 @@ export async function previewReportCard(input: {
   const termPapers = papers.filter((paper) => termIds.has(paper.assessmentId));
 
   const [marks, grace] = await Promise.all([
-    marksForPapers(termPapers.map((paper) => paper.id)),
+    marksForPapers(termPapers.map((paper) => paper.id), input.studentId),
     graceForPapers(termPapers.map((paper) => paper.id), input.studentId),
   ]);
 
@@ -642,7 +642,7 @@ export async function termSummaries(
   if (papers.length === 0) return [];
 
   const [marks, subjectRows] = await Promise.all([
-    marksForPapers(papers.map((paper) => paper.id)),
+    marksForPapers(papers.map((paper) => paper.id), studentId),
     admin
       .from("subjects")
       .select("id, name_en, name_hi, sort_order")

@@ -1,11 +1,11 @@
 import { Children, isValidElement, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ fees: vi.fn(), photo: vi.fn(), contacts: vi.fn(), allowed: true, photosAllowed: false, contactAllowed: false, previewing: null as "teacher" | null }));
+const state = vi.hoisted(() => ({ fees: vi.fn(), photo: vi.fn(), contacts: vi.fn(), school: vi.fn(), visible: vi.fn(), allowed: true, photosAllowed: false, contactAllowed: false, previewing: null as "teacher" | null }));
 // The test-session fence (Phase 3) has its own tests; here it lets everything through.
 vi.mock("@/platform/auth/test-session-access", () => ({
   assertSessionWritable: async () => {},
   assertSessionVisible: async () => {},
-  assertStudentVisible: async () => {},
+  assertStudentVisible: state.visible,
   assertReceiptVisible: async () => {},
   assertFamilyVisible: async () => {},
   notFoundUnlessVisible: async (check: () => Promise<void>) => check(),
@@ -22,10 +22,11 @@ vi.mock("@/vx/screens/family-contact/data", () => ({ familyContactAccess: async 
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "QA" }));
 vi.mock("@/modules/students-fees/vx/admin-students", () => ({ studentFees: state.fees }));
 vi.mock("@/vx/screens/admin/notes-tab", () => ({ notesForStudentTab: async () => [], canWriteNotes: () => false }));
-vi.mock("@/vx/screens/admin/data", () => ({ loadStudentSchool: async () => ({
+const school = {
   card: { fullName: "QA Child", admissionNo: "QA-1", status: "active", fatherName: null, motherName: null, guardianPhone: null, primaryPhone: null },
   classLabel: "QA Class", rollNo: "1", closedDays: [], attendance: [], attendancePercent: 90, attendanceCounted: 10, terms: [], documents: [], history: [],
-}) }));
+};
+vi.mock("@/vx/screens/admin/data", () => ({ loadStudentSchool: state.school }));
 import { Student360Content } from "@/vx/screens/admin/student360-page";
 import { Student360, type Student360Fees, type Student360Props } from "@/vx/screens/admin/student360";
 async function card() {
@@ -34,8 +35,19 @@ async function card() {
   const child = Children.toArray(result.props.children).find(node => isValidElement(node) && node.type === Student360) as ReactElement<{ p: Student360Props; fees?: Promise<Student360Fees | null> }>;
   return child.props;
 }
-beforeEach(() => { state.allowed = true; state.photosAllowed = false; state.contactAllowed = false; state.previewing = null; state.fees.mockReset(); state.photo.mockReset().mockResolvedValue(new Map()); state.contacts.mockReset(); });
+beforeEach(() => { state.allowed = true; state.photosAllowed = false; state.contactAllowed = false; state.previewing = null; state.fees.mockReset(); state.photo.mockReset().mockResolvedValue(new Map()); state.contacts.mockReset(); state.school.mockReset().mockResolvedValue(school); state.visible.mockReset().mockResolvedValue(undefined); });
 describe("Student page fee failure mapping", () => {
+  it("starts the authorized portrait before the school model has finished",async()=>{
+    let finish!: (value:typeof school)=>void;
+    state.school.mockReturnValue(new Promise(resolve=>{finish=resolve;}));state.fees.mockResolvedValue(null);
+    const pending=card();
+    try {await vi.waitFor(()=>expect(state.photo).toHaveBeenCalledOnce(),{timeout:100});}
+    finally {finish(school);await pending;}
+  });
+  it("does not start a portrait read when the session visibility fence refuses the student",async()=>{
+    state.visible.mockRejectedValue(new Error("synthetic_not_visible"));
+    await expect(card()).rejects.toThrow("synthetic_not_visible");expect(state.photo).not.toHaveBeenCalled();expect(state.school).not.toHaveBeenCalled();
+  });
   it("keeps a failed contact history unavailable rather than an empty contact log", async () => {
     state.fees.mockResolvedValue(null); state.contactAllowed = true; state.contacts.mockRejectedValue(new Error("Synthetic read failure"));
     const props = await card(); expect(props.p.contacts).toBeNull(); expect(props.p.unavailable).toContain("contacts");
