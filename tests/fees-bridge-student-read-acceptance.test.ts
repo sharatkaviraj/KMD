@@ -7,23 +7,28 @@ const classId = "00000000-0000-4000-8000-000000000003";
 const config = { actorId, bridgeKey: "synthetic_private_bridge_key_of_at_least_32_characters", oneAuthKey: "synthetic_public_auth_key_long_enough", oneAccessToken: "synthetic_existing_access_token_long_enough", oneCookieHeader: "synthetic_cookie=private_value", sessionLabel: "2026-27", deniedSessionLabel: "TEST-2026-27", expectedStudentCount: 1, expectedPhotoCount: 1, samples: [{ studentId, hasPhoto: true, expected: { student: { fullName: "Synthetic Child" } } }] };
 const json = (data: unknown, status=200) => Response.json({ version: 1, ...(status === 200 ? { data } : { error: { code: "forbidden" } }) }, { status, headers: { "Cache-Control": "private, no-store" } });
 const workspace = { studentId, sessionLabel: "2026-27", student: { id: studentId, fullName: "Synthetic Child", classSessionLabel: "2026-27", hasPhoto: true }, financialSummary: { studentId, sessionLabel: "2026-27" }, installmentBalances: [], receipts: [], ledger: { payments: [] }, pagination: { receipts: { page:1,pageSize:40,totalCount: 0,hasMore:false }, ledgerPayments: { page:1,pageSize:40,totalCount: 0,hasMore:false } } };
-function harness(options: { sourceFailed?: boolean; leak?: boolean; badImage?: boolean } = {}) {
-  const requests: { origin: string; method: string }[] = [];
+type RedirectFixture={location:(url:URL)=>string;status?:number;body?:string};
+const loginLocation=(url:URL)=>`https://one.vpps.co.in/login?${new URLSearchParams({next:`${url.pathname}${url.search}`})}`;
+function harness(options: { sourceFailed?: boolean; leak?: boolean; badImage?: boolean; document?:boolean; denialRedirect?:RedirectFixture; authenticatedRedirect?:"one_photo"|"source_photo"|"one_page" } = {}) {
+  const requests: { origin: string; method: string; pathname:string; redirect:RequestRedirect|undefined }[] = [];
   const fetcher: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : input.toString());
-    requests.push({ origin: url.origin, method: init?.method ?? "GET" });
+    requests.push({ origin: url.origin, method: init?.method ?? "GET",pathname:url.pathname,redirect:init?.redirect });
     const headers = new Headers(init?.headers);
     if(url.origin.includes("supabase")) return Response.json({ id: actorId, is_anonymous: false });
-    if(url.pathname.includes("/photo")) {
-      if(url.origin.includes("one.vpps") && !headers.has("cookie")) return new Response(null,{status:401});
+    if(url.pathname.includes("/photo")||url.pathname.includes("/documents/")) {
+      if(url.origin.includes("one.vpps") && !headers.has("cookie")) return options.denialRedirect?new Response(options.denialRedirect.body??null,{status:options.denialRedirect.status??307,headers:{Location:options.denialRedirect.location(url)}}):new Response(null,{status:401});
+      if((options.authenticatedRedirect==="one_photo"&&url.origin.includes("one.vpps"))||(options.authenticatedRedirect==="source_photo"&&url.origin.includes("fees.vpps")))return new Response(null,{status:307,headers:{Location:loginLocation(url)}});
+      if(url.pathname.includes("/documents/"))return new Response("%PDF-1.7 synthetic stored document",{headers:{"Content-Type":"application/pdf","Cache-Control":"private, no-store"}});
       return new Response(new Uint8Array([255,216,255,options.badImage && url.origin.includes("one.vpps") ? 2 : 1]), { headers: { "Content-Type":"image/jpeg", "Cache-Control":"private, no-store", Vary:"Cookie" } });
     }
     if(url.origin.includes("fees.vpps")) {
       if(!headers.has("x-one-bridge-key")) return json(null,401);
       if(url.searchParams.get("session") !== "2026-27") return json(null,403);
       if(url.pathname.endsWith("/directory")) return json({ sessionLabel:"2026-27", students:[{id:studentId,classId,admissionNo:"SYNTHETIC",hasPhoto:true}], pagination:{page:1,totalCount:1,hasMore:false},summary:{studentCount:1} });
-      return options.sourceFailed ? json(null,503) : json(workspace);
+      return options.sourceFailed ? json(null,503) : json(options.document?{...workspace,history:{documents:{rows:[{sendId:classId,available:true}],pagination:{page:1,pageSize:40,totalCount:1,hasMore:false}}}}:workspace);
     }
+    if(options.authenticatedRedirect==="one_page")return new Response(null,{status:307,headers:{Location:loginLocation(url)}});
     return new Response(`Synthetic Child <div data-student-source-section="profile"></div><div data-student-source-section="fees"></div><div data-student-source-section="household"></div> /api/fees-bridge/students/${studentId}/photo${options.leak ? config.bridgeKey : ""}`);
   };
   return { fetcher, requests };
@@ -54,5 +59,31 @@ describe("read-only deployed student acceptance", () => {
     const { fetcher } = harness({leak:true}); const result = await runStudentReadAcceptance(config,{execute:true,fetcher});
     expect(result.ok).toBe(false); expect(result.checks.some(c=>c.code==="private_token_in_response")).toBe(true);
     expect(JSON.stringify(result)).not.toContain(config.bridgeKey);
+  });
+  it("accepts only the exact anonymous One login redirect for photo and stored-PDF probes without following",async()=>{
+    const {fetcher,requests}=harness({document:true,denialRedirect:{location:loginLocation}});
+    const result=await runStudentReadAcceptance(config,{execute:true,fetcher});expect(result.ok).toBe(true);
+    for(const name of ["anonymous_photo_denied","stored_document_1"])expect(result.checks.find(row=>row.name===name)).toMatchObject({status:"passed",denialMechanism:"login_redirect"});
+    expect(requests.every(row=>row.redirect==="manual")).toBe(true);expect(requests.some(row=>row.pathname==="/login")).toBe(false);
+    const printed=JSON.stringify(result);for(const privateValue of [studentId,config.bridgeKey,config.oneAccessToken,config.oneCookieHeader,"/login?next="])expect(printed).not.toContain(privateValue);
+  });
+  it.each([
+    ["off origin",{location:()=>"https://untrusted.invalid/login?next=x"}],
+    ["wrong next",{location:()=>"https://one.vpps.co.in/login?next=%2Fdashboard"}],
+    ["duplicate next",{location:(url:URL)=>`${loginLocation(url)}&next=${encodeURIComponent(`${url.pathname}${url.search}`)}`}],
+    ["extra query",{location:(url:URL)=>`${loginLocation(url)}&reason=expired`}],
+    ["fragment",{location:(url:URL)=>`${loginLocation(url)}#extra`}],
+    ["wrong login path",{location:(url:URL)=>loginLocation(url).replace("/login?","/login/other?")}],
+    ["wrong status",{location:loginLocation,status:302}],
+    ["nonempty response",{location:loginLocation,body:"unexpected bytes"}],
+    ["reflected private token",{location:(url:URL)=>`${loginLocation(url)}&secret=${config.bridgeKey}`}],
+  ] satisfies [string,RedirectFixture][])("rejects an anonymous denial redirect with %s",async(_label,denialRedirect)=>{
+    const {fetcher,requests}=harness({document:true,denialRedirect});const result=await runStudentReadAcceptance(config,{execute:true,fetcher});expect(result.ok).toBe(false);
+    for(const name of ["anonymous_photo_denied","stored_document_1"])expect(result.checks.find(row=>row.name===name)?.status).toBe("failed");
+    expect(requests.some(row=>row.pathname==="/login"||row.origin==="https://untrusted.invalid")).toBe(false);expect(JSON.stringify(result)).not.toContain(config.bridgeKey);
+  });
+  it.each(["one_photo","source_photo","one_page"] as const)("still rejects an authenticated %s redirect",async authenticatedRedirect=>{
+    const {fetcher,requests}=harness({authenticatedRedirect});const result=await runStudentReadAcceptance(config,{execute:true,fetcher});expect(result.ok).toBe(false);
+    expect(result.checks.some(row=>row.code==="unexpected_redirect")).toBe(true);expect(requests.some(row=>row.pathname==="/login")).toBe(false);
   });
 });

@@ -32,19 +32,31 @@ export async function runStudentReadAcceptance(raw,{execute=false,fetcher=fetch}
   if(!execute)return {mode:'plan',networkRequests:0,checks:plan,mutations:0};
   const checks=[];let networkRequests=0;
   const check=async(name,fn)=>{const start=performance.now();try{const details=await fn();checks.push({name,status:'passed',ms:Math.round(performance.now()-start),...details});return true;}catch(error){checks.push({name,status:'failed',ms:Math.round(performance.now()-start),code:safeError(error)});return false;}};
-  async function request(origin,route,{token=c.oneAccessToken,cookie=c.oneCookieHeader,key=c.bridgeKey,authKey=false,image=false,pdf=false,anonymous=false}={}){
+  async function request(origin,route,{token=c.oneAccessToken,cookie=c.oneCookieHeader,key=c.bridgeKey,authKey=false,image=false,pdf=false,anonymous=false,allowAnonymousLoginDenial=false}={}){
     need([FEES,ONE,AUTH].includes(origin)&&route.startsWith('/')&&!route.startsWith('//'),'untrusted_origin');
     const url=new URL(route,origin);need(url.origin===origin,'untrusted_origin');
     const headers=anonymous?{}:origin===ONE?{Cookie:cookie}:origin===AUTH?{apikey:c.oneAuthKey,Authorization:`Bearer ${token}`}:{Authorization:`Bearer ${token}`,...(key?{'X-One-Bridge-Key':key}:{})};
     need(!authKey,'unsupported_request');networkRequests++;
     const response=await fetcher(url,{method:'GET',headers,redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(60000)});
-    need(response.status<300||response.status>=400,'unexpected_redirect');
+    const redirected=response.status>=300&&response.status<400;
+    if(redirected){
+      // One's global session middleware redirects private anonymous requests
+      // before these binary handlers run. This exception belongs only to the
+      // two explicit denial probes below; authenticated/source redirects fail.
+      need(allowAnonymousLoginDenial&&anonymous&&origin===ONE&&(image||pdf)&&response.status===307,'unexpected_redirect');
+      need(/^\/api\/fees-bridge\/students\/[0-9a-f-]+\/(?:photo|documents\/[0-9a-f-]+)$/i.test(url.pathname),'unexpected_redirect');
+      const location=response.headers.get('location');need(location,'unexpected_redirect');
+      need(privateTokensAbsent(location,c),'private_token_in_response');
+      const destination=new URL(location,ONE);const query=[...destination.searchParams.entries()];
+      need(destination.origin===ONE&&destination.pathname==='/login'&&!destination.hash&&!destination.username&&!destination.password&&query.length===1&&query[0][0]==='next'&&query[0][1]===`${url.pathname}${url.search}`,'unexpected_redirect');
+    }
     const limit=pdf?2*1024*1024:image?512*1024:origin===ONE?12_000_000:4_000_000;
     const reader=response.body?.getReader();need(reader||response.status!==200,'empty_response');let size=0;const chunks=[];
     if(reader)try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;need(size<=limit,'response_too_large');chunks.push(part.value);}}finally{await reader.cancel().catch(()=>{});}
     const bytes=Buffer.concat(chunks);const body=image||pdf?'':bytes.toString('utf8');
     need(privateTokensAbsent(body,c),'private_token_in_response');
-    return {status:response.status,body,bytes,cache:response.headers.get('cache-control')??'',mime:response.headers.get('content-type')?.split(';')[0]??'',vary:response.headers.get('vary')??''};
+    if(redirected)need(bytes.length===0,'redirect_body_not_empty');
+    return {status:response.status,body,bytes,denialMechanism:redirected?'login_redirect':null,cache:response.headers.get('cache-control')??'',mime:response.headers.get('content-type')?.split(';')[0]??'',vary:response.headers.get('vary')??''};
   }
   async function api(route,options){
     need(/^\/(directory|students\/[0-9a-f-]+\/workspace|receipts\/[0-9a-f-]+\/detail)(?:\?|$)/i.test(route),'unsupported_probe_route');
@@ -142,8 +154,8 @@ export async function runStudentReadAcceptance(raw,{execute=false,fetcher=fetch}
       const source=await request(FEES,`/api/one/v1${suffix}`,{pdf:true});const target=await request(ONE,`/api/fees-bridge${suffix}`,{pdf:true});
       need(source.status===200&&target.status===200&&source.mime==='application/pdf'&&target.mime==='application/pdf'&&target.bytes.subarray(0,5).toString()==='%PDF-','document_response_invalid');
       need(hash(source.bytes)===hash(target.bytes),'document_bytes_differ');need(source.cache.includes('no-store')&&target.cache.includes('no-store'),'document_cache_policy_invalid');
-      const denial=await request(ONE,`/api/fees-bridge${suffix}`,{pdf:true,anonymous:true});need([401,403,404].includes(denial.status)&&denial.bytes.length===0,'anonymous_document_exposed');
-      return {bytes:target.bytes.length,sha256:hash(target.bytes)};
+      const denial=await request(ONE,`/api/fees-bridge${suffix}`,{pdf:true,anonymous:true,allowAnonymousLoginDenial:true});need((denial.denialMechanism==='login_redirect'||[401,403,404].includes(denial.status))&&denial.bytes.length===0,'anonymous_document_exposed');
+      return {bytes:target.bytes.length,sha256:hash(target.bytes),denialMechanism:denial.denialMechanism??'http_denial'};
     });
   }
   const first=workspaces[0];
@@ -162,7 +174,7 @@ export async function runStudentReadAcceptance(raw,{execute=false,fetcher=fetch}
       const r=await request(ONE,`/receipts/${encodeURIComponent(receipt.receiptNumber)}?receiptId=${receipt.id}&session=${session}`);
       need(r.status===200&&!r.body.includes('NEXT_REDIRECT;')&&r.body.includes('data-student-source-section="receipt"')&&htmlHas(r.body,receipt.receiptNumber)&&htmlHas(r.body,first.data.student.fullName),'native_receipt_missing');return {allocations:data.detail.breakdown.length};
     });
-    await check('anonymous_photo_denied',async()=>{const r=await request(ONE,`/api/fees-bridge/students/${id}/photo?session=${session}`,{anonymous:true,image:true});need([401,403,404].includes(r.status)&&r.bytes.length===0,'anonymous_photo_exposed');return {};});
+    await check('anonymous_photo_denied',async()=>{const r=await request(ONE,`/api/fees-bridge/students/${id}/photo?session=${session}`,{anonymous:true,image:true,allowAnonymousLoginDenial:true});need((r.denialMechanism==='login_redirect'||[401,403,404].includes(r.status))&&r.bytes.length===0,'anonymous_photo_exposed');return {denialMechanism:r.denialMechanism??'http_denial'};});
     await check('wrong_session_denied',async()=>{const r=await api(`/students/${id}/workspace?session=${encodeURIComponent(c.deniedSessionLabel)}`);need([400,403,404].includes(r.status)&&r.envelope.error&&!r.envelope.data,'wrong_session_exposed');return {};});
     await check('missing_bridge_key_denied',async()=>{const r=await api(`/students/${id}/workspace?session=${session}`,{key:null});need(r.status===401&&!r.envelope.data,'missing_key_accepted');return {};});
     if(c.deniedActorAccessToken)await check('unmapped_actor_denied',async()=>{const auth=await request(AUTH,'/auth/v1/user',{token:c.deniedActorAccessToken});need(auth.status===200&&JSON.parse(auth.body).id===c.deniedActorId,'denied_actor_pin_mismatch');const r=await api(`/students/${id}/workspace?session=${session}`,{token:c.deniedActorAccessToken});need(r.status===403&&!r.envelope.data,'unmapped_actor_exposed');return {};});
