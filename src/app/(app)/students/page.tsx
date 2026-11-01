@@ -69,11 +69,19 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const classParam = one(params.class) || null;
   const page = resolvePage(one(params.page));
   const sort = parseStudentSort(one(params.sort), one(params.dir));
-  const directorySession = await resolveSessionLabel();
   const canAssignTasks = can(staff,"collection:manage");
-  const taskFields = canAssignTasks ? (await listFieldsPublic()).filter(f=>f.isActive) : [];
+  // Only a named missing-field filter needs this metadata before the list.
+  // Capture errors immediately, then preserve the existing failure when read.
+  const taskFieldsRead = (canAssignTasks ? listFieldsPublic() : Promise.resolve([]))
+    .then(fields => ({ fields: fields.filter(f => f.isActive) }), error => ({ error }));
+  const readTaskFields = async () => {
+    const result = await taskFieldsRead;
+    if ("error" in result) throw result.error;
+    return result.fields;
+  };
+  const [directorySession, jar] = await Promise.all([resolveSessionLabel(), cookies()]);
   const askedMissing = one(params.missing) ?? "";
-  const missing = canAssignTasks && (askedMissing === "photo" || taskFields.some(f=>f.key===askedMissing)) ? askedMissing : "";
+  const missing = canAssignTasks && (askedMissing === "photo" || (askedMissing && (await readTaskFields()).some(f=>f.key===askedMissing))) ? askedMissing : "";
 
   if (!directorySession) {
     return (
@@ -92,7 +100,6 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const canonicalDirectory = usesCanonicalFees(staff, directorySession);
   const requestedStatus=one(params.status);
   const enrollment=(["active","inactive","left","graduated","all"] as const).find(value=>value===requestedStatus)??"active";
-  const jar = await cookies();
   const remembered = readStudentViewCookie(jar.get(STUDENT_VIEW_COOKIE)?.value, staff.id);
   // `?seg=` is one quick chip in an old link, or any fee filters from the phone's sheet (UI-94).
   const asked = parseStudentFilters(one(params.seg));
@@ -197,11 +204,13 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   }
 
   const ids = rows.map((row) => row.id);
-  const [labels, attendance, parents] = await Promise.all([
+  const [labels, attendance, parents, portraits, taskFields] = await Promise.all([
     (async () => directoryLabels ?? (moneyMode ? await labelsRead : null) ?? (await classLabelMap(session)))(),
     attendanceForStudents(ids, session).catch((): Map<string, AttendanceFacts> | null => null),
     // The fee list carries no parent name; the design shows it under each child.
     moneyMode && !canonicalDirectory && ids.length ? parentNamesFor(ids).catch((): Map<string, string> | null => null) : Promise.resolve(null),
+    !canonicalDirectory || !moneyMode ? approvedStudentPhotos(ids).catch(() => new Map<string,string>()) : Promise.resolve(null),
+    readTaskFields(),
   ]);
   const classOrder = new Map([...labels.values()].map((label, i) => [label, i]));
   for (const row of rows) {
@@ -210,8 +219,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     row.classOrder = classOrder.get(row.classLabel);
   }
 
-  if (!canonicalDirectory || !moneyMode) {
-    const portraits = await approvedStudentPhotos(ids).catch(() => new Map<string,string>());
+  if (portraits) {
     for (const row of rows) row.photoUrl = portraits.get(row.id) ?? null;
   }
   const window = pageWindow(page, total);

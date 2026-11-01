@@ -332,22 +332,27 @@ export async function marksForPaper(
  */
 export async function marksForPapers(
   paperIds: string[],
+  studentId?: string,
 ): Promise<Map<string, Mark>> {
   if (paperIds.length === 0) return new Map();
   await assertPermission("marks:view");
 
   const supabase = await createClient();
 
-  const rows = await fetchAllRows<MarkRow>(
-    (from, to) =>
-      supabase
+  const { data: rows } = await fetchInChunks<MarkRow>(
+    [...new Set(paperIds)], IN_FILTER_CHUNK_SIZE, async ids => ({
+      data: await fetchAllRows<MarkRow>((from, to) => {
+        const query = supabase
         .from("marks")
         .select(MARK_COLUMNS)
-        .in("assessment_subject_id", paperIds)
-        .order("id")
-        .range(from, to)
-        .returns<MarkRow[]>(),
-    "the marks",
+        .in("assessment_subject_id", ids);
+        // Individual profiles/report cards need one pupil; class exports keep
+        // the existing unfiltered mode. The cookie client's RLS still applies.
+        if (studentId !== undefined) query.eq("student_id", studentId);
+        return query.order("id").range(from, to).returns<MarkRow[]>();
+      }, "the marks"),
+      error: null,
+    }),
   );
 
   return new Map(

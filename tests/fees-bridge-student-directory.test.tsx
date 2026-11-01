@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StudentsProps } from "@/vx/screens/admin/students";
-const state = vi.hoisted(() => ({ canonical: true, test: false, fees: true, session: "2026-27", money: vi.fn(), search: vi.fn(), context: vi.fn(), redirect: vi.fn(), parents: vi.fn() }));
+const state = vi.hoisted(() => ({ canonical: true, test: false, fees: true, session: "2026-27", money: vi.fn(), search: vi.fn(), context: vi.fn(), redirect: vi.fn(), parents: vi.fn(), fields: vi.fn(), attendance: vi.fn(), photos: vi.fn() }));
 const classId = "00000000-0000-4000-8000-000000000001";
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
@@ -13,10 +13,10 @@ vi.mock("@/modules/fees/platform/session-context/cookie", () => ({ getViewSessio
 vi.mock("@/modules/fees/platform/session-context/resolver", () => ({ resolveViewSession:async()=>({sessionLabel:state.session}) }));
 vi.mock("@/modules/students/data/directory-repo", () => ({ searchStudents:state.search }));
 vi.mock("@/modules/students-fees/vx/admin-students", () => ({ studentMoneyList:state.money,parentNamesFor:state.parents }));
-vi.mock("@/vx/screens/admin/students-data", () => ({ attendanceForStudents:async()=>new Map() }));
+vi.mock("@/vx/screens/admin/students-data", () => ({ attendanceForStudents:state.attendance }));
 vi.mock("@/modules/teacher-tasks/data/assignment", () => ({ assignmentContext:state.context }));
-vi.mock("@/modules/collection/data/fields-repo", () => ({ listFieldsPublic:async()=>[] }));
-vi.mock("@/modules/collection/data/approved-photos", () => ({ approvedStudentPhotos:async()=>new Map() }));
+vi.mock("@/modules/collection/data/fields-repo", () => ({ listFieldsPublic:state.fields }));
+vi.mock("@/modules/collection/data/approved-photos", () => ({ approvedStudentPhotos:state.photos }));
 vi.mock("@/vx/screens/admin/students", () => ({ StudentsScreen:()=>null }));
 vi.mock("@/vx/ui/page", () => ({ VxPage:()=>null,TopBar:()=>null,Section:()=>null }));
 vi.mock("@/vx/ui/primitives", () => ({ EmptyState:()=>null }));
@@ -32,8 +32,33 @@ beforeEach(()=>{
   state.search.mockResolvedValue({rows:[{studentId:"child",fullName:"Source Child",admissionNo:"SR-123",classId,rollNo:"5",fatherName:"Source Parent",guardianPhone:"0000000000"}],total:1});
   state.context.mockResolvedValue({students:[{id:"child",hasPhoto:false,values:{}}]});
   state.parents.mockResolvedValue(new Map());
+  state.fields.mockResolvedValue([]);state.attendance.mockResolvedValue(new Map());state.photos.mockResolvedValue(new Map());
 });
 describe("real school directory during coexistence",()=>{
+  it("starts the ordinary source directory while optional task metadata is pending",async()=>{
+    let finish!: (fields:[])=>void;
+    state.fields.mockReturnValue(new Promise<[]>(resolve=>{finish=resolve;}));
+    const pending=page();
+    try { await vi.waitFor(()=>expect(state.money).toHaveBeenCalledOnce(),{timeout:100}); }
+    finally {finish([]);await pending;}
+  });
+  it("validates a named missing-field filter before selecting its matching students",async()=>{
+    let finish!: (fields:{key:string;isActive:boolean;labelHi:string;labelEn:string}[])=>void;
+    state.fields.mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+    const pending=page({missing:"phone"});
+    await new Promise(resolve=>setTimeout(resolve,0));
+    expect(state.money).not.toHaveBeenCalled();expect(state.context).not.toHaveBeenCalled();
+    finish([{key:"phone",isActive:true,labelHi:"फ़ोन",labelEn:"Phone"}]);
+    const props=await pending;
+    expect(props.taskAssignment?.missing).toBe("phone");expect(props.taskAssignment?.matchingIds).toEqual(["child"]);
+  });
+  it("starts authorized portraits while attendance enrichment is pending",async()=>{
+    let finish!: (attendance:Map<string,never>)=>void;
+    state.attendance.mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+    const pending=page({view:"school"});
+    try {await vi.waitFor(()=>expect(state.photos).toHaveBeenCalledWith(["child"]),{timeout:100});}
+    finally {finish(new Map<string,never>());await pending;}
+  });
   it.each([{view:"school"}, {view:"school",class:classId}])("keeps explicit school browsing on the academic reader for %j",async params=>{
     const props=await page(params);
     expect(state.money).not.toHaveBeenCalled();expect(state.parents).not.toHaveBeenCalled();

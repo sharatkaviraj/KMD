@@ -96,3 +96,19 @@ test("real directory preserves filters and scroll across Student 360 and interru
   await expect(page).toHaveURL(/\/students\?q=Test&class=qa&view=school&page=2$/);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(directoryY, -1);
 });
+
+for (const width of [390, 1280]) {
+  test(`directory search keeps filters and supports Enter at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/student-profile.html");
+    await page.getByRole("link", { name: width < 900 ? "Back" : "Close", exact: true }).click();
+    const search = page.locator(width < 900 ? "#stu-q-m" : "#stu-q-d");
+    await search.fill("Aarav");
+    await search.press("Enter");
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("Aarav");
+    const params = new URL(page.url()).searchParams;
+    expect(params.get("class")).toBe("qa");expect(params.get("view")).toBe("school");expect(params.has("page")).toBe(false);
+    await expect(search).toHaveValue("Aarav");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+  });
+}

@@ -41,6 +41,7 @@ import {
   type StudentView,
 } from "@/vx/screens/admin/students-logic";
 import { ST } from "@/vx/screens/admin/students-text";
+import { StudentSearchForm, StudentSearchInput, StudentSearchProvider } from "@/vx/screens/admin/student-search";
 import { T } from "@/vx/screens/admin/text";
 
 import "./students.css";
@@ -269,14 +270,10 @@ function withEnrollment(href:string,status:StudentsProps["enrollment"]):string {
   return `${url.pathname}${url.search}`;
 }
 
-/** How long the list waits after the last key before it searches. */
-const SEARCH_PAUSE_MS = 450;
-
 export function StudentsScreen(props: StudentsProps) {
   const { tx, language } = useVx();
   const toast = useToast();
   const router = useRouter();
-  const [q, setQ] = useState(props.q);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(props.initialPicked ?? []));
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const onePage = props.window.pages <= 1;
@@ -299,8 +296,8 @@ export function StudentsScreen(props: StudentsProps) {
     ? [{ value: "photo", label: ms.taskNoPhoto }, ...props.taskAssignment.fields.map((f) => ({ value: f.key, label: { hi: f.hi, en: f.en } }))]
     : [];
   const missingLabel = missingOptions.find((o) => o.value === missing)?.label;
-  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => {
-    const href = withEnrollment(withSort(studentsHref({ ...here, ...query }), serverSort),props.enrollment);
+  const hrefFor = (query: Parameters<typeof studentsHref>[0], order: StudentSort | null = serverSort) => {
+    const href = withEnrollment(withSort(studentsHref({ ...here, ...query }), order),props.enrollment);
     // A page link keeps its page; withMissing would drop it.
     return missing ? `${href}${href.includes("?") ? "&" : "?"}missing=${encodeURIComponent(missing)}` : href;
   };
@@ -309,20 +306,6 @@ export function StudentsScreen(props: StudentsProps) {
   const rows = layout === "class" ? sortStudentRows(props.rows, { key: "class", dir: 1 }) : onePage ? sortStudentRows(props.rows, sort) : props.rows;
   // A money order across pages cannot be honest; the phone says so instead of pretending (ST.sortPendingNote).
   const moneySortIdle = !onePage && layout !== "class" && (sort.key === "pending" || sort.key === "notdue" || sort.key === "paid");
-
-  // The list follows the box as you type (school-day run B11): a short pause,
-  // then the same GET the form makes on Enter, in place of the current entry.
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(searchTimer.current), []);
-  const typeQuery = (value: string) => {
-    setQ(value);
-    clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      const next = value.trim();
-      if (next === props.q.trim()) return;
-      router.replace(hrefFor({ q: next || undefined }), { scroll: false });
-    }, SEARCH_PAUSE_MS);
-  };
 
   // Back from a profile: put the list where it was, once, and only for the same list.
   useEffect(() => {
@@ -780,7 +763,7 @@ export function StudentsScreen(props: StudentsProps) {
   ) : null;
 
   return (
-    <>
+    <StudentSearchProvider query={props.q} href={hrefFor({ q: undefined }, sort)}>
       <div className="only-d" style={{ display: "contents" }}>
         <TopBar
           crumb={tx(T.studentsCrumb(props.session))}
@@ -801,12 +784,12 @@ export function StudentsScreen(props: StudentsProps) {
             <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{props.total > rows.length ? tx(ST.showingOf(rows.length, props.total)) : tx(ST.showing(rows.length))}</span>
           </div>
           <div className="stu-mfind">
-            <form action="/students" method="get" role="search" className="stu-msearch">
+            <StudentSearchForm className="stu-msearch">
               <Ic n="search" />
               <label className="sr" htmlFor="stu-q-m">{tx(ST.searchLabel)}</label>
-              <input id="stu-q-m" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
+              <StudentSearchInput id="stu-q-m" placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
               {hidden}
-            </form>
+            </StudentSearchForm>
             {/* Class, fee filters, order and layout in one sheet (UI-94). */}
             <button type="button" className="tap stu-fbtn" data-on={activeCount ? "" : undefined} aria-label={activeCount ? tx(ST.filterOn(activeCount)) : tx(ST.filter)} aria-haspopup="dialog" onClick={() => setSheetOpen(true)}>
               <Ic n="sliders" />
@@ -825,12 +808,12 @@ export function StudentsScreen(props: StudentsProps) {
 
         <div className="stu-wrap">
           <div className="only-d stu-tools">
-            <form action="/students" method="get" role="search" className="stu-dsearch">
+            <StudentSearchForm className="stu-dsearch">
               <Ic n="search" />
               <label className="sr" htmlFor="stu-q-d">{tx(ST.searchLabel)}</label>
-              <input id="stu-q-d" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.search)} />
+              <StudentSearchInput id="stu-q-d" placeholder={tx(ST.search)} />
               {hidden}
-            </form>
+            </StudentSearchForm>
             <div className="hs" role="group" aria-label={tx(T.students)} style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }}>
               {classChip}
               {filterChips}
@@ -988,6 +971,6 @@ export function StudentsScreen(props: StudentsProps) {
       ) : null}
       {/* Outside the bulk bar, so clearing the selection cannot close an open sheet. */}
       {props.taskAssignment ? <AssignmentLauncher ref={askPicked} trigger={null} language={language} selectedIds={selectedRows.map((row) => row.id)} initialMissing={missing} /> : null}
-    </>
+    </StudentSearchProvider>
   );
 }
