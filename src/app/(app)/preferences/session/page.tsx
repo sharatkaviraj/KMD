@@ -1,4 +1,5 @@
 import { requireStaff } from "@/platform/auth/current-staff";
+import { defaultSessionFor } from "@/platform/auth/test-session-policy";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import { homeForRole, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
@@ -20,7 +21,9 @@ export default async function SessionPage() {
     getViewSessionCookie(),
   ]);
   const sessions = switcher.availableSessions.map((s) => ({ label: s.session_label, current: s.is_current, status: s.status }));
-  const viewing = cookie && sessions.some((s) => s.label === cookie) ? cookie : switcher.activeSessionLabel;
+  const viewing = cookie && sessions.some((s) => s.label === cookie)
+    ? cookie
+    : defaultSessionFor(staff, switcher.activeSessionLabel);
   const roles = staff.role === "admin" ? ROLE_PREVIEW_MENUS.map((m) => ({ menu: m, label: MENU_LABEL[m], home: MENU_HOME[m] })) : null;
 
   return (

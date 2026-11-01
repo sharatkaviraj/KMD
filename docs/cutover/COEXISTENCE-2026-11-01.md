@@ -96,51 +96,99 @@ tail payment or shut down existing Fees links. For a bad projection, keep One
 unpublished and rebuild from a complete source snapshot. Preserve source
 command records and receipts; retries must reuse their original IDs.
 
-## Evidence and rollout state
+## Evidence and release record
 
-Implementation is in progress. This section must be updated with actual
-merged/deployed SHAs, applied migrations, publication proof and live acceptance
-before declaring rollout complete.
+Source runtime shipped through schoolfees PR118 and PR119. One's main runtime
+shipped through PR152. The verified source projection and approved real
+timetable are published; the 30-second scheduler, 02:00 IST full verification
+and scoped scheduler-history retention are active. Collection has independent
+source and One environment gates; the final readiness report records their
+operator acceptance state rather than inferring it from a deployment alone.
 
-- Target migrations `20261101041404_fees_bridge_projection` and
-  `20261101042523_fees_bridge_academic_identity` applied through Supabase CLI.
-  Remote history was fetched into a private staging workspace; the dry run
-  listed exactly these two migrations. No migration history was repaired.
-  Verified afterward: disabled, unpublished, revision zero, no projected rows,
-  and no direct authenticated projection access.
-- Target follow-up `20261101045818_fees_bridge_current_identity_guards` applied
-  after eight actual-database rollback assertions. Historical identity labels
-  cannot authorize new actions. Leavers/transfers require an explicit academic
-  enrolment review before new whole-register/exam work; saved history remains.
-- Identity conversion committed: 248 checks passed, 513 TEST student shells,
-  22 TEST staff twins, five approved logins retained, three QA day-run shortcuts
-  revoked. Four new real accounts preserve source password hashes through
-  Supabase Admin import. QA Fee Collector has a TEST profile. Parent/staff
-  dispatch and One's native real fee writes are closed.
-- Source PR118 merged at `e6cf2781a4049e96a75dd2ca5c1e2affc95a6e5d`.
-  Source migration `20261101041255` is applied, with 32 capture tables verified.
-  Nine explicit real account mappings retain the intersection of existing
-  permissions: six readers, five potential collectors. Source commands remain
-  closed pending TEST acceptance. Initial sync scope is `2026-27`.
-- One production bridge configuration and dormant 30-second / 02:00 IST
-  schedules are installed; live publication and scheduled execution are pending.
-- Full initial One CI and preview passed at `9a53c4a`; additional reviewed
-  identity/clock/worker fixes are being submitted for another exact-commit check.
-  The owner selected API-only live acceptance; synthetic mobile checks are
-  separate evidence and do not establish physical-device or printer acceptance.
+- Source production merge `6973f9009c3c3db939c2624fec4fc0c02cba9e0b`, deployment
+  `dpl_CUTFnMutrjdbCXkhGUbYjeNUz4c7`, verified on `fees.vpps.co.in`.
+- One PR152 merge `3b642e2ef45561763f5da62601bbe1b3b36b52a9`, deployment
+  `dpl_GcQnGwTsMrxUbN6KUE9t5kduJqQ9`, verified on `one.vpps.co.in`.
+  Its exact reviewed head passed all 23 checks: 401 test files, 18,546 tests
+  passed and one skipped, plus build, synthetic mobile, concurrency and scope
+  checks. Later directory/session and operator-tool refinements have separate
+  focused regression coverage and deployment acceptance.
+- Applied source migrations: `20261101041255_one_bridge_source` and
+  `20261101051321_one_bridge_standing_paid_amount`. The forward correction uses
+  canonical net cash for total paid, excluding write-off reversals. There are
+  32 healthy capture triggers. No source financial schema history was repaired.
+- Applied One migrations: `20261101041404_fees_bridge_projection`,
+  `20261101042523_fees_bridge_academic_identity` and
+  `20261101045818_fees_bridge_current_identity_guards`. Remote migration history
+  was fetched into an isolated staging workspace; only new migrations were
+  pushed. Actual-database rollback tests preceded application.
+- Identity conversion passed 248 checks: 513 TEST student shells, 22 TEST staff
+  twins, five approved logins retained and three old QA shortcuts revoked.
+  Four new real accounts preserve source password hashes through Admin import.
+  QA Fee Collector remains TEST. All six existing exams remain TEST; no real
+  marks, attendance or documents were fabricated for acceptance.
+- Nine reviewed real account mappings preserve the intersection of existing
+  roles: six readers and five potential collectors. Initial scope is `2026-27`.
+  One's native real fee engine and parent/staff dispatch remain disabled.
+  Source financial messages, providers, payment links and day close remain
+  owned by Fees. Auth's site URL is now `https://one.vpps.co.in`; public sign-up
+  remains disabled. No passwords were changed or access emails sent.
+- The first deployed worker completed in 6.679 seconds. Its frozen source
+  snapshot matched One in all four full-content SHA256 manifests: one session,
+  19 classes, 537 students and 419 households. All 15 comparisons passed:
+  financial totals, typed fields, class/session references, enrolments and TEST
+  isolation. All 34 native-table fingerprints were unchanged. Eleven source
+  events were acknowledged only after the verified target commit.
+- The published real timetable has 1,038 slots and 172 assignments. Actual
+  rollback rehearsal passed before atomic application. TEST timetable history
+  and all 15 class-teacher rows retained identical hashes. Classes 1, 2, 3 and
+  6 currently have no class teacher; no assignment was invented.
+- Repeated scheduled calls returned HTTP200 and correctly skipped unchanged
+  snapshots. An explicit diagnostic journal invalidation, which changed no
+  business record, was delivered and acknowledged by the scheduler in 22.036
+  seconds. A manual call of the nightly full-verification path passed in
+  4.042 seconds. These measurements do not establish an SLA or claim an
+  overnight observation period.
+- Deployed API acceptance passed source read, quote, receipt, command status,
+  missing-key/token/session/actor denials and the disabled command gate.
+  One's authenticated payment, account and admission pages rendered correctly.
+  Public One `/rv` delegated to the exact canonical Fees receipt: number, date,
+  amount and reversal state matched, with no private student identity exposed.
+- One isolated source TEST payment of INR1 was recovered and replayed using
+  its original durable command. SQL proved exactly one command, receipt and
+  payment, zero notification outbox rows and one each of the expected audit and
+  office-sync events. Only the exact TEST policy changed to prefix `TST`; both
+  real policy rows were unchanged. Temporary TEST bridge access was revoked.
+- Signed-in API/SSR acceptance confirmed current session resolution, all three
+  real Student360 tabs, the timetable, the assessment picker and attendance.
+  The Sunday attendance summary contained the exact 18-student class roster;
+  no marking action was invoked. TEST real-student requests were denied by
+  permission without student data. This case is not a substitute for the
+  separate SQL and unit tests of student-session authorization.
 
-- Source checkpoint: 1 November 2026 09:53 IST; public/private application
-  archive 110 tables and 93,836 rows, with same-snapshot archive count parity.
-  SHA-256 `1773583cf626ab464a4bfa1b12718b4689eb5932a6a3228dc73a7b1409d2debe`.
-  This is application backup evidence, not a full Auth/Storage restore drill.
-- One checkpoint: 1 November 2026 08:07 IST; 228 tables, 51,509 rows; restore
-  rehearsal matched all 228 tables and the financial/hash checks.
-- Source synthetic PostgreSQL integration includes duplicate command,
-  concurrent same-command posting, late commits, TEST side-effect isolation,
-  stale quote, role/session denial and lease fencing.
-- Target rollback SQL tests cover atomic apply, lost-ack replay, mismatched
-  payload/fence, invalid foreign key, typed/payload corruption, retired/revived
-  identity, TEST publication refusal and no financial table mutations.
-- The proposed seven-day read-only and payment observation windows have not
-  elapsed. Staff acceptance, physical printing and real operational experience
-  cannot be claimed from automated tests.
+### Fresh recovery evidence
+
+- Fees application checkpoint, 1 November 2026 11:03:35 IST: all 116
+  public/private tables, 93,897 rows, exact same-snapshot archive count parity,
+  full archive decoding and no omissions. Archive SHA256
+  `1b086003ea7474a1ec9bbea7288537ab50c0daee65f6e127b4b53aef8f908f99`.
+- One postload checkpoint, 1 November 2026 11:21:57 IST: all 236 application
+  tables, 55,242 rows, including the verified roster and published timetable.
+  Restore rehearsal matched all 236 row counts, money checks and content
+  hashes; no restore schemas remained. Manifest SHA256
+  `6ddcee0ef7b25564c2ec7e1e1dce495b47d37b4e62fd34993296de89e6fee339`.
+- Separate One schema archive includes functions, views and grants. A separate
+  private cron checkpoint contains eight jobs, six active. These are application
+  recovery artifacts; Auth, Storage, global roles and a full-platform restore
+  are outside these drills. Supabase plan purchases were not performed.
+
+The owner selected API-only live verification. Synthetic mobile tests are
+separate evidence; no physical phone, printer, browser interaction, real money
+collection, parent test send or marks/attendance save is claimed. Proposed
+seven-day observation windows have not elapsed. Advanced financial lists,
+filters, reports, corrections and bulk workflows remain available in Fees;
+One's school directory uses the verified academic roster and links to those
+canonical financial screens. Existing login addresses remain unchanged as
+requested, including the five QA-domain addresses that cannot receive reset
+email. Operational class-teacher assignments and longer observation remain
+school follow-up work.

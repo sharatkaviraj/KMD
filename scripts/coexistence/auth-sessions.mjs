@@ -15,7 +15,7 @@ import {parseEnvText} from '../migrate/lib/env.mjs';
 const AUTH='https://wtgxcptmucjerhufzjcf.supabase.co';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const need=(condition,code)=>{if(!condition)throw new Error(code);};
-const safeErrors=new Set(['private_d_path_required','private_path_outside_repo_required','explicit_acceptance_purpose_required','owner_and_test_pins_required','invalid_identity_pin','real_owner_admin_required','test_identity_required','role_pin_required','distinct_identity_pins_required','wrong_auth_project','one_auth_keys_required','private_session_writer_required','untrusted_auth_origin','profile_pin_changed','existing_auth_user_required','link_identity_mismatch','session_identity_mismatch','session_verification_failed','session_cookie_missing','cleanup_pin_mismatch','cleanup_failed','session_output_already_exists','session_persist_failed','session_persist_cleanup_failed']);
+const safeErrors=new Set(['private_d_path_required','private_path_outside_repo_required','explicit_acceptance_purpose_required','owner_and_test_pins_required','invalid_identity_pin','real_owner_admin_required','test_identity_required','role_pin_required','distinct_identity_pins_required','wrong_auth_project','one_auth_keys_required','private_session_writer_required','untrusted_auth_origin','profile_pin_changed','existing_auth_user_required','link_identity_mismatch','session_identity_mismatch','session_verification_failed','session_cookie_missing','cleanup_pin_mismatch','cleanup_failed','session_output_already_exists','session_persist_failed','session_persist_cleanup_failed','session_post_mint_cleanup_failed']);
 export function safeSessionFailureCode(error){return error instanceof Error&&safeErrors.has(error.message)?error.message:'session_operation_failed';}
 function privatePath(value){
   need(typeof value==='string'&&/^[dD]:[\\/]/.test(value)&&path.isAbsolute(value),'private_d_path_required');
@@ -52,19 +52,24 @@ export async function mintAcceptanceSessions(c,{execute=false,env={},adminFactor
     const client=userFactory(AUTH,publicKey,{auth:{autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:guardedFetch},cookies:{getAll:()=>[...jar].map(([name,value])=>({name,value})),setAll:values=>{for(const entry of values){if(entry.value)jar.set(entry.name,entry.value);else jar.delete(entry.name);}}}});
     const verified=await client.auth.verifyOtp({type:'magiclink',token_hash:generated.data.properties.hashed_token});
     const session=verified.data?.session;
-    need(!verified.error&&verified.data?.user?.id===pin.userId&&session?.access_token&&session.expires_at,'session_identity_mismatch');
-    const fresh=await client.auth.getUser(session.access_token);need(!fresh.error&&fresh.data?.user?.id===pin.userId,'session_verification_failed');
-    await profile(pin);need(jar.size>0,'session_cookie_missing');
-    output.accounts[name]={actorId:pin.userId,profileId:pin.profileId,isTestAccount:pin.isTestAccount,oneAccessToken:session.access_token,oneCookieHeader:[...jar].map(([name,value])=>`${name}=${value}`).join('; '),expiresAt:session.expires_at};
-    // Persist each completed session before attempting another identity, so a
-    // later failure still leaves the operator the exact local-session cleanup.
-    try{await persistSessions(structuredClone(output));}
-    catch{
-      // Never strand an unrecorded acceptance login when Windows/disk output
-      // fails. Revoke exactly this new session, never the user's other logins.
-      try{const cleanup=await admin.auth.admin.signOut(session.access_token,'local');need(!cleanup.error,'session_persist_cleanup_failed');}
-      catch{throw new Error('session_persist_cleanup_failed');}
-      throw new Error('session_persist_failed');
+    try{
+      need(!verified.error&&verified.data?.user?.id===pin.userId&&session?.access_token&&session.expires_at,'session_identity_mismatch');
+      const fresh=await client.auth.getUser(session.access_token);need(!fresh.error&&fresh.data?.user?.id===pin.userId,'session_verification_failed');
+      await profile(pin);need(jar.size>0,'session_cookie_missing');
+      output.accounts[name]={actorId:pin.userId,profileId:pin.profileId,isTestAccount:pin.isTestAccount,oneAccessToken:session.access_token,oneCookieHeader:[...jar].map(([name,value])=>`${name}=${value}`).join('; '),expiresAt:session.expires_at};
+      // Persist before another identity; earlier successful accounts remain
+      // recorded even if this identity fails a post-mint check or disk write.
+      try{await persistSessions(structuredClone(output));}catch{throw new Error('session_persist_failed');}
+    }catch(error){
+      delete output.accounts[name];
+      // All checks after verifyOtp can fail with a live session already
+      // minted. Revoke only that returned token, never other user logins.
+      if(session?.access_token){
+        const cleanupCode=error instanceof Error&&error.message==='session_persist_failed'?'session_persist_cleanup_failed':'session_post_mint_cleanup_failed';
+        try{const cleanup=await admin.auth.admin.signOut(session.access_token,'local');need(!cleanup.error,cleanupCode);}
+        catch{throw new Error(cleanupCode);}
+      }
+      throw error;
     }
   }
   return output;
