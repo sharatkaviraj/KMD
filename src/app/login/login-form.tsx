@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { preservePasswordViewport } from "@/ui/auth/preserve-password-viewport";
 import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
@@ -121,13 +122,14 @@ export function LoginForm({ language, initial = initialLoginState }: { language:
   const remember = rememberChoice ?? !storedOff;
   const [showPassword, setShowPassword] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
-  const passwordSelection = useRef<{ start: number | null; end: number | null; direction: "forward" | "backward" | "none" | null } | null>(null);
+  const passwordSelection = useRef<{ start: number | null; end: number | null; direction: "forward" | "backward" | "none" | null; visibleTop: number } | null>(null);
   useLayoutEffect(() => {
     const input = passwordRef.current;
     const selection = passwordSelection.current;
     passwordSelection.current = null;
     if (input && selection && document.activeElement === input) {
       input.setSelectionRange(selection.start, selection.end, selection.direction ?? undefined);
+      return preservePasswordViewport(input, selection.visibleTop);
     }
   }, [showPassword]);
   const [forgot, setForgot] = useState(false);
@@ -210,7 +212,7 @@ export function LoginForm({ language, initial = initialLoginState }: { language:
           onClick={() => {
             const input = passwordRef.current;
             passwordSelection.current = input && document.activeElement === input
-              ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection }
+              ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection, visibleTop: input.getBoundingClientRect().top - (window.visualViewport?.offsetTop ?? 0) }
               : null;
             setShowPassword((v) => !v);
           }}

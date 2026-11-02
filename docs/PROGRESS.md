@@ -1,5 +1,17 @@
 # VPPS One — progress
 
+## Android landscape password follow-up — 3 November 2026
+
+Branch `codex/android-landscape-password-20261102`, based on released `0007d514`.
+Real S24 tracing reproduced a 41px visual-viewport pan after the type switch;
+input layout and document scroll stayed fixed. Skipping an unchanged selection
+restore did not help. A bounded, cancellable viewport correction retains the
+field's visible position while preserving the existing keyboard/focus/caret
+fix. [Evidence](evidence/2026-11-03-android-landscape-login.md) distinguishes
+native baseline/prototype measurements from exact-build release verification.
+The owner authorized merge and live deployment; CI and device release results
+are recorded in the pull request. No business records or provider effects.
+
 ## Android findings — 2 November 2026
 
 Branch `codex/android-findings-20261102`, based on deployed `1a88631` / PR159.
