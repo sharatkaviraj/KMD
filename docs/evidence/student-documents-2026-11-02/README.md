@@ -32,10 +32,18 @@ sheet; focus returns to Add. Both-language accounts see paired form labels.
 | Synthetic sibling production bundle | Vite build passes after adding the new action boundary stub; fixture never imports live server auth |
 | Fresh read-only review | No critical issue. Stream-state loss and missing paired labels reproduced by four failing browser cases, then all four passed after fixes. No findings set aside |
 
-Production build/bundle and final CI status belong to the exact release head and
-are recorded in the PR. Live deployment identity and anonymous route checks are
-recorded after merge. The earlier implementation head passed its main build/check
-job; its sibling fixture needed the new action stub, now fixed before release.
+The review-fixed application at `ca4498f` passed the complete CI main check,
+including production build and bundle budgets. Its first phone job passed 43/45
+cases; traces showed Vite discovering upload dependencies late and reloading two
+320px pages into the generic fixture. A dedicated profile Vite configuration now
+scans only the runner's entries and preloads the upload dependencies. The new
+assertion checks there is only one document navigation. All 45 cases pass with
+the isolated configuration. This final change affects tests only.
+
+Final CI status belongs to the exact release head and is recorded in the PR.
+Live deployment identity and anonymous route checks are recorded after merge.
+The earlier implementation head's sibling fixture needed the new action stub,
+also fixed before release.
 
 All browser records are synthetic; uploads use local intercepted requests and
 removals use refused action stubs. Shared-browser control is disabled in Work

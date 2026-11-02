@@ -11,6 +11,8 @@ const pdf = { name: "Synthetic certificate.pdf", mimeType: "application/pdf", bu
 
 for (const width of [320, 390, 1280]) for (const theme of ["light", "dark"]) {
   test(`saved files open and adding stays available ${width}/${theme}`, async ({ page }, info) => {
+    let navigations = 0;
+    page.on("request", request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations += 1; });
     await page.setViewportSize({ width, height: 900 });
     await openTab(page, `documents=saved&theme=${theme}`);
     const section = page.getByRole("region", { name: "Uploaded documents" });
@@ -24,6 +26,7 @@ for (const width of [320, 390, 1280]) for (const theme of ["light", "dark"]) {
     await section.getByRole("button", { name: "Add document", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Add document" });
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("group", { name: "Document type", exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(dialog.getByRole("button", { name: "Save document", exact: true })).toBeDisabled();
     await dialog.getByRole("radio", { name: "Birth certificate", exact: true }).check();
     await dialog.locator("input[type=file]").setInputFiles(pdf);
@@ -34,6 +37,7 @@ for (const width of [320, 390, 1280]) for (const theme of ["light", "dark"]) {
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     await expect(section.getByRole("button", { name: "Add document", exact: true })).toBeFocused();
+    expect(navigations).toBe(1);
   });
 }
 
