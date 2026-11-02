@@ -293,7 +293,7 @@ const detail: ClassDetail = {
   average: 56,
   pass: 89,
   attendance: 87,
-  students: c9Kids.map((name, i) => ({ studentId: uuid(9100 + i), name, rollNo: String(i + 1), avg: Math.round(c9Avgs[i]), before: Math.round(c9Avgs[i]) + 4, failed: i === 6 ? 2 : i === 5 ? 1 : 0, attendance: 87, attention: attention.find((a) => a.name === name) ?? null })),
+  students: c9Kids.map((name, i) => ({ studentId: uuid(9100 + i), name, rollNo: String(i + 1), canOpen: true, historical: false, avg: Math.round(c9Avgs[i]), before: Math.round(c9Avgs[i]) + 4, failed: i === 6 ? 2 : i === 5 ? 1 : 0, attendance: 87, attention: attention.find((a) => a.name === name) ?? null })),
   subjects: C9.map((subject, i) => ({ subjectId: uuid(9300 + i), subject, avg: c9Avg[i], before: c9Avg[i] === null ? 62 : (c9Avg[i] as number) + 5, pass: 90, entered: subject === "SST" ? 0 : subject === "Science" ? 12 : 28, submitted: subject !== "SST" && subject !== "Science" })),
 };
 // 140 papers spread 4 / 43 / 81 / 12 / 0, with the design's below-33 names.

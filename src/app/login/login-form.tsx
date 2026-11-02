@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useActionState, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
@@ -120,6 +120,16 @@ export function LoginForm({ language, initial = initialLoginState }: { language:
   const email = typedEmail ?? storedEmail;
   const remember = rememberChoice ?? !storedOff;
   const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const passwordSelection = useRef<{ start: number | null; end: number | null; direction: "forward" | "backward" | "none" | null } | null>(null);
+  useLayoutEffect(() => {
+    const input = passwordRef.current;
+    const selection = passwordSelection.current;
+    passwordSelection.current = null;
+    if (input && selection && document.activeElement === input) {
+      input.setSelectionRange(selection.start, selection.end, selection.direction ?? undefined);
+    }
+  }, [showPassword]);
   const [forgot, setForgot] = useState(false);
 
   const next = searchParams.get("next") ?? "/dashboard";
@@ -179,6 +189,7 @@ export function LoginForm({ language, initial = initialLoginState }: { language:
         <span><Two pair={T.password} language={language} small /></span>
         <input
           id="password"
+          ref={passwordRef}
           name="password"
           type={showPassword ? "text" : "password"}
           className={`inp${failed ? " err" : ""}`}
@@ -192,7 +203,17 @@ export function LoginForm({ language, initial = initialLoginState }: { language:
         <button
           type="button"
           className="tap"
-          onClick={() => setShowPassword((v) => !v)}
+          onPointerDown={(event) => {
+            // Keep an editing touch from moving focus to the eye and dismissing the IME.
+            if (document.activeElement === passwordRef.current) event.preventDefault();
+          }}
+          onClick={() => {
+            const input = passwordRef.current;
+            passwordSelection.current = input && document.activeElement === input
+              ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection }
+              : null;
+            setShowPassword((v) => !v);
+          }}
           aria-label={lead(showPassword ? T.hide : T.show, language)}
           aria-pressed={showPassword}
           style={eyeStyle}

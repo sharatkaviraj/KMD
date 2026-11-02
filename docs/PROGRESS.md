@@ -1,5 +1,19 @@
 # VPPS One — progress
 
+## Android findings — 2 November 2026
+
+Branch `codex/android-findings-20261102`, based on deployed `1a88631` / PR159.
+Payment picker identity now wraps independently of money; password visibility
+preserves editing focus/selection; historical academic results have names and
+permission-respecting links; primary navigation uses the existing visual
+viewport offset. Per-pupil averages, current roll/eligibility and detail guards
+remain. [Evidence](evidence/2026-11-02-android-findings.md) separates fixture
+reproductions from unavailable real-device coverage. Local units/typecheck,
+payment/login/receipt fixtures pass. Local production build failed ENOSPC;
+clean exact-head CI, deployment and public runtime provenance are tracked in
+the linked release evidence and pull request.
+The owner subsequently authorized this release; no data/provider/message action.
+
 ## Simpler student Documents — 2 November 2026
 
 Branch `codex/student-documents-ux`, based on `3c9076e`. The owner requested

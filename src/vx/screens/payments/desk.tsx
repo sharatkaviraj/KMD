@@ -908,9 +908,9 @@ export function PaymentDesk({
                   style={{ animationDelay: `${Math.min(i, 12) * 32}ms` }}
                 >
                   <span className="pd-av" style={{ borderRadius: 20, background: tone[0], color: tone[1] }}>{initials(s.name)}</span>
-                  <span className="pd-c" style={{ flex: 1 }}>
-                    <span className="pd-b pd-e">{s.name}</span>
-                    <span className="pd-m pd-e">{dotJoin(searching && s.classLabel, srTag(s.sr), s.father)}</span>
+                  <span className="pd-c pd-identity">
+                    <span className="pd-b">{s.name}</span>
+                    <span className="pd-m">{dotJoin(searching && s.classLabel, srTag(s.sr), s.father)}</span>
                   </span>
                   <span className="pd-end" style={{ gap: 0 }}>
                     <span className="num pd-v" style={{ color: s.pendingToday > 0 ? "var(--warnfg)" : "var(--ok)" }}>{s.pendingToday > 0 ? rupees(s.pendingToday) : tx(W.paidUp)}</span>

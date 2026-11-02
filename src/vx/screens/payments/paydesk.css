@@ -40,7 +40,10 @@
 :where(.vx) .pd-cls>button{height:40px;padding:0 2px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 :where(.vx) .pd-cls>button.on{background:var(--pri);border-color:var(--pri);color:var(--prifg)}
 :where(.vx) .pd-list{overflow-y:auto;overscroll-behavior:contain}
-:where(.vx) .pd-row{position:relative;width:100%;display:flex;align-items:center;gap:12px;padding:10px 14px;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--fg);text-align:left;animation:xIn .32s var(--ease) both}
+:where(.vx) .pd-row{position:relative;width:100%;display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:4px 12px;padding:10px 14px;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--fg);text-align:left;animation:xIn .32s var(--ease) both}
+/* Identity gets the available width; long financial copy follows on its own line. */
+:where(.vx) .pd-identity{overflow-wrap:anywhere}
+:where(.vx) .pd-row>.pd-end{grid-column:2;align-items:flex-start;text-align:left;min-width:0;max-width:100%;overflow-wrap:anywhere}
 :where(.vx,.vxt) .pd-av{flex:none;width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
 :where(.vx) .pd-end{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none;text-align:right}
 

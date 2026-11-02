@@ -323,7 +323,18 @@ export function AcadProgressView(p: AcadProgressProps) {
     const waits = detail.subjects.filter((s) => s.avg === null);
     const spread = spreadBands(marks.map((m) => m.pct));
     const bMax = Math.max(1, ...spread.map((b) => b.n));
-    const names = new Map(detail.students.map((s) => [s.studentId, s.name]));
+    const children = new Map(detail.students.map((s) => [s.studentId, s]));
+    const historicalLabel = say("Historical result", "ऐतिहासिक परिणाम");
+    const resultLink = (studentId: string, content: ReactNode, className: string, style?: CSSProperties) => {
+      const child = children.get(studentId);
+      const label = child?.historical ? <span style={{ fontSize: 11, color: "var(--mut)" }}> · {historicalLabel}</span> : null;
+      // A mark is permission to see this class's result, not a new enrolment.
+      return child && child.canOpen ? (
+        <Link key={studentId} href={qs(BASE, { view: "student", student: studentId, exam: q })} className={className} style={{ ...style, maxWidth: "100%", height: "auto", flexWrap: "wrap", whiteSpace: "normal" }}>{content}{label}</Link>
+      ) : (
+        <span key={studentId} className={className.replace(/\btap\b/g, "")} style={{ ...style, maxWidth: "100%", height: "auto", flexWrap: "wrap", whiteSpace: "normal" }}>{content}{label ?? <span style={{ fontSize: 11, color: "var(--mut)" }}> · {historicalLabel}</span>}</span>
+      );
+    };
     const lows = detail.subjects
       .map((s) => ({ s, kids: marks.filter((m) => m.subject === s.subject && m.pct < 33).sort((a, b) => a.pct - b.pct) }))
       .filter((x) => x.kids.length);
@@ -419,7 +430,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                 {waits.length ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${waits.map((s) => subjectName(s.subject)).join(", ")} — not entered yet, so left out of the average.`, `${waits.map((s) => subjectName(s.subject)).join(", ")} — अभी नहीं भरा, औसत में शामिल नहीं।`)}</span> : null}
               </Sec>
               <Sec style={{ gap: 10 }}>
-                <Title right={<span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${marks.length} papers`, `${marks.length} पेपर`)}</span>}>{say("Marks spread", "अंकों का फैलाव")}</Title>
+                <Title right={<span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${marks.length} scored entries`, `${marks.length} दर्ज अंक`)}</span>}>{say("Marks spread", "अंकों का फैलाव")}</Title>
                 {spread.map((b, i) => (
                   <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span className="num" style={{ width: 52, fontSize: 13, fontWeight: 600 }}>{b.label}</span>
@@ -438,7 +449,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
                   <span style={{ display: "flex", flexDirection: "column" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>{say("Below 33% by subject", "विषयवार 33% से कम")}</span>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{say("Tap a child to open their progress", "प्रगति देखने को बच्चे पर टैप करें")}</span>
+                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{say("Open current pupils for progress. Historical results stay here.", "वर्तमान विद्यार्थियों की प्रगति खोलें। ऐतिहासिक परिणाम यहीं दिखते हैं।")}</span>
                   </span>
                   <span className="pill num" style={{ height: 26, padding: "0 10px", background: "var(--bads)", color: "var(--bad)" }}>{lows.reduce((s, x) => s + x.kids.length, 0)}</span>
                 </div>
@@ -449,9 +460,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                     </span>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {x.kids.map((k) => (
-                        <Link key={k.studentId} href={qs(BASE, { view: "student", student: k.studentId, exam: q })} className="tap chip" style={{ color: "var(--bad)" }}>
-                          {names.get(k.studentId) ?? "—"} · {R(k.pct)}
-                        </Link>
+                        resultLink(k.studentId, <>{children.get(k.studentId)?.name ?? say("Student record unavailable", "छात्र रिकॉर्ड उपलब्ध नहीं")} · {R(k.pct)}</>, "tap chip", { color: "var(--bad)" })
                       ))}
                     </div>
                   </div>
@@ -461,7 +470,7 @@ export function AcadProgressView(p: AcadProgressProps) {
               <Sec>
                 <span style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{say(`Top ${Math.min(5, top.length) || 5}`, `शीर्ष ${Math.min(5, top.length) || 5}`)}</span>
                 {top.map((t, i) => (
-                  <Link key={t.studentId} href={qs(BASE, { view: "student", student: t.studentId, exam: q })} className="tap row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 4px", borderTop: i ? "1px solid var(--bd)" : undefined, color: "var(--fg)" }}>
+                  resultLink(t.studentId, <>
                     <span className="num" style={{ flex: "none", width: 30, height: 30, borderRadius: 15, background: medal[i][0], color: medal[i][1], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
                       <span className="clip" style={{ fontWeight: 600 }}>{t.name}</span>
@@ -470,7 +479,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                       <Bar pct={t.avg ?? 0} tone="var(--c2)" />
                     </span>
                     <span className="num" style={{ fontWeight: 700 }}>{R(t.avg)}</span>
-                  </Link>
+                  </>, "tap row", { display: "flex", alignItems: "center", gap: 12, padding: "9px 4px", borderTop: i ? "1px solid var(--bd)" : undefined, color: "var(--fg)" })
                 ))}
                 {top.length === 0 ? <span style={{ fontSize: 12, color: "var(--mut)", padding: "18px 0", textAlign: "center" }}>{say("No marks yet.", "अभी कोई अंक नहीं।")}</span> : null}
               </Sec>

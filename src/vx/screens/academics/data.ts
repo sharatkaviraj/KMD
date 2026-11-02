@@ -1240,24 +1240,36 @@ export async function classDetail(ctx: Ctx, classId: string, exam: Exam, previou
     studentAttendance(ctx),
     needsAttention(ctx),
   ]);
-  const roll = (await enrolledRows(ctx.session)).filter((r) => r.class_id === classId);
-  const info = await studentInfo(roll.map((r) => r.student_id));
+  const enrolled = await enrolledRows(ctx.session);
+  const roll = enrolled.filter((r) => r.class_id === classId);
+  // The exam cohort can outlive today's roll. Names and rankings must cover
+  // those results without granting access to a former pupil's current details.
+  const classResults = results.filter((r) => r.classId === classId);
+  const cohort = new Map(roll.map(r => [r.student_id, r]));
+  for (const r of classResults) if (!cohort.has(r.studentId)) cohort.set(r.studentId, { student_id: r.studentId, class_id: classId, roll_no: null });
+  const currentClass = new Map<string, string>();
+  for (const r of enrolled) if (!currentClass.has(r.student_id)) currentClass.set(r.student_id, r.class_id);
+  const currentIds = new Set(roll.map(r => r.student_id));
+  const info = await studentInfo([...cohort.keys()]);
   const flagged = new Map(attention.filter((a) => a.classId === classId).map((a) => [a.studentId, a]));
-  const students = roll
+  const students = [...cohort.values()]
     .map((r) => {
-      const now = results.find((x) => x.studentId === r.student_id && x.examId === exam.id);
-      const before = previous ? results.find((x) => x.studentId === r.student_id && x.examId === previous.id) : undefined;
+      const now = classResults.find((x) => x.studentId === r.student_id && x.examId === exam.id);
+      const before = previous ? classResults.find((x) => x.studentId === r.student_id && x.examId === previous.id) : undefined;
       return {
         studentId: r.student_id,
         name: info.get(r.student_id)?.name ?? "—",
         rollNo: r.roll_no,
+        // Exactly studentDetail's current-enrolment and class-scope guard.
+        canOpen: scopeIncludes(ctx.scope, currentClass.get(r.student_id)),
+        historical: !currentIds.has(r.student_id),
         avg: now ? Math.round(now.avg) : null,
         before: before ? Math.round(before.avg) : null,
         failed: now?.failed ?? 0,
         // Papers missed in this exam: each counts 0 in the average, and the ranking says so.
         ...(now?.absent ? { absent: now.absent } : {}),
-        attendance: att.get(r.student_id)?.pct ?? null,
-        attention: flagged.get(r.student_id) ?? null,
+        attendance: currentIds.has(r.student_id) ? att.get(r.student_id)?.pct ?? null : null,
+        attention: currentIds.has(r.student_id) ? flagged.get(r.student_id) ?? null : null,
       };
     })
     .sort((a, b) => (a.avg ?? 999) - (b.avg ?? 999));

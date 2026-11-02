@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: [export-followup.playwright.config.ts, cheque-followup.playwright.config.ts, module-followup.playwright.config.ts, fee-followup.playwright.config.ts, class-followup.playwright.config.ts, academic-followup.playwright.config.ts, student360-sibling.playwright.config.ts]
+        config: [export-followup.playwright.config.ts, cheque-followup.playwright.config.ts, module-followup.playwright.config.ts, fee-followup.playwright.config.ts, class-followup.playwright.config.ts, academic-followup.playwright.config.ts, student360-sibling.playwright.config.ts, login-ui.playwright.config.ts, receipt-navigation.playwright.config.ts]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
