@@ -9,6 +9,12 @@ import { ToastProvider } from "@/vx/ui/overlays";
 import "../../src/app/globals.css";
 import "../../src/vx/vx.css";
 
+// The production shell mounts the sheet portal alongside the profile.
+const layer = document.createElement("div");
+layer.id = "vx-layer";
+layer.className = "vxt vx-layer";
+document.body.append(layer);
+
 const params = new URLSearchParams(location.search);
 const language = params.get("locale") === "hi" ? "hi" : params.get("locale") === "hi-en" ? "both" : "en";
 const state = params.get("state");
@@ -16,6 +22,7 @@ const schoolOnly = params.get("role") === "teacher";
 if (params.get("theme") === "dark") document.documentElement.classList.add("dark");
 const id = "00000000-0000-4000-8000-000000000001";
 const returnTo = "/students?q=Test&class=qa&view=school&page=2";
+const fees = params.has("stream") ? new Promise<null>(resolve => window.addEventListener("qa:resolve-fees", () => resolve(null), { once: true })) : undefined;
 const portrait = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect fill="#cee8ec" width="96" height="96"/><circle fill="#90bcc6" cx="48" cy="35" r="17"/><path fill="#3d7284" d="M14 96c0-28 14-42 34-42s34 14 34 42"/></svg>');
 const p: Student360Props = {
   id, returnTo, name: "Aarav Test", classLabel: "Class 7 · A", sr: "TEST-071", rollNo: "12", status: "active",
@@ -29,11 +36,18 @@ const p: Student360Props = {
   feeSession: schoolOnly ? null : "2026-27", receipts: [], family: schoolOnly ? null : [{ id: "00000000-0000-4000-8000-000000000002", name: "Synthetic Sibling", sr: "TEST-072", classLabel: "Class 5", self: false }],
   attendance: { percent: 90, counted: 20, counts: { present: 17, absent: 2, half_day: 0, late: 1, leave: 0 }, weeks: [] },
   terms: [{ term: "SA1", percent: 74, grade: "B", missing: 1, papers: 6, scored: 370, outOf: 500 }],
-  documents: [], notes: [
+  documents: params.get("documents") === "saved" ? [
+    { id: "00000000-0000-4000-8000-0000000000d1", kind: "Birth certificate", fileName: "Synthetic birth certificate with a very long filename for a narrow phone.pdf", size: "120 KB", createdAt: "2026-10-12", by: "Test Office" },
+    { id: "00000000-0000-4000-8000-0000000000d2", kind: "Aadhaar", fileName: "Synthetic Aadhaar.png", size: "85 KB", createdAt: "2026-10-11", by: null },
+  ] : [], notes: [
     { id: "synthetic-strength", body: "Explains science ideas clearly and enjoys helping classmates.", tags: ["talent"], status: "open", needsFollowUp: false, followUpOn: null, followUpOwner: null, followUpName: null, by: "Synthetic Teacher", createdAt: "2026-10-10" },
     { id: "synthetic-support", body: "Practise reading aloud together for ten minutes, then review progress.", tags: ["studies"], status: "open", needsFollowUp: true, followUpOn: "2026-10-15", followUpOwner: "class_teacher", followUpName: "Synthetic Teacher", by: "Synthetic Teacher", createdAt: "2026-10-10", canWork: false },
   ], history: [], today: "2026-10-12", canCollect: !schoolOnly, canManageDocuments: !schoolOnly, canManageFees: !schoolOnly, canAddNote: true, contacts: [], contactRecoveryScope: { owner: "synthetic-staff", sessionLabel: "2026-27", previewing: true },
 };
+if (params.get("documents") === "readonly") p.canManageDocuments = false;
+if (params.get("documents") === "error") p.unavailable = ["documents"];
+Object.assign(p, { documentUploadMode: params.get("storage") === "unavailable" ? "unavailable" : "supabase" });
+if (params.has("certificates")) p.schoolOffice = { sessionLabel: "TEST-2026-27", canIssue: true };
 if (state === "empty") { p.notes = []; p.terms = []; p.attendance = { ...p.attendance, percent: null, counted: 0 }; }
 if (state === "error") { p.unavailable = ["attendance", "marks", "notes", "contacts"]; p.contacts = null; }
 const directory: StudentsProps = {
@@ -45,7 +59,7 @@ function Fixture() {
   const path = useSyncExternalStore(subscribe, () => location.pathname);
   return <LanguageProvider language={language}><ToastProvider><NavTrail />
     {path === "/payments" ? <main><h1>Synthetic payment entry</h1><p>No payment is posted in this fixture.</p><label>Amount<input aria-label="Synthetic amount" /></label></main>
-      : path === "/students" ? <VxPage label="Synthetic student acceptance"><StudentsScreen {...directory} /></VxPage> : <><Student360Backdrop /><Student360 p={p} /></>}
+      : path === "/students" ? <VxPage label="Synthetic student acceptance"><StudentsScreen {...directory} /></VxPage> : <><Student360Backdrop /><Student360 p={p} fees={fees} /></>}
   </ToastProvider></LanguageProvider>;
 }
 document.addEventListener("click", event => {

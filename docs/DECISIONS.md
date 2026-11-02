@@ -1,5 +1,19 @@
 # Decisions
 
+## Student documents stay inside the profile — 2 November 2026
+
+The owner requested a simpler Documents section that fits One and a live release.
+Use one file list with persistent Add and authenticated Open links, plus the
+existing VX sheet for upload. Keep school-issued certificates below attachments.
+Tiles consume the narrow drawer; a required-document checklist would need a
+school policy that has not been supplied. Keep the six existing types and a
+deliberate choice, hide the optional note until wanted, and retain transport
+validation/retries. Retrying the same file/metadata keeps the request ID; editing
+them starts a new request. Removal confirms the filename and authorizes the
+document's actual student. Previewing grants no mutation controls. Routine
+implementation/release choices follow CLAUDE rules 5 and 8; no new migration,
+financial write, parent dispatch or document completeness claim is introduced.
+
 ## Integrated School Office — 1 November 2026
 
 The owner selected contextual actions plus a small School Office register and

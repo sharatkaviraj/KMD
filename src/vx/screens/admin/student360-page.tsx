@@ -5,6 +5,7 @@ import { getViewer } from "@/vx/view-as";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { documentKindLabels, humanSize } from "@/modules/collection/domain/review";
+import { documentUploadMode } from "@/modules/collection/data/storage-settings";
 import { approvedStudentPhotos } from "@/modules/collection/data/approved-photos";
 import { studentFees } from "@/modules/students-fees/vx/admin-students";
 import { schoolToday } from "@/vx/format";
@@ -85,10 +86,11 @@ export async function Student360Content({ id, search }: { id: string; search: Re
 
   // Family contact (D-265): the class teacher and the school-wide readers
   // see and record it; nobody else is shown the strip at all.
-  const [notes, contactAccess, photoUrl] = await Promise.all([
+  const [notes, contactAccess, photoUrl, uploadMode] = await Promise.all([
     notesPromise,
     familyContactAccess(staff, sessionLabel, school.classId).catch(() => { unavailable.push("contacts"); return false; }),
     photoPromise,
+    can(staff, "documents:manage") && !previewing ? documentUploadMode(staff.id).catch(() => "unavailable" as const) : Promise.resolve("unavailable" as const),
   ]);
   const contacts = contactAccess ? await familyContacts(id, sessionLabel).catch(() => { unavailable.push("contacts"); return null; }) : null;
 
@@ -229,7 +231,8 @@ export async function Student360Content({ id, search }: { id: string; search: Re
           })),
           canCollect: can(staff, "fees:collect"),
           canAssignTasks: can(staff, "collection:manage") && !previewing,
-          canManageDocuments: can(staff, "documents:manage"),
+          canManageDocuments: can(staff, "documents:manage") && !previewing,
+          documentUploadMode: uploadMode,
           schoolOffice: can(staff, "certificates:view") && sessionLabel ? { sessionLabel, canIssue: can(staff, "certificates:issue") && !previewing, editHref: can(staff, "fees:manage") ? `/admissions/${id}` : undefined } : undefined,
           officialResultsHref: can(staff, "outcomes:view") ? `/exam-office/official-results?student=${id}` : undefined,
           canManageFees: can(staff, "fees:manage"),

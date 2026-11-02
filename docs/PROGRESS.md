@@ -1,5 +1,28 @@
 # VPPS One — progress
 
+## Simpler student Documents — 2 November 2026
+
+Branch `codex/student-documents-ux`, based on `3c9076e`. The owner requested
+brainstorming, implementation and live release. Uploaded files now lead the
+Documents tab, with persistent Add, authenticated Open links, an in-profile VX
+upload sheet, optional notes, progress/retry and confirmed removal. School-issued
+certificates remain separate below. Preview/read-only accounts have no write
+controls; storage routing, existing transports and actual-student fences remain.
+
+Implementation `b2334db`, followed by fresh-review fixes. Final local verification:
+429 unit files / 19,232 tests passed and one skip; all 45 profile/stream/document
+browser cases pass, including 16 document cases, 320/390/1280px, light/dark,
+Hindi/bilingual, keyboard, upload/removal failures and three streamed-fee races.
+The workflow now lives above the fee Suspense boundary; a delayed read cannot
+discard a draft, retry identity or in-flight upload. Fresh review found no
+critical issue; both its stream-state and bilingual-label findings were fixed
+with failing-then-passing regressions. Typecheck/scoped lint, 430 theme tokens,
+828 ported imports and the sibling-fixture build pass. Full lint has 15 existing
+warnings. [Release evidence](evidence/student-documents-2026-11-02/README.md),
+[PR #158](https://github.com/veerpatta/vppsone/pull/158). CI/publication verification
+remain before merge. No migration or real document/payment/message mutation.
+
+
 ## School Office, certificates and official records — 1 November 2026
 
 Branch `feat/school-office-operations`, based on `c3c05f1`; certificate commits

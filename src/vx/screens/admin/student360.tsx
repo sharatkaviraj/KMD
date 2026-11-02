@@ -22,6 +22,7 @@ import { studentProfileHref, studentReturnHref } from "@/vx/screens/admin/studen
 import { excerpt, openSupportActions, TAG_TEXT, type FollowOwner, type NoteStatus, type NoteTag } from "@/vx/screens/notes/domain/notes";
 import type { ContactEntry } from "@/vx/screens/family-contact/domain";
 import { FamilyContactLog, type ContactRecoveryScope } from "@/vx/screens/family-contact/ui";
+import { StudentDocuments, StudentDocumentWorkspace } from "./student-documents";
 
 import "./student360.css";
 import { ChildSummary } from "@/vx/assist/summary-assist";
@@ -170,6 +171,7 @@ export type Student360Props = {
   today: string;
   canCollect: boolean;
   canManageDocuments: boolean;
+  documentUploadMode?: "supabase" | "gdrive" | "unavailable";
   schoolOffice?: { sessionLabel: string; canIssue: boolean; editHref?: string };
   officialResultsHref?: string;
   canManageFees: boolean;
@@ -284,12 +286,12 @@ export function Student360({ p, fees }: { p: Student360Props; fees?: Promise<Stu
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [p.id, p.tabs]);
-  if (!fees) return <Student360View p={p} tab={tab} setTab={setTab} feesLoading={false} />;
-  return (
+  const view = !fees ? <Student360View p={p} tab={tab} setTab={setTab} feesLoading={false} /> : (
     <Suspense fallback={<Student360View p={p} tab={tab} setTab={setTab} feesLoading />}>
       <WithFees p={p} fees={fees} tab={tab} setTab={setTab} />
     </Suspense>
   );
+  return <StudentDocumentWorkspace studentId={p.id} uploadMode={p.documentUploadMode}>{view}</StudentDocumentWorkspace>;
 }
 
 function WithFees({ p, fees, tab, setTab }: { p: Student360Props; fees: Promise<Student360Fees | null>; tab: StudentTab; setTab: (t: StudentTab) => void }) {
@@ -311,7 +313,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   const askDetails = useRef<AssignmentHandle>(null);
   const askMarks = useRef<AssignmentHandle>(null);
   useEffect(() => {
-    panel.current?.focus({ preventScroll: true });
+    if (!document.querySelector('#vx-layer [role="dialog"]')) panel.current?.focus({ preventScroll: true });
   }, []);
 
   const pick = useCallback(
@@ -547,24 +549,8 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
     case "documents":
       body = (
         <>
+        <StudentDocuments documents={p.documents} canManage={p.canManageDocuments} unavailable={unread("documents")} />
         {p.schoolOffice ? <CertificateTools studentId={p.id} sessionLabel={p.schoolOffice.sessionLabel} canIssue={p.schoolOffice.canIssue} editHref={p.schoolOffice.editHref} mode="list" /> : null}
-        <div className="card" style={{ overflow: "hidden" }}>
-          {unread("documents") ? (
-            <p style={{ padding: 18, margin: 0 }}>{tx(T.couldNotRead)}</p>
-          ) : p.documents.length === 0 ? (
-            <EmptyState icon="file" title={tx(T.noDocuments)} action={p.canManageDocuments ? <Btn href={`/teach/student/${p.id}`}>{tx(T.manageDocuments)}</Btn> : undefined} />
-          ) : (
-            p.documents.map((d) => (
-              <div key={d.id} className="s360-row">
-                <span className="s360-sq40" style={{ background: "var(--s2)", color: "var(--pri)" }}><Ic n="fileText" size={18} /></span>
-                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                  <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{d.fileName}</span>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{d.kind} · {d.size} · {dateLabel(d.createdAt)}{d.by ? ` · ${d.by}` : ""}</span>
-                </span>
-              </div>
-            ))
-          )}
-        </div>
         </>
       );
       break;
@@ -651,7 +637,9 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
         aria-label={`${tx(T.student360)} · ${p.name}`}
         tabIndex={-1}
         onKeyDown={(event) => {
-          if (event.key === "Escape" && !more) {
+          // Sheet portals bubble through React's tree. Their Escape belongs
+          // to the sheet, including while an upload prevents dismissal.
+          if (event.key === "Escape" && !more && event.target instanceof Element && event.target.closest('[role="dialog"]') === event.currentTarget) {
             event.stopPropagation();
             close();
           }
