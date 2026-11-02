@@ -2,9 +2,12 @@ import path from "node:path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // Next inlines these in production; fixtures never inherit machine secrets.
+  define: { "process.env": {} },
   root: path.resolve(__dirname),
   publicDir: path.resolve(__dirname, "../../public"),
   resolve: { alias: {
+    "@/vx/screens/admin/student-document-actions": path.resolve(__dirname, "student-actions.ts"),
     "@/app/(app)/school-office/actions": path.resolve(__dirname, "../shared/school-office-action-adapters.ts"),
     "@/app/(app)/payments/bridge-actions": path.resolve(__dirname, "fees-bridge-actions.ts"),
     "@/app/(app)/teach/tasks/actions": path.resolve(__dirname, "../shared/sampark-action-adapters.ts"),

@@ -1,5 +1,22 @@
 # VPPS One — progress
 
+## Simpler student Documents — 2 November 2026
+
+Branch `codex/student-documents-ux`, based on `3c9076e`. The owner requested
+brainstorming, implementation and live release. Uploaded files now lead the
+Documents tab, with persistent Add, authenticated Open links, an in-profile VX
+upload sheet, optional notes, progress/retry and confirmed removal. School-issued
+certificates remain separate below. Preview/read-only accounts have no write
+controls; storage routing, existing transports and actual-student fences remain.
+
+Local focused checks pass, including 11 new browser cases at 320/390/1280px,
+light/dark, Hindi, keyboard, upload failures and removal failures. The full unit
+run passed 429 files / 19,232 tests with one skip before the final sheet-keyboard
+fix. Typecheck/lint, extended profile regression, fresh review, CI build/bundle
+checks and production verification are recorded in this branch's release
+evidence as they finish. No migration or real document/payment/message mutation.
+
+
 ## School Office, certificates and official records — 1 November 2026
 
 Branch `feat/school-office-operations`, based on `c3c05f1`; certificate commits

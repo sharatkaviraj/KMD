@@ -20,3 +20,4 @@ export const tellParentsAboutPlanAction = refuse;
 
 // Added for the 21 Oct smoke fixes: this fixture never exercises it.
 export const decideLeaveAction = refuse;
+export const removeStudentDocument = refuse;

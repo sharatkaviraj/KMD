@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/vx/screens/admin/student-document-actions", () => ({ removeStudentDocument: async () => ({ ok: false }) }));
 import * as React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
