@@ -35,6 +35,7 @@ function Page({ onCloseSpy, backCloses }: { onCloseSpy?: () => void; backCloses?
         title="Change"
         backCloses={backCloses}
       >
+        <button disabled>Already selected</button>
         <button id="switch" type="button" role="switch" aria-checked={whatsapp} onClick={() => setWhatsapp((v) => !v)}>WhatsApp</button>
         <textarea id="why" value={note} onChange={(e) => setNote(e.target.value)} />
       </Sheet>
@@ -79,6 +80,17 @@ function open(onCloseSpy?: () => void, backCloses?: boolean) {
 }
 
 describe("vx Sheet focus", () => {
+  it.each(["loading", "only selected session"])("contains keyboard focus with %s and no enabled content choice", (state) => {
+    act(() => root.render(<><button id="outside">Outside</button><Sheet open onClose={() => undefined} title="Academic session">{state === "loading" ? <p>Loading</p> : <button disabled>TEST-2026-27</button>}</Sheet></>));
+    act(() => vi.advanceTimersByTime(100));
+    const close = document.querySelector<HTMLButtonElement>('[role="dialog"] [data-close]')!;
+    expect(document.activeElement).toBe(close);
+    const event = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+    act(() => document.dispatchEvent(event));
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(close);
+  });
+
   it("moves focus into the sheet once, when it opens", () => {
     open();
     expect(document.activeElement?.id).toBe("switch");
@@ -129,5 +141,19 @@ describe("vx Sheet focus", () => {
     open();
     expect(push).not.toHaveBeenCalled();
     push.mockRestore();
+  });
+
+  it("dismisses without an animation wait when reduced motion is requested", () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+    try {
+      open();
+      act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+      act(() => vi.advanceTimersByTime(1));
+      expect(document.querySelector("[role=dialog]")).toBeNull();
+      expect(document.body.style.overflow).not.toBe("hidden");
+    } finally {
+      window.matchMedia = original;
+    }
   });
 });

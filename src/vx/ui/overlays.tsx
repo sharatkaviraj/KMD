@@ -39,6 +39,23 @@ const noSubscribe = () => () => {};
 const SHEET_MARK = "__vxSheet";
 let sheetHistorySeq = 0;
 
+/** Consume the overlay's history entry before a caller replaces the URL. */
+export function dismissSheetHistoryForNavigation(): Promise<void> {
+  const marker = (window.history.state as Record<string, unknown> | null)?.[SHEET_MARK];
+  if (!marker) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onPop = (event: PopStateEvent) => {
+      if ((event.state as Record<string, unknown> | null)?.[SHEET_MARK] === marker) return;
+      window.removeEventListener("popstate", onPop);
+      resolve();
+    };
+    window.addEventListener("popstate", onPop);
+    // The sheet's own popstate handler clears ownership and closes it, so
+    // its cleanup cannot pop again after router.replace has committed.
+    window.history.back();
+  });
+}
+
 function useLayer(): HTMLElement | null {
   return useSyncExternalStore(
     noSubscribe,
@@ -110,7 +127,7 @@ export function Sheet({
       setMounted(false);
       setClosing(false);
       if (restore.current instanceof HTMLElement) restore.current.focus();
-    }, 230);
+    }, window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 200);
     return () => window.clearTimeout(t);
   }, [closing]);
 
@@ -159,8 +176,8 @@ export function Sheet({
     const t = window.setTimeout(() => {
       const box = panel.current;
       if (!box || box.contains(document.activeElement)) return;
-      const first = box.querySelector<HTMLElement>("[autofocus], input, textarea, select, button:not([data-close])");
-      (first ?? box).focus();
+      const first = box.querySelector<HTMLElement>("[autofocus]:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([data-close]), a[href]");
+      (first ?? box.querySelector<HTMLElement>("button[data-close]") ?? box).focus();
     }, 40);
     return () => window.clearTimeout(t);
   }, [mounted, closing]);
@@ -170,11 +187,14 @@ export function Sheet({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && dismissable) closeRef.current();
       if (e.key === "Tab" && panel.current) {
-        const items = Array.from(panel.current.querySelectorAll<HTMLElement>("a[href],button:not([disabled]),input,textarea,select,[tabindex]:not([tabindex='-1'])"));
-        if (items.length === 0) return;
+        const items = Array.from(panel.current.querySelectorAll<HTMLElement>("a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex='-1'])")).filter((item) => !item.matches(":disabled") && !item.hidden);
+        if (items.length === 0) { e.preventDefault(); return; }
         const first = items[0];
         const last = items[items.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (!items.includes(document.activeElement as HTMLElement)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        } else if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
           last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {

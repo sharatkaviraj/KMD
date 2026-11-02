@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { CalendarDays, Check, ChevronDown, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -14,6 +14,7 @@ import type { AvailableSessionRow } from "@/modules/fees/platform/session-contex
 import { useSessionSwitching } from "@/modules/fees/platform/session-context/switching-context";
 import { toast } from "@/ui/primitives/toast";
 import { cn } from "@/platform/utils";
+import { dismissSheetHistoryForNavigation, Sheet as OneSheet } from "@/vx/ui/overlays";
 
 import {
   buildSessionSwitchHref,
@@ -30,13 +31,16 @@ type MobileSessionPillProps = {
   currentLabel: string;
   isTest: boolean;
   initialSessions?: AvailableSessionRow[];
+  appearance?: "default" | "one";
 };
 
 export function MobileSessionPill({
   currentLabel,
   isTest,
   initialSessions = EMPTY_SESSIONS,
+  appearance = "default",
 }: MobileSessionPillProps) {
+  const SessionSheet = appearance === "one" ? OneSessionSheet : Sheet;
   const t = useTranslations("MobileApp");
   const tCommon = useTranslations("Common");
   const router = useRouter();
@@ -161,7 +165,8 @@ export function MobileSessionPill({
 
     setOptimisticLabel(label);
     setIsSwitching(true);
-    setOpen(false);
+    const sheetClosed = appearance === "one" ? dismissSheetHistoryForNavigation() : Promise.resolve();
+    if (appearance !== "one") setOpen(false);
     releaseAllSheetScrollLocks();
     // Warm the destination while the cookie write is in flight.
     router.prefetch(targetHref);
@@ -171,6 +176,8 @@ export function MobileSessionPill({
 
     void (async () => {
       try {
+        await sheetClosed;
+        setOpen(false);
         // Cookie FIRST, then navigate — see the same comment in session-pill.
         // The page honours `?session=`, the layout can only read the cookie,
         // so navigating before the write lands renders chrome and data from
@@ -219,11 +226,11 @@ export function MobileSessionPill({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "focus-ring grid min-h-11 w-[min(42vw,10rem)] min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_1rem] items-center gap-2 rounded-full border bg-surface px-3 py-2 text-center text-sm font-semibold leading-5 text-foreground",
+          appearance === "one" ? "vx-session-trigger" : "focus-ring grid min-h-11 w-[min(42vw,10rem)] min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_1rem] items-center gap-2 rounded-full border bg-surface px-3 py-2 text-center text-sm font-semibold leading-5 text-foreground",
           "transition-[background-color,border-color,transform,opacity] duration-150 motion-safe:active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none",
-          displayIsTest
+          appearance === "default" && (displayIsTest
             ? "border-fuchsia-500 text-fuchsia-700 dark:border-fuchsia-400 dark:text-fuchsia-300"
-            : "border-border hover:bg-surface-2",
+            : "border-border hover:bg-surface-2"),
           isTransitioning && "opacity-75",
         )}
         aria-label={t("sessionChangeAria", { label: displayLabel })}
@@ -231,13 +238,15 @@ export function MobileSessionPill({
         aria-haspopup="dialog"
         disabled={isTransitioning}
         aria-busy={isTransitioning}
+        data-test-session={displayIsTest ? "true" : undefined}
       >
+        {appearance === "one" ? <CalendarDays className="vx-session-calendar" aria-hidden="true" /> : null}
         {/* A long label (`TEST-2026-27`) is set a size smaller so it stays on
             one line at 375px instead of breaking at its hyphen; it still wraps,
             never truncates, if a longer one ever comes (One-only, Phase C). */}
         <span
           className={cn(
-            "min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]",
+            appearance === "one" ? "vx-session-name" : "min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]",
             displayLabel.length > 9 && "text-xs tracking-tight",
           )}
         >
@@ -255,7 +264,7 @@ export function MobileSessionPill({
         </span>
       </button>
 
-      <Sheet
+      <SessionSheet
         open={open}
         onClose={() => setOpen(false)}
         title={t("sessionTitle")}
@@ -282,11 +291,11 @@ export function MobileSessionPill({
             </div>
           ) : (
             groups.map((group) => (
-              <section key={group.title} className="min-w-0 space-y-2">
+              <section key={group.title} className="vx-session-group min-w-0 space-y-2">
                 <p className="break-words text-xs font-semibold leading-5 tracking-wide text-muted-foreground">
                   {t(group.title === "Active" ? "sessionGroupActive" : group.title === "Other production" ? "sessionGroupOther" : "sessionGroupTest")}
                 </p>
-                <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+                <div className="vx-session-rows divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
                   {group.rows.map((session) => {
                     const selected = session.session_label === displayLabel;
                     const rowIsTest = isTestSession(session.session_label);
@@ -301,7 +310,7 @@ export function MobileSessionPill({
                         onFocus={() => prefetchSession(session.session_label)}
                         onMouseEnter={() => prefetchSession(session.session_label)}
                         className={cn(
-                          "focus-ring grid min-h-14 w-full min-w-0 grid-cols-[minmax(0,1fr)_1.25rem] items-center gap-3 px-4 py-3 text-left text-sm leading-6 hover:bg-surface-2 disabled:opacity-60",
+                          "vx-session-row focus-ring grid min-h-14 w-full min-w-0 grid-cols-[minmax(0,1fr)_1.25rem] items-center gap-3 px-4 py-3 text-left text-sm leading-6 hover:bg-surface-2 disabled:opacity-60",
                           "transition-colors duration-150 motion-safe:active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none",
                           selected && "bg-accent-soft font-semibold disabled:opacity-100",
                         )}
@@ -309,7 +318,7 @@ export function MobileSessionPill({
                         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]">{session.session_label}</span>
                           {rowIsTest ? (
-                            <span className="max-w-full break-words rounded-full border border-fuchsia-300 px-2 py-0.5 text-xs font-semibold leading-5 text-fuchsia-700 dark:border-fuchsia-500 dark:text-fuchsia-300">
+                            <span className="vx-session-test max-w-full break-words rounded-full border border-fuchsia-300 px-2 py-0.5 text-xs font-semibold leading-5 text-fuchsia-700 dark:border-fuchsia-500 dark:text-fuchsia-300">
                               {t("sessionTestBadge")}
                             </span>
                           ) : null}
@@ -325,7 +334,22 @@ export function MobileSessionPill({
             ))
           )}
         </div>
-      </Sheet>
+      </SessionSheet>
     </>
   );
+}
+
+/** Keep the same switching state machine, inside One's shared overlay. */
+function OneSessionSheet({ open, onClose, title, description, children }: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: string;
+  closeLabel?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return <OneSheet open={open} onClose={onClose} title={title} sub={description} icon="calendar" backCloses>
+    <div className="vx-session-options">{children}</div>
+  </OneSheet>;
 }

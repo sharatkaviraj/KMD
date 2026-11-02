@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { schoolBrand } from "@/platform/config/school-brand";
 import Link from "next/link";
+import { NavLink } from "@/ui/shell/nav-link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransition } from "react";
 import { useTheme } from "next-themes";
@@ -177,7 +178,7 @@ export function VxSidebar({
               const on = n.key === active && !previewing;
               const hi = teacherSized ? sub(n.label) : null;
               return (
-                <Link
+                <NavLink
                   key={n.key}
                   href={n.href}
                   className={`tap sidei${on ? " on" : ""}`}
@@ -197,7 +198,7 @@ export function VxSidebar({
                       <NavBadge badges={badges} k={n.badge} dot={collapsed} />
                     </Suspense>
                   ) : null}
-                </Link>
+                </NavLink>
               );
             })}
           </div>

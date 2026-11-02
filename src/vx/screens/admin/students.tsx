@@ -626,7 +626,7 @@ export function StudentsScreen(props: StudentsProps) {
     const [bg, fg] = TONES[i % TONES.length];
     const meta = [row.classLabel, row.sr ? `SR ${row.sr}` : null, fees ? row.route : null].filter(Boolean).join(" · ");
     return (
-      <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
+      <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 8, 56)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap card stu-mcard">
           <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{row.photoUrl ? <PrivatePhoto src={row.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(row.name)}</span>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -657,7 +657,7 @@ export function StudentsScreen(props: StudentsProps) {
     // The name gets the room: a compact line names the class (short), By class (whose heading is the class) the SR no.
     const meta = inClass ? (row.sr ? `SR ${row.sr}` : "") : classChipLabel(row.classLabel);
     return (
-      <div key={row.id} className="hs stu-swipe stu-cline" style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}>
+      <div key={row.id} className="hs stu-swipe stu-cline" style={{ animationDelay: `${Math.min(i * 8, 56)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap stu-crow">
           <span className="clip" style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600 }}>{row.name}</span>
           {meta ? <span className="num clip stu-cmeta">{meta}</span> : null}
@@ -850,7 +850,7 @@ export function StudentsScreen(props: StudentsProps) {
                 {rows.length === 0
                   ? noRows
                   : rows.map((row, i) => (
-                      <div key={row.id} role="row" className={`stu-row${picked.has(row.id) ? " sel" : ""}`} style={{ gridTemplateColumns: tracks, borderTop: i === 0 ? 0 : undefined, animationDelay: `${Math.min(i * 30, 400)}ms` }}>
+                      <div key={row.id} role="row" className={`stu-row${picked.has(row.id) ? " sel" : ""}`} style={{ gridTemplateColumns: tracks, borderTop: i === 0 ? 0 : undefined, animationDelay: `${Math.min(i * 8, 56)}ms` }}>
                         <span role="cell" style={{ display: "flex", justifyContent: "center" }}>
                           <Tick on={picked.has(row.id)} label={tx(T.selectRow(row.name))} onToggle={() => toggle(row.id)} />
                         </span>
@@ -865,7 +865,7 @@ export function StudentsScreen(props: StudentsProps) {
                             <span role="cell" className="stu-td num" style={{ textAlign: "right", color: "var(--mut)" }}>{row.money.notDueYet > 0 ? rupees(row.money.notDueYet) : "—"}</span>
                             <span role="cell" style={{ padding: "0 8px 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
                               <span style={{ flex: 1, height: 6, borderRadius: 3, background: "var(--s3)", overflow: "hidden", display: "block" }}>
-                                <span className="stu-bar" style={{ width: `${row.money.percent}%`, background: row.money.percent >= 100 ? "var(--ok)" : row.money.pendingToday > 0 ? "var(--warn)" : "var(--acc)", animationDelay: `${Math.min(i * 30, 400)}ms` }} />
+                                <span className="stu-bar" style={{ width: `${row.money.percent}%`, background: row.money.percent >= 100 ? "var(--ok)" : row.money.pendingToday > 0 ? "var(--warn)" : "var(--acc)", animationDelay: `${Math.min(i * 8, 56)}ms` }} />
                               </span>
                               <span className="num" style={{ width: 36, fontSize: 12, fontWeight: 700, textAlign: "right" }}>{row.money.percent}%</span>
                             </span>

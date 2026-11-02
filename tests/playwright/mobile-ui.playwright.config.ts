@@ -5,6 +5,8 @@ import { ROOT, fromRoot } from "./root";
 export default defineConfig({
   testDir: fromRoot("./tests/mobile-ui"), outputDir: fromRoot("test-results"),
   testMatch: "**/*.spec.ts",
+  // The One shell suite needs its own isolated server-action adapters.
+  testIgnore: "one-polish.spec.ts",
   fullyParallel: true,
   workers: 2,
   timeout: 30_000,

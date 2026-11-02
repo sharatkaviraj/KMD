@@ -5,10 +5,8 @@ import { MobileSessionPill } from "@/ui/shell/mobile-session-pill";
 import { ShellSessionPill, ShellSessionPillSkeleton } from "@/ui/shell/shell-session-pill";
 
 /**
- * The session pill, the same as the fees app's (plan §3.3; D-340): the
- * desktop dropdown from 900px, the phone sheet below it. Both are the ported
- * fee components, unchanged but for `showLive`; the bar only places them,
- * because the vx shell has no top bar of its own (each screen draws one).
+ * The permission-filtered Fees switchers with One's native presentation:
+ * a desktop dropdown from 900px and the shared One sheet below it.
  *
  * The list of sessions is a promise resolved inside the boundary, so a cold
  * switcher read (up to 1.2s) never holds the frame — the fees app's reason
@@ -29,12 +27,12 @@ export function SessionBar({
   return (
     <div className="vx-sessionbar" data-test-session={isTest ? "true" : undefined}>
       <div className="vx-sessionbar-d">
-        <Suspense fallback={<ShellSessionPillSkeleton currentLabel={label} isTest={isTest} />}>
-          <ShellSessionPill currentLabel={label} isTest={isTest} sessions={sessions} showLive={showLive} />
+        <Suspense fallback={<ShellSessionPillSkeleton currentLabel={label} isTest={isTest} appearance="one" />}>
+          <ShellSessionPill currentLabel={label} isTest={isTest} sessions={sessions} showLive={showLive} appearance="one" />
         </Suspense>
       </div>
       <div className="vx-sessionbar-m">
-        <Suspense fallback={<ShellSessionPillSkeleton currentLabel={label} isTest={isTest} />}>
+        <Suspense fallback={<ShellSessionPillSkeleton currentLabel={label} isTest={isTest} appearance="one" />}>
           <MobileSessionPillLoaded label={label} isTest={isTest} sessions={sessions} />
         </Suspense>
       </div>
@@ -52,5 +50,5 @@ async function MobileSessionPillLoaded({
   sessions: Promise<SessionSwitcherData>;
 }) {
   const { availableSessions } = await sessions;
-  return <MobileSessionPill currentLabel={label} isTest={isTest} initialSessions={availableSessions} />;
+  return <MobileSessionPill currentLabel={label} isTest={isTest} initialSessions={availableSessions} appearance="one" />;
 }

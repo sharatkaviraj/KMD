@@ -101,6 +101,7 @@ export async function VxShell({
   sessionLabel,
   sessionIsTest,
   sessionPill = null,
+  rosterStatus,
   children,
 }: {
   viewer: Viewer;
@@ -108,6 +109,7 @@ export async function VxShell({
   sessionIsTest: boolean;
   /** The session pill, for a viewer allowed to switch (layout decides); null hides it. */
   sessionPill?: { showLive: boolean; sessions: Promise<SessionSwitcherData> } | null;
+  rosterStatus?: ReactNode;
   children: ReactNode;
 }) {
   const { staff, menu, previewing } = viewer;
@@ -178,9 +180,10 @@ export async function VxShell({
               // everybody is fenced to TEST here, an admin included (D-346).
               <div className="vx-confined" role="status">{flat(testSessionMessages.confinedBanner, staff.language)}</div>
             ) : null}
-            {sessionPill ? (
-              <SessionBar label={sessionLabel} isTest={sessionIsTest} showLive={sessionPill.showLive} sessions={sessionPill.sessions} />
-            ) : null}
+            {sessionPill || rosterStatus ? <div className="vx-workspace-bar">
+              {rosterStatus ?? <span className="vx-workspace-label">{flat({ en: "Academic session", hi: "शैक्षणिक सत्र" }, staff.language)}</span>}
+              {sessionPill ? <SessionBar label={sessionLabel} isTest={sessionIsTest} showLive={sessionPill.showLive} sessions={sessionPill.sessions} /> : null}
+            </div> : null}
             <main id="vx-main" className="vx-main vx-reset">
               {children}
             </main>

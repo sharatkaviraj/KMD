@@ -92,12 +92,13 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
                 <CenterBlob icon={n.icon} />
               </button>
             ) : (
-              <IntentLink key={n.key} href={n.href} className="tap" aria-label={tx(n.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <IntentLink feedback key={n.key} href={n.href} className="tap" aria-label={tx(n.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <CenterBlob icon={n.icon} />
               </IntentLink>
             )
           ) : (
             <IntentLink
+              feedback
               key={n.key}
               href={n.href}
               className="tap"

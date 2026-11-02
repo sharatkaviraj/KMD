@@ -17,6 +17,7 @@ export const ms = {
   bridgeDues: t("बकाया और अनुस्मारक", "Dues and reminders"),
   bridgeBooks: t("वित्तीय नियंत्रण", "Financial controls"),
   bridgeLedger: t("भुगतान Fees के उसी खाते में दर्ज होता है। आधिकारिक रसीद दोनों ऐप में उपलब्ध रहती है।", "Payments are recorded in the existing Fees ledger. The official receipt is available in both apps."),
+  bridgeLedgerShort: t("भुगतान Fees के खाते में दर्ज होता है", "Payments use the Fees ledger"),
   bridgeOpenFees: t("Fees ऐप खोलें", "Open Fees app"),
   bridgeReadOnly: t("One में भुगतान अभी बंद है। रकम जमा करने के लिए Fees ऐप खोलें।", "Collection in One is currently closed. Use the Fees app to collect."),
   bridgeStudent: t("विद्यार्थी", "Student"),

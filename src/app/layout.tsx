@@ -17,6 +17,7 @@ import { ToastViewport } from "@/ui/primitives/toast";
 
 import "./globals.css";
 import "@/vx/vx.css";
+import "@/vx/shell/session-controls.css";
 
 /*
  * Three families, matching School Fees exactly.

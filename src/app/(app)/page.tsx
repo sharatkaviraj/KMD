@@ -21,9 +21,8 @@ import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { menuRoleLabel } from "@/vx/shell/role-line";
 import { getViewer } from "@/vx/view-as";
-import { usesCanonicalFees, FEES_ORIGIN } from "@/platform/fees-bridge/policy";
-import { ms } from "@/messages/setup";
-import { flat } from "@/platform/i18n/language";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { LedgerNotice } from "@/vx/shell/ledger-notice";
 
 export const runtime = "nodejs";
 
@@ -118,8 +117,8 @@ export default async function TodayPage() {
 
   return (
     <VxPage label={lead(T.today, language)}>
-      {seesMoney && canonicalMoney && <div className="mx-4 my-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm"><p>{flat(ms.bridgeLedger,language)}</p><div className="mt-2 flex flex-wrap gap-5"><a className="font-medium underline" href="/payments">{flat(ms.bridgeTitle,language)}</a><a className="font-medium underline" href={`${FEES_ORIGIN}/protected/dashboard`}>{flat(ms.bridgeOpenFees,language)}</a></div></div>}
       <TodayScreen
+        notice={seesMoney && canonicalMoney ? <LedgerNotice language={language} /> : null}
         officeWork={<Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>}
         firstName={staff.displayName.split(/\s+/)[0] ?? staff.displayName}
         greeting={greeting}

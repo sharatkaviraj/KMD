@@ -40,6 +40,7 @@ export type TodayMoneyView = {
 export type QuickTone = "pri" | "acc" | "info" | "ok" | "warn" | "plain";
 
 export type TodayProps = {
+  notice?: ReactNode;
   officeWork?: ReactNode;
   /** Morning: a part-day's money is not set against a whole average day (verification N7, as accountant B16). */
   beforeNoon?: boolean;
@@ -295,6 +296,7 @@ export function TodayScreen(props: TodayProps) {
             The phone frame sets its text at 1.4, a touch under the kit's 1.45. */}
         <div className="only-m" style={{ lineHeight: 1.4 }}>
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
+          {props.notice ? <div className="vx-today-notice">{props.notice}</div> : null}
           <PhoneNeeds inbox={inbox} />
           {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
@@ -312,6 +314,7 @@ export function TodayScreen(props: TodayProps) {
         <div className="td-grid">
           <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
             <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+              {props.notice}
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--mut)" }}>

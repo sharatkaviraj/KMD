@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: [student360-mobile.playwright.config.ts, student-profile.playwright.config.ts, academic-ui.playwright.config.ts, operations-admin.playwright.config.ts, accountant-mobile.playwright.config.ts, marks-mobile.playwright.config.ts, operations-fee-collector.playwright.config.ts]
+        config: [student360-mobile.playwright.config.ts, student-profile.playwright.config.ts, academic-ui.playwright.config.ts, operations-admin.playwright.config.ts, accountant-mobile.playwright.config.ts, marks-mobile.playwright.config.ts, operations-fee-collector.playwright.config.ts, one-polish.playwright.config.ts]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

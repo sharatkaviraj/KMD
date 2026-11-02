@@ -21,6 +21,7 @@ type ShellSessionPillProps = {
   sessions: Promise<SessionSwitcherData>;
   /** False off production: no "Live ·" prefix (see SessionPill). */
   showLive?: boolean;
+  appearance?: "default" | "one";
 };
 
 export async function ShellSessionPill({
@@ -28,6 +29,7 @@ export async function ShellSessionPill({
   isTest,
   sessions,
   showLive = true,
+  appearance = "default",
 }: ShellSessionPillProps) {
   const { availableSessions } = await sessions;
 
@@ -37,6 +39,7 @@ export async function ShellSessionPill({
       isTest={isTest}
       initialSessions={availableSessions}
       showLive={showLive}
+      appearance={appearance}
     />
   );
 }
@@ -51,10 +54,19 @@ export async function ShellSessionPill({
 export function ShellSessionPillSkeleton({
   currentLabel,
   isTest,
+  appearance = "default",
 }: {
   currentLabel: string;
   isTest: boolean;
+  appearance?: "default" | "one";
 }) {
+  if (appearance === "one") {
+    return <span aria-hidden="true" className="vx-session-trigger vx-session-placeholder" data-test-session={isTest ? "true" : undefined}>
+      <span className="vx-session-calendar" />
+      <span className="vx-session-name">{currentLabel}</span>
+      <span className="vx-session-arrow" />
+    </span>;
+  }
   return (
     <span
       aria-hidden="true"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Loader2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -33,6 +33,7 @@ type SessionPillProps = {
    * deployment is confined) — the books there are not live (plan §3.3).
    */
   showLive?: boolean;
+  appearance?: "default" | "one";
 };
 
 export const SESSION_SWITCHER_STALE_PARAM_NAMES = [
@@ -167,6 +168,7 @@ export function SessionPill({
   isTest,
   initialSessions = [],
   showLive = true,
+  appearance = "default",
 }: SessionPillProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -380,18 +382,22 @@ export function SessionPill({
       <DropdownMenuTrigger
         type="button"
         className={cn(
-          "inline-flex h-9 shrink-0 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold shadow-sm transition-colors focus-ring",
+          appearance === "one" ? "vx-session-trigger" : "inline-flex h-9 shrink-0 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold shadow-sm transition-colors focus-ring",
+          appearance === "default" && (
           displayIsTest
             ? "border-fuchsia-500 bg-surface text-fuchsia-700 dark:text-fuchsia-300 hover:bg-surface-2"
             : displayIsLive
               ? "border-success/30 bg-success-soft text-success-soft-foreground hover:bg-success-soft/70"
-              : "border-border bg-surface text-foreground hover:bg-surface-2",
+              : "border-border bg-surface text-foreground hover:bg-surface-2"),
           isTransitioning && "opacity-75",
         )}
         aria-label="Change academic session"
         aria-busy={isTransitioning}
+        data-test-session={displayIsTest ? "true" : undefined}
+        data-live={displayIsLive ? "true" : undefined}
+        disabled={isTransitioning}
       >
-        {displayIsLive ? (
+        {appearance === "one" ? <CalendarDays className="vx-session-calendar" aria-hidden="true" /> : displayIsLive ? (
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
             Live ·
@@ -399,8 +405,8 @@ export function SessionPill({
         ) : (
           <span className="text-muted-foreground">Session</span>
         )}
-        <span>{displayLabel}</span>
-        {displayIsTest ? (
+        <span className={appearance === "one" ? "vx-session-name" : undefined}>{displayLabel}</span>
+        {displayIsTest && appearance === "default" ? (
           <span className="rounded-full border border-fuchsia-300 bg-fuchsia-50 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700">
             TEST
           </span>
@@ -411,7 +417,7 @@ export function SessionPill({
           <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 p-2">
+      <DropdownMenuContent align="end" className={appearance === "one" ? "vxt vx-session-menu" : "w-64 p-2"}>
         {isTransitioning ? (
           <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
             Changing to {displayLabel}...
@@ -447,7 +453,7 @@ export function SessionPill({
                     )}
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate">{session.session_label}</span>
+                      <span className={appearance === "one" ? "min-w-0 whitespace-normal break-words" : "truncate"}>{session.session_label}</span>
                       {rowIsTest ? (
                         <span className="rounded-full border border-fuchsia-300 px-1.5 py-0.5 text-[10px] font-semibold text-fuchsia-700">
                           TEST

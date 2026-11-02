@@ -53,6 +53,7 @@ next-env.d.ts
 
 # design fidelity fixture dep cache
 .vite-design/
+.vite-polish/
 
 # phone-suite evidence and Vite fixture builds
 /.test-artifacts/

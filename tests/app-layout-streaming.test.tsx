@@ -1,4 +1,5 @@
-import { Children, isValidElement, Suspense, type ReactElement } from "react";
+import { Suspense, type ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
 const state=vi.hoisted(()=>({health:vi.fn()}));
@@ -30,11 +31,11 @@ it("returns the authenticated shell with bridge status behind Suspense",async()=
     await vi.waitFor(()=>expect(resolved).toBe(true),{timeout:100});
     const result=await pending;
     const shell=result.props.children;
-    const boundary=Children.toArray(shell.props.children).find(child=>isValidElement(child)&&child.type===Suspense) as ReactElement<{children:ReactElement<{language:"en"}>}>;
-    expect(boundary).toBeDefined();
-    const renderStatus=boundary.props.children.type as (props:{language:"en"})=>Promise<ReactElement<{role:string}>>;
+    const boundary=shell.props.rosterStatus as ReactElement<{children:ReactElement<{language:"en"}>}>;
+    expect(boundary.type).toBe(Suspense);
+    const renderStatus=boundary.props.children.type as (props:{language:"en"})=>Promise<ReactElement>;
     const status=renderStatus(boundary.props.children.props);
     finish({state:null,status:"error"});
-    expect((await status).props.role).toBe("status");
+    expect(renderToStaticMarkup(await status)).toContain('role="status"');
   } finally {finish({state:null,status:"error"});await pending;}
 });

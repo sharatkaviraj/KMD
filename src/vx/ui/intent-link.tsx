@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { NavLink } from "@/ui/shell/nav-link";
 
 /*
  * A link that starts fetching the whole destination — data included — the
@@ -15,7 +16,8 @@ import { useEffect, useRef, useState, type ComponentProps } from "react";
  */
 const REST_MS = 90;
 
-export function IntentLink(props: Omit<ComponentProps<typeof Link>, "prefetch">) {
+export function IntentLink({ feedback = false, ...props }: Omit<ComponentProps<typeof Link>, "prefetch"> & { feedback?: boolean }) {
+  const Component = feedback ? NavLink : Link;
   const [full, setFull] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -29,7 +31,7 @@ export function IntentLink(props: Omit<ComponentProps<typeof Link>, "prefetch">)
     timer.current = null;
   };
   return (
-    <Link
+    <Component
       {...props}
       prefetch={full ? true : null}
       onTouchStart={(event) => {
