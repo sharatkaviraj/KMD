@@ -6,7 +6,7 @@ import { documentKinds, documentKindLabels, humanSize, MAX_DOCUMENT_BYTES, type 
 import { uploadToDrive, type UploadOutcome } from "@/modules/collection/ui/chunked-upload";
 import { uploadToBucket } from "@/modules/collection/ui/bucket-upload";
 import { primary, type Localized } from "@/platform/i18n/language";
-import { useVx } from "@/vx/i18n";
+import { Bi, useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { p } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";
@@ -84,19 +84,19 @@ export function StudentDocumentUpload({ studentId, mode, onClose, onSaved }: {
   return <Sheet open title={tx(D.title)} sub={tx(D.limit)} icon="upload" onClose={onClose} dismissable={!busy}
     footer={<><Btn disabled={busy} onClick={onClose}>{tx(D.cancel)}</Btn>{available ? <Btn full variant="pri" type="submit" form={formId} disabled={busy || !kind || !file}>{tx(busy ? D.saving : failure?.resumable ? D.retry : D.save)}</Btn> : null}</>}>
     {!available ? <p className="sd-error" role="alert">{primary(dm.docStorageDown, language)}</p> : <form id={formId} onSubmit={save} className="sd-form">
-      {failure ? <p className="sd-error" role="alert">{primary(FAILURE[failure.reason], language)}</p> : null}
-      <fieldset className="sd-kinds" disabled={busy}><legend>{tx(D.kind)}</legend><div>{documentKinds.map(option => <label key={option}>
+      {failure ? <p className="sd-error" role="alert"><Bi {...FAILURE[failure.reason]} /></p> : null}
+      <fieldset className="sd-kinds" disabled={busy}><legend><Bi {...D.kind} /></legend><div>{documentKinds.map(option => <label key={option}>
         <input type="radio" name={`${formId}-kind`} value={option} checked={kind === option} onChange={() => { changed(); setKind(option); }} />
-        <span>{primary(documentKindLabels[option], language)}{kind === option ? <Ic n="check" size={15} /> : null}</span>
+        <span><Bi {...documentKindLabels[option]} />{kind === option ? <Ic n="check" size={15} /> : null}</span>
       </label>)}</div></fieldset>
-      <div className="sd-field"><label htmlFor={`${formId}-file`}>{tx(D.file)}</label>
+      <div className="sd-field"><label htmlFor={`${formId}-file`}><Bi {...D.file} /></label>
         <input ref={input} id={`${formId}-file`} className="sd-file-input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={busy} onChange={event => choose(event.currentTarget.files?.[0] ?? null)} tabIndex={-1} />
         <div className={`sd-picker${file ? " has-file" : ""}`}><span className="sd-icon"><Ic n={file?.type.startsWith("image/") ? "image" : "upload"} size={22} /></span>
           {file ? <span className="sd-file"><strong className="sd-break">{file.name}</strong><span className="sd-muted">{humanSize(file.size)}</span></span> : <span className="sd-muted">{tx(D.limit)}</span>}
           <Btn disabled={busy} onClick={() => input.current?.click()}>{tx(file ? D.change : D.choose)}</Btn>
         </div>
       </div>
-      <details className="sd-note"><summary>{tx(D.addNote)}</summary><label className="sd-field"><span>{tx(D.note)}</span><input className="inp" type="text" maxLength={200} disabled={busy} value={note} onChange={event => { changed(); setNote(event.currentTarget.value); }} /></label></details>
+      <details className="sd-note"><summary><Bi {...D.addNote} block={false} /></summary><label className="sd-field"><span><Bi {...D.note} /></span><input className="inp" type="text" maxLength={200} disabled={busy} value={note} onChange={event => { changed(); setNote(event.currentTarget.value); }} /></label></details>
       {busy ? <div role="status" aria-live="polite" className="sd-progress"><progress max={100} value={progress} aria-label={tx(D.saving)} /><span className="sd-muted">{primary(retrying ? dm.docRetrying : progress === 0 ? dm.docChecking : dm.docSending, language)}{progress > 0 ? ` ${progress}%` : ""}</span></div> : null}
     </form>}
   </Sheet>;

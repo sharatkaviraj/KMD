@@ -9,12 +9,18 @@ upload sheet, optional notes, progress/retry and confirmed removal. School-issue
 certificates remain separate below. Preview/read-only accounts have no write
 controls; storage routing, existing transports and actual-student fences remain.
 
-Local focused checks pass, including 11 new browser cases at 320/390/1280px,
-light/dark, Hindi, keyboard, upload failures and removal failures. The full unit
-run passed 429 files / 19,232 tests with one skip before the final sheet-keyboard
-fix. Typecheck/lint, extended profile regression, fresh review, CI build/bundle
-checks and production verification are recorded in this branch's release
-evidence as they finish. No migration or real document/payment/message mutation.
+Implementation `b2334db`, followed by fresh-review fixes. Final local verification:
+429 unit files / 19,232 tests passed and one skip; all 45 profile/stream/document
+browser cases pass, including 16 document cases, 320/390/1280px, light/dark,
+Hindi/bilingual, keyboard, upload/removal failures and three streamed-fee races.
+The workflow now lives above the fee Suspense boundary; a delayed read cannot
+discard a draft, retry identity or in-flight upload. Fresh review found no
+critical issue; both its stream-state and bilingual-label findings were fixed
+with failing-then-passing regressions. Typecheck/scoped lint, 430 theme tokens,
+828 ported imports and the sibling-fixture build pass. Full lint has 15 existing
+warnings. [Release evidence](evidence/student-documents-2026-11-02/README.md),
+[PR #158](https://github.com/veerpatta/vppsone/pull/158). CI/publication verification
+remain before merge. No migration or real document/payment/message mutation.
 
 
 ## School Office, certificates and official records — 1 November 2026

@@ -131,3 +131,55 @@ test("school-issued certificates stay separate below uploaded records", async ({
   expect(issued!.y).toBeGreaterThan(uploaded!.y + uploaded!.height);
   await expect(page.locator(".s360-body").getByRole("button", { name: "Study certificate", exact: true })).toBeVisible();
 });
+
+for (const state of ["draft", "retry", "inflight"] as const) test(`fee stream preserves the document ${state}`, async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await openTab(page, "stream=1");
+  const attempts: Record<string, unknown>[] = [];
+  let finish!: () => void;
+  const held = new Promise<void>(resolve => { finish = resolve; });
+  await page.route("**/documents/bucket-upload", async route => {
+    const body = route.request().postDataJSON();
+    if (body.phase === "begin") attempts.push(body);
+    if (state === "inflight") await held;
+    await route.fulfill({ json: state === "retry" ? { ok: false, reason: "storage_down" } : { ok: true, state: "stored" } });
+  });
+  await page.getByRole("button", { name: "Add document", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Add document" });
+  await dialog.getByRole("radio", { name: "Birth certificate", exact: true }).check();
+  await dialog.locator("input[type=file]").setInputFiles(pdf);
+  await dialog.locator("summary").click();
+  await dialog.getByRole("textbox", { name: "Note (optional)" }).fill("Synthetic original note");
+  if (state !== "draft") {
+    await dialog.getByRole("button", { name: "Save document", exact: true }).click();
+    if (state === "retry") await expect(dialog.getByRole("alert")).toBeVisible();
+    else await expect.poll(() => attempts.length).toBe(1);
+  }
+  await page.evaluate(() => window.dispatchEvent(new Event("qa:resolve-fees")));
+  await expect(page.locator(".s360-kpis.phone").getByText("₹2,400", { exact: true })).toBeVisible();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(pdf.name, { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Note (optional)" })).toHaveValue("Synthetic original note");
+  if (state === "draft") await expect(dialog.getByRole("textbox", { name: "Note (optional)" })).toBeFocused();
+  if (state === "retry") {
+    await dialog.getByRole("button", { name: "Retry upload", exact: true }).click();
+    await expect.poll(() => attempts.length).toBe(2);
+    expect(attempts[0].clientRequestId).toBe(attempts[1].clientRequestId);
+  } else if (state === "inflight") {
+    await expect(dialog.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
+    finish();
+    await expect(page.getByRole("status").filter({ hasText: "Document saved." })).toBeVisible();
+    expect(attempts).toHaveLength(1);
+  }
+});
+
+test("bilingual upload labels show both account languages", async ({ page }) => {
+  await openTab(page, "locale=hi-en");
+  await page.getByRole("button", { name: "Add document", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: /Add document/ });
+  await expect(dialog.locator("legend")).toContainText("Document type");
+  await expect(dialog.locator("legend")).toContainText("दस्तावेज़ का प्रकार");
+  const birth = dialog.getByRole("radio", { name: /Birth certificate/ });
+  await birth.check();
+  await expect(dialog.getByText("जन्म प्रमाणपत्र", { exact: true })).toBeVisible();
+});

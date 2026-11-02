@@ -1,9 +1,9 @@
 "use client";
 
-import { Component, lazy, Suspense, useId, useRef, useState, type ReactNode } from "react";
+import { Component, createContext, lazy, Suspense, useContext, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { dateLabel } from "@/vx/format";
-import { useVx } from "@/vx/i18n";
+import { Bi, useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { p } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";
@@ -48,16 +48,23 @@ class UploadBoundary extends Component<{ onClose: () => void; children: ReactNod
   render() { return this.state.failed ? <UploadLoading failed onClose={this.props.onClose} /> : this.props.children; }
 }
 
-export function StudentDocuments({ studentId, documents, canManage, uploadMode, unavailable = false }: {
+type ProfileDocument = Student360Props["documents"][number];
+const DocumentContext = createContext<{
+  addTrigger: RefObject<HTMLSpanElement | null>;
+  add: () => void;
+  askRemove: (document: ProfileDocument) => void;
+  notice: "saved" | "removed" | null;
+  removedIds: string[];
+} | null>(null);
+
+/** Above the fee Suspense boundary: a late fee read must not discard a file or an active request. */
+export function StudentDocumentWorkspace({ studentId, uploadMode, children }: {
   studentId: string;
-  documents: Student360Props["documents"];
-  canManage: boolean;
   uploadMode?: "supabase" | "gdrive" | "unavailable";
-  unavailable?: boolean;
+  children: ReactNode;
 }) {
   const { tx } = useVx();
   const router = useRouter();
-  const heading = useId();
   const addTrigger = useRef<HTMLSpanElement>(null);
   const [upload, setUpload] = useState(false);
   const [selected, setSelected] = useState<Student360Props["documents"][number] | null>(null);
@@ -67,7 +74,6 @@ export function StudentDocuments({ studentId, documents, canManage, uploadMode, 
   const [notice, setNotice] = useState<"saved" | "removed" | null>(null);
   // A successful removal is reflected immediately; failures keep their row.
   const [removedIds, setRemovedIds] = useState<string[]>([]);
-  const rows = documents.filter(document => !removedIds.includes(document.id));
 
   function closeUpload() {
     setUpload(false);
@@ -90,14 +96,34 @@ export function StudentDocuments({ studentId, documents, canManage, uploadMode, 
     finally { removingRef.current = false; setRemoving(false); }
   }
 
-  return <>
+  return <DocumentContext value={{ addTrigger, notice, removedIds, add: () => { setNotice(null); setUpload(true); }, askRemove: document => { setRemoveFailed(false); setSelected(document); } }}>
+    {children}
+    {upload ? <UploadBoundary onClose={closeUpload}><Suspense fallback={<UploadLoading onClose={closeUpload} />}><Upload studentId={studentId} mode={uploadMode ?? "unavailable"} onClose={closeUpload} onSaved={() => { closeUpload(); setNotice("saved"); router.refresh(); }} /></Suspense></UploadBoundary> : null}
+    <Sheet open={selected !== null} title={tx(D.removeTitle)} icon="trash" dismissable={!removing} onClose={() => setSelected(null)}
+      footer={<><Btn full disabled={removing} onClick={() => setSelected(null)}>{tx(D.cancel)}</Btn><Btn full variant="danger" disabled={removing} onClick={remove}>{tx(removing ? D.removing : D.remove)}</Btn></>}>
+      <div className="sd-form"><strong className="sd-break">{selected?.fileName}</strong><p className="sd-muted">{tx(D.removeHint)}</p>{removeFailed ? <p className="sd-error" role="alert">{tx(D.removeFailed)}</p> : null}</div>
+    </Sheet>
+  </DocumentContext>;
+}
+
+export function StudentDocuments({ documents, canManage, unavailable = false }: {
+  documents: Student360Props["documents"]; canManage: boolean; unavailable?: boolean;
+}) {
+  const { tx } = useVx();
+  const router = useRouter();
+  const heading = useId();
+  const controls = useContext(DocumentContext);
+  if (!controls) throw new Error("Student documents require their workspace.");
+  const { notice, removedIds, addTrigger, add, askRemove } = controls;
+  const rows = documents.filter(document => !removedIds.includes(document.id));
+  return (
     <section className="card sd-documents" aria-labelledby={heading}>
       <div className="sd-header">
         <div className="sd-heading">
-          <h2 id={heading}>{tx(D.title)}{!unavailable ? <span className="sd-count">{rows.length}</span> : null}</h2>
+          <h2 id={heading}><Bi {...D.title} />{!unavailable ? <span className="sd-count">{rows.length}</span> : null}</h2>
           <p className="sd-muted">{tx(D.hint)}</p>
         </div>
-        {canManage ? <span ref={addTrigger}><Btn variant="pri" icon="plus" onClick={() => { setNotice(null); setUpload(true); }}>{tx(D.add)}</Btn></span> : null}
+        {canManage ? <span ref={addTrigger}><Btn variant="pri" icon="plus" onClick={add}>{tx(D.add)}</Btn></span> : null}
       </div>
       {notice ? <p role="status" className="sd-notice"><Ic n="checkCircle" size={17} />{tx(D[notice])}</p> : null}
       {unavailable ? <div className="sd-empty" role="alert"><Ic n="wifiOff" size={28} /><p>{tx(D.failed)}</p><Btn icon="refresh" onClick={() => router.refresh()}>{tx(D.retry)}</Btn></div>
@@ -107,14 +133,9 @@ export function StudentDocuments({ studentId, documents, canManage, uploadMode, 
             <span className="sd-file"><strong>{document.kind}</strong><span className="sd-name">{document.fileName}</span><span className="sd-muted sd-meta">{document.size} · {dateLabel(document.createdAt)}</span></span>
             <span className="sd-open-word">{tx(D.open)}<Ic n="chevRight" size={16} /></span>
           </a>
-          {canManage ? <button type="button" className="tap sd-remove" aria-label={tx(p(`Remove ${document.fileName}`, `${document.fileName} हटाएँ`))} onClick={() => { setRemoveFailed(false); setSelected(document); }}><Ic n="trash" size={18} /></button> : null}
+          {canManage ? <button type="button" className="tap sd-remove" aria-label={tx(p(`Remove ${document.fileName}`, `${document.fileName} हटाएँ`))} onClick={() => askRemove(document)}><Ic n="trash" size={18} /></button> : null}
         </li>)}</ul> : <div className="sd-empty"><span className="sd-empty-icon"><Ic n="fileText" size={28} /></span><strong>{tx(D.empty)}</strong><p className="sd-muted">{tx(D.emptyHint)}</p></div>}
       <p className="sd-limit sd-muted"><Ic n="file" size={14} />{tx(D.limit)}</p>
     </section>
-    {upload ? <UploadBoundary onClose={closeUpload}><Suspense fallback={<UploadLoading onClose={closeUpload} />}><Upload studentId={studentId} mode={uploadMode ?? "unavailable"} onClose={closeUpload} onSaved={() => { closeUpload(); setNotice("saved"); router.refresh(); }} /></Suspense></UploadBoundary> : null}
-    <Sheet open={selected !== null} title={tx(D.removeTitle)} icon="trash" dismissable={!removing} onClose={() => setSelected(null)}
-      footer={<><Btn full disabled={removing} onClick={() => setSelected(null)}>{tx(D.cancel)}</Btn><Btn full variant="danger" disabled={removing} onClick={remove}>{tx(removing ? D.removing : D.remove)}</Btn></>}>
-      <div className="sd-form"><strong className="sd-break">{selected?.fileName}</strong><p className="sd-muted">{tx(D.removeHint)}</p>{removeFailed ? <p className="sd-error" role="alert">{tx(D.removeFailed)}</p> : null}</div>
-    </Sheet>
-  </>;
+  );
 }

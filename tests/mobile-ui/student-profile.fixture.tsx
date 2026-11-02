@@ -22,6 +22,7 @@ const schoolOnly = params.get("role") === "teacher";
 if (params.get("theme") === "dark") document.documentElement.classList.add("dark");
 const id = "00000000-0000-4000-8000-000000000001";
 const returnTo = "/students?q=Test&class=qa&view=school&page=2";
+const fees = params.has("stream") ? new Promise<null>(resolve => window.addEventListener("qa:resolve-fees", () => resolve(null), { once: true })) : undefined;
 const portrait = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect fill="#cee8ec" width="96" height="96"/><circle fill="#90bcc6" cx="48" cy="35" r="17"/><path fill="#3d7284" d="M14 96c0-28 14-42 34-42s34 14 34 42"/></svg>');
 const p: Student360Props = {
   id, returnTo, name: "Aarav Test", classLabel: "Class 7 · A", sr: "TEST-071", rollNo: "12", status: "active",
@@ -58,7 +59,7 @@ function Fixture() {
   const path = useSyncExternalStore(subscribe, () => location.pathname);
   return <LanguageProvider language={language}><ToastProvider><NavTrail />
     {path === "/payments" ? <main><h1>Synthetic payment entry</h1><p>No payment is posted in this fixture.</p><label>Amount<input aria-label="Synthetic amount" /></label></main>
-      : path === "/students" ? <VxPage label="Synthetic student acceptance"><StudentsScreen {...directory} /></VxPage> : <><Student360Backdrop /><Student360 p={p} /></>}
+      : path === "/students" ? <VxPage label="Synthetic student acceptance"><StudentsScreen {...directory} /></VxPage> : <><Student360Backdrop /><Student360 p={p} fees={fees} /></>}
   </ToastProvider></LanguageProvider>;
 }
 document.addEventListener("click", event => {
