@@ -125,7 +125,13 @@ export default async function StudentPage(
     );
   }
 
-  const seesMoney = can(staff, "collection:view");
+  // Dues are fee data, so they are read — not merely hidden — only for
+  // `fees:view`, the permission the directory, Home, the dues badge and the
+  // Student 360 money panel already use. `collection:view` was the gate here
+  // and is the wrong one: it means "see details asked from parents" in the
+  // role matrix and can be granted with no fee access at all, and the rule
+  // that a teacher never holds a `fees:` permission does not reach it.
+  const seesMoney = can(staff, "fees:view");
 
   const [enrolment, history, rules, labels, own, kinds, fees, records, documents, changes, uploadMode] =
     await Promise.all([
@@ -282,9 +288,9 @@ export default async function StudentPage(
 
       {/* --------------------------------------------------------- fees */}
 
-      {(seesMoney && fees) || can(staff, "fees:view") ? (
+      {seesMoney ? (
         <Section className="mt-7" title={m.studentFees} language={language}>
-          {seesMoney && fees ? (!fees.available ? (
+          {fees ? (!fees.available ? (
             <Notice
               tone="warning"
               text={m.studentFeeUnavailable}
@@ -305,11 +311,9 @@ export default async function StudentPage(
               </p>
             </Card>
           )) : null}
-          {can(staff, "fees:view") ? (
-            <Link href={`/fees/students/${studentId}`} className={buttonClasses({ variant: "outline", className: "mt-4 w-full" })}>
-              {primary(m.nativeStudentFees, language)}<ArrowRight aria-hidden />
-            </Link>
-          ) : null}
+          <Link href={`/fees/students/${studentId}`} className={buttonClasses({ variant: "outline", className: "mt-4 w-full" })}>
+            {primary(m.nativeStudentFees, language)}<ArrowRight aria-hidden />
+          </Link>
         </Section>
       ) : null}
 
