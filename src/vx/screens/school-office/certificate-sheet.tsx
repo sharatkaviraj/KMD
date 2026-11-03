@@ -43,23 +43,22 @@ export function CertificateSheet({ open, onClose, studentId, studentName, sessio
   const toast = useToast();
   const [kinds, setKinds] = useState<KindInfo[] | null>(kindsCache);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [draft, setDraft] = useState<Draft>(() => ({ kind: initialKind ?? "study", purpose: "", extras: {} }));
+  // The sheet mounts with the profile, so a draft kept across a detour to fix a
+  // record is restored here, once, rather than in an effect.
+  const [draft, setDraft] = useState<Draft>(() => {
+    const saved = typeof window === "undefined" ? null : readDraft(studentId);
+    return saved ? { ...saved, kind: initialKind ?? saved.kind } : { kind: initialKind ?? "study", purpose: "", extras: {} };
+  });
   const [phase, setPhase] = useState<Phase>({ at: "form" });
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const command = useRef<string | null>(null);
-  const restored = useRef(false);
 
   useEffect(() => {
     if (!open) return;
-    if (!restored.current) {
-      restored.current = true;
-      const saved = readDraft(studentId);
-      if (saved) setDraft(initialKind ? { ...saved, kind: initialKind } : saved);
-    }
     let live = true;
     loadKinds().then((list) => { if (live) { setKinds(list); setLoadFailed(false); } }).catch(() => { if (live) setLoadFailed(true); });
     return () => { live = false; };
-  }, [open, studentId, initialKind]);
+  }, [open]);
 
   const info = kinds?.find((k) => k.kind === draft.kind) ?? kinds?.[0];
   const docLanguage = info?.language === "hi" ? "hi" : "en";

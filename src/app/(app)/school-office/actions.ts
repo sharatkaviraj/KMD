@@ -26,6 +26,8 @@ export async function generateCertificateAction(input: unknown) {
 
 /** Kept so an open tab from before the second pass keeps working. */
 export async function generateStudyCertificateAction(input: unknown) {
+  await assertPermission("certificates:issue");
+  await assertNotPreviewing();
   return generateCertificateAction(input);
 }
 

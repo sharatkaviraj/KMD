@@ -23,7 +23,7 @@ export function CertificateRegister({ rows, count, page, query, status, kind = "
   const { tx } = useVx();
   const href = (next: number) => { const sp = new URLSearchParams({ q: query, status, kind, page: String(next), ...(studentId ? { student: studentId } : {}) }); return `/school-office?${sp}`; };
   return <>
-    <div className="office-mobile-h"><h1 className="serif" style={{ margin: "0 0 8px", fontSize: 30 }}>{tx(O.title)}</h1></div>
+    <div className="office-mobile-h"><h1 className="serif" style={{ margin: "0 0 2px", fontSize: 30 }}>{tx(O.title)}</h1><span style={{ fontSize: 13, color: "var(--mut)" }}>{sessionLabel}</span></div>
     <div className="office-tools">
       <Link className="chip on" href="/school-office" aria-current="page">{tx(O.certificates)}</Link>
       {canGovernment ? <Link className="chip" href="/school-office/returns">{tx(O.returns)}</Link> : null}

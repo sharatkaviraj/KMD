@@ -19,15 +19,11 @@ const asKind = (value: string | null): CertificateKind | undefined => (certifica
  */
 export function StudentCertificateTools({ studentId, studentName = "", sessionLabel, canIssue, mode = "action", editHref }: { studentId: string; studentName?: string; sessionLabel: string; canIssue: boolean; mode?: "action" | "list"; editHref?: string }) {
   const { tx } = useVx();
-  const [open, setOpen] = useState(false);
-  const [initialKind, setInitialKind] = useState<CertificateKind | undefined>();
+  // `?certificate=tc` opens the sheet on that kind; read once, on mount (this
+  // component is client-only inside Student 360).
+  const [initialKind] = useState<CertificateKind | undefined>(() => mode === "action" && canIssue && typeof window !== "undefined" ? asKind(new URLSearchParams(window.location.search).get("certificate")) : undefined);
+  const [open, setOpen] = useState(() => Boolean(initialKind));
   const [rows, setRows] = useState<Row[] | null>(null); const [failed, setFailed] = useState(false); const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    if (mode !== "action" || !canIssue) return;
-    const wanted = asKind(new URLSearchParams(window.location.search).get("certificate"));
-    if (wanted) { setInitialKind(wanted); setOpen(true); }
-  }, [mode, canIssue]);
 
   useEffect(() => {
     if (mode !== "list") return;

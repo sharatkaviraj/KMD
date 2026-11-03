@@ -117,6 +117,7 @@ const EVERYONE_BUT_THE_FEE_DESK: readonly StaffRole[] = [
 
 export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
   { route: "/school-office", allow: ["admin", "office"], because: "The school office issues and retains school certificates under its own authority." },
+  { route: "/school-office/batch", allow: ["admin", "office"], because: "Certificate issuers prepare one document for every child in a class." },
   { route: "/school-office/template", allow: ["admin"], because: "Template and signatory policy are school administration settings." },
   { route: "/school-office/certificates/[id]", allow: ["admin", "office"], because: "Certificate details and original reprints belong to authorized school-office staff." },
   { route: "/school-office/returns", allow: ["admin", "office"], because: "School-office staff prepare official reference sheets and verified return files." },
