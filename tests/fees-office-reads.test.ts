@@ -12,6 +12,7 @@ vi.mock("@/modules/fees/platform/session-context/resolver", () => ({ resolveView
 
 import { pendingCanonicalMoneyRequests, pendingFeesRefunds } from "@/modules/dashboard/vx/admin-today";
 import { feesBridgeOfficeReads } from "@/platform/fees-bridge/policy";
+import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 
 const item = {
   id: "00000000-0000-4000-8000-0000000000f1", kind: "refund_approval", status: "pending_approval",
@@ -31,6 +32,13 @@ describe("Fees refund requests in Needs you", () => {
     expect(row).toEqual(expect.objectContaining({ id: `fees:${item.id}`, amount: 400, studentName: "Synthetic Child", receiptNumber: "SVP-9" }));
     expect(row.title?.en).toBe("Refund to approve in Fees");
     expect(row.href).toBe("https://fees.vpps.co.in/protected/finance-controls?date=2026-11-02&session=2026-27");
+  });
+
+  it("treats a Fees refusal as nothing to show, not as a failed read", async () => {
+    state.pending.mockRejectedValueOnce(new FeesBridgeError("forbidden", "Synthetic refusal"));
+    expect(await pendingFeesRefunds("2026-27")).toEqual([]);
+    state.pending.mockRejectedValueOnce(new FeesBridgeError("source_unavailable", "Synthetic outage"));
+    await expect(pendingFeesRefunds("2026-27")).rejects.toMatchObject({ code: "source_unavailable" });
   });
 
   it("keeps one reader per session, so the page and the badge share one read", () => {

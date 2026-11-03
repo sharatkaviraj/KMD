@@ -24,6 +24,30 @@ describe("canonical Fees transport",()=>{
       expect(fetcher).toHaveBeenCalledTimes(1);
     }
   });
+  it("permits the Fees office reads and commands, and only those shapes",async()=>{
+    const ok=()=>vi.fn().mockResolvedValue(Response.json({version:1,data:{ok:true}}));
+    const id="00000000-0000-4000-8000-000000000001";
+    for(const path of ["/summary/today?session=2026-27","/requests/pending?session=2026-27","/receipts/lookup?session=2026-27&number=SVP-1",
+      "/receipts?session=2026-27&from=2026-11-01&to=2026-11-03&page=1&pageSize=40",`/receipts/${id}/detail?session=2026-27`]){
+      const fetcher=ok();
+      expect(await bridgeRequest({...base,path,fetcher})).toEqual({ok:true});
+      expect(fetcher.mock.calls[0][0]).toBe(`https://fees.vpps.co.in/api/one/v1${path}`);
+    }
+    for(const path of ["/reversals",`/refunds/${id}/decision`,`/refunds/${id}/process`]){
+      const fetcher=ok();
+      expect(await bridgeRequest({...base,path,body:{commandId:id},fetcher})).toEqual({ok:true});
+    }
+    for(const path of ["/summary","/requests","/refunds","/refunds/x/approve",`/refunds/${id}`,"/receipts/lookup/../sync"]){
+      await expect(bridgeRequest({...base,path,fetcher:ok()})).rejects.toMatchObject({code:"invalid_route"});
+    }
+  });
+  it("treats a lost answer to a reversal or refund command as uncertain, never to a read",async()=>{
+    const lost=()=>vi.fn().mockRejectedValue(new TypeError("network"));
+    for(const path of ["/reversals","/refunds/00000000-0000-4000-8000-000000000001/process"]){
+      await expect(bridgeRequest({...base,path,body:{},fetcher:lost()})).rejects.toMatchObject({uncertain:true});
+    }
+    await expect(bridgeRequest({...base,path:"/summary/today?session=2026-27",fetcher:lost()})).rejects.toMatchObject({uncertain:false});
+  });
   it("does not claim a source quote refusal committed",async()=>{
     const fetcher=vi.fn().mockResolvedValue(Response.json({version:1,error:{code:"quote_changed",message:"Review again"}},{status:409}));
     await expect(bridgeRequest({...base,path:"/payments",body:{},fetcher})).rejects.toMatchObject({code:"quote_changed",uncertain:false});

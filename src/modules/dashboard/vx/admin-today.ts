@@ -9,6 +9,8 @@ import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { settleParts } from "@/platform/helpers/partial-read";
 import { getBridgePendingRequests } from "@/platform/fees-bridge/client";
+import { FeesBridgeError } from "@/platform/fees-bridge/transport";
+import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
 import { deskReason } from "@/modules/dashboard/domain/desk-reason";
 import { p, type Pair } from "@/vx/text";
@@ -255,8 +257,14 @@ const FEES_REFUND_TITLE = {
 
 /** Fees' own refund requests (Finance controls), through the live connection; decided in Fees. */
 export async function pendingFeesRefunds(sessionLabel: string): Promise<PendingRefund[]> {
-  await assertPermission("fees:view");
-  const result = await getBridgePendingRequests(sessionLabel);
+  const staff = await assertPermission("fees:view");
+  // Fees lists these on Finance controls; a role without it there has none to see, which is not a failure.
+  if (!feePermissionsFor(staff.role).includes("finance:view")) return [];
+  const result = await getBridgePendingRequests(sessionLabel).catch((error: unknown) => {
+    if (error instanceof FeesBridgeError && error.code === "forbidden") return null;
+    throw error;
+  });
+  if (!result) return [];
   return result.items.map((item) => ({
     id: `fees:${item.id}`,
     studentId: item.student.id,
