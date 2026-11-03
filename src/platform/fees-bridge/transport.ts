@@ -80,9 +80,13 @@ export async function bridgeRequest<T>(options: {
   origin?: string; fetcher?: typeof fetch;
 }): Promise<T> {
   const {path,token,key,schema,body} = options;
-  if (!/^\/(?:students(?:\/[0-9a-f-]+(?:\/workspace)?)?|directory|sessions|classes|quote|payments|commands\/[0-9a-f-]+|receipts\/[0-9a-f-]+(?:\/detail)?)(?:\?[^#]*)?$/i.test(path)) {
+  // Every route One may call, and nothing else. Office reads (Fees 20261103170000) and
+  // office commands (Fees 20261103190000) were missing here, so they failed before leaving One.
+  if (!/^\/(?:students(?:\/[0-9a-f-]+(?:\/workspace)?)?|directory|sessions|classes|quote|payments|commands\/[0-9a-f-]+|receipts\/[0-9a-f-]+(?:\/detail)?|summary\/today|requests\/pending|receipts\/lookup|receipts|reversals|refunds\/[0-9a-f-]+\/(?:decision|process))(?:\?[^#]*)?$/i.test(path)) {
     throw new FeesBridgeError("invalid_route", "The Fees connection route is not permitted.");
   }
+  // A command that moves money or decides a request: a lost or unreadable answer may have committed.
+  const command = body !== undefined && /^\/(?:payments|reversals|refunds\/[0-9a-f-]+\/(?:decision|process))$/i.test(path);
   const origin = feesBridgeOrigin({FEES_BRIDGE_ORIGIN:options.origin});
   if (!token || !key) throw new FeesBridgeError("not_configured", "The live Fees connection is not configured.");
   let response: Response;
@@ -94,18 +98,18 @@ export async function bridgeRequest<T>(options: {
       cache:"no-store",redirect:"error",signal:AbortSignal.timeout(body === undefined ? 15_000 : 45_000),
     });
   } catch {
-    throw new FeesBridgeError("unavailable", "The Fees connection could not confirm the result.", path === "/payments");
+    throw new FeesBridgeError("unavailable", "The Fees connection could not confirm the result.", command);
   }
   let envelope: unknown;
   try { envelope = await response.json(); } catch {
-    throw new FeesBridgeError("invalid_response", "The Fees connection returned an unreadable result.", path === "/payments");
+    throw new FeesBridgeError("invalid_response", "The Fees connection returned an unreadable result.", command);
   }
   const parsed = z.object({version:z.literal(1),data:z.unknown().optional(),error:z.object({code:z.string(),message:z.string()}).optional()}).safeParse(envelope);
-  if (!parsed.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned an unexpected result.", path === "/payments");
+  if (!parsed.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned an unexpected result.", command);
   if (!response.ok || parsed.data.error) {
-    throw new FeesBridgeError(parsed.data.error?.code ?? "unavailable", parsed.data.error?.message ?? "The Fees connection is unavailable.", path === "/payments" && (response.status >= 500 || parsed.data.error?.code === "idempotency_conflict"));
+    throw new FeesBridgeError(parsed.data.error?.code ?? "unavailable", parsed.data.error?.message ?? "The Fees connection is unavailable.", command && (response.status >= 500 || parsed.data.error?.code === "idempotency_conflict"));
   }
   const data = schema.safeParse(parsed.data.data);
-  if (!data.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned incomplete information.", path === "/payments");
+  if (!data.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned incomplete information.", command);
   return data.data;
 }
