@@ -10,6 +10,9 @@ export async function generateStudyCertificateAction(input: CertificateCommand):
   if (window.schoolOfficeScenario === "retry" && window.schoolOfficeCalls.filter(c => c.name === "generate").length === 1) throw new Error("Synthetic interrupted response");
   return { ok: true, issueId: "synthetic-issue", existing: false };
 }
+export const generateCertificateAction = generateStudyCertificateAction;
+export async function handOverManyAction(input: { items: { issueId: string }[] }) { log("hand-over", input); return { ok: true as const, done: input.items.map((item) => item.issueId) }; }
+export async function saveCertificateIdentityAction(input: unknown) { log("save-identity", input); return { ok: true as const }; }
 export async function certificateEventAction(input: unknown) { log("certificate-event", input); return { ok: !(window.schoolOfficeScenario === "event-denied" && window.schoolOfficeCalls.filter(call => call.name === "certificate-event").length === 1) }; }
 export async function saveCertificateTemplateAction(input: unknown) { log("save-template", input); return { ok: true as const }; }
 export async function checkReturnAction(input: unknown) {

@@ -550,7 +550,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       body = (
         <>
         <StudentDocuments documents={p.documents} canManage={p.canManageDocuments} unavailable={unread("documents")} />
-        {p.schoolOffice ? <CertificateTools studentId={p.id} sessionLabel={p.schoolOffice.sessionLabel} canIssue={p.schoolOffice.canIssue} editHref={p.schoolOffice.editHref} mode="list" /> : null}
+        {p.schoolOffice ? <CertificateTools studentId={p.id} studentName={p.name} sessionLabel={p.schoolOffice.sessionLabel} canIssue={p.schoolOffice.canIssue} editHref={p.schoolOffice.editHref} mode="list" /> : null}
         </>
       );
       break;
@@ -695,7 +695,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             </CloseLink>
           </div>
           <div className="s360-acts">
-            {p.schoolOffice?.canIssue ? <CertificateTools studentId={p.id} sessionLabel={p.schoolOffice.sessionLabel} canIssue editHref={p.schoolOffice.editHref} /> : null}
+            {p.schoolOffice?.canIssue ? <CertificateTools studentId={p.id} studentName={p.name} sessionLabel={p.schoolOffice.sessionLabel} canIssue editHref={p.schoolOffice.editHref} /> : null}
             {p.canCollect ? <Btn variant="pri" icon="rupee" href={payHref}>{collectLabel}</Btn> : null}
             {mobile ? <Btn icon="phone" href={`tel:${mobile}`} style={{ color: "var(--info)" }}>{tx(T.call)}</Btn> : null}
             {mobile ? <Btn icon="message" href={`https://wa.me/91${mobile}`} target="_blank" style={{ color: "var(--ok)" }}>{tx(T.whatsapp)}</Btn> : null}

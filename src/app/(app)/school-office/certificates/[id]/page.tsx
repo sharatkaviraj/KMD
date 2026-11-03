@@ -6,14 +6,14 @@ import { getViewer } from "@/vx/view-as";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { CertificateDetail } from "@/vx/screens/school-office/certificate-detail";
-import { O } from "@/vx/screens/school-office/text";
+import { KIND_LABELS } from "@/vx/screens/school-office/text";
 export const runtime = "nodejs";
-export const metadata = { title: "Study certificate" };
+export const metadata = { title: "Certificate" };
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
   const staff = await requirePermission("certificates:view", "/school-office");
   const { previewing } = await getViewer();
   const issue = await certificateForViewer((await params).id);
   if (!issue) notFound();
   const events = await certificateEvents(issue.id);
-  return <VxPage><TopBar title={lead(O.study, staff.language)} crumb={issue.serial} mBack="/school-office" /><main><Section><CertificateDetail issue={issue} events={events} canIssue={!previewing && can(staff, "certificates:issue")} canManage={!previewing && can(staff, "certificates:manage")} /></Section></main></VxPage>;
+  return <VxPage><TopBar title={lead(KIND_LABELS[issue.kind ?? "study"], staff.language)} crumb={issue.serial} mBack="/school-office" /><main><Section><CertificateDetail issue={issue} events={events} canIssue={!previewing && can(staff, "certificates:issue")} canManage={!previewing && can(staff, "certificates:manage")} /></Section></main></VxPage>;
 }

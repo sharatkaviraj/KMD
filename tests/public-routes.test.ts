@@ -125,6 +125,8 @@ const PUBLIC_TOKEN =
 const OPEN_BY_DESIGN: Record<string, string> = {
   "src/app/rv/[code]/page.tsx":
     "The parent's receipt check (the fees app's /r/{number}): shows a receipt number, date, amount and reversal state for the number in the URL, nothing about the child.",
+  "src/app/cv/[code]/page.tsx":
+    "The QR on a school certificate: for a random 64-bit code frozen into one issue, shows status, number, kind, date and a masked name; never class, parentage or birth date, and never a TEST document.",
 };
 
 /** The file's own source, plus the source of any module it re-exports from (`export … from "@/…"`). */
@@ -162,6 +164,7 @@ describe("everything under a public prefix checks its own credential", () => {
     expect(files).toContain("src/app/api/fees/webhooks/razorpay/route.ts");
     expect(files).toContain("src/app/r/[token]/page.tsx");
     expect(files).toContain("src/app/rv/[code]/page.tsx");
+    expect(files).toContain("src/app/cv/[code]/page.tsx");
   });
 
   it.each(reachableWithoutSession.filter((entry) => !(entry.file in OPEN_BY_DESIGN)).map((entry) => [entry.file, entry.abs]))(
@@ -199,6 +202,7 @@ describe("a cold request with no cookie", () => {
     "/api/fees/cron/nightly-backup",
     "/api/jobs/staff-notices",
     "/rv/SVP20261213-5001",
+    "/cv/0123456789abcdef",
   ];
 
   it.each(COLD)("%s is answered by its route, not redirected to /login", async (url) => {

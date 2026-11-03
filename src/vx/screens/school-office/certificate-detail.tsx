@@ -8,7 +8,9 @@ import { p } from "@/vx/text";
 import { dateLabel } from "@/vx/format";
 import { Btn, Pill } from "@/vx/ui/primitives";
 import { StudyCertificateButton } from "./study-certificate-button";
-import { CERTIFICATE_STATUS, O } from "./text";
+import { CERTIFICATE_STATUS, KIND_LABELS, O } from "./text";
+import { shareCertificate } from "./artifact";
+import "./cert.css";
 import "./office.css";
 
 export function CertificateDetail({ issue, events, canIssue, canManage }: { issue: CertificateIssue; events: CertificateEvent[]; canIssue: boolean; canManage: boolean }) {
@@ -49,21 +51,21 @@ export function CertificateDetail({ issue, events, canIssue, canManage }: { issu
   }
   const names: Record<string, ReturnType<typeof p>> = { prepared: O.prepared, artifact_ready: p("PDF stored", "पीडीएफ सुरक्षित"), handed_over: CERTIFICATE_STATUS.issued, cancelled: CERTIFICATE_STATUS.cancelled, superseded: CERTIFICATE_STATUS.superseded, download_requested: p("Download requested", "डाउनलोड का अनुरोध"), print_requested: p("Print requested", "प्रिंट का अनुरोध") };
   return <>
-    <div className="office-tools"><Btn icon="chevLeft" href="/school-office">{tx(O.register)}</Btn><Btn className="wrap" style={{ overflowWrap: "anywhere", height: "auto", minHeight: 44, padding: "8px 16px", lineHeight: 1.5 }} href={`/students/${issue.student_id}?tab=documents`}>{issue.snapshot.facts.studentName}</Btn><Pill tone={current ? "warn" : "mut"}>{tx(CERTIFICATE_STATUS[issue.status])}</Pill></div>
+    <div className="office-tools"><Btn icon="chevLeft" href="/school-office">{tx(O.register)}</Btn><Btn className="wrap" style={{ overflowWrap: "anywhere", height: "auto", minHeight: 44, padding: "8px 16px", lineHeight: 1.5 }} href={`/students/${issue.student_id}?tab=documents`}>{issue.snapshot.facts.studentName}</Btn><span className="kind-pill">{tx(KIND_LABELS[issue.kind ?? "study"])}</span><Pill tone={issue.status === "issued" ? "ok" : current ? "warn" : "mut"}>{tx(CERTIFICATE_STATUS[issue.status])}</Pill></div>
     <div className="office-note" role="status"><strong>{issue.serial}</strong><br />{tx(O.manual)}{issue.snapshot.isTest ? <p style={{ color: "var(--bad)" }}>{tx(O.test)}</p> : null}</div>
     {!current ? <div className="office-note">{tx(O.archived)}</div> : null}
     <div className="office-tools">
-      {ready ? <><Btn variant="pri" icon="download" disabled={busy} onClick={() => requestArtifact("download_requested")}>{tx(O.download)}</Btn><Btn icon="printer" disabled={busy} onClick={() => requestArtifact("print_requested")}>{tx(O.print)}</Btn></> : canIssue ? <StudyCertificateButton studentId={issue.student_id} sessionLabel={issue.session_label} resumeIssue={issue.id} label={tx(O.retry)} /> : null}
+      {ready ? <><Btn variant="pri" icon="download" disabled={busy} onClick={() => requestArtifact("download_requested")}>{tx(O.download)}</Btn><Btn icon="printer" disabled={busy} onClick={() => requestArtifact("print_requested")}>{tx(O.print)}</Btn><Btn icon="send" disabled={busy} onClick={() => { void shareCertificate(issue.id, issue.serial); }}>{tx(O.share)}</Btn></> : canIssue ? <StudyCertificateButton studentId={issue.student_id} sessionLabel={issue.session_label} kind={issue.kind} purpose={issue.snapshot.purpose} extras={issue.snapshot.extras} resumeIssue={issue.id} label={tx(O.retry)} /> : null}
       {current && ready && issue.status === "prepared" && canIssue ? <Btn disabled={busy} onClick={() => event("handed_over")}>{tx(O.handover)}</Btn> : null}
       {current && canManage ? <><Btn onClick={() => { command.current = null; setReason(""); setMode("correct"); }}>{tx(O.correct)}</Btn><Btn onClick={() => { command.current = null; setReason(""); setMode("cancelled"); }}>{tx(O.cancelled)}</Btn></> : null}
     </div>
-    {current && ready && canIssue ? <details className="card" style={{ padding: 16 }}><summary style={{ cursor: "pointer" }}>{tx(p("Create another issue", "एक और प्रति जारी करें"))}</summary><p>{tx(p("This creates a fresh issue date and number. Use Download or Print for the original copy.", "इससे नई तारीख और संख्या जारी होगी। मूल प्रति के लिए डाउनलोड या प्रिंट उपयोग करें।"))}</p><StudyCertificateButton studentId={issue.student_id} sessionLabel={issue.session_label} newIssue label={tx(p("Issue with a new number", "नई संख्या से जारी करें"))} /></details> : null}
+    {current && ready && canIssue ? <details className="card" style={{ padding: 16 }}><summary style={{ cursor: "pointer" }}>{tx(p("Create another issue", "एक और प्रति जारी करें"))}</summary><p>{tx(p("This creates a fresh issue date and number. Use Download or Print for the original copy.", "इससे नई तारीख और संख्या जारी होगी। मूल प्रति के लिए डाउनलोड या प्रिंट उपयोग करें।"))}</p><StudyCertificateButton studentId={issue.student_id} sessionLabel={issue.session_label} kind={issue.kind} purpose={issue.snapshot.purpose} extras={issue.snapshot.extras} newIssue label={tx(p("Issue with a new number", "नई संख्या से जारी करें"))} /></details> : null}
     {failed ? <div role="alert" className="office-note">{tx(O.saveFailed)}</div> : null}
     {mode ? <div className="card office-form" style={{ padding: 18 }}>
       <p style={{ margin: 0 }}>{tx(mode === "correct" ? O.correctionHint : p("The original remains in history and its number will not be reused.", "मूल प्रति इतिहास में रहेगी और उसकी संख्या दोबारा नहीं दी जाएगी।"))}</p>
       {mode === "correct" ? <Btn href={`/admissions/${issue.student_id}`}>{tx(O.fix)}</Btn> : null}
       <label className="field"><span>{tx(O.reason)}</span><textarea className="inp" maxLength={500} value={reason} onChange={(e) => { command.current = null; setReason(e.target.value); }} /></label>
-      {mode === "correct" ? <StudyCertificateButton key={reason} studentId={issue.student_id} sessionLabel={issue.session_label} newIssue supersedes={issue.id} reason={reason} label={tx(O.correct)} /> : <Btn variant="danger" disabled={busy || reason.trim().length < 3} onClick={() => event("cancelled")}>{tx(O.cancelled)}</Btn>}
+      {mode === "correct" ? <StudyCertificateButton key={reason} studentId={issue.student_id} sessionLabel={issue.session_label} kind={issue.kind} purpose={issue.snapshot.purpose} extras={issue.snapshot.extras} newIssue supersedes={issue.id} reason={reason} label={tx(O.correct)} /> : <Btn variant="danger" disabled={busy || reason.trim().length < 3} onClick={() => event("cancelled")}>{tx(O.cancelled)}</Btn>}
     </div> : null}
     <div className="office-detail">
       {ready ? <iframe className="office-preview" src={`/school-office/certificates/${issue.id}/pdf`} title={tx(O.signature)} /> : <div className="office-note">{tx(O.unavailable)}</div>}
