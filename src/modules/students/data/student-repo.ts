@@ -102,8 +102,14 @@ export type FeeStanding = {
  * When the view cannot be read, this reports `available: false` and the card
  * says the figure is unavailable — honest, where a zero would be a lie
  * somebody might repeat.
+ *
+ * **Only for `fees:view`, checked here as well as by the caller.** The read is
+ * service-role, so nothing below this line would stop it; a caller that gates
+ * on the wrong permission must fail before any figure is fetched.
  */
 export async function feeStanding(studentId: string): Promise<FeeStanding> {
+  await assertPermission("fees:view");
+
   const unavailable: FeeStanding = {
     feeDue: 0,
     lateFeeDue: 0,
