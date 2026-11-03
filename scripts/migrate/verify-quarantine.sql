@@ -35,7 +35,7 @@ with
     'staff_scopes','subjects','team_supervision_rules'])),
   r_tables(t) as (select unnest(array['enrolments','teaching_assignments'])),
   untouched(t) as (select unnest(array[
-    'school_board_candidates','school_board_commands','school_board_cycles','school_board_readiness','school_certificate_attention','school_certificate_commands','school_certificate_events','school_certificate_issues','school_certificate_series','school_certificate_templates','school_external_records','school_official_results','school_return_adapters','school_return_batches','school_return_events',
+    'school_board_candidates','school_board_commands','school_board_cycles','school_board_readiness','school_certificate_attention','school_certificate_commands','school_certificate_events','school_certificate_issues','school_certificate_series','school_certificate_templates','school_external_records','school_official_results','school_return_adapters','school_return_batches','school_return_copilot_rows','school_return_events',
     'assist_settings','deployment','deployment_history','fee_role_map','file_storage_settings','file_storage_settings_history',
     'fees_bridge_state','fees_bridge_sessions','fees_bridge_classes','fees_bridge_students','fees_bridge_households',
     'fees_bridge_runs','fees_bridge_retired_students','fees_bridge_retired_classes',

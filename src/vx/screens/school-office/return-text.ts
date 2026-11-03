@@ -29,3 +29,47 @@ export function returnReason(reason: string): Pair {
   if (reason.startsWith("invalid_code:")) return p("Value is not in this format's code list", "मान इस प्रारूप की कोड सूची में नहीं है");
   return p("Review this detail", "यह जानकारी जाँचें");
 }
+
+/* ----------------------------------------------- readiness board (J) */
+export const FIELD_LABELS: Record<string, Pair> = {
+  studentId: p("One student ID", "वन विद्यार्थी पहचान"), admissionNo: p("Admission / SR no.", "प्रवेश / एसआर संख्या"), studentName: p("Student name", "विद्यार्थी का नाम"), classLabel: p("Class", "कक्षा"),
+  sessionLabel: p("Session", "सत्र"), schoolCode: p("School code", "विद्यालय कोड"), externalId: p("Portal ID", "पोर्टल पहचान"), registrationStatus: p("Registration status", "पंजीकरण स्थिति"),
+};
+const fieldOf = (reason: string) => FIELD_LABELS[reason.slice(reason.indexOf(":") + 1)] ?? p("Detail", "जानकारी");
+/** A blocking reason as a sentence, naming the exact field. */
+export function issueLabel(reason: string): Pair {
+  const field = fieldOf(reason), hi = field.hi ?? field.en;
+  if (reason.startsWith("missing:")) return p(`${field.en} missing`, `${hi} नहीं है`);
+  if (reason.startsWith("too_long:")) return p(`${field.en} too long`, `${hi} बहुत लंबा है`);
+  if (reason.startsWith("invalid_code:")) return p(`${field.en} not in the code list`, `${hi} कोड सूची में नहीं`);
+  return returnReason(reason);
+}
+/** The same reason as a short grid column heading. */
+export function issueShort(reason: string): Pair {
+  const field = fieldOf(reason), hi = field.hi ?? field.en;
+  if (reason.startsWith("missing:")) return field;
+  if (reason.startsWith("too_long:")) return p(`${field.en} (long)`, `${hi} (लंबा)`);
+  if (reason.startsWith("invalid_code:")) return p(`${field.en} (code)`, `${hi} (कोड)`);
+  const short: Record<string, Pair> = { identity_unverified: p("Enrolment", "नामांकन"), duplicate_identity: p("Duplicate ID", "दोहरी पहचान"), wrong_session: p("Session", "सत्र"), wrong_school: p("School code", "विद्यालय कोड"), unsafe_cell: p("Formula text", "फ़ॉर्मूला पाठ"), invalid_cell: p("Invalid cell", "अमान्य सेल"), external_id_collision: p("Portal ID clash", "पोर्टल पहचान टकराव"), ambiguous_identity: p("Unclear match", "अस्पष्ट मिलान") };
+  return short[reason] ?? p("Other", "अन्य");
+}
+export const R = {
+  certificates: p("Certificates", "प्रमाणपत्र"), open: p("Open", "खोलें"), setUp: p("Set up", "सेट करें"), settings: p("Destination settings", "गंतव्य सेटिंग"),
+  referenceSheet: p("Reference sheet", "संदर्भ सूची"), conflict: p("Conflict", "अंतर"), notChecked: p("Not checked yet", "अभी जाँचा नहीं"),
+  deadlineUnverified: p("Deadline needs verification", "अंतिम तिथि अभी जाँचनी है"),
+  source: p("School records are not available right now. Counts will show when they are.", "विद्यालय रिकॉर्ड अभी उपलब्ध नहीं हैं। उपलब्ध होने पर संख्या दिखेगी।"),
+  whoMissing: p("Who is missing what", "किसकी क्या जानकारी बाकी है"), gridHint: p("Rows are classes, columns are what blocks them. Tap a number to see those students.", "पंक्तियाँ कक्षाएँ हैं, कॉलम रुकावट का कारण। विद्यार्थी देखने के लिए संख्या पर टैप करें।"),
+  allReady: p("Every student is ready for this destination.", "इस गंतव्य के लिए सभी विद्यार्थी तैयार हैं।"), close: p("Close list", "सूची बंद करें"),
+  askTeachers: p("Ask class teachers for missing details", "कक्षाध्यापकों से बाकी जानकारी माँगें"),
+  askHint: p("Opens a details round for the classes with gaps; you choose what to ask. Admission numbers, enrolment and conflicts stay with the office.", "जिन कक्षाओं में जानकारी बाकी है उनके लिए जानकारी-दौर खुलेगा; क्या पूछना है आप चुनें। प्रवेश संख्या, नामांकन और अंतर कार्यालय ही सुलझाएगा।"),
+  startManual: p("Start manual entry", "पोर्टल पर भरना शुरू करें"), continueManual: p("Continue manual entry", "पोर्टल पर भरना जारी रखें"), freshList: p("Prepare a fresh list", "नई सूची तैयार करें"),
+  downloadUpload: p("Download upload file", "अपलोड फ़ाइल डाउनलोड करें"), uploadBlocked: p("An upload file needs every student ready. Resolve the details above first.", "अपलोड फ़ाइल के लिए सभी विद्यार्थी तैयार होने चाहिए। पहले ऊपर की जानकारी पूरी करें।"),
+  nothingReady: p("No student is ready yet.", "अभी कोई विद्यार्थी तैयार नहीं है।"), working: p("Preparing…", "तैयार हो रहा है…"),
+  noBatchesHere: p("No lists prepared for this destination yet.", "इस गंतव्य के लिए अभी कोई सूची नहीं बनी।"),
+};
+export const readyOf = (ready: number, total: number) => p(`${ready} / ${total} ready`, `${total} में से ${ready} तैयार`);
+export const blockedLine = (details: number, conflicts: number) => p(`${details} need details · ${conflicts} ${conflicts === 1 ? "conflict" : "conflicts"}`, `${details} की जानकारी बाकी · ${conflicts} अंतर`);
+export const verifiedFormat = (version: number | null) => p(`Verified format v${version ?? 1}`, `सत्यापित प्रारूप v${version ?? 1}`);
+export const manualProgressLine = (entered: number, total: number) => p(`Manual entry ${entered} / ${total}`, `पोर्टल पर भरे गए: ${total} में से ${entered}`);
+export const excludedLine = (count: number) => p(count === 1 ? "1 student who needs details or has a conflict is left out of this list." : `${count} students who need details or have conflicts are left out of this list.`, `जानकारी बाकी या अंतर वाले ${count} विद्यार्थी इस सूची में नहीं होंगे।`);
+export const studentCount = (count: number) => p(count === 1 ? "1 student" : `${count} students`, `${count} विद्यार्थी`);

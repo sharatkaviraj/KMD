@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { O } from "../../src/vx/screens/school-office/text";
-import { G } from "../../src/vx/screens/school-office/return-text";
+import { G, R } from "../../src/vx/screens/school-office/return-text";
+import { C } from "../../src/vx/screens/school-office/copilot-text";
 import { lead } from "../../src/vx/text";
 import { B, APPEARANCE } from "../../src/vx/screens/board-office/text";
 import { currentChild, departedChild, unmappedChild } from "./board-data";
@@ -29,7 +30,7 @@ for (const width of [360, 390, 430, 1280, 1440]) for (const language of ["en", "
   test(`responsive actual office components ${width}px ${language} ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width, height: width < 900 ? 844 : 960 });
     const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
-    for (const screen of ["register", "profile", "certificate", "returns", "batch", "import", "template", "format", "board", "results"]) {
+    for (const screen of ["register", "profile", "certificate", "returns", "destination", "copilot", "batch", "import", "template", "format", "board", "results"]) {
       await page.goto(`/?screen=${screen}&language=${language}&theme=${theme}`);
       await expect(page.locator(".vx-page")).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
@@ -83,19 +84,44 @@ test("register filters search/status/student scope and pagination then opens exa
   await page.goBack(); await page.getByRole("link", { name: O.next.en, exact: true }).click();
   await expect(page).toHaveURL(/page=2/); await expect(page).toHaveURL(new RegExp(`student=${studentId}`));
 });
-test("manual reference blocks missing/conflicting rows until explicit exclusion", async ({ page }) => {
-  await page.goto("/?screen=returns"); await expect(page.getByRole("option", { name: G.manual.en })).toHaveCount(1);
-  await page.getByRole("button", { name: G.check.en, exact: true }).click();
-  await expect(page.getByText("Admission / SR number missing · Duplicate identifier", { exact: true })).toBeVisible();
-  const prepare = page.getByRole("button", { name: G.make.en, exact: true }); await expect(prepare).toBeDisabled();
-  await page.getByRole("checkbox", { name: G.exclude.en }).check(); await expect(prepare).toBeEnabled(); await prepare.click();
-  await expect(page).toHaveURL(/\/returns\/synthetic-batch$/);
-  expect((await calls(page, "prepare-return"))[0].input).toMatchObject({ excludeBlocked: true, expectedSource: "synthetic-source-revision" });
+test("readiness board shows progress per destination and types nothing", async ({ page }) => {
+  await page.goto("/?screen=returns");
+  await expect(page.locator("input,select,textarea")).toHaveCount(0);
+  await expect(page.getByText(R.deadlineUnverified.en).first()).toBeVisible();
+  await page.getByRole("link", { name: R.open.en }).first().click();
+  await expect(page).toHaveURL(/\/school-office\/returns\/d\/psp/);
 });
-test("verified upload has no exclusion override when rows are blocked", async ({ page }) => {
-  await page.goto("/?screen=returns&state=verified"); await page.getByRole("combobox", { name: G.format.en, exact: true }).selectOption("synthetic-verified-format"); await page.getByRole("button", { name: G.check.en, exact: true }).click();
-  await expect(page.getByRole("button", { name: G.make.en, exact: true })).toBeDisabled();
-  await expect(page.getByRole("checkbox", { name: G.exclude.en })).toHaveCount(0); expect(await calls(page, "prepare-return")).toEqual([]);
+test("heat-grid cell lists exactly those students, linked to their profiles", async ({ page }) => {
+  await page.goto("/?screen=destination");
+  await expect(page.getByRole("table", { name: R.whoMissing.en })).toBeVisible();
+  await page.getByRole("table", { name: R.whoMissing.en }).getByRole("link").first().click();
+  await expect(page).toHaveURL(/class=class-9&issue=missing%3AadmissionNo/);
+  await expect(page.locator("#students a[href^='/students/']")).toHaveCount(1);
+  await expect(page.getByRole("link", { name: R.askTeachers.en })).toHaveAttribute("href", "/collection/rounds/new?class=class-9");
+});
+test("manual entry prepares only ready rows and opens the assistant", async ({ page }) => {
+  await page.goto("/?screen=destination");
+  await expect(page.getByText(/2 students who need details or have conflicts are left out/)).toBeVisible();
+  await page.getByRole("button", { name: R.startManual.en }).click();
+  await expect(page).toHaveURL(/\/returns\/synthetic-batch\/copilot$/);
+  expect((await calls(page, "prepare-return"))[0].input).toMatchObject({ excludeBlocked: true, expectedSource: "synthetic-source-revision", schoolCode: "" });
+});
+test("verified upload cannot be downloaded while rows are blocked", async ({ page }) => {
+  await page.goto("/?screen=destination&state=verified");
+  await expect(page.getByRole("button", { name: R.downloadUpload.en })).toBeDisabled();
+  await expect(page.getByText(R.uploadBlocked.en)).toBeVisible(); expect(await calls(page, "prepare-return")).toEqual([]);
+});
+test("assistant copies values, marks entered, advances and resumes", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/?screen=copilot&state=resume");
+  await expect(page.getByText(C.honesty.en, { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("Student 2 of 3", { exact: false })).toBeVisible();
+  await page.keyboard.press("1"); await expect(page.getByRole("button", { name: /Admission/ })).toContainText(C.copied.en);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("'=SUM(1)");
+  await page.getByRole("button", { name: C.markEntered.en }).click();
+  await expect(page.getByText("Student 3 of 3", { exact: false })).toBeVisible();
+  expect((await calls(page, "mark-copilot"))[0].input).toMatchObject({ state: "entered" });
+  await page.keyboard.press("k"); await expect(page.getByText("Student 2 of 3", { exact: false })).toBeVisible();
 });
 test("download is file-prepared only; portal acceptance requires recorded outcome", async ({ page }) => {
   await page.goto("/?screen=batch"); await expect(page.getByText(G.manual.en, { exact: true })).toBeVisible();
@@ -113,7 +139,7 @@ test("import conflicts prevent Apply; a clean staged preview permits Apply", asy
   expect((await calls(page, "apply-return"))[0].input).toMatchObject({ batchId: "synthetic-batch", revision: 1 });
 });
 test("source outage disables checking and unavailable register offers retry", async ({ page }) => {
-  await page.goto("/?screen=returns&state=source-unavailable"); await expect(page.getByRole("alert")).toHaveText(O.source.en); await expect(page.getByRole("button", { name: G.check.en, exact: true })).toBeDisabled();
+  await page.goto("/?screen=returns&state=source-unavailable"); await expect(page.getByRole("alert")).toHaveText(R.source.en); await expect(page.getByText(R.notChecked.en).first()).toBeVisible();
   await page.goto("/?screen=register&state=unavailable"); await expect(page.getByRole("alert")).toContainText(O.loadFailed.en); await expect(page.getByRole("link", { name: O.retry.en })).toHaveAttribute("href", /page=1/);
 });
 test("board retains departed registered membership alongside a healthy current roster", async ({ page }) => {
