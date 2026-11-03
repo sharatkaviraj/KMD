@@ -20,6 +20,11 @@ import { dayLabel } from "@/platform/dates";
 import { readNoticePrefs, readStaffConsent } from "@/modules/staff-notices/data/consent";
 import { KINDS, STAFF_MESSAGE_KINDS } from "@/modules/staff-notices/domain/kinds";
 
+import { aiConnectionMessages } from "@/messages/setup";
+import { loadAiConnectionCard } from "@/modules/mcp/data/card";
+import { AiConnectionCard } from "@/modules/mcp/ui/connection-card";
+
+import { disconnectMyAiConnectionAction } from "./ai-connection-actions";
 import { LanguageForm } from "./language-form";
 import { WhatsappForm } from "./whatsapp-form";
 import { StartForm, type StartChoice } from "./start-form";
@@ -78,7 +83,12 @@ export default async function PreferencesPage() {
   const current = resolveStart(staff.role, staff.preferredStart)?.value ?? "";
 
   // WhatsApp from the school app (go-live Phase F): their own consent and switches.
-  const [consent, prefs] = await Promise.all([readStaffConsent(staff.id), readNoticePrefs(staff.id)]);
+  const [consent, prefs, aiCard] = await Promise.all([
+    readStaffConsent(staff.id),
+    readNoticePrefs(staff.id),
+    // The AI connection card (plan §8.1): eligible staff only; a failed read hides it rather than guessing a state.
+    loadAiConnectionCard(staff).catch(() => null),
+  ]);
   const consentDay = consent.state === "yes" ? consent.optInAt : consent.state === "opted_out" ? consent.optOutAt : null;
   const consentSince = consentDay ? dayLabel(consentDay.slice(0, 10)) : null;
 
@@ -117,6 +127,18 @@ export default async function PreferencesPage() {
           />
         </Card>
       </Section>
+
+      {aiCard ? (
+        <Section className="mt-7" title={aiConnectionMessages.cardTitle} language={staff.language}>
+          <AiConnectionCard
+            state={aiCard.state}
+            address={aiCard.address}
+            language={staff.language}
+            now={aiCard.now}
+            disconnect={disconnectMyAiConnectionAction}
+          />
+        </Section>
+      ) : null}
 
       <Section
         className="mt-7"

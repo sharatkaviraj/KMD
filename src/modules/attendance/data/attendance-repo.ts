@@ -3,6 +3,7 @@ import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/pol
 import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
+import { assertActorEveryClass, assertActorPermission, assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -441,6 +442,22 @@ export async function attendanceRules(sessionLabel: string): Promise<AttendanceR
   return data ? { halfDayCredit: Number(data.half_day_credit) } : DEFAULT_ATTENDANCE_RULES;
 }
 
+/**
+ * `attendanceRules` for a member of staff verified by the AI connection. The
+ * screen reads through RLS, whose policy is "any active staff"; this reads
+ * through the service role after the same check against the actor.
+ */
+export async function attendanceRulesAs(actor: VerifiedActor, sessionLabel: string): Promise<AttendanceRules> {
+  assertActorStaff(actor);
+  const { data, error } = await createAdminClient()
+    .from("attendance_rules")
+    .select("half_day_credit")
+    .eq("session_label", sessionLabel)
+    .maybeSingle<{ half_day_credit: number | string }>();
+  if (error) throw new Error(`Could not read the attendance rules: ${error.message}`);
+  return data ? { halfDayCredit: Number(data.half_day_credit) } : DEFAULT_ATTENDANCE_RULES;
+}
+
 /** Change it. The caller has checked `academics:manage`. */
 export async function saveAttendanceRules(input: {
   sessionLabel: string;
@@ -565,6 +582,15 @@ export async function attendanceCalendar(
   return new Map(await cachedCalendarDays(sessionLabel));
 }
 
+/** `attendanceCalendar` for a member of staff verified by the AI connection: the same `attendance:view` check. */
+export async function attendanceCalendarAs(
+  actor: VerifiedActor,
+  sessionLabel: string,
+): Promise<Map<string, CalendarDayKind>> {
+  assertActorPermission(actor, "attendance:view");
+  return new Map(await cachedCalendarDays(sessionLabel));
+}
+
 /**
  * The same calendar for any active staff member — which days the school is
  * open — as RLS on `academic_calendar_days` always allowed. For the view-only
@@ -643,4 +669,39 @@ export async function registersForDay(
 
   if (error) throw new Error(`Could not read the registers: ${error.message}`);
   return data.map(toRegister);
+}
+
+/**
+ * `registersForDay` for a member of staff verified by the AI connection.
+ * RLS on `attendance_registers` gives `attendance:view` holders their own
+ * classes, or every class when `reads_every_class()`; this service-role twin
+ * serves only the second case, so it asks for both.
+ */
+export async function registersForDayAs(actor: VerifiedActor, sessionLabel: string, day: string): Promise<Register[]> {
+  assertActorEveryClass(actor, "attendance:view");
+  const { data, error } = await createAdminClient()
+    .from("attendance_registers")
+    .select(REGISTER_COLUMNS)
+    .eq("session_label", sessionLabel)
+    .eq("day", day)
+    .returns<RegisterRow[]>();
+
+  if (error) throw new Error(`Could not read the registers: ${error.message}`);
+  return data.map(toRegister);
+}
+
+/**
+ * The status of every mark on these registers, for the board's counts — the
+ * twin of the board's cookie read. Every class, as `registersForDayAs`.
+ * Chunked: the ids go in the URL (rule 3b).
+ */
+export async function markStatusesAs(
+  actor: VerifiedActor,
+  registerIds: readonly string[],
+): Promise<{ data: { register_id: string; status: AttendanceStatus }[] | null; error: unknown }> {
+  assertActorEveryClass(actor, "attendance:view");
+  const admin = createAdminClient();
+  return fetchInChunks<{ register_id: string; status: AttendanceStatus }>([...registerIds], IN_FILTER_CHUNK_SIZE, (chunk) =>
+    admin.from("attendance_marks").select("register_id, status").in("register_id", chunk),
+  );
 }

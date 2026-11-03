@@ -41,6 +41,10 @@
     {
       "path": "/api/jobs/health",
       "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/jobs/ai-connection-purge",
+      "schedule": "15 22 * * *"
     }
   ]
 }

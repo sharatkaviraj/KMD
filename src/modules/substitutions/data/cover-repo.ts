@@ -1,6 +1,7 @@
 import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertActorPermission, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 /**
@@ -114,6 +115,16 @@ export function toDuty(row: DutyRow): CoverDuty {
 /** Every duty row on a day, history included, oldest revision first. */
 export async function dutiesOn(sessionLabel: string, day: string): Promise<CoverDuty[]> {
   await assertPermission("substitutions:view");
+  return readDutiesOn(sessionLabel, day);
+}
+
+/** `dutiesOn` for a member of staff verified by the AI connection: the same `substitutions:view` check, against that actor. */
+export async function dutiesOnAs(actor: VerifiedActor, sessionLabel: string, day: string): Promise<CoverDuty[]> {
+  assertActorPermission(actor, "substitutions:view");
+  return readDutiesOn(sessionLabel, day);
+}
+
+async function readDutiesOn(sessionLabel: string, day: string): Promise<CoverDuty[]> {
   const { data, error } = await createAdminClient()
     .from("cover_duties")
     .select(DUTY_COLUMNS)

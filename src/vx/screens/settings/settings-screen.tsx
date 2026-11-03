@@ -20,7 +20,7 @@ import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
 
 import type { SettingsData } from "./data";
-import { taskIntegrationMessages as taskIntegration } from "@/messages/setup";
+import { aiConnectionMessages as aiConnection, taskIntegrationMessages as taskIntegration } from "@/messages/setup";
 import {
   activityCsv,
   AREA_LABELS,
@@ -117,7 +117,7 @@ const T = {
   signOut: p("Sign out", "साइन आउट"),
 };
 
-type NavItem = { s: SettingsState | "about" | "users"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
+type NavItem = { s: SettingsState | "about" | "users" | "ai-connection"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
 
 export function SettingsScreen({ data, state, ai = null }: { data: SettingsData; state: SettingsState; ai?: AssistPanelData | null }) {
   const { tx, language } = useVx();
@@ -177,6 +177,8 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
       items: [
         { s: "integrations", icon: "link", tone: "warn", title: T.integrations, sub: status.integrations.sub, subTone: status.integrations.tone },
         { s: "ai", icon: "sparkle", tone: "acc", title: T.ai, sub: tx(T.aiSub) },
+        // The AI connection (Claude / ChatGPT through MCP) has its own page: the switch and every connection.
+        { s: "ai-connection", icon: "shield", tone: "info", title: aiConnection.title, sub: tx(aiConnection.settingsSub), href: "/settings/ai-connection" },
       ],
     },
     {

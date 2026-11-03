@@ -4,6 +4,7 @@ import { cache } from "react";
 import { assertPermission, assertStaff, getCurrentStaff } from "@/platform/auth/current-staff";
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
 import { can } from "@/platform/auth/permissions";
+import { assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { canAccessSession, canSwitchSessions, defaultSessionFor } from "@/platform/auth/test-session-policy";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -156,6 +157,15 @@ export async function classLabelMap(
   sessionLabel: string,
 ): Promise<Map<string, string>> {
   await assertStaff();
+  return new Map(await cachedClassLabels(sessionLabel));
+}
+
+/** `classLabelMap` for a member of staff verified by the AI connection: the same gate, any active staff. */
+export async function classLabelMapAs(
+  actor: VerifiedActor,
+  sessionLabel: string,
+): Promise<Map<string, string>> {
+  assertActorStaff(actor);
   return new Map(await cachedClassLabels(sessionLabel));
 }
 
@@ -543,6 +553,26 @@ export const resolveSessionLabel = cache(async (
     labels: visible,
   });
 });
+
+/**
+ * The session the AI connection reads for a verified actor — the same rules
+ * as `resolveSessionLabel()` minus the two request-borne inputs: nothing is
+ * requested and no session-pill cookie exists, so a real member of staff
+ * gets the school's active session and a test account (every account on a
+ * confined deployment) `TEST-2026-27`. Never sorted, never from a tool
+ * argument (rule 3a; plan §5.3 step 6).
+ */
+export async function sessionLabelForActor(actor: VerifiedActor): Promise<string | null> {
+  const staff = assertActorStaff(actor);
+  const { labels, active } = await cachedSessionFacts();
+  const viewer = { role: staff.role, isTestAccount: staff.isTestAccount === true, feeReader: can(staff, "fees:view") };
+  return pickSessionLabel({
+    requested: null,
+    configured: process.env.VPPSONE_SESSION_LABEL,
+    active: defaultSessionFor(viewer, active ?? ""),
+    labels: labels.filter((label) => canAccessSession(viewer, label)),
+  });
+}
 
 /**
  * The two reads behind `resolveSessionLabel`, shared across requests for a

@@ -1,5 +1,6 @@
 import "server-only";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { verifiedActorInContext } from "@/platform/auth/verified-actor-context";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { canAccessSession, isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { feesBridgeEnabled, usesCanonicalFees } from "./policy";
@@ -26,7 +27,11 @@ export function createProjectionFetch(underlying?: typeof fetch, options:{privil
     if (schema !== "public" || !url.pathname.startsWith("/rest/v1/")) return send(input,init);
     if(url.origin!==new URL(getServerSupabaseUrl()).origin)return refusal("The roster request origin is not permitted.");
 
-    const staff = await getCurrentStaff();
+    // The cookie's staff member, or — for a cookie-less AI-connection read
+    // that has passed its whole per-call check — the actor it verified
+    // (`withVerifiedActor`, src/modules/mcp/data/runtime.ts). The rules below
+    // apply to either unchanged.
+    const staff = (await getCurrentStaff()) ?? verifiedActorInContext();
     if (!staff) return refusal("A verified staff account is required to read the school roster.");
     const explicitSession = explicitSessionOf(url);
     if (explicitSession && !canAccessSession(staff,explicitSession)) return refusal("That academic session is not available to this account.");
