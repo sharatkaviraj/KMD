@@ -161,6 +161,17 @@ describe("projections drop whatever the readers add", () => {
   });
 });
 
+describe("the consent page cannot be framed", () => {
+  it("sends frame-ancestors 'none', DENY, no-referrer and no-store for /mcp/*", () => {
+    const config = readFileSync(path.resolve(__dirname, "../../next.config.ts"), "utf8");
+    const block = config.slice(config.indexOf('source: "/mcp/:path*"'), config.indexOf("]", config.indexOf('source: "/mcp/:path*"')));
+    expect(block).toContain(`{ key: "X-Frame-Options", value: "DENY" }`);
+    expect(block).toContain(`{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }`);
+    expect(block).toContain(`{ key: "Referrer-Policy", value: "no-referrer" }`);
+    expect(block).toContain(`{ key: "Cache-Control", value: "no-store" }`);
+  });
+});
+
 describe("the portable core stays portable", () => {
   const domain = path.resolve(__dirname, "../../src/modules/mcp/domain");
   const files = readdirSync(domain).filter((file) => file.endsWith(".ts"));

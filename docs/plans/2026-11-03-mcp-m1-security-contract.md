@@ -54,6 +54,7 @@ below names the code that enforces it and the test that pins it.
 | 28 | Disabling a login, Disconnect (own, D9) and admin Disconnect (any, D9) revoke connections; the switch and other people's connections need the admin role and a non-test account | `changeStaffAuthority` → `revokeStaffAiConnections`; `settings/ai-connection/actions.ts`; `preferences/ai-connection-actions.ts` | per-call refusal is the authority (18); actions re-check owner/permission |
 | 29 | Consent stays behind sign-in with the full query preserved; Approve/Deny re-validate from the raw query, not rendered fields | proxy (not in `PUBLIC_PREFIXES`); `app/mcp/authorize/actions.ts` | `public-routes.test.ts` "still sends … the AI consent page to /login" |
 | 30 | Card states come only from One's records; never "connected and working" | `domain/card.ts` | `card.test.ts` |
+| 31 | The consent page cannot be framed (clickjacking), is never cached, sends no referrer, and names the redirect host it will send you to | `next.config.ts` headers for `/mcp/:path*`; `app/mcp/authorize/page.tsx` | `registry.test.ts` "the consent page cannot be framed" |
 
 ## Provider redirect URIs
 
@@ -102,6 +103,9 @@ below names the code that enforces it and the test that pins it.
 - **Replacing a connection.** A new consent ends the same person's earlier
   live connection to the same provider (`replaced`): one Claude grant per
   person.
+- **The switch stops tools, not token refresh**: with it off, a client can
+  still rotate its refresh token (and so keep its grant until 90 days), but
+  every tool call is refused. Disconnect ends a grant.
 - **Kill switch from a Preview** is refused (every account there is a test
   account and the flag is production's).
 - `ai_tool_calls` keeps rows of refused calls too; a purged connection's rows
