@@ -10,6 +10,7 @@ import { canAccessSession } from "@/platform/auth/test-session-policy";
 import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { getBridgeReceiptDetail } from "@/platform/fees-bridge/client";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
+import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { CanonicalReceipt, CanonicalReceiptUnavailable, type ReceiptUnavailableReason } from "@/vx/screens/receipts/canonical-receipt";
 
 function safeDecode(value: string): string {
@@ -50,7 +51,7 @@ export default async function ReceiptPage({
     }
     // The number in the address must be this receipt's; compared decoded, as the local branch does.
     if (receipt.detail.receiptNumber !== number) return unavailable("unreadable");
-    return <CanonicalReceipt receipt={receipt} language={staff.language} />;
+    return <CanonicalReceipt receipt={receipt} language={staff.language} canPrint={feePermissionsFor(staff.role).includes("receipts:print")} />;
   }
   const props = await loadReceiptsDesk(staff, search, decodeURIComponent(receiptNumber));
   if (!props.selected) notFound();
