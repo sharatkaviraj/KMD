@@ -31,6 +31,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `FEES_BRIDGE_KEY` | `src/platform/fees-bridge/client.ts` | — | yes | — | deployment operator | new server-only bridge credential; shared with source ONE_BRIDGE_KEY; production only |
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
 | `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
+| `FEES_BRIDGE_OFFICE_READS` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until Fees migration `20261103170000_one_bridge_office_reads` is applied; then true for Today's Fees totals, Fees refund requests in Needs you and receipt-number lookup (review plan, 3 Nov) |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
 | `JOBS_SECRET` | `src/app/api/jobs/[job]/route.ts`, `src/vx/screens/settings/data.ts` | — | yes | — | owner | set — per-job tokens (`npm run jobs:tokens`) go into Vault for pg_cron |
 | `LOCALE_SWITCHER_ENABLED` | `src/platform/env.ts` | `src/platform/env.ts` | — | — | owner | leave unset (on); not set on fees either |

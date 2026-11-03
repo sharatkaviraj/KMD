@@ -52,7 +52,7 @@ for (const [width, height] of [[360, 800], [390, 844], [412, 915], [844, 390]]) 
       const page = await coordinator.context.newPage();
       await safeSignIn(page, 'academic', `/timetable?view=subs&day=${day}`);
       await expect(phoneTitle(page, 'Substitutions')).toBeVisible();
-      await expect(page.getByText('Nobody is marked away.', { exact: true })).toBeVisible();
+      await expect(page.getByText('No one is marked away yet.', { exact: true })).toBeVisible();
       await expect(page.getByText('Now', { exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Save & arrange', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Save & arrange', exact: true })).toBeDisabled();
@@ -82,7 +82,7 @@ for (const [width, height] of [[360, 800], [390, 844], [412, 915], [844, 390]]) 
       await expect(phoneTitle(teacherPage, 'Timetable')).toBeVisible();
       await teacherPage.goto(`/timetable?view=subs&day=${day}`);
       await expect(phoneTitle(teacherPage, 'Substitutions')).toBeVisible();
-      await expect(teacherPage.getByText('Nobody is marked away.', { exact: true })).toBeVisible();
+      await expect(teacherPage.getByText('No one is marked away yet.', { exact: true })).toBeVisible();
       await expect(teacherPage.getByText('Now', { exact: true })).toHaveCount(0);
       await expect(teacherPage.getByRole('button', { name: /Mark away|Save absence|Save & arrange/i })).toHaveCount(0);
       await teacherPage.goto('/timetable/import');

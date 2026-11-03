@@ -10,8 +10,10 @@ import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/aca
 import { searchStudents } from "@/modules/students/data/directory-repo";
 import { assertStaff, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { getBridgeDirectory } from "@/platform/fees-bridge/client";
-import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getBridgeDirectory, getBridgeReceiptDetail, lookupBridgeReceipt } from "@/platform/fees-bridge/client";
+import { RECEIPT_NUMBER } from "@/platform/fees-bridge/office-read-contracts";
+import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { listMoney, mobileOf } from "@/vx/screens/admin/logic";
 import { moneyStatus, type MoneyStatus } from "@/vx/screens/admin/students-logic";
 import { listStaff } from "@/modules/staff/data/staff-repo";
@@ -139,10 +141,22 @@ async function canonicalSearch(ask: Ask, sessionLabel: string): Promise<Seen> {
     failed.push("students");
   }
 
-  // Receipt numbers have no lookup on the connection yet; the first child's
-  // latest receipts still come from their Fees record.
+  // A typed receipt number is resolved by Fees, exactly (its lookup, under the
+  // receipt detail rule); otherwise the first child's latest receipts.
   let receipts: ReceiptHit[] = [];
-  if (ask.seesReceipts && students[0]) {
+  if (ask.seesReceipts && feesBridgeOfficeReads() && /\d/.test(ask.term) && RECEIPT_NUMBER.test(ask.term)) {
+    try {
+      const found = await lookupBridgeReceipt(ask.term, sessionLabel);
+      const read = await getBridgeReceiptDetail(found.receiptId, sessionLabel);
+      const d = read.detail;
+      receipts = [{ id: found.receiptId, number: found.receiptNumber, amount: d.totalAmount, student: d.studentFullName, date: d.paymentDate, mode: d.paymentMode,
+        reversed: Boolean(d.isVoided || (d.reversedAmount ?? 0) > 0), href: receiptHref(found.receiptNumber, found.receiptId, sessionLabel) }];
+    } catch (error) {
+      // Not a receipt number after all is not a failure; anything else is said.
+      if (!(error instanceof FeesBridgeError && ["not_found", "forbidden"].includes(error.code))) failed.push("receipts");
+    }
+  }
+  if (receipts.length === 0 && ask.seesReceipts && students[0]) {
     try {
       const first = students[0];
       receipts = (await recentReceiptsFor(first.id)).map((r) => ({

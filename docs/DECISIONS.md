@@ -1,5 +1,15 @@
 # Decisions
 
+## Review plan, Phase 3: native workflows — 3 November 2026
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-375 | **A Fees receipt in One leads with the Fees receipt template itself** (phone slip, A4 document, logo, PAID stamp, authorised signature — the ported components, unchanged) through a strict adapter that refuses an unknown mode, tier or status rather than relabelling it; **Print and Download PDF for roles with `receipts:print`**; the PDF route reads live, pins id and session, answers refused and missing alike and is never cached | F03. The bridge receipt matches `ReceiptDetail` field for field; Fees gates its own PDF on `receipts:print`. Reversal and sending still open in Fees |
+| D-376 | **"Decide several" in Needs you groups only what means the same thing** — future leave, leave already taken, changes to student records; money requests and cover stay one at a time; a review step says what the decision does; each item is saved and re-checked by the server alone, ticks only when confirmed, and a failure stays and retries with the same command id | N01/N02. The type chips were filters, not selection; a generic "Approve all" would have mixed meanings |
+| D-377 | **The attendance board says why only some unmarked classes can be reminded** (already reminded today, no class teacher, teacher away), links to class-teacher assignment, and calls a reminder *queued*, not sent | A01. 18 unmarked beside "Remind 1 class" read as a bug; the staff WhatsApp outbox decides delivery |
+| D-378 | **Cover starts with its first step**: an empty day offers "Mark a teacher away" as a button, the ring shows a dash instead of 0/0, half-day choices name the half, the classic page says it holds the same records | C01 |
+| D-379 | **Fees office reads are wired behind `FEES_BRIDGE_OFFICE_READS`** (Today's Fees totals with as-of time, Fees refund requests in Needs you, receipt-number lookup in links and search); off until Fees migration `20261103170000` is applied, because before it every office read answers 503 | Fees PR #133 merged as `5dc9ebe4`. Turning the switch on before the migration would bring back the false "could not read" T02 removed |
+
 ## Review plan, Phase 2: daily speed and clarity — 3 November 2026
 
 | Decision | Outcome | Evidence and reason |

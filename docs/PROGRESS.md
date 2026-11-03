@@ -1,5 +1,23 @@
 # VPPS One — progress
 
+## Review plan, Phase 3: native workflows — 3 November 2026
+
+Branch `feat/review-native-phase3`, stacked on Phase 2 (#168). The Fees
+receipt template, Print and Download PDF inside One (F03); "Decide several" in
+Needs you with grouped, confirmed, retryable decisions (N01/N02); attendance
+reminder reasons (A01); cover's first step and plain empty states (C01); Fees
+office reads wired behind `FEES_BRIDGE_OFFICE_READS` (off). Fees side: PR
+#133 merged as `5dc9ebe4` (code deployed; office reads answer 503 until its
+migration `20261103170000_one_bridge_office_reads` is applied with
+`npx supabase db push --linked --yes` from the schoolfees checkout — not run
+here: production database access needs the owner). Fees write commands are
+draft schoolfees PR #134: reversal, refund decision and refund processing, each
+behind `commands_enabled` and its own grant flag (default off); day close was
+skipped (Fees has no manual close or SQL engine; only the nightly cron writes it).
+Its SQL fixture must run on an isolated schema copy before merge. Remaining: Phase 3 release; apply the Fees migration, then
+set `FEES_BRIDGE_OFFICE_READS=true`; review and release the write commands;
+MCP feasibility after that.
+
 ## Review plan, Phase 2: daily speed and clarity — 3 November 2026
 
 Branch `feat/review-daily-phase2`, stacked on Phase 1 (#167). Student 360 no
@@ -11,7 +29,7 @@ pills with one Filters button and a grouped sheet including enrolment (S02/S03).
 Also fixed: phone masking regex and per-parent numbers. Verified with unit
 tests, the Student 360 / documents / admin-mobile browser specs (documents run
 serially; parallel runs time out on this machine) and harness screenshots. No
-migration, data write or message. Remaining: release, then Phase 3.
+migration, data write or message. **Released:** PR #168 merged as `d48e6668`.
 
 ## Review plan, Phase 1: trust fixes — 3 November 2026
 

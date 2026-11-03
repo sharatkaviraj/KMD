@@ -14,8 +14,11 @@ const state = vi.hoisted(() => ({
   receipts: vi.fn(),
   recent: vi.fn(),
   canonical: false,
+  officeReads: false,
   directory: vi.fn(),
   roster: vi.fn(),
+  lookup: vi.fn(),
+  detail: vi.fn(),
 }));
 
 vi.mock("@/platform/auth/current-staff", () => ({ assertStaff: vi.fn(async () => ({ id: "qa-staff", role: "admin" })) }));
@@ -29,8 +32,8 @@ vi.mock("@/modules/academics/data/academics-repo", () => ({
   resolveSessionLabel: vi.fn(async () => (state.canonical ? "2026-27" : "QA-2026-27")),
   classLabelMap: vi.fn(async () => new Map([["qa-class-7", "Class 7"]])),
 }));
-vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: () => state.canonical }));
-vi.mock("@/platform/fees-bridge/client", () => ({ getBridgeDirectory: state.directory }));
+vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: () => state.canonical, feesBridgeOfficeReads: () => state.officeReads }));
+vi.mock("@/platform/fees-bridge/client", () => ({ getBridgeDirectory: state.directory, lookupBridgeReceipt: state.lookup, getBridgeReceiptDetail: state.detail }));
 vi.mock("@/modules/students/data/directory-repo", () => ({ searchStudents: state.roster }));
 vi.mock("@/modules/staff/data/staff-repo", () => ({
   listStaff: vi.fn(async () => [
@@ -133,6 +136,19 @@ describe("searchEverythingAction under the live Fees connection (S01)", () => {
   });
   afterEach(() => {
     state.canonical = false;
+    state.officeReads = false;
+  });
+
+  it("finds a typed receipt number through Fees' lookup once it is on", async () => {
+    state.perms = new Set(["fees:view"]);
+    state.officeReads = true;
+    state.directory.mockResolvedValue(page([]));
+    state.lookup.mockResolvedValue({ receiptId: "00000000-0000-4000-8000-000000000009", receiptNumber: "SVP20261103-0001", studentId: "qa-child" });
+    state.detail.mockResolvedValue({ detail: { totalAmount: 2400, studentFullName: "Aarav Test", paymentDate: "2026-11-03", paymentMode: "cash", isVoided: false, reversedAmount: 0 } });
+    const r = await searchEverythingAction("SVP20261103-0001");
+    expect(state.lookup).toHaveBeenCalledWith("SVP20261103-0001", "2026-27");
+    expect(r.receipts).toEqual([expect.objectContaining({ number: "SVP20261103-0001", amount: 2400, href: "/receipts/SVP20261103-0001?receiptId=00000000-0000-4000-8000-000000000009&session=2026-27" })]);
+    expect(r.failed).toBeUndefined();
   });
 
   it("asks the Fees directory, never the refused local tables, and keeps money, Collect and the call", async () => {

@@ -7,6 +7,9 @@ import { rupees } from "@/vx/format";
 import { Grid, Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Card, EmptyState, Pill, SecHead } from "@/vx/ui/primitives";
 import { RetryButton } from "@/vx/ui/read-state";
+import { BridgeReceiptPaper } from "@/modules/receipts/vx/bridge-receipt-paper";
+import { receiptDetailFromBridge } from "@/modules/receipts/vx/bridge-receipt";
+import { PrintButton } from "./print-button";
 
 function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return <dl style={{ margin: 0, display: "grid", gap: 12 }}>{rows.map(([label, value]) => <div key={label} style={{ minWidth: 0 }}>
@@ -15,17 +18,38 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
   </div>)}</dl>;
 }
 
-/** A source receipt is read in place; no local reversal, send or write controls. */
-export function CanonicalReceipt({ receipt, language }: { receipt: BridgeReceiptDetail; language: Language }) {
+/** The Fees template's data, or null when the read has a value the template does not know (then the facts lead). */
+function paperOf(detail: BridgeReceiptDetail["detail"]) {
+  try { return receiptDetailFromBridge(detail); } catch { return null; }
+}
+
+/**
+ * A source receipt is read in place (review F03): the Fees receipt itself —
+ * the same template, logo, stamp and signature Fees prints — with Print and
+ * Download PDF for a role that may print receipts. No local reversal, send or
+ * write control; those open in Fees. Every fact stays below under one fold.
+ */
+export function CanonicalReceipt({ receipt, language, canPrint = false }: { receipt: BridgeReceiptDetail; language: Language; canPrint?: boolean }) {
   const d = receipt.detail;
   const t = (en: string, hi: string) => lead({ en, hi }, language);
   const back = `/students/${receipt.studentId}?tab=fees`;
   const receiptHref = (id: string, number: string) => `/receipts/${encodeURIComponent(number)}?${new URLSearchParams({ receiptId: id, session: receipt.sessionLabel })}`;
   const sourceHref = `https://fees.vpps.co.in/protected/receipts/${receipt.receiptId}?${new URLSearchParams({ session: receipt.sessionLabel })}`;
+  const paper = paperOf(d);
+  const pdfHref = `/api/fees-bridge/receipts/${receipt.receiptId}/pdf?${new URLSearchParams({ session: receipt.sessionLabel })}`;
+  const printing = canPrint && paper ? <>
+    <PrintButton label={t("Print", "प्रिंट करें")} />
+    <Btn icon="download" href={pdfHref}>{t("Download PDF", "PDF डाउनलोड करें")}</Btn>
+  </> : null;
   return <VxPage label={t("Fee receipt", "शुल्क रसीद")}>
     <TopBar title={d.receiptNumber} crumb={t("Fee receipt", "शुल्क रसीद")} mBack={back} mSub={d.studentFullName}
-      actions={<Btn href={back}>{t("Student record", "विद्यार्थी विवरण")}</Btn>} />
+      actions={<span className="print:hidden" style={{ display: "flex", gap: 8 }}>{printing}<Btn href={back}>{t("Student record", "विद्यार्थी विवरण")}</Btn></span>} />
     <Section><div data-student-source-section="receipt" style={{ display: "contents" }}>
+      {paper ? <div className="vx-receipt-paper"><BridgeReceiptPaper receipt={paper} /></div> : null}
+      {paper ? <div className="print:hidden only-m" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{printing}</div> : null}
+      <details className="print:hidden vx-receipt-more" open={!paper}>
+        <summary>{t("All receipt details", "रसीद का पूरा विवरण")}</summary>
+        <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
           <div><h2 style={{ margin: 0 }}>{d.studentFullName}</h2><p style={{ margin: "6px 0", color: "var(--mut)" }}>{d.admissionNo} · {d.classLabel} · {d.sessionLabel}</p></div>
@@ -71,7 +95,9 @@ export function CanonicalReceipt({ receipt, language }: { receipt: BridgeReceipt
       {d.previousReceipts.length ? <Card><SecHead>{t("Previous receipts", "पिछली रसीदें")}</SecHead><div style={{ display: "grid", gap: 12 }}>{d.previousReceipts.map(row => <Link key={row.id} href={receiptHref(row.id, row.receiptNumber)} style={{ minHeight: 44, overflowWrap: "anywhere" }}>
         {row.receiptNumber} · {row.paymentDate} · {rupees(row.totalAmount)} {row.isReversed ? `· ${t("Reversed", "वापस")}` : ""}
       </Link>)}</div></Card> : null}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}><Btn href={back}>{t("Back to student", "विद्यार्थी पर वापस")}</Btn><Btn href={sourceHref}>{t("Open receipt in Fees", "Fees में रसीद खोलें")}</Btn></div>
+        </div>
+      </details>
+      <div className="print:hidden" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}><Btn href={back}>{t("Back to student", "विद्यार्थी पर वापस")}</Btn><Btn href={sourceHref}>{t("Reverse or send in Fees", "Fees में रद्द करें या भेजें")}</Btn></div>
     </div></Section>
   </VxPage>;
 }

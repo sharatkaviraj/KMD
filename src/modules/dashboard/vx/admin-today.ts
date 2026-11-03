@@ -8,6 +8,8 @@ import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { settleParts } from "@/platform/helpers/partial-read";
+import { getBridgePendingRequests } from "@/platform/fees-bridge/client";
+import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
 import { deskReason } from "@/modules/dashboard/domain/desk-reason";
 import { p, type Pair } from "@/vx/text";
 
@@ -244,4 +246,41 @@ export async function pendingMoneyRequests(): Promise<PendingRefund[]> {
  */
 export async function pendingOneMoneyRequests(): Promise<PendingRefund[]> {
   return settleParts<PendingRefund>([["desk", pendingDeskRequests], ["accounts", pendingAccountRequests]]);
+}
+
+const FEES_REFUND_TITLE = {
+  refund_approval: p("Refund to approve in Fees", "Fees में धन-वापसी मंज़ूर करें"),
+  refund_processing: p("Approved refund to post in Fees", "Fees में मंज़ूर धन-वापसी दर्ज करें"),
+} as const;
+
+/** Fees' own refund requests (Finance controls), through the live connection; decided in Fees. */
+export async function pendingFeesRefunds(sessionLabel: string): Promise<PendingRefund[]> {
+  await assertPermission("fees:view");
+  const result = await getBridgePendingRequests(sessionLabel);
+  return result.items.map((item) => ({
+    id: `fees:${item.id}`,
+    studentId: item.student.id,
+    studentName: item.student.name,
+    amount: item.amount,
+    reason: item.reason,
+    title: FEES_REFUND_TITLE[item.kind],
+    receiptNumber: item.receipt.receiptNumber,
+    requestedAt: item.requestedAt,
+    href: new URL(item.feesPath, FEES_ORIGIN).toString(),
+  }));
+}
+
+const canonicalReaders = new Map<string, () => Promise<PendingRefund[]>>();
+/**
+ * The queue under the live connection with Fees' office reads on: One's desk
+ * and accounts requests and Fees' refund requests, each part on its own. One
+ * stable function per session, so the page and the badge share one read.
+ */
+export function pendingCanonicalMoneyRequests(sessionLabel: string): () => Promise<PendingRefund[]> {
+  let reader = canonicalReaders.get(sessionLabel);
+  if (!reader) {
+    reader = () => settleParts<PendingRefund>([["desk", pendingDeskRequests], ["accounts", pendingAccountRequests], ["fees", () => pendingFeesRefunds(sessionLabel)]]);
+    canonicalReaders.set(sessionLabel, reader);
+  }
+  return reader;
 }

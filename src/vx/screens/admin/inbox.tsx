@@ -12,6 +12,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar } from "@/vx/ui/page";
 import { Btn, Pill, toneColors, type Tone } from "@/vx/ui/primitives";
 import { CouldNotRead } from "@/vx/ui/read-state";
+import { InboxBatch } from "@/vx/screens/admin/inbox-batch";
 import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
 import { TO } from "@/vx/screens/admin/ops-text";
 import { T } from "@/vx/screens/admin/text";
@@ -296,6 +297,9 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     </>
   ) : null;
 
+  // Several decisions at once, over what this list shows (review N01). Hidden when fewer than two can be batched.
+  const batch = <InboxBatch items={shown} scope={scope} previewing={previewing} onSettled={(ids) => setHidden((all) => { const next = new Set(all); for (const id of ids) next.add(id); return next; })} />;
+
   const oldest = live.reduce<string | null>((min, item) => (item.at && (!min || item.at < min) ? item.at : min), null);
   // With a source unread, "0 waiting" would read as "All clear": say what is known instead (T03).
   const waiting = unavailable && live.length === 0 ? tx(TO.notAllRead) : tx(TO.waiting(live.length, oldest ? dayMonth(oldest) : null));
@@ -306,6 +310,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
       <div style={{ minWidth: 0, borderRight: "1px solid var(--bd)", display: "flex", flexDirection: "column" }}>
         <div className="glass" role="group" aria-label={tx(TO.filterByType)} style={{ position: "sticky", top: 64, zIndex: 2, padding: "16px 16px 12px", display: "flex", flexWrap: "wrap", gap: 6, borderBottom: "1px solid var(--bd)" }}>
           {chips}
+          <span style={{ marginLeft: "auto" }}>{batch}</span>
         </div>
         {notices ? <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--bd)" }}>{notices}</div> : null}
         {shown.length === 0 ? (
@@ -357,6 +362,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
       </div>
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
         {notices}
+        {batch ? <div style={{ alignSelf: "flex-start" }}>{batch}</div> : null}
         {shown.length === 0 ? (unavailable ? null : <AllClear />) : shown.map((item, i) => <PhoneCard key={item.id} item={item} on={on} delay={Math.min(i * 40, 400)} />)}
         {taskPanel}
       </div>

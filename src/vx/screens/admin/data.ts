@@ -9,8 +9,8 @@ import { addDays, dayLabel, weekdayLabel, weekdayName } from "@/platform/dates";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { PartialReadError } from "@/platform/helpers/partial-read";
-import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
-import { pendingMoneyRequests, pendingOneMoneyRequests } from "@/modules/dashboard/vx/admin-today";
+import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { pendingCanonicalMoneyRequests, pendingMoneyRequests, pendingOneMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
@@ -136,7 +136,8 @@ async function guard<T>(missing: string[], key: string, read: () => Promise<T>):
  */
 export function moneyRequestsFor(staff: CurrentStaff, sessionLabel: string): MoneyRequests | undefined {
   if (!can(staff, "fees:view")) return undefined;
-  return usesCanonicalFees(staff, sessionLabel) ? pendingOneMoneyRequests : pendingMoneyRequests;
+  if (!usesCanonicalFees(staff, sessionLabel)) return pendingMoneyRequests;
+  return feesBridgeOfficeReads() ? pendingCanonicalMoneyRequests(sessionLabel) : pendingOneMoneyRequests;
 }
 
 /* ------------------------------------------------------- class teachers */
@@ -899,7 +900,7 @@ async function readInbox(
       at: r.requestedAt,
       // Money that has waited more than two days on the admin is marked urgent.
       urgent: Date.now() - Date.parse(r.requestedAt) > 2 * 86_400_000,
-      badge: r.deskKind === "reversal" ? p("Reversal", "रसीद रद्द") : r.deskKind === "write_off" ? p("Write-off", "माफ़ी") : r.title ? p("Accounts", "हिसाब") : T.bRefund,
+      badge: r.deskKind === "reversal" ? p("Reversal", "रसीद रद्द") : r.deskKind === "write_off" ? p("Write-off", "माफ़ी") : r.title && !r.id.startsWith("fees:") ? p("Accounts", "हिसाब") : T.bRefund,
       title:
         r.deskKind === "reversal"
           ? p(`Reverse receipt ${r.receiptNumber ?? ""} · ${amount} · ${r.studentName}`.replace("  ", " "), `रसीद ${r.receiptNumber ?? ""} रद्द · ${amount} · ${r.studentName}`.replace("  ", " "))

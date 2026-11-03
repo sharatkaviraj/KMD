@@ -14,6 +14,16 @@ export function feesBridgeEnabled(env: Environment = process.env): boolean {
   return value === "true";
 }
 
+/**
+ * Fees' office reads (today's totals, pending refunds, receipt lookup). Off
+ * until the Fees side has migration 20261103170000 applied: before that every
+ * office read answers 503, and showing that as "could not read" would bring
+ * back the false failure review T02 removed.
+ */
+export function feesBridgeOfficeReads(env: Environment = process.env): boolean {
+  return feesBridgeEnabled(env) && env.FEES_BRIDGE_OFFICE_READS === "true";
+}
+
 export function feesBridgeWritesEnabled(env: Environment = process.env): boolean {
   return feesBridgeEnabled(env) && !isConfinedDeployment(env) && env.FEES_BRIDGE_WRITES_ENABLED === "true";
 }
@@ -55,7 +65,10 @@ const NATIVE_FINANCE_ROUTES: Readonly<Record<string, string>> = {
 };
 
 /** Exact path segments, fixed origin and no tokens or untrusted query forwarding. */
-export function delegatedFeesPath(pathname: string): string | null {
+export function delegatedFeesPath(pathname: string, env: Environment = process.env): string | null {
+  // The receipts list and day book are native once Fees' office reads are live (review F01);
+  // everything under it (reversal, close, print screens) stays with Fees.
+  if (pathname === "/receipts" && feesBridgeOfficeReads(env)) return null;
   if (pathname === "/fees" || pathname.startsWith("/fees/")) {
     const candidate=pathname === "/fees" ? "/protected/dashboard" : `/protected${pathname.slice(5)}`;
     return isExistingFeesPath(candidate)?candidate:"/protected/dashboard";

@@ -85,6 +85,8 @@ export const TD = {
   allClearRail: p("All clear — nothing is waiting on you.", "सब ठीक है — आपके लिए कुछ बाकी नहीं।"),
   allClearSub: p("Nothing is waiting on you right now.", "अभी आपके लिए कुछ बाकी नहीं।"),
   feesUnavailable: p("Fee figures could not be read. Refresh to try again.", "फ़ीस के आँकड़े पढ़े नहीं जा सके। दोबारा कोशिश करें।"),
+  // Fees' own Dashboard figure, with when it was read (review T02).
+  ledgerLine: (n: number, at: string) => p(`${n} receipt${n === 1 ? "" : "s"} · from Fees${at ? ` · as of ${at}` : ""}`, `${n} रसीदें · Fees से${at ? ` · ${at} तक` : ""}`),
   weekday: [p("Sun", "रवि"), p("Mon", "सोम"), p("Tue", "मंगल"), p("Wed", "बुध"), p("Thu", "गुरु"), p("Fri", "शुक्र"), p("Sat", "शनि")] as readonly Pair[],
   month: [
     p("January", "जनवरी"), p("February", "फ़रवरी"), p("March", "मार्च"), p("April", "अप्रैल"), p("May", "मई"), p("June", "जून"),

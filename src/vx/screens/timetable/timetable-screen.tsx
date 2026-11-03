@@ -1247,7 +1247,13 @@ function Subs({
               </button>
             ) : null}
           </div>
-          {away.length === 0 ? <span style={{ ...MUTED, padding: "8px 0" }}>{say("Nobody is marked away.", "कोई अनुपस्थित दर्ज नहीं।")}</span> : null}
+          {/* Review C01: an empty day says what to do first, not just 0/0. */}
+          {away.length === 0 ? (
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, padding: "8px 0" }}>
+              <span style={MUTED}>{say("No one is marked away yet.", "अभी कोई अनुपस्थित दर्ज नहीं।")}</span>
+              {c.canCommand && !editing ? <Btn variant="pri" icon="user" onClick={() => setEditing(true)}>{say("Mark a teacher away", "शिक्षक को अनुपस्थित दर्ज करें")}</Btn> : null}
+            </span>
+          ) : null}
           {away.map((a, i) => {
             // Every lesson the absence leaves, including the ones whose period had already begun.
             const n = live.filter((d) => isAbsent(d.absentIds, d.absentNames, a)).length + missed.filter((x) => isAbsent(x.absentIds, x.absentNames, a)).length;
@@ -1273,8 +1279,8 @@ function Subs({
               </Select>
               <Select value={awaySpanChoice} onChange={(e) => setAwaySpanChoice(e.target.value as LeaveSpan)} aria-label={say("Which periods", "कौन से पीरियड")} style={{ width: "auto" }}>
                 <option value="full">{say("Whole day", "पूरा दिन")}</option>
-                <option value="first_half">P1–P{BREAK_AFTER + 1}</option>
-                <option value="second_half">P{BREAK_AFTER + 2}–P{PERIODS.length}</option>
+                <option value="first_half">{say(`First half · P1–P${BREAK_AFTER + 1}`, `पहली पाली · P1–P${BREAK_AFTER + 1}`)}</option>
+                <option value="second_half">{say(`Second half · P${BREAK_AFTER + 2}–P${PERIODS.length}`, `दूसरी पाली · P${BREAK_AFTER + 2}–P${PERIODS.length}`)}</option>
               </Select>
               {/* Periods already marked away (an approved leave, say) are kept: the new ones are added, never swapped in silently. */}
               <Btn variant="pri" icon="check" disabled={pending || !awayId} onClick={() => onCover({ intent: "absence", staffProfileId: awayId, periods: [...new Set([...(absenceOf(awayId)?.periods ?? []), ...spanPeriods(awaySpanChoice)])].sort((x, y) => x - y) }, () => setAwayId(""))}>{say("Save & arrange", "सहेजें और व्यवस्था करें")}</Btn>
@@ -1293,7 +1299,7 @@ function Subs({
           ) : null}
         </Card>
         <Card style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
-          <RingNum value={assigned} max={ring.total} tone={ring.tone === "ok" ? "var(--ok)" : ring.tone === "warn" ? "var(--warn)" : "var(--s3)"} big={`${assigned}/${ring.total}`} bigSize={18} small={say("covered", "व्यवस्था")} />
+          <RingNum value={assigned} max={ring.total} tone={ring.tone === "ok" ? "var(--ok)" : ring.tone === "warn" ? "var(--warn)" : "var(--s3)"} big={ring.total === 0 ? "—" : `${assigned}/${ring.total}`} bigSize={18} small={say("covered", "व्यवस्था")} />
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: ring.short ? "var(--warnfg)" : undefined }}>
               {ring.total === 0
@@ -1439,7 +1445,7 @@ function Subs({
         );
       })}
       {live.length === 0 && missed.length === 0 && c.hasTimetable ? <EmptyState icon="checkCircle" title={isToday ? say("No cover needed today", "आज कोई व्यवस्था नहीं चाहिए") : say(`No cover needed on ${dayShort(c.day)}`, `${dayShort(c.day)} को कोई व्यवस्था नहीं चाहिए`)} body={say("Mark a teacher away above and the periods they leave appear here with the best teachers to cover.", "ऊपर शिक्षक को अनुपस्थित दर्ज करें; उनके पीरियड यहाँ सबसे उपयुक्त शिक्षकों के साथ दिखेंगे।")} /> : null}
-      <Link href={`/substitutions?day=${c.day}`} className="tap vx-lnk" style={{ fontSize: 13, color: "var(--mut)", alignSelf: "flex-start" }}>{say("Open the classic cover screen →", "पुरानी व्यवस्था स्क्रीन खोलें →")}</Link>
+      <Link href={`/substitutions?day=${c.day}`} className="tap vx-lnk" style={{ fontSize: 13, color: "var(--mut)", alignSelf: "flex-start" }}>{say("Same records, older full-page view: open classic cover →", "वही रिकॉर्ड, पुराना पूरा पेज: पुरानी व्यवस्था स्क्रीन खोलें →")}</Link>
     </>
   );
 }
