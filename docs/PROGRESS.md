@@ -27,7 +27,7 @@ pills with one Filters button and a grouped sheet including enrolment (S02/S03).
 Also fixed: phone masking regex and per-parent numbers. Verified with unit
 tests, the Student 360 / documents / admin-mobile browser specs (documents run
 serially; parallel runs time out on this machine) and harness screenshots. No
-migration, data write or message. Remaining: release, then Phase 3.
+migration, data write or message. **Released:** PR #168 merged as `d48e6668`.
 
 ## Review plan, Phase 1: trust fixes — 3 November 2026
 
