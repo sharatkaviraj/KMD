@@ -16,7 +16,10 @@ Migrations `20261103031956_school_office_certificate_kinds` and
 proved per-kind serials, reprint-first, the TC `not_left` refusal, the roster
 and that TEST issues never verify. Surprise: the QA sign-in tool now refuses
 the QA accounts on production, so screens were checked in the synthetic School
-Office harness rather than signed in. Remaining: the school's real principal
+Office harness rather than signed in. **Released:** PR #163 merged as `cb2c7af2` (25/25
+checks green); production deployment `dpl_6cveAjNe5xEsFQU1oB2NX92bkyFT` READY on
+one.vpps.co.in, `/cv/{code}` answers publicly, staff routes redirect to sign-in,
+no runtime errors in the first hour. Remaining: the school's real principal
 name, place and codes in Certificate settings; a real certificate printed and
 signed once by the office.
 
