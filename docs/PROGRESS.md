@@ -27,9 +27,11 @@ from production `student_missing`), explained receipt refusals (F02), the real
 logo (T01), no "Bus · No transport" (P03), and the waiver shown only when a
 late fee is pending. No migration, no data write, no message. Fees-side reads
 (`/summary/today`, `/requests/pending`, `/receipts/lookup`, `/receipts`,
-cross-session receipt detail) are being built in schoolfees
-`feat/one-bridge-office-reads`; One wires them in the next branch. Remaining:
-release CI, then Phase 2.
+cross-session receipt detail) are in schoolfees PR #133. **Released:** PR #167
+merged as `ca58c86f` (26/26 checks). CI caught a WebKit stall on the payment
+desk: the new logo used the real `next/image` in a harness that stubs it
+nowhere else and popped in with a spring transform; harnesses now stub it and
+the logo is still on documents.
 
 ## School Office second pass — 3 November 2026
 
