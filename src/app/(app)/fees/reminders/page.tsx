@@ -1,7 +1,6 @@
-import Link from "next/link";
+import { Suspense } from "react";
 
 import { PageHeader } from "@/ui/shell/page-header";
-import { Button } from "@/ui/primitives/button";
 import { SectionCard } from "@/ui/shell/section-card";
 import { CollapsibleSection } from "@/ui/primitives/collapsible-section";
 import { OfficeNotice } from "@/ui/office/office-ui";
@@ -9,7 +8,8 @@ import { RemindersWorkspace } from "@/modules/whatsapp/ui/reminders-workspace";
 import { DueTodayCard } from "@/modules/whatsapp/ui/due-today-card";
 import { HoldoutControl } from "@/modules/whatsapp/ui/holdout-control";
 import { CollectionListLinks } from "@/modules/whatsapp/ui/collection-list-links";
-import { campaignsDueOn } from "@/modules/whatsapp/domain/campaign-schedule";
+import { campaignsDueOn, messageDateFor } from "@/modules/whatsapp/domain/campaign-schedule";
+import { savedCampaignHref } from "@/modules/whatsapp/domain/campaign-links";
 import {
   buildInstallmentCalendar,
   describeDateGuard,
@@ -19,6 +19,10 @@ import { TestSendPanel } from "@/modules/whatsapp/ui/test-send-panel";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { hasStaffPermission, requireAnyStaffPermission } from "@/modules/fees/platform/session";
 import { isAisensyConfigured } from "@/modules/whatsapp/data/aisensy";
+import { oneMessagePerFamilyEnabled } from "@/modules/whatsapp/data/reminder-settings";
+import { toWorkspaceCandidate } from "@/modules/whatsapp/ui/workspace-candidate";
+import { MessageBlock } from "@/modules/whatsapp/ui/message-block";
+import { ESCALATE_TO_SECOND_NUMBER_AFTER } from "@/modules/whatsapp/domain/family-grouping";
 import {
   istToday,
   loadReminderAudience,
@@ -26,7 +30,6 @@ import {
 } from "@/modules/whatsapp/domain/fee-reminders";
 import { resolveReminderSessionLabel } from "@/modules/whatsapp/data/reminder-session";
 import {
-  campaignNameFor,
   installmentPhrase,
   isLedgerQuotedSituation,
   noticeValuesFrom,
@@ -35,12 +38,22 @@ import { reminderQuery } from "@/modules/whatsapp/domain/audience";
 import { AudienceBuilder } from "@/modules/whatsapp/ui/audience-builder";
 import { CarriedFilterFields } from "@/modules/whatsapp/ui/carried-filter-fields";
 import { NoticePicker } from "@/modules/whatsapp/ui/notice-picker";
-import { loadStudentBriefs, searchSessionStudents } from "@/modules/whatsapp/data/student-lookup";
+import {
+  loadStudentBriefs,
+  searchSessionStudents,
+  type StudentBrief,
+} from "@/modules/whatsapp/data/student-lookup";
 import {
   addReminderStudentAction,
   applyNoticeSettingsAction,
 } from "@/app/(app)/fees/reminders/actions";
 import { renderNoticePreview } from "@/modules/whatsapp/domain/campaign-bodies";
+import {
+  activeCampaignNameOrNull,
+  approvedV6Campaign,
+  fillBody,
+  V6_BUTTON_LABELS,
+} from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { openingNoticeValues } from "@/modules/whatsapp/domain/test-send-values";
 import {
   listCampaigns,
@@ -48,6 +61,18 @@ import {
   type SavedCampaign,
 } from "@/modules/whatsapp/data/campaign-store";
 import { describeLateFeeDrift } from "@/modules/whatsapp/domain/late-fee";
+import { UTILITY_MESSAGE_COST_INR } from "@/modules/whatsapp/domain/message-cost";
+import {
+  EveryoneMessagedNotice,
+  LeftOutSummary,
+  PausedPanel,
+  UnreachablePanel,
+} from "@/modules/whatsapp/ui/audience-panels";
+import { NoticePreview } from "@/modules/whatsapp/ui/notice-preview";
+import { RemindersNav } from "@/modules/whatsapp/ui/reminders-nav";
+import { FixNudge } from "@/modules/whatsapp/ui/fix-nudge";
+import { TodayStrip } from "@/modules/whatsapp/ui/today-strip";
+import { suggestionsForToday } from "@/modules/whatsapp/domain/today-suggestions";
 import { readerFor, resolveReminderContext } from "@/modules/whatsapp/data/reminder-context";
 import { isoFromDdMmYyyy } from "@/platform/helpers/date";
 
@@ -96,6 +121,11 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
   let audience: Awaited<ReturnType<typeof loadReminderAudience>>;
   let filters: ReminderFilters;
   let loadError: string | null = null;
+  // Started the moment the filters are known and awaited below, so the
+  // hand-picked names, a search and the grouping switch load alongside the
+  // saved campaigns instead of after them.
+  let extras: Promise<[StudentBrief[], StudentBrief[], boolean]> = Promise.resolve([[], [], true]);
+  const findQuery = reader(params)("find")?.trim() ?? "";
 
   try {
     sessionLabel = await resolveReminderSessionLabel(supabase);
@@ -109,14 +139,23 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
     calendar = context.calendar;
     filters = context.filters;
     audience = context.audience;
-    // Cheap, and it lets the header say how many are saved without a second page.
-    savedCampaigns = await listCampaigns(supabase, sessionLabel).catch(() => []);
-    // Which scheduled slots have already gone out, so a campaign that ran this
-    // morning is not offered again this afternoon. Best-effort: a due-card that
-    // cannot be built must not take the send screen down with it.
-    ranSlots = await loadRanScheduleSlots(supabase, sessionLabel).catch(
-      () => new Map<string, string[]>(),
-    );
+    const pickedIds = [...filters.includeStudentIds, ...filters.excludeStudentIds];
+    extras = Promise.all([
+      loadStudentBriefs(supabase, sessionLabel, pickedIds).catch(() => []),
+      findQuery
+        ? searchSessionStudents(supabase, sessionLabel, findQuery).catch(() => [])
+        : Promise.resolve([]),
+      // The run's own grouping switch, so the counts on screen are what is billed.
+      oneMessagePerFamilyEnabled(supabase),
+    ]);
+    [savedCampaigns, ranSlots] = await Promise.all([
+      // Cheap, and it lets the header say how many are saved without a second page.
+      listCampaigns(supabase, sessionLabel).catch(() => []),
+      // Which scheduled slots have already gone out, so a campaign that ran this
+      // morning is not offered again this afternoon. Best-effort: a due-card that
+      // cannot be built must not take the send screen down with it.
+      loadRanScheduleSlots(supabase, sessionLabel).catch(() => new Map<string, string[]>()),
+    ]);
   } catch (caught) {
     loadError = caught instanceof Error ? caught.message : "Could not build the recipient list.";
     return (
@@ -146,7 +185,7 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
   // `campaignFor` throws for one. A hand-edited `?situation=upcoming` would
   // otherwise blank the whole screen, which is the failure
   // `parseReminderFilters` falls back rather than throws to avoid.
-  const campaignName = campaignNameFor(filters.situation, filters.language) ?? "";
+  const campaignName = activeCampaignNameOrNull(filters.situation, filters.language) ?? "";
   const providerReady = isAisensyConfigured();
   const pickedIso = isoFromDdMmYyyy(filters.lastDate);
   // No prevyear exception any more: v2 gave that notice a settle-by date too.
@@ -188,13 +227,24 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
    * list is empty or nothing is registered for a hand-edited `?situation=`.
    */
   const previewSample = audience.candidates[0] ?? null;
+  // The `_v6` template once it is the live one — the preview must show what
+  // will actually go, buttons included.
+  const v6 = approvedV6Campaign(filters.situation, filters.language);
   const previewBody = previewSample
-    ? renderNoticePreview(
-        filters.situation,
-        filters.language,
-        noticeValuesFrom(previewSample, filters),
-      )
+    ? v6
+      ? fillBody(v6.body, v6.buildParams(noticeValuesFrom(previewSample, filters)))
+      : renderNoticePreview(
+          filters.situation,
+          filters.language,
+          noticeValuesFrom(previewSample, filters),
+        )
     : null;
+  const previewButtons = v6
+    ? v6.buttons.map((button) => ({
+        label: V6_BUTTON_LABELS[filters.language][button],
+        kind: button === "pay_url" ? ("url" as const) : ("phone" as const),
+      }))
+    : [{ label: "Call office", kind: "phone" as const }];
   // The test panel's opening preview, from the SAME values its fields open on.
   const testPreview = renderNoticePreview(
     filters.situation,
@@ -231,16 +281,7 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
    * lookup that fails must not take a send screen down, it just shows fewer
    * chips.
    */
-  const findQuery = reader(params)("find")?.trim() ?? "";
-  const [handPicked, matches] = await Promise.all([
-    loadStudentBriefs(supabase, sessionLabel, [
-      ...filters.includeStudentIds,
-      ...filters.excludeStudentIds,
-    ]).catch(() => []),
-    findQuery
-      ? searchSessionStudents(supabase, sessionLabel, findQuery).catch(() => [])
-      : Promise.resolve([]),
-  ]);
+  const [handPicked, matches, onePerPhone] = await extras;
   const briefById = new Map(handPicked.map((brief) => [brief.studentId, brief]));
   const includedBriefs = filters.includeStudentIds
     .map((id) => briefById.get(id))
@@ -269,9 +310,11 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
    */
 
   /** What the amount on each row is — derived from the tiles, never chosen. */
-  const amountNote = filters.lastYear
-    ? "The amount on each card is what is left of last session's balance — the figure the message will quote."
-    : `The amount on each card is the fees still pending on ${installmentPhrase(filters.installments, "en").toLowerCase()} — the figure the message will quote.`;
+  const amountNote = !filters.lastYear
+    ? `The amount on each card is the fees still pending on ${installmentPhrase(filters.installments, "en").toLowerCase()} — the figure the message will quote.`
+    : filters.installments.length > 0
+      ? `The amount on each card is the fees still pending on ${installmentPhrase(filters.installments, "en").toLowerCase()} plus what is left of last session's balance — the figure the message will quote.`
+      : "The amount on each card is what is left of last session's balance — the figure the message will quote.";
 
   /**
    * `?…&exclude=` with a trailing separator, so a row's Remove link is this
@@ -290,7 +333,12 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
     filters.excludeStudentIds.length > 0 ? `${filters.excludeStudentIds.join(",")},` : ""
   }`;
 
-  const savedCampaignCount = savedCampaigns.length;
+  // What the fee calendar says is worth sending this morning — see
+  // `domain/today-suggestions`. Read off the same calendar as the tiles.
+  const todaySuggestions = suggestionsForToday(calendar, today, filters.preDueWindowDays);
+  // The notices the calendar would pick today, starred on the picker.
+  const suggestedSituations = [...new Set(todaySuggestions.map((entry) => entry.situation))];
+
   const familyCount = audience.candidates.length;
   const familyLabel = `${familyCount} famil${familyCount === 1 ? "y" : "ies"}`;
 
@@ -306,14 +354,27 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
         // The section description below is `hidden md:block`, so without this the
         // phone never learns which session or how many families it is looking at.
         mobileEyebrow={`Session ${sessionLabel} · ${familyLabel}`}
-        actions={
-          <Button asChild variant="outline" size="sm">
-            <Link href="/fees/reminders/campaigns">
-              Campaigns{savedCampaignCount > 0 ? ` (${savedCampaignCount})` : ""}
-            </Link>
-          </Button>
-        }
+        // Saved campaigns live under the History tab; a second button to the
+        // same page was one more thing to read before the first tap.
       />
+      <RemindersNav active="send" />
+
+      {/* Reminders that did not reach families since yesterday. Server-only and
+          streamed: no client JavaScript, and the list never waits for it. */}
+      <Suspense fallback={null}>
+        <FixNudge sessionLabel={sessionLabel} />
+      </Suspense>
+
+      {/* Phone: straight after the tabs — the first thing worth knowing in the
+          morning. No `order` class at md and up, so the desk keeps source order. */}
+      <div className="max-md:order-0">
+        <TodayStrip
+          suggestions={todaySuggestions}
+          base={filters}
+          tileCounts={audience.tileCounts.byInstallment}
+          dueCampaigns={dueCampaigns.length}
+        />
+      </div>
 
       {/* Phone order: the two blocking warnings, then the list, then the test
           panel, then the advisory warning, then the standing explanation. On
@@ -342,30 +403,60 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
           the card list is 40 screens down. */}
       <DueTodayCard
         due={dueCampaigns}
-        hrefFor={(campaign) =>
-          `/fees/reminders?campaignId=${campaign.id}&situation=${campaign.situation}&language=${campaign.language}`
-        }
+        hrefFor={(campaign) => {
+          // The campaign's whole rule, not just its wording — and the date its
+          // schedule says the message should print today.
+          const saved = savedCampaigns.find((entry) => entry.id === campaign.id);
+          return saved
+            ? savedCampaignHref(saved, messageDateFor(campaign.schedule, calendar, campaign.scheduledFor))
+            : `/fees/reminders?campaignId=${campaign.id}&situation=${campaign.situation}&language=${campaign.language}`;
+        }}
       />
 
       <RemindersWorkspace
-          audience={audience}
+          // Only the fields the client half shows — see `WorkspaceCandidate`.
+          candidates={audience.candidates.map(toWorkspaceCandidate)}
           canSend={canSend && providerReady && !dateHasPassed}
           campaignName={campaignName}
-          previewBody={previewBody}
+          messageCost={UTILITY_MESSAGE_COST_INR}
+          onePerPhone={onePerPhone}
+          secondNumberAfter={ESCALATE_TO_SECOND_NUMBER_AFTER}
+          everyoneMessagedNotice={
+            <EveryoneMessagedNotice audience={audience} campaignName={campaignName} />
+          }
+          leftOutSummary={<LeftOutSummary audience={audience} />}
+          pausedPanel={<PausedPanel audience={audience} canSend={canSend} />}
+          unreachablePanel={<UnreachablePanel audience={audience} />}
           holdoutControl={<HoldoutControl />}
           listActions={<CollectionListLinks filters={filters} />}
           amountNote={amountNote}
           excludeHrefPrefix={excludeHrefPrefix}
           savedCampaign={activeCampaign ? { id: activeCampaign.id, name: activeCampaign.name } : null}
-          noticeControls={
-            <NoticePicker
-              filters={filters}
-              noticeGaps={audience.noticeGaps}
-              candidateCount={audience.candidates.length}
-              dateFieldId="lastDate"
-              today={today}
-              lateFeeWarning={lateFeeWarning}
-              applyAction={applyNoticeSettingsAction}
+          messageBlock={
+            <MessageBlock
+              savedCampaignName={activeCampaign?.name ?? null}
+              noticeControls={
+                <NoticePicker
+                  filters={filters}
+                  noticeGaps={audience.noticeGaps}
+                  candidateCount={audience.candidates.length}
+                  dateFieldId="lastDate"
+                  today={today}
+                  lateFeeWarning={lateFeeWarning}
+                  applyAction={applyNoticeSettingsAction}
+                  suggested={suggestedSituations}
+                />
+              }
+              preview={
+                previewSample && previewBody ? (
+                  <NoticePreview
+                    recipient={previewSample.parentName}
+                    body={previewBody}
+                    buttons={previewButtons}
+                    footnote="A copy of the approved template, for checking only — WhatsApp sends exactly what Meta approved. Each family sees their own figures."
+                  />
+                ) : null
+              }
             />
           }
           audienceControls={
@@ -380,6 +471,7 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
               // label describes the state its count was built on.
               calendar={calendar}
               addAction={addReminderStudentAction}
+              onePerPhone={onePerPhone}
             />
           }
           sendFormFields={<CarriedFilterFields filters={filters} />}

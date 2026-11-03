@@ -2,6 +2,7 @@
 
 import { ProfilePhotoControl, type PhotoControlHandle } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { AssignmentLauncher, type AssignmentHandle } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ms, photoMessages as photoWords } from "@/messages/setup";
 import { useRouter } from "next/navigation";
@@ -10,7 +11,7 @@ import { Suspense, use, useCallback, useEffect, useRef, useState, type CSSProper
 import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
-import type { Pair } from "@/vx/text";
+import { p as pair, type Pair } from "@/vx/text";
 import { CloseLink, useCloseTo } from "@/vx/ui/back-link";
 import { Sheet } from "@/vx/ui/overlays";
 import { Btn, EmptyState, Pill, Skel, type Tone } from "@/vx/ui/primitives";
@@ -21,8 +22,14 @@ import { studentProfileHref, studentReturnHref } from "@/vx/screens/admin/studen
 import { excerpt, openSupportActions, TAG_TEXT, type FollowOwner, type NoteStatus, type NoteTag } from "@/vx/screens/notes/domain/notes";
 import type { ContactEntry } from "@/vx/screens/family-contact/domain";
 import { FamilyContactLog, type ContactRecoveryScope } from "@/vx/screens/family-contact/ui";
+import { StudentDocuments, StudentDocumentWorkspace } from "./student-documents";
 
 import "./student360.css";
+import { ChildSummary } from "@/vx/assist/summary-assist";
+import type { BridgeWorkspace } from "@/platform/fees-bridge/student-read-contracts";
+import { SourceFamilyHistory, SourceFeeDetails, SourceHousehold, SourcePages, SourceStudentInfo } from "./student360-source";
+
+const CertificateTools = dynamic(() => import("@/vx/screens/school-office/student-certificates").then((mod) => mod.StudentCertificateTools), { ssr: false });
 
 /*
  * Student 360 as the design draws it (F06–F08 on a phone, D02 on a desk).
@@ -71,12 +78,15 @@ type StudentFeeBreakup = {
 type Cell = { day: string; label: string; state: MarkStatus | "today" | "future" | "closed" | "none" };
 
 export type Student360Props = {
+  sourceExpected?: boolean;
+  source?: BridgeWorkspace;
+  sourcePhotoEditHref?: string;
   canEditPhoto?: boolean;
   canAssignTasks?: boolean;
   id: string;
   returnTo?: string;
   name: string;
-  /** Only a signed URL from the private collection photo store, after its permission check. */
+  /** A private One photo URL or authenticated source-photo proxy, after permission checks. */
   photoUrl?: string | null;
   unavailable?: string[];
   classLabel: string;
@@ -161,6 +171,9 @@ export type Student360Props = {
   today: string;
   canCollect: boolean;
   canManageDocuments: boolean;
+  documentUploadMode?: "supabase" | "gdrive" | "unavailable";
+  schoolOffice?: { sessionLabel: string; canIssue: boolean; editHref?: string };
+  officialResultsHref?: string;
   canManageFees: boolean;
   canAddNote: boolean;
   /** Family contacts this session, newest first; null when the reader may not see them (D-265). */
@@ -170,7 +183,7 @@ export type Student360Props = {
 
 /** Everything on the card that comes from the fee app's reads. */
 export type Student360Fees = Partial<
-  Pick<Student360Props, "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family" | "familyGroupId">
+  Pick<Student360Props, "source" | "name" | "classLabel" | "sr" | "rollNo" | "father" | "mother" | "phone" | "photoUrl" | "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family" | "familyGroupId">
 > & { unavailable?: boolean };
 
 const TAB_LABEL: Record<StudentTab, Pair> = {
@@ -203,6 +216,23 @@ const LOOK: Record<Cell["state"] | "blank", { bg: string; fg: string; bd?: strin
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The short name each installment row goes by: its month, unless two rows
+ * fall in the same month — last year's balance and April's installment both
+ * read "Apr" (smoke 20 Oct) — when each is named instead.
+ */
+function rowNames(rows: NonNullable<Student360Props["installments"]>, tx: (p: Pair) => string): string[] {
+  const month = (r: (typeof rows)[number]) => MONTHS[Number(r.dueDate.slice(5, 7)) - 1] ?? "";
+  const seen = new Map<string, number>();
+  for (const r of rows) seen.set(month(r), (seen.get(month(r)) ?? 0) + 1);
+  return rows.map((r) => {
+    if ((seen.get(month(r)) ?? 0) < 2) return month(r);
+    if (r.carry) return tx(pair("Old", "पुराना"));
+    const n = /(\d+)/.exec(r.label)?.[1];
+    return n ? tx(pair(`Inst ${n}`, `किस्त ${n}`)) : r.label.split(/\s+/)[0]?.slice(0, 8) ?? month(r);
+  });
+}
 
 /** An installment as the design shows it: status words, bar and its one-line story. */
 function installmentLook(row: NonNullable<Student360Props["installments"]>[number], tx: (p: Pair) => string) {
@@ -256,12 +286,12 @@ export function Student360({ p, fees }: { p: Student360Props; fees?: Promise<Stu
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [p.id, p.tabs]);
-  if (!fees) return <Student360View p={p} tab={tab} setTab={setTab} feesLoading={false} />;
-  return (
+  const view = !fees ? <Student360View p={p} tab={tab} setTab={setTab} feesLoading={false} /> : (
     <Suspense fallback={<Student360View p={p} tab={tab} setTab={setTab} feesLoading />}>
       <WithFees p={p} fees={fees} tab={tab} setTab={setTab} />
     </Suspense>
   );
+  return <StudentDocumentWorkspace studentId={p.id} uploadMode={p.documentUploadMode}>{view}</StudentDocumentWorkspace>;
 }
 
 function WithFees({ p, fees, tab, setTab }: { p: Student360Props; fees: Promise<Student360Fees | null>; tab: StudentTab; setTab: (t: StudentTab) => void }) {
@@ -283,7 +313,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   const askDetails = useRef<AssignmentHandle>(null);
   const askMarks = useRef<AssignmentHandle>(null);
   useEffect(() => {
-    panel.current?.focus({ preventScroll: true });
+    if (!document.querySelector('#vx-layer [role="dialog"]')) panel.current?.focus({ preventScroll: true });
   }, []);
 
   const pick = useCallback(
@@ -348,6 +378,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
   /* ------------------------------------------------------------- overview */
   const rows = p.installments ?? [];
+  const names = rowNames(rows, tx);
   const feesCardPhone = !seesMoney || feesUnavailable ? null : feesLoading ? loadingCard : money ? (
     <button type="button" className="tap card s360-card s360-m-only" onClick={pick("fees")}>
       <span className="s360-card-h"><span>{p.feeSession ? tx(T.feesFor(p.feeSession.replace("-", "–"))) : tx(T.tabFees)}</span><span style={{ fontSize: 13, fontWeight: 600, color: "var(--acc)" }}>{tx(T.ledger)}</span></span>
@@ -358,7 +389,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             return (
               <span key={row.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <span className="s360-bar8"><span style={{ width: `${look.width.toFixed(0)}%`, background: look.status.bar, animationDelay: `${i * 80}ms` }} /></span>
-                <span style={{ fontSize: 11, color: look.labelColor, fontWeight: 600 }}>{look.month}</span>
+                <span style={{ fontSize: 11, color: look.labelColor, fontWeight: 600 }}>{names[i]}</span>
               </span>
             );
           })}
@@ -380,8 +411,8 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       {rows.map((row, i) => {
         const look = installmentLook(row, tx);
         return (
-          <span key={row.id} style={{ display: "grid", gridTemplateColumns: "34px minmax(0,1fr) 80px", gap: 10, alignItems: "center", width: "100%" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: look.labelColor }}>{look.month}</span>
+          <span key={row.id} style={{ display: "grid", gridTemplateColumns: "minmax(34px, auto) minmax(0,1fr) 80px", gap: 10, alignItems: "center", width: "100%" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: look.labelColor, whiteSpace: "nowrap" }}>{names[i]}</span>
             <span className="s360-bar8"><span style={{ width: `${look.width.toFixed(0)}%`, background: look.status.bar, animationDelay: `${i * 80}ms` }} /></span>
             <span className="pill" style={{ justifySelf: "end", background: look.status.bg, color: look.status.fg }}>{tx(look.status.short)}</span>
           </span>
@@ -454,6 +485,16 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
           </Link>
         ))
       )}
+      {!unread("notes") && p.notes.length > 0 ? (
+        <ChildSummary
+          childName={p.name}
+          notes={p.notes}
+          facts={[
+            p.attendance.percent !== null ? `Attendance this session: ${Math.round(p.attendance.percent)}%` : "",
+            latest && latest.percent !== null ? `${latest.term} result so far: ${Math.round(latest.percent)}%` : "",
+          ].filter(Boolean)}
+        />
+      ) : null}
     </div>
   );
   const supportCard = openActions.length > 0 && !unread("notes") ? (
@@ -500,30 +541,17 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       body = unread("attendance") || unread("rules") ? unreadCard : <AttendanceTab p={p} />;
       break;
     case "marks":
-      body = unread("marks") ? unreadCard : <MarksTab p={p} />;
+      body = <>{p.officialResultsHref ? <div className="card s360-card"><strong>{tx(pair("Official board results", "आधिकारिक बोर्ड परिणाम"))}</strong><span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(pair("Verified results issued by the examination authority", "परीक्षा प्राधिकरण द्वारा जारी सत्यापित परिणाम"))}</span><Btn href={p.officialResultsHref} icon="award">{tx(pair("View official results", "आधिकारिक परिणाम देखें"))}</Btn></div> : null}{unread("marks") ? unreadCard : <MarksTab p={p} />}</>;
       break;
     case "family":
       body = <FamilyTab p={p} siblings={siblings} feesLoading={feesLoading} feesUnavailable={feesUnavailable} loadingCard={loadingCard} />;
       break;
     case "documents":
       body = (
-        <div className="card" style={{ overflow: "hidden" }}>
-          {unread("documents") ? (
-            <p style={{ padding: 18, margin: 0 }}>{tx(T.couldNotRead)}</p>
-          ) : p.documents.length === 0 ? (
-            <EmptyState icon="file" title={tx(T.noDocuments)} action={p.canManageDocuments ? <Btn href={`/teach/student/${p.id}`}>{tx(T.manageDocuments)}</Btn> : undefined} />
-          ) : (
-            p.documents.map((d) => (
-              <div key={d.id} className="s360-row">
-                <span className="s360-sq40" style={{ background: "var(--s2)", color: "var(--pri)" }}><Ic n="fileText" size={18} /></span>
-                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                  <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{d.fileName}</span>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{d.kind} · {d.size} · {dateLabel(d.createdAt)}{d.by ? ` · ${d.by}` : ""}</span>
-                </span>
-              </div>
-            ))
-          )}
-        </div>
+        <>
+        <StudentDocuments documents={p.documents} canManage={p.canManageDocuments} unavailable={unread("documents")} />
+        {p.schoolOffice ? <CertificateTools studentId={p.id} sessionLabel={p.schoolOffice.sessionLabel} canIssue={p.schoolOffice.canIssue} editHref={p.schoolOffice.editHref} mode="list" /> : null}
+        </>
       );
       break;
     case "notes":
@@ -586,11 +614,15 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   };
   const moreItems: ({ label: Pair; icon: "send" | "edit" | "file" | "note" | "receipt" | "camera" | "users" | "book" } & ({ href: string; run?: never } | { run: Launch; href?: never }))[] = [];
   if (p.canEditPhoto) moreItems.push({ label: photoWords.edit, icon: "camera", run: "photo" });
-  if (p.canAssignTasks) moreItems.push({ label: ms.taskRequest, icon: "users", run: "details" });
-  if (p.canAssignTasks) moreItems.push({ label: ms.taskRequestMarks, icon: "book", run: "marks" });
+  if (p.sourcePhotoEditHref) moreItems.push({label:photoWords.edit,icon:"camera",href:p.sourcePhotoEditHref});
+  // The same words as the desk's "Ask a teacher" button and its two choices (smoke 20 Oct:
+  // the phone called it "Request details from a teacher").
+  const askAs = (what: Pair): Pair => pair(`${ms.taskAsk.en}: ${what.en}`, `${ms.taskAsk.hi}: ${what.hi ?? what.en}`);
+  if (p.canAssignTasks) moreItems.push({ label: askAs(ms.taskAskDetails), icon: "users", run: "details" });
+  if (p.canAssignTasks) moreItems.push({ label: askAs(ms.taskAskMarks), icon: "book", run: "marks" });
   if (p.canAddNote) moreItems.push({ label: T.addNote, href: `${notesHref}&sheet=add`, icon: "note" });
   if (seesMoney) moreItems.push({ label: T.statement, href: `/fees/students/${p.id}/statement`, icon: "send" });
-  if (seesMoney) moreItems.push({ label: T.fullFeeRecord, href: `/fees/students/${p.id}?tab=dues`, icon: "receipt" });
+  if (seesMoney) moreItems.push({ label: T.fullFeeRecord, href: p.source ? studentProfileHref(p.id,p.returnTo,"fees") : `/fees/students/${p.id}?tab=dues`, icon: "receipt" });
   if (p.canManageFees) moreItems.push({ label: T.editDetails, href: `/fees/students/${p.id}/edit`, icon: "edit" });
   if (p.tabs.includes("documents")) moreItems.push({ label: T.tabDocuments, href: studentProfileHref(p.id, p.returnTo, "documents"), icon: "file" });
 
@@ -605,7 +637,9 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
         aria-label={`${tx(T.student360)} · ${p.name}`}
         tabIndex={-1}
         onKeyDown={(event) => {
-          if (event.key === "Escape" && !more) {
+          // Sheet portals bubble through React's tree. Their Escape belongs
+          // to the sheet, including while an upload prevents dismissal.
+          if (event.key === "Escape" && !more && event.target instanceof Element && event.target.closest('[role="dialog"]') === event.currentTarget) {
             event.stopPropagation();
             close();
           }
@@ -661,6 +695,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             </CloseLink>
           </div>
           <div className="s360-acts">
+            {p.schoolOffice?.canIssue ? <CertificateTools studentId={p.id} sessionLabel={p.schoolOffice.sessionLabel} canIssue editHref={p.schoolOffice.editHref} /> : null}
             {p.canCollect ? <Btn variant="pri" icon="rupee" href={payHref}>{collectLabel}</Btn> : null}
             {mobile ? <Btn icon="phone" href={`tel:${mobile}`} style={{ color: "var(--info)" }}>{tx(T.call)}</Btn> : null}
             {mobile ? <Btn icon="message" href={`https://wa.me/91${mobile}`} target="_blank" style={{ color: "var(--ok)" }}>{tx(T.whatsapp)}</Btn> : null}
@@ -680,8 +715,8 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
         <div className="s360-body" key={tab}>
           {feesUnavailable || (p.unavailable?.length ?? 0) > 0 ? (
-            <div className="card s360-card" role="alert">
-              <p style={{ margin: 0 }}>{tx(feesUnavailable ? T.feesUnavailable : T.couldNotRead)}</p>
+            <div className="card s360-card" role="alert" data-student-source-unavailable={feesUnavailable&&p.sourceExpected?"true":undefined}>
+              <p style={{ margin: 0 }}>{tx(feesUnavailable && seesMoney ? T.feesUnavailable : T.couldNotRead)}</p>
               <span><Btn variant="sec" onClick={() => router.refresh()}>{tx(T.retryFees)}</Btn></span>
             </div>
           ) : null}
@@ -778,7 +813,7 @@ function maskPhone(phone: string | null): string | null {
   return `${last10.slice(0, 2)}••• ••${last10.slice(-3)}`;
 }
 
-const MODE_LABEL: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", discount: "Written off" };
+const MODE_LABEL: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", discount: "Written off", online: "Online (Razorpay)" };
 
 /**
  * Fees, as the design draws it: on a phone the ring with pending today and
@@ -795,6 +830,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
   const total = summary.sessionFee;
   const ringLen = 2 * Math.PI * 26;
   const pct = Math.min(100, Math.max(0, money.percent));
+  const receiptHref=(r:NonNullable<Student360Props["receipts"]>[number])=>`/receipts/${encodeURIComponent(r.number)}${p.source?`?${new URLSearchParams({receiptId:r.id,session:p.source.sessionLabel})}`:""}`;
   return (
     <>
       <div className="card s360-card s360-m-only">
@@ -878,7 +914,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
         </div>
       </div>
 
-      <h2 className="sech" style={{ padding: "6px 4px 0" }}>{tx(T.receipts)}</h2>
+      {!p.source || p.source.permissions.receipts ? <><h2 className="sech" style={{ padding: "6px 4px 0" }}>{tx(T.receipts)}</h2>
       <div className="card" style={{ overflow: "hidden" }}>
         {receipts.length === 0 ? (
           <div style={{ padding: 16, fontSize: 13, color: "var(--mut)" }}>{tx(T.noReceipts)}</div>
@@ -886,7 +922,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
           receipts.map((r) => (
             <div key={r.id} className="s360-row">
               <span className="s360-sq40" style={{ background: "var(--s2)", color: "var(--pri)" }}><Ic n="receipt" size={18} /></span>
-              <Link href={`/receipts/${encodeURIComponent(r.number)}`} className="tap" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", color: "var(--fg)" }}>
+              <Link href={receiptHref(r)} className="tap" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", color: "var(--fg)" }}>
                 <span style={{ fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                   <span className="num">{r.number}</span>
                   {r.reversed ? <Pill tone="bad">{tx(T.reversed)}</Pill> : null}
@@ -895,19 +931,20 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
               </Link>
               <span className="num" style={{ fontSize: 15, fontWeight: 700, textDecoration: r.reversed ? "line-through" : undefined }}>{rupees(r.amount)}</span>
               {!r.reversed ? (
-                <Link href={`/receipts/${encodeURIComponent(r.number)}`} className="tap btn soft s360-d-only" style={{ height: 34, fontSize: 13 }}>
-                  <Ic n="send" size={15} />{tx(T.sendReceipt)}
+                <Link href={receiptHref(r)} className="tap btn soft s360-d-only" style={{ height: 34, fontSize: 13 }}>
+                  <Ic n={p.source?"receipt":"send"} size={15} />{tx(p.source?T.receipts:T.sendReceipt)}
                 </Link>
               ) : null}
               {!r.reversed ? (
-                <Link href={`/receipts/${encodeURIComponent(r.number)}`} aria-label={tx(T.sendReceiptTo)} className="tap s360-m-only" style={{ flex: "none", width: 44, height: 44, borderRadius: 22, background: "var(--oks)", color: "var(--ok)" }}>
-                  <span style={{ display: "flex", width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ic n="send" size={18} /></span>
+                <Link href={receiptHref(r)} aria-label={tx(p.source?T.receipts:T.sendReceiptTo)} className="tap s360-m-only" style={{ flex: "none", width: 44, height: 44, borderRadius: 22, background: "var(--oks)", color: "var(--ok)" }}>
+                  <span style={{ display: "flex", width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ic n={p.source?"receipt":"send"} size={18} /></span>
                 </Link>
               ) : null}
             </div>
           ))
         )}
       </div>
+      {p.source?<SourcePages source={p.source} section="receipts"/>:null}</>:null}
 
       {breakup ? (
         <div className="card" style={{ overflow: "hidden" }}>
@@ -933,7 +970,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
           ) : null}
         </div>
       ) : null}
-      <Link href={`/fees/students/${p.id}?tab=dues`} style={{ alignSelf: "flex-start", color: "var(--acc)", fontWeight: 600, fontSize: 14, minHeight: 44, display: "flex", alignItems: "center" }}>{tx(T.fullFeeRecord)}</Link>
+      {p.source?<SourceFeeDetails source={p.source}/>:<Link href={`/fees/students/${p.id}?tab=dues`} style={{ alignSelf: "flex-start", color: "var(--acc)", fontWeight: 600, fontSize: 14, minHeight: 44, display: "flex", alignItems: "center" }}>{tx(T.fullFeeRecord)}</Link>}
     </>
   );
 }
@@ -1108,6 +1145,8 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
           ) : null}
         </div>
       ) : null}
+      {p.source?<SourceHousehold source={p.source}/>:null}
+      {p.source?<SourceFamilyHistory source={p.source}/>:null}
       {p.contacts ? (
         <div className="card s360-card">
           <FamilyContactLog studentId={p.id} contacts={p.contacts} canLog today={p.today} recoveryScope={p.contactRecoveryScope} />
@@ -1120,6 +1159,7 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
 /** Info: the record as key and value, and Edit for those who may (the fee app's student form). */
 function InfoTab({ p }: { p: Student360Props }) {
   const { tx } = useVx();
+  if(p.source)return <><SourceStudentInfo source={p.source}/>{p.canManageFees?<Link href={`/fees/students/${p.id}/edit`} className="tap btn sec"><Ic n="edit" size={18}/>{tx(T.editDetails)}</Link>:null}</>;
   const rows: [Pair, string | null][] = [
     [T.admissionNo, p.sr],
     [T.rollNo, p.rollNo],

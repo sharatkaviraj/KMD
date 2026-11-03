@@ -11,6 +11,7 @@ import type { Pair } from "@/vx/text";
 
 import { searchEverythingAction, type ActionHit, type ReceiptHit, type SearchResult, type StudentHit } from "./search-actions";
 import type { StaffHit } from "./staff-search";
+import { AskHint, AskRow } from "@/vx/assist/ask-assist";
 import "./palette.css";
 
 export type PaletteItem = { href: string; label: Pair; icon: IconName; group: string };
@@ -68,7 +69,7 @@ const callLine = (a: Extract<ActionHit, { kind: "call" }>, phone: boolean): Pair
 };
 const callSub = (a: Extract<ActionHit, { kind: "call" }>): Pair =>
   a.relation === "father" ? { en: `Father of ${a.child}`, hi: `${a.child} के पिता` } : { en: `Mother of ${a.child}`, hi: `${a.child} की माता` };
-const modeWord = (mode: string): string => ({ cash: "Cash", upi: "UPI", cheque: "Cheque", bank_transfer: "Bank" } as Record<string, string>)[mode] ?? mode;
+const modeWord = (mode: string): string => ({ cash: "Cash", upi: "UPI", cheque: "Cheque", bank_transfer: "Bank", online: "Online (Razorpay)" } as Record<string, string>)[mode] ?? mode;
 /** "Aarav Sharma · 2 Oct · UPI", and "REVERSED" first for a reversed receipt (RULES A). */
 const receiptSub = (r: ReceiptHit): string => `${r.reversed ? "REVERSED · " : ""}${r.student} · ${dayMonth(r.date)} · ${modeWord(r.mode)}`;
 
@@ -304,6 +305,7 @@ export function SearchPalette({
                 ))}
               </div>
               <p style={{ margin: "8px 4px 0", fontSize: 13, color: "var(--mut)", lineHeight: 1.5 }}>{tx(W.oneBox)}</p>
+              <AskHint />
             </div>
           ) : null}
           {students.length ? (
@@ -389,6 +391,7 @@ export function SearchPalette({
               </div>
             </div>
           ) : null}
+          {term.length >= 2 ? <AskRow key={term} question={term} pages={items} onGo={(href) => go({ href })} onSearch={setQ} /> : null}
           {noResults ? <div className="vxp-none">{tx(nothing(term))}</div> : null}
         </div>
       </section>,
@@ -431,6 +434,7 @@ export function SearchPalette({
                 </li>
               ))}
             </ul>
+            {term.length >= 2 ? <AskRow key={term} question={term} pages={items} onGo={(href) => go({ href })} onSearch={setQ} /> : <AskHint />}
             {pending && rows.length === 0 ? <div className="vxp-none">{tx(W.searching)}</div> : null}
             {noResults ? <div className="vxp-none">{tx(nothing(term))}</div> : null}
           </div>

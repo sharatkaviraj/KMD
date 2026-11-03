@@ -9,6 +9,7 @@ import { createAcademicSession, createClass, createFeeHead, createRoute, deleteA
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
 import { setActiveSessionLabel } from "@/modules/fees/platform/session-context/set-active";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertClassVisible, assertNotTestAccount, assertSessionWritable } from "@/platform/auth/test-session-access";
 
 export type MasterDataActionState = {
   status: "idle" | "success" | "error";
@@ -113,6 +114,8 @@ async function switchActiveSessionIfNeeded(sessionLabel: string, isCurrent: bool
   if (!isCurrent) {
     return;
   }
+  // Which session is live is the whole school's; never a test account's.
+  await assertNotTestAccount(null);
 
   const activeSessionLabel = await getActiveSessionLabel();
   if (!sameSessionLabel(sessionLabel, activeSessionLabel)) {
@@ -150,6 +153,7 @@ export async function createSessionAction(
   try {
     await requireStaffPermission("settings:write");
     const sessionLabel = parseRequiredString(formData.get("sessionLabel"), "Session label");
+    await assertSessionWritable(null, sessionLabel);
     const isCurrent = parseBoolean(formData.get("isCurrentSession"));
 
     await createAcademicSession({
@@ -175,6 +179,7 @@ export async function updateSessionAction(
   try {
     await requireStaffPermission("settings:write");
     const sessionLabel = parseRequiredString(formData.get("sessionLabel"), "Session label");
+    await assertSessionWritable(null, sessionLabel);
     const isCurrent = parseBoolean(formData.get("isCurrentSession"));
 
     await updateAcademicSession({
@@ -200,6 +205,7 @@ export async function deleteSessionAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
     await deleteAcademicSession(parseRequiredUuid(formData.get("sessionId"), "Session"));
     revalidateMasterDataSurface();
     return toSuccess("Academic session deleted.");
@@ -216,6 +222,9 @@ export async function setLiveActiveSessionAction(
 
   try {
     const sessionLabel = parseRequiredString(formData.get("sessionLabel"), "Session label");
+    await assertSessionWritable(null, sessionLabel);
+    // Making a session live changes it for everybody: never a test account.
+    await assertNotTestAccount(null);
     const confirmation = parseRequiredString(formData.get("confirmSessionLabel"), "Confirmation");
 
     if (confirmation.trim().toLowerCase() !== sessionLabel.trim().toLowerCase()) {
@@ -236,6 +245,7 @@ export async function createClassAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertSessionWritable(null, String(formData.get("sessionLabel") ?? ""));
 
     await createClass({
       sessionLabel: parseRequiredString(formData.get("sessionLabel"), "Session"),
@@ -260,6 +270,9 @@ export async function updateClassAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertSessionWritable(null, String(formData.get("sessionLabel") ?? ""));
+    // ...and the session the class is in now, not only the one it is given.
+    await assertClassVisible(null, String(formData.get("classId") ?? ""));
 
     await updateClass({
       id: parseRequiredUuid(formData.get("classId"), "Class"),
@@ -285,6 +298,7 @@ export async function deleteClassAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertClassVisible(null, String(formData.get("classId") ?? ""));
     await deleteClass(parseRequiredUuid(formData.get("classId"), "Class"));
     revalidateMasterDataSurface();
     return toSuccess("Class deleted.");
@@ -299,6 +313,7 @@ export async function createRouteAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
 
     await createRoute({
       routeCode: parseOptionalString(formData.get("routeCode")),
@@ -324,6 +339,7 @@ export async function updateRouteAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
 
     await updateRoute({
       id: parseRequiredUuid(formData.get("routeId"), "Route"),
@@ -350,6 +366,7 @@ export async function deleteRouteAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
     await deleteRoute(parseRequiredUuid(formData.get("routeId"), "Route"));
     revalidateMasterDataSurface();
     return toSuccess("Route deleted.");
@@ -364,6 +381,7 @@ export async function createFeeHeadAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
     await createFeeHead(parseRequiredString(formData.get("feeHeadLabel"), "Fee head label"));
     revalidateMasterDataSurface();
     return toSuccess("Fee head created.");
@@ -378,6 +396,7 @@ export async function updateFeeHeadAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
     await updateFeeHead({
       id: parseRequiredString(formData.get("feeHeadId"), "Fee head"),
       label: parseRequiredString(formData.get("feeHeadLabel"), "Fee head label"),
@@ -396,6 +415,7 @@ export async function deleteFeeHeadAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
     await deleteFeeHead(parseRequiredString(formData.get("feeHeadId"), "Fee head"));
     revalidateMasterDataSurface();
     return toSuccess("Fee head deleted.");
@@ -410,6 +430,7 @@ export async function setPaymentModeActiveAction(
 ): Promise<MasterDataActionState> {
   try {
     await requireStaffPermission("settings:write");
+    await assertNotTestAccount(null);
     await setPaymentModeActive({
       paymentMode: parsePaymentMode(formData.get("paymentMode")),
       isActive: parseBoolean(formData.get("modeIsActive")),

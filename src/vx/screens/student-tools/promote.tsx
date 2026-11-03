@@ -204,7 +204,7 @@ export function PromoteFlow(props: PromoteProps) {
               <div className="pad" style={{ padding: "22px 28px 40px", display: "flex", flexDirection: "column", gap: 14 }}>
                 <div style={{ ...note, background: "var(--infos)", color: "var(--info)" }}>
                   <Ic n="info" style={{ marginTop: 2 }} />
-                  <span>{tx(p("Prepare now — your ticks are kept, and nobody moves until you confirm on the next step.", "अभी तैयारी करें — आपके निशान रहेंगे, और अगले चरण में पुष्टि तक कोई नहीं बढ़ेगा।"))}</span>
+                  <span>{tx(p("Prepare now — your ticks are kept, and nobody moves until you confirm on the next step.", "अभी तैयारी करें — आपके निशान रहेंगे, और अगले चरण में आपके हाँ कहने तक कोई आगे नहीं बढ़ेगा।"))}</span>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   <Chip bg="var(--oks)" fg="var(--ok)">{counts.promote} {tx(p("move up", "आगे"))}</Chip>
@@ -291,7 +291,7 @@ export function PromoteFlow(props: PromoteProps) {
               </div>
               <ActionBar hint={counts.manual > 0 ? tx(p(`${counts.manual} students are in classes with no next class picked`, `${counts.manual} विद्यार्थियों की अगली कक्षा नहीं चुनी`)) : tx(p("Tap a class to untick anyone who is held back or leaving.", "जो रुकेंगे या जा रहे हैं उनका निशान हटाने के लिए कक्षा दबाएँ।"))} hintTone={counts.manual > 0 ? "bad" : "mut"}>
                 <Btn variant="pri" onClick={() => { setStage("promote-review"); window.scrollTo({ top: 0 }); }} style={{ minWidth: 190 }}>
-                  {tx(p("Next: check and confirm", "आगे: जाँचें और पुष्टि करें"))}
+                  {tx(p("Next: check and confirm", "आगे: जाँचें और हाँ कहें"))}
                   <Ic n="arrowRight" />
                 </Btn>
               </ActionBar>

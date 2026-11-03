@@ -2,15 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
-import { signDocumentUrl } from "@/modules/whatsapp/data/document-store";
 import {
   importDeliveryReport,
   loadStuckSends,
   resolveStuckSends,
 } from "@/modules/whatsapp/data/delivery-store";
+import { resendFailuresAction } from "@/app/(app)/fees/reminders/fix/actions";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
+import { isMissingColumn } from "@/platform/supabase/missing-column";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { writtenBeforeWatermark } from "@/platform/migration/cutover-watermark";
+import { readCutoverWatermark } from "@/platform/migration/cutover-watermark-reader";
 
 /**
  * The three things an admin does to a finished run: retry what failed, decide
@@ -28,29 +30,25 @@ export type RunActionState = {
 
 export const IDLE_RUN_ACTION: RunActionState = { status: "idle" };
 
-/** How many failed rows one press will retry, so a run cannot hang the request. */
+/** How many failed rows one press will resend, so a run cannot hang the request. */
 const RETRY_LIMIT = 60;
 
 /**
- * Retry the rows that failed.
+ * Resend what failed on this run — refused by AiSensy, or reported undelivered.
  *
- * **Updates in place, never inserts.** A second row would break the unique index
- * that stops a family being messaged twice a day, and would make the send
- * history claim a family was messaged twice when they were messaged once and
- * re-tried. `attempts` is what records the retry.
- *
- * Same day only, implicitly: the row already carries its `sent_on`, and a
- * successful retry does not move it. A failure worth chasing tomorrow is
- * tomorrow's run.
+ * **Through the failure desk's resend, which goes through the Send screen's own
+ * action.** This used to read the failed rows and re-send their STORED params
+ * with no claim: a two-child family message went out with the morning's
+ * figures, and two people pressing Retry together both sent. Now each family is
+ * rebuilt from today's ledger, every child, and the sender's claim — an update
+ * guarded on the row's status — lets exactly one press through.
  */
 export async function retryFailedSendsAction(
   _prev: RunActionState,
   formData: FormData,
 ): Promise<RunActionState> {
-  let staffId: string | null = null;
   try {
-    const staff = await requireStaffPermission("settings:write");
-    staffId = (staff?.id as string | undefined) ?? null;
+    await requireStaffPermission("settings:write");
   } catch {
     return { status: "error", message: "Permission denied." };
   }
@@ -59,102 +57,44 @@ export async function retryFailedSendsAction(
   if (!runId) return { status: "error", message: "No run given." };
 
   const supabase = createAdminClient();
-
-  const { data, error } = await supabase
-    .from("whatsapp_reminder_sends")
-    .select("id, campaign_name, destination, template_params, attempts, document_path")
-    .eq("run_id", runId)
-    .eq("status", "failed")
-    .limit(RETRY_LIMIT);
-
+  const failedOnRun = (withResolution: boolean) => {
+    const query = supabase
+      .from("whatsapp_reminder_sends")
+      .select("id, created_at, sent_on, session_label")
+      .eq("run_id", runId)
+      .or("status.eq.failed,delivery_status.eq.failed");
+    return (withResolution ? query.is("resolution", null) : query).limit(RETRY_LIMIT);
+  };
+  let { data, error } = await failedOnRun(true);
+  // Before `20261030190000` there is no `resolution`: every failure is open.
+  if (isMissingColumn(error, "resolution")) ({ data, error } = await failedOnRun(false));
   if (error) return { status: "error", message: `Could not read the failed rows: ${error.message}` };
 
-  const rows = (data ?? []) as Array<{
-    id: string;
-    campaign_name: string;
-    destination: string;
-    template_params: string[];
-    attempts: number | null;
-    document_path: string | null;
-  }>;
-  if (rows.length === 0) return { status: "error", message: "Nothing failed on this run." };
-
-  let sent = 0;
-  let stillFailing = 0;
-  let missingDocument = 0;
-
-  for (const row of rows) {
-    /**
-     * Re-sign, never re-send the old link.
-     *
-     * A signed URL is not a template param and was never stored, because it
-     * expires within the hour — long before anyone looks at a failed run. What
-     * the row carries is the object PATH, and a retry mints a fresh signature
-     * from it.
-     *
-     * When the object is gone the retry is SKIPPED rather than sent without
-     * media: a document template with no media is rejected by AiSensy outright,
-     * and the row would just fail again with a more confusing error.
-     */
-    let media: { url: string; filename: string } | undefined;
-    if (row.document_path) {
-      const signedUrl = await signDocumentUrl({ supabase, path: row.document_path });
-      if (!signedUrl) {
-        missingDocument += 1;
-        continue;
-      }
-      media = {
-        url: signedUrl,
-        // The parent-facing name is derived from the path's own basename, which
-        // is the only thing still true about a row whose student may since have
-        // been renamed.
-        filename: row.document_path.split("/").pop() || "document.pdf",
-      };
-    }
-
-    const result = await sendAisensyCampaignMessage({
-      campaignName: row.campaign_name,
-      destination: row.destination,
-      // The parent name is already inside the stored params; the provider's
-      // `userName` is only used for its own reporting.
-      userName: row.template_params?.[0] ?? "",
-      templateParams: row.template_params ?? [],
-      source: "veerpatta-fees-app/retry",
-      ...(media ? { media } : {}),
-    });
-
-    await supabase
-      .from("whatsapp_reminder_sends")
-      .update({
-        status: result.ok ? "sent" : "failed",
-        provider_message_id: result.ok ? result.messageId : null,
-        // Cleared on success, kept on failure. `error_message` holds what went
-        // wrong the FIRST time and is deliberately not overwritten.
-        last_error: result.ok ? null : result.error,
-        attempts: (row.attempts ?? 1) + 1,
-        last_attempt_at: new Date().toISOString(),
-        sent_by: staffId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", row.id);
-
-    if (result.ok) sent += 1;
-    else stillFailing += 1;
+  // One: a row the fees app wrote before cutover is never re-sent from One —
+  // the fees app may already have retried it, with a pay code of its own
+  // (critique0 #12). Unreadable line: nothing real is retried.
+  const watermark = await readCutoverWatermark("public.whatsapp_reminder_sends");
+  const rows = (data ?? []) as Array<{ id: string; created_at: string; sent_on: string; session_label: string }>;
+  const imported = rows.filter((row) => writtenBeforeWatermark(row, watermark)).length;
+  const ids = rows.filter((row) => !writtenBeforeWatermark(row, watermark)).map((row) => row.id);
+  if (ids.length === 0) {
+    return {
+      status: "error",
+      message: imported > 0
+        ? `Nothing re-sent: ${imported} were sent by the fees app before the move to VPPS One.`
+        : "Nothing on this run is still failing.",
+    };
   }
 
+  const form = new FormData();
+  for (const id of ids) form.append("sendId", id);
+  const result = await resendFailuresAction({ status: "idle" }, form);
+
   revalidatePath(`/fees/reminders/runs/${runId}`);
-
-  const skipped =
-    missingDocument > 0
-      ? ` ${missingDocument} could not be retried because the attached document is no longer on file.`
-      : "";
-
+  const skipped = imported > 0 ? ` ${imported} not re-sent: they were sent by the fees app before the move to VPPS One.` : "";
   return {
-    status: stillFailing > 0 || missingDocument > 0 ? "error" : "success",
-    message:
-      stillFailing > 0
-        ? `${sent} went through, ${stillFailing} failed again.${skipped}`
-        : `${sent} retried successfully.${skipped}`,
+    status: result.status === "success" && imported === 0 ? "success" : "error",
+    message: `${result.message ?? "Nothing was sent."}${skipped}`,
   };
 }
 
@@ -197,10 +137,22 @@ export async function reconcileStuckSendsAction(
     if (stuck.length === 0) {
       return { status: "error", message: "Nothing on this run is still pending." };
     }
+    // The fees app's own pending rows are the fees app's to decide
+    // (critique0 #12): One never writes a verdict on a send it did not make.
+    const watermark = await readCutoverWatermark("public.whatsapp_reminder_sends");
+    const ours = stuck.filter(
+      (row) => !writtenBeforeWatermark({ created_at: row.createdAt, session_label: row.sessionLabel }, watermark),
+    );
+    if (ours.length === 0) {
+      return {
+        status: "error",
+        message: "These were sent by the fees app before the move to VPPS One; reconcile them there.",
+      };
+    }
 
     const count = await resolveStuckSends({
       supabase,
-      sendIds: stuck.map((row) => row.id),
+      sendIds: ours.map((row) => row.id),
       outcome,
       reason,
       staffId,
@@ -264,6 +216,7 @@ export async function importDeliveryReportAction(
 
     const parts = [
       `${summary.matched} updated`,
+      summary.failed > 0 ? `${summary.failed} not delivered` : null,
       summary.unchanged > 0 ? `${summary.unchanged} already up to date` : null,
       summary.unmatched > 0 ? `${summary.unmatched} matched nothing in this run` : null,
       summary.skipped > 0 ? `${summary.skipped} rows unreadable` : null,

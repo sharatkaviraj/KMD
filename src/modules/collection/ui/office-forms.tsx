@@ -10,9 +10,9 @@ import {
   saveFieldAction,
   saveTemplateAction,
   sendMessageAction,
-  uploadDocumentAction,
 } from "@/app/(app)/collection/actions";
 import { m } from "@/messages";
+import { documentMessages } from "@/messages/setup";
 import {
   fieldInputLabels,
   fieldInputs,
@@ -27,12 +27,13 @@ import {
   isGenericMessageTemplate,
   type MessageTemplate,
 } from "@/modules/collection/domain/messages";
-import { documentKindLabels, documentKinds } from "@/modules/collection/domain/review";
 import { optionalHalf, requiredHalf } from "@/platform/i18n/authored";
 import { primary } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { Checkbox, Field, Input, Notice, Select, Textarea } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
+
+import { DriveDocumentForm } from "./drive-document-form";
 
 /** Build a request: a class, some questions, and who is being asked. */
 export function NewRequestForm({
@@ -430,62 +431,24 @@ export function CopyLink({ url }: { url: string }) {
   );
 }
 
-/** Upload one document about one child. */
-export function DocumentForm({ studentId }: { studentId: string }) {
+/**
+ * Upload one document about one child. `mode` is decided on the server from
+ * `file_storage_settings` (D-333): the Supabase bucket by default, the
+ * school's Shared Drive once it is switched on for this person.
+ */
+export function DocumentForm({
+  studentId,
+  mode = "supabase",
+}: {
+  studentId: string;
+  mode?: "supabase" | "gdrive" | "unavailable";
+}) {
   const language = useLanguage();
-  const [state, action, pending] = useActionState(
-    uploadDocumentAction,
-    idleCollectionState,
-  );
-
-  return (
-    <form action={action} className="space-y-3">
-      <input type="hidden" name="studentId" value={studentId} />
-
-      {state.status === "error" && state.message ? (
-        <Notice tone="danger" text={state.message} language={language} />
-      ) : null}
-
-      <Field label={m.documentsKind} htmlFor="doc-kind" language={language}>
-        <Select id="doc-kind" name="kind" defaultValue="other">
-          {documentKinds.map((kind) => (
-            <option key={kind} value={kind}>
-              {primary(documentKindLabels[kind], language)}
-            </option>
-          ))}
-        </Select>
-      </Field>
-
-      <Field label={m.documentsFile} htmlFor="doc-file" language={language}>
-        <input
-          id="doc-file"
-          name="file"
-          type="file"
-          required
-          accept="application/pdf,image/jpeg,image/png,image/webp"
-          className="focus-ring w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-[14px] file:mr-3 file:rounded-lg file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-[13px] file:font-semibold"
-        />
-      </Field>
-
-      <Field label={m.documentsNote} htmlFor="doc-note" language={language}>
-        <Input id="doc-note" name="note" maxLength={200} />
-      </Field>
-
-      <p className="text-[12px] text-subtle-foreground">
-        {primary(m.documentsLimit, language)}
-      </p>
-
-      <Button
-        type="submit"
-        variant="outline"
-        fullWidth
-        loading={pending}
-        loadingText={primary(m.saving, language)}
-      >
-        {primary(m.documentsAdd, language)}
-      </Button>
-    </form>
-  );
+  // Where documents go could not be read: say so, and offer no upload rather
+  // than quietly storing somewhere the owner did not choose (D-334).
+  if (mode === "unavailable") return <Notice tone="warning" text={documentMessages.docNoStore} language={language} />;
+  if (mode === "gdrive") return <DriveDocumentForm studentId={studentId} />;
+  return <DriveDocumentForm studentId={studentId} mode="supabase" />;
 }
 
 /** One WhatsApp template. */

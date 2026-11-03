@@ -7,7 +7,10 @@ import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 import { tenDigits } from "./domain/messages";
-import { canUndo, outboxText, UNDO_MINUTES, type OutboxSource } from "./domain/outbox";
+import { schoolToday } from "@/platform/dates";
+import { p, type Pair } from "@/vx/text";
+
+import { canUndo, DAY_BOUND_TEMPLATES, foldOutbox, outboxText, UNDO_MINUTES, type OutboxSource } from "./domain/outbox";
 
 /*
  * Messages → To send. What is waiting for a person to send by hand, and the
@@ -19,7 +22,9 @@ import { canUndo, outboxText, UNDO_MINUTES, type OutboxSource } from "./domain/o
 export type OutboxItem = {
   source: OutboxSource;
   id: string;
+  /** The section key; `groupLabel` is what the reader sees. */
   group: string;
+  groupLabel: Pair;
   name: string;
   about: string;
   phone: string;
@@ -29,6 +34,12 @@ export type OutboxItem = {
   canUndo: boolean;
   blocked: boolean;
   queuedAt: string;
+  /** The school day a day-bound message speaks of ("absent today"), shown beside it. */
+  forDay: string | null;
+  /** How many times this same message was queued; the copies are folded into this row. */
+  copies?: number;
+  /** Ids of the folded copies, cleared with the out-of-date ones. */
+  repeatOf?: string[];
 };
 
 export type PendingNotice = { id: string; title: string; audience: string; recipients: number; textHi: string; textEn: string; by: string; at: string };
@@ -36,6 +47,10 @@ export type PendingBatch = { id: string; name: string; audienceLine: string; fam
 
 export type OutboxData = {
   items: OutboxItem[];
+  /** Day-bound messages whose day has passed: kept off the list, offered for clearing. */
+  outOfDate: OutboxItem[];
+  /** Repeated copies folded away, for clearing. */
+  repeats: number;
   /** Rows not shown because the list is capped. */
   more: number;
   notices: PendingNotice[];
@@ -50,15 +65,19 @@ const mask = (phone: string | null) => {
   return d ? `${d.slice(0, 5)} ••${d.slice(-3)}` : "—";
 };
 
-const QUEUE_KIND: Record<string, string> = {
-  absent_alert: "Absent today",
-  birthday: "Birthday",
-  note: "Teacher's note",
-  support_plan: "Support plan",
+const QUEUE_KIND: Record<string, Pair> = {
+  absent_alert: p("Absent today", "आज अनुपस्थित"),
+  birthday: p("Birthday", "जन्मदिन"),
+  note: p("Teacher's note", "शिक्षक का नोट"),
+  support_plan: p("Support plan", "सहायता योजना"),
 };
+const FROM_TEACHER = p("From a teacher", "शिक्षक की ओर से");
+const TO_PARENT = p("Reply to a parent", "अभिभावक को जवाब");
+const TO_STAFF = p("To staff", "स्टाफ़ को");
+const NOTICE = p("Notice", "सूचना");
 
-type SendRow = { id: string; to_phone: string; to_name: string | null; student_id: string | null; staff_profile_id: string | null; rendered_hi: string; rendered_en: string; campaign_id: string | null; status: string; requested_at: string; sent_at: string | null };
-type QueueRow = { id: string; kind: string; student_id: string; body_hi: string; body_en: string | null; status: string; created_at: string; sent_at: string | null };
+type SendRow = { id: string; template_id: string | null; to_phone: string; to_name: string | null; student_id: string | null; staff_profile_id: string | null; rendered_hi: string; rendered_en: string; campaign_id: string | null; status: string; requested_at: string; sent_at: string | null };
+type QueueRow = { id: string; kind: string; day: string | null; student_id: string; body_hi: string; body_en: string | null; status: string; created_at: string; sent_at: string | null };
 type StudentRow = { id: string; full_name: string | null; father_name: string | null; guardian_name: string | null; guardian_phone: string | null; primary_phone: string | null };
 
 /** How many rows are waiting, for the tab count. Cheap: two head counts. */
@@ -73,14 +92,21 @@ export async function countOutbox(): Promise<number> {
   return (a.count ?? 0) + (b.count ?? 0);
 }
 
+/** The fold key holds a phone number: it never leaves the server. */
+function withoutKey<T extends { dedupeKey: string | null }>(item: T): Omit<T, "dedupeKey"> {
+  const copy: Partial<T> = { ...item };
+  delete copy.dedupeKey;
+  return copy as Omit<T, "dedupeKey">;
+}
+
 export async function loadOutbox(): Promise<OutboxData> {
   const admin = createAdminClient();
   const since = new Date(Date.now() - UNDO_MINUTES * 60_000).toISOString();
 
-  const [sends, recentSends, queue, recentQueue, flags, noticeRows, batchRows, staff] = await Promise.all([
+  const [sends, recentSends, queue, recentQueue, flags, noticeRows, batchRows, staff, dayBound] = await Promise.all([
     admin
       .from("message_sends")
-      .select("id, to_phone, to_name, student_id, staff_profile_id, rendered_hi, rendered_en, campaign_id, status, requested_at, sent_at", { count: "exact" })
+      .select("id, template_id, to_phone, to_name, student_id, staff_profile_id, rendered_hi, rendered_en, campaign_id, status, requested_at, sent_at", { count: "exact" })
       .in("status", ["queued", "draft"])
       .is("stale_at", null)
       .is("request_id", null)
@@ -89,7 +115,7 @@ export async function loadOutbox(): Promise<OutboxData> {
       .returns<SendRow[]>(),
     admin
       .from("message_sends")
-      .select("id, to_phone, to_name, student_id, staff_profile_id, rendered_hi, rendered_en, campaign_id, status, requested_at, sent_at")
+      .select("id, template_id, to_phone, to_name, student_id, staff_profile_id, rendered_hi, rendered_en, campaign_id, status, requested_at, sent_at")
       .eq("status", "sent")
       .is("provider_message_id", null)
       .is("request_id", null)
@@ -97,12 +123,12 @@ export async function loadOutbox(): Promise<OutboxData> {
       .returns<SendRow[]>(),
     admin
       .from("parent_message_queue")
-      .select("id, kind, student_id, body_hi, body_en, status, created_at, sent_at", { count: "exact" })
+      .select("id, kind, day, student_id, body_hi, body_en, status, created_at, sent_at", { count: "exact" })
       .eq("status", "queued")
       .order("created_at", { ascending: true })
       .limit(LIMIT)
       .returns<QueueRow[]>(),
-    admin.from("parent_message_queue").select("id, kind, student_id, body_hi, body_en, status, created_at, sent_at").eq("status", "sent").gte("sent_at", since).returns<QueueRow[]>(),
+    admin.from("parent_message_queue").select("id, kind, day, student_id, body_hi, body_en, status, created_at, sent_at").eq("status", "sent").gte("sent_at", since).returns<QueueRow[]>(),
     admin.from("parent_route_flags").select("phone").is("cleared_at", null).returns<{ phone: string }[]>(),
     admin
       .from("calendar_notices")
@@ -117,6 +143,7 @@ export async function loadOutbox(): Promise<OutboxData> {
       .order("created_at", { ascending: true })
       .returns<{ id: string; name: string; audience_line: string | null; family_count: number; template: string; scheduled_for: string | null; created_by_name: string | null; created_at: string }[]>(),
     listStaff(),
+    admin.from("message_templates").select("id").in("code", [...DAY_BOUND_TEMPLATES]).returns<{ id: string }[]>(),
   ]);
 
   for (const result of [sends, recentSends, queue, recentQueue, flags, noticeRows, batchRows]) {
@@ -142,14 +169,17 @@ export async function loadOutbox(): Promise<OutboxData> {
   const titleOf = new Map(campaigns.data.map((c) => [c.id, c.title]));
   const studentOf = new Map(students.data.map((s) => [s.id, s]));
   const now = new Date();
+  const today = schoolToday(now);
+  const dayBoundIds = new Set((dayBound.data ?? []).map((row) => row.id));
 
-  const items: OutboxItem[] = [
-    ...sendRows.map((r): OutboxItem => {
+  const items: (OutboxItem & { dedupeKey: string | null })[] = [
+    ...sendRows.map((r): OutboxItem & { dedupeKey: string | null } => {
       const kid = r.student_id ? studentOf.get(r.student_id) : undefined;
       return {
         source: "send",
         id: r.id,
-        group: r.campaign_id ? (titleOf.get(r.campaign_id) ?? "Notice") : "Reply to a parent",
+        group: r.campaign_id ? `c:${r.campaign_id}` : r.staff_profile_id ? "staff" : "reply",
+        groupLabel: r.campaign_id ? (titleOf.has(r.campaign_id) ? p(titleOf.get(r.campaign_id)!) : NOTICE) : r.staff_profile_id ? TO_STAFF : TO_PARENT,
         name: r.to_name ?? "—",
         about: kid?.full_name ? kid.full_name.split(/\s+/)[0] : r.staff_profile_id ? "Staff" : "",
         phone: mask(r.to_phone),
@@ -159,15 +189,18 @@ export async function loadOutbox(): Promise<OutboxData> {
         canUndo: r.status === "sent" && canUndo(r.sent_at, now),
         blocked: flagged.has(tenDigits(r.to_phone)),
         queuedAt: r.requested_at,
+        forDay: r.template_id && dayBoundIds.has(r.template_id) ? schoolToday(new Date(r.requested_at)) : null,
+        dedupeKey: r.status === "sent" ? null : `${tenDigits(r.to_phone) ?? r.to_phone}|${r.rendered_hi}|${r.rendered_en}`,
       };
     }),
-    ...queueRows.map((r): OutboxItem => {
+    ...queueRows.map((r): OutboxItem & { dedupeKey: string | null } => {
       const kid = studentOf.get(r.student_id);
       const phone = kid ? tenDigits(kid.guardian_phone) ?? tenDigits(kid.primary_phone) : null;
       return {
         source: "queue",
         id: r.id,
-        group: QUEUE_KIND[r.kind] ?? "From a teacher",
+        group: `q:${r.kind}`,
+        groupLabel: QUEUE_KIND[r.kind] ?? FROM_TEACHER,
         name: kid?.guardian_name || kid?.father_name || "Parent",
         about: kid?.full_name ? kid.full_name.split(/\s+/)[0] : "",
         phone: mask(phone),
@@ -177,12 +210,17 @@ export async function loadOutbox(): Promise<OutboxData> {
         canUndo: r.status === "sent" && canUndo(r.sent_at, now),
         blocked: !phone || flagged.has(phone),
         queuedAt: r.created_at,
+        forDay: r.kind === "absent_alert" ? r.day : null,
+        dedupeKey: r.status === "sent" ? null : `${r.student_id}|${r.kind}|${r.day ?? ""}|${r.body_hi}`,
       };
     }),
   ];
+  const folded = foldOutbox(items, today);
 
   return {
-    items,
+    items: folded.items.map(withoutKey),
+    outOfDate: folded.outOfDate.map(withoutKey),
+    repeats: folded.items.reduce((sum, item) => sum + item.copies - 1, 0),
     more: Math.max(0, (sends.count ?? 0) - (sends.data?.length ?? 0)) + Math.max(0, (queue.count ?? 0) - (queue.data?.length ?? 0)),
     notices: (noticeRows.data ?? []).map((n) => ({
       id: n.id,

@@ -19,6 +19,8 @@
  * date that clears that installment means its late fee is never charged.
  */
 
+import { dueBucketOn } from "@/modules/fees/domain/due-rule";
+
 export type DeskLedgerRow = {
   id: string;
   installmentNo: number;
@@ -55,14 +57,17 @@ export function orderForSettlement<T extends Pick<DeskLedgerRow, "planPriority" 
   });
 }
 
-/** Overdue on `onDate`: last session's balance always is; an installment once its due date has passed. */
+/**
+ * Overdue on `onDate`: last session's balance always is; an installment once
+ * its due date has passed. The one rule every money screen uses (due-rule.ts).
+ */
 export function isOverdueOn(row: Pick<DeskLedgerRow, "isCarryForward" | "dueDate">, onDate: string): boolean {
-  return row.isCarryForward || row.dueDate < onDate;
+  return dueBucketOn(row, onDate) === "overdue";
 }
 
 /** Due on `onDate` itself: not overdue yet, but not "upcoming" either. */
 export function isDueOn(row: Pick<DeskLedgerRow, "isCarryForward" | "dueDate">, onDate: string): boolean {
-  return !row.isCarryForward && row.dueDate === onDate;
+  return dueBucketOn(row, onDate) === "due_today";
 }
 
 export type DeskTotals = {
@@ -356,6 +361,46 @@ export type DeskDraft = {
   waiveReason: string;
 };
 
+/**
+ * The reason a default waiver is saved with: the text the ported desk's
+ * posting already writes for its quick waiver (`post_student_payment_core`:
+ * 'Payment Desk late fee waiver'), so the two desks record the same thing.
+ */
+export const DESK_DEFAULT_WAIVE_REASON = "Payment Desk late fee waiver";
+
+/**
+ * Where the late-fee choice starts for a new student (owner, 31 Oct, plan
+ * Q20; the office's call of 27 Oct, fees 1b932785): WAIVED for anyone allowed
+ * to waive, with the standard reason filled in so it saves without typing;
+ * "Take with fees" stays one tap away. Anyone else starts — and stays — on
+ * taking it, because the server refuses their waiver and the post with it.
+ */
+export function deskLateDefault(canWaive: boolean): { late: "take" | "waive"; waiveReason: string } {
+  return canWaive ? { late: "waive", waiveReason: DESK_DEFAULT_WAIVE_REASON } : { late: "take", waiveReason: "" };
+}
+
+/**
+ * Whether this payment waives the late fee. The DEFAULT waiver (the cashier
+ * has not tapped the choice) covers a late fee that is owed on the payment
+ * date; when every pending late fee is still avoidable on that date (a
+ * payment dated on or before each due date), the default stays out of the
+ * way — no waiver record for a fee that date never earned — and the desk
+ * shows "no late fee on <date>" exactly as it did before Q20. A waiver the
+ * cashier taps is always honoured. Nobody waits for a waiver they may not
+ * give, and there is nothing to waive without a late fee.
+ */
+export function deskWaivesLate(input: {
+  waiveAllowed: boolean;
+  late: "take" | "waive";
+  lateChosen: boolean;
+  lateFeeOwed: number;
+  lateOn: { due: readonly unknown[]; avoidable: readonly unknown[] };
+}): boolean {
+  if (!input.waiveAllowed || input.late !== "waive" || input.lateFeeOwed <= 0) return false;
+  if (!input.lateChosen && input.lateOn.due.length === 0 && input.lateOn.avoidable.length > 0) return false;
+  return true;
+}
+
 /** Everything that stops "Review & save", in the order the cashier should fix it. */
 export function deskProblems(
   draft: DeskDraft,
@@ -459,7 +504,7 @@ export function listPending(
     const v = TIGHT(value);
     inInstallments += v;
     const due = dueDates[i];
-    if (due && due < today) pendingToday += v;
+    if (due && dueBucketOn({ dueDate: due }, today) === "overdue") pendingToday += v;
   });
   const carry = Math.max(0, TIGHT(student.baseOutstanding) - inInstallments);
   return { pendingToday: pendingToday + carry, lateFee: TIGHT(student.lateOutstanding) };

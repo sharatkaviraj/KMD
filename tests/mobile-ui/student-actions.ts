@@ -17,3 +17,7 @@ export const togglePlanStepAction = refuse;
 export const removePlanStepAction = refuse;
 export const closePlanAction = refuse;
 export const tellParentsAboutPlanAction = refuse;
+
+// Added for the 21 Oct smoke fixes: this fixture never exercises it.
+export const decideLeaveAction = refuse;
+export const removeStudentDocument = refuse;

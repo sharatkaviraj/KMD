@@ -10,9 +10,15 @@ before a future explicitly requested cutover. See `PLAN.md` §7.
 `docs/PROGRESS.md` has always recorded as "Janmejay decides when". This is the
 runbook, checked as far as it can be checked without doing it.
 
-It is short because §2 was designed for it: every migration only ever creates
-things inside the `vppsone` schema, so `public` — which is the fee app — is
-never touched. The fee app cannot notice this happening.
+**Step 1 (applying the migrations) is superseded by
+`docs/cutover/LIVE-MIGRATION-PLAN.md` (20 Oct 2026).** The claim that used to
+stand here — that every migration only creates things in `vppsone` and
+`public` is never touched — is wrong: `current_staff_role_reads_vppsone`
+replaces `private.current_staff_role()`, the fee-collector change replaces
+`public.has_permission`, `native_defaulter_recovery_refresh` writes
+`public.defaulter_recovery_state`, `expose_vppsone_to_postgrest` changes a
+shared PostgREST setting, three files add Storage buckets, and three files must
+never reach live. Follow the plan's pre-flight, phases and rollback.
 
 ---
 
@@ -44,22 +50,13 @@ Have ready:
 
 ## The steps
 
-### 1. Apply every `vppsone` migration to the live project
+### 1. Apply the migrations
 
-In order, by version, exactly the list in `docs/PROGRESS.md`. Through the
-Supabase MCP, the same way they were applied to dev (D-22) — never
-`supabase db push`.
-
-**`20260916191935_expose_vppsone_to_postgrest` is not optional and is not a
-schema object.** It is a PostgREST setting, so it does not come along with the
-tables; skip it and the app answers `PGRST106 Invalid schema: vppsone` on its
-very first request, with nothing in the logs that looks like a permissions
-problem (D-19). It is the single easiest thing to miss here.
-
-Nothing in the list touches `public`. Confirm that before running them, not
-after: `grep -L "vppsone" supabase/migrations/*.sql` should print nothing, and
-`grep -n "public\." supabase/migrations/*.sql` should show only comments and
-`references auth.users`.
+Follow `docs/cutover/LIVE-MIGRATION-PLAN.md` §§3–4: pre-flight P0–P15, then
+phases M1 (the `vppsone` schema, three QA files skipped), M2 (the fee-side
+functions, owner approval), M3 (expose `vppsone` to PostgREST — skip it and the
+app answers `PGRST106` on its first request, D-19) and M4 (first admin, settings,
+bells). Never `supabase db push`.
 
 ### 2. Point production at live
 
@@ -105,15 +102,13 @@ the first run against real data expect it to find some. Work through them
 there rather than in SQL — a vanished student is a row to keep, not delete
 (D-43).
 
-### 5. Check the fee app is unchanged
+### 5. Check the fee app
 
-It should be, because nothing in `public` moved. Look anyway:
-
-- open the fee app and take a payment on its dev twin first, then look at
-  production's dashboard and one student's record
-- `select count(*) from public.students` before and after should match
-- no new object in `public`: compare `information_schema.tables` for
-  `table_schema = 'public'` against a snapshot taken before step 1
+`public.has_permission` and `private.current_staff_role` changed in M2, so the
+fee app is not untouched. Verify with the plan's Gate M2 (fingerprint diff,
+per-user role checks, the fee app's accountant screens) and compare P11's
+baseline: the `public` table list and `public.students` / `public.receipts`
+counts unchanged.
 
 ### 6. Turn the jobs on and watch one morning
 
@@ -127,15 +122,13 @@ happened" is the symptom. Open `/jobs` the next morning and check
 
 ## Rollback
 
-Point the production environment variables back at dev and redeploy. That is
-the whole of it.
+See `docs/cutover/LIVE-MIGRATION-PLAN.md` §6. In short: point Production back at
+DEV and redeploy; undo M3; restore the two fee functions from the bodies saved
+in P4 (never drop them) and prove it with the fingerprint diff; only then, and
+only if it must go, touch `vppsone` — while M2's `current_staff_role` is live it
+reads `vppsone.staff_profiles`, so dropping the schema would take the fee app's
+permission checks down.
 
-Nothing in the fee app has to be undone, because nothing in the fee app was
-done. The `vppsone` schema left behind on the live project is inert — no fee-app
-query names it, no trigger fires from it, and no foreign key points into it
-(rule 2, D-5). Leave it; it is where the data will be when you come back.
-
-The one thing rollback does **not** undo is time: anything staff entered into
-the live deployment between cutover and rollback is in the live project's
-`vppsone` schema and not in dev's. So the decision to roll back is a decision
-about a day's attendance, not about a deploy.
+Rollback does not undo time: anything staff entered on the live deployment
+between cutover and rollback is in live's `vppsone` schema and not in DEV's. The
+decision to roll back is a decision about a day's attendance, not about a deploy.

@@ -116,6 +116,14 @@ const EVERYONE_BUT_THE_FEE_DESK: readonly StaffRole[] = [
  */
 
 export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
+  { route: "/school-office", allow: ["admin", "office"], because: "The school office issues and retains school certificates under its own authority." },
+  { route: "/school-office/template", allow: ["admin"], because: "Template and signatory policy are school administration settings." },
+  { route: "/school-office/certificates/[id]", allow: ["admin", "office"], because: "Certificate details and original reprints belong to authorized school-office staff." },
+  { route: "/school-office/returns", allow: ["admin", "office"], because: "School-office staff prepare official reference sheets and verified return files." },
+  { route: "/school-office/returns/[id]", allow: ["admin", "office"], because: "Official batches retain private source files and reconciliation history." },
+  { route: "/school-office/returns/formats", allow: ["admin"], because: "An administrator approves a supported format against its current specimen." },
+  { route: "/exam-office/board", allow: ["admin", "office", "exam_coordinator"], because: "Board readiness uses a separate sourced cycle and official-outcome capability." },
+  { route: "/exam-office/official-results", allow: ["admin", "office", "exam_coordinator"], because: "Official results remain separate from internal assessment marks." },
   {
     route: "/dashboard",
     allow: EVERYONE,
@@ -330,6 +338,15 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "One round, with what it asks and who it covers.",
   },
 
+  /* ------------------------------------------------------------ test tools */
+
+  {
+    route: "/smoke",
+    allow: ["admin"],
+    because:
+      "The Smoke Lab hands out sign-in passes for test accounts, so it is the administrator's alone — and a 404 on the live database and for the smoke accounts themselves (D-311, D-314).",
+  },
+
   /* --------------------------------------------------------- master data */
 
   {
@@ -540,7 +557,11 @@ function feeDeskScreens(): RouteExpectation[] {
         "/fees/payments",
         "/fees/reminders",
         "/fees/reminders/campaigns",
+        "/fees/reminders/families",
+        "/fees/reminders/fix",
+        "/fees/reminders/ladder",
         "/fees/reminders/lists",
+        "/fees/reminders/notices",
         "/fees/reminders/runs/[runId]",
         "/fees/reminders/unreachable",
         "/fees/reports",
@@ -598,6 +619,11 @@ function redesign(): RouteExpectation[] {
     row("/reports", FEE_READERS, "Money reports belong to the fee desk and the office."),
     row("/accounts", FEE_READERS, "The accountant's home: the day's money at a glance."),
     row("/accounts/books", FEE_READERS, "The books: ledger and day closes, read-only for the fee desk."),
+    row(
+      "/fees/payments/online",
+      ["admin", "accountant"],
+      "Razorpay money (go-live Phase E): the back office's (`fees:accounts`, the nav gate), like the bank books — a payment to post or a review to close is accounts work, not the counter's.",
+    ),
     row("/admissions", ["admin"], "Admitting a child creates a fee record; the fee app keeps that to the admin."),
     row("/admissions/new", ["admin"], "The admission wizard creates the fee record, so it sits behind the same door as Admissions."),
     row("/admissions/seats", ["admin"], "Seats per class are school policy, set by the admin; Admissions reads seats left from them."),

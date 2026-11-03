@@ -8,7 +8,12 @@ import {
   NOTICE_SITUATIONS,
   type NoticeSituation,
 } from "@/modules/whatsapp/domain/campaigns";
-import { parseCampaignSchedule } from "@/modules/whatsapp/domain/campaign-schedule";
+import {
+  describeSchedule,
+  isPlanManagedSchedule,
+  parseCampaignSchedule,
+  SCHEDULED_SENDS_LIVE,
+} from "@/modules/whatsapp/domain/campaign-schedule";
 import { LATE_FEE_BASES, LATE_FEE_SOURCES, lateFeePhrase } from "@/modules/whatsapp/domain/late-fee";
 import type { CampaignRunOutcome, SavedCampaign } from "@/modules/whatsapp/data/campaign-store";
 import { PendingSubmitButton } from "@/ui/shell/pending-submit-button";
@@ -24,10 +29,14 @@ import {
   LAST_YEAR_TOKEN,
   PAID_OPTIONS,
   PROMISE_OPTIONS,
-  savedAudienceParams,
   TRI_OPTIONS,
 } from "@/modules/whatsapp/domain/audience";
 import { formatDdMmYyyy } from "@/platform/helpers/date";
+import { savedCampaignHref } from "@/modules/whatsapp/domain/campaign-links";
+import {
+  DEFAULT_PROFILE_SELECTION,
+  REMINDER_PROFILES,
+} from "@/modules/whatsapp/domain/reminder-profile";
 
 /**
  * Saved campaigns: name a set of settings once, apply it as often as you like.
@@ -70,20 +79,9 @@ const IDLE: CampaignFormState = { status: "idle" };
 
 /** The send screen, with this campaign's settings already applied. */
 export function campaignHref(campaign: SavedCampaign): string {
-  // Every audience key, explicitly — `installments` as `last_year` for a
-  // Last-year campaign — so the send screen opens on exactly the saved rule.
-  const params = new URLSearchParams(savedAudienceParams(campaign.filters));
-  params.set("situation", campaign.situation);
-  params.set("language", campaign.language);
-  if (campaign.lastDate) params.set("lastDate", formatDdMmYyyy(campaign.lastDate));
-  params.set("lateFeeAmount", String(campaign.lateFeeAmount));
-  params.set("lateFeeBasis", campaign.lateFeeBasis);
-  // Absent on a campaign saved before the two modes, which is how it keeps the
-  // behaviour its template had then.
-  if (campaign.lateFeeSource) params.set("lateFeeSource", campaign.lateFeeSource);
-  // Carried so the run records which campaign it came from.
-  params.set("campaignId", campaign.id);
-  return `/fees/reminders?${params.toString()}`;
+  // The one builder every "load this campaign" link uses — see
+  // `domain/campaign-links`.
+  return savedCampaignHref(campaign);
 }
 
 function situationLabel(situation: NoticeSituation): string {
@@ -96,6 +94,9 @@ function situationLabel(situation: NoticeSituation): string {
  * Parsed rather than read raw, so a hand-edited row cannot put an unusable value
  * into a form control and then straight back into the database.
  */
+/** The offsets the "When" list names. */
+const OFFSET_CHOICES = [-10, -3, 0, 1, 15];
+
 function scheduleOf(campaign: { schedule?: unknown } | null | undefined) {
   return campaign ? parseCampaignSchedule(campaign.schedule) : null;
 }
@@ -119,6 +120,7 @@ export function CampaignManager({
   useActionFeedback(archiveState, { successTitle: "Done", errorTitle: "Could not do that" });
 
   const open = editing ?? (creating ? null : undefined);
+  const savedOffset = scheduleOf(open)?.offsetDays ?? null;
   const showForm = creating || editing !== null;
 
   return (
@@ -163,11 +165,14 @@ export function CampaignManager({
                       {campaign.filters.classId
                         ? ` · ${classOptions.find((c) => c.classId === campaign.filters.classId)?.label ?? "one class"}`
                         : " · All classes"}
+                      {campaign.filters.installments?.length
+                        ? ` · Inst ${campaign.filters.installments.join(" & ")}${campaign.filters.installments.length > 1 ? ` (${campaign.filters.installmentMatch})` : ""}`
+                        : ""}
                       {campaign.filters.lastYear
-                        ? " · Last year"
-                        : campaign.filters.installments?.length
-                          ? ` · Inst ${campaign.filters.installments.join(" & ")}${campaign.filters.installments.length > 1 ? ` (${campaign.filters.installmentMatch})` : ""}`
-                          : ""}
+                        ? campaign.filters.installments?.length
+                          ? " + Last year"
+                          : " · Last year"
+                        : ""}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Late fee on the message:{" "}
@@ -324,7 +329,7 @@ export function CampaignManager({
                 id="installments"
                 name="installments"
                 defaultValue={
-                  open?.filters.lastYear
+                  open?.filters.lastYear && !open.filters.installments?.length
                     ? LAST_YEAR_TOKEN
                     : (open?.filters.installments ?? []).join(",") || "1,2"
                 }
@@ -336,8 +341,18 @@ export function CampaignManager({
                 <option value="1,2">Installments 1 and 2</option>
                 <option value="1,2,3">Installments 1, 2 and 3</option>
                 <option value="1,2,3,4">All four installments</option>
-                <option value={LAST_YEAR_TOKEN}>Last year (carried forward)</option>
+                <option value={LAST_YEAR_TOKEN}>Last year only (carried forward)</option>
               </SelectNative>
+              {/* Beside installments, last session's balance is chased too and
+                  added to the amount — the Send screen's Last year tile. */}
+              <label className="flex min-h-11 items-center gap-2 text-xs text-foreground md:min-h-0">
+                <input
+                  type="checkbox"
+                  name="lastYear"
+                  defaultChecked={open ? open.filters.lastYear : true}
+                />
+                Add last year&rsquo;s balance
+              </label>
             </div>
 
             <div className="space-y-1.5">
@@ -424,6 +439,13 @@ export function CampaignManager({
                 Relative to an installment, so a campaign written in April still fires correctly in
                 January. Leave it unscheduled for one you only ever run by hand.
               </p>
+              {isPlanManagedSchedule(scheduleOf(open)) ? (
+                <p className="text-sm text-foreground">
+                  A step of the Reminder plan: {describeSchedule(scheduleOf(open)!)}. Its timing is
+                  set on the Plan tab and is kept as it is when you save here.
+                </p>
+              ) : (
+                <>
               {/* Wraps onto two rows on a phone, one at the desk. */}
               <div className="flex flex-wrap items-end gap-3">
                 <div className="space-y-1.5">
@@ -455,26 +477,39 @@ export function CampaignManager({
                     <option value="0">On the day it is due</option>
                     <option value="1">1 day after it was due</option>
                     <option value="15">15 days after it was due</option>
+                    {/* A saved offset the list does not name still shows as
+                        itself, rather than falling back to the first option
+                        and being saved as "10 days before". */}
+                    {savedOffset !== null && !OFFSET_CHOICES.includes(savedOffset) ? (
+                      <option value={savedOffset}>
+                        {Math.abs(savedOffset)} days {savedOffset < 0 ? "before it is due" : "after it was due"}
+                      </option>
+                    ) : null}
                   </SelectNative>
                 </div>
               </div>
-              {/* min-h-11 so the whole sentence is a comfortable tap target. */}
-              <label className="flex min-h-11 items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="scheduleAuto"
-                  defaultChecked={scheduleOf(open)?.auto === true}
-                  className="mt-1 size-4 shrink-0"
-                />
-                <span>
-                  <span className="font-semibold">Send this campaign automatically.</span>{" "}
-                  <span className="text-muted-foreground">
-                    On its scheduled day it will message families without anybody pressing Send.
-                    It still refuses on a passed date, an unapproved template or an empty list.
-                    Off unless you tick it.
-                  </span>
-                </span>
-              </label>
+                  {/* min-h-11 so the whole sentence is a comfortable tap target.
+                      Not offered while the 09:30 timer is off. */}
+                  {SCHEDULED_SENDS_LIVE ? (
+                  <label className="flex min-h-11 items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="scheduleAuto"
+                      defaultChecked={scheduleOf(open)?.auto === true}
+                      className="mt-1 size-4 shrink-0"
+                    />
+                    <span>
+                      <span className="font-semibold">Send this campaign automatically.</span>{" "}
+                      <span className="text-muted-foreground">
+                        On its scheduled day it will message families without anybody pressing Send.
+                        It still refuses on a passed date, an unapproved template or an empty list.
+                        Off unless you tick it.
+                      </span>
+                    </span>
+                  </label>
+                  ) : null}
+                </>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -546,6 +581,29 @@ export function CampaignManager({
               </label>
             </div>
           </div>
+
+          {/* Which reminder profiles the saved rule reaches. None ticked saves
+              the default (On-time, Standard, Chronic) — an empty selection is
+              never "nobody". */}
+          <fieldset className="mt-4 flex flex-col gap-1.5">
+            <legend className="text-sm font-medium">Reminder profiles</legend>
+            <div className="flex flex-wrap gap-3">
+              {REMINDER_PROFILES.map((entry) => (
+                <label key={entry.value} className="flex items-center gap-2 text-sm" title={entry.hint}>
+                  <input
+                    type="checkbox"
+                    name="profiles"
+                    value={entry.value}
+                    defaultChecked={(open?.filters.profiles ?? DEFAULT_PROFILE_SELECTION).includes(
+                      entry.value,
+                    )}
+                    className="size-4 rounded border-border-strong"
+                  />
+                  {entry.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <PendingSubmitButton idleLabel="Save campaign" pendingLabel="Saving…" />

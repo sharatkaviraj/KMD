@@ -43,7 +43,7 @@ import {
   differenceFor,
   productAllows,
 } from "../tests/fixtures/role-expectations.ts";
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { assertTestAccountUser, toolScope } from "./target-guard.mjs";
 import { hasRenderedError } from "./smoke-response.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -71,10 +71,10 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
-  console.error("Refusing to run: .env.local is not the dev project (rule 3).");
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only. It drives the app as a signed-in
+// test account (refused otherwise, below), and since Phase 3 the app keeps a
+// test account inside TEST-2026-27: the visibility rules are what confine it.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "smoke-roles", mode: "test-scoped" });
 
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
@@ -294,6 +294,7 @@ for (const role of staffRoles) {
 async function signIn(email) {
   const { data, error } = await db.auth.admin.generateLink({ type: "magiclink", email });
   if (error) throw new Error(`${email}: ${error.message}`);
+  await assertTestAccountUser({ scope, url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, userId: data.user?.id, email: email });
 
   const jar = new Map();
   let url = `${origin}/auth/confirm?token_hash=${data.properties.hashed_token}&type=magiclink&next=%2Fdashboard`;

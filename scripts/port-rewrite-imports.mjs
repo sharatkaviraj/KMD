@@ -74,6 +74,12 @@ export const PORTED_TREES = [
   "src/app/(app)/fees",
   "src/app/api/fees",
   "src/app/pay",
+  // Razorpay's webhook at the same path as the fees app's (go-live Phase E,
+  // plan §7.1); `/api/fees/webhooks/razorpay` re-exports it.
+  "src/app/api/webhooks",
+  // The fees app's public receipt check, `/r/[code]` there. `/r/` is a
+  // SamPark token here, so it moved to `/rv/` (go-live critique A2).
+  "src/app/rv",
 ];
 
 /**

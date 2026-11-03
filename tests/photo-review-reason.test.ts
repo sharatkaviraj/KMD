@@ -13,6 +13,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertStaff: async () => scene.staff }));
 vi.mock("@/vx/view-as", () => ({ assertNotPreviewing: async () => undefined }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({ rpc: scene.rpc }) }));
+// The by-id session fence has its own tests (native-write-fence, test-session-access).
+vi.mock("@/platform/auth/test-session-access", () => ({ passesFence: async () => true, assertStudentVisible: async () => undefined, assertNotTestAccount: async () => undefined, assertPhotoProposalVisible: async () => undefined }));
 vi.mock("@/modules/collection/data/profile-photo-context", () => ({ photoAuthority: vi.fn(), readPhotoContext: vi.fn(), PHOTO_UUID: /^[0-9a-f-]{36}$/i }));
 vi.mock("@/modules/collection/data/photo-proposals", () => ({ photoOutcome: (data: unknown, error: unknown) => (error ? { ok: false, reason: "refused" } : { ok: true }) }));
 vi.mock("@/modules/collection/data/photos-repo", () => ({ placePhoto: vi.fn() }));

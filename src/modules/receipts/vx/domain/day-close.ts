@@ -21,6 +21,11 @@ export function deskModeOf(paymentMode: string | null | undefined): DeskMode {
     case "cash":
       return "cash";
     case "upi":
+    // A Razorpay Pay now payment is UPI money (the fees app files it under UPI
+    // in the day strip, #103). It fell to "other" here, which this desk leaves
+    // out of the day's total like a discount close-out. Never Cash: the
+    // drawer is checked against cash.
+    case "online":
       return "upi";
     case "cheque":
       return "cheque";

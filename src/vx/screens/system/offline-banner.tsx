@@ -39,7 +39,9 @@ const T = {
   offline: p("You’re offline — what you type is kept on this phone and goes when you’re back. Fees wait until then.", "इंटरनेट नहीं है — जो लिखेंगे वह इस फ़ोन पर रहेगा और इंटरनेट आने पर जाएगा। फीस तब तक रुकेगी।"),
   // Teachers never see fees, so their strip does not mention them (BUG-08).
   offlineTeach: p("You’re offline — what you type is kept on this phone and goes when you’re back.", "इंटरनेट नहीं है — जो लिखेंगे वह इस फ़ोन पर रहेगा और इंटरनेट आने पर जाएगा।"),
-  back: p("Back online · everything is up to date again", "इंटरनेट वापस आ गया · सब फिर से ताज़ा है"),
+  // Not "everything is up to date": screens with waiting saves send them
+  // themselves, and a banner cannot know they have (smoke 20 Oct).
+  back: p("Back online", "इंटरनेट वापस आ गया"),
   retry: p("Try again", "फिर से देखें"),
   checking: p("Checking…", "देख रहे हैं…"),
 };

@@ -139,6 +139,18 @@ export async function writeNote(
   if (error) throw error;
 }
 
+/** A note's own session, for the test-session fence. Null when there is no such note. */
+export async function noteSessionLabel(noteId: string): Promise<string | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(noteId)) return null;
+  const { data, error } = await createAdminClient()
+    .from("notes")
+    .select("session_label")
+    .eq("id", noteId)
+    .maybeSingle<{ session_label: string | null }>();
+  if (error) throw error;
+  return data?.session_label ?? null;
+}
+
 /**
  * Remove a note.
  *

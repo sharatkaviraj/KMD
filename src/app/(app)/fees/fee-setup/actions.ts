@@ -34,6 +34,7 @@ import {
 } from "@/modules/system-sync/domain/office-sync";
 import { publishOfficeSyncEvent } from "@/modules/system-sync/data/office-sync-events";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 
 function parseRequiredString(value: FormDataEntryValue | null, label: string) {
   const normalized = (value ?? "").toString().trim();
@@ -396,6 +397,7 @@ export async function saveWorkbookFeeSetupAction(
     await requireStaffPermission("fees:write");
 
     const payload = parseWorkbookFeeSetupForm(formData);
+    await assertSessionWritable(null, payload.academicSessionLabel);
     const conventionalDiscountPolicies = parseConventionalDiscountRows(formData);
     const intent = parseIntent(formData);
 

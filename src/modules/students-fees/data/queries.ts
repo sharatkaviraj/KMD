@@ -21,6 +21,8 @@ import {
   calculateOverdueBaseAmount,
   calculatePendingLateFeeAmount,
 } from "@/modules/fees/domain/due-amounts";
+import { balanceStatusOn } from "@/modules/fees/domain/due-rule";
+import { formatIsoDateIst } from "@/platform/helpers/date";
 import {
   buildTransportRouteLabel,
   CUSTOM_TRANSPORT_ROUTE_KEY,
@@ -182,6 +184,9 @@ type StudentListInstallmentBalanceRow = {
   /** The late fee still owed here, after waivers and any payment against it. */
   late_fee_pending: number | null;
   balance_status: "paid" | "partial" | "overdue" | "pending" | "waived";
+  due_date: string | null;
+  session_label: string | null;
+  is_carry_forward: boolean | null;
 };
 
 function buildClassLabel(value: {
@@ -745,7 +750,7 @@ async function getStudentsPageUncached(
       supabase
         .from("v_workbook_installment_balances")
         .select(
-          "student_id, installment_no, installment_label, base_charge, paid_amount, adjustment_amount, final_late_fee, pending_amount, late_fee_pending, balance_status",
+          "student_id, installment_no, installment_label, base_charge, paid_amount, adjustment_amount, final_late_fee, pending_amount, late_fee_pending, balance_status, due_date, session_label, is_carry_forward",
         )
         .in("student_id", studentIds)
         // Fees pending OR a late fee still owed. `pending_amount` alone dropped
@@ -854,18 +859,34 @@ async function getStudentsPageUncached(
         row,
       ]);
     });
+    // Overdue as Student 360 reads it: this session's rows and last session's
+    // carried balance, judged by today's date rather than the view's stored
+    // status, which carries the date of its last refresh (smoke 20 Oct: the
+    // list said nothing was pending while Student 360 said ₹7,250).
+    const todayIst = formatIsoDateIst(new Date()) ?? "";
     overdueAmountMap = new Map(
       [...installmentRowsByStudent.entries()].map(([studentId, rows]) => [
         studentId,
         calculateOverdueBaseAmount(
-          rows.map((row) => ({
-            baseCharge: row.base_charge,
-            paidAmount: row.paid_amount,
-            adjustmentAmount: row.adjustment_amount,
-            finalLateFee: row.final_late_fee,
-            pendingAmount: row.pending_amount,
-            balanceStatus: row.balance_status,
-          })),
+          rows
+            .filter((row) => !listSessionLabel || row.session_label === listSessionLabel || row.is_carry_forward === true)
+            .map((row) => ({
+              baseCharge: row.base_charge,
+              paidAmount: row.paid_amount,
+              adjustmentAmount: row.adjustment_amount,
+              finalLateFee: row.final_late_fee,
+              pendingAmount: row.pending_amount,
+              balanceStatus: balanceStatusOn(
+                {
+                  balanceStatus: row.balance_status,
+                  dueDate: row.due_date,
+                  isCarryForward: row.is_carry_forward,
+                  pendingAmount: row.pending_amount,
+                  feeSettledAmount: Math.max(0, row.base_charge - row.pending_amount),
+                },
+                todayIst,
+              ),
+            })),
         ),
       ]),
     );
@@ -1660,7 +1681,34 @@ async function countImportStudentReferences(studentId: string) {
 }
 
 export async function getStudentDeletionSafety(studentId: string): Promise<StudentDeletionSafety | null> {
-  const student = await getStudentDetail(studentId);
+  // The counts only need the id, so they start alongside the student read
+  // instead of after it. That read is request-cached and shared with the
+  // profile's workspace loader, so this does not add a query -- it removes a
+  // round trip of waiting from every profile open.
+  const [student, counts] = await Promise.all([
+    getStudentDetail(studentId),
+    Promise.all([
+      countRows("installments", studentId),
+      countRows("receipts", studentId),
+      countRows("payments", studentId),
+      countRows("payment_adjustments", studentId),
+      countRows("refund_requests", studentId).catch(() => 0),
+      countRows("config_change_blocked_installments", studentId).catch(() => 0),
+      countRows("ledger_regeneration_rows", studentId).catch(() => 0),
+      countImportStudentReferences(studentId).catch(() => 0),
+      countRows("student_fee_overrides", studentId).catch(() => 0),
+      countRows("audit_logs", studentId, "record_id").catch(() => 0),
+      // The five counts below back `on delete restrict` / `no action` foreign keys
+      // that used to be invisible to this check: the delete button was offered and
+      // Postgres then refused the DELETE. The first two block; the rest are cleaned
+      // up by hardDeleteStudent().
+      countRows("receipt_adjustments", studentId).catch(() => 0),
+      countRows("receipt_finance_adjustments", studentId).catch(() => 0),
+      countRows("student_carry_forward_balances", studentId).catch(() => 0),
+      countRows("student_session_reanchor_log", studentId).catch(() => 0),
+      countRows("payment_import_rows", studentId).catch(() => 0),
+    ]),
+  ]);
 
   if (!student) {
     return null;
@@ -1682,27 +1730,8 @@ export async function getStudentDeletionSafety(studentId: string): Promise<Stude
     carryForwardBalanceCount,
     sessionReanchorLogCount,
     paymentImportRowCount,
-  ] = await Promise.all([
-    countRows("installments", studentId),
-    countRows("receipts", studentId),
-    countRows("payments", studentId),
-    countRows("payment_adjustments", studentId),
-    countRows("refund_requests", studentId).catch(() => 0),
-    countRows("config_change_blocked_installments", studentId).catch(() => 0),
-    countRows("ledger_regeneration_rows", studentId).catch(() => 0),
-    countImportStudentReferences(studentId).catch(() => 0),
-    countRows("student_fee_overrides", studentId).catch(() => 0),
-    countRows("audit_logs", studentId, "record_id").catch(() => 0),
-    // The five counts below back `on delete restrict` / `no action` foreign keys
-    // that used to be invisible to this check: the delete button was offered and
-    // Postgres then refused the DELETE. The first two block; the rest are cleaned
-    // up by hardDeleteStudent().
-    countRows("receipt_adjustments", studentId).catch(() => 0),
-    countRows("receipt_finance_adjustments", studentId).catch(() => 0),
-    countRows("student_carry_forward_balances", studentId).catch(() => 0),
-    countRows("student_session_reanchor_log", studentId).catch(() => 0),
-    countRows("payment_import_rows", studentId).catch(() => 0),
-  ]);
+  ] = counts;
+
   const deletePolicy = getStudentDeletePolicy({
     installmentCount,
     receiptCount,

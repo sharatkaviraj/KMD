@@ -3,7 +3,7 @@ import { can } from "@/platform/auth/permissions";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 
-import { academicContext, classDetail, classMarks, classPeople, classResults, classTeacherOf, currentExam, examsOf, marksEntry, needsAttention, staffDirectory, studentDetail, type Exam } from "./data";
+import { academicContext, classDetail, classMarks, classPeople, classResults, classTeacherOf, currentExam, examsOf, lastRegisterDay, marksEntry, needsAttention, staffDirectory, studentDetail, type Exam } from "./data";
 import { subjectName, type AttentionReason } from "./domain";
 import { AcadProgressView, type AcadProgressProps } from "./progress-view";
 import { sayer } from "./ui";
@@ -40,7 +40,7 @@ export async function AcadProgress(props: Props) {
   const chosen = exams.find((e) => e.code === props.exam) ?? currentExam(exams, ctx.today).current;
   const idx = chosen ? exams.indexOf(chosen) : -1;
   const previous = idx > 0 ? exams[idx - 1] : null;
-  const attention = await needsAttention(ctx);
+  const [attention, attTill] = await Promise.all([needsAttention(ctx), lastRegisterDay(ctx)]);
   const view = ["class", "student", "compare", "attention", "plan"].includes(props.view ?? "") ? props.view! : "overview";
   const tab = (e: Exam) => ({ code: e.code, label: examLabel(e, language) });
   // "X% entered" is the marks tracker's number (marksEntry), not a share of
@@ -50,6 +50,7 @@ export async function AcadProgress(props: Props) {
   const common = {
     language,
     today: ctx.today,
+    attTill,
     session: ctx.session.replace("-", "–"),
     exams: exams.filter((e) => e.startsOn <= ctx.today).map(tab),
     exam: chosen ? tab(chosen) : null,

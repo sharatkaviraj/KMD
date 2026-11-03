@@ -77,6 +77,14 @@ const SUBJECT_HI: Record<string, string> = {
   "political science": "राजनीति विज्ञान",
   "general studies": "सामान्य अध्ययन",
   elga: "अंग्रेज़ी भाषा",
+  sports: "खेल",
+  games: "खेल",
+  pe: "शारीरिक शिक्षा",
+  "physical education": "शारीरिक शिक्षा",
+  "notebook checking": "कॉपी जाँच",
+  "self study": "स्व-अध्ययन",
+  robotics: "रोबोटिक्स",
+  ccs: "सह-शैक्षिक गतिविधियाँ",
 };
 
 /** A subject's name in both languages, as far as the school's list knows it. */

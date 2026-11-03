@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { assertClassVisible, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { saveRegisterCommand, studentNames } from "@/modules/attendance/data/attendance-repo";
@@ -13,9 +14,10 @@ import { registerAuthority, saveRegisterSchema, type SaveRegisterInput } from "@
 import { attendanceRefusals } from "@/modules/attendance/domain/attendance-receipt";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
+import { cancelQueuedStaffNotices, queueStaffNotice } from "@/modules/staff-notices/data/enqueue";
 import { schoolToday } from "@/vx/format";
 import { academicContext, attendanceOn, marksEntry, planHiddenFrom, staffDirectory, weekFacts } from "@/vx/screens/academics/data";
-import { isUuid, weeklySummaryLine } from "@/vx/screens/academics/domain";
+import { isUuid, weeklySummaryKey, weeklySummaryLine } from "@/vx/screens/academics/domain";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -29,6 +31,9 @@ import { assertNotPreviewing } from "@/vx/view-as";
 export type ActionResult = { ok: boolean; text: Pair; ids?: string[] };
 
 const fail = (en: string, hi: string): ActionResult => ({ ok: false, text: p(en, hi) });
+
+/** A record in a session this reader may not write — said like "not found". */
+const NOT_YOURS = p("That record could not be found.", "यह रिकॉर्ड नहीं मिला।");
 
 function revalidateAcademics() {
   revalidatePath("/academics");
@@ -47,7 +52,7 @@ function revalidateAcademics() {
 export async function remindRegistersAction(classIds: string[]): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
-  const ctx = await academicContext(actor);
+  const ctx = await academicContext(actor, { writes: true });
   if (!ctx) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
   const day = await attendanceOn(ctx, ctx.today);
   if (day.closed) return fail("School is closed today.", "आज विद्यालय बंद है।");
@@ -77,73 +82,57 @@ export async function remindRegistersAction(classIds: string[]): Promise<ActionR
 
 /* ------------------------------------------------------ remind about marks */
 
-async function staffTemplate(code: string) {
-  const { data } = await createAdminClient()
-    .from("message_templates")
-    .select("id, body_hi, body_en, audience, is_active")
-    .eq("code", code)
-    .maybeSingle<{ id: string; body_hi: string; body_en: string; audience: string; is_active: boolean }>();
-  if (!data || data.audience !== "staff" || data.is_active === false) return null;
-  return data;
-}
-
-function fill(body: string, variables: string[]): string {
-  return body.replace(/\{\{(\d+)\}\}/g, (_, n: string) => variables[Number(n) - 1] ?? "");
-}
-
 /**
  * WhatsApp each late teacher once, naming every paper of hers still open. A
- * staff message, queued for the dispatcher; undo cancels what has not gone.
+ * staff notice in the outbox (go-live Phase F: it used to be a message_sends
+ * row somebody had to send by hand); the dispatcher asks consent and the
+ * limits when it sends. Undo cancels what has not gone.
  */
 export async function remindMarksAction(teacherIds: string[]): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
-  const ctx = await academicContext(actor);
+  const ctx = await academicContext(actor, { writes: true });
   if (!ctx) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
-  const [entry, staff, template] = await Promise.all([marksEntry(ctx), staffDirectory(), staffTemplate("vppsone_marks_reminder")]);
-  if (!template) return fail("The marks reminder template is not set up.", "अंक रिमाइंडर का टेम्पलेट नहीं है।");
+  const [entry, staff] = await Promise.all([marksEntry(ctx), staffDirectory()]);
   const wanted = new Set(teacherIds.filter(isUuid));
   const late = entry.late.filter((t) => wanted.size === 0 || wanted.has(t.teacherId));
-  const rows = late.flatMap((t) => {
-    const person = staff.get(t.teacherId);
-    const phone = person?.whatsapp_phone ?? person?.phone ?? null;
-    if (!person || !phone) return [];
-    const variables = [person.display_name, t.papers.map((paper) => `${paper.classLabel} ${paper.subject}`).sort().join(", ")];
-    return [
-      {
-        session_label: ctx.session,
-        template_id: template.id,
-        to_phone: phone,
-        to_name: person.display_name,
-        staff_profile_id: person.id,
-        variables,
-        rendered_hi: fill(template.body_hi, variables),
-        rendered_en: fill(template.body_en, variables),
-        status: "queued",
-        requested_by: actor.id,
-      },
-    ];
-  });
-  if (rows.length === 0) return fail("Nobody to remind — no late teacher has a phone on file.", "किसी को याद दिलाने के लिए फ़ोन नंबर नहीं।");
-  const { data, error } = await createAdminClient().from("message_sends").insert(rows).select("id").returns<{ id: string }[]>();
-  if (error) return fail("Could not queue the reminders.", "रिमाइंडर कतार में नहीं डाले जा सके।");
+  const commandId = randomUUID();
+  const ids: string[] = [];
+  try {
+    for (const t of late) {
+      const person = staff.get(t.teacherId);
+      if (!person) continue;
+      const id = await queueStaffNotice({
+        key: `marks:${commandId}:${person.id}`,
+        kind: "marks_reminder",
+        staffId: person.id,
+        sessionLabel: ctx.session,
+        payload: { papers: t.papers.map((paper) => `${paper.classLabel} ${paper.subject}`).sort().join(", ") },
+        notAfter: new Date(Date.now() + 2 * 86_400_000),
+        requestedBy: actor.id,
+      });
+      if (id) ids.push(id);
+    }
+  } catch {
+    return fail("Could not queue the reminders.", "रिमाइंडर कतार में नहीं डाले जा सके।");
+  }
+  if (ids.length === 0) return fail("Nobody to remind.", "याद दिलाने के लिए कोई नहीं।");
+  await dispatchStaffNotices({ max: ids.length + 5 }).catch(() => null);
   revalidateAcademics();
-  return { ok: true, ids: data.map((row) => row.id), text: p(`Reminded ${rows.length} ${rows.length === 1 ? "teacher" : "teachers"} on WhatsApp.`, `${rows.length} शिक्षकों को WhatsApp पर याद दिलाया।`) };
+  return { ok: true, ids, text: p(`Reminded ${ids.length} ${ids.length === 1 ? "teacher" : "teachers"} on WhatsApp.`, `${ids.length} शिक्षकों को WhatsApp पर याद दिलाया।`) };
 }
 
-/** Undo: cancel the reminders just queued, if they have not gone yet. */
+/** Undo: take back the reminders just queued, if they have not gone yet. */
 export async function cancelRemindersAction(ids: string[]): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
   const wanted = ids.filter(isUuid);
   if (wanted.length === 0) return fail("Nothing to undo.", "वापस लेने को कुछ नहीं।");
-  const { error } = await createAdminClient()
-    .from("message_sends")
-    .update({ status: "cancelled" })
-    .in("id", wanted)
-    .eq("requested_by", actor.id)
-    .in("status", ["draft", "queued"]);
-  if (error) return fail("Could not undo.", "वापस नहीं लिया जा सका।");
+  try {
+    await cancelQueuedStaffNotices(wanted, actor.id);
+  } catch {
+    return fail("Could not undo.", "वापस नहीं लिया जा सका।");
+  }
   revalidateAcademics();
   return { ok: true, text: p("Reminders cancelled.", "रिमाइंडर रद्द।") };
 }
@@ -158,31 +147,38 @@ export async function cancelRemindersAction(ids: string[]): Promise<ActionResult
 export async function sendWeeklySummaryAction(input: { long?: boolean; extra?: string | null } = {}): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
-  const ctx = await academicContext(actor);
+  const ctx = await academicContext(actor, { writes: true });
   if (!ctx) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
-  const [week, staff, template] = await Promise.all([weekFacts(ctx), staffDirectory(), staffTemplate("vppsone_weekly_summary")]);
-  if (!template) return fail("The weekly summary template is not set up.", "साप्ताहिक सारांश का टेम्पलेट नहीं है।");
+  const [week, staff] = await Promise.all([weekFacts(ctx), staffDirectory()]);
   const admins = [...staff.values()].filter((s) => s.role === "admin" && s.is_active && (s.whatsapp_phone ?? s.phone));
   if (admins.length === 0) return fail("No principal has a phone on file.", "प्रधानाचार्य का फ़ोन नंबर नहीं है।");
   const summary = weeklySummaryLine(week.facts, { long: input?.long !== false, extra: typeof input?.extra === "string" ? input.extra : null });
-  const rows = admins.map((a) => {
-    const variables = [a.display_name, summary, actor.displayName];
-    return {
-      session_label: ctx.session,
-      template_id: template.id,
-      to_phone: (a.whatsapp_phone ?? a.phone)!,
-      to_name: a.display_name,
-      staff_profile_id: a.id,
-      variables,
-      rendered_hi: fill(template.body_hi, variables),
-      rendered_en: fill(template.body_en, variables),
-      status: "queued",
-      requested_by: actor.id,
-    };
-  });
-  const { data, error } = await createAdminClient().from("message_sends").insert(rows).select("id").returns<{ id: string }[]>();
-  if (error) return fail("Could not send the summary.", "सारांश नहीं भेजा जा सका।");
-  return { ok: true, ids: data.map((row) => row.id), text: p(`Weekly summary sent to ${admins.map((a) => a.display_name).join(", ")}.`, `साप्ताहिक सारांश ${admins.map((a) => a.display_name).join(", ")} को भेजा।`) };
+  // A staff notice in the outbox (go-live Phase F), no longer a message_sends
+  // row to send by hand. A summary is the same week's: one per week per admin,
+  // keyed by the session and the week's Monday, so a second press queues
+  // nothing (the outbox is idempotent on the key).
+  const ids: string[] = [];
+  try {
+    for (const a of admins) {
+      const id = await queueStaffNotice({
+        key: weeklySummaryKey(ctx.session, week.monday, a.id),
+        kind: "weekly_summary",
+        staffId: a.id,
+        sessionLabel: ctx.session,
+        payload: { summary, from: actor.displayName },
+        notAfter: new Date(Date.now() + 3 * 86_400_000),
+        requestedBy: actor.id,
+      });
+      if (id) ids.push(id);
+    }
+  } catch {
+    return fail("Could not send the summary.", "सारांश नहीं भेजा जा सका।");
+  }
+  if (ids.length === 0) {
+    return fail("This week's summary has already been sent.", "इस सप्ताह का सारांश पहले ही भेजा जा चुका है।");
+  }
+  await dispatchStaffNotices({ max: ids.length + 5 }).catch(() => null);
+  return { ok: true, ids, text: p(`Weekly summary sent to ${admins.map((a) => a.display_name).join(", ")}.`, `साप्ताहिक सारांश ${admins.map((a) => a.display_name).join(", ")} को भेजा।`) };
 }
 
 /* ------------------------------------------------------------ follow-ups */
@@ -206,6 +202,9 @@ export async function saveFollowupAction(input: { studentId: string; kind: strin
   const note = (input.note ?? "").trim().slice(0, 400) || null;
   const session = await resolveSessionLabel();
   if (!session) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
+  // The child's own session, not only the one resolved (Phase 3 fence): a test
+  // account never writes about a real child, nor real staff about a TEST one.
+  if (!(await passesFence(() => assertStudentVisible(actor, input.studentId)))) return { ok: false, text: NOT_YOURS };
   const { error } = await createAdminClient()
     .from("student_followups")
     .insert({ session_label: session, student_id: input.studentId, kind, outcome, note, owner_staff_id: isUuid(input.ownerId) ? input.ownerId : null, created_by: actor.id });
@@ -235,6 +234,7 @@ export async function savePlanAction(input: { studentId: string; goal: string; s
   if (!isUuid(input.studentId)) return fail("Choose a child.", "बच्चा चुनें।");
   const session = await resolveSessionLabel();
   if (!session) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
+  if (!(await passesFence(() => assertStudentVisible(actor, input.studentId)))) return { ok: false, text: NOT_YOURS };
   const scope = await classScopeFor(actor, session);
   const admin = createAdminClient();
   const { data: enrolment } = await admin.from("enrolments").select("class_id").eq("session_label", session).eq("student_id", input.studentId).eq("status", "enrolled").maybeSingle<{ class_id: string }>();
@@ -296,13 +296,22 @@ export async function savePlanAction(input: { studentId: string; goal: string; s
     }
   }
   revalidateAcademics();
-  return { ok: true, text: status === "active" ? p("Plan started. Owners will see their steps.", "योजना शुरू। ज़िम्मेदार लोग अपने कदम देखेंगे।") : p("Plan saved as a draft.", "योजना ड्राफ़्ट के रूप में सहेजी।") };
+  return { ok: true, text: status === "active" ? p("Plan started. Owners will see their steps.", "योजना शुरू। ज़िम्मेदार लोग अपने कदम देखेंगे।") : p("Plan saved as a draft.", "योजना सहेजी, अभी शुरू नहीं हुई।") };
 }
 
 export async function toggleStepAction(stepId: string, done: boolean): Promise<ActionResult> {
   const actor = await assertPermission("academics:manage");
   await assertNotPreviewing();
   if (!isUuid(stepId)) return fail("Choose a step.", "कदम चुनें।");
+  // The step names a plan, and the plan a child: that child's session decides.
+  const { data: step } = await createAdminClient()
+    .from("support_plan_steps")
+    .select("plan:support_plans!inner(student_id)")
+    .eq("id", stepId)
+    .maybeSingle<{ plan: { student_id: string } | null }>();
+  if (!step?.plan) return fail("Choose a step.", "कदम चुनें।");
+  const studentId = step.plan.student_id;
+  if (!(await passesFence(() => assertStudentVisible(actor, studentId)))) return { ok: false, text: NOT_YOURS };
   const { error } = await createAdminClient()
     .from("support_plan_steps")
     .update(done ? { done_at: new Date().toISOString(), done_by: actor.id } : { done_at: null, done_by: null })
@@ -345,6 +354,7 @@ export async function markRegisterAction(payload: unknown): Promise<ActionResult
   const parsed = saveRegisterSchema.safeParse(payload);
   if (!parsed.success) return fail("Mark every child before saving.", "सहेजने से पहले हर बच्चे की हाज़िरी लगाएँ।");
   if (parsed.data.day !== schoolToday() && parsed.data.kind === "save") return fail("Only today's register can be marked here.", "यहाँ केवल आज का रजिस्टर दर्ज होता है।");
+  if (!(await passesFence(() => assertClassVisible(actor, parsed.data.classId)))) return { ok: false, text: NOT_YOURS };
   const held = await heldClassIds(actor.id, session);
   const authority = registerAuthority({
     isOwner: held.includes(parsed.data.classId),

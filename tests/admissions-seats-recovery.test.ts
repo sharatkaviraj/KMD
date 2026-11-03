@@ -1,10 +1,22 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ permission: vi.fn(), preview: vi.fn(), context: vi.fn(), save: vi.fn() }));
+// The test-session fence (Phase 3) has its own tests; here it lets everything through.
+vi.mock("@/platform/auth/test-session-access", () => ({
+  assertSessionWritable: async () => {},
+  assertSessionVisible: async () => {},
+  assertStudentVisible: async () => {},
+  assertReceiptVisible: async () => {},
+  assertFamilyVisible: async () => {},
+  notFoundUnlessVisible: async (check: () => Promise<void>) => check(),
+  refusalResponse: async () => null,
+  currentSessionViewer: async () => null,
+  filterVisibleStudentIds: async (_staff: unknown, ids: string[]) => ids,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: state.permission }));
 vi.mock("@/vx/view-as", () => ({ assertNotPreviewing: state.preview }));
 vi.mock("@/modules/enrolments/data/enrolments-repo", () => ({ syncStudentEnrolments: vi.fn() }));
-vi.mock("@/modules/students-fees/vx/admissions", () => ({ loadAdmissionsFeeContext: state.context }));
+vi.mock("@/modules/students-fees/vx/admissions", () => ({ loadAdmissionsRosterContext: state.context }));
 vi.mock("@/vx/screens/admissions/data", () => ({ saveSeats: state.save }));
 import { saveSeatsAction } from "@/app/(app)/admissions/actions";
 beforeEach(() => { vi.resetAllMocks(); state.permission.mockResolvedValue({ id: "qa-admin" }); state.context.mockResolvedValue({ sessionLabel: "QA-2026-27", classes: [{ id: "qa-class" }] }); });

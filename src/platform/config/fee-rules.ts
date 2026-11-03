@@ -103,6 +103,8 @@ export const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
   bank_transfer: "Bank transfer",
   cheque: "Cheque",
   discount: "Discount",
+  // Posted only by the online entry point, never offered at the desk.
+  online: "Online (Razorpay)",
 };
 
 export function formatPaymentModeLabel(value: PaymentMode) {

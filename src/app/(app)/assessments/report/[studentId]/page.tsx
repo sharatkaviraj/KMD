@@ -23,6 +23,7 @@ import { EmptyState } from "@/ui/states";
 import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { PageHeader } from "@/ui/page-header-localized";
 import Link from "next/link";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,7 @@ export default async function ReportCardPage(
   const params = await props.searchParams;
 
   const sessionLabel = await resolveSessionLabel();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId)) await notFoundUnlessVisible(() => assertStudentVisible(staff, studentId));
 
   if (!sessionLabel) {
     return (

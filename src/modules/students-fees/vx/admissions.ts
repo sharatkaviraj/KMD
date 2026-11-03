@@ -18,6 +18,8 @@ import { toStudentInfoFormValues } from "@/modules/students-fees/domain/info-fie
 import type { StudentFormActionState } from "@/modules/students-fees/domain/types";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
+import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 
 /*
  * Fee-side reads and writes behind the redesigned Admissions screens
@@ -149,6 +151,21 @@ export async function loadAdmissionsFeeContext(): Promise<AdmissionsFeeContext> 
     lateFee: policy.lateFeeFlatAmount,
     today: todayIst(),
   };
+}
+
+/** One owns enquiries and seat capacity; these need roster data, never a fee quote. */
+export async function loadAdmissionsRosterContext():Promise<{sessionLabel:string;classes:Omit<AdmClass,"tuition">[];today:string}> {
+  await requireStaffPermission("students:write");
+  const {sessionLabel}=await resolveViewSession({cookieSession:await getViewSessionCookie()});
+  const admin=createAdminClient();
+  const {data,error}=await admin.from("classes").select("id,class_name,section,stream_name,sort_order").eq("session_label",sessionLabel).eq("status","active").order("sort_order").returns<ClassRow[]>();
+  if(error)throw new Error("The live class roster is unavailable.");
+  const classes=data??[];
+  const roll=await fetchInChunks<{class_id:string}>(classes.map(row=>row.id),IN_FILTER_CHUNK_SIZE,chunk=>admin.from("students").select("class_id").eq("status","active").in("class_id",chunk).range(0,9999));
+  if(roll.error)throw new Error("The live student roster is unavailable.");
+  const counts=new Map<string,number>();
+  for(const row of roll.data)counts.set(row.class_id,(counts.get(row.class_id)??0)+1);
+  return {sessionLabel,today:todayIst(),classes:classes.map((row,index)=>({id:row.id,label:classLabel(row),sortOrder:row.sort_order??index,onRoll:counts.get(row.id)??0}))};
 }
 
 export type RecentAdmission = {

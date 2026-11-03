@@ -8,6 +8,8 @@ vi.mock("next/cache", () => ({ revalidatePath: scene.revalidate }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "OPS-TEST" }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: async () => scene.staff }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+// The by-id session fence has its own tests (native-write-fence, test-session-access).
+vi.mock("@/platform/auth/test-session-access", () => ({ passesFence: async () => true, assertStudentVisible: async () => undefined }));
 vi.mock("@/vx/view-as", () => ({ assertNotPreviewing: async () => undefined }));
 vi.mock("@/vx/screens/exams/data", () => ({ logActivity: scene.activity, paperById: async () => ({ assessment_id: "synthetic-exam", class_label: "QA Class", subject_code: "Maths" }) }));
 vi.mock("@/vx/screens/exams/guards", () => ({ previewRefusal: async () => null, mayEnterPaper: async () => true, isManager: () => false, classTeacherOf: async () => [], newToken: vi.fn(), NOT_YOURS: { en: "Not yours", hi: "QA" } }));

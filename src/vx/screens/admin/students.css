@@ -22,7 +22,7 @@
 .stu-sort{height:32px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--mut);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;display:inline-flex;align-items:center;gap:4px;line-height:1.15;text-align:left}
 .stu-sort[data-on]{color:var(--fg)}
 .stu-sort:hover{background:var(--s3)}
-.stu-row{display:grid;align-items:center;min-height:62px;padding:0 12px;border-top:1px solid var(--bd);transition:background-color .18s ease;animation:xIn .35s var(--ease) both;cursor:pointer}
+.stu-row{display:grid;align-items:center;min-height:62px;padding:0 12px;border-top:1px solid var(--bd);transition:background-color .18s ease;animation:xFade .18s ease both;cursor:pointer}
 .stu-row:hover{background:var(--s2)}
 .stu-row.sel{background:var(--accs)}
 .stu-td{padding:0 8px;font-size:13px;min-width:0}
@@ -79,7 +79,8 @@
 
 /* phone: compact lines and By class */
 .stu-clist{padding:0;overflow:hidden;border-radius:18px}
-.stu-cline{border-radius:0;border-top:1px solid var(--bd);animation:xIn .3s var(--ease) both}
+.stu-cline{border-radius:0;border-top:1px solid var(--bd);animation:xFade .18s ease both}
+.stu-swipe.rise{animation-name:xFade;animation-duration:.18s}
 .stu-cline:first-child{border-top:0}
 .stu-crow{flex:none;width:100%;min-height:50px;display:flex;align-items:center;gap:10px;padding:8px 14px;color:var(--fg);background:var(--card);scroll-snap-align:start}
 .stu-cmeta{flex:none;max-width:38%;font-size:12px;color:var(--mut)}

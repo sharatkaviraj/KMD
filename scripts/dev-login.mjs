@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 import { QA_ACCOUNTS, QA_EMAIL_DOMAIN } from "../tests/fixtures/qa-accounts.ts";
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { assertTestAccountUser, toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -57,10 +57,8 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
-  console.error("Refusing to run: .env.local is not the dev project (rule 3).");
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only, and on production confined to TEST-2026-27 and test accounts.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "dev-login", mode: "test-scoped" });
 
 const [whoArg, nextArg] = process.argv.slice(2);
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3000";
@@ -100,6 +98,8 @@ if (error) {
   console.error(`Could not mint a link for ${email}: ${error.message}`);
   process.exit(1);
 }
+
+await assertTestAccountUser({ scope, url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, userId: data.user?.id, email: email });
 
 // The link Supabase hands back points at *its* verify endpoint, which then
 // bounces to whatever `redirect_to` it was configured with. Going straight to

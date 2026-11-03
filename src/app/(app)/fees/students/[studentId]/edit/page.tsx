@@ -32,6 +32,7 @@ import {
 
 import { updateStudentAction } from "../../actions";
 import { safeReturnTo } from "@/platform/navigation/return-to";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 const REPAYMENT_SCOPES = REPAYMENT_PLAN_SCOPES;
 
@@ -104,6 +105,8 @@ export default async function EditStudentPage({ params, searchParams }: EditStud
   if (!isUuid(resolvedParams.studentId)) {
     notFound();
   }
+  // A student in a session this viewer cannot open reads as not found (Phase 3).
+  await notFoundUnlessVisible(() => assertStudentVisible(null, resolvedParams.studentId));
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const returnTo = safeReturnTo(resolvedSearchParams?.returnTo, "/fees/students");
   const student = await getStudentDetail(resolvedParams.studentId);

@@ -15,7 +15,8 @@
 :where(.vx,.vxt) .tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
 :where(.vx,.vxt) .tap:active{transform:scale(.97)}
 :where(.vx,.vxt) .lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
-:where(.vx,.vxt) .lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+@media(hover:hover) and (pointer:fine){:where(.vx,.vxt) .lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}}
+:where(.vx,.vxt) .row.tap:active{transform:none}
 :where(.vx,.vxt) .i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 :where(.vx,.vxt) .card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
 :where(.vx,.vxt) .chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
@@ -76,8 +77,8 @@
 :where(.vx,.vxt) .scrim.open{animation:xFade .25s ease both}
 :where(.vx,.vxt) .scrim.closing{animation:xOut .22s ease forwards}
 :where(.vx,.vxt) .sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
-:where(.vx,.vxt) .sheet.open{animation:xUp .42s var(--ease) both}
-:where(.vx,.vxt) .sheet.closing{animation:xDown .24s var(--ease) forwards}
+:where(.vx,.vxt) .sheet.open{animation:xUp .3s var(--ease) both}
+:where(.vx,.vxt) .sheet.closing{animation:xDown .18s var(--ease) forwards}
 :where(.vx,.vxt) .grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
 :where(.vx,.vxt) .toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
 :where(.vx,.vxt) .toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
@@ -98,7 +99,7 @@
 @keyframes xDraw{from{stroke-dashoffset:var(--len)}}
 @keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
 @keyframes xLoop{to{transform:rotate(360deg)}}
-@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPulse{0%,100%{opacity:1}50%{opacity:.55}}
 @keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
 @keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
 @keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
@@ -144,7 +145,8 @@
 .vx-shell>.vx-content{flex:1;min-width:0;display:flex;flex-direction:column;min-height:100dvh}
 .vx-legacy{flex:1;min-width:0;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
 @media (min-width:900px){.vx-legacy{padding:22px 28px 40px}}
-.vx-bottom{position:fixed;left:0;right:0;bottom:0;z-index:40;padding-bottom:env(safe-area-inset-bottom)}
+/* Safe-area padding is separate from the layout/visual viewport gap published by the app's existing provider. */
+.vx-bottom{position:fixed;left:0;right:0;bottom:var(--keyboard-offset,0px);z-index:40;padding-bottom:env(safe-area-inset-bottom)}
 @media (max-width:899px){.vx-shell>.vx-side{display:none!important}}
 @media (min-width:900px){.vx-bottom{display:none!important}}
 .vx-page{display:flex;flex-direction:column;min-height:100dvh}
@@ -162,7 +164,7 @@
   .vx-layer .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86dvh;border-radius:22px;transform:translate(-50%,-50%);padding-bottom:0}
   .vx-layer .sheet.wide{width:760px}
   .vx-layer .sheet.open{animation:xModal .3s var(--ease) both}
-  .vx-layer .sheet.closing{animation:xModalOut .2s var(--ease) forwards}
+  .vx-layer .sheet.closing{animation:xModalOut .18s var(--ease) forwards}
   .vx-layer .grab{display:none}
   .vx-layer .only-m{display:none!important}
 }
@@ -186,6 +188,10 @@
 .vx-skip:focus{top:12px}
 .vx-preview{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--warns);color:var(--warnfg);font-size:13px;font-weight:600;border-bottom:1px solid var(--bd)}
 @media print{.vx-preview,.vx-skip{display:none!important}}
+/* The session pill (Phase 3): its own slim bar, since screens draw their own top bars. */
+@media print{.vx-sessionbar{display:none!important}}
+.vx-confined{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#c026d3;color:#fff;font-size:13px;font-weight:600}
+@media print{.vx-confined{display:none!important}}
 .vx-large .vx-main{zoom:1.125}
 
 /* ---- Older screens in the design's frame (docs/ui/DECISIONS.md UI-73) ---------------
@@ -235,3 +241,22 @@
 /* The phone bottom bar's height, for anything that sits on it (phone action bars). */
 :root{--vx-bottom-h:calc(76px + env(safe-area-inset-bottom))}
 @media (min-width:900px){:root{--vx-bottom-h:0px}}
+
+/* ---- Touch: a 44px hit area (smoke 20 Oct, dev.groups[22]) --------------------------
+   On a phone or tablet every control a finger presses is at least 44 × 44 px. A mouse
+   keeps the design's density: the rule is for coarse pointers only. A visual switch
+   track (`.sw`) keeps its drawn size; its row is the target. */
+@media (pointer:coarse){
+  :where(.vx,.vxt) :is(button,a,summary,label,[role=button],[role=tab],[role=radio],[role=switch],[role=checkbox],[role=link]).tap:not(.sw){min-height:44px;min-width:44px}
+  :where(.vx,.vxt) .icon-btn{width:44px;height:44px}
+  :where(.vx,.vxt) .vx-lnk{min-height:44px}
+}
+/* A text link or text button inside a line ("Mark away", "My requests"): a real hit area
+   without looking like a button. Use `className="tap vx-lnk"`. */
+:where(.vx,.vxt) .vx-lnk{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 8px;border:0;border-radius:10px;background:transparent;color:var(--acc);font:inherit;font-weight:600;cursor:pointer}
+:where(.vx,.vxt) .vx-lnk:hover{background:var(--s2)}
+
+/* ---- The language control (src/vx/ui/language.tsx) ----------------------------------- */
+:where(.vx,.vxt) .vx-lang{grid-template-columns:repeat(3,minmax(0,1fr));width:156px;flex:none}
+:where(.vx,.vxt) .vx-lang>button{height:32px;padding:0 4px;font-size:12.5px}
+:where(.vx,.vxt) .vx-langb{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;height:44px;padding:0 10px;border-radius:22px;border:1px solid var(--bd);background:var(--s2);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap}

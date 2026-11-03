@@ -1,11 +1,17 @@
 "use server";
 
-import { parseCampaignSchedule } from "@/modules/whatsapp/domain/campaign-schedule";
+import {
+  isPlanManagedSchedule,
+  parseCampaignSchedule,
+  SCHEDULED_SENDS_LIVE,
+} from "@/modules/whatsapp/domain/campaign-schedule";
 import { revalidatePath } from "next/cache";
 
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertClassVisible } from "@/platform/auth/test-session-access";
 import {
+  getCampaign,
   archiveCampaign,
   saveCampaign,
   type SavedCampaignFilters,
@@ -68,9 +74,9 @@ export async function saveCampaignAction(
    *
    * `savedAudienceFrom` rather than an object literal, so the ONE reader of a
    * stored campaign's audience is also the one writer's shape — and the
-   * `installments` value (`1,2` or `last_year`) goes through the same reader
-   * the URL uses. A field the form does not carry takes the default a bare
-   * screen opens on.
+   * `installments` value (`1,2`, `last_year`, or `1,2` with "Add last year's
+   * balance" ticked) goes through the same reader the URL uses. A field the
+   * form does not carry takes the default a bare screen opens on.
    *
    * Hand-picked students are deliberately absent: a saved campaign is a
    * standing rule a nightly cron replays, and an included student bypasses both
@@ -78,6 +84,7 @@ export async function saveCampaignAction(
    */
   const filters: SavedCampaignFilters = savedAudienceFrom({
     installments: formData.get("installments"),
+    lastYear: formData.get("lastYear") === "on" || undefined,
     installmentMatch: formData.get("installmentMatch"),
     paid: formData.get("paid"),
     minDueAmount: number("minDueAmount", 1),
@@ -86,6 +93,9 @@ export async function saveCampaignAction(
     skipOverdue: formData.get("skipOverdue") === "on",
     classId: String(formData.get("classId") ?? "").trim() || null,
     includeRte: formData.get("includeRte") === "on",
+    // Checkboxes, one per profile. None ticked reads as the default rather
+    // than "nobody" — `savedAudienceFrom` refuses an empty selection.
+    profiles: formData.getAll("profiles").map(String),
   });
 
   // Stored as ISO so Postgres can hold it as a date; the screen formats it back.
@@ -100,6 +110,9 @@ export async function saveCampaignAction(
   let sessionLabel: string;
   try {
     sessionLabel = await resolveReminderSessionLabel(supabase);
+    // A class filter must be in that session (Phase 3 fence).
+    const campaignClassId = String(formData.get("classId") ?? "").trim();
+    if (campaignClassId) await assertClassVisible(null, campaignClassId);
   } catch (caught) {
     return {
       status: "error",
@@ -108,6 +121,13 @@ export async function saveCampaignAction(
   }
 
   const existingId = String(formData.get("campaignId") ?? "").trim() || undefined;
+  // A step of the Reminder plan keeps the schedule the plan gave it — see
+  // `isPlanManagedSchedule`. Rebuilt from this form it lost its step and its
+  // printed-date offset, and an "Inst 4 · Final notice" became an overdue
+  // notice scheduled before installment 4 was even due.
+  const stored = existingId
+    ? parseCampaignSchedule((await getCampaign(supabase, existingId).catch(() => null))?.schedule)
+    : null;
 
   try {
     const result = await saveCampaign(
@@ -122,7 +142,7 @@ export async function saveCampaignAction(
         lateFeeAmount: number("lateFeeAmount", 0),
         lateFeeBasis: (isLateFeeBasis(rawBasis) ? rawBasis : DEFAULT_LATE_FEE_BASIS) as LateFeeBasis,
         lateFeeSource,
-        schedule: scheduleFromForm(formData),
+        schedule: isPlanManagedSchedule(stored) ? { ...stored } : scheduleFromForm(formData),
       },
       (staff?.id as string | undefined) ?? null,
       existingId,
@@ -192,7 +212,8 @@ function scheduleFromForm(formData: FormData): Record<string, unknown> | null {
     offsetDays: Number.isFinite(offsetDays) ? Math.trunc(offsetDays) : 0,
     // Only a ticked box turns it on. A campaign must never start sending itself
     // because a value was absent.
-    auto: formData.get("scheduleAuto") === "on",
+    // ...and never while the timer is off (`SCHEDULED_SENDS_LIVE`).
+    auto: SCHEDULED_SENDS_LIVE && formData.get("scheduleAuto") === "on",
   };
 
   const parsed = parseCampaignSchedule(candidate);

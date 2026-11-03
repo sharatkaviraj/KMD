@@ -9,6 +9,8 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { heldClassIds, ownClassIds } from "@/modules/attendance/data/teaching-repo";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
+import { tellApartWithin } from "@/vx/domain/tell-apart";
+import type { Pair } from "@/vx/text";
 import { childBasics, enrolledIn, staffNames } from "@/vx/screens/teach/students";
 import {
   canSeeNote,
@@ -111,13 +113,24 @@ async function enrich(rows: NoteRow[], sessionLabel: string): Promise<BoardNote[
   for (const r of replies.data) replyCount.set(r.note_id, (replyCount.get(r.note_id) ?? 0) + 1);
   const planOf = new Map<string, string>();
   for (const p of plans.data) if (p.note_id) planOf.set(p.note_id, p.id);
+  // Two children of one class who share a name, both with notes, get their
+  // SR number and father under the name (smoke 20 Oct, dev.groups[11]).
+  const children = new Map<string, { id: string; classId: string; name: string; admissionNo: string | null; fatherName: string | null }>();
+  for (const r of rows) {
+    const kid = r.student_id ? kids.get(r.student_id) : undefined;
+    if (kid) children.set(kid.id, { id: kid.id, classId: r.class_id ?? "", name: kid.fullName, admissionNo: kid.admissionNo, fatherName: kid.fatherName });
+  }
+  const apart = tellApartWithin([...children.values()], (k) => k.classId);
 
   return rows.map((r) => {
     const tags = (r.tags ?? []).filter(isTag);
     return {
       id: r.id,
       studentId: r.student_id,
-      studentName: r.student_id ? (kids.get(r.student_id)?.fullName ?? "—") : "—",
+      // Empty for a note about a whole class (no child) or a child whose
+      // record is gone: noteSubject() says which, in the reader's language.
+      studentName: r.student_id ? (kids.get(r.student_id)?.fullName ?? "") : "",
+      studentHint: r.student_id ? (apart.get(r.student_id) ?? null) : null,
       classId: r.class_id,
       classLabel: r.class_id ? (labels.get(r.class_id) ?? "—") : "—",
       body: r.body,
@@ -325,6 +338,8 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
         .returns<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds" | "body">[]>(),
     );
     if (sourceError) throw new Error("Could not read the support plans.");
+    const sourceIds = new Set(sources.map((source) => source.id));
+    if (fromNotes.some((id) => !sourceIds.has(id))) throw new Error("Could not read the support plans.");
     const hidden = new Set(
       sources
         .filter((n) => {
@@ -395,7 +410,8 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
 
 /* ----------------------------------------------------- choosing a child */
 
-export type ChildChoice = { id: string; name: string; classId: string; classLabel: string; rollNo?: string | null };
+/** `hint`: SR number and father, only for a child who shares a name with another in her class. */
+export type ChildChoice = { id: string; name: string; classId: string; classLabel: string; rollNo?: string | null; hint?: Pair | null };
 
 /** The children a note may be about: the viewer's classes, or every class for the school-wide roles. */
 export async function childChoices(viewer: NoteViewer, sessionLabel: string): Promise<ChildChoice[]> {
@@ -404,8 +420,13 @@ export async function childChoices(viewer: NoteViewer, sessionLabel: string): Pr
   const enrolled = await enrolledIn(classIds, sessionLabel);
   const kids = await childBasics(enrolled.map((e) => e.studentId));
   const order = new Map([...labels.keys()].map((id, i) => [id, i]));
+  // Same-named children in one class: SR number and father (smoke 20 Oct).
+  const apart = tellApartWithin(
+    enrolled.map((e) => ({ id: e.studentId, classId: e.classId, name: kids.get(e.studentId)?.fullName ?? "", admissionNo: kids.get(e.studentId)?.admissionNo ?? null, fatherName: kids.get(e.studentId)?.fatherName ?? null })),
+    (k) => k.classId,
+  );
   return enrolled
-    .map((e) => ({ id: e.studentId, name: kids.get(e.studentId)?.fullName ?? "—", classId: e.classId, classLabel: labels.get(e.classId) ?? "—", rollNo: e.rollNo }))
+    .map((e) => ({ id: e.studentId, name: kids.get(e.studentId)?.fullName ?? "—", classId: e.classId, classLabel: labels.get(e.classId) ?? "—", rollNo: e.rollNo, hint: apart.get(e.studentId) ?? null }))
     .sort((a, b) => (order.get(a.classId) ?? 0) - (order.get(b.classId) ?? 0) || a.name.localeCompare(b.name));
 }
 
@@ -420,7 +441,7 @@ export async function childChoices(viewer: NoteViewer, sessionLabel: string): Pr
  */
 export type NotesPeople = { classTeachers: Record<string, string>; coordinator: string | null; admin: string | null; coordinatorId?: string | null; adminId?: string | null };
 
-export async function notesPeople(sessionLabel: string, day: string): Promise<NotesPeople> {
+export async function notesPeople(sessionLabel: string, day: string, reader?: { id: string; role: string }): Promise<NotesPeople> {
   const admin = createAdminClient();
   const [held, coord, head] = await Promise.all([
     admin
@@ -438,7 +459,10 @@ export async function notesPeople(sessionLabel: string, day: string): Promise<No
     const cur = byClass.get(row.class_id);
     if (!cur || (cur.role !== "class_teacher" && row.role === "class_teacher")) byClass.set(row.class_id, { staff: row.staff_profile_id, role: row.role });
   }
-  const coordId = coord.data?.[0]?.id ?? null;
+  // A coordinator reading the notes is "the coordinator" on her own screens:
+  // with two coordinators, the first by created_at was named on every note
+  // and plan (smoke 20 Oct). followUpStaff() in actions.ts picks the same.
+  const coordId = reader?.role === "academic_coordinator" ? reader.id : (coord.data?.[0]?.id ?? null);
   const adminId = head.data?.[0]?.id ?? null;
   const names = await staffNames([...[...byClass.values()].map((v) => v.staff), coordId ?? "", adminId ?? ""]);
   return {

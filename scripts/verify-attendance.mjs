@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const asJson = process.argv.includes("--json");
@@ -40,10 +40,9 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
-  console.error("Refusing to run: .env.local is not the dev project (rule 3).");
-  process.exit(1);
-}
+// Rule 3 / D-346, Phase 3: One's main project only, confined to TEST-2026-27 and test accounts, and
+// refused on production: it flips school-wide switches (runtime_flags, parent policy or the staff-notice queue).
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-attendance", mode: "confined-dev-only" });
 
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
@@ -79,7 +78,8 @@ const office = await profileOf("qa.accountant@qa.vpps.local");
 // The session the school is in, from the setting the fee app reads — never
 // the last label sorted, because `TEST-2026-27` sorts above `2026-27` and the
 // QA teacher holds a class in both (rule 3a).
-const { data: setting } = await db.schema("public").from("app_settings").select("value").eq("key", "active_session_label").maybeSingle();
+// Confined (Phase 3): the QA accounts are test accounts, so the run lives in TEST-2026-27.
+const { data: setting } = scope.confined ? { data: { value: scope.sessionLabel } } : await db.schema("public").from("app_settings").select("value").eq("key", "active_session_label").maybeSingle();
 const ACTIVE = setting?.value;
 if (!ACTIVE) throw new Error("app_settings.active_session_label is not set.");
 

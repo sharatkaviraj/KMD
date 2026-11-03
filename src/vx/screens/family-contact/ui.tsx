@@ -112,7 +112,7 @@ export function FamilyContactLog({ studentId, contacts, canLog, today, recoveryS
         if (res.attemptId !== payload.attemptId) throw new Error("Wrong contact receipt");
         if (res.agreedOn !== payload.agreedOn && !payload.dateCorrections?.includes(res.agreedOn ?? "")) throw new Error("Wrong contact date receipt");
         if (!(await clearContact(storage, captured, payload.attemptId, owns))) {
-          if (owns()) setError(p("Contact confirmed, but phone recovery could not be cleared. Check the same contact again before a new one.", "संपर्क की पुष्टि हुई, पर फोन से पुनर्प्राप्ति नहीं हट सकी। नया संपर्क दर्ज करने से पहले वही संपर्क फिर जाँचें।"));
+          if (owns()) setError(p("Contact confirmed, but phone recovery could not be cleared. Check the same contact again before a new one.", "संपर्क सहेजा गया, पर फोन में रखी पुरानी कॉपी नहीं हट सकी। नया संपर्क दर्ज करने से पहले वही संपर्क फिर जाँचें।"));
           return;
         }
         notifyContactRecovery();
@@ -121,7 +121,7 @@ export function FamilyContactLog({ studentId, contacts, canLog, today, recoveryS
         const recorded = payload.outcome === "follow_up_agreed" ? p(`Family contact recorded · agreed date ${res.agreedOn}`, `परिवार से संपर्क दर्ज · तय तारीख ${res.agreedOn}`) : p("Family contact recorded", "परिवार से संपर्क दर्ज");
         toast.show({ text: tx(recorded) }); router.refresh();
       } catch {
-        if (owns()) { setRetryId(null); setError(p("Could not confirm the result. The original contact is kept on this phone. Check its result before retrying or recording a new contact.", "नतीजे की पुष्टि नहीं हो सकी। मूल संपर्क इस फोन में रखा है। फिर प्रयास या नया संपर्क दर्ज करने से पहले उसका नतीजा जाँचें।")); }
+        if (owns()) { setRetryId(null); setError(p("Could not confirm the result. The original contact is kept on this phone. Check its result before retrying or recording a new contact.", "पता नहीं नतीजा सहेजा गया या नहीं। पहला संपर्क इस फोन में रखा है। फिर प्रयास या नया संपर्क दर्ज करने से पहले उसका नतीजा जाँचें।")); }
       } finally { inFlight.current = false; }
     });
   };
@@ -168,8 +168,8 @@ export function FamilyContactLog({ studentId, contacts, canLog, today, recoveryS
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {unavailable ? <p role="alert">{tx(p("Safe contact recovery is unavailable. Refresh this page; no new contact will be sent.", "सुरक्षित संपर्क पुनर्प्राप्ति उपलब्ध नहीं है। पेज फिर खोलें; नया संपर्क नहीं भेजा जाएगा।"))}</p> : null}
-          {original ? <p role="status">{tx(p("An original contact is pending verification. Keep this entry and check its result; do not record it as a new contact.", "मूल संपर्क की पुष्टि लंबित है। यही प्रविष्टि रखें और उसका नतीजा जाँचें; इसे नया संपर्क बनाकर दर्ज न करें।"))}</p> : null}
-          {original?.outcome === "follow_up_agreed" && retryId === original.attemptId ? <p>{tx(p("If the agreed date needs correcting, choose its correct date below. This keeps the same contact ID; the confirmed history shows whichever original or corrected date was saved first.", "तय तारीख सुधारनी हो तो नीचे सही तारीख चुनें। संपर्क पहचान वही रहेगी; पुष्टि किए इतिहास में पहले सहेजी गई मूल या सुधरी तारीख दिखेगी।"))}</p> : null}
+          {original ? <p role="status">{tx(p("An original contact is pending verification. Keep this entry and check its result; do not record it as a new contact.", "पहले संपर्क का नतीजा अभी पता नहीं। यही संपर्क रखें और उसका नतीजा जाँचें; इसे नया संपर्क बनाकर दर्ज न करें।"))}</p> : null}
+          {original?.outcome === "follow_up_agreed" && retryId === original.attemptId ? <p>{tx(p("If the agreed date needs correcting, choose its correct date below. This keeps the same contact ID; the confirmed history shows whichever original or corrected date was saved first.", "तय तारीख सुधारनी हो तो नीचे सही तारीख चुनें। संपर्क पहचान वही रहेगी; सहेजे गए इतिहास में पहले सहेजी गई मूल या सुधरी तारीख दिखेगी।"))}</p> : null}
           <Field label={tx(p("What happened?", "क्या हुआ?"))}>
             <fieldset disabled={pending || !!original} style={{ border: 0, margin: 0, padding: 0 }}>
             <ChipRow label={tx(p("What happened?", "क्या हुआ?"))} style={{ flexWrap: "wrap" }}>

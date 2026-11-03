@@ -1,6 +1,10 @@
 import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
+import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { feesBridgeEnabled, feesDestination, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 
 import {
   getRequiredEnvVar,
@@ -23,7 +27,9 @@ import {
  */
 // `/login/test` is the keyed QA sign-in (UI-63): it 404s without the secret
 // key and on the live database, and can only sign in as a QA-domain account.
-const PUBLIC_PATHS = new Set(["/login", "/login/test", "/auth/confirm", "/login/dayrun", "/login/dayrun/request", "/login/dayrun/redeem", "/login/dayrun/end"]);
+// `/lab/*` and `/api/lab/*` are the Smoke Lab's pass-carrying doors: each
+// checks its own 256-bit pass and 404s off the test database.
+const PUBLIC_PATHS = new Set(["/login", "/login/test", "/auth/confirm", "/login/dayrun", "/login/dayrun/request", "/login/dayrun/redeem", "/login/dayrun/end", "/lab/enter", "/lab/clock", "/lab/ended"]);
 
 /**
  * The token links, which are open by design.
@@ -45,10 +51,47 @@ function isPublicPath(pathname: string) {
   // it is a cron request — and it carries its own secret, checked by the route
   // itself, which refuses everything when neither secret is configured. A 302
   // to a login page here would make every scheduled job a silent success.
-  return ["/r", "/t", "/w", "/api/jobs"].some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
+  //
+  // `/rv/*` is the fee receipt check a parent reaches from a receipt notice
+  // (the fees app's `/r/{receiptNumber}`, moved because `/r/` is a request
+  // token here). It shows a receipt number, date, amount and reversal state,
+  // nothing about the child — see `src/app/rv/[code]/page.tsx`.
+  return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
+
+/**
+ * The prefixes a signed-out request may reach. Each route under them carries
+ * its own credential and checks it itself (go-live Phase E, plan §7.2,
+ * critique0 #1, critique1 A1):
+ *
+ *  - `/pay/*`             a parent's Pay now page and its status poll — the
+ *                         random pay code is the only input;
+ *  - `/api/webhooks/*`    Razorpay's webhook — its HMAC signature, and a 404
+ *    `/api/fees/webhooks/*` until `RAZORPAY_WEBHOOK_SECRET` is set (and
+ *                         AiSensy's, by `x-aisensy-signature`);
+ *  - `/api/fees/cron/*`   pg_cron and Vercel cron — `CRON_SECRET` or the
+ *                         route's own secret, refused without one.
+ *
+ * Without these a Razorpay delivery is a 307 to /login, which Razorpay counts
+ * as a failure and eventually disables the webhook; a cron "succeeds" while
+ * doing nothing; a parent tapping Pay now lands on the staff sign-in page.
+ * `tests/public-routes.test.ts` lists every route that authenticates by a
+ * secret, signature or token and holds it to being under one of these.
+ */
+export const PUBLIC_PREFIXES = [
+  "/r",
+  "/rv",
+  "/t",
+  "/w",
+  "/pay",
+  "/api/jobs",
+  "/api/lab",
+  "/api/webhooks",
+  "/api/fees/webhooks",
+  "/api/fees/cron",
+] as const;
+
+export { isPublicPath };
 
 /**
  * Keep the Supabase auth cookies fresh and decide, before anything renders,
@@ -114,12 +157,57 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // A Smoke Lab account is honoured only while one of its passes and its run
+  // are live (`vppsone.smoke_access_allowed`): revoking a run, or its expiry,
+  // ends every agent's session on its next request. Only smoke accounts are
+  // asked (the `smoke_lab` flag or a `smoke.*@qa.vpps.local` email); anybody
+  // else is untouched. A "no" signs out every session the account holds; an
+  // error refuses this request without signing out, and the next one asks
+  // again. The database also bans the account and deletes its sessions.
+  if (hasUser && isSmokeAccount(claimsData?.claims) && !isPublicPath(pathname)) {
+    const { data: allowed, error } = await supabase.schema("vppsone").rpc("smoke_access_allowed");
+    if (error || allowed !== true) {
+      if (!error) await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
+      const url = request.nextUrl.clone();
+      url.pathname = "/lab/ended";
+      url.search = "";
+      url.searchParams.set("reason", error ? "unavailable" : "expired");
+      const ended = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => ended.cookies.set(cookie));
+      return ended;
+    }
+  }
+
   if (!hasUser && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
+  }
+
+  // Financial features without an adapter stay in their existing Fees
+  // workflow. Never redirect/replay a POST or a provider callback. The data
+  // clients independently refuse local real reads/writes and forged actions.
+  if (feesBridgeEnabled() && (feesDestination(pathname) || pathname.startsWith("/api/fees/"))) {
+    const {data:profile,error} = hasUser
+      ? await supabase.schema("vppsone").from("staff_profiles").select("is_active,is_test_account,role").eq("user_id",userId!).maybeSingle<{is_active:boolean;is_test_account:boolean;role:string}>()
+      : {data:null,error:null};
+    const askedSession=request.nextUrl.searchParams.get("session") ?? request.cookies.get("vpps_view_session")?.value ?? null;
+    const testContext=profile && !error && profile.is_active &&
+      (profile.is_test_account || isConfinedDeployment() || (profile.role==="admin" && isTestSessionLabel(askedSession)));
+    if (!testContext && pathname.startsWith("/api/fees/")) {
+      return NextResponse.json({error:"Use the existing Fees service for this financial operation.",code:"ONE_CANONICAL_FEES_REQUIRED"},{status:409,headers:{"Cache-Control":"no-store"}});
+    }
+    if(profile && !error && usesCanonicalFees({isActive:profile.is_active,role:profile.role,isTestAccount:profile.is_test_account,confined:isConfinedDeployment()},testContext?askedSession:null)) {
+      if(request.method!=="GET" && request.method!=="HEAD") return NextResponse.json({error:"Use the live Fees connection for this operation.",code:"ONE_CANONICAL_FEES_REQUIRED"},{status:409});
+      const destination=feesDestination(pathname,askedSession);
+      if(destination){
+        const response=NextResponse.redirect(destination);
+        supabaseResponse.cookies.getAll().forEach(cookie=>response.cookies.set(cookie));
+        return response;
+      }
+    }
   }
 
   // Sending a signed-in visitor *away* from the login page is deliberately

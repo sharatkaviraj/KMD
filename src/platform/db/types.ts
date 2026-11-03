@@ -3,7 +3,7 @@ import type { StaffRole } from "@/modules/fees/platform/roles";
 export type ClassStatus = "active" | "inactive" | "archived";
 export type StudentStatus = "active" | "inactive" | "left" | "graduated";
 export type InstallmentStatus = "scheduled" | "waived" | "cancelled";
-export type PaymentMode = "cash" | "upi" | "bank_transfer" | "cheque" | "discount";
+export type PaymentMode = "cash" | "upi" | "bank_transfer" | "cheque" | "discount" | "online";
 export type FeeCalculationModel = "standard" | "workbook_v1";
 export type AdjustmentType =
   | "reversal"

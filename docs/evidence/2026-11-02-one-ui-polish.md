@@ -1,0 +1,11 @@
+# One UI polish validation — 2 November 2026
+
+Scope: compact native session/status toolbar, One session menu/sheet, accessible roster/ledger disclosures, shorter shared list/sheet motion and intent-navigation feedback. No database, permissions, financial authority, payment-provider, messaging or certificate-issuance changes.
+
+Local evidence before the final review follow-up: typecheck passed; port check passed (828 files); theme parity passed (430 tokens against D:\\github projects\\schoolfees); lint passed with zero errors and 15 existing warnings in unchanged files. Vitest: 429 files passed, 19,248 tests passed and one skipped. Focused synthetic Playwright: all 15 scenarios passed across 320/390/768/1024/1440px, light/dark, Hindi, TEST identity, failure display, Back, focus/scroll restoration, switching, disclosures and reduced motion.
+
+The initial browser run found an instant-response history race; the session sheet now consumes its own history entry before the cookie-first navigation replaces the URL. An independent read-only review then found focus could escape when every session choice is disabled or loading. The follow-up prefers the close button and traps Tab from the panel/outside the candidate set, with two additional unit cases. Desktop One menu labels now wrap. Expanded browser cases cover the real Suspense placeholder, retry recovery, disabled/loading focus, error/pending roster states and archived/long labels. These final follow-ups require the PR's clean CI results; they were not locally rerun because D: became full.
+
+Local production build stopped with ENOSPC while writing its generated webpack cache. Automatic approval review rejected removal of the generated cache. No local build or bundle success is claimed. The clean GitHub CI production build and bundle checks are required before merge; production readiness is established from that exact checked revision and the Vercel deployment record.
+
+Synthetic fixtures replace all server actions, contain no credentials and never access a production database. The Vite routing adapter cannot establish actual Next.js navigation latency or device FPS. Live verification is read-only and does not exercise payment, messaging or issuance controls.

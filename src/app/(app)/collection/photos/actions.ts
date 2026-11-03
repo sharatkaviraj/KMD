@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertStudentVisible, isSessionAccessDenied } from "@/platform/auth/test-session-access";
 import { assertNotPreviewing } from "@/vx/view-as";
 import type { Localized } from "@/platform/i18n/language";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
@@ -35,6 +36,13 @@ export async function placePhotoAction(formData: FormData): Promise<PhotoResult>
   const file = formData.get("photo");
   if (!UUID.test(commandId) || !UUID.test(studentId) || (expected !== "" && !UUID.test(expected))) {
     return { ok: false, message: m.notSaved };
+  }
+  // Phase 3 fence: a real child's photograph is not a test account's to change.
+  try {
+    await assertStudentVisible(actor, studentId);
+  } catch (error) {
+    if (isSessionAccessDenied(error)) return { ok: false, message: m.notSaved };
+    throw error;
   }
   if (source !== "camera" && source !== "file" && source !== "folder") return { ok: false, message: m.notSaved };
   if (!(file instanceof Blob)) return { ok: false, message: ms.photoChoose };

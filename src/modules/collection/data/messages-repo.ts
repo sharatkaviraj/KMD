@@ -27,14 +27,17 @@ import {
 import {
   categoryFor,
   markStale,
-  parentDispatchSwitch,
+  parentDispatchMode,
   parentPolicies,
   snapshotNow,
   staleness,
 } from "@/modules/collection/data/parent-messages-repo";
-import { mayDispatchToParent } from "@/modules/collection/domain/parent-policy";
+import { mayDispatchToParent, type ParentCategory } from "@/modules/collection/domain/parent-policy";
 import type { DeliveryReason, DeliveryResult } from "@/modules/teacher-tasks/domain/delivery";
 import { managedTasksForRequests } from "@/modules/teacher-tasks/data/delivery-routing";
+import { teacherTaskGateFacts } from "@/modules/staff-notices/data/consent";
+import { evaluateTeacherTaskSend } from "@/modules/staff-notices/domain/gates";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 
 /**
  * Templates and the send queue.
@@ -129,6 +132,7 @@ export async function setTemplateActive(
 
 type SendRow = {
   id: string;
+  session_label: string | null;
   template_id: string;
   to_phone: string;
   to_name: string | null;
@@ -156,7 +160,7 @@ type SendRow = {
 };
 
 const SEND_COLUMNS =
-  "id, template_id, to_phone, to_name, student_id, request_id, staff_profile_id, " +
+  "id, session_label, template_id, to_phone, to_name, student_id, request_id, staff_profile_id, " +
   "variables, rendered_hi, rendered_en, status, provider_message_id, error, " +
   "requested_at, sent_at, updated_at, approved_at, stale_reason, " +
   "message_templates!inner(code, label_hi, label_en, audience), " +
@@ -170,6 +174,7 @@ const SEND_COLUMNS =
 
 const toSend = (row: SendRow): MessageSend => ({
   id: row.id,
+  sessionLabel: row.session_label ?? null,
   templateId: row.template_id,
   templateCode: row.message_templates?.code ?? "—",
   templateLabelHi: row.message_templates?.label_hi ?? "—",
@@ -376,21 +381,27 @@ export async function confirmDispatchReceived(id: string, attempt: string | null
 export async function dispatch(send: MessageSend): Promise<DispatchResult> {
   if (isTeacherTaskCampaign(send.templateCode)||send.taskId||(send.requestId&&(await managedTasksForRequests([send.requestId])).has(send.requestId))) return { ok: false, outcome:"rejected", error: "Use reviewed task delivery in Needs you." };
   if (needsProviderReconciliation(send)) return { ok: false, error: "Check the provider result before sending again." };
+  let category: ParentCategory | undefined;
+  let testOnly = false;
   if (send.audience === "parent") {
     // A parent message goes from the app only under the school's switch, a
     // named automatic exception for its category, and nothing stale (P9) —
-    // otherwise it is D-10: a person sends it.
+    // otherwise it is D-10: a person sends it. Test-only mode (owner, 31 Oct)
+    // counts as the switch here; the parent-send gate then holds every such
+    // send to message_test_recipients, whatever the session or the sender.
     if (send.status === "sent" || send.status === "cancelled") {
       const refused = mayDispatch(send);
       if (!refused.ok) return { ok: false, error: refused.reason.en };
     }
-    const [switchOn, policies, check] = await Promise.all([
-      parentDispatchSwitch(),
+    const [mode, policies, check] = await Promise.all([
+      parentDispatchMode(),
       parentPolicies(),
       staleness(send),
     ]);
-    const policy = policies.find((entry) => entry.category === (check.extras?.category ?? categoryFor(send))) ?? null;
-    const verdict = mayDispatchToParent({ switchOn, policy, stale: check.reasons });
+    testOnly = mode === "test_only";
+    category = check.extras?.category ?? categoryFor(send);
+    const policy = policies.find((entry) => entry.category === category) ?? null;
+    const verdict = mayDispatchToParent({ switchOn: mode !== "off", policy, stale: check.reasons });
     if (!verdict.ok) {
       if (check.reasons.length > 0) await markStale(send.id, check.reasons);
       return { ok: false, error: verdict.reason.en };
@@ -412,6 +423,11 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
           : "No messaging provider is configured.",
     };
   }
+  // Only AiSensy's path asks the parent-send gate, which is where test-only
+  // mode's allowlist lives; the mock would record a "sent" no gate checked.
+  if (testOnly && provider.id !== "aisensy") {
+    return { ok: false, outcome: "rejected", error: "Parent messages are in test-only mode, which sends only through the AiSensy gate. Not sent." };
+  }
 
   // A single conditional UPDATE is the cross-request claim. It commits before
   // transport, so a crashed worker/lost response leaves an explicit marker that
@@ -428,7 +444,7 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
   const { data: claimed, error: claimError } = await claim.select("id");
   if (claimError || claimed?.length !== 1) return { ok: false, error: "The message changed or another send is being checked. Reload before continuing." };
   let result: DispatchResult;
-  try { result = await provider.send(send); }
+  try { result = await provider.send(send, { category }); }
   catch { result = { ok: false, outcome: "unknown", error: "Provider result unknown. Check its delivery log; do not resend." }; }
   try { await recordDispatch(send.id, result, attempt); }
   catch { return { ok: false, outcome: "unknown", error: "The provider result could not be recorded. Check its delivery log; do not resend." }; }
@@ -444,6 +460,11 @@ export async function dispatchTeacherTaskMessage(actorId: string, id: string): P
   if (available !== "ready") return { ok: false, reason: available };
   const provider = selectProvider();
   if (provider.id !== "aisensy") return { ok: false, reason: "test_mode" };
+  // The staff gate (go-live Phase F): consent, the teacher_task switch, their
+  // own switch and the test allowlist, asked before anything is claimed. A
+  // refusal leaves the task free for the WhatsApp link (manual mode).
+  const gate = evaluateTeacherTaskSend({ facts: await teacherTaskGateFacts(id).catch(() => null), confined: isConfinedDeployment() });
+  if (!gate.ok) return { ok: false, reason: "no_consent" };
   const admin = createAdminClient();
   const attempt = `attempt:${randomUUID()}`;
   const claim = await admin.rpc("claim_teacher_task_delivery", { p_actor: actorId, p_id: id, p_attempt: attempt, p_transport: provider.id, p_manual: false });

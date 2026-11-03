@@ -1,5 +1,24 @@
 # VPPS One — rules for AI agents
 
+## Current owner direction — 1 November 2026 coexistence
+
+The owner explicitly requested implementation, needed migrations and live
+deployment of `docs/plans/2026-11-01-fees-one-coexistence-plan.md`.
+This supersedes retirement of Fees and the older prohibition on any Fees
+backend change for this integration. Fees stays the financial authority.
+Source changes belong in the `schoolfees` repository: narrowly scoped
+`/api/one/v1` operations, explicit actor grants and durable source capture.
+One uses those APIs and One-owned roster projections. Its ordinary Supabase
+clients and migration readers still MUST NOT become generic writable clients
+for the Fees source. The sealed source reader remains read-only.
+
+Do not run the old cutover's source-link shutdown, independent One financial
+posting/provider jobs, or tail-payment re-entry. Preserve TEST isolation,
+current source permissions and one owner of receipt/message/provider effects.
+Deployment authorization is not permission to invent real collections, send
+parent test messages, promote ambiguous staff, or purchase a plan. Publish
+real academic identity only after classification/quarantine is verified.
+
 Read `docs/PLAN.md` first, then `docs/PROGRESS.md` to find the next task.
 
 **Active work is the 4 October plan pack: P0–P12 in `docs/PROGRESS.md`, sourced
@@ -72,18 +91,39 @@ database until the cutover phase.
 
    `tests/architecture.test.ts` enforces all three. Still forbidden: altering
    fee tables, and adding a column, trigger, policy or foreign key to them.
-3. **Build against dev.** `wtgxcptmucjerhufzjcf` (schoolfees-dev) is the only
-   database this app is ever pointed at until the cutover phase (PLAN §7).
-   The live fee database `vgqyilgstjvgohrsiwkb` is not a target. Do not migrate
-   it or seed it, and read it only through `scripts/replicate-live.mjs`, whose
-   live client is sealed in a closure that can only `.select()`.
+3. **One database, and it is production.** `wtgxcptmucjerhufzjcf` is One's
+   main database (D-338) — production from go-live, and the only test bed
+   there will ever be (D-346). There is no separate dev database. Testing
+   happens in it, under `TEST-2026-27`, by test accounts
+   (`vppsone.staff_profiles.is_test_account`).
 
-   Dev now holds a **de-identified replica** of live — 11,295 rows, the money
-   exact, every person replaced (D-186). Check `vppsone.data_replica` if you
-   need to know whether the fee data in front of you is a copy. It is not a
-   perfect twin: live has ten `public` tables dev does not, and dev was missing
-   every grant on the three financial matviews until it was repaired (D-189).
-   Compare privileges, not just columns, before believing they match.
+   - **The database says whether it is production**:
+     `vppsone.deployment.environment` (`dev` until the lockdown; unreadable
+     counts as production). QA, smoke-lab, day-run and seed tooling read it
+     through `scripts/target-guard.mjs#toolScope` (scripts) or
+     `src/platform/deployment/tool-access.ts` (the app). On production they
+     are **confined, not banned**: they touch only test accounts and
+     TEST-session data, and refuse otherwise. `replicate-live.mjs` refuses
+     production outright.
+   - **Non-production deployments are confined**: Preview and local
+     `next dev` point at the same database, so `isConfinedDeployment()`
+     (`src/platform/deployment/confinement.ts`, the single definition) makes
+     every user a test account and allows fee writes only for TEST-session
+     students.
+   - **Fee writes** are switched by `app_settings.fee_writes_enabled` (D-345),
+     enforced in the money functions and in the fee clients' fetch.
+   - **The fees app's live database `vgqyilgstjvgohrsiwkb` is never a target.**
+     Do not migrate it, seed it or write to it. Only `scripts/migrate/*` read
+     it, through a sealed select-only reader (D-339); everything else refuses
+     it by name (`FEES_SOURCE_PROJECT_REF`).
+   - Fee-schema SQL One owns goes in `supabase/fee-migrations/` with a header
+     saying why it differs from the fees app; `supabase/migrations/` stays
+     `vppsone`-only.
+
+   Until the first real load the fee data here is a **de-identified replica**
+   of live (D-186); check `vppsone.data_replica`. Compare privileges, not just
+   columns, before believing two schemas match — `docs/cutover/SCHEMA-PARITY.md`
+   records what still differs and why.
 
 3a. **Never decide the academic session by sorting the labels.** Six places did
    and all six were wrong: `TEST-2026-27` sorts above `2026-27`, and live

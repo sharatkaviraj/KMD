@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FileText, Image as ImageIcon } from "lucide-react";
 
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
@@ -21,7 +21,6 @@ import {
   attendancePercent,
   type AttendanceStatus,
 } from "@/modules/attendance/domain/attendance";
-import { deleteDocumentAction } from "@/app/(app)/collection/actions";
 import { termSummaries } from "@/modules/assessments/data/reports-repo";
 import {
   documentsForStudent,
@@ -30,11 +29,12 @@ import {
 } from "@/modules/collection/data/documents-repo";
 import {
   documentKindLabels,
-  humanSize,
   recordChangeNote,
   recordSourceLabel,
 } from "@/modules/collection/domain/review";
 import { DocumentForm } from "@/modules/collection/ui/office-forms";
+import { RemoveDocument } from "@/modules/collection/ui/remove-document";
+import { documentUploadMode } from "@/modules/collection/data/storage-settings";
 import { listNoteKinds, notesForStudent } from "@/modules/notes/data/notes-repo";
 import { canReadNote } from "@/modules/notes/domain/notes";
 import { NoteComposer } from "@/modules/notes/ui/note-composer";
@@ -48,6 +48,7 @@ import { Badge, Card, DetailList, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/page-header-localized";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 export const runtime = "nodejs";
 
@@ -93,6 +94,7 @@ export default async function StudentPage(
     );
   }
 
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId)) await notFoundUnlessVisible(() => assertStudentVisible(staff, studentId));
   const student = await getStudentCard(studentId);
 
   if (!student) {
@@ -125,7 +127,7 @@ export default async function StudentPage(
 
   const seesMoney = can(staff, "collection:view");
 
-  const [enrolment, history, rules, labels, own, kinds, fees, records, documents, changes] =
+  const [enrolment, history, rules, labels, own, kinds, fees, records, documents, changes, uploadMode] =
     await Promise.all([
       enrolmentForStudent(studentId, sessionLabel),
       studentAttendance(studentId, sessionLabel),
@@ -143,6 +145,9 @@ export default async function StudentPage(
       can(staff, "collection:view")
         ? historyForStudent(studentId)
         : Promise.resolve([]),
+      can(staff, "documents:manage")
+        ? documentUploadMode(staff.id)
+        : Promise.resolve("supabase" as const),
     ]);
 
   const statuses = history.map((entry) => entry.status);
@@ -423,60 +428,60 @@ export default async function StudentPage(
 
       {can(staff, "documents:view") ? (
         <Section className="mt-7" title={m.documentsTitle} language={language}>
+          {/* Adding comes first: with a long list, the form used to sit
+              below every document, out of sight. */}
+          {can(staff, "documents:manage") ? (
+            <div className="mb-3">
+              <DocumentForm studentId={studentId} mode={uploadMode} />
+            </div>
+          ) : null}
+
           {documents.length === 0 ? (
             <EmptyState title={m.documentsNone} language={language} />
           ) : (
             <ul className="space-y-2">
-              {documents.map((document) => (
-                <li
-                  key={document.id}
-                  className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium text-foreground">
-                      {primary(documentKindLabels[document.kind], language)}
-                    </span>
-                    <span className="block truncate text-[12px] text-subtle-foreground">
-                      {document.fileName} · {humanSize(document.byteSize)}
-                      {document.uploadedByName ? ` · ${document.uploadedByName}` : ""}
-                    </span>
-                  </span>
-
-                  {/* A short-lived signed URL, minted by a route that checks
-                      the permission again. Never a public path: a birth
-                      certificate with a guessable URL is a birth certificate
-                      anybody has. */}
-                  <Link
-                    href={`/documents/${document.id}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={buttonClasses({ variant: "outline", size: "sm" })}
+              {documents.map((document) => {
+                const KindIcon = document.contentType.startsWith("image/") ? ImageIcon : FileText;
+                return (
+                  <li
+                    key={document.id}
+                    className="flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-surface px-3 py-2.5"
                   >
-                    {primary(m.documentsOpen, language)}
-                  </Link>
+                    <KindIcon aria-hidden className="size-6 shrink-0 text-subtle-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-foreground">
+                        {primary(documentKindLabels[document.kind], language)}
+                      </span>
+                      {document.note ? (
+                        <span className="block truncate text-[13px] text-foreground">{document.note}</span>
+                      ) : null}
+                      <span className="block truncate text-[12px] text-subtle-foreground">{document.fileName}</span>
+                      <span className="block truncate text-[12px] text-subtle-foreground">
+                        {primary(dayLabel(toSchoolDay(new Date(document.createdAt))), language)}
+                        {document.uploadedByName ? ` · ${document.uploadedByName}` : ""}
+                      </span>
+                    </span>
 
-                  {can(staff, "documents:manage") ? (
-                    <form action={deleteDocumentAction}>
-                      <input type="hidden" name="id" value={document.id} />
-                      <input type="hidden" name="studentId" value={studentId} />
-                      <button
-                        type="submit"
-                        className="focus-ring rounded-lg px-2 py-1 text-[13px] font-medium text-destructive-soft-foreground hover:bg-destructive-soft"
-                      >
-                        {primary(m.documentsRemove, language)}
-                      </button>
-                    </form>
-                  ) : null}
-                </li>
-              ))}
+                    {/* Opened through a route that checks the permission
+                        again. Never a public path: a birth certificate with
+                        a guessable URL is a birth certificate anybody has. */}
+                    <Link
+                      href={`/documents/${document.id}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className={buttonClasses({ variant: "outline", size: "sm" })}
+                    >
+                      {primary(m.documentsOpen, language)}
+                    </Link>
+
+                    {can(staff, "documents:manage") ? (
+                      <RemoveDocument documentId={document.id} studentId={studentId} />
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           )}
-
-          {can(staff, "documents:manage") ? (
-            <Card className="mt-3 p-4">
-              <DocumentForm studentId={studentId} />
-            </Card>
-          ) : null}
         </Section>
       ) : null}
 

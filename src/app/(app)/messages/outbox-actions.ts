@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertSessionWritable } from "@/platform/auth/test-session-access";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -14,7 +15,7 @@ import { dateLabel, rupees, schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { tenDigits } from "@/vx/screens/messages/domain/messages";
-import { canUndo, noticeCampaigns, outboxText, reminderMessages, waLink, type DueRow } from "@/vx/screens/messages/domain/outbox";
+import { canUndo, DAY_BOUND_TEMPLATES, noticeCampaigns, outboxText, reminderMessages, waLink, type DueRow } from "@/vx/screens/messages/domain/outbox";
 import { generalPolicyVersion, NOTICE_TEMPLATE, parentSendRow, queueCampaign, queueNotice, templateId } from "@/vx/screens/messages/queue";
 
 /*
@@ -83,11 +84,15 @@ export async function sendByHandAction(input: { source: string; id: string; conf
 
   const { data: row } = await admin
     .from("parent_message_queue")
-    .select("id, student_id, body_hi, body_en, status")
+    .select("id, kind, day, student_id, body_hi, body_en, status")
     .eq("id", input.id)
-    .maybeSingle<{ id: string; student_id: string; body_hi: string; body_en: string | null; status: string }>();
+    .maybeSingle<{ id: string; kind: string; day: string | null; student_id: string; body_hi: string; body_en: string | null; status: string }>();
   if (!row) return fail(p("That message is gone.", "संदेश नहीं मिला।"));
   if (row.status !== "queued") return fail(p("Already sent or stopped.", "पहले ही भेजा या रोका जा चुका है।"));
+  // "Absent today" on a later day tells a parent something false (smoke run, 20 Oct).
+  if (row.kind === "absent_alert" && row.day && row.day < schoolToday()) {
+    return fail(p(`This message is about ${dateLabel(row.day)}, a day that has passed. It was not sent.`, `यह संदेश ${dateLabel(row.day)} के बारे में है, वह दिन बीत चुका। नहीं भेजा।`));
+  }
   const { data: kid } = await admin
     .schema(FEE_SCHEMA)
     .from("students")
@@ -219,6 +224,8 @@ export async function prepareReminderBatchAction(id: string): Promise<OutboxResu
     .eq("id", id)
     .maybeSingle<{ id: string; session_label: string; name: string; template: string; language: string; audience_line: string | null; student_ids: string[]; status: string }>();
   if (!batch) return fail(p("That batch is gone.", "बैच नहीं मिला।"));
+  // Phase 3 fence: the batch's own session, whoever prepares it.
+  await assertSessionWritable(actor, batch.session_label);
   if (batch.status !== "queued" && batch.status !== "scheduled") return fail(p("This batch was already prepared or stopped.", "यह बैच पहले ही तैयार या रद्द हो चुका है।"));
   if (!isTemplateId(batch.template) || !isReminderLanguage(batch.language)) return fail(p("This batch has an unknown message.", "इस बैच का संदेश पहचाना नहीं गया।"));
   const template = batch.template;
@@ -282,5 +289,86 @@ export async function prepareReminderBatchAction(id: string): Promise<OutboxResu
   return {
     ok: true,
     message: p(`${messages.length} messages ready to send${skipped ? ` · ${skipped}` : ""}`, `${messages.length} संदेश भेजने को तैयार${skippedHi ? ` · ${skippedHi}` : ""}`),
+  };
+}
+
+/**
+ * Take out of To send what should never go now (smoke run, 20 Oct): an
+ * "absent today" parent message whose day has passed, a day-bound staff
+ * reminder from an earlier day, and the extra copies of a message queued
+ * again and again. Nothing is deleted: parent messages are cancelled, staff
+ * messages are marked stale with the reason, and both stay on record.
+ */
+export async function clearOutOfDateAction(): Promise<OutboxResult> {
+  const actor = await assertPermission("messages:send");
+  await assertNotPreviewing();
+  const admin = createAdminClient();
+  const today = schoolToday();
+  const now = new Date().toISOString();
+  const startOfToday = new Date(`${today}T00:00:00+05:30`).toISOString();
+
+  const { data: oldAlerts, error: alertError } = await admin
+    .from("parent_message_queue")
+    .update({ status: "cancelled", cancelled_at: now, cancelled_by: actor.id })
+    .eq("status", "queued")
+    .eq("kind", "absent_alert")
+    .lt("day", today)
+    .select("id");
+  if (alertError) return fail(p("Could not clear the old messages. Try again.", "पुराने संदेश हटाए नहीं जा सके। फिर कोशिश करें।"));
+
+  const { data: templates } = await admin.from("message_templates").select("id").in("code", [...DAY_BOUND_TEMPLATES]).returns<{ id: string }[]>();
+  let staleSends = 0;
+  if (templates?.length) {
+    const { data, error } = await admin
+      .from("message_sends")
+      .update({ stale_at: now, stale_reason: "day_passed" })
+      .in("template_id", templates.map((t) => t.id))
+      .in("status", ["queued", "draft"])
+      .is("stale_at", null)
+      .is("request_id", null)
+      .lt("requested_at", startOfToday)
+      .select("id");
+    if (error) return fail(p("Could not clear the old messages. Try again.", "पुराने संदेश हटाए नहीं जा सके। फिर कोशिश करें।"));
+    staleSends = data?.length ?? 0;
+  }
+
+  // Repeats: the same words to the same number, still waiting. The newest copy stays.
+  const { data: waiting, error: readError } = await admin
+    .from("message_sends")
+    .select("id, to_phone, rendered_hi, rendered_en, requested_at")
+    .in("status", ["queued", "draft"])
+    .is("stale_at", null)
+    .is("request_id", null)
+    .order("requested_at", { ascending: false })
+    .limit(2000)
+    .returns<{ id: string; to_phone: string; rendered_hi: string; rendered_en: string; requested_at: string }[]>();
+  if (readError) return fail(p("Could not clear the repeated messages. Try again.", "दोहराए संदेश हटाए नहीं जा सके। फिर कोशिश करें।"));
+  const seen = new Set<string>();
+  const repeats: string[] = [];
+  for (const row of waiting ?? []) {
+    const key = `${tenDigits(row.to_phone) ?? row.to_phone}|${row.rendered_hi}|${row.rendered_en}`;
+    if (seen.has(key)) repeats.push(row.id);
+    else seen.add(key);
+  }
+  let folded = 0;
+  for (let at = 0; at < repeats.length; at += IN_FILTER_CHUNK_SIZE) {
+    const { data, error } = await admin
+      .from("message_sends")
+      .update({ stale_at: now, stale_reason: "repeat" })
+      .in("id", repeats.slice(at, at + IN_FILTER_CHUNK_SIZE))
+      .in("status", ["queued", "draft"])
+      .is("stale_at", null)
+      .select("id");
+    if (error) return fail(p("Could not clear the repeated messages. Try again.", "दोहराए संदेश हटाए नहीं जा सके। फिर कोशिश करें।"));
+    folded += data?.length ?? 0;
+  }
+
+  revalidatePath("/messages");
+  const cleared = (oldAlerts?.length ?? 0) + staleSends + folded;
+  return {
+    ok: true,
+    message: cleared
+      ? p(`${cleared} out-of-date or repeated ${cleared === 1 ? "message" : "messages"} taken out of To send. They stay on record.`, `${cleared} पुराने या दोहराए संदेश भेजने की सूची से हटाए। रिकॉर्ड में रहते हैं।`)
+      : p("Nothing out of date to clear.", "हटाने को कोई पुराना संदेश नहीं।"),
   };
 }

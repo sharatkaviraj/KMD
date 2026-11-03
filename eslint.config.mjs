@@ -43,9 +43,15 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated fixture dependencies and browser builds, never source files.
     ".test-artifacts/**",
+    ".vite-design/**",
+    ".vite-polish/**",
     "tests/*/dist/**",
     // The approved design pack: reference material, not app code.
     "docs/design-handoff/**",
+    // Local, git-ignored working folders: Smoke Lab runs and agent worktrees.
+    ".smoke-run/**",
+    ".claude/**",
+    ".dayrun/**",
   ]),
 ]);
 

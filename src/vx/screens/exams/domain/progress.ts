@@ -131,6 +131,34 @@ export function classReadiness(papers: readonly ReadinessFacts[]): ClassReadines
   return { state, entered, total, invalid, notSubmitted, readyToLock: papers.length > 0 && state === "ready_for_review" };
 }
 
+/** "12 marks · 2 absent · 0 excused · 0 blank": what a paper's entered count is made of. */
+export function paperMix(c: { marks: number; absent: number; exempt: number; blank: number }): Pair {
+  return p(
+    `${c.marks} marks · ${c.absent} absent · ${c.exempt} excused · ${c.blank} blank`,
+    `${c.marks} अंक · ${c.absent} अनुपस्थित · ${c.exempt} को छूट · ${c.blank} खाली`,
+  );
+}
+
+export type PaperBlocker = { paperId: string; subjectCode: string; reason: "needs_correction" | "missing" | "not_sent"; count: number };
+
+/**
+ * The papers that keep a class's report cards from being ready, and why: a
+ * mark to correct (how many), children with no mark (how many), or not sent.
+ * A card is "Ready" only when this is empty — never over a blank, an invalid
+ * mark or an unsent paper (smoke 20 Oct: Class 9 said "14/14 ready" while
+ * its Science paper was not sent and had two marks to correct).
+ */
+export function paperBlockers(papers: readonly (ReadinessFacts & { paperId: string; subjectCode: string })[]): PaperBlocker[] {
+  const out: PaperBlocker[] = [];
+  for (const paper of papers) {
+    const state = paperReadiness(paper);
+    if (state === "needs_correction") out.push({ paperId: paper.paperId, subjectCode: paper.subjectCode, reason: "needs_correction", count: paper.invalid ?? 0 });
+    else if (state === "missing") out.push({ paperId: paper.paperId, subjectCode: paper.subjectCode, reason: "missing", count: paper.total - paper.entered });
+    else if (state === "saved") out.push({ paperId: paper.paperId, subjectCode: paper.subjectCode, reason: "not_sent", count: 0 });
+  }
+  return out;
+}
+
 export const READINESS_LABEL: Record<PaperReadiness | ClassReadiness, Pair> = {
   needs_correction: p("Needs correction", "सुधार चाहिए"),
   missing: p("Missing marks", "अंक बाकी"),

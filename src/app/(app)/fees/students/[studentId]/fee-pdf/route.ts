@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { isUuid } from "@/platform/helpers/uuid";
 import { getStudentWorkspaceData } from "@/modules/students-fees/data/workspace";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertStudentVisible, refusalResponse } from "@/platform/auth/test-session-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export async function GET(
   }
   try {
     await requireStaffPermission("students:view");
+    const refused = await refusalResponse(() => assertStudentVisible(null, studentId));
+    if (refused) return refused;
 
     const workspace = await getStudentWorkspaceData(studentId, { skipCache: true });
     // Dynamic import so any module-init failure surfaces here (caught below)

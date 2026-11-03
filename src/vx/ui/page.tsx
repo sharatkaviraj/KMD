@@ -173,7 +173,7 @@ export function DataList<T>({
             {last ? <span style={{ flex: "none", textAlign: "right" }}>{last.cell(row)}</span> : null}
           </div>
         );
-        const st: CSSProperties = { borderTop: "1px solid var(--bd)", display: "block", animation: `xIn .32s var(--ease) ${Math.min(i * 22, 400)}ms both` };
+        const st: CSSProperties = { borderTop: "1px solid var(--bd)", display: "block", animation: i < 8 ? `xFade .18s ease ${i * 8}ms both` : undefined };
         return link ? (
           <Link key={rowKey(row)} href={link} role="row" className={`row tap${sel ? " sel" : ""}`} style={st} aria-current={sel ? "true" : undefined}>
             {desktop}

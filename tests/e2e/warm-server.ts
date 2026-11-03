@@ -1,5 +1,7 @@
 import type { FullConfig } from "@playwright/test";
 
+import { refuseOnProductionDatabase } from "./support/harness";
+
 /**
  * Warm the server before the first test's clock starts.
  *
@@ -41,6 +43,9 @@ export default async function warmServer(config: FullConfig) {
     config.projects[0]?.use?.baseURL ??
     process.env.APP_ORIGIN ??
     "http://localhost:3100";
+
+  // D-346: these journeys write real-session rows; never on a production database.
+  await refuseOnProductionDatabase();
 
   const started = Date.now();
   const timings: string[] = [];

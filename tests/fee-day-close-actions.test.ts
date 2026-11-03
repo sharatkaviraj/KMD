@@ -3,6 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   assertPermission: vi.fn(), preview: vi.fn(), receipts: vi.fn(), history: vi.fn(), insert: vi.fn(),
 }));
+// The test-session fence (Phase 3) has its own tests; here it lets everything through.
+vi.mock("@/platform/auth/test-session-access", () => ({
+  assertSessionWritable: async () => {},
+  assertSessionVisible: async () => {},
+  assertStudentVisible: async () => {},
+  assertReceiptVisible: async () => {},
+  assertFamilyVisible: async () => {},
+  notFoundUnlessVisible: async (check: () => Promise<void>) => check(),
+  refusalResponse: async () => null,
+  currentSessionViewer: async () => null,
+  filterVisibleStudentIds: async (_staff: unknown, ids: string[]) => ids,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/app/(app)/fees/payments/actions", () => ({ reverseReceiptAdminAction: vi.fn() }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: mocks.assertPermission }));

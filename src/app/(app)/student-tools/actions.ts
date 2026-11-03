@@ -8,11 +8,12 @@ import { enrolMissingStudents, syncStudentEnrolments } from "@/modules/enrolment
 import { editStudent, type EditPatch } from "@/modules/students-fees/vx/admissions";
 import { mergeFamily, splitFromFamily } from "@/modules/students-fees/vx/families";
 import { approveSafeRows, checkImportRows, commitImport, uploadImport } from "@/modules/imports/vx/flow";
-import { applyPromotion, buildPromotionList, loadPromotionBoard, rollbackPromotion, setEntryTargets } from "@/modules/promotion/vx/promote";
+import { applyPromotion, buildPromotionList, loadPromotionBoard, promotionRunSessions, rollbackPromotion, setEntryTargets } from "@/modules/promotion/vx/promote";
 import { logBulkChange, saveMark, skipQualityItem, unskipQualityItem } from "@/vx/screens/student-tools/data";
 import { groupPlanWrites, planCounts, planPromotion, QUALITY_ISSUES, type PromoMark, type QualityIssue } from "@/vx/screens/student-tools/logic";
 import { parseDob } from "@/vx/screens/admissions/logic";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { assertFamilyVisible, assertSessionWritable, assertStudentsVisible, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 /*
  * Student tools writes. Every one: `fees:manage`, then
@@ -31,7 +32,10 @@ function done() {
 /* --------------------------------------------------------------- promote */
 
 export async function buildPromotionListAction(source: string, target: string) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
+  // Both years are written (the run, then the target's enrolments).
+  await assertSessionWritable(staff, source);
+  await assertSessionWritable(staff, target);
   await assertNotPreviewing();
   try {
     const runId = await buildPromotionList(source, target);
@@ -44,6 +48,7 @@ export async function buildPromotionListAction(source: string, target: string) {
 
 export async function markStudentAction(input: { runId: string; entryId: string; studentId: string; kind: PromoMark | null }) {
   const staff = await assertPermission("fees:manage");
+  await assertStudentVisible(staff, input.studentId);
   await assertNotPreviewing();
   try {
     await saveMark({ ...input, staffId: staff.id });
@@ -60,6 +65,9 @@ export async function applyPromotionAction(input: { runId: string; classMap: Rec
   try {
     const board = await loadPromotionBoard(input.runId);
     if (!board.detail || board.detail.run.id !== input.runId) return { ok: false as const, message: "That promotion list was not found." };
+    // The run's own years, whoever is asking (Phase 3 fence).
+    await assertSessionWritable(staff, board.detail.run.sourceSessionLabel);
+    await assertSessionWritable(staff, board.detail.run.targetSessionLabel);
     const entries = board.detail.entries.map((e) => ({ id: e.id, studentId: e.studentId, fromClassId: e.previousClassId, decision: e.decision, newClassId: e.newClassId }));
     const plan = planPromotion(entries, input.classMap, input.marks);
     const counts = planCounts(plan);
@@ -86,6 +94,11 @@ export async function undoPromotionAction(runId: string) {
   const staff = await assertPermission("fees:manage");
   await assertNotPreviewing();
   try {
+    // The run's own years (Phase 3 fence); no such run, nothing to undo.
+    const years = await promotionRunSessions(runId);
+    if (!years) return { ok: false as const, message: "That promotion list was not found." };
+    await assertSessionWritable(staff, years.source);
+    await assertSessionWritable(staff, years.target);
     await rollbackPromotion(runId);
     await logBulkChange({ kind: "promote_undo", title: "Promotion undone", detail: { runId }, staffId: staff.id });
     done();
@@ -99,6 +112,7 @@ export async function undoPromotionAction(runId: string) {
 
 export async function uploadImportAction(formData: FormData) {
   await assertPermission("fees:manage");
+  await assertSessionWritable(null, String(formData.get("sessionLabel") ?? ""), { orActive: true });
   await assertNotPreviewing();
   const file = formData.get("file");
   const session = formData.get("sessionLabel");
@@ -168,6 +182,7 @@ const ISSUE_FIELD: Partial<Record<QualityIssue, keyof EditPatch>> = {
 
 export async function fixQualityAction(input: { studentId: string; issue: QualityIssue; value: string }) {
   const staff = await assertPermission("fees:manage");
+  await assertStudentVisible(staff, input.studentId);
   await assertNotPreviewing();
   const field = ISSUE_FIELD[input.issue];
   if (!field) return { ok: false as const, message: "This one is fixed from the student's record." };
@@ -195,6 +210,7 @@ export async function fixQualityAction(input: { studentId: string; issue: Qualit
 
 export async function skipQualityAction(input: { studentId: string; issue: QualityIssue; days: number }) {
   const staff = await assertPermission("fees:manage");
+  await assertStudentVisible(staff, input.studentId);
   await assertNotPreviewing();
   if (!QUALITY_ISSUES.includes(input.issue)) return { ok: false as const, message: "Unknown item." };
   const until = new Date(Date.now() + Math.min(365, Math.max(1, input.days)) * 86_400_000).toISOString().slice(0, 10);
@@ -208,7 +224,8 @@ export async function skipQualityAction(input: { studentId: string; issue: Quali
 }
 
 export async function unskipQualityAction(input: { studentId: string; issue: QualityIssue }) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
+  await assertStudentVisible(staff, input.studentId);
   await assertNotPreviewing();
   try {
     await unskipQualityItem(input.studentId, input.issue);
@@ -223,6 +240,9 @@ export async function unskipQualityAction(input: { studentId: string; issue: Qua
 
 export async function mergeFamilyAction(input: { studentIds: string[]; sessionLabel: string; father: string }) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, input.sessionLabel);
+  // The label is the caller's; each child's own session is the fence.
+  await assertStudentsVisible(staff, input.studentIds);
   await assertNotPreviewing();
   try {
     const res = await mergeFamily(input.studentIds, input.sessionLabel);
@@ -237,6 +257,9 @@ export async function mergeFamilyAction(input: { studentIds: string[]; sessionLa
 
 export async function splitFamilyAction(input: { studentId: string; familyGroupId: string; sessionLabel: string; name: string }) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, input.sessionLabel);
+  await assertStudentVisible(staff, input.studentId);
+  await assertFamilyVisible(staff, input.familyGroupId);
   await assertNotPreviewing();
   try {
     const res = await splitFromFamily(input.studentId, input.familyGroupId, input.sessionLabel);

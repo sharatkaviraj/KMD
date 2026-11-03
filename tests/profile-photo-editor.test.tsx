@@ -51,7 +51,7 @@ it("restores a lost-response command after reload and retries exactly once with 
   await render(); await choose(); await click("Save photograph");
   const sent = mocks.save.mock.calls[0][1] as FormData;
   expect([...host.querySelectorAll("button")].find(b=>b.textContent==="Cancel")?.disabled).toBe(true);
-  await act(async()=>root.unmount()); root=createRoot(host); await render(); await click("Change photograph"); await click("Restore photograph draft");
+  await act(async()=>root.unmount()); root=createRoot(host); await render(); await click("Change photograph"); await click("Bring back the photo kept on this phone");
   mocks.save.mockResolvedValue({ok:true}); await click("Retry this photograph");
   const retry=mocks.save.mock.calls[1][1] as FormData;
   expect(retry.get("commandId")).toBe(sent.get("commandId")); expect((retry.get("photo") as File).size).toBe((sent.get("photo") as File).size);
@@ -73,7 +73,7 @@ it("does not restore a previous actor or capability generation's photo", async (
   await act(async()=>root.unmount()); root=createRoot(host);
   const previous=await mocks.open(); mocks.open.mockResolvedValue({...previous,context:{...previous.context,scope:"different-actor-or-token"}});
   await render(); await click("Change photograph");
-  expect(host.textContent).not.toContain("Restore photograph draft"); expect(host.querySelector('[data-photo-preview]')).toBeNull();
+  expect(host.textContent).not.toContain("Bring back the photo kept on this phone"); expect(host.querySelector('[data-photo-preview]')).toBeNull();
 });
 it("refuses a JPEG that remains above the cap at the lowest quality", async () => {
   vi.spyOn(HTMLCanvasElement.prototype,"toBlob").mockImplementation(cb=>cb(new Blob([new Uint8Array(204801)],{type:"image/jpeg"})));
@@ -91,7 +91,7 @@ it("retains a folder placement's uncertain command and bytes across reload", asy
   await act(async()=>place.click());
   expect(mocks.save).toHaveBeenCalledTimes(1); const first=mocks.save.mock.calls[0][0] as FormData;
   await act(async()=>root.unmount());root=createRoot(host);await act(async()=>folder());
-  await click("Restore photograph draft");
+  await click("Bring back the photo kept on this phone");
   mocks.save.mockResolvedValue({ok:true,message:{en:"Saved",hi:"Saved"}});
   const retry=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("(1)"))!;
   await act(async()=>retry.click()); const second=mocks.save.mock.calls[1][0] as FormData;
@@ -129,7 +129,7 @@ it("reconciles the exact uncertain command after the proposal was reviewed, with
   await act(async()=>root.unmount());root=createRoot(host);
   const previous=await mocks.open();
   mocks.open.mockResolvedValue({...previous,context:{...previous.context,proposal:true,decided:true,proposalId:sent.get("commandId")}});
-  await render();await click("Change photograph");await click("Restore photograph draft");
+  await render();await click("Change photograph");await click("Bring back the photo kept on this phone");
   expect(host.querySelector<HTMLInputElement>('input[type=file]')?.disabled).toBe(true);
   expect([...host.querySelectorAll("button")].find(b=>b.textContent==="Cancel")?.disabled).toBe(true);
   expect([...host.querySelectorAll("button")].find(b=>b.textContent==="Retry this photograph")?.disabled).toBe(false);
@@ -143,7 +143,7 @@ it("reconciles the exact uncertain command after the proposal was reviewed, with
 it("keeps unsent drafts and file inputs blocked on a reviewed round while allowing cancellation",async()=>{
   await render();await choose();await act(async()=>root.unmount());root=createRoot(host);
   const previous=await mocks.open();mocks.open.mockResolvedValue({...previous,context:{...previous.context,proposal:true,decided:true}});
-  await render();await click("Change photograph");await click("Restore photograph draft");
+  await render();await click("Change photograph");await click("Bring back the photo kept on this phone");
   expect([...host.querySelectorAll("button")].find(b=>b.textContent==="Save photograph")?.disabled).toBe(true);
   expect(host.querySelector<HTMLInputElement>('input[type=file]')?.disabled).toBe(true);
   await click("Cancel");expect(mocks.save).not.toHaveBeenCalled();

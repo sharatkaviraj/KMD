@@ -1,5 +1,480 @@
 # VPPS One — progress
 
+## Android landscape password follow-up — 3 November 2026
+
+Branch `codex/android-landscape-password-20261102`, based on released `0007d514`.
+Real S24 tracing reproduced a 41px visual-viewport pan after the type switch;
+input layout and document scroll stayed fixed. Skipping an unchanged selection
+restore did not help. A bounded, cancellable viewport correction retains the
+field's visible position while preserving the existing keyboard/focus/caret
+fix. [Evidence](evidence/2026-11-03-android-landscape-login.md) distinguishes
+native baseline/prototype measurements from exact-build release verification.
+The owner authorized merge and live deployment; CI and device release results
+are recorded in the pull request. No business records or provider effects.
+
+## Android findings — 2 November 2026
+
+Branch `codex/android-findings-20261102`, based on deployed `1a88631` / PR159.
+Payment picker identity now wraps independently of money; password visibility
+preserves editing focus/selection; historical academic results have names and
+permission-respecting links; primary navigation uses the existing visual
+viewport offset. Per-pupil averages, current roll/eligibility and detail guards
+remain. [Evidence](evidence/2026-11-02-android-findings.md) separates fixture
+reproductions from unavailable real-device coverage. Local units/typecheck,
+payment/login/receipt fixtures pass. Local production build failed ENOSPC;
+clean exact-head CI, deployment and public runtime provenance are tracked in
+the linked release evidence and pull request.
+The owner subsequently authorized this release; no data/provider/message action.
+
+## Simpler student Documents — 2 November 2026
+
+Branch `codex/student-documents-ux`, based on `3c9076e`. The owner requested
+brainstorming, implementation and live release. Uploaded files now lead the
+Documents tab, with persistent Add, authenticated Open links, an in-profile VX
+upload sheet, optional notes, progress/retry and confirmed removal. School-issued
+certificates remain separate below. Preview/read-only accounts have no write
+controls; storage routing, existing transports and actual-student fences remain.
+
+Implementation `b2334db`, followed by fresh-review fixes. Final local verification:
+429 unit files / 19,232 tests passed and one skip; all 45 profile/stream/document
+browser cases pass, including 16 document cases, 320/390/1280px, light/dark,
+Hindi/bilingual, keyboard, upload/removal failures and three streamed-fee races.
+The workflow now lives above the fee Suspense boundary; a delayed read cannot
+discard a draft, retry identity or in-flight upload. Fresh review found no
+critical issue; both its stream-state and bilingual-label findings were fixed
+with failing-then-passing regressions. Typecheck/scoped lint, 430 theme tokens,
+828 ported imports and the sibling-fixture build pass. Full lint has 15 existing
+warnings. [Release evidence](evidence/student-documents-2026-11-02/README.md),
+[PR #158](https://github.com/veerpatta/vppsone/pull/158). CI/publication verification
+remain before merge. No migration or real document/payment/message mutation.
+
+
+## School Office, certificates and official records — 1 November 2026
+
+Branch `feat/school-office-operations`, based on `c3c05f1`; certificate commits
+`8a9a8fd` / `b198bd4`, followed by the government/board integration release.
+Owner approved implementation/live deployment, manual signature and numbering
+`VPPS/STUDY/<session>/0001`.
+
+Implemented contextual Study Certificate issuance, immutable private PDFs and
+exact issue recovery, School Office register/settings, supported government
+format mapping/reference exports/staged external-registration reconciliation,
+submission/full/partial acceptance evidence, sourced board readiness/deadlines,
+retained examination membership and separate official-result revisions. Today,
+Needs you, student Learning/Documents, Exam Office and Calendar use these stores.
+
+All five new One-only migrations are applied. Three rollback-only PostgreSQL
+scripts pass 19 command/security groups; no fixture rows remain. Full suite:
+428 files / 19,206 tests, typecheck and lint pass; 430 theme tokens and 828
+ported imports match. Production build/bundle gates pass. Browser evidence
+validates 46 distinct scenarios, including two artifact-write failures that
+passed targeted reruns after task cache space was recovered. Reviews' material
+findings were fixed and covered. Financial/provider authority is unchanged.
+
+Release CI, production SHA and live verification remain the final publication
+steps. Actual portal specimens/circulars and official outcomes remain operator
+configuration; no invented upload contract, physical-device or portal acceptance
+claim. See [release evidence](evidence/2026-11-01-school-office-release.md).
+
+## Faster app frame and student views — 1 November 2026
+
+Implementation commit `5d54795` on `perf/one-student-loading-20261101`, based on
+`b666e38`. The target is One at `one.vpps.co.in`.
+
+The directory overlaps optional task metadata with its main read and reads
+portraits beside attendance. Student 360 starts its authorized portrait beside
+the school model. The informational bridge banner streams after the authenticated
+shell. Individual profile/report marks queries request only the opened pupil and
+chunk paper IDs; class-wide exports keep their existing behavior.
+
+Search draft state is isolated from the cards, with a 250 ms pause instead of
+450 ms, immediate Enter and IME support. Regression checks cover newer typing
+during old results, clearing an in-flight query, normalized whitespace and the
+transition between multiple pages and one page. Scrolling touches cancel full
+profile prefetches before they begin; held intent and keyboard focus retain them.
+
+Validation: 416 test files, 18,728 passed and one skipped; typecheck and lint pass
+(15 existing warnings), 828 ported imports clean and 430 theme tokens match.
+Synthetic browser coverage passes the 27 existing profile/stream cases plus the
+two new 390/1280px search cases (the 390px search also passed the first run).
+Fresh review's three search races were reproduced, fixed and retested. Production
+build/bundle gates and the deployment record belong to this branch's release PR.
+
+No migration was added. A read-only audit of all 103 repository migrations against
+361 live ledger entries found six historical timestamp aliases already documented
+in the October assessment evidence, all matched by migration name; relevant
+objects/columns exist. No historic migration was replayed. Existing non-smoke TEST
+accounts lack `students:view`, so their denied responses are excluded from latency
+measurements. No permissions were granted for benchmarking; no real student,
+payment or message action was performed. Release evidence is retained in the PR
+and `D:\Codex\scratch\vppsone-performance-20261101`.
+
+## Native Fees student records in One — 1 November 2026
+
+Native current-session (`2026-27`) student reads are released through
+[PR #154](https://github.com/veerpatta/vppsone/pull/154), branch
+`codex/fees-one-student-details`, reviewed head `fdb6903`, production merge
+`8756ea6815dd3acb697d852b7757568c1beb9e0c`. All 22 checks passed before merge;
+CI recorded 411 files, 18,665 tests passed and one skipped, plus build and bundle
+checks. Four synthetic mobile flows passed separately. Source Fees PR120 is
+released at `4586d25b5d88a93431f1c726847a23298eed3f5d`; source migration
+`20261101063539_one_bridge_student_reads` is applied, and all 18 added profile
+projection fields match Fees across 537 students.
+
+One now displays the complete saved profile, private source photograph, native
+financial directory/filter results, installments, receipts, ledger/corrections,
+EMI, household and communication history, and existing stored PDFs. Fees remains
+the only financial authority; each read section intersects both applications'
+permissions. Source has 484 photographs; 53 missing photographs are absent in
+Fees itself. Teacher-login work remains deferred; this release does not change
+collection gates, send messages or create a competing financial writer.
+
+Initial deployed acceptance recorded 40 checks: 38 passed, including the real
+native pages, photos and receipt; two checks rejected the expected anonymous
+sign-in redirect. This was an operator-harness contract mismatch, not a failed
+authenticated application read. The harness-only correction is
+[PR #155](https://github.com/veerpatta/vppsone/pull/155), branch
+`codex/student-read-acceptance-denial`, reviewed commit `9a945241`. It accepts
+only the exact anonymous One 307 login denial, never follows redirects, and rejects
+all authenticated/source redirects. Vercel's exact `text/plain` marker
+`Redirecting...\n` is accepted alongside an empty redirect body; other bodies
+remain rejected, and direct 401/403/404 denials must still be empty. Its 28
+focused tests, syntax, scoped lint and TypeScript checks passed; two independent
+reviews are clear. The updated anonymous denial probes passed live. That exact
+head passed all 22 checks, including 411 files / 18,688 tests passed and one
+skipped, the production build and bundle budgets.
+
+The later intermittent source failures were investigated before final acceptance.
+Existing household fingerprint checks attempted no-op inserts, and the original
+statement triggers still journaled them. The new student read paths were audited
+without finding hidden business writes. Source [PR #121](https://github.com/veerpatta/schoolfees/pull/121),
+reviewed head `960f9419`, merged as `9111947f16696f103905b9da558b11caa4789a93`
+after green CI. It contains forward migration
+`20261101075630_one_bridge_changed_rows_capture`, now applied after rollback
+rehearsals and a one-migration dry run. Its 128 triggers across 32 tables are
+healthy. Zero-row DML and 100 existing TEST-student lock-helper calls produced
+zero events in rollback checks; all 616 access-revision rows were unchanged.
+Forced sync revision 274 verified 537 students, 19 classes and 419 households
+in 5.545 seconds.
+
+Status: native current-session student reads are deployed and verified.
+Post-migration live API/SSR acceptance passed **40/40 checks with 46 GETs and zero
+application write requests**, including native profile/financial/family/receipt
+pages, five exact source-photo hash comparisons, the 35,340-byte saved PDF and
+anonymous media denials. Private redacted evidence is
+`live-student-read-post-capture.json`; no student data or credentials are committed.
+PR155's final documentation update follows the ordinary green-CI merge process.
+This is point-in-time acceptance: the bounded global-MVCC retry
+check remains and unrelated concurrent transactions can still cause a retry or
+`read_changed` response. No availability SLA or elapsed observation period is
+claimed. Teacher-login rollout remains deferred; historical promoted-session
+receipts, native audio playback and physical device/printer testing remain
+outside this read release. See [implementation and evidence](cutover/COEXISTENCE-2026-11-01.md).
+
+## Fees coexistence implementation — initial notes, 1 November 2026
+
+The following initial-stage snapshot is historical; the release status above
+supersedes its in-progress, disabled and unpublished descriptions.
+
+Owner authorized implementation, required migrations and live deployment of
+the [coexistence plan](plans/2026-11-01-fees-one-coexistence-plan.md). Work is in
+`codex/fees-one-coexistence` from `de277a8`; source Fees work is
+`codex/one-coexistence-api` from `a966a82a`. Existing canonical checkouts and
+their unrelated local documentation are preserved.
+
+In progress: narrow source payment/read API, durable capture, fenced atomic
+One projections, explicit real/TEST routing and recovery. Initial isolated
+PostgreSQL and focused contract tests pass; independent review, full CI,
+deployment and live verification are still pending. Target migrations
+`20261101041404` and `20261101042523` are applied; the bridge is disabled,
+unpublished and empty. No financial posting has been performed.
+
+The old cutover report below is historical evidence. Its retirement/link
+shutdown and independent One financial processing steps do not apply to
+coexistence. Owner classification is now explicit: preserve all existing One
+activity as TEST; make the five named accounts real and retain existing logins.
+The transactional quarantine/activation adapter is being rehearsed before
+publication. See [implementation and evidence](cutover/COEXISTENCE-2026-11-01.md).
+
+## Handoff repair and readiness report — 1 November 2026
+
+Code/report delivered in [PR #151](https://github.com/veerpatta/vppsone/pull/151),
+branch `codex/cutover-verification-fixes` from `da37090`, code commit `4ea0240`.
+[Consolidated readiness report](cutover/READINESS-2026-27.md):
+**HOLD for cutover**. The supplied 31 Oct verification is preserved with its
+provenance; the original local 1 Nov report and working changes were left
+untouched in the canonical checkout.
+
+Fixed the snapshot loader's eight and tail-sync's two JSON parameters, ported
+one-tap receipt method fallback from fees `a966a82`, removed `/teach`'s nested
+main landmark and refreshed stale role-home expectations. Rehearsals skip
+explicit non-transactional `setval`, and re-check imported row plans before
+staff-role derivation. MCP comparison now refuses missing sessions; migration
+output can use a private D: root; `--accept-held <list>` parsing is corrected.
+Runbook includes the explicit MCP file and ten post-load export comparisons.
+
+Local validation on the final code: **383 files / 18,285 tests passed**;
+typegen + TypeScript passed; full lint 0 errors (15 existing warnings);
+ported-import check clean (827 files); theme parity 430/430. Next 16.4.3
+matches the lockfile after a fresh install. Two independent local agent
+reviews resolved the staff-audit reconciliation ordering and command/parser
+issues. GitHub CI/build/mobile-fixture and merge state are recorded on PR #151;
+merge only when every required check is green. Authenticated role-home E2E,
+full PostgreSQL loader execution and provider transactions were not run.
+
+Fresh read-only evidence: 15 public household tables + 2 private views and
+19 columns missing from One; 10 populated missing tables contain 7,772 rows.
+Source REST reader lacks access to one of them. Full fresh load rehearsal
+therefore remains blocked independently of the JSON repair. Existing backup
+228 tables / 51,509 rows and restore-test 228/228 were verified; no new backup,
+load, conversion, quarantine, account/gate/provider change or send occurred.
+The dev-marker database fee gate remains open; deployed app restrictions are
+not the same as database lockdown. Parent gates off, all online switches off.
+
+Remaining: reviewed household compatibility/read-path work; complete fresh
+rehearsal and financial/export proof; four unavailable receipt arithmetic
+examples and consolidated owner decisions; authenticated UI/provider/office
+acceptance. Stop at the report; no cutover authorization is inferred.
+
+## Go-live with the real 2026-27 data — started 30 October 2026
+
+Plan: `docs/cutover/GO-LIVE-2026-27-PLAN.md`, decisions D-338 to D-345. The
+plan replaces the shared-database cutover (`LIVE-MIGRATION-PLAN.md`), because
+the owner ruled out any change to the fee app's code or data. Phases 0–9 are
+engineering and run now; Phases 10–12 (rehearsals, cutover, parallel run) need
+the new Supabase project (cost: owner's yes), live read access, approved
+templates and the Razorpay webhook, and are dated around a proposed T0 of
+Sunday 13 Dec. Status per phase is kept in the table below.
+
+| Phase | Status | PR | Notes |
+|---|---|---|---|
+| 0 Plan and decisions | in review | — | This entry |
+| 1 Foundation (A1): marker, guards, fee writes switch, parity | in review | #141 (`feat/golive-foundation`) | Applied to wtgx: 11 fee catch-ups (earlier run, now committed), `deployment_marker` 20261030112133, `migration_ledger` 20261030112221, fee-migrations `nightly_backup_bucket` 20261030111402, `student_photo_storage_rls` 20261030111416, `parity_revoke_public_execute` 20261030111438, `parity_office_sync_realtime` 20261030111442, `fee_writes_guard` 20261030112459, `test_receipt_prefix` 20261030112612. Marker seeded `dev`. Surprises: wtgx let `anon` execute 45 fee functions live had revoked (incl. the money RPCs); live got a new fees migration `20261030170000_online_payment_staff_alerts` today, not on fees main yet. Review fixes: fee-migration `fee_writes_table_guard` 20261030121509 — BEFORE triggers on the 16 money tables (every API caller, incl. service role), TEST/real boundary moves of `students.class_id` / `classes.session_label` refused while closed, and only the owner (postgres, no JWT) can write `fee_writes_enabled` (proved by `verify-fee-writes-guard.sql` cases E–G, rolled back). App guard: updates/deletes placed by URL filters only, `or`/`and`/`not.` filters unscoped, import batches/rows, academic sessions and policies resolved to their session. A Vercel production / `VPPSONE_ENV=live` deployment counts as production even on a `dev` marker (QA sign-in test accounts only; fee writes test-only until the key is 'true'). QA sign-in checks the account before minting. `seed:timetable` is now test-scoped; `seed:scenarios` no longer touches real absences or overwrites templates on production. `deep-smoke`, `smoke-roles`, `measure-round-trips` are `dev-only` until Phase 3. Fee-parity baseline re-recorded (613 objects) with fees-identical fingerprints for the 15 preamble'd functions. Left: auth.users trigger (blocked on Q5, owner), QA users → test accounts (Phase 3); still `dev-only`, deferred to Phase 3: the 13 writing `verify-*` scripts, `smoke-screens`, the e2e harness |
+| 2 Importer, reconcile (A2): migration tooling | in review | #142 (`feat/golive-migrate-tooling`) | `scripts/migrate/`: sealed fees reader (surface + wire seals, tested), `extract-live`, `control-totals`, `load-snapshot` (dry run default; guards, staging, named triggers, terminal rules, One-owned settings, TEST rows only on `--first-load`, protected rows, orphan check, matviews, setval), `reconcile`, `storage-copy`, `tail-sync`, `fees-quiet-check`, `rollback-export`; docs `docs/cutover/MIGRATION-TOOLS.md`; D-348. Applied to wtgx: vppsone migration `tail_receipts_review` (20261030132121). Ran read-only: extract `20261030-a2-first` (88 tables, 73,573 rows, stable first attempt) — control totals MATCH the fees MCP on every field for 2026-27 and TEST-2026-27; `load-snapshot` dry run, `reconcile` (62 mismatches vs the stale replica, expected), `storage-copy`, `tail-sync`, `fees-quiet-check`, `rollback-export` dry runs. Not run: any `--apply`. Surprises: **6 fees users' emails already belong to different One auth users**, so the first real load refuses until Q5 maps them (Phase 3); open fees Path A pay codes run to **2027-01-31** (tail end without the T0 switch-off); live has no Postgres password, so the extract is REST with a double-read fingerprint instead of an exported snapshot (D-348). **Review fixes (D-349):** tail-sync parents-first with FK deferral and receipt-linked intents as evidence; events replace only One's `ignored` twin; reconcile event-twin, year-split, unmigrated-data and matview-freshness checks; loader locks before its guards (`fee_writes_open()`), detaches re-pointed rows, asserts written counts, drops staging, refuses live tables/columns One lacks (13 listed), refuses runs without auth identities, `--rollback-only` rehearsal (not yet run: the plan stops on the 6 clashes first); grants migration `20261030145719` applied to wtgx; rollback runbook `ROLLBACK-REENTRY.md`. Still open: purge run `20261030-a2-first`'s sealed auth rows and re-extract; `staff_payment_alerts` needs its fee-schema catch-up (fees migration not in the synced checkout) before the first load. |
+| 3 Session pill, TEST visibility (B) | in review | #143 (`feat/golive-session-pill`) | Applied to wtgx: vppsone `test_session_visibility` 20261030155339 (is_test_session / current_is_test_account / is_real_admin / can_see_test_sessions, `set_test_account` RPC, RESTRICTIVE `test_session_fence` on all 53 session-labelled tables + 27 child + 7 grandchild tables), `set_test_account_log_text` 20261030155654, fee-migration `fee_user_from_staff_profile` (D-350: `public.users` derived from `staff_profiles` via `fee_role_map`). Proved under JWT claims in begin…rollback (`scripts/verify-test-session-fence.sql`, all cases pass; `current_staff_role()` admin/accountant/view_only as mapped). App: `test-session-policy.ts` + `test-session-access.ts`; `isTestAccount`/`confined` on the staff (confined deployments fence everyone, banner); switcher cached unfiltered and filtered per viewer; resolver ignores a forbidden URL/cookie and deletes it where it can, test accounts default to TEST-2026-27; `setViewSessionAction` refuses; native `resolveSessionLabel` follows the pill; by-id guards on student/receipt/family/ledger pages, PDFs, exports, desk summary, receipt-by-number, Student 360, admissions, teacher student page; `assertSessionWritable` in all 55 actions handed a session label (architecture test); pill in the vx shell (desktop dropdown + phone sheet, no "Live ·" off production); `/staff/[id]` test-account switch for real admins. §3.6: 39 QA/smoke/day-run profiles flagged (`scripts/mark-qa-test-accounts.mjs`, run `qa20261030-0gyecx`, reversible); test-scoped tools now confined on every marker; the 13 verify scripts, `smoke-screens`, `deep-smoke`, `smoke-roles`, `measure-round-trips` and the e2e harness test-scoped. Load: fresh extract `20261030-p3-fresh`, dry run 6 remapped by email, 4 new, 0 refused (sealed auth rows purged after). Not done: Playwright run (needs a local `next dev`; spec `tests/e2e/test-session.spec.ts` written), screenshot comparison, seeding TEST-2026-27 vppsone data so the confined verify scripts have a scene (run `seed:timetable` / `qa:seed` first — they now write TEST). Surprise: vppsone holds almost no TEST-2026-27 rows (6 notes), so QA accounts see near-empty native screens until seeded. **Review fixes (fixer, D-351):** applied to wtgx: vppsone `test_account_staff_and_student_fences` 20261030172156 (`change_staff_authority` refuses a test actor on a real profile; `student_in_visible_session()`; RESTRICTIVE fence on acc_counter_queue, acc_requests, data_quality_skips, external_student_ids, parent_route_flags, promotion_marks) and fee-migration `fee_20261031000200_test_account_fee_write_fence` 20261030172225 (a test account's JWT writes money rows, students, classes, academic_sessions only in TEST, and only TEST-named app_settings keys; D-347 switch kept); `verify-test-session-fence.sql` A–N all pass on wtgx (rolled back). App: every action naming a student/receipt/family/class checks the record's own session (new `assertStudentsVisible`, `assertClassVisible`, `assertNotTestAccount`, `workingSessionFor`; student create/update/archive/delete/bulk, sibling, fee plan, EMI, waivers, close-due, ledger, refunds, corrections, reversal/decline, desk, counter queue, books, promotion, quality, merge/split, reminders, campaigns, outbox batch, birthday wish, photos, admissions) and a second architecture test holds it (22 native writes left OPEN with reasons — next: fence them by id); receipt/reversal/statement WhatsApp sends refuse a real record for a test account; bulk update uses TEST for a test account; live session, routes, fee heads, payment modes, WhatsApp settings, matrix, bank statements refuse test accounts; staff create/update/activate/login/reset/role refuse a real target for a test actor and new profiles inherit the flag; `setTestAccountAction` refuses while previewing (unit tests); resolver/switcher fail closed (TEST) when the viewer cannot be read; native by-id pages (assessments, marks grid, collection request/round + export, timetable version, teach class/task, duty) 404 out-of-session records (`documents/[id]` does not exist). Tooling: verify-cover-command, verify-staff-outbox, verify-parent-policy and the four fault-injection verify scripts + verify-sampark-import are `confined-dev-only` (refused on production); confined tools use TEST-2026-27 itself, never pickSessionLabel's fall-back; `verify:access` fixed (duplicate key, TEST-scoped totals, orphan login) and run: PASS, but vacuous until TEST is seeded (did not run `seed:timetable`/`qa:seed`). e2e spec: a test teacher keeps the pill (TEST only, D-351 (5)); added test-admin, edit/print and receipt-by-number cases. Still not done: Playwright run and pill screenshots (need a build or an unprotected preview), `/pay/[code]` deferred to Phase 7 (plan §3.4), Q6 back with the owner (plan §6). |
+| 4 Quarantine and promote (H) | in review | #150 (`feat/golive-conversion`) | D-360, `docs/cutover/QUARANTINE-REPORT.md`. Built, dry-run and rehearsed (`--rollback-only`) on wtgx, nothing applied but one fix: `convert-to-production` (7 steps, `--revert <step>`; rehearsal applied + reverted all), `classify-dev-vppsone` (read-only: A 365 / B 29,203 / R 932 / C 884 / K 96 rows, 0 unclassified; the 20th 2026-27 class is a QA artefact; owner's own activity listed), `quarantine-in-place` (513 TEST-D- shells, 1 TEST twin class, 19 teacher twins, 36,939 row changes; rehearsal with promote: 230/232 checks pass — the 2 left need step 2 — re-run 0, all 69 written tables covered by backup-one), `promote-master-data` (+ `seed-timetable --production-promote`), `verify-quarantine.sql`, `rebuild-enrolments` (C8: 541 = 513 + 28; 1 of 20 classes without a class teacher; rehearsal passed), `reset-test-session --session TEST-2026-27`, `load-snapshot` writes the data_replica REAL row. **Applied (owner-approved TEST hygiene):** `repoint-test-class-rows.mjs` moved the two TEST `class_teachers` rows of 22 Sep onto their TEST classes (Class 1's closed, its TEST class already had one); `ct_mismatch` 0; revert tested. No migration. Surprises: the runbook's step-3 rollback must restore BOTH schemas and step 4's needs a backup taken after step 3 (runbook fixed); 2 of the 19 "real teacher" profiles are day-run QA teachers with timetable short names — owner checks the sign-off list; 78 of 79 TEST students carry numbers off the allowlist (B15 policy is the owner's). **Review fixes (D-361):** no-FK references listed and re-pointed (`cover_duties.class_ids`, `merge_host_class_id`, `fee_reminder_batches.student_ids`, `actor_staff_id`, `*_by`, `on_behalf_of`) and checked by `verify-quarantine.sql` (248 checks), an unlisted reference column stops the run; phone-field answers nulled in `student_records` and its history; the 2 day-run teacher profiles are HELD until the owner passes `--accept-held` (17 twins without it); `reset-test-session` skips `TEST-D-` shells in its guard, unguards append-only deletes per statement, has `--rollback-only` and `--null-test-phones` (B15); C8 moved before step 8 (it refuses after fee writes open); `load-snapshot --first-load` refuses unquarantined B rows; confined `seed:timetable` falls back to `T-` twins. Re-rehearsed on wtgx `--rollback-only --with-promote --with-reset`: 35,675 rows, 246/248 checks (2 need step 2), re-run 0, the reset deleted 25,930 TEST rows on the quarantined state — PASSED, rolled back. Nothing new applied. Left: the owner's call on the 2 held profiles and on TEST phones (null or allowlist). |
+| 5a Small fee changes P1–P5, P13 (C) | in review | #144 (`feat/golive-fee-port-small`) | Ported with their tests (`tests/fees/`): P1 SBC + case-blind category labels; P2/P3 SQL verified already on wtgx (anon EXECUTE false on both reads; `idx_audit_logs_record_id`, `get_student_segment_counts` present), P3 `queries.ts` merged; P4 student export with photos (behind the session gate); P5 `online` reads Online/UPI (Razorpay), never Cash, in the ported screens AND One's vx desk/receipts/reports/accounts/palette/Student 360 (`deskModeOf('online')` was "other", so the vx Receipts desk left online money out of the day total — now filed under UPI), auto-day-close, catalogues, plus the TEST-session resend rule in `run-sender.ts` (with the failed-row reclaim from fees `1b932785`, which One's base lacked). P13: next 16.4.3 (fees is on 16.3.8, which still has three critical advisories), vitest 4.1.12, zod 4.6.7, overrides for undici/vite/source-map-js/postcss-selector-parser — `npm audit --omit=dev` 0, and CI now gates it at high (fees' scan gate 95dcd45d); a moderate `minimatch` advisory published since sits only under eslint and is accepted (D-352); fees' vendored braces patch not ported (no advisory on One's braces). Receipt verify ported to public `/rv/[code]` (A2), every `verifyUrl` via `receiptVerifyPath()`. `scripts/migrate/export-parity.mjs` (sheet names, headers, row counts only); export code is identical to fees HEAD (`ai-context-bundle`, `responses`, `info-fields`, photo workbook) bar One's session gate. Carried from B: the 22 OPEN native writes fenced by id (`passesFence` + `assert*Visible`), allow-list empty. Seeded TEST-2026-27: `seed:timetable` now derives TEST class labels (19) and enrolments (76) when confined, published 1,038 slots / 172 assignments; `qa:seed` run `r2610310020`; `verify:access` PASS with real TEST counts. **Surprise, fixed live:** `authenticated` could not SELECT `staff_profiles.is_test_account` (column grants since 20261004041954), so every signed-in page on wtgx sent its user to `/login?reason=no-profile` since Phase B — vppsone migration `staff_profiles_is_test_account_readable` 20261030185555 applied, test pins the grants. The e2e spec then found: the pill printed a refused `?session=2026-27` over TEST data (now shown only when the viewer's own list has it, desktop and phone pills); the confined banner was hidden from profile test accounts (now the deployment's, for everyone); `/fees/students/[id]` streams (loading.tsx), so its not-found is a 200 with the not-found screen — the spec checks the screen. `next dev` here needs `--webpack` (Turbopack refuses the node_modules junction). Open: two TEST-labelled `class_teachers` rows from 22 Sep point at 2026-27 classes (QA teachers 1/2 "hold" a real class; not changed — rows are not mine to relabel); receipt PDF/print comparison (B6) and live-vs-One export diff need the real snapshot (on the Phase 10 row). **Review fixes (fixer):** the same-day reminder retry no longer resends a real-session send whose fate is unknown (network error or 5xx → `delivery-unknown:` prefix, stays claimed; TEST retries anything); every collection action now checks the record it names (request, round, message, SamPark batch, photo proposal) or refuses test accounts for school-wide writes (fields, templates, parent policy, route flags) — the record-id architecture test could not see bare `id`s, so a new architecture test holds every collection action to the fence, and `tests/collection-write-fence.test.ts` proves a test account is refused on a real request/message; `verify:fee-parity` 7/7 after refreshing the baseline — the only drift was the four Phase B test-account fence triggers (fee-migration 20261031000200: `test_account_student_guard`, `test_account_session_row_guard` ×2, `test_account_settings_guard`), intentional and recorded in SCHEMA-PARITY; the catch-up migrations were already in the #141 baseline; the phone pill sets a long label a size smaller so TEST-2026-27 stays on one line (`docs/evidence/phase-c-pill-375.png` retaken); the e2e not-found check also asserts the real record's admission number is absent — spec re-run 6/6 on `next dev --webpack`, the real-student journey only with `--timeout=300000` (four cold dev compiles exceed 60 s on this machine); D-352 records the five deliberate differences from fees. |
+| 5 Fee changes P6–P11 (D) | in review | #145 (`feat/golive-aisensy`) | Ported from fees 8a0cd47c with their tests (37 fee WhatsApp test files under `tests/fees/`, 1,100+ cases): P6 reminder profiles, the ladder, school notices, families/ladder/notices screens, `_v6` bodies + Pay now, message cost; P7 "Why N?", chips; P8 fast reminders (`tap`/`reveal` CSS); P9 installments + last year in one message; P10 send-system sweep, RTE rule, desk waive-by-default merged into `payments/ui/mobile-payment-flow-sheet.tsx` and `payment-desk-mobile.tsx` (the vx desk keeps "take", it asks for a waiver reason — D-353 (7)); P11 linked siblings; receipt/reversal/statement/school-notice senders at fees HEAD. One's own edits kept: delivery-unknown retry rule, test-session fences, `/rv` verify link; new screens fenced by id. `onlineLedgerRecheck` is a Phase 7 stub (`payments/data/online/service.ts`, answers "off"); `pay-scope.ts`, `upi-open.ts`, `missing-column.ts` ported. Not ported: the pay page changes (Phase E), the one-tap interaction test (needs @testing-library/react), fees' `payment-desk-workflow`/`mobile-office-workflows` suites (never ported to One). Test names: sample names stay as the src template samples; a fixture destination phone replaced (rule 6). |
+| 6 AiSensy parity and send gate (D) | in review | #145 (`feat/golive-aisensy`) | D-353. One gate (`platform/messaging/parent-send-gate.ts`) in `sendAisensyCampaignMessage`, used by all 7 fee send paths and One's native parent provider (absences as `native`); only aisensy.ts and the two staff transports name AiSensy's endpoint (test). `_v7` (22, `APPROVED_V7` empty → text-only fallback; `_v6` refused; param count pinned per situation); `docs/cutover/AISENSY-TEMPLATES.md` for the owner. Cross-campaign dedupe in the run sender; retry/reconcile skip pre-watermark rows; `payCodeRefused` helper for Phase E; `source` `vppsone/…`; D-270 superseded (auto receipt notice follows its switch, behind the gate). Applied to wtgx: vppsone `parent_send_gate` 20261031040453 (runtime_flags.value, `parent_dispatch_categories` `[]`, `absent_notice_owner` "fees_notice", `message_test_recipients` empty, service-role only; grants checked). **Fee catch-up to live:** fees origin/main had two migrations live already ran — `20261030170000_online_payment_staff_alerts` (staff phone seed blanked, rule 6) → 20261031042015, `20261030190000_whatsapp_failure_desk` → 20261031042059, plus One-only `failure_desk_service_grants` → 20261031042122 (wtgx has no default privileges). Fresh extract `20261031-pd-catchup` (90 tables, 78,583 rows) + load-snapshot dry run: **no live table or column refused**; sealed auth rows purged. `verify:fee-parity` 7/7, baseline re-recorded (642). Not done: `catalog-diff` (needs the live fingerprint through the MCP — Phase D read live only through the sealed client); the failure desk's Fix tab and the staff payment alerts' sender (app code on fees origin/main; the alerts sender is Phase 8, plan §8.4); seeding `message_test_recipients` (operator, no numbers in the repo). **Review fixes (fixer):** One's own parent messages carry `message_sends.session_label` to the gate (`nativeParentGate`; no readable session = allowlist), so a TEST-session message sent by a real admin or a cron is held to the allowlist; the receipt notice asks the gate (`parentSendRefusal`) before render and claim, and releases its claim if the gate flips mid-send, so a refusal never leaves the permanent `(receipt_id, notice_kind)` row; the cross-campaign check reads `notice_kind = 'reminder'` only (a receipt no longer silences a family), counts delivery-unknown failures as sent, and pages each chunk newest first; reconcile passes the row's session to the cutover line (TEST rows no longer refused); Families bulk save checks the students' sessions and `writeReminderProfiles` chunks its `.in()`; the two ladder set-up actions clamp `auto` and the scheduled-runs route sends nothing while `SCHEDULED_SENDS_LIVE` is false (dry run still reports); import rules: `staff_payment_alerts` imported terminal (push → `no_devices`, WhatsApp → `off`, lease cleared; claim filter pinned), `staff_push_subscriptions` never touched. Behaviour tests for retry/reconcile watermark, the dedupe cases and >1,000 rows. **Blocks the first real load: `catalog-diff` against live and live's migration ledger above 20261030120000** (steps in SCHEMA-PARITY; not run — the brief reads live only through the sealed client, which has no SQL path). Owner: Q20 (vx desk late-fee default, D-353 (7)). Deferred to Phase 8: critique1 C1 (staff quiet hours as the send window reusing `DEFAULT_QUIET_HOURS`) — it is the staff transport's rule and nothing in Phase D sends to staff. |
+| 7 Razorpay (E) | in review | #146 (`feat/golive-razorpay`) | D-354, `docs/cutover/RAZORPAY.md`. Ported from fees origin/main **78e27e4f** (newer than 8a0cd47c; so fees #86 31e85d27 comes whole) with their tests: `payments/domain/online/*`, `data/online/{razorpay-client,service,orders,after-posting}` (the real `onlineLedgerRecheck` replaces Phase D's stub), `office-sync-events` (`publishOfficeSyncEventWith`), webhook `/api/webhooks/razorpay` (+ `/api/fees/webhooks/razorpay`; `src/app/api/webhooks` added to PORTED_TREES), cron `/api/fees/cron/online-payments`, the whole `/pay/[code]` + `status`, staff screen `/fees/payments/online` (vx nav *Online payments*, `fees:accounts`; actions fenced by the capture's students), the four pay-page cases, `pay-checkout-panel` (12 cases, on a local @testing-library stand-in), the three dry runs (adapted: One's applied functions on wtgx, one thrown-away transaction — 48/56/34 pass). One-only: `vp1_` in TS (`REFERENCE_PREFIX`; `vpps_` refused in processOrderPayment, reconcileOpenOrders, link pass, applyCapture, applyOrderCapture) and SQL; live-key guard (Vercel production AND `VPPSONE_ENV=live`); middleware opens `/pay`, `/api/webhooks`, `/api/fees/webhooks`, `/api/fees/cron` (`tests/public-routes.test.ts` enumerates every secret/signature/token route and sends each a cold request: 200, not 307 — the AiSensy webhook and the three existing fee crons were 307 until now); `payCodeRefused` on every `/pay` door; fee write guard places the online RPCs (TEST pays online in mirror mode; real refused); 7 switches only; receipt sender treats a gate refusal as suppressed. **Applied to wtgx** (fee-migrations): `online_vp1_ownership` 20261031064009, `receipt_suffix_floor` 20261031064037 (floor in all three numbering functions, VPP02 on a bad value; online receipts take the session prefix), `online_switches_default_off` 20261031064046 (all 7 + staff-alert `false`; replica had waive_late_fees and staff_whatsapp `true`). Proved before and after in `scripts/migrate/verify-online-vp1-and-floor.sql` (rolled back: vp1_ 36 chars, every vpps_ refused, TST…-5001 online, 5002/5003 desk, VPP02); grants unchanged and checked; `cron.job` clean; `verify:fee-parity` 7/7 after re-recording (exactly the 9 functions changed; SCHEMA-PARITY row). Not done: the staff-alert sender and its screen section (Phase 8; `staff-alerts.ts` is a no-op stub); scheduling One's reconciler pg_cron and the Vault secret (operator, C4 — SQL in RAZORPAY.md §5); no Razorpay call was made (no keys on any One deployment). Surprise: the shared node_modules has no @testing-library, so the interaction test runs on `tests/support/dom-testing-lite.tsx`. **Review fixes (fixer):** the staff screen is fenced by session (`data/online/screen-reads.ts` + `domain/online/session-fence.ts`): a test account (everybody on Preview/local) sees TEST payments only, real staff no TEST ones, an unplaceable capture is a real admin's only, the reconciliation is recomputed from visible captures for anyone but a real admin, and the audit list shows them switch changes only (`tests/online-payments-screen-fence.test.ts`; query shapes probed read-only on wtgx); the switch and review-close actions report a refused write (`switch_refused`/`not_resolved`) and audit nothing; the receipt outbox branches on the gate's refusal code — `read_failed`/`actor_unknown` retried, rules suppressed; **critique0 #4 built:** the run sender gives no Pay now (text-only notice) to a family whose children, `pay_scope` children or phone hold a fees code still payable (Path A until `pay_code_expires_on`, none = for good; Path B 21 days), nobody gets Pay now when the line is unreadable, TEST never held (`modules/whatsapp/data/fees-pay-codes.ts`, `tests/fees-pay-code-skip.test.ts`); `tests/public-routes.test.ts` now also holds every route, page and server-action file under a public prefix to a credential check (re-exports followed; `/rv` open by design); staff_payment_alerts import states and "public tables only" pinned; receipt-band preflight `scripts/migrate/online-preflight.mjs` (read-only; NO-GO on wtgx today, as expected) named in RAZORPAY.md §4; RAZORPAY.md §3a parents notice / HDFC QR / limits, §7 tail-end formula + SQL (run read-only on wtgx) and the (a) static-QR note; staff alerts given an owner in plan §8.4 (Phase 8 everywhere, no "Phase F"). Full `vitest run` 17,668 passed / 355 files; typecheck clean bar the known `@anthropic-ai/sdk` errors; lint 0 errors; `check:port` clean. Open: @testing-library in devDependencies (row 7a). |
+| 7a Follow-up: real @testing-library for `pay-checkout-panel` | not started | | Add `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom` to devDependencies with the lockfile (needs an `npm install`, not run here: shared node_modules, disk), point `tests/fees/ui/interaction/pay-checkout-panel.test.tsx` back at the real imports and delete `tests/support/dom-testing-lite.tsx`. |
+| I Owner decisions of 31 Oct | in review | #147 (`feat/golive-owner-decisions`) | D-350 approved (row edited), D-355 new. Applied to wtgx: vppsone `parent_dispatch_test_only` 20261031084012 (seeded OFF; runtime_flags grants unchanged — service_role S/U, authenticated S, anon none), fee-migration `fee_20261031090000_school_notice_sends_service_grants` 20261031084233 (service_role S/I/U). Q5: no auth.users trigger (public sign-up is ON for wtgx, so one would hand out access); proof `scripts/verify-staff-login-fee-role.sql` A–I pass, rolled back; the ported `/fees/staff` (a second writer of `public.users`) now redirects to `/staff`. Q6: `scripts/migrate/access-email-check.mjs` run read-only — 4 fees users without a One account (all `not loaded` before the first load), 6 remapped, 0 ambiguous; loader proven not to write a remapped auth row or any password hash. Q20: vx desk waives by default ('Payment Desk late fee waiver'), amount shown before saving; jsdom + the fee-followup, payment-ui (chromium) and operations-fee-collector Playwright suites run locally green. Pay-now tail: `docs/cutover/OLD-PAY-NOW.md`; One has all 8 switches, same meaning, nothing to port. Test-only parent send mode built, not switched on, nothing sent. Surprise: public sign-up is enabled on wtgx and 12 `public` tables let any signed-in user read (parent phones among them) — plan Q21, owner to turn sign-ups off before the first real load. **Review fixes (fixer):** **OPEN BLOCKER for the first real load — public sign-ups are ON on wtgx (owner, Dashboard → Authentication); `load-snapshot.mjs --apply` now refuses while they are on or unreadable** (`lib/auth-settings.mjs`; read 31 Oct: `disable_signup` false), and the plan §0.1 order, Phase 11 go/no-go and Q21 say so. `access-email-check` prints `ok` only when every row is `yes` (`not loaded` → NOT VERIFIED, exit 2; `--before-load` informational); runbook C5a sends the 4 access emails only after `ok`; C7 names the one fees switch (`online_payment_links_enabled`). `/collection` parent messages now honour test-only mode through the gate (`parentDispatchMode`; never via the mock). Proof SQL E/F/I now go through `change_staff_authority`: re-run on wtgx 31 Oct as one self-aborting DO block, A–I pass, no proof row left. Fee nav and settings point at `/staff`; a test pins that nothing in src calls the dead `staff-fees` writers. vx desk: the default waiver skips a late fee every pending row still avoids on the payment date (`deskWaivesLate`); the mixed due-plus-avoidable case still waives all pending late fee (server behaviour for it not checked). CI on feec1df: 23/23 green, including `synthetic-browser` (payment-ui Playwright in Chromium **and WebKit**). Not merged (orchestrator merges). |
+| 8 Staff WhatsApp (F) | in review | #148 (`feat/golive-staff-whatsapp`) | D-356, `docs/cutover/STAFF-WHATSAPP.md`. **Applied to wtgx:** vppsone `staff_whatsapp_consent_and_gates` 20261031101234 (consent columns, `staff_notice_prefs`, switches `staff_notice_kinds_enabled` — existing kinds on, every new kind off — `staff_whatsapp_month_cap` 1000, `staff_notice_student_names` off; payload kinds; claim reads the gate facts; `release_staff_notice`, `digest_staff_notices`, `queue_staff_notice(_to_permission)`; triggers on `fee_desk_requests` and `teacher_leave`; every staff template in `message_templates`, `vppsone_attendance_reminder` switched off). Grants checked after applying (`has_table/column/function_privilege`): authenticated reads its own prefs only and no consent column or function, service_role all, anon none — pinned in `tests/staff-whatsapp-migration.test.ts`. `scripts/verify-staff-whatsapp.sql` A–J pass on wtgx, rolled back (no row left). App: the gate in `staff-notices/domain/gates.ts` (consent, kind switch, own switch, allowlist for TEST/test account/confined, 07:00–20:00 window = `DEFAULT_QUIET_HOURS` end (C1), 8/day, month cap, digest, 1 req/s), every branch tested; dispatcher hands back refusals before rendering; new kinds rendered from one template table (`templates.ts`) the doc and migration are tested against; no phone number in any staff message; child named only with the switch. Moved to the outbox (B13): marks reminder (job + button), weekly summary, staff notice from Messages, timetable "tell teachers". New jobs `fee-day-summary` 19:00 IST and `fee-day-not-closed` 20:00 IST (vercel.json; confined deployments read no real fee data). `/preferences` consent + per-kind toggles; `/staff/[id]` admin records consent (form / in person / no); Messages → Staff tab (log, month count, cost, cap). Teacher-task API send asks consent/switch/allowlist (`no_consent`). Carried from D: staff payment alerts sender (`staff-alerts.ts`: WhatsApp → `online_payment` outbox notices to `fees:collect`, push closed `no_devices`; also queues `online_review` for `review_required` captures), the failure desk Fix tab (fees 3cc2de4b + 2c0ada0a, 3-way merged; fences on every action, cutover line on resend, delivery-unknown rule kept in the run sender). `AISENSY-TEMPLATES.md` records the 31 Oct `_v7` submission (`APPROVED_V7` still empty). Not done / owner: staff templates not submitted (bodies in STAFF-WHATSAPP.md §6), the five-minute pg_cron timer (SQL in §5, needs a Vault token), Web Push (no subscription screen in One), no consent recorded for anyone, no kind turned on, nothing sent. Surprise: the cover and register templates had never been registered in `message_templates`, and two cover bodies skipped a slot (Meta needs every slot used) — fixed in the renderers. **Review fixes (fixer, D-357):** applied to wtgx vppsone `staff_whatsapp_review_fixes` 20261031111241 (file = ledger statement, md5 checked): a confined deployment's claim takes TEST-session notices only (`p_test_only`); no child's name stored (payload `student_id` + class; the claim adds the name only with the switch on); authenticated loses `staff_notices.payload` and `staff_notice_attempts.params` (column grants; checked with has_column_privilege, pinned in `tests/staff-whatsapp-review-fixes-migration.test.ts`); a digest folds only after accepted/unknown; one AiSensy second across all dispatchers (`reserve_staff_send_slot`); one month count incl. teacher-task AiSensy claims (`staff_whatsapp_month_sent()`, used by the claim, the Staff tab and the teacher-task gate, which now applies the cap). `verify-staff-whatsapp.sql` H, K–N pass on wtgx (rolled back). App: staff-alert drain confined (no alert claim; TEST reviews only); fee-day jobs add a TEST pass (production) / TEST only (confined); `online_payment_staff_whatsapp_enabled` is the 8th online switch on the screen; failure desk refuses >200 ids and writes exactly the fenced list, siblings filtered then capped, a test account's retry leaves number health alone; weekly summary keyed per session+Monday+admin, "last sent" reads the outbox; STAFF-WHATSAPP.md §6 adds the six teacher-task templates (URL button `…/t/tasks/{{1}}`, tested against migration 20261016090000). **Required at cutover (C4):** store three job tokens in Vault and run `scripts/ops/schedule-staff-notices-cron.sql` (5-minute dispatch + fee-day jobs on the IST minute; refuses unless the marker says production — run on wtgx, refused as expected). Vercel team plan could not be read (assume Hobby). Still owner-gated: templates, consent, kinds, transport. Full `vitest run` 18,092 passed / 373 files; lint clean on the touched files; typecheck clean bar the known `assist/data/run.ts` (`@anthropic-ai/sdk`) errors; `check:port` clean.
+| 9 Monitoring, env, runbooks (G) | in review | #149 (`feat/golive-ops`) | D-358. **Applied to wtgx:** vppsone `ops_health_and_alerts` 20261031115621 (`ops_health_counts(p_hours)` counts only, EXECUTE for service_role only — anon/authenticated false, checked; staff kind `ops_alert` + template `vx_staff_ops_alert_v1`, seeded OFF). Job `health` (`/api/jobs/health`, vercel.json 02:30 UTC; alerts real admins through the Phase F outbox), `npm run migrate:health` (+ `--probe`: the Razorpay webhook must answer a bad signature with 401), server-side Sentry without the SDK (`src/instrumentation.ts`, only when a DSN is set; browser errors not covered), `docs/cutover/one-live-cron-jobs.sql` (runbook; run on wtgx and refused, as it should — marker `dev`), `env-names-diff.mjs` → `ENV-INVENTORY.md` (67 names, none unsettled; Vercel names via `vercel env ls`, values hidden), runbooks CUTOVER / ROLLBACK / PARALLEL-RUN / TRAINING / ADMIN-OPS / PARENT-NOTICE / MCP-AND-NOTION. **Backup run for real:** `backup-20261031T121335Z`, 228 tables / 51,482 rows, restore test into a throw-away schema 228/228 equal, rolled back (`BACKUP-EVIDENCE.md`); the Drive nightly backup ran 31 Oct 03:30 IST (ok). Surprises: wtgx pg_cron `refresh-sibling-groups-matview` fails every 2 minutes (function missing) — removed at C4, not here; One Production has no `RAZORPAY_WEBHOOK_SECRET` (probe 404) and no `APP_MODE` (needed with `VPPSONE_ENV=live`); there is **no tail-review screen** for `vppsone.tail_receipts_review` (SQL procedure in PARALLEL-RUN.md); no school-notice template fits the parent notice about the new pay address (options in PARENT-NOTICE.md). Runbook steps 2–3 need phase H's scripts. **Review fixes (D-359):** applied to wtgx vppsone `ops_health_more_counts` 20261031125856 (pg_net non-2xx `net_http_failed`, events pending > 30 min, receipt notices + One's parent sends + AiSensy total against an owner-set `aisensy_month_plan_cap` flag (added OFF, key added to `runtime_flags_key_known`), `cutover_rows`; grants re-checked: service_role only). `backup-one.mjs --restore` (dry run / `--rollback-only` / `--apply`) is the scripted rollback of steps 3–4 — **rehearsed on wtgx with `--rollback-only`: 226 tables / 51,481 rows equal, 37 s, nothing persisted**; `reconcile-post.mjs` (`--baseline` at C3, daily check 5); the `health` job probes its own Razorpay webhook (404 = "not configured yet" until the cutover line); `health --probe` asks the test-only doors cold; `env-names --vercel` diffs live Production names; Sentry reads One-owned `SENTRY_DSN` only (owner sets it at C5; `NEXT_PUBLIC_SENTRY_DSN`'s project unrecorded); C4/rollback timer checks by name; C8 checks as SQL (rebuild is phase H); first-week alerting is the Operator at 08:00/16:00 until T+7; weekly AiSensy wallet + Supabase advisors checks. Follow-ups: browser-side Sentry needs the SDK's client half (row below); the restore holds ACCESS EXCLUSIVE locks ~40 s — run it outside desk hours. |
+| 9a Follow-up: browser-side Sentry | not started | | Port the fee app's lazy-loaded client SDK (`instrumentation-client.ts`) with the same masking as `sentry-lite.ts`, to One's own `SENTRY_DSN` project. Server errors are covered by G; browser errors are not. |
+| 10 Rehearsals | not started | | Open from 5a (plan §5.4 / B5 / B6), both on one real snapshot: every export compared fees vs One with `npm run migrate:export-parity` (`ai-context-bundle` first; files in `%USERPROFILE%\.vppsone-migration\`, never the repo) — 0 differences; 10 receipts (cash, UPI, online, cheque, discount, family, carry-forward) printed from both apps on A4 and the office printer. Checklist in `docs/cutover/MIGRATION-TOOLS.md`. |
+
+## The fee app at fees.vpps.co.in — 30 October 2026
+
+The owner asked for School Fees on `fees.vpps.co.in` the same way (D-337,
+`docs/DOMAIN.md`). The domain, Cloudflare CNAME and certificate were already in
+place from earlier that morning. Done now: the fee app's production
+`NEXT_PUBLIC_SITE_URL` and the live Supabase Site URL moved to
+`https://fees.vpps.co.in`, with `https://fees.vpps.co.in/**` added to its
+redirect URLs, and the fee app redeployed. Here: `VERIFIED_ORIGINS.schoolfees`
+and PARITY.md, so VPPS One's links to the fee app open on the new address.
+Kept on `schoolfees-two.vercel.app` on purpose: the Meta-approved Pay now
+buttons, the Razorpay webhook and the MCP worker's site URL, so that host must
+never redirect.
+
+## VPPS One at one.vpps.co.in — 30 October 2026
+
+The owner asked for the app on the school's own subdomain (D-336, runbook
+`docs/DOMAIN.md`). Done outside the repo: `one.vpps.co.in` added to Vercel
+project `vppsone`; Cloudflare `CNAME one → ade918e9b8269018.vercel-dns-017.com`,
+DNS only; certificate issued (Let's Encrypt, to 28 Jan 2027, auto-renewed);
+production-only `NEXT_PUBLIC_SITE_URL=https://one.vpps.co.in`, with Preview and
+Development keeping the old value; `https://one.vpps.co.in/**` in schoolfees-dev's
+Supabase redirect URLs. In the repo: `VERIFIED_ORIGINS.vppsone` and PARITY.md.
+`vppsone.vercel.app` keeps answering. Surprise: the certificate was not issued
+on its own after the CNAME verified; `vercel certs issue` did it in seconds.
+Remaining: staff sign in once on the new address and reinstall the phone app;
+deciding later whether to redirect `vppsone.vercel.app`.
+
+Released: [PR 137](https://github.com/veerpatta/vppsone/pull/137) merged as
+`d2a30c9` (head `6f65bc8`, all 22 checks green before merging); production
+`dpl_A7HgWi1qg2X9y2QZJLboEhd1ZnHZ` READY, aliased to `one.vpps.co.in` and
+`vppsone.vercel.app`. Checked live: both `/login` 200 "VPPS One" from `bom1`,
+`http://` 308 to https, HSTS, manifest and service worker 200, a job route 404
+without its secret, `npm run verify:origins` 3/3. Not checked: a receipt
+rendered signed in (needs a staff session).
+
+## Fee admin screens simplified — 28 October 2026
+
+PR 134 (`52357ed`) and its fix PR 135 (`f19a7c0`), at the owner's request.
+- **School Setup Lists:** a row of jump links with counts. Sessions, classes,
+  routes and fee heads are one row each that opens to edit, and adding sits
+  behind a button. No scroll boxes inside the page.
+- **Deletes now ask:** class, route and fee head deletes ask before deleting.
+  They used to happen on one tap.
+- **Staff accounts:** "Create staff account" sits behind a button, and each
+  account row says "Manage".
+- **WhatsApp reminders (phone):** family cards show the number and the tick
+  box, with the other details and controls under "More". The reconciliation
+  paragraph folds under "How this number is worked out".
+- **Class teachers:** the hand-over form now has a Cancel.
+
+Surprise: #134's truncated rows pushed the Classes and Routes cards past a
+375px screen (grid items need `min-w-0`). Caught live and fixed in #135.
+
+## Every screen checked; settings lists simplified — 28 October 2026
+
+PR 132 (`2aa53b7`), from the owner's request to check every screen and
+simplify confusing UI. All 115 fixed routes loaded signed in as an admin,
+with no error, crash or wrong redirect. 24 daily and busy screens were
+looked at on a phone, and several on desktop. Three settings screens showed
+every item's form open at once and now open one item at a time (shared
+`EditRow`/`AddRow`, native details):
+- What can be asked for: Add comes first, retired questions folded away.
+- Cover policy: one row per teacher.
+- Class teachers: "Change teacher" instead of a hand-over form on every class.
+
+Not changed: the ported fee admin grids (`/fees/master-data`, `/fees/staff`,
+`/fees/reminders`) and the defaulters call queue, which are dense but
+organised. (The missing hand-over Cancel was added in #134.)
+
+## Student documents section made simpler — 28 October 2026
+
+PR 130 (`6d72b44`), from the owner's report that adding documents was
+confusing. The Add button now comes first. Adding is three steps (tap the
+type, tap to choose the file, Save), and Save stays off until both are
+chosen. Rows show the type, note, file name, date and who added it. Remove
+now asks first. Upload logic is unchanged. Checked live at phone size:
+opening the form, choosing a type, and Remove → Keep it. A real upload
+through the new form has not been made yet.
+
+## One central store and nightly Drive backups — 28 October 2026
+
+Branch `feat/drive-central-backup`, after PR 126 (`2f211bc`). D-334. No
+silent bucket fallback (unreadable settings stop uploads visibly; the old
+Server Action upload removed); a database guard and history on the storage
+destination; the nightly `drive-backup` job (sealed file copies, the
+approved copy-only move of bucket documents, a sealed snapshot of every
+vppsone and fee table with a manifest) into the "Share" folder the owner
+chose; `npm run recovery -- snapshot` to open and check one. Independent review's
+findings fixed in `2b6a04b`. Migration `20261028035840` dry-run on PGlite
+(`docs/evidence/drive-storage-2026-10-27/`; the dry run caught an operator
+precedence bug that would have refused every settings update) and applied to
+dev with the owner's approval before merge; on real data the two one-call
+schema exports read 49,611 rows (~26 MB of JSON) in 3.5 s for both, twice.
+PR 127 merged (`9537e7c`) and deployed. Live, 28 Oct: 8 synthetic admin
+uploads and opens through Drive (timings in `docs/DRIVE-STORAGE.md`); the
+first `drive-backup` run `ok` in 99 s (snapshot 204 tables / 49,644 rows, 13
+file copies, 11 bucket documents moved copy-only, 0 parked); the snapshot and
+a file copy restored with the private key (204/204 tables). PR 128
+(`88517e2`) recorded it. Rolled out to every role at 09:10 UTC by the owner's
+decision without the office-account pilot (D-335): 3 admin and 2 office
+accounts now upload to Drive; the first real office upload is still to be
+checked. Surprise: PR 126 was merged while its `check` job was still running
+(it then passed).
+
+## Student documents in Google Drive — 27 October 2026
+
+Branch `feat/drive-document-storage`, after PR 121 (`6de3b3c`). D-333,
+`docs/DRIVE-STORAGE.md`. Code for Drive-backed student documents behind
+`file_storage_settings` (default: the Supabase bucket, as before): keyless
+Google auth from the Vercel OIDC token, chunked uploads with type sniffing,
+sha256 and resume, streamed private reads, a nightly sealed copy to another
+provider, the recovery-key tool. Fixed in passing: opening a document by id
+now obeys class scope. Tested against a fake Drive (8 files, 68 tests) and
+reviewed independently (findings fixed in `9b92a4c`). Owner approved the
+migration, the Google project, a dedicated Shared Drive and the backup plan:
+migration `20261027114837` applied to dev before merge; Google project
+`vpps-one-files` with keyless federation created, no org policy changed.
+PR 122 (`f6adbfe`) and PR 123 (`fea7705`, folder-only access, timing logs)
+merged and deployed. Drive: folder `VPPS One documents` in the existing
+"Share" drive, service account writer on that folder only. Recovery key made
+on the office PC (fingerprint `9c7fea21…`), public half in the settings row.
+Pilot on for the owner's account only: one real 369 KB PDF stored and opened
+through Drive (timings in `docs/DRIVE-STORAGE.md`). 28 Oct: the scheduled
+Document backup passed its Drive health check and sealed that document; the
+sealed copy opened with the private key to the same sha256 (restore check).
+Not yet: the synthetic size/concurrency measurements and any decision to go
+wider. The 1 MB bucket-upload limit found here was fixed separately in #125.
+
+## AI helper on phones — 27 October 2026
+
+Branch `feat/ai-assist-mobile`, after PR 118 (`5ab9f87`) and the owner's key
+went live (first real draft logged 09:45 UTC, $0.007, kept). D-330: 48px
+full-width AI buttons that wrap, stacked suggestion buttons, keyboard closed
+and the card scrolled into view on touch, Copy with a fallback and the phone's
+Share sheet on read-only suggestions, an offline state, camera or gallery on
+the admission form. Checked at 375 and 1280 px in the phone harness
+(`tests/mobile-ui/assist.html`); 2 new tests. Not yet checked on a real phone.
+
+## AI helper, second round — 27 October 2026
+
+Branch `feat/ai-assist-more`, [PR 118](https://github.com/veerpatta/vppsone/pull/118),
+feature commit `500119e`, after PR 117 was merged (`9afae39`, production READY). Owner: "build more suggested ideas". D-328, D-329. New, behind the same
+key, switch and budget: "Summary for a parent meeting" on the teacher's child
+view and Student 360; "This week's notes in short" on the notes board (when a
+class is picked) and the teacher's notes; "What to say on this call" on the
+dues call sheet and the attendance call sheet; "Draft it for me" on the new
+WhatsApp template sheet; "Today and this week in plain words" on Today. Every
+figure in a call script or the brief is the app's own (slots); no family's
+name or amount reaches the AI for a call. No migration. 19 new tests
+(number rules, task clean-up, call-script privacy, sensitive notes held back).
+Still not tried against the real API: no key is set yet.
+
+## AI helper — 27 October 2026
+
+Branch `feat/ai-assist`, [PR 117](https://github.com/veerpatta/vppsone/pull/117), feature commit `8833288`. Owner's request: build the brainstormed Claude uses
+(all but the worksheet builder) on the school's Claude Console, easy for
+non-technical staff. D-324 to D-327. Claude Haiku 5.5 for quick drafts,
+Claude Sonnet 5.5 for remarks, results and reading a paper form.
+
+What staff see, only once `ANTHROPIC_API_KEY` is set and the admin leaves it on:
+"Tidy up" and "In English/Hindi" under every note box; "Write it for me",
+"Polish" and "Fill the other language" on the notice composer, and "Suggest a
+reply" on parent replies; "Suggest what to do in this period" on a cover duty;
+"Write AI remarks for N children" and an AI card among the suggested remarks;
+"Match the other N with AI" on the import's column step; "Fill from a photo of
+the paper form" on the admission wizard; "Write a summary" on a class's result
+analysis; an "Ask" row in the search box for questions; and Settings → AI
+helper for the switch, budget, daily limit, per-feature switches and usage.
+
+Migration `20261027080847_assist` (two private tables, three RPCs) is applied
+on dev. 37 new tests: 30 unit (masking, cost, task clean-up, the route's
+refusal order with Claude mocked) and 7 rendered component tests. Local:
+14,765 tests, typecheck, lint, build and bundle budget all pass. No local
+browser check: this checkout's `.env.local` has no Supabase settings. **Not yet tested against the real API**: there is
+no key in this checkout or on Vercel, so every AI button is hidden on the
+deployed app until the key is added (docs/SETUP.md). Status: in review.
+
+## Workspace tidy — 26 October 2026
+
+Branch `chore/tidy-root`. The local checkout moved from `Desktop\vppsone` to
+`Desktop\VPPS One\app`, beside `reference-docs\` and `private-data\` (real export
+files, never in git). Seven stray worktrees were removed after three unpushed agent
+branches were pushed as `salvage/student360-first-screen`, `salvage/students-list`
+and `salvage/admin-today-order`. Those three are not merged and still need review.
+Root Playwright configs moved to `tests/playwright/` (D-323). Speed ideas, ranked
+from a code read and not yet built: [plans/2026-10-26-speed-ideas.md](plans/2026-10-26-speed-ideas.md).
+
+## Source-note privacy release - 25 October 2026
+
+Reviewed on `codex/technical-followup-20261025`, based on main
+`9212f9b4ff5c2f3193fe9ac55293da4d4ed29f62` (freshly fetched before publication).
+Two reproduced failures now stop safely: parent sharing refuses failed/missing
+source-note reads before writing, and plan reads refuse incomplete source results.
+Author-only private-plan access is preserved. Independent final review found no
+blockers. The same work adds reviewed synthetic timetable integration tests.
+
+Local checks passed: 14,439 unit tests across 251 files, full-project TypeScript,
+complete production build, 28 browser checks, scoped lint, port boundaries and
+bundle budgets. Three original real-fixture suites were not run locally; theme
+parity skipped because its reference checkout was absent. The normal CI remains
+unchanged. Temporary build settings were restored; Claude was not interrupted.
+
+The user authorized deployment on 25 October. Publication is now in progress via
+a draft PR and exact-head CI, then the normal VPPS One Vercel pipeline. No database
+migration, live record change or real notification is part of this release.
+Authenticated backend acceptance and the historical weak-network register delay
+remain separate limits. Policy decisions are unchanged. Release identifiers and
+results: [verification record](evidence/notes-source-privacy-release-2026-10-25.md).
+The earlier school-day ledger remains **202 fixed, 36 improved**, not all 262 resolved.
+
+
 ## Sampark shared teacher work — 16 October 2026
 
 **Released 17 October 2026.** [#98](https://github.com/veerpatta/vppsone/pull/98) merged as `30416c7` (head `8f3b25c`, 22/22 checks green) and deployed to production (`dpl_21nXBAYm9X3h3VGkNxkENyRsjXEQ`, `vppsone.vercel.app` aliased to that commit). On schoolfees-dev the three migrations are recorded as `20261016125715` teacher_tasks, `20261016125729` profile_photos, `20261017043313` teacher_task_delivery. The last was applied from bytes hashing `a8567aa9…eb71eb`, and its catalog matches `migration-catalog.json` exactly: 26 functions with their ACLs, 4 RLS tables, indexes, triggers, the restrictive policy, 6 columns and 6 contracts. The 38 existing `message_sends` rows were untouched. Production was smoke-tested as QA admin and QA teacher: Needs you, Students "No photo" filter, Student360 photo/request actions, Integrations (AiSensy "Setup pending", automated sends off, manual sharing offered), teacher task list and staff photo entry. No writes, sends or links were created. Surprising: the repo files keep their `07/08/090000` names while the recorded versions are MCP-stamped, so the names and versions differ; the first two were already like that, and the files were left as reviewed. Remaining: AiSensy templates and provider configuration are deliberately pending. The first load after sign-in logged one React #418 hydration-text warning, not yet attributed to a screen.
@@ -1194,3 +1669,31 @@ Follow-up released: PR #103 merged as `1583b0b` after all 22 checks passed on `9
 20 Oct, accessibility follow-up: production reflow/zoom/keyboard pass over 16 screens and three roles found one 320 px overflow (`/receipts`) and invisible focus on borderless search inputs; both fixed on `fix/accessibility-followup-2026-10-20`. DEV migration ledger matches the repo (one renamed entry, same version, rows present). The live fee database is untouched and waits for cutover.
 
 Accessibility follow-up released: #105 (main `a93eda3`) and #106 (main `399feb1`), production `dpl_HQdBZ6X6e6uXaNRQsWw7WJNQi6JK`. Re-run on production: no overflow on 16 screens at 640 px or 320 px, and every search box shows the focus ring under Tab (Students, Payments, Receipts, notes picker measured). Remaining: physical phones and a screen-reader pass; the live fee database migrations wait for cutover.
+
+20 Oct, live cutover plan prepared (not run): `docs/cutover/LIVE-MIGRATION-PLAN.md`, D-310. Classifies all 79 migrations plus the fee-collector change. Pre-flight P0–P15 (backup, identity, fee preconditions, the bodies to restore, who owns the functions, how the fee app deploys, D-207). Phases M1–M4 with gates and a phase-ordered rollback. Independent review found and fixed three blocking errors (an M2 gate that could not pass, a function count off by one, an M1 rollback that would have taken fee permissions down). `CUTOVER.md` step 1, step 5 and the rollback now point to it. Waiting on the owner's go-ahead.
+
+## Smoke Lab — 20 October 2026
+
+Owner's request: passwordless logins for every role so AI agents can run the whole school day end to end and find bugs and improvements. **Released 20 October 2026.** [PR 109](https://github.com/veerpatta/vppsone/pull/109) merged as `b2ef7f6` (head `614042a`) and deployed to production (`dpl_9Ru8y6hRMniS5PVen1cqSxdYQgqG`, `vppsone.vercel.app`). CI on the head passed, but only after the merge: `--auto` merged at once because the main CI job is not a required check. `scripts/smoke/self-test.mjs` passed against production. Afterwards the test database held 14/14 pool accounts banned, 0 sessions and 0 open runs. Remaining: first real agent school day. Guide: `docs/smoke/README.md`; decisions D-311–D-314.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| DEV migration `20261020103153_smoke_lab` (pool, runs, passes, findings, `smoke_access_allowed`); 14 smoke accounts via `npm run smoke:pool` (6 teachers attached to real class-teacher profiles) | done on DEV | `feat/smoke-lab` | D-skip for live; added to the live plan |
+| `/smoke` console, `/lab/enter`, `/lab/clock`, `/api/lab/brief`, `/api/lab/findings`, middleware gate, Markdown export | done | `feat/smoke-lab` | Self-test passed on a local server against DEV (open run, pass sign-in, finding + repeat, revoke pass, revoke run, nothing left the app) |
+| Security review fixes (D-314): DEV migrations `20261020105658_smoke_lab_enforcement` (ban/unban, session purge, pg_cron `smoke-enforce`, single-statement counters and findings) and `20261020110015_smoke_lab_ban_date`; smoke accounts lose staff/settings management; gate in `getCurrentStaff`; `app_metadata.smoke_lab` on all 14 | done on DEV | `feat/smoke-lab` | Surprise: `banned_until = 'infinity'` broke Supabase Auth for the whole test project (listing users failed) for about 20 minutes; replaced by 2999-12-31. Both migrations are D-skip |
+| School day with 24 seats and 11 agents (D-315): admin, academic and exam coordinators, accountant, 20 teachers, then a developer UX review | done on DEV, through production | `feat/smoke-schoolday-2026-10-20` | **262 findings (15 P1)** in about 28 root causes, ranked with fixes in `docs/evidence/smoke-school-day-2026-10-20.md`. Cross-checks, permissions and money held. Teacher P1s: the sheet steals focus while typing (a note toggles parent WhatsApp), marks keep a partial number (85 saves 8), marks freeze offline, and the saved card shows unsaved counts. Others: report card says Pass with a 0, the receipt's fees-owed is wrong, and "cover arranged" when none was. Surprise: the run was planned on Dussehra and crossed midnight; next run on a working day in school hours |
+| All 262 school-day findings worked through (D-316–D-322): eight developer agents, one area each in its own worktree, then integration | **released 21 Oct** | [PR 112](https://github.com/veerpatta/vppsone/pull/112) merged as `d36ac19` (head `ba2ca61`, all 23 checks green before merging); production `dpl_BvDdgiUD8renQKjFApjtnZStsTPE`. Production spot check passed 8 of 8: the change-sheet note stays whole and in focus with WhatsApp untouched, Hindi-only Today, `/staff/roles`, cover, results | Verified in a browser on 21 Oct (local server on the branch, test database, 7 seats): 14 of 15 checks passed, including both teacher P1s, report cards, the needs-attention count, cover and the receipt's fees still owed (₹11,398 before a ₹1 test receipt, ₹11,397 after; SVP20261021-0001). The 15th, the cover tile, passed but no away teacher was set to test it. Its 7 new small problems are fixed in `e69c17c` and `f2256cf`. **202 fixed, 36 improved**, 9 duplicates, 8 by design, 4 not reproducible, 2 need the owner (pass rule, Exempt), 1 open (16 s register load on a weak network). DEV migration `20261021033411_late_cover_assign`. Per-finding list: `docs/evidence/smoke-school-day-2026-10-21-fixes.md`. Surprise: the needs-attention P1 was an undated rehearsal exam full of zeros read as every child's latest paper, not missing marks |
+| Agent harness (`scripts/smoke/lib.mjs`), baseline sweep (`npm run smoke:sweep`), self-test | done | `feat/smoke-lab` | First sweep (teacher 1, local dev server): 12 screens each at 390/1280 px; flagged the note composer 10 px wider than a 390 px screen. Dev-server timings are not findings |
+| Round 2 prepared, **not started** (D-331, D-332): smoke seats capped at 5 AI drafts a day in `runAssistTask`; the school day and role focus cover the AI helper; committed plan `docs/smoke/plans/school-day.json` (28 seats, personas, 10 waves); `npm run smoke:ready` (read-only) | **released 27 Oct**, run not started | [PR 120](https://github.com/veerpatta/vppsone/pull/120) merged as `6482df2` (head `e79a1af`, all 22 checks green before merging); production `dpl_CMpeRTPMDmhbdQax8ia6w7bbgh4s` | Checked 27 Oct: 28/28 seats with account, profile and flag, all banned; no open run; `smoke-enforce` active; AI month $24.99 left against about $4.20 worst case; `smoke:ready` against `vppsone.vercel.app` passed. Surprise: this PC's `.env.local` holds only a Vercel token, so `open-run.mjs`, `smoke:pool` and `dev:login` cannot run here until the dev URL and service key are added. The 269 findings of the first runs are all still `new` on `/smoke` though PR 112 fixed them; findings are per run, so round 2 is not affected |
+
+
+## Actions cost optimization - 27 October 2026
+
+Branch `ci/actions-cost-2026-10-27`, workflow commit `eddb811`; PR #116.
+All 14 phone matrix configurations/check identities are preserved while testing
+an official version-matched Playwright image with Node 24. Obsolete PR-only
+cancellation was added to payment parity, provider claim and teacher SQL.
+Independent workflow review found no critical/important issues. GitHub CI and
+full-job timing comparison are pending; merge only after passing checks.
+Local npm installation is blocked by approximately 218 MiB free disk space.
+No application logic, production database or deployment gates changed.

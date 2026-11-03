@@ -1,4 +1,5 @@
 import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
+import { assistFeaturesFor } from "@/modules/assist/data/settings";
 import { Suspense, type ReactNode } from "react";
 
 import { getDuesBadgeCount } from "@/modules/dashboard/data/shell-metrics";
@@ -12,6 +13,8 @@ import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { initials, schoolToday } from "@/vx/format";
 import { inboxCount } from "@/vx/screens/admin/data";
+import { schoolMinutes } from "@/vx/screens/admin/logic";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
 import { lead } from "@/vx/text";
 import { NavTrail } from "@/vx/ui/back-link";
@@ -21,11 +24,17 @@ import { previewPermissions, type Viewer } from "@/vx/view-as";
 import { OfflineBanner } from "@/vx/screens/system/offline-banner";
 import { SessionExpiredSheet } from "@/vx/screens/system/session-expired";
 import { UpdateBanner } from "@/vx/screens/system/update-banner";
+import type { SessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
+import { testSessionMessages } from "@/messages/setup";
+import { flat } from "@/platform/i18n/language";
+
+import { AssistProvider } from "@/vx/assist/context";
 
 import { VxBottomBar } from "./bottom-bar";
 import { LazySearchPalette } from "./lazy";
 import type { PaletteItem } from "./palette";
 import { PreviewBanner } from "./preview-banner";
+import { SessionBar } from "./session-bar";
 import { menuRoleLabel, ROLE_SUB } from "./role-line";
 import { VxSidebar, type Badges } from "./sidebar";
 
@@ -49,7 +58,11 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
     // The admin queue, counted from the same reads the Needs you page uses —
     // in the same request on Today and Needs you, so it is free there (perf fixes 1, 2).
     !viewer.previewing && can(viewer.staff, "attendance:correct") && sessionLabel
-      ? inboxCount(viewer.staff, sessionLabel, schoolToday(), can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined).catch(() => null)
+      ? schoolNow(viewer.staff)
+          // The badge reads the reader's clock, as Needs you itself does, so a
+          // lab seat never sees a count the list disagrees with (smoke 20 Oct).
+          .then((now) => inboxCount(viewer.staff, sessionLabel, schoolToday(now), can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined, schoolMinutes(now)))
+          .catch(() => null)
       : null,
   ]);
   if (dues !== null) out.dues = dues;
@@ -87,11 +100,16 @@ export async function VxShell({
   viewer,
   sessionLabel,
   sessionIsTest,
+  sessionPill = null,
+  rosterStatus,
   children,
 }: {
   viewer: Viewer;
   sessionLabel: string;
   sessionIsTest: boolean;
+  /** The session pill, for a viewer allowed to switch (layout decides); null hides it. */
+  sessionPill?: { showLive: boolean; sessions: Promise<SessionSwitcherData> } | null;
+  rosterStatus?: ReactNode;
   children: ReactNode;
 }) {
   const { staff, menu, previewing } = viewer;
@@ -101,6 +119,8 @@ export async function VxShell({
     prefersLargeText(staff.id).catch(() => false),
   ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
+  // The AI helper's features for this person (D-324); none at all without the school's Claude key.
+  const assist = await assistFeaturesFor(staff, previewPerms ? allowed : undefined).catch(() => []);
 
   const groups = groupsFor(menu, allowed);
   const tabs = bottomFor(menu, allowed);
@@ -132,6 +152,7 @@ export async function VxShell({
   return (
     <SessionSwitchingProvider>
       <ToastProvider>
+        <AssistProvider features={assist}>
         <Suspense fallback={null}>
           <RouteProgress />
           <NavTrail />
@@ -154,6 +175,15 @@ export async function VxShell({
             <OfflineBanner />
             <SessionSwitchOverlayMount />
             {previewing ? <PreviewBanner label={MENU_LABEL[previewing].en} /> : null}
+            {staff.confined ? (
+              // A Preview or local deployment on the production database:
+              // everybody is fenced to TEST here, an admin included (D-346).
+              <div className="vx-confined" role="status">{flat(testSessionMessages.confinedBanner, staff.language)}</div>
+            ) : null}
+            {sessionPill || rosterStatus ? <div className="vx-workspace-bar">
+              {rosterStatus ?? <span className="vx-workspace-label">{flat({ en: "Academic session", hi: "शैक्षणिक सत्र" }, staff.language)}</span>}
+              {sessionPill ? <SessionBar label={sessionLabel} isTest={sessionIsTest} showLive={sessionPill.showLive} sessions={sessionPill.sessions} /> : null}
+            </div> : null}
             <main id="vx-main" className="vx-main vx-reset">
               {children}
             </main>
@@ -164,6 +194,7 @@ export async function VxShell({
         <UpdateBanner />
         <SessionExpiredSheet />
         <div id="vx-layer" className="vxt vx-layer" />
+        </AssistProvider>
       </ToastProvider>
     </SessionSwitchingProvider>
   );

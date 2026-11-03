@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type CSSProperties } from "react";
+import { useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { logoutAction } from "@/app/login/actions";
 import { useVx } from "@/vx/i18n";
@@ -113,7 +113,7 @@ const V = (name: string) => `var(--${name})`;
 /** The look of a setup step: its pill, its icon and its tones. */
 function stepLook(s: SetupStep, papersOf: string): { bg: string; fg: string; label: Pair; icon: IconName; k: SetupStep["state"] } {
   if (s.state === "done") return { k: "done", bg: V("oks"), fg: V("ok"), label: p("Done", "पूरा"), icon: "checkCircle" };
-  if (s.state === "doing") return { k: "doing", bg: V("warns"), fg: V("warnfg"), label: s.progress === "draft" ? p("Draft", "ड्राफ़्ट") : s.key === "papers" ? p(papersOf, papersOf) : p(s.progress ?? "", s.progress ?? ""), icon: "clock" };
+  if (s.state === "doing") return { k: "doing", bg: V("warns"), fg: V("warnfg"), label: s.progress === "draft" ? p("Draft", "कच्चा") : s.key === "papers" ? p(papersOf, papersOf) : p(s.progress ?? "", s.progress ?? ""), icon: "clock" };
   return { k: "todo", bg: V("s2"), fg: V("mut"), label: p("Not started", "शुरू नहीं"), icon: "calendar" };
 }
 
@@ -191,6 +191,7 @@ export function ExamHome({
   logCall,
   markStep,
   staffPhone,
+  officeLinks,
 }: {
   view: HomeView;
   hello: string;
@@ -207,6 +208,7 @@ export function ExamHome({
   markStep: (input: { examId: string; key: string; done: boolean }) => Promise<ActionResult>;
   /** The coordinator's own number, masked, for the menu card. */
   staffPhone?: string | null;
+  officeLinks?: ReactNode;
 }) {
   const { tx } = useVx();
   const toast = useToast();
@@ -407,7 +409,7 @@ export function ExamHome({
   return (
     <VxPage className="eoh">
       <OfficeTop crumb={crumb} title={tx(titles[view])} mSub={mSub[view]} back={back} logo={view === "home" || view === "menu"} lang help={help} actions={actions} />
-      <main>{body}</main>
+      <main>{officeLinks ? <div style={{ padding: "16px 20px 0" }}>{officeLinks}</div> : null}{body}</main>
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} help={help} />
       {results ? (
         <RemindSheet
@@ -468,7 +470,7 @@ function HomeBody({
     const ds = next.steps.find((s) => s.key === "datesheet");
     const tell = next.steps.find((s) => s.key === "parents");
     if (ds && ds.state !== "done") {
-      needs.push({ title: tx(p(`${short.en} date sheet is ${ds.state === "doing" ? "a draft" : "not started"}`, `${short.hi ?? short.en} डेट शीट ${ds.state === "doing" ? "ड्राफ़्ट है" : "शुरू नहीं"}`)), sub: ds.dueLabel ? tx(p(`Make it final by ${ds.dueLabel}`, `${ds.dueLabel} तक पक्की करें`)) : "", icon: "calendar", bg: V("warns"), fg: V("warnfg"), href: "/exam-office?view=checklist" });
+      needs.push({ title: tx(p(`${short.en} date sheet is ${ds.state === "doing" ? "a draft" : "not started"}`, `${short.hi ?? short.en} डेट शीट ${ds.state === "doing" ? "अभी कच्ची है" : "शुरू नहीं"}`)), sub: ds.dueLabel ? tx(p(`Make it final by ${ds.dueLabel}`, `${ds.dueLabel} तक पक्की करें`)) : "", icon: "calendar", bg: V("warns"), fg: V("warnfg"), href: "/exam-office?view=checklist" });
     } else if (ds && tell && tell.state !== "done") {
       needs.push({ title: tx(p(`${short.en} date sheet is final`, `${short.hi ?? short.en} डेट शीट पक्की है`)), sub: tx(p("Next: tell parents the dates", "अगला: अभिभावकों को तिथियाँ बताएँ")), icon: "checkCircle", bg: V("oks"), fg: V("ok"), href: "/exam-office?view=checklist" });
     }
@@ -498,7 +500,7 @@ function HomeBody({
 
   const stagesNow = results && results.percent >= 100 ? 1 : 0;
   const stages: Pair[] = [
-    p("Marks entry", "अंक प्रविष्टि"),
+    p("Marks entry", "अंक भरना"),
     p("Check & moderate", "जाँच व मॉडरेशन"),
     p("Lock · report cards", "लॉक · प्रगति पत्र"),
     results?.resultsLabel ? p(`${results.ptmAt ? "PTM" : "Results"} · ${results.resultsLabel.split(" ").slice(0, 2).join(" ")}`, `${results.ptmAt ? "PTM" : "परिणाम"} · ${results.resultsLabel.split(" ").slice(0, 2).join(" ")}`) : p("Results day", "परिणाम दिवस"),
@@ -553,7 +555,7 @@ function HomeBody({
                 </DRing>
                 <div className="xc x6 xf">
                   <span className="xs">
-                    <b>{tx(p("Marks entry", "अंक प्रविष्टि"))}</b> · {tx(p("due", "अंतिम"))} {results.dueLabel ?? "—"}
+                    <b>{tx(p("Marks entry", "अंक भरना"))}</b> · {tx(p("due", "अंतिम"))} {results.dueLabel ?? "—"}
                   </span>
                   {results.lateCount ? (
                     <Link href="/exam-office?view=late" className="tap xr x8 xw1" style={{ height: 40, padding: "0 12px", borderRadius: 12, border: "1px solid var(--bad)", background: "var(--bads)", color: "var(--bad)", fontSize: 13, fontWeight: 700, textAlign: "left" }}>
@@ -990,7 +992,7 @@ function LateRow({
 function MenuView({ staffName, staffPhone, sessionLabel, results, next, teachers, onHelp }: { staffName: string; staffPhone: string | null; sessionLabel: string; results: ResultsExamView | null; next: NextExamView | null; teachers: TeacherRowView[]; onHelp: () => void }) {
   const { tx, sub } = useVx();
   const ds = next?.steps.find((s) => s.key === "datesheet");
-  const dsWord = !ds ? "" : ds.state === "done" ? tx(p("date sheet is final", "डेट शीट पक्की")) : ds.state === "doing" ? tx(p("date sheet is a draft", "डेट शीट ड्राफ़्ट है")) : tx(p("date sheet not started", "डेट शीट शुरू नहीं"));
+  const dsWord = !ds ? "" : ds.state === "done" ? tx(p("date sheet is final", "डेट शीट पक्की")) : ds.state === "doing" ? tx(p("date sheet is a draft", "डेट शीट अभी कच्ची है")) : tx(p("date sheet not started", "डेट शीट शुरू नहीं"));
   const tiles: { t: Pair; s: string; icon: IconName; bg: string; fg: string; href: string }[] = [
     { t: p("Date sheet & seating", "डेट शीट और बैठक"), s: next ? `${tx(next.name)}${dsWord ? ` · ${dsWord}` : ""}` : "", icon: "calendar", bg: V("accs"), fg: V("accfg"), href: "/exam-office/plan" },
     { t: p("Marks tracker", "अंक प्रगति"), s: results ? `${tx(results.name)} · ${results.percent}% ${tx(p("entered", "भरे"))} · ${results.lateCount} ${tx(p("late", "देर"))}` : "", icon: "clipboard", bg: V("warns"), fg: V("warnfg"), href: "/exams?view=grid" },

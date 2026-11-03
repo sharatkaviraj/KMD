@@ -1,25 +1,37 @@
 "use server";
 
+import { onlineLedgerRecheck } from "@/modules/payments/data/online/service";
 import { insertDefaulterContacts } from "@/modules/defaulters/data/contacts";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireAnyStaffPermission, requireStaffPermission } from "@/modules/fees/platform/session";
-import { renderNoticeBody } from "@/modules/whatsapp/domain/campaign-bodies";
-import { isAisensyConfigured, sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
-import { getFeePolicyForSession } from "@/modules/fees/data/policy";
+import { assertStudentsVisible, assertStudentVisible, filterVisibleStudentIds } from "@/platform/auth/test-session-access";
+import { renderNoticePreview } from "@/modules/whatsapp/domain/campaign-bodies";
 import {
-  buildInstallmentCalendar,
+  isAisensyConfigured,
+  payNowButton,
+  sendAisensyCampaignMessage,
+} from "@/modules/whatsapp/data/aisensy";
+import {
+  activeCampaignName,
+  activeCampaignNameOrNull,
+  approvedV6Campaign,
+} from "@/modules/whatsapp/domain/campaign-bodies-v6";
+import {
   derivedLastDateIso,
   isFinalNoticeWindow,
+  type InstallmentCalendar,
 } from "@/modules/whatsapp/domain/installment-calendar";
 import {
-  drainPendingFinancialRefresh,
   istToday,
-  loadReminderAudience,
   parseReminderFilters,
   type ReminderCandidate,
   type ReminderFilters,
 } from "@/modules/whatsapp/domain/fee-reminders";
 import { resolveReminderSessionLabel } from "@/modules/whatsapp/data/reminder-session";
+import { resolveReminderContext } from "@/modules/whatsapp/data/reminder-context";
+import { listCampaigns, loadRanScheduleSlots } from "@/modules/whatsapp/data/campaign-store";
+import { campaignsDueOn } from "@/modules/whatsapp/domain/campaign-schedule";
+import { describeFamilyRun, groupIntoFamilies } from "@/modules/whatsapp/domain/family-grouping";
 import { addDays, CADENCE_VALUES } from "@/modules/whatsapp/domain/reminder-cadence";
 import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
 import { loadGuardFacts, recordTestSend } from "@/modules/whatsapp/data/guard-context";
@@ -29,7 +41,6 @@ import {
 } from "@/modules/whatsapp/domain/send-guards";
 import {
   campaignFor,
-  campaignNameFor,
   describeCampaign,
   isCampaignApproved,
   DEFAULT_LANGUAGE,
@@ -65,6 +76,14 @@ export type SendRemindersState = {
   failed?: number;
   alreadySentToday?: number;
   failures?: Array<{ admissionNo: string; studentName: string; error: string }>;
+  /**
+   * Ticked students the rebuilt list no longer has: paid in full, left with
+   * nothing paid, flagged no-call, or no number WhatsApp can use. The failure
+   * desk's resend reports them instead of saying "0 sent" with no reason.
+   */
+  notOnList?: string[];
+  /** Dropped by `skipNothingDue`: owe nothing now on what the notice asks for. */
+  paidSince?: string[];
 };
 
 
@@ -78,6 +97,48 @@ export type SendRemindersState = {
  * with a comma lands on the same string the query-string form uses, so the two
  * readers stay interchangeable. `readerFor` does the same on the other side.
  */
+/** The slot this saved campaign is due for today, or null when none is. */
+async function dueSlotFor(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  sessionLabel: string,
+  campaignId: string,
+  calendar: InstallmentCalendar,
+  today: string,
+): Promise<string | null> {
+  const [campaigns, ranSlots] = await Promise.all([
+    listCampaigns(supabase, sessionLabel),
+    loadRanScheduleSlots(supabase, sessionLabel),
+  ]);
+  const campaign = campaigns.find((entry) => entry.id === campaignId);
+  if (!campaign) return null;
+  const [due] = campaignsDueOn(
+    [
+      {
+        id: campaign.id,
+        name: campaign.name,
+        situation: campaign.situation,
+        language: campaign.language,
+        schedule: campaign.schedule,
+        ranForSlots: ranSlots.get(campaign.id) ?? [],
+      },
+    ],
+    calendar,
+    today,
+  );
+  return due?.scheduledFor ?? null;
+}
+
+/** A posted form as the query-string reader the screen's parser takes. */
+function formReader(formData: FormData) {
+  return (key: string) => {
+    const values = formData
+      .getAll(key)
+      .filter((value): value is string => typeof value === "string");
+    return values.length > 0 ? values.join(",") : null;
+  };
+}
+
 function filtersFromForm(
   formData: FormData,
   sessionLabel: string,
@@ -89,12 +150,7 @@ function filtersFromForm(
   policyLateFeeAmount = 0,
 ): ReminderFilters {
   return parseReminderFilters(
-    (key) => {
-      const values = formData
-        .getAll(key)
-        .filter((value): value is string => typeof value === "string");
-      return values.length > 0 ? values.join(",") : null;
-    },
+    formReader(formData),
     sessionLabel,
     undefined,
     undefined,
@@ -122,6 +178,13 @@ export async function sendRemindersAction(
   if (selected.size === 0) {
     return { status: "error", message: "No students selected." };
   }
+  try {
+    // Phase 3 fence: a test account never messages a real parent. (The
+    // audience below is the viewer's session too; this is the second lock.)
+    await assertStudentsVisible(null, [...selected]);
+  } catch {
+    return { status: "error", message: "Some of those students belong to a session you cannot open." };
+  }
 
   const supabase = createAdminClient();
 
@@ -129,57 +192,81 @@ export async function sendRemindersAction(
   let filters: ReminderFilters;
   let candidates: ReminderCandidate[];
   let finalWindowOpen: boolean | null = null;
+  let calendar: InstallmentCalendar | null = null;
+  let notOnList: string[] = [];
+  let paidSince: string[] = [];
   try {
     sessionLabel = await resolveReminderSessionLabel(supabase);
-    // A discount applied a minute ago may still be sitting in the refresh queue.
-    // Drain it first, so the amount quoted below is the one the ledger holds now.
-    await drainPendingFinancialRefresh(supabase);
-    // The very same calendar the screen built, from the very same policy and
-    // window. The audience rebuild below is what actually decides who is
-    // messaged, so a calendar this action could not see would send the courtesy
-    // notice to a different set of families than the office ticked — the exact
-    // failure the situation and the filters travel in the form to prevent.
+    // The SAME resolution the screen ran — the drain, the policy, the
+    // remembered settings, the calendar, and the filters parsed with the
+    // calendar's tiles and the remembered (else the policy's) late fee.
     //
-    // Resolved BEFORE the filters now: `ledger` mode quotes the policy rate to
-    // a family with no fee charged yet, so parsing without it would send a
-    // different number than the screen showed.
-    const policy = await getFeePolicyForSession(sessionLabel, { useAdmin: true }).catch(
-      () => null,
-    );
-    filters = filtersFromForm(
-      formData,
-      sessionLabel,
-      Number(policy?.lateFeeFlatAmount ?? 0),
-    );
-    const calendar = buildInstallmentCalendar({
-      schedule: policy?.installmentSchedule ?? [],
-      today,
-      windowDays: filters.preDueWindowDays,
-    });
+    // It used to parse the form on its own with the parser's bare defaults.
+    // The bulk screen posts every key, so that went unnoticed; the one-tap
+    // reminder on a student's page posts only the notice, language, date and
+    // the family — and was sent for "Installment 1" (₹0 for most families by
+    // October) with a ₹0 late fee, which was then saved as the bulk screen's
+    // default for the next morning.
+    const context = await resolveReminderContext(supabase, sessionLabel, formReader(formData));
+    filters = context.filters;
+    const runCalendar = context.calendar;
+    calendar = runCalendar;
     // A form that carried no date gets the calendar's, rather than a refusal.
     //
     // The bulk screen has a date field and fills it. The one-tap reminder on a
     // student's page does not, so every send from it hit the BLOCKING "Pick a
     // last date for this notice before sending" — and the screen then offered
     // tick-boxes and a reason box, neither of which can clear a blocking
-    // finding. Staff ticked, typed a reason, pressed Send anyway, and got the
-    // same refusal.
-    //
-    // Derived here rather than defaulted in `parseReminderFilters`, so that
-    // clearing the date box on the bulk screen still means "I have not chosen
-    // one" on the screen itself, and only a send has to resolve it.
+    // finding. `resolveReminderContext` already opens on the remembered or the
+    // derived date; this is the backstop for a date cleared to nothing.
     if (!filters.lastDate) {
-      filters = { ...filters, lastDate: formatDdMmYyyy(derivedLastDateIso(calendar, today)) };
+      const aboutOverdue = filters.installments.some((installment) =>
+        runCalendar.overdue.includes(installment),
+      );
+      filters = {
+        ...filters,
+        lastDate: formatDdMmYyyy(derivedLastDateIso(runCalendar, today, { overdue: aboutOverdue })),
+      };
     }
-    finalWindowOpen = calendar.next
-      ? isFinalNoticeWindow(calendar.next.daysUntilDue)
+    finalWindowOpen = runCalendar.next
+      ? isFinalNoticeWindow(runCalendar.next.daysUntilDue)
       : null;
-    const audience = await loadReminderAudience(supabase, filters, calendar);
     // Re-derived server-side rather than read off the form. The amount a parent
     // is quoted must come from the ledger at send time, not from a number that
     // was rendered into a checkbox some minutes ago — and a student who has
     // paid since the page loaded drops out here rather than being messaged.
-    candidates = audience.candidates.filter((candidate) => selected.has(candidate.studentId));
+    candidates = context.audience.candidates.filter((candidate) =>
+      selected.has(candidate.studentId),
+    );
+    notOnList = [...selected].filter(
+      (studentId) => !candidates.some((candidate) => candidate.studentId === studentId),
+    );
+
+    // The failure desk's resend. It names the child the failed message was
+    // addressed to; `withFamily` brings in everyone the sender would group onto
+    // that message today, so a two-child family is re-quoted as two children
+    // and not resent as one.
+    if (formData.get("withFamily") === "1") {
+      const families = new Set(candidates.map((candidate) => candidate.familyKey));
+      const already = new Set(candidates.map((candidate) => candidate.studentId));
+      candidates = [
+        ...candidates,
+        ...context.audience.candidates.filter(
+          (candidate) => families.has(candidate.familyKey) && !already.has(candidate.studentId),
+        ),
+      ];
+    }
+
+    // A hand-picked student joins the list whatever the filters say — including
+    // one who has paid in full since, who would be quoted ₹0. The resend asks
+    // for that to be refused rather than sent.
+    if (formData.get("skipNothingDue") === "1") {
+      const owesNothing = (candidate: ReminderCandidate) =>
+        candidate.dueAmount <= 0 &&
+        !(filters.situation === "late_fee_applied" && candidate.lateFeeApplied > 0);
+      paidSince = candidates.filter(owesNothing).map((candidate) => candidate.studentId);
+      candidates = candidates.filter((candidate) => !owesNothing(candidate));
+    }
   } catch (caught) {
     return {
       status: "error",
@@ -202,9 +289,37 @@ export async function sendRemindersAction(
   const facts = await loadGuardFacts({
     supabase,
     lastDateIso,
-    campaignName: campaignNameFor(filters.situation, filters.language) ?? "",
+    // The generation that will actually go — a `_v6` template that has never
+    // gone out is untested whatever its predecessor's record says.
+    campaignName: activeCampaignNameOrNull(filters.situation, filters.language) ?? "",
     requireProvenCampaign: true,
   });
+
+  // What this run will BILL, grouped exactly as the sender groups it: one
+  // message per phone when siblings are grouped, plus the second parent's
+  // number once escalated. The budget guard counted ticked children, so a
+  // sibling-heavy run was refused as over the cap when it was not, and second-
+  // number sends went past it uncounted.
+  const oneMessagePerFamily = await oneMessagePerFamilyEnabled(supabase);
+  const billable = candidates
+    .filter((candidate) => !candidate.sentToday)
+    .map((candidate) => ({
+      studentId: candidate.studentId,
+      studentName: candidate.studentName,
+      studentClass: candidate.studentClass,
+      parentName: candidate.parentName,
+      destination: candidate.destination,
+      dueAmount: candidate.dueAmount,
+      preferredLanguage: candidate.preferredLanguage,
+      sentCount: candidate.sentCount,
+      secondaryDestination: candidate.secondaryDestination,
+      familyKey: candidate.familyKey,
+    }));
+  const messageCount = describeFamilyRun(
+    oneMessagePerFamily
+      ? groupIntoFamilies(billable, filters.language)
+      : billable.flatMap((member) => groupIntoFamilies([member], filters.language)),
+  ).messages;
 
   const guards = evaluateSendGuards({
     providerReady: isAisensyConfigured(),
@@ -214,6 +329,7 @@ export async function sendRemindersAction(
     lastDateLabel: filters.lastDate,
     today,
     recipientCount: candidates.length,
+    messageCount,
     // Since the template stopped deciding the audience, a template can be
     // pointed at families who cannot fill its slots. Counted over the families
     // ACTUALLY selected, not the whole list.
@@ -253,6 +369,8 @@ export async function sendRemindersAction(
     return {
       status: "error",
       message: resolved.message ?? "This run was refused.",
+      notOnList,
+      paidSince,
       // So the screen can render the tick-boxes for exactly what is in the way —
       // and NOTHING when the refusal is a blocking one, because no tick-box and
       // no reason can clear those. Offering the override anyway is what made a
@@ -267,8 +385,9 @@ export async function sendRemindersAction(
   }
 
   // Safe after the approval guard above: `campaignFor` throws for an unapproved
-  // notice, and `campaign_unapproved` has already returned by here.
-  const campaignName = campaignFor(filters.situation, filters.language).campaignName;
+  // notice, and `campaign_unapproved` has already returned by here. The `_v6`
+  // name once that generation is approved — the run records what went.
+  const campaignName = activeCampaignName(filters.situation, filters.language);
 
   // The whole run — opening the record, grouping into families, sending, closing
   // and logging — lives in `data/run-sender`, because there are two ways to
@@ -314,19 +433,33 @@ export async function sendRemindersAction(
     // actually accepted rather than the empty box that was posted.
     overrideReason: resolved.overridden.length > 0 ? resolved.reason : null,
     logContacts: insertDefaulterContacts,
-    scheduledFor: null,
-    oneMessagePerFamily: await oneMessagePerFamilyEnabled(supabase),
+    // A saved campaign whose slot is due right now is satisfied by this press —
+    // from the due card, the plan, or opened by hand. It was always null, so a
+    // step sent by hand stayed "due" and would have gone again.
+    scheduledFor:
+      campaignId && calendar
+        ? await dueSlotFor(supabase, sessionLabel, campaignId, calendar, today).catch(() => null)
+        : null,
+    oneMessagePerFamily,
+    // With online payments on, every one-child Pay now message is re-quoted
+    // from the ledger in the instant before it goes. Undefined otherwise.
+    recheckLedger: await onlineLedgerRecheck(),
   });
 
   const { sent, failed, alreadySentToday, failures, heldOut } = outcome;
 
   // What went on this message is what tomorrow's screen opens on. Best-effort,
-  // after the send: the messages have gone whatever happens here.
-  await rememberLastUsedNoticeSettings(supabase, sessionLabel, {
-    lastDate: filters.lastDate,
-    lateFeeAmount: filters.lateFeeAmount,
-    lateFeeBasis: filters.lateFeeBasis,
-  });
+  // after the send: the messages have gone whatever happens here. Only from a
+  // form that CARRIED the late-fee settings (the bulk screen): the one-tap
+  // reminder on a student's page has none, and remembering what this action
+  // filled in for it is how a ₹0 became the next morning's default.
+  if (formData.get("lateFeeAmount") !== null) {
+    await rememberLastUsedNoticeSettings(supabase, sessionLabel, {
+      lastDate: filters.lastDate,
+      lateFeeAmount: filters.lateFeeAmount,
+      lateFeeBasis: filters.lateFeeBasis,
+    });
+  }
 
   // Deliberately NO revalidatePath here.
   //
@@ -357,6 +490,8 @@ export async function sendRemindersAction(
     failed,
     alreadySentToday,
     failures: failures.slice(0, 20),
+    notOnList,
+    paidSince,
   };
 }
 
@@ -390,7 +525,8 @@ export async function applyNoticeSettingsAction(formData: FormData): Promise<voi
     const supabase = createAdminClient();
     const sessionLabel = await resolveReminderSessionLabel(supabase);
     const filters = filtersFromForm(formData, sessionLabel);
-    if (filters.lastDate) {
+    // Never remember a late fee the form did not carry (see the send action).
+    if (filters.lastDate && formData.get("lateFeeAmount") !== null) {
       await rememberLastUsedNoticeSettings(supabase, sessionLabel, {
         lastDate: filters.lastDate,
         lateFeeAmount: filters.lateFeeAmount,
@@ -441,7 +577,12 @@ export async function addReminderStudentAction(formData: FormData): Promise<void
 
   const supabase = createAdminClient();
   const sessionLabel = await resolveReminderSessionLabel(supabase);
-  const matches = await searchSessionStudents(supabase, sessionLabel, query);
+  const found = await searchSessionStudents(supabase, sessionLabel, query);
+  // The search runs inside the viewer's own session already; the child's own
+  // session is checked too (Phase 3 fence), so nobody is put on a list by an
+  // id this viewer may not open.
+  const visible = new Set(await filterVisibleStudentIds(null, found.map((match) => match.studentId)));
+  const matches = found.filter((match) => visible.has(match.studentId));
 
   if (matches.length === 1) {
     const existing = (params.get("include") ?? "").split(",").filter(Boolean);
@@ -526,6 +667,7 @@ export async function setReminderCadenceAction(
   const supabase = createAdminClient();
   try {
     const sessionLabel = await resolveReminderSessionLabel(supabase);
+    await assertStudentVisible(null, studentId);
     // Changing the cadence clears any snooze: the office just made a fresh,
     // more considered decision about this family, and leaving a stale snooze
     // underneath it would silently outrank what they chose.
@@ -565,6 +707,7 @@ export async function snoozeReminderAction(
   const supabase = createAdminClient();
   try {
     const sessionLabel = await resolveReminderSessionLabel(supabase);
+    await assertStudentVisible(null, studentId);
     await writeReminderFlags(supabase, studentId, sessionLabel, {
       whatsapp_snoozed_until: until,
     });
@@ -595,6 +738,7 @@ export async function resumeReminderAction(
   const supabase = createAdminClient();
   try {
     const sessionLabel = await resolveReminderSessionLabel(supabase);
+    await assertStudentVisible(null, studentId);
     await writeReminderFlags(supabase, studentId, sessionLabel, {
       whatsapp_cadence: "every_run",
       whatsapp_snoozed_until: null,
@@ -662,7 +806,9 @@ export async function previewNoticeAction(input: {
   const campaign = describeCampaign(situation, language);
   if (!campaign) return null;
   const values = noticeValuesFromSlots(situation, input.form ?? {}, campaign.sample);
-  return renderNoticeBody(situation, language, campaign.buildParams(values));
+  // The same choice the test send makes — v6 once approved — so the preview is
+  // the message the test is about to deliver.
+  return renderNoticePreview(situation, language, values);
 }
 
 /**
@@ -736,14 +882,24 @@ export async function sendTestReminderAction(
     campaign.sample,
   );
 
-  const templateParams = campaign.buildParams(values);
+  // The `_v6` template once it is the live one, built from the SAME values —
+  // a test of the template parents no longer receive would prove nothing.
+  const v6 = approvedV6Campaign(campaign.situation, campaign.language);
+  const sendName = v6?.campaignName ?? campaignName;
+  const templateParams = v6 ? v6.buildParams(values) : campaign.buildParams(values);
 
   const result = await sendAisensyCampaignMessage({
-    campaignName,
+    campaignName: sendName,
     destination,
-    userName: templateParams[0],
+    userName: values.parentName || templateParams[0],
     templateParams,
-    source: "veerpatta-fees-app/admin-tools-test",
+    source: "vppsone/reminders-test",
+    // A test send goes only to a number on the test-recipient list, wherever
+    // it is pressed: the number is typed in, not read from a family.
+    gate: { kind: "fee_reminder", sessionLabel: null, actor: staffId ? { userId: staffId } : "unknown", testSend: true },
+    // A test has no send row and so no pay code; the button opens the pay
+    // page's "no longer valid" state, which is the honest answer for a test.
+    ...(v6?.buttons.includes("pay_url") ? { buttons: [payNowButton("test")] } : {}),
   });
 
   // Recorded in its OWN table, never in the send log.
@@ -759,7 +915,7 @@ export async function sendTestReminderAction(
   // on the source text, and naming it here would defeat the check.)
   await recordTestSend({
     supabase: createAdminClient(),
-    campaignName,
+    campaignName: sendName,
     destination,
     succeeded: result.ok,
     providerMessageId: result.ok ? result.messageId : null,
@@ -770,7 +926,7 @@ export async function sendTestReminderAction(
   // Everything the provider told us, passed through rather than summarised, so
   // staff can tell a rejected campaign name from a bad number without opening
   // the AiSensy dashboard.
-  const sent = { destination, campaignName, templateParams } as const;
+  const sent = { destination, campaignName: sendName, templateParams } as const;
 
   return result.ok
     ? {

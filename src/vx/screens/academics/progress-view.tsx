@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { Language } from "@/platform/i18n/language";
-import { agoP } from "@/vx/format";
+import { agoP, dayMonth, dayMonthHi } from "@/vx/format";
 import { Ic, type IconName } from "@/vx/icons";
 import { HelpButton } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
@@ -10,10 +10,10 @@ import { Btn, EmptyState, Pill } from "@/vx/ui/primitives";
 
 import { FollowupButtons, StepToggle } from "./client";
 import type { AttentionChild, ClassDetail, ClassRef, ClassResult, StudentDetail } from "./data";
-import { attentionChips, deltaLabel, heatBand, HEAT_LEGEND, spreadBands, subjectName, telHref, type AttentionReason } from "./domain";
+import { classPair, deltaLabel, heatBand, HEAT_LEGEND, spreadBands, subjectName, telHref, type AttentionReason } from "./domain";
 import { PlanEditor } from "./plan-editor";
 import { followLabel } from "./progress-labels";
-import { CoordTop, dayName, nameInitials, qs, sayer, toneOf, ToneAvatar, type Say } from "./ui";
+import { chipsFor, CoordTop, dayName, nameInitials, qs, sayer, toneOf, ToneAvatar, type Say } from "./ui";
 
 /*
  * AcadProgress (SCREENS "Academic coordinator · Student progress"), drawn
@@ -30,6 +30,8 @@ export type HeatStat = { classId: string; subject: string; sortOrder: number; av
 type Common = {
   language: Language;
   today: string;
+  /** The last school day with a saved register (on or before today): what "attendance · till …" is up to. */
+  attTill?: string | null;
   session: string;
   exams: ExamTab[];
   exam: ExamTab | null;
@@ -194,7 +196,8 @@ export function AcadProgressView(p: AcadProgressProps) {
     const kpis: { l: string; v: string; pill: string | null; tone: [string, string]; sub: string; color?: string; href?: string }[] = [
       { l: say("School average", "विद्यालय औसत"), v: R(p.school.avg), pill: p.previous && diff !== null ? `${diff > 0 ? "▲" : diff < 0 ? "▼" : "＝"} ${Math.abs(diff)} vs ${p.previous.label}` : p.previous ? null : say("First exam", "पहली परीक्षा"), tone: diff !== null && diff < 0 ? ["var(--bads)", "var(--bad)"] : ["var(--oks)", "var(--ok)"], sub: p.exam?.label ?? "" },
       { l: say("Passed every subject", "सभी विषयों में पास"), v: R(p.school.pass), pill: p.school.lowest ? say(`Lowest ${p.school.lowest.label} ${R(p.school.lowest.pass)}`, `सबसे कम ${p.school.lowest.label} ${R(p.school.lowest.pass)}`) : null, tone: ["var(--warns)", "var(--warnfg)"], sub: "" },
-      { l: say("Attendance this term", "इस सत्र की हाज़िरी"), v: R(p.school.att), pill: say(`till ${dayName(p.today).split(" ").slice(1).join(" ")}`, `${dayName(p.today).split(" ").slice(1).join(" ")} तक`), tone: ["var(--oks)", "var(--ok)"], sub: say("all classes", "सभी कक्षाएँ") },
+      // "till" the last school day with a saved register, never a day that has not come (smoke 20 Oct: "till 21 Oct" on the 20th).
+      { l: say("Attendance this term", "इस सत्र की हाज़िरी"), v: R(p.school.att), pill: p.attTill === null ? null : say(`till ${dayMonth(p.attTill ?? p.today)}`, `${dayMonthHi(p.attTill ?? p.today)} तक`), tone: ["var(--oks)", "var(--ok)"], sub: say("all classes", "सभी कक्षाएँ") },
       { l: say("Needs attention", "ध्यान दें"), v: String(p.attentionCount), pill: say("open the list", "सूची खोलें"), tone: ["var(--bads)", "var(--bad)"], sub: say("built by the app", "ऐप ने बनाई"), color: "var(--bad)", href: qs(BASE, { view: "attention", exam: q }) },
     ];
     // The heat map: Nursery–10 share one subject list; 11–12 each have their own three, so those are positional.
@@ -257,8 +260,9 @@ export function AcadProgressView(p: AcadProgressProps) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10 }}>
                 {p.classes.map((c, i) => (
                   <Link key={c.classId} href={qs(BASE, { view: "class", class: c.classId, exam: q })} className="tap card lift" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 4, color: "var(--fg)", boxShadow: "none", animation: `xIn .3s var(--ease) ${Math.min(i * 22, 400)}ms both` }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
-                      <span className="clip" style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{c.label}</span>
+                    <span style={{ display: "flex", alignItems: "flex-start", gap: 6, width: "100%" }}>
+                      {/* Wraps rather than cutting off: "Class 11 Co…" and "Class 11 Scie…" looked alike (smoke 20 Oct). */}
+                      <span style={{ flex: 1, minWidth: 0, fontWeight: 700, lineHeight: 1.25, overflowWrap: "anywhere" }}>{say(c.label, classPair(c.label).hi ?? c.label)}</span>
                       {p.previous ? <TrendPill now={c.avg} before={c.before} /> : <span className="pill" style={{ background: "var(--s2)", color: "var(--mut)" }}>{p.exam?.label}</span>}
                     </span>
                     <span className="num" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.1 }}>{R(c.avg)}</span>
@@ -319,7 +323,18 @@ export function AcadProgressView(p: AcadProgressProps) {
     const waits = detail.subjects.filter((s) => s.avg === null);
     const spread = spreadBands(marks.map((m) => m.pct));
     const bMax = Math.max(1, ...spread.map((b) => b.n));
-    const names = new Map(detail.students.map((s) => [s.studentId, s.name]));
+    const children = new Map(detail.students.map((s) => [s.studentId, s]));
+    const historicalLabel = say("Historical result", "ऐतिहासिक परिणाम");
+    const resultLink = (studentId: string, content: ReactNode, className: string, style?: CSSProperties) => {
+      const child = children.get(studentId);
+      const label = child?.historical ? <span style={{ fontSize: 11, color: "var(--mut)" }}> · {historicalLabel}</span> : null;
+      // A mark is permission to see this class's result, not a new enrolment.
+      return child && child.canOpen ? (
+        <Link key={studentId} href={qs(BASE, { view: "student", student: studentId, exam: q })} className={className} style={{ ...style, maxWidth: "100%", height: "auto", flexWrap: "wrap", whiteSpace: "normal" }}>{content}{label}</Link>
+      ) : (
+        <span key={studentId} className={className.replace(/\btap\b/g, "")} style={{ ...style, maxWidth: "100%", height: "auto", flexWrap: "wrap", whiteSpace: "normal" }}>{content}{label ?? <span style={{ fontSize: 11, color: "var(--mut)" }}> · {historicalLabel}</span>}</span>
+      );
+    };
     const lows = detail.subjects
       .map((s) => ({ s, kids: marks.filter((m) => m.subject === s.subject && m.pct < 33).sort((a, b) => a.pct - b.pct) }))
       .filter((x) => x.kids.length);
@@ -333,7 +348,7 @@ export function AcadProgressView(p: AcadProgressProps) {
       [say("Need attention", "ध्यान दें"), String(flagged), say("children", "बच्चे"), flagged ? "var(--bad)" : "var(--fg)"],
     ];
     const status = (s: ClassDetail["subjects"][number]) =>
-      people.locked ? [say("Locked", "लॉक"), "var(--oks)", "var(--ok)"] : s.submitted ? [say("Entered", "भरे गए"), "var(--oks)", "var(--ok)"] : s.entered > 0 ? [say(`${s.entered} of ${detail.roll}`, `${detail.roll} में ${s.entered}`), "var(--warns)", "var(--warnfg)"] : [say("Not started", "शुरू नहीं"), "var(--bads)", "var(--bad)"];
+      people.locked ? [say("Locked", "लॉक"), "var(--oks)", "var(--ok)"] : s.submitted ? [say("Entered", "भरे गए"), "var(--oks)", "var(--ok)"] : s.entered > 0 ? [say(`${s.entered} of ${detail.roll}`, `${detail.roll} में से ${s.entered}`), "var(--warns)", "var(--warnfg)"] : [say("Not started", "शुरू नहीं"), "var(--bads)", "var(--bad)"];
     return (
       <VxPage>
         <CoordTop
@@ -359,7 +374,7 @@ export function AcadProgressView(p: AcadProgressProps) {
               </Link>
               <span style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <span style={{ fontSize: 17, fontWeight: 700 }}>{detail.label}</span>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${nav.pos} of ${nav.total} classes`, `${nav.total} में ${nav.pos}वीं कक्षा`)}</span>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${nav.pos} of ${nav.total} classes`, `${nav.total} में से ${nav.pos}वीं कक्षा`)}</span>
               </span>
               <Link href={qs(BASE, { view: "class", class: nav.next.id, exam: q })} scroll={false} className="tap btn sec" aria-label={say("Next class", "अगली कक्षा")} style={{ width: 48, height: 48, padding: 0, flex: "none" }}>
                 <Ic n="chevRight" size={20} />
@@ -415,7 +430,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                 {waits.length ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${waits.map((s) => subjectName(s.subject)).join(", ")} — not entered yet, so left out of the average.`, `${waits.map((s) => subjectName(s.subject)).join(", ")} — अभी नहीं भरा, औसत में शामिल नहीं।`)}</span> : null}
               </Sec>
               <Sec style={{ gap: 10 }}>
-                <Title right={<span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${marks.length} papers`, `${marks.length} पेपर`)}</span>}>{say("Marks spread", "अंकों का फैलाव")}</Title>
+                <Title right={<span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${marks.length} scored entries`, `${marks.length} दर्ज अंक`)}</span>}>{say("Marks spread", "अंकों का फैलाव")}</Title>
                 {spread.map((b, i) => (
                   <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span className="num" style={{ width: 52, fontSize: 13, fontWeight: 600 }}>{b.label}</span>
@@ -434,7 +449,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
                   <span style={{ display: "flex", flexDirection: "column" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>{say("Below 33% by subject", "विषयवार 33% से कम")}</span>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{say("Tap a child to open their progress", "प्रगति देखने को बच्चे पर टैप करें")}</span>
+                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{say("Open current pupils for progress. Historical results stay here.", "वर्तमान विद्यार्थियों की प्रगति खोलें। ऐतिहासिक परिणाम यहीं दिखते हैं।")}</span>
                   </span>
                   <span className="pill num" style={{ height: 26, padding: "0 10px", background: "var(--bads)", color: "var(--bad)" }}>{lows.reduce((s, x) => s + x.kids.length, 0)}</span>
                 </div>
@@ -445,9 +460,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                     </span>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {x.kids.map((k) => (
-                        <Link key={k.studentId} href={qs(BASE, { view: "student", student: k.studentId, exam: q })} className="tap chip" style={{ color: "var(--bad)" }}>
-                          {names.get(k.studentId) ?? "—"} · {R(k.pct)}
-                        </Link>
+                        resultLink(k.studentId, <>{children.get(k.studentId)?.name ?? say("Student record unavailable", "छात्र रिकॉर्ड उपलब्ध नहीं")} · {R(k.pct)}</>, "tap chip", { color: "var(--bad)" })
                       ))}
                     </div>
                   </div>
@@ -457,14 +470,16 @@ export function AcadProgressView(p: AcadProgressProps) {
               <Sec>
                 <span style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{say(`Top ${Math.min(5, top.length) || 5}`, `शीर्ष ${Math.min(5, top.length) || 5}`)}</span>
                 {top.map((t, i) => (
-                  <Link key={t.studentId} href={qs(BASE, { view: "student", student: t.studentId, exam: q })} className="tap row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 4px", borderTop: i ? "1px solid var(--bd)" : undefined, color: "var(--fg)" }}>
+                  resultLink(t.studentId, <>
                     <span className="num" style={{ flex: "none", width: 30, height: 30, borderRadius: 15, background: medal[i][0], color: medal[i][1], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
                       <span className="clip" style={{ fontWeight: 600 }}>{t.name}</span>
+                      {/* A missed paper is 0 in the average, and the ranking says so. */}
+                      {t.absent ? <span style={{ fontSize: 12, fontWeight: 600, color: "var(--bad)" }}>{say(`Absent in ${t.absent} ${t.absent === 1 ? "paper" : "papers"} · counted as 0`, `${t.absent} पेपर में अनुपस्थित · 0 गिना`)}</span> : null}
                       <Bar pct={t.avg ?? 0} tone="var(--c2)" />
                     </span>
                     <span className="num" style={{ fontWeight: 700 }}>{R(t.avg)}</span>
-                  </Link>
+                  </>, "tap row", { display: "flex", alignItems: "center", gap: 12, padding: "9px 4px", borderTop: i ? "1px solid var(--bd)" : undefined, color: "var(--fg)" })
                 ))}
                 {top.length === 0 ? <span style={{ fontSize: 12, color: "var(--mut)", padding: "18px 0", textAlign: "center" }}>{say("No marks yet.", "अभी कोई अंक नहीं।")}</span> : null}
               </Sec>
@@ -515,7 +530,7 @@ export function AcadProgressView(p: AcadProgressProps) {
     const before = shown[shown.length - 2] ?? null;
     const phone = telHref(child.phone);
     const ct = p.classTeacher;
-    const chips = child.facts ? attentionChips(child.facts) : [];
+    const chips = child.facts ? chipsFor(child.facts) : [];
     const planHref = qs(BASE, { view: "plan", student: child.studentId, exam: q });
     const tone = toneOf(child.name);
     const teacherWa = ct?.phone ? `https://wa.me/91${ct.phone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(`Can we talk about ${child.name} (${child.classLabel})? I would like to plan the next steps together.`)}` : null;
@@ -638,9 +653,9 @@ export function AcadProgressView(p: AcadProgressProps) {
                     <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                       <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
                         <span style={{ fontSize: 15, fontWeight: 700 }}>{say("Support plan", "सहायता योजना")}</span>
-                        <span className="pill" style={{ background: child.plan?.status === "active" ? "var(--oks)" : "var(--warns)", color: child.plan?.status === "active" ? "var(--ok)" : "var(--warnfg)" }}>{child.plan?.status === "active" ? say("Running", "चल रही") : child.plan ? say("Draft", "ड्राफ़्ट") : say("Not started", "शुरू नहीं")}</span>
+                        <span className="pill" style={{ background: child.plan?.status === "active" ? "var(--oks)" : "var(--warns)", color: child.plan?.status === "active" ? "var(--ok)" : "var(--warnfg)" }}>{child.plan?.status === "active" ? say("Running", "चल रही") : child.plan ? say("Draft", "सहेजी, शुरू नहीं") : say("Not started", "शुरू नहीं")}</span>
                       </span>
-                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{child.plan ? say(`${done} of ${steps.length} steps done${child.plan.goal ? ` · goal: ${child.plan.goal}` : ""}`, `${steps.length} में ${done} कदम पूरे`) : say("No plan yet · the app suggests steps when you start one", "अभी कोई योजना नहीं")}</span>
+                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{child.plan ? say(`${done} of ${steps.length} steps done${child.plan.goal ? ` · goal: ${child.plan.goal}` : ""}`, `${steps.length} में से ${done} कदम पूरे`) : say("No plan yet · the app suggests steps when you start one", "अभी कोई योजना नहीं")}</span>
                     </span>
                   </div>
                   {steps.length ? (
@@ -830,7 +845,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                 </div>
               ) : null}
               {list.map((c, i) => {
-                const chips = attentionChips(c);
+                const chips = chipsFor(c);
                 const im = improving(c);
                 return (
                   <div key={c.studentId} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 0", borderTop: i ? "1px solid var(--bd)" : undefined, opacity: im ? 0.62 : 1, animation: `xIn .3s var(--ease) ${Math.min(i, 12) * 25}ms both` }}>
@@ -841,7 +856,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                           <span style={{ fontWeight: 600 }}>{c.name}</span>
                           <span style={{ fontSize: 12, color: "var(--mut)" }}>{c.classLabel}</span>
                           {im ? <span className="pill" style={{ background: "var(--oks)", color: "var(--ok)" }}>{say("Improving", "सुधार")}</span> : null}
-                          {c.plan ? <span className="pill" style={{ background: c.plan === "active" ? "var(--oks)" : "var(--s2)", color: c.plan === "active" ? "var(--ok)" : "var(--mut)" }}>{c.plan === "active" ? say("Plan running", "योजना चल रही") : say("Plan draft", "योजना ड्राफ़्ट")}</span> : null}
+                          {c.plan ? <span className="pill" style={{ background: c.plan === "active" ? "var(--oks)" : "var(--s2)", color: c.plan === "active" ? "var(--ok)" : "var(--mut)" }}>{c.plan === "active" ? say("Plan running", "योजना चल रही") : say("Plan draft", "योजना सहेजी, शुरू नहीं")}</span> : null}
                         </span>
                         <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {chips.map((x, j) => (
@@ -882,7 +897,7 @@ export function AcadProgressView(p: AcadProgressProps) {
         title={say("Support plan", "सहायता योजना")}
         dBack={backHref}
         mBack={backHref}
-        mSub={say(`${child.name.split(" ")[0]} · ${steps.filter((s) => s.done).length} of ${steps.length} steps done`, `${child.name.split(" ")[0]} · ${steps.length} में ${steps.filter((s) => s.done).length} कदम पूरे`)}
+        mSub={say(`${child.name.split(" ")[0]} · ${steps.filter((s) => s.done).length} of ${steps.length} steps done`, `${child.name.split(" ")[0]} · ${steps.length} में से ${steps.filter((s) => s.done).length} कदम पूरे`)}
         actions={help}
         mAction={help}
       />
@@ -1000,15 +1015,19 @@ function SubjectLines({ child, before, now, hl, q, say }: { child: StudentDetail
         {child.subjects.map((s, i) => {
           const h = now ? s.byExam.get(now.id) ?? null : null;
           const u = before ? s.byExam.get(before.id) ?? null : null;
+          // Missed the paper: "Absent", counted as 0 in the average — never "waiting" (smoke 20 Oct).
+          const hAbsent = !!now && h === null && !!s.absent?.has(now.id);
+          const uAbsent = !!before && u === null && !!s.absent?.has(before.id);
           const d = h !== null && u !== null ? h - u : null;
-          const tone = d === null ? ["var(--s2)", "var(--mut)"] : d <= -10 ? ["var(--bads)", "var(--bad)"] : d >= 5 ? ["var(--oks)", "var(--ok)"] : ["var(--s2)", "var(--mut)"];
+          const tone = hAbsent ? ["var(--bads)", "var(--bad)"] : d === null ? ["var(--s2)", "var(--mut)"] : d <= -10 ? ["var(--bads)", "var(--bad)"] : d >= 5 ? ["var(--oks)", "var(--ok)"] : ["var(--s2)", "var(--mut)"];
+          const change = hAbsent ? say("Absent", "अनुपस्थित") : d !== null ? (d > 0 ? `+${d}` : d < 0 ? `−${-d}` : "0") : h === null ? say("not entered", "अभी नहीं भरा") : "—";
           return (
             <div key={s.subject} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 50px 84px 62px", gap: 6, padding: "7px 0", alignItems: "center", fontSize: 13, borderTop: i ? "1px solid var(--bd)" : undefined }}>
               <span className="clip" style={{ fontWeight: 600 }}>{subjectName(s.subject)}</span>
-              <span className="num" style={{ textAlign: "right", color: "var(--mut)" }}>{u === null ? "—" : `${u}%`}</span>
-              <span className="num" style={{ textAlign: "right", fontWeight: 700, color: h !== null && h < 33 ? "var(--bad)" : "var(--fg)" }}>{h === null ? "—" : `${h}%`}</span>
+              <span className="num" style={{ textAlign: "right", color: uAbsent ? "var(--bad)" : "var(--mut)" }}>{uAbsent ? say("Absent", "अनुपस्थित") : u === null ? "—" : `${u}%`}</span>
+              <span className="num" style={{ textAlign: "right", fontWeight: 700, color: hAbsent || (h !== null && h < 33) ? "var(--bad)" : "var(--fg)" }}>{hAbsent ? say("Absent", "अनुपस्थित") : h === null ? "—" : `${h}%`}</span>
               <span style={{ textAlign: "right" }}>
-                <span className="pill num" style={{ background: tone[0], color: tone[1] }}>{d === null ? say("waiting", "बाकी") : d > 0 ? `+${d}` : d < 0 ? `−${-d}` : "0"}</span>
+                <span className="pill num" style={{ background: tone[0], color: tone[1] }}>{change}</span>
               </span>
             </div>
           );

@@ -32,6 +32,7 @@ import { EmptyState } from "@/vx/ui/primitives";
 import { assignmentContext } from "@/modules/teacher-tasks/data/assignment";
 import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
 import { missingDirectoryPage } from "@/modules/teacher-tasks/data/missing-directory";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 
 export const runtime = "nodejs";
 
@@ -68,11 +69,19 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const classParam = one(params.class) || null;
   const page = resolvePage(one(params.page));
   const sort = parseStudentSort(one(params.sort), one(params.dir));
-  const directorySession = await resolveSessionLabel();
   const canAssignTasks = can(staff,"collection:manage");
-  const taskFields = canAssignTasks ? (await listFieldsPublic()).filter(f=>f.isActive) : [];
+  // Only a named missing-field filter needs this metadata before the list.
+  // Capture errors immediately, then preserve the existing failure when read.
+  const taskFieldsRead = (canAssignTasks ? listFieldsPublic() : Promise.resolve([]))
+    .then(fields => ({ fields: fields.filter(f => f.isActive) }), error => ({ error }));
+  const readTaskFields = async () => {
+    const result = await taskFieldsRead;
+    if ("error" in result) throw result.error;
+    return result.fields;
+  };
+  const [directorySession, jar] = await Promise.all([resolveSessionLabel(), cookies()]);
   const askedMissing = one(params.missing) ?? "";
-  const missing = canAssignTasks && (askedMissing === "photo" || taskFields.some(f=>f.key===askedMissing)) ? askedMissing : "";
+  const missing = canAssignTasks && (askedMissing === "photo" || (askedMissing && (await readTaskFields()).some(f=>f.key===askedMissing))) ? askedMissing : "";
 
   if (!directorySession) {
     return (
@@ -88,19 +97,22 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   }
 
   const seesMoney = can(staff, "fees:view");
-  const jar = await cookies();
+  const canonicalDirectory = usesCanonicalFees(staff, directorySession);
+  const requestedStatus=one(params.status);
+  const enrollment=(["active","inactive","left","graduated","all"] as const).find(value=>value===requestedStatus)??"active";
   const remembered = readStudentViewCookie(jar.get(STUDENT_VIEW_COOKIE)?.value, staff.id);
   // `?seg=` is one quick chip in an old link, or any fee filters from the phone's sheet (UI-94).
   const asked = parseStudentFilters(one(params.seg));
   const view = resolveStudentView({ param: one(params.view), seg: parseSegment(one(params.seg)), filters: asked, remembered, seesMoney });
+  const readsMoney = seesMoney && view === "fees";
   const filters = view === "fees" ? asked : [];
   const seg = quickSegment(filters);
   const layout = resolveStudentLayout(one(params.look), readStudentLayoutCookie(jar.get(STUDENT_LAYOUT_COOKIE)?.value, staff.id));
 
   // One session for the money list, its class filter and the attendance
   // beside it: the view-session, as on every other money screen.
-  const moneySession = seesMoney
-    ? await getViewSessionCookie()
+  const moneySession = readsMoney
+    ? canonicalDirectory ? directorySession : await getViewSessionCookie()
         .then((cookieSession) => resolveViewSession({ cookieSession }))
         .then((resolved) => resolved.sessionLabel)
         .catch(() => null)
@@ -109,7 +121,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   let rows: StudentListRow[] = [];
   let total = 0;
   let counts: StudentsProps["counts"] = null;
-  let failed = seesMoney && !moneySession;
+  let failed = readsMoney && !moneySession;
   let moneyMode = false;
   let session = directorySession;
 
@@ -132,7 +144,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     try {
       // Grouped by class, the list is read in class order so a class's children sit together across pages.
       const byClass = sort.key === "class" || layout === "class";
-      const read = (page: number) => studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name" });
+      const read = (page: number) => studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name",...(canonicalDirectory?{status:enrollment}:{}) });
       const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.id, page) : null;
       const list = filtered ?? await read(page);
       taskMatchingIds = filtered?.matchingIds ?? null;
@@ -142,6 +154,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
           id: row.id,
           name: row.fullName,
           sr: row.admissionNo || null,
+          photoUrl: row.photoUrl,
           classLabel: row.classLabel,
           rollNo: null,
           route,
@@ -165,7 +178,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
 
   let directoryLabels: Map<string, string> | null = null;
   if (!moneyMode) {
-    if (missingIds && seesMoney && !moneySession) throw new Error("directory_unavailable");
+    if (missingIds && readsMoney && !moneySession) throw new Error("directory_unavailable");
     const read = (page: number) => searchStudents({ text, classId, page }, directorySession);
     const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.studentId, page) : null;
     const [labels, results] = await Promise.all([
@@ -191,11 +204,13 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   }
 
   const ids = rows.map((row) => row.id);
-  const [labels, attendance, parents] = await Promise.all([
+  const [labels, attendance, parents, portraits, taskFields] = await Promise.all([
     (async () => directoryLabels ?? (moneyMode ? await labelsRead : null) ?? (await classLabelMap(session)))(),
     attendanceForStudents(ids, session).catch((): Map<string, AttendanceFacts> | null => null),
     // The fee list carries no parent name; the design shows it under each child.
-    moneyMode && ids.length ? parentNamesFor(ids).catch((): Map<string, string> | null => null) : Promise.resolve(null),
+    moneyMode && !canonicalDirectory && ids.length ? parentNamesFor(ids).catch((): Map<string, string> | null => null) : Promise.resolve(null),
+    !canonicalDirectory || !moneyMode ? approvedStudentPhotos(ids).catch(() => new Map<string,string>()) : Promise.resolve(null),
+    readTaskFields(),
   ]);
   const classOrder = new Map([...labels.values()].map((label, i) => [label, i]));
   for (const row of rows) {
@@ -204,8 +219,9 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     row.classOrder = classOrder.get(row.classLabel);
   }
 
-  const portraits = await approvedStudentPhotos(ids).catch(() => new Map<string,string>());
-  for (const row of rows) row.photoUrl = portraits.get(row.id) ?? null;
+  if (portraits) {
+    for (const row of rows) row.photoUrl = portraits.get(row.id) ?? null;
+  }
   const window = pageWindow(page, total);
 
   return (
@@ -230,7 +246,9 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         viewKey={staff.id}
         canCollect={can(staff, "fees:collect")}
         canAdmit={staff.role === "admin"}
-        canRemind={seesMoney}
+        canRemind={readsMoney && !canonicalDirectory}
+        enrollment={canonicalDirectory&&moneyMode?enrollment:undefined}
+        sourceData={canonicalDirectory&&moneyMode}
         quick={quickActionsFor((p) => can(staff, p))}
         failed={failed}
         taskAssignment={canAssignTasks?{matchingIds:taskMatchingIds??ids,missing,fields:taskFields.map(f=>({key:f.key,hi:f.labelHi,en:f.labelEn}))}:undefined}

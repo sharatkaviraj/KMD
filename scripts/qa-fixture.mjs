@@ -27,7 +27,10 @@
  * short name, second must share no class with the first), never by a name
  * written into this repository — rule 6, and it also survives a new timetable.
  *
- * Rule 3: dev only, and it refuses to run anywhere else.
+ * Rule 3 / D-346: One's main project only. On production (the database
+ * marker says so) it is confined: TEST-2026-27 instead of the active session,
+ * only test-account profiles bound or changed, and `qa:reset` replays only runs
+ * that were confined from the start.
  * Rule 6: every address is `@qa.vpps.local` and no real person is named here.
  */
 
@@ -44,7 +47,7 @@ import {
   QA_EMAIL_DOMAIN,
   pickTimetableTeachers,
 } from "../tests/fixtures/qa-accounts.ts";
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -58,10 +61,8 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
-  console.error("Refusing to run: .env.local is not the dev project (rule 3).");
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only, and on production confined to TEST-2026-27 and test accounts.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "qa-fixture", mode: "test-scoped" });
 
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
@@ -69,6 +70,9 @@ const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_
 });
 
 const pub = db.schema("public");
+
+/** How a run made on production is marked in `qa_runs.note` (D-346). */
+const TEST_SCOPED_NOTE = "[test-scoped]";
 
 /** Every read fails loudly. A swallowed error reports a confident zero (D-93). */
 function must(label, { data, error }) {
@@ -151,27 +155,41 @@ async function record(table, action, key, previous) {
 const SEED = value("seed") ?? "vppsone-r0.2";
 
 async function seed() {
-  const id = await startRun("seed", flag("edge-classes") ? "with edge classes" : null);
+  const note = flag("edge-classes") ? "with edge classes" : null;
+  // A run made on production is marked, so `qa:reset` there replays only runs
+  // that were confined to TEST-2026-27 and test accounts from the start.
+  const id = await startRun("seed", scope.confined ? `${TEST_SCOPED_NOTE} ${note ?? ""}`.trim() : note);
   console.log(`run ${id} · seed ${SEED}\n`);
 
   /* -------------------------------------------------- what is already here */
 
   // The session the app is working in, not the label that sorts last. See
-  // src/platform/config/active-session.ts for what that shortcut cost.
-  const sessionLabel = await readActiveSession(db);
+  // src/platform/config/active-session.ts for what that shortcut cost. On
+  // production it is TEST-2026-27 instead, whatever the app is working in
+  // (D-346): the fixture never writes into a real session there.
+  const sessionLabel = scope.confined ? scope.sessionLabel : await readActiveSession(db);
 
   const classes = must(
     "Could not read the classes",
-    await pub.from("classes").select("id, class_name, sort_order").order("sort_order"),
+    scope.confined
+      ? await pub.from("classes").select("id, class_name, sort_order").eq("session_label", sessionLabel).order("sort_order")
+      : await pub.from("classes").select("id, class_name, sort_order").order("sort_order"),
   );
 
   const version = must(
     "Could not read the published timetable",
-    await db
-      .from("timetable_versions")
-      .select("id")
-      .eq("status", "published")
-      .maybeSingle(),
+    scope.confined
+      ? await db
+          .from("timetable_versions")
+          .select("id")
+          .eq("status", "published")
+          .eq("session_label", sessionLabel)
+          .maybeSingle()
+      : await db
+          .from("timetable_versions")
+          .select("id")
+          .eq("status", "published")
+          .maybeSingle(),
   );
 
   if (!version) {
@@ -216,7 +234,10 @@ async function seed() {
   const candidates = [...byTeacher.entries()]
     .map(([staffProfileId, entry]) => {
       const profile = profiles.find((p) => p.id === staffProfileId);
-      return profile && profile.is_active && profile.role === "teacher"
+      // On production only a test account may be bound to a QA login or have
+      // its class and phone changed (D-346).
+      return profile && profile.is_active && profile.role === "teacher" &&
+        (!scope.confined || profile.is_test_account === true)
         ? {
             staffProfileId,
             shortName: profile.short_name,
@@ -264,6 +285,22 @@ async function seed() {
     }
 
     resolved.push({ account, profile });
+  }
+
+  // D-346: on production, refuse before the first write if any existing
+  // profile the fixture would bind or change is not a test account — and the
+  // same for any profile that would have to give up a QA login.
+  if (scope.confined) {
+    const refused = resolved
+      .filter((entry) => entry.profile && entry.profile.is_test_account !== true)
+      .map((entry) => entry.profile.short_name);
+    if (refused.length > 0) {
+      console.error(
+        `Refusing to seed on production: ${refused.length} profile(s) the fixture would bind are not test accounts ` +
+          `(${refused.join(", ")}). Mark them as test accounts first.`,
+      );
+      process.exit(1);
+    }
   }
 
   /* ------------------------------------------------- auth users, then binding */
@@ -316,6 +353,8 @@ async function seed() {
         is_active: entry.account.binding.isActive,
         is_teaching: entry.account.role === "teacher",
         preferred_language: entry.account.language,
+        // A profile made for a QA login is a test account (D-346).
+        is_test_account: true,
       })
       .select("*")
       .single();
@@ -338,6 +377,11 @@ async function seed() {
     if (!profile.user_id) continue;
     const target = wanted.get(profile.user_id);
     if (target === undefined || target === profile.id) continue;
+
+    if (scope.confined && profile.is_test_account !== true) {
+      console.error(`Refusing to release ${profile.short_name} on production: it is not a test account (D-346).`);
+      process.exit(1);
+    }
 
     await record("vppsone.staff_profiles", "update", { id: profile.id }, profile);
     const { error } = await db
@@ -710,6 +754,21 @@ async function reset() {
   if (targets.length === 0) {
     console.log(only ? `No run ${only}.` : "Nothing to reset.");
     return;
+  }
+
+  // D-346: on production only a run that was confined from the start may be
+  // replayed. An older run bound QA logins to real staff and wrote into the
+  // real session; putting those rows back is the quarantine's job (Phase 4),
+  // not a fixture reset's.
+  if (scope.confined) {
+    const unconfined = targets.filter((run) => !(run.note ?? "").startsWith(TEST_SCOPED_NOTE));
+    if (unconfined.length > 0) {
+      console.error(
+        `Refusing to reset on production: ${unconfined.map((run) => run.run_id).join(", ")} ` +
+          "was not confined to TEST-2026-27 and test accounts.",
+      );
+      process.exit(1);
+    }
   }
 
   for (const run of targets) {

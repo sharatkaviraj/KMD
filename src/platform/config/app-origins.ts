@@ -2,12 +2,14 @@
  * Where the school's three applications actually live.
  *
  * **Every hostname in this file was resolved from Vercel project metadata and
- * then fetched, on 2026-09-17 (R0.1).** None of them is remembered, inferred
+ * then fetched, on 2026-09-17 (R0.1)**, and VPPS One's own again when it moved
+ * to `one.vpps.co.in` on 2026-10-30. None of them is remembered, inferred
  * from a repository name or copied from an older note, because two of the
  * guesses a reader would make are wrong:
  *
- * - The fee app is served at `vpps-one.vercel.app`. The name that looks like
- *   it — `schoolfees.vercel.app` — answers 200 with `<title>Ecolage
+ * - The fee app is served at `fees.vpps.co.in` (since 2026-10-30; before that
+ *   `vpps-one.vercel.app`, which still answers). The name that looks like
+ *   it —`schoolfees.vercel.app` — answers 200 with `<title>Ecolage
  *   Desktop</title>` and belongs to somebody else entirely.
  * - SamPark is served at `sampark-theta-eight.vercel.app`. `sampark.vercel.app`
  *   answers 500 and is not ours either.
@@ -88,23 +90,28 @@ export const FOREIGN_ORIGINS = [
 export const VERIFIED_ORIGINS: readonly VerifiedOrigin[] = [
   {
     appId: "vppsone",
-    origin: "https://vppsone.vercel.app",
+    // The school's own subdomain since 30 Oct 2026 (D-336, docs/DOMAIN.md).
+    // `vppsone.vercel.app` still serves the same deployment and is kept for
+    // the smoke scripts and anyone with the old address bookmarked.
+    origin: "https://one.vpps.co.in",
     // The deployment is Vercel "production"; the data behind it is dev, and
     // that is what callers need to know.
     environment: "dev",
     vercelProject: "vppsone",
     probePath: "/login",
     identifiedBy: "VPPS One",
-    verifiedOn: "2026-09-17",
+    verifiedOn: "2026-10-30",
   },
   {
     appId: "schoolfees",
-    origin: "https://vpps-one.vercel.app",
+    // The school's own subdomain since 30 Oct 2026 (D-337). Same deployment
+    // as `vpps-one.vercel.app` and `schoolfees-two.vercel.app`, both kept.
+    origin: "https://fees.vpps.co.in",
     environment: "live",
     vercelProject: "schoolfees",
     probePath: "/",
     identifiedBy: "Fee Admin",
-    verifiedOn: "2026-09-17",
+    verifiedOn: "2026-10-30",
   },
   {
     appId: "sampark",

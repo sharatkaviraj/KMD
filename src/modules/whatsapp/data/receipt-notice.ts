@@ -1,6 +1,7 @@
 import "server-only";
 
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import { parentSendRefusalWithCode, sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import type { ParentSendRefusal } from "@/platform/messaging/parent-send-gate";
 import {
   parentFacingFilename,
   storeNoticeDocument,
@@ -10,6 +11,7 @@ import { describeReceiptCampaign } from "@/modules/whatsapp/domain/campaign-bodi
 import { describeReceiptDocumentCampaign } from "@/modules/whatsapp/domain/campaign-bodies-v5";
 import { isNoticeLanguage, type NoticeLanguage } from "@/modules/whatsapp/domain/campaigns";
 import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
+import { receiptVerifyPath } from "@/modules/receipts/domain/verify-url";
 import { createAbsoluteUrl } from "@/platform/env";
 import { formatDdMmYyyy, istTodayIso } from "@/platform/helpers/date";
 
@@ -35,7 +37,11 @@ import { formatDdMmYyyy, istTodayIso } from "@/platform/helpers/date";
 
 export type ReceiptNoticeResult =
   | { sent: true; providerMessageId: string | null; documentAttached: boolean }
-  | { sent: false; reason: string };
+  /**
+   * `refusalCode` (One only): set when the parent-send gate refused, so the
+   * online outbox can tell a rule (suppress) from a failed read (retry).
+   */
+  | { sent: false; reason: string; refusalCode?: ParentSendRefusal };
 
 export type ReceiptNoticeArgs = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -113,7 +119,7 @@ async function renderAndStoreReceipt(args: {
     const { renderReceiptPdf } = await import("@/modules/receipts/domain/receipt-pdf");
     const buffer = await renderReceiptPdf({
       receipt,
-      verifyUrl: createAbsoluteUrl(`/r/${encodeURIComponent(receipt.receiptNumber)}`),
+      verifyUrl: createAbsoluteUrl(receiptVerifyPath(receipt.receiptNumber)),
     });
 
     const document = await storeNoticeDocument({
@@ -160,11 +166,14 @@ export async function sendReceiptNotice(
 ): Promise<ReceiptNoticeResult> {
   const { supabase, receiptId, receiptNumber, studentId, sessionLabel, staffId } = args;
 
-  // VPPS One never messages a parent on its own (D-270). The fee app's toggle
-  // came across in the replica as 'true', so on save this sent without anyone
-  // pressing Send. Only a person pressing Send on a receipt reaches a parent.
-  if (args.trigger !== "manual") {
-    return { sent: false, reason: "Receipt notices are only sent when staff press Send." };
+  // As in the fees app: the automatic notice on posting follows the office's
+  // switch. D-270 ("only a person pressing Send") is superseded at cutover by
+  // D-353: every receipt notice, automatic or pressed, now also passes the
+  // parent-send gate in `sendAisensyCampaignMessage`, which refuses unless the
+  // deployment is live, `parent_dispatch` is on and `receipt` is a named
+  // category — so the replica's 'true' toggle alone reaches nobody.
+  if (args.trigger !== "manual" && !(await isReceiptNoticeEnabled(supabase))) {
+    return { sent: false, reason: "Receipt notices are switched off." };
   }
 
   // One read for everything about this family: the number to use, the language
@@ -220,6 +229,15 @@ export async function sendReceiptNotice(
       reason: `${bodyCampaign.campaignName} is awaiting Meta approval.`,
     };
   }
+
+  // Ask the parent-send gate BEFORE the render and the claim (One-only). The
+  // receipt index covers failed rows and this path never reclaims one, so a
+  // refusal recorded as a failed claim would make the receipt un-notifiable
+  // for good — and every later press would report "already sent" for a
+  // notice that reached nobody. `sendAisensyCampaignMessage` asks again.
+  const gate = { kind: "receipt" as const, sessionLabel, actor: staffId ? { userId: staffId } : ("system" as const) };
+  const refusal = await parentSendRefusalWithCode({ campaignName: bodyCampaign.campaignName, destination, gate });
+  if (refusal) return { sent: false, reason: refusal.sentence, refusalCode: refusal.code };
 
   // What is left AFTER this payment. Read from the ledger rather than computed
   // from the amount, so a discount or an adjustment applied in the same posting
@@ -311,11 +329,29 @@ export async function sendReceiptNotice(
     destination,
     userName: values.parentName,
     templateParams,
-    source: "veerpatta-fees-app/receipt",
+    source: "vppsone/receipt",
+    gate,
     ...(prepared
       ? { media: { url: prepared.document.signedUrl, filename: prepared.filename } }
       : {}),
   });
+
+  // The gate changed its answer between the pre-check and the send (a switch
+  // flipped off in between). Nothing reached AiSensy, so release the claim
+  // rather than leave a failed row the receipt index would hold forever.
+  if (!result.ok && result.refused) {
+    // Only when the row really went: a delete RLS filtered to nothing must
+    // still fall through and mark the claim failed, never leave it pending.
+    const { data: released, error: releaseError } = await supabase
+      .from("whatsapp_reminder_sends")
+      .delete()
+      .eq("id", claim.id)
+      .eq("status", "pending")
+      .select("id");
+    if (!releaseError && Array.isArray(released) && released.length === 1) {
+      return { sent: false, reason: result.error, ...(result.refusalCode ? { refusalCode: result.refusalCode } : {}) };
+    }
+  }
 
   await supabase
     .from("whatsapp_reminder_sends")

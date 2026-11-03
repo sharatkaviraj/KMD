@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionWritable, assertStudentsVisible, passesFence } from "@/platform/auth/test-session-access";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { createRound } from "@/modules/collection/data/rounds-repo";
 import { matchableRoll } from "@/modules/collection/data/ask-list-repo";
@@ -39,9 +40,13 @@ export async function checkAskListAction(
   _previous: AskListState,
   formData: FormData,
 ): Promise<AskListState> {
-  await requirePermission("collection:manage", "/collection/rounds/upload");
+  const staff = await requirePermission("collection:manage", "/collection/rounds/upload");
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { ...idleAskList, status: "error", message: m.noSessionFound };
+  // Reads only, but the roll it matches against is the session's (Phase 3 fence).
+  if (!(await passesFence(() => assertSessionWritable(staff, sessionLabel)))) {
+    return { ...idleAskList, status: "error", message: m.noSessionFound };
+  }
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -94,6 +99,9 @@ export async function createFromAskListAction(formData: FormData): Promise<void>
 
   const studentIds = formData.getAll("studentIds").map(String).filter(Boolean);
   if (studentIds.length === 0) redirect("/collection/rounds/upload");
+  // Every child's own session (Phase 3 fence): the ids came back through
+  // hidden fields, so a test account could hand in a real child's.
+  if (!(await passesFence(() => assertStudentsVisible(staff, studentIds)))) redirect("/collection/rounds/upload");
 
   const notes: Record<string, string> = {};
   for (const studentId of studentIds) {

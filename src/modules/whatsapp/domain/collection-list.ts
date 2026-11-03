@@ -39,6 +39,7 @@ export type CollectionStatus =
   | "paused_snoozed"
   | "paused_too_soon"
   | "paused_promise"
+  | "paused_profile"
   | "unreachable";
 
 export type CollectionRow = {
@@ -70,6 +71,7 @@ export const COLLECTION_STATUS_LABELS: Record<CollectionStatus, string> = {
   paused_snoozed: "Snoozed",
   paused_too_soon: "Messaged recently",
   paused_promise: "Promised to pay",
+  paused_profile: "Not messaged (profile)",
   unreachable: "No number",
 };
 
@@ -150,6 +152,7 @@ export type CollectionGroup = {
 };
 
 function detailFor(reason: PausedFamily["reason"], returnsOn: string | null): string {
+  if (reason === "profile") return "their reminder profile is not on this run";
   if (reason === "promise_open") return returnsOn ? `promised ${returnsOn}` : "promised to pay";
   if (reason === "never") return "set to never remind";
   if (reason === "snoozed") return returnsOn ? `returns ${returnsOn}` : "snoozed";
@@ -161,6 +164,7 @@ const PAUSED_STATUS: Record<PausedFamily["reason"], CollectionStatus> = {
   snoozed: "paused_snoozed",
   too_soon: "paused_too_soon",
   promise_open: "paused_promise",
+  profile: "paused_profile",
 };
 
 function fromCandidate(candidate: ReminderCandidate): CollectionRow {

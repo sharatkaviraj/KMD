@@ -22,9 +22,13 @@ import { Chip, Input, Seg, Textarea } from "@/vx/ui/controls";
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
+import { MessageAssist, ReplyAssist } from "@/vx/assist/message-assist";
+import { TemplateAssist } from "@/vx/assist/template-assist";
 
 import type { CampaignView, MessagesData, RecipientView, ReplyView, TemplateView } from "./data";
 import { Outbox } from "./outbox";
+import { StaffLog } from "./staff-log";
+import type { StaffLogData } from "./staff-log-data";
 import type { OutboxData } from "./outbox-data";
 import {
   campaignStatus,
@@ -62,7 +66,7 @@ import {
  * outcome, AiSensy templates and parent replies.
  */
 
-export type MessagesView = "sent" | "outbox" | "replies" | "templates";
+export type MessagesView = "sent" | "outbox" | "replies" | "templates" | "staff";
 export type MessagesState = {
   view: MessagesView;
   compose: boolean;
@@ -221,7 +225,7 @@ function PhonePreview({ title, lines }: { title: string; lines: string[] }) {
 
 /* ------------------------------------------------------------------ screen */
 
-export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { data: MessagesData; state: MessagesState; outbox: OutboxData | null; outboxCount: number; /** A filled-in notice, for the design fixture only; the page never passes it. */ draft?: { title: string; hi: string; en: string } }) {
+export function MessagesScreen({ data, state, outbox, outboxCount, staffLog = null, draft }: { data: MessagesData; state: MessagesState; outbox: OutboxData | null; outboxCount: number; /** Messages → Staff (go-live Phase F); null unless that tab is open. */ staffLog?: StaffLogData | null; /** A filled-in notice, for the design fixture only; the page never passes it. */ draft?: { title: string; hi: string; en: string } }) {
   const { tx } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -248,6 +252,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
         { value: "outbox", label: `${tx(p("To send", "भेजने को"))}${outboxCount ? ` · ${outboxCount}` : ""}` },
         { value: "replies", label: `${tx(p("Replies", "जवाब"))}${openReplies ? ` · ${openReplies}` : ""}` },
         { value: "templates", label: tx(p("Templates", "टेम्पलेट")) },
+        { value: "staff", label: tx(p("Staff", "स्टाफ़")) },
       ]}
     />
   );
@@ -281,7 +286,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
       mBack="/menu"
       actions={
         <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ width: 460 }}>{tabs}</div>
+          <div style={{ width: 540 }}>{tabs}</div>
           <Btn variant="pri" icon="plus" href={href({ compose: true })}>{tx(p("New notice", "नई सूचना"))}</Btn>
           <HelpButton
             title={tx(p("Messages", "संदेश"))}
@@ -315,6 +320,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
           </>
         ) : null}
         {state.view === "outbox" && outbox ? <Outbox data={outbox} tabs={tabs} /> : null}
+        {state.view === "staff" && staffLog ? <StaffLog data={staffLog} tabs={phoneTabs} /> : null}
         {state.view === "templates" ? (
           <Templates templates={data.templates} tabs={phoneTabs} onNew={() => go({ view: "templates", sheet: "template-new" })} />
         ) : null}
@@ -350,11 +356,15 @@ function SentLog({ data, outboxCount }: { data: MessagesData; outboxCount: numbe
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const shown = data.campaigns.filter((c) => (kind === "all" || c.kind === kind) && (!q || c.title.toLowerCase().includes(q) || c.audienceLabel.toLowerCase().includes(q)));
-  const week = shown.filter((c) => logBucket(c.createdAt) === "week");
-  const earlier = shown.filter((c) => logBucket(c.createdAt) === "earlier");
+  // Sent means something went: a notice nothing of which has gone (still in To send,
+  // or with nobody to reach) is set apart rather than listed as sent (smoke run, 20 Oct).
+  const notSent = shown.filter((c) => c.counts.sent === 0);
+  const went = shown.filter((c) => c.counts.sent > 0);
+  const week = went.filter((c) => logBucket(c.createdAt) === "week");
+  const earlier = went.filter((c) => logBucket(c.createdAt) === "earlier");
 
   const kpis: { label: Pair; value: string; sub: ReactNode; color?: string }[] = [
-    { label: p("Sent this month", "इस महीने भेजे"), value: data.month.sent.toLocaleString("en-IN"), sub: tx(p(`of ${data.month.count.toLocaleString("en-IN")} queued · one per family`, `${data.month.count.toLocaleString("en-IN")} में से · हर परिवार को एक`)) },
+    { label: p("Sent this month", "इस महीने भेजे"), value: data.month.sent.toLocaleString("en-IN"), sub: tx(p(`of ${data.month.count.toLocaleString("en-IN")} messages made this month`, `इस महीने बने ${data.month.count.toLocaleString("en-IN")} संदेशों में से`)) },
     {
       label: p("Waiting to send", "भेजने बाकी"),
       // Sent by hand, what waits is what the To send tab counts — one number in both places (coordinators B13).
@@ -403,6 +413,7 @@ function SentLog({ data, outboxCount }: { data: MessagesData; outboxCount: numbe
       </div>
       {week.length ? <LogGroup title={p("This week", "इस हफ़्ते")} rows={week} /> : null}
       {earlier.length ? <LogGroup title={p("Earlier", "पहले")} rows={earlier} /> : null}
+      {notSent.length ? <LogGroup title={p("Not sent yet · waiting in To send, or nobody to reach", "अभी नहीं भेजे · भेजने की सूची में, या भेजने को कोई नहीं")} rows={notSent} /> : null}
       {shown.length === 0 ? (
         <div className="card fadein" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
           <span style={h15}>{data.campaigns.length ? tx(p("No messages match", "कोई संदेश नहीं मिला")) : tx(p("No notices yet", "अभी कोई सूचना नहीं"))}</span>
@@ -878,6 +889,13 @@ function Compose({
                   ]}
                 />
               </div>
+              <MessageAssist
+                audience={audience === "staff" ? "staff" : "parents"}
+                kindLabel={KIND_LABELS[audience === "staff" ? "staff" : kind]}
+                current={{ title, hi, en }}
+                language={language}
+                onApply={(next) => { setTitle(next.title.slice(0, 80)); setHi(next.hi.slice(0, MAX_BODY)); setEn(next.en.slice(0, MAX_BODY)); }}
+              />
               <label className="field">
                 <span>{tx(p("Title (bold first line)", "शीर्षक (पहली मोटी पंक्ति)"))}</span>
                 <Input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder={tx(p("For example: Unit Test 2 datesheet", "जैसे: इकाई परीक्षा 2 की समय-सारणी"))} />
@@ -1035,6 +1053,7 @@ function TemplateSheet({ open, onClose, pending, onSave }: { open: boolean; onCl
     >
       <div className="mx-tsheet" style={{ paddingTop: 4 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+          <TemplateAssist category={category} onApply={(d) => { setName(d.name); setHi(d.hi); setEn(d.en); }} />
           <label className="field">
             <span>{tx(p("Name", "नाम"))} · {slug || "template_name"}</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tx(p("For example: Unit test datesheet", "जैसे: इकाई परीक्षा समय-सारणी"))} />
@@ -1235,6 +1254,14 @@ function Replies({
           </button>
         ))}
       </div>
+      <ReplyAssist
+        key={selected.id}
+        incoming={selected.body}
+        regarding={selected.regarding}
+        notice={selected.campaignBody}
+        names={[selected.fromName, selected.studentLabel?.split(/[·(,]/)[0]?.trim() ?? ""].filter(Boolean)}
+        onApply={setDraft}
+      />
       <label className="field">
         <span>{tx(p("Your reply", "आपका जवाब"))}</span>
         <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={tx(p("Type a reply — Hindi first is best", "जवाब लिखें — पहले हिंदी बेहतर"))} style={{ minHeight: 80 }} />

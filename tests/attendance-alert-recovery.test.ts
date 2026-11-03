@@ -20,9 +20,9 @@ function query() {
     state.queries.push(operation);
     if (operation === "cancel" && state.sentDuringCancel) state.queueStatus = "sent";
     if (operation === "cancel" && state.stage !== operation && (statusFilter === null || statusFilter === state.queueStatus)) state.queueStatus = "cancelled";
-    return { data: [{ id: "old-queue", student_id: "qa-no-longer-absent" }], error: state.stage === operation ? { message: `${operation} failed` } : null };
+    return { data: [{ id: "old-queue", student_id: "qa-no-longer-absent", status: "queued" }], error: state.stage === operation ? { message: `${operation} failed` } : null };
   };
-  const api = { select() { return api; }, eq(column: string, value: string) { if (column === "status") statusFilter = value; return api; }, in() { return api; },
+  const api = { select() { return api; }, eq(column: string, value: string) { if (column === "status") statusFilter = value; return api; }, in() { return api; }, neq() { return api; },
     update() { operation = "cancel"; return api; }, insert() { operation = "insert"; return api; },
     returns() { return Promise.resolve(result()); }, then(resolve: (value: ReturnType<typeof result>) => unknown) { return Promise.resolve(result()).then(resolve); },
   }; return api;

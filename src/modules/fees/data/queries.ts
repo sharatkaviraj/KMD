@@ -24,6 +24,7 @@ import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/
 import { DISCOUNT_CLOSEOUT_MODE } from "@/platform/money/write-off";
 import { loadSessionScopedReceiptIds } from "@/modules/fees/platform/session-context/installment-scope";
 import { buildTransportRouteLabel, matchesTransportRouteFilter } from "@/modules/fees/domain/label";
+import { balanceStatusOn } from "@/modules/fees/domain/due-rule";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { getStudentFormOptions } from "@/modules/students-fees/data/queries";
 
@@ -298,7 +299,7 @@ function mapFinancialRow(row: WorkbookStudentFinancialRow): WorkbookStudentFinan
   };
 }
 
-function mapInstallmentRow(row: WorkbookInstallmentBalanceRow): WorkbookInstallmentBalance {
+function mapInstallmentRow(row: WorkbookInstallmentBalanceRow, today: string): WorkbookInstallmentBalance {
   const isCarryForward = row.is_carry_forward === true;
   const feeBucket = row.carry_forward_fee_head ? `previous_year_${row.carry_forward_fee_head}` : null;
   // The pooled figure. A caller that selected the view before 20260905064847
@@ -351,7 +352,19 @@ function mapInstallmentRow(row: WorkbookInstallmentBalanceRow): WorkbookInstallm
     pendingAmount: row.pending_amount,
     lateFeePending: row.late_fee_pending ?? 0,
     totalPending: row.total_pending ?? row.pending_amount + (row.late_fee_pending ?? 0),
-    balanceStatus: row.balance_status,
+    // Decided again for today: the view's status carries the date of its last
+    // refresh, and the morning after a due date it still read "pending" (smoke
+    // 20 Oct: the Students list and Student 360 disagreed). due-rule.ts.
+    balanceStatus: balanceStatusOn(
+      {
+        balanceStatus: row.balance_status,
+        dueDate: row.due_date,
+        isCarryForward,
+        pendingAmount: row.pending_amount,
+        feeSettledAmount,
+      },
+      today,
+    ),
     lateFeeStatus: row.late_fee_status ?? "none",
     settledAmount,
     feeSettledAmount,
@@ -639,6 +652,7 @@ export async function getWorkbookInstallmentRows(filters?: {
   todayOnly?: boolean;
 }) {
   const supabase = await createClient();
+  const today = getTodayStamp();
 
   // PAGED, not a single select. One session of this view is 4 rows per student
   // plus any carry-forward row — 2,000 for the 481-student live session — and
@@ -676,7 +690,13 @@ export async function getWorkbookInstallmentRows(filters?: {
       }
 
       if (filters?.overdueOnly) {
-        query = query.eq("balance_status", "overdue");
+        // By date, not by the view's stored status, which carries the date of
+        // its last refresh (due-rule.ts). Same rule: owed, not waived, due
+        // before today — and last session's balance, which is always overdue.
+        query = query
+          .gt("pending_amount", 0)
+          .neq("balance_status", "waived")
+          .or(`due_date.lt.${today},is_carry_forward.eq.true`);
       }
 
       if (filters?.todayOnly) {
@@ -695,7 +715,7 @@ export async function getWorkbookInstallmentRows(filters?: {
     );
   }
 
-  return data.map(mapInstallmentRow);
+  return data.map((row) => mapInstallmentRow(row, today));
 }
 
 /**
@@ -751,6 +771,10 @@ async function sumReceiptSnapshot(
         totals.cashTotal += amount;
         break;
       case "upi":
+      // Pay now link payments are UPI through Razorpay. They counted in the
+      // day's total but in no mode, so the strip's split never added up — and
+      // they are never cash, which is what the drawer is checked against.
+      case "online":
         totals.upiTotal += amount;
         break;
       case "bank_transfer":

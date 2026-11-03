@@ -25,10 +25,10 @@ import { Btn, StackedBar } from "@/vx/ui/primitives";
 
 import { ClosePanel } from "./close-panel";
 import { deskHref } from "./href";
-import { AVATAR_TONES, dayGroupLabel, deskDay, deskTime, MIX, MODE_LOOK, nameInitials } from "./look";
+import { AVATAR_TONES, dayGroupLabel, daySeg, deskDay, deskTime, MIX, MODE_LOOK, nameInitials } from "./look";
 import { ReceiptPanel } from "./receipt-panel";
 import type { DeskProps, DeskRow } from "./types";
-import { MODE_WORD, receiptCount, W } from "./words";
+import { MODE_WORD, receiptCount, receiptModeWord, W } from "./words";
 
 /*
  * Receipts and the day close, drawn as the design's `Fees` module: KPI tiles,
@@ -41,6 +41,18 @@ import { MODE_WORD, receiptCount, W } from "./words";
 // The receipt number is what the accountant matches against the bank slip;
 // 100px cut "SVP20261014-0004" to "SVP20261014-…".
 const TRACKS = "140px 76px minmax(170px, 2fr) 104px minmax(110px, 1fr) 104px 28px";
+/**
+ * With a receipt open beside the list there is room for less: Time and Taken
+ * by step aside so the amount — the number the accountant checks — stays
+ * (smoke 20 Oct: Amount and Taken by were cut off and the mode chips clipped).
+ */
+const TRACKS_NARROW = "136px minmax(120px, 2fr) 96px 92px 20px";
+
+/** "₹2 · 1 receipt (+1 reversed)": the same count as the tile, the reversed ones named apart. */
+function groupCount(receipts: readonly DeskRow[]) {
+  const s = summarizeReceipts(receipts);
+  return { count: receiptCount(s.count), reversed: s.reversedCount ? W.plusReversed(s.reversedCount) : null };
+}
 
 function initialFilters(i: DeskProps["initial"]): DeskFilters {
   const mode = (DESK_MODES as readonly string[]).includes(i.mode) ? (i.mode as DeskMode) : "all";
@@ -108,6 +120,8 @@ export function ReceiptsDesk(props: DeskProps) {
   const toneOf = useMemo(() => new Map(rows.map((r, i) => [r.id, AVATAR_TONES[i % AVATAR_TONES.length]])), [rows]);
 
   const base = { anchor, today, span };
+  // The day toggle reads yesterday-as-one-day as its "Yesterday" option (smoke 21 Oct).
+  const seg = daySeg(anchor, today, span);
   const isClose = view === "close";
   const spanLabel = span === "today" ? (anchor === today ? tx(W.today) : deskDay(anchor)) : span === "yesterday" ? tx(W.yesterday) : tx(W.last3);
   const closeHref = deskHref(base, { view: "close" });
@@ -119,6 +133,7 @@ export function ReceiptsDesk(props: DeskProps) {
   const setQuery = (q: string) => setFilters((f) => ({ ...f, query: q }));
   // Rows animate in one after another down the whole table, as in the design.
   const order = useMemo(() => new Map(groups.flatMap((g) => g.receipts).map((r, i) => [r.id, i])), [groups]);
+  const narrow = Boolean(selected);
 
   const list = (
     <section className={`pad${selected ? " hide-m" : ""}`} style={{ padding: "22px 28px 40px", display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
@@ -153,12 +168,12 @@ export function ReceiptsDesk(props: DeskProps) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Seg<DaySpan>
           label={tx(W.title)}
-          value={span}
-          onChange={(v) => router.push(deskHref({ ...base, span: v }, {}))}
+          value={seg.span}
+          onChange={(v) => router.push(deskHref({ anchor: seg.anchor, today, span: v }, {}))}
           style={{ width: 300, maxWidth: "100%" }}
           options={[
-            { value: "today", label: anchor === today ? tx(W.today) : deskDay(anchor) },
-            { value: "yesterday", label: tx(W.yesterday) },
+            { value: "today", label: seg.first ? deskDay(seg.first) : tx(W.today) },
+            { value: "yesterday", label: seg.second ? deskDay(seg.second) : tx(W.yesterday) },
             { value: "3d", label: tx(W.last3) },
           ]}
         />
@@ -199,12 +214,12 @@ export function ReceiptsDesk(props: DeskProps) {
         <>
           {/* desk: one grid table, the days as bands inside it */}
           <div className="only-d card" role="table" aria-label={tx(W.title)} style={{ overflow: "hidden" }}>
-            <div role="row" style={{ display: "grid", gridTemplateColumns: TRACKS, gap: 8, alignItems: "center", height: 42, padding: "0 16px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
+            <div role="row" style={{ display: "grid", gridTemplateColumns: narrow ? TRACKS_NARROW : TRACKS, gap: 8, alignItems: "center", height: 42, padding: "0 16px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
               <span role="columnheader" className="sech">{tx(W.receipt)}</span>
-              <span role="columnheader" className="sech">{tx(W.time)}</span>
+              {narrow ? null : <span role="columnheader" className="sech">{tx(W.time)}</span>}
               <span role="columnheader" className="sech">{tx(W.student)}</span>
               <span role="columnheader" className="sech">{tx(W.mode)}</span>
-              <span role="columnheader" className="sech">{tx(W.takenBy)}</span>
+              {narrow ? null : <span role="columnheader" className="sech">{tx(W.takenBy)}</span>}
               <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(W.amount)}</span>
               <span />
             </div>
@@ -212,10 +227,10 @@ export function ReceiptsDesk(props: DeskProps) {
               <div key={g.date} role="rowgroup">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px 6px", background: "var(--card)", borderTop: "1px solid var(--bd)" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(dayGroupLabel(g.date, today))}</span>
-                  <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{rupees(g.net)} · {tx(receiptCount(g.receipts.length))}</span>
+                  <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{rupees(g.net)} · {tx(groupCount(g.receipts).count)}{groupCount(g.receipts).reversed ? tx(groupCount(g.receipts).reversed!) : ""}</span>
                 </div>
                 {g.receipts.map((r) => (
-                  <DeskTableRow key={r.id} r={r} delay={Math.min(order.get(r.id) ?? 0, 14) * 28} tone={toneOf.get(r.id) ?? AVATAR_TONES[0]} sel={r.receiptNumber === selected?.receiptNumber} href={deskHref(base, {}, `/receipts/${encodeURIComponent(r.receiptNumber)}`)} />
+                  <DeskTableRow key={r.id} r={r} narrow={narrow} delay={Math.min(order.get(r.id) ?? 0, 14) * 28} tone={toneOf.get(r.id) ?? AVATAR_TONES[0]} sel={r.receiptNumber === selected?.receiptNumber} href={deskHref(base, {}, `/receipts/${encodeURIComponent(r.receiptNumber)}`)} />
                 ))}
               </div>
             ))}
@@ -227,7 +242,7 @@ export function ReceiptsDesk(props: DeskProps) {
               <div key={g.date} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "0 4px" }}>
                   <span className="sech">{tx(dayGroupLabel(g.date, today))}</span>
-                  <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{rupees(g.net)} · {tx(receiptCount(g.receipts.length))}</span>
+                  <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{rupees(g.net)} · {tx(groupCount(g.receipts).count)}{groupCount(g.receipts).reversed ? tx(groupCount(g.receipts).reversed!) : ""}</span>
                 </div>
                 <div className="card" style={{ overflow: "hidden" }}>
                   {g.receipts.map((r, i) => (
@@ -290,7 +305,7 @@ export function ReceiptsDesk(props: DeskProps) {
   );
 }
 
-function DeskTableRow({ r, delay, tone, sel, href }: { r: DeskRow; delay: number; tone: [string, string]; sel: boolean; href: string }) {
+function DeskTableRow({ r, delay, tone, sel, href, narrow }: { r: DeskRow; delay: number; tone: [string, string]; sel: boolean; href: string; narrow?: boolean }) {
   const { tx } = useVx();
   const mode = deskModeOf(r.paymentMode);
   const look = MODE_LOOK[mode];
@@ -304,21 +319,22 @@ function DeskTableRow({ r, delay, tone, sel, href }: { r: DeskRow; delay: number
       role="row"
       className={`tap row${sel ? " sel" : ""}`}
       aria-current={sel ? "true" : undefined}
-      style={{ width: "100%", display: "grid", gridTemplateColumns: TRACKS, gap: 8, alignItems: "center", minHeight: 56, padding: "0 16px", borderTop: "1px solid var(--bd)", color: "var(--fg)", opacity: r.isReversed ? 0.55 : 1, animation: `xIn .32s var(--ease) ${delay}ms both` }}
+      style={{ width: "100%", display: "grid", gridTemplateColumns: narrow ? TRACKS_NARROW : TRACKS, gap: 8, alignItems: "center", minHeight: 56, padding: "0 16px", borderTop: "1px solid var(--bd)", color: "var(--fg)", opacity: r.isReversed ? 0.55 : 1, animation: `xIn .32s var(--ease) ${delay}ms both` }}
     >
       <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textDecoration: strike }}>{r.receiptNumber}</span>
-      <span role="cell" className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{deskTime(r.createdAt)}</span>
+      {narrow ? null : <span role="cell" className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{deskTime(r.createdAt)}</span>}
       <span role="cell" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <span aria-hidden="true" style={{ flex: "none", width: 32, height: 32, borderRadius: 16, background: tone[0], color: tone[1], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>{nameInitials(r.studentFullName)}</span>
+        <span aria-hidden="true" className={narrow ? "hide-d" : undefined} style={{ flex: "none", width: 32, height: 32, borderRadius: 16, background: tone[0], color: tone[1], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>{nameInitials(r.studentFullName)}</span>
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
           <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{r.studentFullName}</span>
           <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{r.classLabel}</span>
         </span>
       </span>
-      <span role="cell">
-        <span className="pill" style={{ background: r.isReversed ? "var(--bads)" : look.bg, color: r.isReversed ? "var(--bad)" : look.fg }}>{r.isReversed ? tx(W.reversed) : tx(MODE_WORD[mode])}</span>
+      <span role="cell" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, minWidth: 0 }}>
+        <span className="pill" style={{ background: r.isReversed ? "var(--bads)" : look.bg, color: r.isReversed ? "var(--bad)" : look.fg }}>{r.isReversed ? tx(W.reversed) : tx(receiptModeWord(r.paymentMode))}</span>
+        {r.reversalAsked ? <span className="pill" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>{tx(W.reversalAskedTag)}</span> : null}
       </span>
-      <span role="cell" className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{r.receivedBy ?? "—"}</span>
+      {narrow ? null : <span role="cell" className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{r.receivedBy ?? "—"}</span>}
       <span role="cell" className="num" style={{ fontSize: 14, fontWeight: 700, textAlign: "right", textDecoration: strike }}>{rupees(r.totalAmount)}</span>
       <Ic n="chevRight" style={{ color: "var(--sub)" }} />
     </Link>
@@ -345,7 +361,8 @@ function DeskCardRow({ r, first, delay, href }: { r: DeskRow; first: boolean; de
       </span>
       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
         <span className="num" style={{ fontSize: 15, fontWeight: 700, textDecoration: r.isReversed ? "line-through" : "none" }}>{rupees(r.totalAmount)}</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: r.isReversed ? "var(--bad)" : "var(--mut)" }}>{r.isReversed ? tx(W.reversed) : tx(MODE_WORD[mode])}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: r.isReversed ? "var(--bad)" : "var(--mut)" }}>{r.isReversed ? tx(W.reversed) : tx(receiptModeWord(r.paymentMode))}</span>
+        {r.reversalAsked ? <span style={{ fontSize: 11, fontWeight: 600, color: "var(--warnfg)" }}>{tx(W.reversalAskedTag)}</span> : null}
       </span>
     </Link>
   );

@@ -16,6 +16,16 @@ import {
 import { createPortal } from "react-dom";
 
 import { Ic, type IconName } from "@/vx/icons";
+import { useVx } from "@/vx/i18n";
+import { p } from "@/vx/text";
+
+const SAY = {
+  close: p("Close", "बंद करें"),
+  gotIt: p("Got it", "समझ गए"),
+  cancel: p("Cancel", "रहने दें"),
+  undo: p("Undo", "वापस लें"),
+  help: (title: string) => p(`Help: ${title}`, `मदद: ${title}`),
+};
 
 /*
  * Sheets, dialogs and toasts. They render into `#vx-layer`, which the shell
@@ -25,6 +35,26 @@ import { Ic, type IconName } from "@/vx/icons";
  */
 
 const noSubscribe = () => () => {};
+
+const SHEET_MARK = "__vxSheet";
+let sheetHistorySeq = 0;
+
+/** Consume the overlay's history entry before a caller replaces the URL. */
+export function dismissSheetHistoryForNavigation(): Promise<void> {
+  const marker = (window.history.state as Record<string, unknown> | null)?.[SHEET_MARK];
+  if (!marker) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onPop = (event: PopStateEvent) => {
+      if ((event.state as Record<string, unknown> | null)?.[SHEET_MARK] === marker) return;
+      window.removeEventListener("popstate", onPop);
+      resolve();
+    };
+    window.addEventListener("popstate", onPop);
+    // The sheet's own popstate handler clears ownership and closes it, so
+    // its cleanup cannot pop again after router.replace has committed.
+    window.history.back();
+  });
+}
 
 function useLayer(): HTMLElement | null {
   return useSyncExternalStore(
@@ -45,6 +75,7 @@ export function Sheet({
   icon,
   label,
   dismissable = true,
+  backCloses = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,8 +87,17 @@ export function Sheet({
   icon?: IconName;
   label?: string;
   dismissable?: boolean;
+  /**
+   * The phone's Back button closes the sheet instead of leaving the page
+   * (smoke 20 Oct: Back on the attendance save sheet jumped to Today). Opt-in
+   * per sheet: a sheet whose state also lives in the URL (`useUrlState`) must
+   * be checked in a browser before it turns this on. The approach is the fee
+   * kit's (src/ui/primitives/sheet.tsx): a marker history entry while open.
+   */
+  backCloses?: boolean;
 }) {
   const layer = useLayer();
+  const { tx } = useVx();
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
   const titleId = useId();
@@ -87,24 +127,74 @@ export function Sheet({
       setMounted(false);
       setClosing(false);
       if (restore.current instanceof HTMLElement) restore.current.focus();
-    }, 230);
+    }, window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 200);
     return () => window.clearTimeout(t);
   }, [closing]);
 
+  // The latest onClose, read by the key handler. Callers pass an inline
+  // `() => setSheet(null)`, a new function on every render. With onClose in
+  // the effect's deps every keystroke in a field inside the sheet re-ran the
+  // effect, which moved focus to the first control 40 ms later: in the
+  // attendance change sheet that was the WhatsApp switch, so the rest of the
+  // note was lost and a space turned the parent message on (smoke 20 Oct).
+  // tests/vx-sheet-focus.test.tsx holds it; tests/vx-ui-effect-deps.test.ts
+  // keeps callback props out of every vx effect's deps.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+
+  // Back closes the sheet: push a marker entry on open; a popstate that
+  // leaves it closes the sheet. Closing any other way pops our own entry, so
+  // history stays balanced and Back is never dead for a press.
+  const pushed = useRef(false);
+  useEffect(() => {
+    if (!open || !backCloses) return undefined;
+    sheetHistorySeq += 1;
+    const id = sheetHistorySeq;
+    window.history.pushState({ ...(window.history.state ?? {}), [SHEET_MARK]: id }, "");
+    pushed.current = true;
+    const onPop = (e: PopStateEvent) => {
+      if ((e.state as Record<string, unknown> | null)?.[SHEET_MARK] === id) return;
+      pushed.current = false;
+      closeRef.current();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (pushed.current) {
+        pushed.current = false;
+        window.history.back();
+      }
+    };
+  }, [open, backCloses]);
+
+  // Focus moves into the sheet once, when it opens, and never while focus is
+  // already inside it.
   useEffect(() => {
     if (!mounted || closing) return undefined;
     const t = window.setTimeout(() => {
-      const first = panel.current?.querySelector<HTMLElement>("[autofocus], input, textarea, select, button:not([data-close])");
-      (first ?? panel.current)?.focus();
+      const box = panel.current;
+      if (!box || box.contains(document.activeElement)) return;
+      const first = box.querySelector<HTMLElement>("[autofocus]:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([data-close]), a[href]");
+      (first ?? box.querySelector<HTMLElement>("button[data-close]") ?? box).focus();
     }, 40);
+    return () => window.clearTimeout(t);
+  }, [mounted, closing]);
+
+  useEffect(() => {
+    if (!mounted || closing) return undefined;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && dismissable) onClose();
+      if (e.key === "Escape" && dismissable) closeRef.current();
       if (e.key === "Tab" && panel.current) {
-        const items = Array.from(panel.current.querySelectorAll<HTMLElement>("a[href],button:not([disabled]),input,textarea,select,[tabindex]:not([tabindex='-1'])"));
-        if (items.length === 0) return;
+        const items = Array.from(panel.current.querySelectorAll<HTMLElement>("a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex='-1'])")).filter((item) => !item.matches(":disabled") && !item.hidden);
+        if (items.length === 0) { e.preventDefault(); return; }
         const first = items[0];
         const last = items[items.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (!items.includes(document.activeElement as HTMLElement)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        } else if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
           last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
@@ -117,17 +207,16 @@ export function Sheet({
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      window.clearTimeout(t);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = overflow;
     };
-  }, [mounted, closing, dismissable, onClose]);
+  }, [mounted, closing, dismissable]);
 
   if (!mounted || !layer) return null;
 
   return createPortal(
     <>
-      <button type="button" aria-label="Close" data-close className={`scrim ${closing ? "closing" : "open"}`} onClick={dismissable ? onClose : undefined} tabIndex={-1} />
+      <button type="button" aria-label={tx(SAY.close)} data-close className={`scrim ${closing ? "closing" : "open"}`} onClick={dismissable ? onClose : undefined} tabIndex={-1} />
       <div
         ref={panel}
         role="dialog"
@@ -151,7 +240,7 @@ export function Sheet({
               {sub ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{sub}</span> : null}
             </div>
             {dismissable ? (
-              <button type="button" data-close className="tap btn ghost" aria-label="Close" onClick={onClose} style={{ width: 40, height: 40, padding: 0, flex: "none" }}>
+              <button type="button" data-close className="tap btn ghost" aria-label={tx(SAY.close)} onClick={onClose} style={{ width: 40, height: 40, padding: 0, flex: "none" }}>
                 <Ic n="x" size={20} />
               </button>
             ) : null}
@@ -184,6 +273,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const seq = useRef(0);
   const layer = useLayer();
+  const { tx } = useVx();
 
   const dismiss = useCallback((id: number) => setItems((all) => all.filter((t) => t.id !== id)), []);
 
@@ -214,7 +304,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                         await t.undo?.();
                       }}
                     >
-                      {t.undoLabel ?? "Undo"}
+                      {t.undoLabel ?? tx(SAY.undo)}
                     </button>
                   ) : null}
                   {t.action ? (
@@ -246,12 +336,13 @@ export function useToast() {
 /** "?" on every screen: three picture steps (RULES G). */
 export function HelpButton({ title, steps, style }: { title: string; steps: { icon: IconName; title: string; body: string }[]; style?: CSSProperties }) {
   const [open, setOpen] = useState(false);
+  const { tx } = useVx();
   return (
     <>
-      <button type="button" className="tap icon-btn" aria-label={`Help: ${title}`} onClick={() => setOpen(true)} style={style}>
+      <button type="button" className="tap icon-btn" aria-label={tx(SAY.help(title))} onClick={() => setOpen(true)} style={style}>
         <Ic n="help" size={20} />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={title} icon="help" footer={<button type="button" className="tap btn pri" style={{ flex: 1 }} onClick={() => setOpen(false)}>Got it</button>}>
+      <Sheet open={open} onClose={() => setOpen(false)} title={title} icon="help" footer={<button type="button" className="tap btn pri" style={{ flex: 1 }} onClick={() => setOpen(false)}>{tx(SAY.gotIt)}</button>}>
         <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           {steps.map((s, i) => (
             <li key={s.title} className="fadein" style={{ display: "flex", gap: 14, alignItems: "flex-start", animationDelay: `${i * 80}ms` }}>
@@ -295,6 +386,7 @@ export function Confirm({
   icon?: IconName;
   children?: ReactNode;
 }) {
+  const { tx } = useVx();
   return (
     <Sheet
       open={open}
@@ -303,7 +395,7 @@ export function Confirm({
       icon={icon}
       footer={
         <>
-          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{tx(SAY.cancel)}</button>
           <button type="button" className={`tap btn ${danger ? "danger" : "pri"}`} style={{ flex: 1 }} disabled={busy} onClick={onConfirm}>
             {busy ? <Ic n="refresh" size={16} className="spin" /> : null}
             {confirmLabel}

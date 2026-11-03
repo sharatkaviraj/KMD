@@ -9,8 +9,8 @@ import { Ic } from "@/vx/icons";
 import { Sheet } from "@/vx/ui/overlays";
 
 import { useAct, WaBubble } from "./client";
-import { attentionChips, fillTemplate, weeklySummaryLines, type AttentionFacts, type WeekFacts } from "./domain";
-import { nameInitials } from "./ui";
+import { fillTemplate, weeklySummaryLines, type AttentionFacts, type WeekFacts } from "./domain";
+import { chipsFor, nameInitials } from "./ui";
 
 /*
  * AcadHome `week`: the weekly summary for the principal, as the design draws
@@ -40,7 +40,8 @@ export function WeekDraft({
   principals: string[];
   range: string;
   trend: { label: string; pct: number | null }[];
-  days: { label: string; pct: number | null }[];
+  /** `holiday`: "Holiday · Dussehra", already in the reader's language, for a day the school was closed. */
+  days: { label: string; pct: number | null; holiday?: string | null }[];
   improved: Row[];
   help: (Row & { chip: AttentionFacts })[];
   marks: { name: string; pct: number; due: string | null; locked: number; done: number; inProgress: number; notStarted: number };
@@ -137,7 +138,7 @@ export function WeekDraft({
               tone="bad"
               empty={tx({ en: "Nobody on the list.", hi: "सूची खाली है।" })}
               rows={help.map((r) => {
-                const chip = attentionChips(r.chip)[0];
+                const chip = chipsFor(r.chip)[0];
                 return { id: r.id, name: masked(r), ini: names ? nameInitials(r.name) : "•", sub: chip ? `${r.sub} · ${tx(chip.text)}` : r.sub };
               })}
             />
@@ -181,10 +182,15 @@ export function WeekDraft({
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(4, days.length)},minmax(0,1fr))`, gap: 10 }}>
               {days.map((d, i) => {
                 const h = d.pct === null ? 0 : Math.max(4, Math.min(100, Math.round(((d.pct - 85) / 15) * 100)));
+                const closed = d.pct === null && d.holiday;
                 return (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <span className="num" style={{ fontSize: 13, fontWeight: 700 }}>{d.pct === null ? "—" : `${Math.round(d.pct * 10) / 10}%`}</span>
-                    <span style={{ display: "flex", alignItems: "flex-end", width: "100%", maxWidth: 48, height: 56, background: "var(--s2)", borderRadius: 8, overflow: "hidden" }}>
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 0 }}>
+                    {closed ? (
+                      <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.2, textAlign: "center", color: "var(--mut)", overflowWrap: "anywhere" }}>{d.holiday}</span>
+                    ) : (
+                      <span className="num" style={{ fontSize: 13, fontWeight: 700 }}>{d.pct === null ? "—" : `${Math.round(d.pct * 10) / 10}%`}</span>
+                    )}
+                    <span style={{ display: "flex", alignItems: "flex-end", width: "100%", maxWidth: 48, height: 56, background: closed ? "repeating-linear-gradient(135deg,var(--s3) 0 4px,transparent 4px 8px)" : "var(--s2)", borderRadius: 8, overflow: "hidden" }}>
                       <span style={{ width: "100%", height: `${h}%`, background: i === days.length - 1 ? "var(--acc)" : "var(--c2)", transformOrigin: "bottom", animation: `xGrowY .7s var(--ease) ${i * 80}ms both` }} />
                     </span>
                     <span style={{ fontSize: 12, color: "var(--mut)" }}>{d.label}</span>
@@ -225,10 +231,19 @@ export function WeekDraft({
           {tx({ en: "Share as PDF", hi: "PDF के रूप में" })}
         </button>
         {canSend ? (
-          <button type="button" className="tap btn pri" onClick={() => setConfirm(true)} disabled={principals.length === 0}>
+          <button type="button" className="tap btn pri" onClick={() => setConfirm(true)} disabled={principals.length === 0} aria-describedby={principals.length === 0 ? "acad-week-nosend" : undefined}>
             <Ic n="send" size={18} />
             {tx({ en: "Send to admin on WhatsApp", hi: "एडमिन को WhatsApp पर भेजें" })}
           </button>
+        ) : null}
+        {canSend && principals.length === 0 ? (
+          // Why the button is grey, and what to do (smoke 20 Oct): nobody to send it to.
+          <span id="acad-week-nosend" style={{ flexBasis: "100%", fontSize: 12, lineHeight: 1.45, color: "var(--warnfg)" }}>
+            {tx({
+              en: "Not sent: no admin has a WhatsApp number saved. Ask the office to add the admin's number in Staff, or use Share as PDF for now.",
+              hi: "नहीं भेजा जा सकता: किसी एडमिन का WhatsApp नंबर सहेजा नहीं है। ऑफ़िस से स्टाफ़ में एडमिन का नंबर जुड़वाएँ, या अभी PDF के रूप में भेजें।",
+            })}
+          </span>
         ) : null}
       </div>
       <Sheet

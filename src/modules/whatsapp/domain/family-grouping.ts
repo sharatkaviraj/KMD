@@ -1,7 +1,7 @@
 import { shortClassLabel, type NoticeLanguage } from "@/modules/whatsapp/domain/campaigns";
 
 /**
- * One phone, one message.
+ * One family, one message.
  *
  * The audience is derived per STUDENT, because that is how the ledger stores
  * money and how the send log prevents duplicates. But a parent with three
@@ -9,9 +9,14 @@ import { shortClassLabel, type NoticeLanguage } from "@/modules/whatsapp/domain/
  * seconds — three times the cost and, far worse, three times the nagging for one
  * family who owes one total.
  *
- * This groups the derived candidates by the number they would be sent to and
- * decides who speaks for the family. Everything else about the audience is
- * untouched: the ledger still decides who is eligible, per student, first.
+ * A family is every child joined by a shared number OR by the office's sibling
+ * link (`student_family_members`), chained: two linked siblings on different
+ * numbers are one family, and so is a third child on either number. Until
+ * 2026-10-30 only the number counted, and 41 of 96 linked families got one
+ * message per number. `familyKeysFor` draws the families; this groups the
+ * candidates by them and decides who speaks for each. Everything else about the
+ * audience is untouched: the ledger still decides who is eligible, per student,
+ * first.
  *
  * Pure and free of `server-only`. The screen shows the office how many messages
  * a run will actually cost before they press Send, which needs this arithmetic
@@ -32,6 +37,11 @@ export type FamilyMemberInput = {
   sentCount: number;
   /** The other parent's number, when one is on file and usable. */
   secondaryDestination: string | null;
+  /**
+   * Which family this child belongs to (`familyKeysFor`). Absent means the
+   * number alone decides, as it did before sibling links counted.
+   */
+  familyKey?: string;
 };
 
 export type FamilyMember = FamilyMemberInput & {
@@ -40,7 +50,7 @@ export type FamilyMember = FamilyMemberInput & {
 };
 
 export type ReminderFamily = {
-  /** The number the message goes to. The grouping key. */
+  /** The number the message goes to: the spokesperson's — the biggest debt's. */
   destination: string;
   parentName: string;
   /** Highest amount first, so the spokesperson is the biggest debt. */
@@ -144,33 +154,82 @@ export function chooseDestinations(args: {
 }
 
 /**
- * Group candidates into families, one per destination.
+ * Who is one family: children joined by a shared number or by a sibling link,
+ * chained (union-find). Returns each child's family key — the family's smallest
+ * number, so the key is the same on every load and on the screen as in the run.
+ *
+ * Pure: the audience loader computes it once over the whole list, and the screen,
+ * the budget guard and the sender all group by the same keys.
+ */
+export function familyKeysFor(
+  members: ReadonlyArray<{ studentId: string; destination: string; familyGroupId: string | null }>,
+): Map<string, string> {
+  const parent = new Map<string, string>();
+  const find = (node: string): string => {
+    let root = node;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    // Path compression: the next look-up from here is one step.
+    let current = node;
+    while (parent.get(current) !== root) {
+      const next = parent.get(current)!;
+      parent.set(current, root);
+      current = next;
+    }
+    return root;
+  };
+  const join = (left: string, right: string) => {
+    for (const node of [left, right]) if (!parent.has(node)) parent.set(node, node);
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot !== rightRoot) parent.set(leftRoot, rightRoot);
+  };
+
+  for (const member of members) {
+    join(`student:${member.studentId}`, `phone:${member.destination}`);
+    if (member.familyGroupId) join(`student:${member.studentId}`, `link:${member.familyGroupId}`);
+  }
+
+  // Name each family by its smallest number: stable, whatever order the rows came in.
+  const keyOfRoot = new Map<string, string>();
+  for (const member of members) {
+    const root = find(`student:${member.studentId}`);
+    const current = keyOfRoot.get(root);
+    if (current === undefined || member.destination < current) keyOfRoot.set(root, member.destination);
+  }
+  return new Map(members.map((member) => [member.studentId, keyOfRoot.get(find(`student:${member.studentId}`))!]));
+}
+
+/**
+ * Group candidates into families, one per family key (a number, when no key was
+ * drawn — the behaviour before sibling links counted).
  *
  * Order is preserved from the candidate list, which arrives sorted by amount, so
  * the families come back biggest-first and the spokesperson within each family is
  * its biggest debt. That matters for the fallback: when there is no approved
  * family template the message names ONE child, and it should be the one the
- * office would have led with.
+ * office would have led with. The message goes to the spokesperson's number.
  */
 export function groupIntoFamilies(
   candidates: readonly FamilyMemberInput[],
   runLanguage: NoticeLanguage,
 ): ReminderFamily[] {
-  const byDestination = new Map<string, FamilyMemberInput[]>();
+  const byFamily = new Map<string, FamilyMemberInput[]>();
   for (const candidate of candidates) {
-    const existing = byDestination.get(candidate.destination);
+    const key = candidate.familyKey ?? candidate.destination;
+    const existing = byFamily.get(key);
     if (existing) existing.push(candidate);
-    else byDestination.set(candidate.destination, [candidate]);
+    else byFamily.set(key, [candidate]);
   }
 
   const families: ReminderFamily[] = [];
-  for (const [destination, group] of byDestination) {
+  for (const group of byFamily.values()) {
     const ordered = [...group].sort((left, right) => right.dueAmount - left.dueAmount);
     const members: FamilyMember[] = ordered.map((member, index) => ({
       ...member,
       isSpokesperson: index === 0,
     }));
     const spokesperson = members[0]!;
+    const destination = spokesperson.destination;
     const { language, isOverride } = resolveFamilyLanguage(members, runLanguage);
 
     families.push({
@@ -188,14 +247,27 @@ export function groupIntoFamilies(
       // would reset the family's clock to zero.
       destinations: chooseDestinations({
         primary: destination,
-        secondary:
-          members.find((member) => member.secondaryDestination)?.secondaryDestination ?? null,
+        secondary: otherNumberOf(members, destination),
         sentCount: Math.max(...members.map((member) => member.sentCount)),
       }),
     });
   }
 
   return families;
+}
+
+/**
+ * The family's second number, for escalation. A linked sibling's own number
+ * comes first — it is where that child's reminders went before the family was
+ * one — then any parent's other number.
+ */
+function otherNumberOf(members: readonly FamilyMember[], primary: string): string | null {
+  return (
+    members.find((member) => member.destination !== primary)?.destination ??
+    members.find((member) => member.secondaryDestination && member.secondaryDestination !== primary)
+      ?.secondaryDestination ??
+    null
+  );
 }
 
 /**

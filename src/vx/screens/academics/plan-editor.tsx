@@ -93,10 +93,10 @@ export function PlanEditor({
             <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                 <span className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.15 }}>{tx({ en: `Support plan · ${first}`, hi: `सहायता योजना · ${first}` })}</span>
-                <span className="pill" style={{ background: active ? "var(--oks)" : "var(--warns)", color: active ? "var(--ok)" : "var(--warnfg)" }}>{active ? tx({ en: "Running", hi: "चल रही" }) : tx({ en: "Draft", hi: "ड्राफ़्ट" })}</span>
+                <span className="pill" style={{ background: active ? "var(--oks)" : "var(--warns)", color: active ? "var(--ok)" : "var(--warnfg)" }}>{active ? tx({ en: "Running", hi: "चल रही" }) : tx({ en: "Draft", hi: "कच्ची योजना" })}</span>
               </span>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(active ? { en: `${classLabel} · running`, hi: `${classLabel} · चल रही` } : { en: `${classLabel} · draft · suggested by the app from marks and notes`, hi: `${classLabel} · ड्राफ़्ट · अंकों और नोट से ऐप का सुझाव` })}</span>
-              <span className="num" style={{ fontSize: 13, fontWeight: 600 }}>{tx({ en: `${done} of ${steps.length} steps done`, hi: `${steps.length} में ${done} कदम पूरे` })}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(active ? { en: `${classLabel} · running`, hi: `${classLabel} · चल रही` } : { en: `${classLabel} · draft · suggested by the app from marks and notes`, hi: `${classLabel} · कच्ची योजना · अंकों और नोट से ऐप का सुझाव` })}</span>
+              <span className="num" style={{ fontSize: 13, fontWeight: 600 }}>{tx({ en: `${done} of ${steps.length} steps done`, hi: `${steps.length} में से ${done} कदम पूरे` })}</span>
             </span>
           </section>
 
@@ -222,14 +222,14 @@ export function PlanEditor({
       <div className="glass acad-bot" style={{ zIndex: 4, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, borderTop: "1px solid var(--bd)" }}>
         <span className="hide-m" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--mut)" }}>
           <Ic n="checkCircle" size={16} style={{ color: initial.status ? "var(--ok)" : "var(--mut)" }} />
-          {tx(active ? { en: "Running · changes are saved when you press Save", hi: "चल रही · सहेजें दबाने पर बदलाव सहेजे जाते हैं" } : initial.status ? { en: "Saved as draft", hi: "ड्राफ़्ट सहेजा गया" } : { en: "Not saved yet", hi: "अभी सहेजा नहीं" })}
+          {tx(active ? { en: "Running · changes are saved when you press Save", hi: "चल रही · सहेजें दबाने पर बदलाव सहेजे जाते हैं" } : initial.status ? { en: "Saved as draft", hi: "सहेजी गई, अभी शुरू नहीं" } : { en: "Not saved yet", hi: "अभी सहेजा नहीं" })}
         </span>
         {editable ? (
           <>
             {!active ? (
               <button type="button" className="tap btn sec" disabled={pending} onClick={() => save(false)}>
                 <Ic n="file" size={18} />
-                {tx({ en: "Save draft", hi: "ड्राफ़्ट सहेजें" })}
+                {tx({ en: "Save draft", hi: "बिना शुरू किए सहेजें" })}
               </button>
             ) : null}
             <button type="button" className="tap btn pri" disabled={pending || !goal.trim() || steps.every((s) => !s.text.trim())} onClick={() => save(true)}>

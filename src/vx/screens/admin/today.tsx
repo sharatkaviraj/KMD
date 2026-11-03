@@ -12,11 +12,12 @@ import { Seg } from "@/vx/ui/controls";
 import { Grid } from "@/vx/ui/page";
 import { Card, CardHead, IconTile, Kpi, Pill } from "@/vx/ui/primitives";
 import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
-import { foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
+import { coverStanding, foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { TD } from "@/vx/screens/admin/today-text";
 import { catchUp, dueColumns, kfmt, moneyChart, weekBars } from "@/vx/screens/admin/today-logic";
 import type { InboxItem, TimelineItem } from "@/vx/screens/admin/types";
+import { TodayBrief, type BriefFact } from "@/vx/assist/brief-assist";
 
 export type TodayMoneyView = {
   today: number;
@@ -39,6 +40,8 @@ export type TodayMoneyView = {
 export type QuickTone = "pri" | "acc" | "info" | "ok" | "warn" | "plain";
 
 export type TodayProps = {
+  notice?: ReactNode;
+  officeWork?: ReactNode;
   /** Morning: a part-day's money is not set against a whole average day (verification N7, as accountant B16). */
   beforeNoon?: boolean;
   firstName: string;
@@ -50,7 +53,7 @@ export type TodayProps = {
   moneyFailed: boolean;
   attendance: { marked: number; total: number; percent: number | null; schoolOpen: boolean } | null;
   staffAway: number | null;
-  cover: { needed: number; arranged: number } | null;
+  cover: { needed: number; arranged: number; missed: number } | null;
   inbox: InboxItem[] | null;
   timeline: TimelineItem[];
   /** Who is scheduled to teach now and next; null when this reader has no timetable. */
@@ -153,6 +156,26 @@ export function TodayScreen(props: TodayProps) {
     : 0;
   const greeting = `${tx(props.greeting)}, ${props.firstName}`;
   const statusText = props.status ? ` · ${tx(props.status)}` : "";
+
+  // The page's own figures, for the AI brief (D-328): the AI writes words around
+  // `<<slots>>` and these values fill them, so no number in the brief is the AI's.
+  const weekDays = (props.week ?? []).filter((d) => d.percent !== null);
+  const briefFacts: BriefFact[] = [
+    { key: "classes_marked", label: "Classes whose attendance is marked today", value: attendance ? `${attendance.marked} of ${attendance.total}` : null },
+    { key: "present_today", label: "Children present today", value: attendance?.percent != null ? `${Math.round(attendance.percent)}%` : null },
+    { key: "week_attendance", label: "Children present on each earlier school day this week", value: weekDays.length ? weekDays.map((d) => `${shortDay(d.day)} ${Math.round(d.percent ?? 0)}%`).join(", ") : null },
+    { key: "classes_not_marked", label: "Classes not marked yet", value: props.exceptions.notMarked?.length ? props.exceptions.notMarked.slice(0, 8).join(", ") : null },
+    { key: "staff_away", label: "Teachers away today", value: props.staffAway != null ? String(props.staffAway) : null },
+    { key: "cover_arranged", label: "Periods needing cover, and how many are arranged", value: props.cover ? `${props.cover.arranged} of ${props.cover.needed} arranged` : null },
+    { key: "cover_missed", label: "Periods that went without cover", value: props.cover?.missed ? String(props.cover.missed) : null },
+    { key: "needs_you", label: "Items waiting in Needs you", value: inbox ? String(awaiting) : null },
+    { key: "notes_action", label: "Notes on children needing action", value: props.support ? String(props.support.needsAction) : null },
+    { key: "notes_due", label: "Note follow-ups due", value: props.support ? String(props.support.due) : null },
+    { key: "collected_today", label: "Fees collected today", value: money ? `${rupees(money.today)} in ${money.receiptsToday} receipts` : null },
+    { key: "session_collected", label: "Fees collected this session, of what is expected", value: money && money.expected > 0 ? `${rupees(money.collected)} of ${rupees(money.expected)}` : null },
+    { key: "families_follow_up", label: "Families to follow up for fees", value: money ? String(money.followUps) : null },
+    { key: "promised_today", label: "Families who promised to pay today", value: props.promisedToday != null ? String(props.promisedToday) : null },
+  ];
 
   /* ------------------------------------------- after the design: later cards */
 
@@ -273,8 +296,11 @@ export function TodayScreen(props: TodayProps) {
             The phone frame sets its text at 1.4, a touch under the kit's 1.45. */}
         <div className="only-m" style={{ lineHeight: 1.4 }}>
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
+          {props.notice ? <div className="vx-today-notice">{props.notice}</div> : null}
           <PhoneNeeds inbox={inbox} />
+          {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
+          <TodayBrief facts={briefFacts} style={{ padding: "18px 18px 0" }} />
           <section style={{ padding: "26px 18px 0", display: "flex", flexDirection: "column", gap: 12 }}>
             <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h2>
             <div className="card" style={{ padding: "6px 16px" }}>
@@ -288,6 +314,7 @@ export function TodayScreen(props: TodayProps) {
         <div className="td-grid">
           <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
             <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+              {props.notice}
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--mut)" }}>
@@ -305,6 +332,7 @@ export function TodayScreen(props: TodayProps) {
                 ) : null}
               </div>
               <DeskKpis {...props} avgDelta={avg?.deltaPct ?? null} />
+              <TodayBrief facts={briefFacts} />
               {money ? (
                 <>
                   <MoneyTaken money={money} today={props.today} />
@@ -321,6 +349,7 @@ export function TodayScreen(props: TodayProps) {
           <aside style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
             <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
               {inbox ? <RailNeeds inbox={inbox} awaiting={awaiting} /> : null}
+              {props.officeWork}
               <section className="card" style={{ padding: "14px 18px 8px", animation: "xRise .45s .15s var(--ease) both" }}>
                 <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h3>
                 <Timeline items={props.timeline} closed={attendance !== null && !attendance.schoolOpen} />
@@ -491,6 +520,21 @@ function Dashes({ needed, arranged, on, off, width }: { needed: number; arranged
   );
 }
 
+/**
+ * The away tile's line: "3 periods with no teacher" in warning colour while
+ * any lesson is short, "2 of 2 periods covered" when none is, and "No cover
+ * needed" only when nothing is needed — begun periods with nobody count.
+ */
+function CoverLine({ cover, color }: { cover: TodayProps["cover"]; color: string }) {
+  const { tx } = useVx();
+  if (!cover) return null;
+  const standing = coverStanding(cover);
+  if (standing.tone === "warn") {
+    return <span style={{ fontSize: 12, fontWeight: 700, color: "var(--warnfg)", background: "var(--warns)", borderRadius: 6, padding: "1px 6px", alignSelf: "flex-start" }}>{tx(T.periodsShort(standing.short))} · {tx(T.periodsCovered(cover.arranged, cover.needed))}</span>;
+  }
+  return <span style={{ fontSize: 12, color }}>{standing.tone === "ok" ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)}</span>;
+}
+
 /** Wraps a tile in a link only when the reader may open the screen behind it. */
 function TileLink({ href, className, style, children }: { href: string | null; className: string; style: CSSProperties; children: ReactNode }) {
   if (href) {
@@ -590,7 +634,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             <span className="num" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{props.staffAway}</span>
             <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on={HERO_TEAL} off="var(--navb)" width={18} /> : null}
-              <span style={{ fontSize: 12, color: "var(--navm)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
+              <CoverLine cover={cover} color="var(--navm)" />
             </span>
           </TileLink>
         ) : null}
@@ -841,14 +885,20 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
         </TileLink>
       ) : null}
       {attendance ? (
-        <TileLink href={props.links.attendance ? "/attendance" : null} className="card lift" style={{ ...tile, flexDirection: "row", alignItems: "center", gap: 14, animation: "xRise .45s .05s var(--ease) both" }}>
-          <DrawnRing size={64} r={26} stroke={8} value={attendance.marked} max={Math.max(1, attendance.total)} tone="var(--acc)" track="var(--s3)" />
-          <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-            <span style={label}>{tx(T.attendance)}</span>
-            <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{attendance.marked}/{attendance.total}</span>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>
-              {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
+        // The heading has the tile's full width and the ring sits beside the count:
+        // side by side with the ring, a narrow desktop column cut it to "Attendan" (smoke run, 20 Oct).
+        <TileLink href={props.links.attendance ? "/attendance" : null} className="card lift" style={{ ...tile, animation: "xRise .45s .05s var(--ease) both" }}>
+          <span style={label}>{tx(T.attendance)}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <span style={{ flex: "none", display: "flex" }}>
+              <DrawnRing size={52} r={21} stroke={7} value={attendance.marked} max={Math.max(1, attendance.total)} tone={attendance.schoolOpen ? "var(--acc)" : "var(--s3)"} track="var(--s3)" />
             </span>
+            <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15, minWidth: 0 }}>{attendance.schoolOpen ? `${attendance.marked}/${attendance.total}` : "—"}</span>
+          </span>
+          {/* Under the ring, with the tile's full width: beside it, the narrow
+              1280px column broke "classes · 95% present" mid-word (smoke 21 Oct). */}
+          <span style={{ fontSize: 12, color: "var(--mut)", minWidth: 0, overflowWrap: "normal", wordBreak: "normal" }}>
+            {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
           </span>
         </TileLink>
       ) : null}
@@ -857,7 +907,7 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
           <span style={label}>{tx(T.teachersOnLeave)}</span>
           <span className="num" style={big}>{props.staffAway}</span>
           {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on="var(--acc)" off="var(--s3)" width={22} /> : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
+          <CoverLine cover={cover} color="var(--mut)" />
         </TileLink>
       ) : null}
       {money ? (
@@ -952,11 +1002,13 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
       {cols.length === 0 || rows.length === 0 ? (
         <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(TD.nothingPastDue)}</p>
       ) : (
-        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `112px repeat(${cols.length}, minmax(0, 1fr)) 76px`, gap: 5, alignItems: "center" }}>
+        // Each amount keeps room to be read ("₹1.3L", never "₹1.3" cut off); a narrow phone scrolls the table, not the page (smoke run, 20 Oct).
+        <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
+        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `minmax(84px, 112px) repeat(${cols.length}, minmax(52px, 1fr)) minmax(56px, 76px)`, gap: 5, alignItems: "center", minWidth: 84 + cols.length * 57 + 61 }}>
           <div role="row" style={{ display: "contents" }}>
             <span role="columnheader" />
             {cols.map((c) => (
-              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
+              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center", whiteSpace: "nowrap", padding: "0 2px" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
             ))}
             <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(TD.total)}</span>
           </div>
@@ -971,15 +1023,16 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
                     role="cell"
                     className="td-cell num"
                     title={`${row.label} · ${cols[ci].title} · ${v ? rupees(v) : "—"}`}
-                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
+                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", whiteSpace: "nowrap", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
                   >
                     {kfmt(v)}
                   </span>
                 );
               })}
-              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right" }}>{kfmt(row.total)}</span>
+              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{kfmt(row.total)}</span>
             </div>
           ))}
+        </div>
         </div>
       )}
     </section>

@@ -63,7 +63,7 @@ const today: TodayProps = {
   moneyFailed: false,
   attendance: { marked: 17, total: 19, percent: 92, schoolOpen: true },
   staffAway: 1,
-  cover: { needed: 2, arranged: 1 },
+  cover: { needed: 2, arranged: 1, missed: 0 },
   inbox: [],
   timeline: [],
   schedule: null,
@@ -143,7 +143,7 @@ const authViews: Record<string, DesignView> = {
   "DX-Auth-Denied": {
     render: () => (
       <VxPage>
-        <TopBar crumb="No access" title="You can't open this page" mSub="No access for this role" mBack="/" />
+        <TopBar crumb="No access" title="You can't open this page" mSub="Not open for this account" mBack="/" />
         <main>
           <Section>
             <DeniedScreen

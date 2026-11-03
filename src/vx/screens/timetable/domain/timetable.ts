@@ -346,11 +346,16 @@ export function schoolDays(from: string, to: string): string[] {
   return out;
 }
 
-/** How many of a teacher's periods a leave leaves without them. */
-export function periodsNeedingCover(slots: readonly Slot[], staffId: string, from: string, to: string, span: LeaveSpan): number {
+/**
+ * How many of a teacher's periods a leave leaves without them. A day the
+ * calendar closes (a holiday, a vacation) or does not teach on has no
+ * lessons to cover (admin run, 20 Oct: leave on Dussehra counted 3).
+ */
+export function periodsNeedingCover(slots: readonly Slot[], staffId: string, from: string, to: string, span: LeaveSpan, closed: ReadonlySet<string> = new Set()): number {
   const allowed = new Set(spanPeriods(span));
   let n = 0;
   for (const day of schoolDays(from, to)) {
+    if (closed.has(day)) continue;
     const weekday = weekdayOf(day);
     if (!weekday) continue;
     const periods = new Set(slots.filter((s) => s.staffProfileId === staffId && s.day === weekday && allowed.has(s.period)).map((s) => s.period));
@@ -400,4 +405,74 @@ export function changeNotice(name: string, changes: readonly PendingChange[], su
     hi: `नमस्ते ${name}, समय-सारणी में बदलाव:\n${lines.join("\n")}`,
     en: `Hello ${name}, timetable changes:\n${lines.join("\n")}`,
   };
+}
+
+/* ------------------------------------------------------- leave decided */
+
+/** What approving a leave actually arranged, summed over the days it touched. */
+export type LeaveCoverOutcome = {
+  /** Lessons the leave leaves without their teacher on the days arranged. */
+  needed: number;
+  /** Of those, the ones with a teacher assigned. */
+  covered: number;
+  /** Waiting for a person to choose somebody. */
+  waiting: number;
+  /** Their period had begun before cover could be arranged. */
+  missed: number;
+  /** Days left for a person: past the fourteen-day bound, or a save that did not land. */
+  byHand: number;
+  /** School-closed days inside the leave, where nothing needed cover. */
+  closed: number;
+};
+
+/**
+ * The approval's toast, from what was covered, never from how many days were
+ * saved: "cover arranged for 1 day" with no period covered sent an admin
+ * away believing the classes had teachers (admin run, 20 Oct, P1).
+ */
+export function leaveApprovedMessage(o: LeaveCoverOutcome): Pair {
+  const short = Math.max(0, o.needed - o.covered);
+  const head =
+    o.needed === 0
+      ? o.closed > 0 && o.byHand === 0
+        ? p("Leave approved · school is closed then, no cover needed", "छुट्टी स्वीकृत · उस दिन स्कूल बंद है, व्यवस्था नहीं चाहिए")
+        : p("Leave approved · no lessons need cover", "छुट्टी स्वीकृत · किसी पीरियड में व्यवस्था नहीं चाहिए")
+      : short === 0
+        ? p(`Leave approved · all ${o.needed} ${o.needed === 1 ? "period has" : "periods have"} a teacher`, `छुट्टी स्वीकृत · सभी ${o.needed} पीरियड में शिक्षक तय`)
+        : p(
+            `Leave approved · ${o.covered} of ${o.needed} ${o.needed === 1 ? "period has" : "periods have"} a teacher`,
+            `छुट्टी स्वीकृत · ${o.needed} में से ${o.covered} पीरियड में शिक्षक तय`,
+          );
+  const parts: Pair[] = [head];
+  if (o.waiting > 0) parts.push(p(`${o.waiting} waiting for you to choose a teacher`, `${o.waiting} में आपको शिक्षक चुनना है`));
+  if (o.missed > 0) parts.push(p(`${o.missed} had already begun, with no teacher`, `${o.missed} पहले ही शुरू हो चुके थे, कोई शिक्षक नहीं`));
+  if (o.byHand > 0) parts.push(p(`${o.byHand} ${o.byHand === 1 ? "day" : "days"} to arrange by hand`, `${o.byHand} दिन की व्यवस्था हाथ से करें`));
+  return { en: parts.map((x) => x.en).join(" · "), hi: parts.map((x) => x.hi).join(" · ") };
+}
+
+/** Whether the approval left any lesson without a teacher (the toast then leads to the cover tab). */
+export function leaveLeftShort(o: LeaveCoverOutcome): boolean {
+  return o.covered < o.needed || o.byHand > 0;
+}
+
+/**
+ * The cover ring on the Substitutions tab: covered out of every lesson the
+ * absences leave, the begun ones included. Green only when every one has a
+ * teacher; warn when any has none; grey when there is nothing to count.
+ */
+export function coverRing(assigned: number, live: number, missed: number): { total: number; short: number; tone: "ok" | "warn" | "none" } {
+  const total = Math.max(0, live) + Math.max(0, missed);
+  const short = Math.max(0, total - Math.max(0, assigned));
+  return { total, short, tone: total === 0 ? "none" : short > 0 ? "warn" : "ok" };
+}
+
+/**
+ * Leave waiting for a decision, most urgent first: leave that starts today or
+ * tomorrow, then later leave by its first day, and leave whose days have
+ * all passed last (admin run, 20 Oct: four past requests sat on top, sorted
+ * by when they were asked).
+ */
+export function sortLeaveByUrgency<T extends { from: string; to: string }>(rows: readonly T[], today: string): T[] {
+  const rank = (row: T) => (row.to < today ? 1 : 0);
+  return [...rows].sort((a, b) => rank(a) - rank(b) || a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
 }

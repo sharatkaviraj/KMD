@@ -15,9 +15,16 @@ vi.mock("@/modules/attendance/data/attendance-repo", () => ({
   listMarks: state.marks, studentNames: async () => new Map(), findAttendanceCommand: async () => null,
 }));
 vi.mock("@/modules/attendance/data/teaching-repo", () => ({ heldClassIds: state.held, classScopeFor: async () => ({ kind: "all" }) }));
-vi.mock("@/modules/notes/data/notes-repo", () => ({ writeNote: vi.fn(), deleteOwnNote: vi.fn() }));
+vi.mock("@/modules/notes/data/notes-repo", () => ({ writeNote: vi.fn(), deleteOwnNote: vi.fn(), noteSessionLabel: async () => null }));
 vi.mock("@/modules/students/data/student-repo", () => ({ enrolmentForStudent: vi.fn() }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => { throw new Error("Unexpected real client"); } }));
+// The by-id session fence has its own tests (native-write-fence, test-session-access).
+vi.mock("@/platform/auth/test-session-access", () => ({
+  passesFence: async () => true,
+  assertClassVisible: async () => undefined,
+  assertStudentVisible: async () => undefined,
+  assertSessionWritable: async () => undefined,
+}));
 vi.mock("@/app/(app)/duty/[id]/actions", () => ({ acknowledgeDutyAction: vi.fn(), cannotCoverAction: vi.fn() }));
 vi.mock("@/vx/screens/teach/students", () => ({ childBasics: vi.fn() }));
 

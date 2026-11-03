@@ -28,12 +28,14 @@ import {
 } from "@/vx/screens/exams/data";
 import { onRoll, paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { suggestRemarks } from "@/vx/screens/exams/domain/messages";
+import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { classTeacherOf, isManager, mayEnterPaper } from "@/vx/screens/exams/guards";
 import { MarksSheet, type SheetPhase } from "@/vx/screens/exams/marks-sheet";
 import { daysLeft, loadSheet } from "@/vx/screens/exams/sheet-data";
 import { TeacherPick, TeacherRemarks, type PickCard, type RemarkChild, type RemarksCard } from "@/vx/screens/exams/teacher-marks";
 
-import { orderPapersToFill } from "@/vx/screens/teach/domain/teach";
+import { orderPapersToFill, tellApart } from "@/vx/screens/teach/domain/teach";
+import { LangSeg } from "@/vx/screens/teach/ui/shared";
 
 import { saveRemarkAction, saveTeacherMarksAction, withdrawTeacherMarksAction } from "./actions";
 
@@ -76,15 +78,20 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     if (!/^[0-9a-f-]{36}$/i.test(paperId)) notFound();
     const paper = await paperById(paperId);
     if (!paper || !(await mayEnterPaper(staff, paper, sessionLabel))) notFound();
-    const sheet = await loadSheet(paper.id, { exams, paper });
+    // The sheet, her papers and the exam's papers are read side by side, not
+    // one after another: the sent view took 7.7 s to open (smoke 20 Oct).
+    const [sheet, mine, examPapers] = await Promise.all([
+      loadSheet(paper.id, { exams, paper }),
+      myPaperIds(staff.id, sessionLabel, paper.assessment_id, isManager(staff)),
+      papersOf([paper.assessment_id]),
+    ]);
     if (!sheet) notFound();
     // The heading names the paper's own exam, not whichever exam is current (B05).
     const own = exams.find((e) => e.id === paper.assessment_id) ?? null;
     const sheetCrumb = `${lead(p("Marks", "अंक"), lang)} · ${own ? lead({ en: own.labelEn, hi: own.labelHi }, lang) : ""} ${sessionLabel}`;
 
     // The next paper of hers in the same exam that is not yet sent.
-    const mine = await myPaperIds(staff.id, sessionLabel, paper.assessment_id, isManager(staff));
-    const rows = (await papersOf([paper.assessment_id])).filter((r) => mine.has(`${r.class_id}|${r.subject_id}`) && r.id !== paper.id && r.entry_status === "open");
+    const rows = examPapers.filter((r) => mine.has(`${r.class_id}|${r.subject_id}`) && r.id !== paper.id && r.entry_status === "open");
     const next = rows.sort((a, b) => byClassLabel(a.class_label, b.class_label))[0] ?? null;
 
     const phase: SheetPhase = view === "check" ? "check" : view === "submitted" ? "sent" : "entry";
@@ -110,6 +117,7 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
         nextLabel={next ? `${next.class_label} ${next.subject_code}` : null}
         doneHref="/teach/marks"
         noteHref="/teach/notes?student="
+        langSwitch={<LangSeg pill />}
       />
     );
   }
@@ -142,18 +150,26 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
       studentsByIds(kids.map((k) => k.studentId)),
       remarksFor(sessionLabel, term, kids.map((k) => k.studentId)),
     ]);
+    // Same-named children are told apart by SR number and father, on the chips too.
+    const apart = tellApart(kids.map((k) => ({ id: k.studentId, name: names.get(k.studentId)?.name ?? "—", admissionNo: names.get(k.studentId)?.admissionNo ?? null, fatherName: names.get(k.studentId)?.fatherName ?? null })));
     const children: RemarkChild[] = kids
       .map((k) => {
         const standing = termStanding(classPapers, marks, k.studentId);
         const att = attendance.get(k.studentId) ?? null;
+        const sr = names.get(k.studentId)?.admissionNo ?? null;
         return {
           id: k.studentId,
           name: names.get(k.studentId)?.name ?? "—",
           roll: k.roll ?? null,
+          hint: apart.get(k.studentId) ?? null,
+          tag: apart.has(k.studentId) && sr ? `SR ${sr}` : null,
           remark: remarks.get(k.studentId) ?? null,
           percent: standing.percent,
           attendance: att,
           suggestions: suggestRemarks({ percent: standing.percent, attendancePct: att, strongest: standing.strongest, weakest: standing.weakest }),
+          // For the AI remark (D-324): the subject as a parent reads it, never a name.
+          strongest: standing.strongest ? subjectPair(standing.strongest).en : null,
+          weakest: standing.weakest && standing.weakest !== standing.strongest ? subjectPair(standing.weakest).en : null,
         };
       })
       .sort((a, b) => Number(a.roll ?? 999) - Number(b.roll ?? 999) || a.name.localeCompare(b.name));
@@ -190,6 +206,7 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
         maxMarks: paper.maxMarks,
         entered: paper.entered,
         total: paper.total,
+        invalid: paper.invalid ?? 0,
         status: paperStatus(paper),
         submittedToName: coordinator,
         dueOn: e.plan?.marksDueOn ?? null,
@@ -217,7 +234,13 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   const firstOpen = cards.find((c) => c.status !== "done") ?? null;
   const dueExam = firstOpen ? (openExams.find((e) => e.id === firstOpen.examId) ?? null) : null;
   const due = dueExam?.plan?.marksDueOn
-    ? { label: shortDay(dueExam.plan.marksDueOn), daysLeft: daysLeft(dueExam.plan.marksDueOn, today), results: dueExam.plan.resultsOn ? `${shortDay(dueExam.plan.resultsOn)}${dueExam.plan.ptmAt ? " (PTM)" : ""}` : null }
+    ? {
+        label: shortDay(dueExam.plan.marksDueOn),
+        daysLeft: daysLeft(dueExam.plan.marksDueOn, today),
+        results: dueExam.plan.resultsOn ? `${shortDay(dueExam.plan.resultsOn)}${dueExam.plan.ptmAt ? " (PTM)" : ""}` : null,
+        // A results day already gone is said in the past (smoke 20 Oct).
+        resultsPast: Boolean(dueExam.plan.resultsOn && dueExam.plan.resultsOn < today),
+      }
     : null;
   const pickCrumb = `${lead(p("Marks", "अंक"), lang)} · ${dueExam ? `${lead({ en: dueExam.labelEn, hi: dueExam.labelHi }, lang)} ` : ""}${sessionLabel}`;
 

@@ -18,7 +18,7 @@ vi.mock("@/vx/ui/primitives", () => ({
 }));
 import { Outbox } from "@/vx/screens/messages/outbox";
 const ID = "11111111-1111-4111-8111-111111111111";
-const data: OutboxData = { notices: [], batches: [], more: 0, items: [{ source: "queue", id: ID, name: "QA parent", about: "QA child", group: "QA messages", phone: "98765 **210", preview: "Synthetic QA notice", status: "queued", sentAt: null, canUndo: false, blocked: false, queuedAt: "2026-10-10T10:00:00Z" }] };
+const data: OutboxData = { notices: [], batches: [], more: 0, outOfDate: [], repeats: 0, items: [{ source: "queue", id: ID, name: "QA parent", about: "QA child", group: "QA messages", groupLabel: { en: "QA messages" }, forDay: null, phone: "98765 **210", preview: "Synthetic QA notice", status: "queued", sentAt: null, canUndo: false, blocked: false, queuedAt: "2026-10-10T10:00:00Z" }] };
 let root: Root; let host: HTMLDivElement;
 const popup = { closed: false, location: { href: "about:blank" }, close: vi.fn() };
 beforeEach(async () => {
@@ -53,7 +53,7 @@ it("a failed preparation closes the blank tab and restores the action", async ()
   state.send.mockRejectedValueOnce(new Error("QA dependency unavailable"));
   await act(async () => button("Open WhatsApp").click());
   expect(popup.close).toHaveBeenCalledOnce(); expect(button("Open WhatsApp").disabled).toBe(false); expect(state.refresh).not.toHaveBeenCalled();
-  expect(state.toast.mock.calls.at(-1)![0].text).toMatch(/could not be confirmed/i);
+  expect(state.toast.mock.calls.at(-1)![0].text).toMatch(/not sure that went through/i);
 });
 it("a refused confirmation keeps the handoff available without a false sent toast", async () => {
   await act(async () => button("Open WhatsApp").click());

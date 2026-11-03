@@ -34,3 +34,6 @@ export async function checkCoverAction(input: CoverInput): Promise<CoverActionRe
     ? saved
     : { ok: false, status: 'not_found', message: { en: 'Synthetic receipt not found; retry original save', hi: 'परीक्षण रसीद नहीं मिली; मूल अनुरोध दोहराएँ' } };
 }
+
+// Added for the 21 Oct smoke fixes: this fixture never exercises it.
+export async function lateCoverAction(..._args: unknown[]): Promise<never> { throw new Error("Not available in this fixture."); }

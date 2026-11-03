@@ -11,8 +11,11 @@ import { VxPage } from "@/vx/ui/page";
 import { initials } from "@/vx/format";
 import { HelpSheet, LangSeg, TchTop, type HelpStep } from "@/vx/screens/teach/ui/shared";
 
+import { subjectPair } from "./domain/groups";
 import { remarkText, type RemarkSuggestion } from "./domain/messages";
+import { pickState, resultsLine } from "./domain/pick";
 import type { ActionResult } from "./save-types";
+import { AiRemarkCard, AiRemarksBar, useAiRemarks } from "@/vx/assist/remarks-assist";
 
 /*
  * Teacher · Marks (design TchMarks `pick` and `remarks`). The sheet itself —
@@ -43,14 +46,14 @@ function Mini({ rows }: { rows: { t: string; tone?: "row" | "soft" | "btn" | "ok
 
 const PICK_HELP: HelpStep[] = [
   { title: p("Pick the class", "कक्षा चुनें"), body: p("Tap Continue on the class you want.", "जिस कक्षा के अंक भरने हैं उस पर “जारी रखें” दबाएँ।"), pic: <Mini rows={[{ t: "Class 7 Science", r: "12/27" }, { t: "Continue", tone: "btn", hl: true }, { t: "Class 8 Science", r: "0/28" }]} /> },
-  { title: p("Type the mark", "अंक लिखें"), body: p("After two numbers it jumps to the next child by itself.", "दो अंक लिखते ही अगला बच्चा अपने आप आ जाता है।"), pic: <Mini rows={[{ t: "Lokesh", r: "38" }, { t: "Muskan", tone: "soft", r: "5_", hl: true }, { t: "Nidhi" }]} /> },
+  { title: p("Type the mark", "अंक लिखें"), body: p("In the list, two numbers move you to the next child. On the number pad, tap Next child.", "सूची में दो अंक लिखते ही अगला बच्चा आता है। नंबर पैड पर “अगला बच्चा” दबाएँ।"), pic: <Mini rows={[{ t: "Lokesh", r: "38" }, { t: "Muskan", tone: "soft", r: "5_", hl: true }, { t: "Nidhi" }]} /> },
   { title: p("Check and send", "जाँचें और भेजें"), body: p("See the summary, then send it to the exam office.", "सारांश देखें, फिर परीक्षा विभाग को भेजें।"), pic: <Mini rows={[{ t: "Average", r: "56" }, { t: "Send", tone: "btn", hl: true }, { t: "", tone: "ok" }]} /> },
 ];
 
 const REMARK_HELP: HelpStep[] = [
   { title: p("Pick a child", "बच्चा चुनें"), body: p("Tap a name in the list, or tap Next child.", "सूची में नाम दबाएँ, या “अगला बच्चा”।"), pic: <Mini rows={[{ t: "10 Ishaan", hl: true }, { t: "11 Jiya" }, { t: "12 Kabir" }]} /> },
   { title: p("Tap a suggestion", "सुझाव चुनें"), body: p("Suggestions come from marks and attendance.", "सुझाव अंकों और हाज़िरी से बनते हैं।"), pic: <Mini rows={[{ t: "Good progress…", tone: "soft", hl: true }, { t: "Sincere and…" }, { t: "Must come…" }]} /> },
-  { title: p("Change the words", "शब्द बदलें"), body: p("Your remark saves as you go. Then Next child.", "टिप्पणी अपने आप सेव होती है। फिर अगला बच्चा।"), pic: <Mini rows={[{ t: "Next child", tone: "btn", hl: true }, { t: "", tone: "ok" }]} /> },
+  { title: p("Change the words", "शब्द बदलें"), body: p("Tap Save, or Next child — both save the remark.", "“सहेजें” या “अगला बच्चा” दबाएँ — दोनों से टिप्पणी सहेज जाती है।"), pic: <Mini rows={[{ t: "Next child", tone: "btn", hl: true }, { t: "", tone: "ok" }]} /> },
 ];
 
 /* ------------------------------------------------------------- pick */
@@ -64,6 +67,8 @@ export type PickCard = {
   entered: number;
   total: number;
   status: "done" | "in_progress" | "not_started" | "empty";
+  /** Saved marks the paper cannot hold, which must be fixed before it can count. */
+  invalid?: number;
   submittedToName: string | null;
   /** The exam's marks due date, and whether this unfinished paper is past it. */
   dueOn?: string | null;
@@ -93,7 +98,7 @@ export function TeacherPick({
 }: {
   cards: PickCard[];
   remarks: RemarksCard[];
-  due: { label: string; daysLeft: number | null; results: string | null } | null;
+  due: { label: string; daysLeft: number | null; results: string | null; resultsPast?: boolean } | null;
   crumb: string;
 }) {
   const { tx, sub } = useVx();
@@ -116,9 +121,16 @@ export function TeacherPick({
                 <span className="tc-tb" style={{ fontWeight: 700 }}>{tx(p(`Enter by ${due.label}`, `${due.label} तक भरें`))}</span>
                 <span className="tc-ts">
                   {due.daysLeft === null ? "" : due.daysLeft >= 0 ? tx(p(`${due.daysLeft} days left`, `${due.daysLeft} दिन बाकी`)) : tx(p(`${-due.daysLeft} days late`, `${-due.daysLeft} दिन देर`))}
-                  {due.results ? ` · ${tx(p(`results on ${due.results}`, `परिणाम ${due.results}`))}` : ""}
+                  {due.results ? ` · ${tx(resultsLine(due.results, Boolean(due.resultsPast)))}` : ""}
                 </span>
               </span>
+            </div>
+          ) : null}
+          {cards.length > 0 && cards.every((c) => pickState(c).tone === "ok") && remarks.every((r) => r.done >= r.total) ? (
+            // Everything is sent: say so, so an empty "to do" is not a puzzle.
+            <div className="tc-note" style={{ background: "var(--oks)", color: "var(--ok)", alignItems: "center" }}>
+              <Ic n="checkCircle" />
+              <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p("All your papers are sent. Nothing is waiting for you here.", "आपके सभी पेपर भेजे जा चुके हैं। यहाँ आपके लिए कुछ बाकी नहीं।"))}</span>
             </div>
           ) : null}
           {cards.length === 0 && remarks.length === 0 ? (
@@ -130,20 +142,25 @@ export function TeacherPick({
           ) : null}
           <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
             {cards.map((c, i) => {
+              // A green Done only when every child is sent; otherwise it names what is missing (group 12).
+              const st = pickState(c);
               const k: [Pair, string, Pair, string, string, string] =
-                c.status === "done"
-                  ? [p("View", "देखें"), "sec", p("Done ✓", "पूरा ✓"), V("oks"), V("ok"), V("ok")]
-                  : c.status === "in_progress"
-                    ? [p("Continue", "जारी रखें"), "pri", p("In progress", "चल रहा है"), V("accs"), V("accfg"), V("acc")]
-                    : [p("Start", "शुरू करें"), "sec", p("Not started", "शुरू नहीं"), V("s3"), V("mut"), V("acc")];
+                st.tone === "ok"
+                  ? [st.action, "sec", st.pill, V("oks"), V("ok"), V("ok")]
+                  : st.tone === "warn"
+                    ? [st.action, "sec", st.pill, V("warns"), V("warnfg"), V("warn")]
+                    : st.tone === "acc"
+                      ? [st.action, "pri", st.pill, V("accs"), V("accfg"), V("acc")]
+                      : [st.action, "sec", st.pill, V("s3"), V("mut"), V("acc")];
               const href = `/teach/marks?paper=${c.paperId}${c.status === "done" ? "&view=submitted" : ""}`;
-              const title = p(`${c.classLabel} ${c.subjectCode}`, `${c.classLabel.replace(/^Class/, "कक्षा")} ${c.subjectCode}`);
+              const subject = subjectPair(c.subjectCode);
+              const title = p(`${c.classLabel} ${subject.en}`, `${c.classLabel.replace(/^Class\b/, "कक्षा")} ${subject.hi ?? subject.en}`);
               return (
                 <div key={c.paperId} className="card tc-in" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, border: c.late ? "2px solid var(--bad)" : c.status === "in_progress" ? "2px solid var(--acc)" : "1px solid var(--bd)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <span className="tc-ibx" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="clipboard" size={22} /></span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{tx(c.examLabel)} · {tx(p(`out of ${c.maxMarks}`, `${c.maxMarks} में से`))}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{tx(c.examLabel)} · {tx(p(`out of ${c.maxMarks}`, `पूर्णांक ${c.maxMarks}`))}</span>
                       <span className="tc-h2">{tx(title)}</span>
                       {sub(title) ? <span className="tc-mi">{sub(title)}</span> : null}
                     </span>
@@ -153,7 +170,7 @@ export function TeacherPick({
                   <div className="tc-mbar"><span style={{ width: `${c.total ? Math.round((c.entered / c.total) * 100) : 0}%`, background: k[5] }} /></div>
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
                     <span className="tc-tb num" style={{ flex: 1, minWidth: 140, fontWeight: 600 }}>
-                      {c.status === "done" ? tx(p(`All ${c.total} sent${c.submittedToName ? ` to ${c.submittedToName}` : ""}`, `सभी ${c.total} भेज दिए`)) : tx(p(`${c.entered} of ${c.total} entered`, `${c.total} में से ${c.entered} भरे`))}
+                      {tx(st.line)}
                     </span>
                     <Link href={href} className={`tap btn ${k[1]} tc-mbg tc-mw`}>{tx(k[0])}<Ic n="arrowRight" /></Link>
                   </div>
@@ -204,9 +221,16 @@ export type RemarkChild = {
   name: string;
   roll: string | null;
   remark: string | null;
+  /** SR number and father, only when another child in the class has the same name. */
+  hint?: Pair | null;
+  /** Short tag for a chip ("SR 0465"), only for a same-named child. */
+  tag?: string | null;
   percent: number | null;
   attendance: number | null;
   suggestions: RemarkSuggestion[];
+  /** Strongest and weakest subject this term, in English, for the AI remark. */
+  strongest?: string | null;
+  weakest?: string | null;
 };
 
 const TONES: [string, string][] = [[V("accs"), V("accfg")], [V("infos"), V("info")], [V("oks"), V("ok")], [V("warns"), V("warnfg")]];
@@ -240,6 +264,7 @@ export function TeacherRemarks({
   const [editing, setEditing] = useState(false);
   const [help, setHelp] = useState(false);
   const [pending, start] = useTransition();
+  const ai = useAiRemarks({ exam: examLabel.en, classLabel });
 
   const done = savedIds.size;
   const n = kids.length;
@@ -247,16 +272,17 @@ export function TeacherRemarks({
   const mList = kids.filter((c) => (filter === "done" ? savedIds.has(c.id) : !savedIds.has(c.id) || c.id === currentId));
   const child = kids.find((c) => c.id === currentId) ?? null;
   const idx = child ? kids.findIndex((c) => c.id === child.id) : 0;
-  const first = child ? child.name.split(" ")[0] : "";
+  const first = child ? child.name : "";
   const text = child ? remarks[child.id] ?? "" : "";
   const savedNow = child ? savedText[child.id] ?? "" : "";
   const dirty = Boolean(child) && text.trim() !== savedNow;
+  // Plain words: "Draft on this device" meant nothing to most teachers (smoke 20 Oct).
   const draftLine = !child
     ? null
     : savingId === child.id
       ? tx(p("Saving…", "सहेज रहे हैं…"))
       : dirty && text.trim()
-        ? tx(p("Draft on this device", "इस डिवाइस पर ड्राफ़्ट"))
+        ? tx(p("Not saved yet — tap Save", "अभी सहेजा नहीं — “सहेजें” दबाएँ"))
         : savedNow
           ? `✓ ${tx(p("Saved", "सहेजा"))}`
           : null;
@@ -278,6 +304,7 @@ export function TeacherRemarks({
       if (r?.ok) {
         setSavedText((s) => ({ ...s, [id]: value }));
         setRemarks((m) => ({ ...m, [id]: value }));
+        ai.saved(id, value);
         if (advance) next(id);
         else setEditing(false);
       } else toast.show({ text: tx(r && !r.ok ? r.message : p("Not saved – retry", "सहेजा नहीं – फिर कोशिश करें")), tone: "bad" });
@@ -333,7 +360,10 @@ export function TeacherRemarks({
                 {list.map((c) => (
                   <button key={c.id} type="button" className="tap row" aria-current={c.id === currentId} onClick={() => { setCurrentId(c.id); setEditing(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 48, padding: "6px 10px", border: 0, borderRadius: 12, background: c.id === currentId ? V("accs") : "transparent", color: "var(--fg)", textAlign: "left" }}>
                     <span className="num" style={{ width: 20, fontSize: 12, color: "var(--mut)" }}>{c.roll ?? ""}</span>
-                    <span className="tc-el tc-tb" style={{ flex: 1, fontWeight: 600 }}>{c.name}</span>
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                      <span className="tc-el tc-tb" style={{ fontWeight: 600 }}>{c.name}</span>
+                      {c.hint ? <span className="tc-el" style={{ fontSize: 11, color: "var(--mut)" }}>{tx(c.hint)}</span> : null}
+                    </span>
                     <span className="tc-av" style={{ width: 22, height: 22, background: savedIds.has(c.id) ? V("ok") : V("s3"), color: "var(--onsolid)" }}>{savedIds.has(c.id) ? <Ic n="check" size={13} stroke={3} /> : null}</span>
                   </button>
                 ))}
@@ -347,8 +377,10 @@ export function TeacherRemarks({
                 <div className="hs" style={{ display: "flex", gap: 6 }}>
                   {mList.map((c) => (
                     <button key={c.id} type="button" className={`tap chip${c.id === currentId ? " on" : ""}`} aria-pressed={c.id === currentId} onClick={() => { setCurrentId(c.id); setEditing(false); }}>
-                      <span className="num" style={{ opacity: 0.7 }}>{c.roll ?? ""}</span>
-                      {c.name.split(" ")[0]}
+                      {c.roll ? <span className="num" style={{ opacity: 0.7 }}>{c.roll}</span> : null}
+                      {/* The whole name, and the SR number for a same-named child: three chips reading "Aditya" could not be told apart. */}
+                      {c.name}
+                      {c.tag ? <span className="num" style={{ opacity: 0.7, fontSize: 11 }}>{c.tag}</span> : null}
                       {savedIds.has(c.id) ? <Ic n="check" size={14} stroke={3} /> : null}
                     </button>
                   ))}
@@ -360,13 +392,15 @@ export function TeacherRemarks({
                   <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p(`All ${n} remarks are ready. They print on the report cards.`, `सभी ${n} टिप्पणियाँ तैयार। ये रिपोर्ट कार्ड पर छपेंगी।`))}</span>
                 </div>
               ) : null}
+              <AiRemarksBar ai={ai} missing={kids.filter((c) => !savedIds.has(c.id))} />
               {child ? (
                 <>
                   <div className="card" style={{ padding: "16px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
                     <span className="tc-av serif tc-pop" style={{ width: 56, height: 56, fontSize: 20, background: TONES[idx % 4][0], color: TONES[idx % 4][1] }}>{initials(child.name)}</span>
                     <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
                       <span className="tc-h2">{child.name}</span>
-                      <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p(`${classLabel} · Roll ${child.roll ?? "—"} · your class`, `${classLabel} · रोल ${child.roll ?? "—"}`))}</span>
+                      <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(child.roll ? p(`${classLabel} · Roll ${child.roll} · your class`, `${classLabel} · रोल ${child.roll} · आपकी कक्षा`) : p(`${classLabel} · your class`, `${classLabel} · आपकी कक्षा`))}</span>
+                      {child.hint ? <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(child.hint)}</span> : null}
                     </span>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {facts.map((f) => <span key={f.t} className="pill" style={{ height: 28, padding: "0 10px", fontSize: 12, background: f.bg, color: f.fg }}>{f.t}</span>)}
@@ -380,6 +414,7 @@ export function TeacherRemarks({
                     </div>
                   ) : null}
                   <div role="radiogroup" aria-label={tx(p("Suggested remarks", "सुझाई टिप्पणियाँ"))} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <AiRemarkCard ai={ai} child={child} current={text} onPick={(value) => { setRemarks((r) => ({ ...r, [child.id]: value })); setEditing(true); }} />
                     {child.suggestions.map((s, i) => {
                       const value = remarkText(s.text);
                       const on = text === value;
@@ -431,7 +466,7 @@ export function TeacherRemarks({
                       <span className="tc-ts" role="status" aria-live="polite" style={{ flex: 1, minWidth: 120, color: dirty ? "var(--warnfg)" : "var(--mut)" }}>{draftLine}</span>
                       {/* Pressing it must not blur the box first, because a blur saves. */}
                       {dirty ? (
-                        <button type="button" className="tap btn ghost" disabled={pending} onMouseDown={(e) => e.preventDefault()} onClick={() => removeDraft(child.id)} style={{ height: 36 }}>{tx(p("Remove draft", "ड्राफ़्ट हटाएँ"))}</button>
+                        <button type="button" className="tap btn ghost" disabled={pending} onMouseDown={(e) => e.preventDefault()} onClick={() => removeDraft(child.id)} style={{ height: 36 }}>{tx(p("Undo change", "बदलाव हटाएँ"))}</button>
                       ) : null}
                       {dirty && text.trim().length >= 2 ? (
                         <button type="button" className="tap btn sec" disabled={pending} onMouseDown={(e) => e.preventDefault()} onClick={() => commit(child.id, text.trim(), false)} style={{ height: 36 }}><Ic n="check" />{tx(p("Save", "सहेजें"))}</button>

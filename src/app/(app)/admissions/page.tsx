@@ -1,7 +1,9 @@
 import { requirePermission } from "@/platform/auth/current-staff";
 import { getStudentSegmentCounts } from "@/modules/students-fees/data/directory";
 import { segmentCount } from "@/modules/students-fees/domain/student-segments";
-import { loadAdmissionsFeeContext, loadRecentAdmissions } from "@/modules/students-fees/vx/admissions";
+import { loadAdmissionsFeeContext, loadAdmissionsRosterContext, loadRecentAdmissions } from "@/modules/students-fees/vx/admissions";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { shortDay, schoolToday } from "@/vx/format";
 import { getViewer } from "@/vx/view-as";
 import { can } from "@/platform/auth/permissions";
@@ -32,12 +34,13 @@ function needsTc(classLabel: string): boolean {
 export default async function AdmissionsPage() {
   await requirePermission("fees:manage", "/admissions");
   const { staff } = await getViewer();
-  const ctx = await loadAdmissionsFeeContext();
+  const canonical=usesCanonicalFees(staff,await getViewSessionCookie());
+  const ctx = canonical ? await loadAdmissionsRosterContext() : await loadAdmissionsFeeContext();
   const [enquiries, recent, seats, segments] = await Promise.all([
     listEnquiries(ctx.sessionLabel),
     loadRecentAdmissions(ctx.sessionLabel, 12),
     loadSeats(ctx.sessionLabel),
-    getStudentSegmentCounts({ sessionLabel: ctx.sessionLabel }).catch(() => null),
+    canonical ? Promise.resolve(null) : getStudentSegmentCounts({ sessionLabel: ctx.sessionLabel }).catch(() => null),
   ]);
   const details = await loadAdmissionDetails(recent.recent.map((r) => r.id));
 

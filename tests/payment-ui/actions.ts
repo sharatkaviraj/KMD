@@ -1,11 +1,21 @@
 import type { DeskPostInput } from "@/app/(app)/payments/actions";
 import { boot, student, OTHER_ID, receipt } from "../payment-parity.fixture";
+import { pickerStudents } from "./picker-fixtures";
+let loadedStudentId: string | null = null;
 let posted: DeskPostInput | null = JSON.parse(sessionStorage.getItem("qa-payment-posted") ?? "null");
 let receiptCount = Number(sessionStorage.getItem("qa-payment-count") ?? "0");
-declare global { interface Window { paymentFixtureSnapshot: () => { posted: DeskPostInput | null; receiptCount: number }; } }
+declare global { interface Window {
+  paymentFixtureSnapshot: () => { posted: DeskPostInput | null; receiptCount: number };
+  paymentFixtureSelectedStudent: () => string | null;
+} }
 window.paymentFixtureSnapshot = () => ({ posted, receiptCount });
+window.paymentFixtureSelectedStudent = () => loadedStudentId;
 const pending = (input: DeskPostInput) => ({ ...student, id: input.studentId, name: input.studentId === OTHER_ID ? "TEST Child B" : student.name, rows: student.rows.map((r, i) => i === 0 ? { ...r, feesPending: Math.max(0, r.feesPending - input.amount - (input.quickDiscountAmount ?? 0)), feesPaid: input.amount, lateFeePending: Math.max(0, r.lateFeePending - input.lateFeeWaiver) } : r) });
-export async function loadStudentDeskAction({ studentId }: { studentId: string }) { return { ok: true as const, student: { ...student, id: studentId, name: studentId === OTHER_ID ? "TEST Child B" : student.name } }; }
+export async function loadStudentDeskAction({ studentId }: { studentId: string }) {
+  loadedStudentId = studentId;
+  const picker = new URLSearchParams(location.search).has("picker") && pickerStudents.find(s => s.id === studentId);
+  return { ok: true as const, student: picker || { ...student, id: studentId, name: studentId === OTHER_ID ? "TEST Child B" : student.name } };
+}
 export async function loadDeskPreviewAction({ paymentDate }: { paymentDate: string }) { return { ok: true as const, rows: student.rows.map(r => ({ ...r, lateFeePending: paymentDate <= r.dueDate ? 0 : r.lateFeePending })) }; }
 export async function postDeskPaymentAction(input: DeskPostInput) {
   if (!posted || posted.clientRequestId !== input.clientRequestId) { posted = input; receiptCount += 1; sessionStorage.setItem("qa-payment-posted", JSON.stringify(posted)); sessionStorage.setItem("qa-payment-count", String(receiptCount)); }

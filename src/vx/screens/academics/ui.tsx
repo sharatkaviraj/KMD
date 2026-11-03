@@ -7,9 +7,10 @@ import { lead, under, type Pair } from "@/vx/text";
 import { LangButton } from "@/vx/shell/sidebar";
 import { BackLink } from "@/vx/ui/back-link";
 import { Pill } from "@/vx/ui/primitives";
-import { shortDay } from "@/vx/format";
+import { shortDay, shortDayHi } from "@/vx/format";
+import { subjectPair } from "@/vx/screens/exams/domain/groups";
 
-import { attendanceBand, attentionChips, BAND_STYLE, type AttentionFacts } from "./domain";
+import { attendanceBand, attentionChips, BAND_STYLE, classPair, subjectName, type AttentionFacts, type Chip } from "./domain";
 
 /*
  * Server-rendered pieces shared by the coordinator's three screens. Strings
@@ -150,6 +151,26 @@ export function dayName(day: string): string {
 /** "Thu 8 Oct 2026". */
 export function dayNameYear(day: string): string {
   return `${dayName(day)} ${day.slice(0, 4)}`;
+}
+
+/** "गुरु 8 अक्टूबर" — `dayName` for a Hindi reader. */
+export function dayNameHi(day: string): string {
+  return shortDayHi(day);
+}
+
+/** "गुरु 8 अक्टूबर 2026" — `dayNameYear` for a Hindi reader. */
+export function dayNameYearHi(day: string): string {
+  return `${shortDayHi(day)} ${day.slice(0, 4)}`;
+}
+
+/** A subject as a Hindi reader says it ("गणित"), else as the school writes it. */
+export function subjectHi(code: string): string {
+  return subjectPair(code).hi ?? subjectName(code);
+}
+
+/** A child's attention chips, with Hindi subject names for a Hindi reader. */
+export function chipsFor(row: AttentionFacts): Chip[] {
+  return attentionChips(row, subjectHi);
 }
 
 /** "A", "A and B", "A, B and C". */
@@ -367,14 +388,14 @@ export function HeatLegend({ say }: { say: Say }) {
  * separated by a rule (`first` has none).
  */
 export function AttentionRow({ child, href, language, trail, delay, first }: { child: AttentionFacts & { studentId: string; name: string; classLabel: string }; href: string; language: Language; trail?: ReactNode; delay?: number; first?: boolean }) {
-  const chips = attentionChips(child);
+  const chips = chipsFor(child);
   return (
     <Link href={href} className="row tap" style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 6px", borderTop: first ? undefined : "1px solid var(--bd)", color: "var(--fg)", animation: delay !== undefined ? `xIn .3s var(--ease) ${Math.min(delay, 200)}ms both` : undefined }}>
       <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <ToneAvatar name={child.name} />
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <span className="clip" style={{ fontWeight: 600 }}>{child.name}</span>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{child.classLabel}</span>
+          <span style={{ fontSize: 12, color: "var(--mut)" }}>{lead(classPair(child.classLabel), language)}</span>
         </span>
         {trail ?? <Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />}
       </span>

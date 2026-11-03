@@ -32,6 +32,7 @@ import {
 import { buildSyncedOfficeSyncOutcome } from "@/modules/system-sync/domain/office-sync";
 import { publishOfficeSyncEvent } from "@/modules/system-sync/data/office-sync-events";
 import { getStudentDetail } from "@/modules/students-fees/data/queries";
+import { assertReceiptVisible, assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 function parseRequiredString(value: FormDataEntryValue | null, fieldLabel: string) {
   const normalized = (value ?? "").toString().trim();
@@ -209,6 +210,8 @@ export async function submitPaymentEntryAction(
     const staffSession = await requireStaffPermission("payments:write");
     const studentId = parseUuid(formData.get("studentId"), "Student");
     const sessionLabel = parseSessionLabel(formData.get("sessionLabel"));
+    await assertSessionWritable(null, sessionLabel, { orActive: true });
+    await assertStudentVisible(null, studentId);
     const paymentDate = parsePaymentDate(formData.get("paymentDate"));
     // Mode validation (policy read) and the student lookup are independent —
     // fetch them together; getStudentDetail is request-cached so the preflight
@@ -398,9 +401,9 @@ export async function submitPaymentEntryAction(
        * drawer and the receipt is printed, and a WhatsApp hiccup must never
        * turn that into a failed posting at the counter.
        *
-       * In VPPS One this never sends: only a staff member pressing Send on a
-       * receipt messages a parent (D-270). The call stays so the fee app's
-       * code reads the same; `sendReceiptNotice` refuses the automatic trigger. It also honours `no_call` and
+       * In VPPS One it goes only through the parent-send gate (D-353, which
+       * supersedes D-270 at cutover): live deployment, `parent_dispatch` on,
+       * and `receipt` among the named categories. It also honours `no_call` and
        * a `never` cadence, because a family who asked not to be contacted did
        * not ask only about reminders.
        */
@@ -496,6 +499,9 @@ export async function undoRecentPaymentAction(
     const receiptId = parseUuid(formData.get("receiptId"), "Receipt");
     const studentId = parseUuid(formData.get("studentId"), "Student");
     const sessionLabel = parseSessionLabel(formData.get("sessionLabel"));
+    await assertSessionWritable(null, sessionLabel, { orActive: true });
+    await assertStudentVisible(null, studentId);
+    await assertReceiptVisible(null, { id: receiptId });
     const reason = (formData.get("reason") ?? "").toString().trim() || null;
 
     const result = await undoRecentPayment({ receiptId, reason });
@@ -576,6 +582,9 @@ export async function reverseReceiptAdminAction(
     const receiptId = parseUuid(formData.get("receiptId"), "Receipt");
     const studentId = parseUuid(formData.get("studentId"), "Student");
     const sessionLabel = parseSessionLabel(formData.get("sessionLabel"));
+    await assertSessionWritable(null, sessionLabel, { orActive: true });
+    await assertStudentVisible(null, studentId);
+    await assertReceiptVisible(null, { id: receiptId });
     const reasonCode = (formData.get("reasonCode") ?? "").toString().trim();
     const reasonNote = (formData.get("reasonNote") ?? "").toString().trim();
 
@@ -668,6 +677,8 @@ export async function repairPaymentDeskStudentDuesAction(formData: FormData) {
   await requireStaffPermission("payments:write");
   const studentId = parseUuid(formData.get("studentId"), "Student");
   const sessionLabel = parseSessionLabel(formData.get("sessionLabel"));
+  await assertSessionWritable(null, sessionLabel, { orActive: true });
+  await assertStudentVisible(null, studentId);
   const student = await getStudentDetail(studentId);
 
   if (!student) {

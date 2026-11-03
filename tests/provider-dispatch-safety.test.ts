@@ -4,7 +4,7 @@ const state = vi.hoisted(() => ({ row: {} as Record<string, unknown>, failWrite:
 vi.mock("server-only", () => ({}));
 vi.mock("@/platform/env", () => ({ getOptionalEnvVar: (k: string) => k === "MESSAGE_PROVIDER" ? "mock" : undefined, getVppsOneEnvironment: () => "dev" }));
 vi.mock("@/platform/supabase/server", () => ({ createClient: vi.fn() }));
-vi.mock("@/modules/collection/data/parent-messages-repo", () => ({ categoryFor: vi.fn(), markStale: vi.fn(), parentDispatchSwitch: vi.fn(), parentPolicies: vi.fn(), snapshotNow: vi.fn(), staleness: vi.fn() }));
+vi.mock("@/modules/collection/data/parent-messages-repo", () => ({ categoryFor: vi.fn(), markStale: vi.fn(), parentDispatchMode: vi.fn(), parentDispatchSwitch: vi.fn(), parentPolicies: vi.fn(), snapshotNow: vi.fn(), staleness: vi.fn() }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({ from: () => {
   let patch: Record<string, unknown> = {}; const filters: ((r: Record<string, unknown>) => boolean)[] = [];
   const q = {

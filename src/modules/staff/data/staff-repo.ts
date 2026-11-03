@@ -120,9 +120,34 @@ export async function findByShortName(
   return data ? toStaffProfile(data, showContact) : null;
 }
 
+/**
+ * Is this profile a test account (`is_test_account`)? Fail closed: a read we
+ * could not make, or no such profile, is "no".
+ */
+export async function isTestProfile(id: string): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .from("staff_profiles")
+    .select("is_test_account")
+    .eq("id", id)
+    .maybeSingle<{ is_test_account: boolean | null }>();
+  if (error) return false;
+  return data?.is_test_account === true;
+}
+
+/**
+ * Phase 3 (D-340; PR #143 review): a test account — and, on a confined
+ * deployment, everybody — manages only test accounts. A real admin manages
+ * anybody. The database says the same in `change_staff_authority`.
+ */
+export async function actorMayManage(actor: { isTestAccount?: boolean }, targetId: string): Promise<boolean> {
+  if (actor.isTestAccount !== true) return true;
+  return isTestProfile(targetId);
+}
+
 export async function createStaff(
   input: CreateStaffInput,
   createdByUserId: string,
+  options: { isTestAccount?: boolean } = {},
 ): Promise<StaffProfile> {
   const { data, error } = await createAdminClient()
     .from("staff_profiles")
@@ -136,6 +161,9 @@ export async function createStaff(
       preferred_language: input.preferredLanguage,
       is_active: true,
       created_by: createdByUserId,
+      // A profile a test account creates is a test account (service role: the
+      // flag guard lets the service role set it, never a signed-in user).
+      ...(options.isTestAccount ? { is_test_account: true } : {}),
     })
     .select(COLUMNS)
     .single<Row>();

@@ -68,7 +68,8 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await sheet.getByRole("radio", { name: "Compact", exact: true }).tap();
     await expect(page).toHaveURL(/seg=pending&/);
     await sheet.getByRole("button", { name: "Show students", exact: true }).tap();
-    await expect(page).toHaveURL(/seg=pending,late/);
+    // URLSearchParams may encode the CSV comma; assert the exact filter value.
+    await expect(page).toHaveURL(url => url.searchParams.get("seg") === "pending,late");
     await expect(page).toHaveURL(/look=compact/);
     // Two filters on: neither quick chip is lit, and each has its own remove chip.
     await expect(page.getByRole("link", { name: "Late fee pending · remove", exact: true }).filter({ visible: true })).toBeVisible();

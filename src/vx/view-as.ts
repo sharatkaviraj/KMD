@@ -42,7 +42,7 @@ export async function assertNotPreviewing(): Promise<void> {
   }
 }
 
-const PREVIEW_ROLE: Record<DesignMenu, StaffRole> = {
+export const PREVIEW_ROLE: Record<DesignMenu, StaffRole> = {
   admin: "admin",
   teacher: "teacher",
   accountant: "accountant",

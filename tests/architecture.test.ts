@@ -192,8 +192,10 @@ describe("fee writes are deliberate", () => {
    * must not be is open, so they are held to proving a machine credential
    * instead.
    */
+  // Razorpay's webhook proves its HMAC with `verifyRazorpaySignature` over the
+  // raw body, keyed on RAZORPAY_WEBHOOK_SECRET (go-live Phase E).
   const CHECKS_MACHINE_CREDENTIAL =
-    /CRON_SECRET|JOBS_SECRET|x-aisensy-signature|SCHOOLFEES_DOC_TOKEN|timingSafeEqual/;
+    /CRON_SECRET|JOBS_SECRET|x-aisensy-signature|SCHOOLFEES_DOC_TOKEN|timingSafeEqual|verifyRazorpaySignature\(raw, request\.headers\.get\("x-razorpay-signature"\), secret\)/;
 
   const feeWriteDoors = reachesFeeData.filter((file) => {
     const rel = relative(file);
@@ -376,5 +378,200 @@ describe("no migration changes the fee app's code or rows", () => {
 
   it("still has its one approved exception, so the allowlist cannot quietly go stale", () => {
     expect(migrations).toContain("20260922100000_current_staff_role_reads_vppsone.sql");
+  });
+});
+
+/**
+ * Every server action handed a session label checks the viewer may write it
+ * (Phase 3, plan §3.4 point 5; critique1 C2).
+ *
+ * One's writes are service role (D-179), so the database's test-session fence
+ * never sees them: `assertSessionWritable` is the fence for every write a
+ * person asks for. "Handed a session label" means the label comes from the
+ * caller — a parameter named for it, `input.sessionLabel` and the like, or a
+ * `formData.get("sessionLabel")` — not one the action resolved itself with
+ * `resolveSessionLabel()`, which already only returns sessions the viewer may
+ * open.
+ */
+describe("actions handed a session label check it is writable", () => {
+  const LABEL = "(?:sessionLabel|academicSessionLabel|session_label|targetSessionLabel|sourceSessionLabel)";
+  const IN_PARAMS = new RegExp(`\\b${LABEL}\\b`);
+  const FROM_INPUT = new RegExp(`\\b(?:input|args|params|payload|data|values|form|parsed\\.data|body)\\.${LABEL}\\b`);
+  // Any read of the label by name — `formData.get("sessionLabel")`, but also a
+  // helper such as `readText(formData, "sessionLabel")` or
+  // `getSubmittedSessionLabel(formData)`, which the first version missed.
+  // (`.eq("session_label", …)` is a column, not a read, and does not count.)
+  const FORM_KEY = `["'](?:session|sessionLabel|session_label|academic_session_label|academicSessionLabel)["']`;
+  const FROM_FORM = new RegExp(
+    `\\.get\\(\\s*${FORM_KEY}\\s*\\)|\\(\\s*(?:formData|form|fd)\\s*,\\s*${FORM_KEY}\\s*\\)|getSubmittedSessionLabel\\(`,
+  );
+  const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
+
+  function paramsOf(body: string): string {
+    const open = body.indexOf("(");
+    let depth = 0;
+    for (let i = open; i < body.length; i += 1) {
+      if (body[i] === "(") depth += 1;
+      else if (body[i] === ")") {
+        depth -= 1;
+        if (depth === 0) return body.slice(open, i + 1);
+      }
+    }
+    return "";
+  }
+
+  const actions = sourceFiles
+    .map((file) => ({ file, source: readFileSync(file, "utf8").replace(/\r\n/g, "\n") }))
+    .filter(({ source }) => /^["']use server["']/.test(source.trimStart()))
+    .flatMap(({ file, source }) => {
+      const starts = [...source.matchAll(EXPORTED)].map((match) => ({ name: match[1], index: match.index ?? 0 }));
+      return starts.map((start, i) => ({
+        id: `${relative(file)} :: ${start.name}`,
+        body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
+      }));
+    })
+    .filter(({ body }) => IN_PARAMS.test(paramsOf(body)) || FROM_INPUT.test(body) || FROM_FORM.test(body));
+
+  it("finds the actions it is supposed to be guarding", () => {
+    // Fifty-odd today; nothing found means the patterns stopped matching.
+    expect(actions.length).toBeGreaterThan(40);
+  });
+
+  it.each(actions.map(({ id, body }) => [id, body]))("%s calls assertSessionWritable", (id, body) => {
+    expect(
+      body.includes("assertSessionWritable("),
+      `${id} is handed a session label and writes without asking whether this viewer may write it. ` +
+        "A test account must never write a real session, nor real staff the TEST one.",
+    ).toBe(true);
+  });
+});
+
+/**
+ * Every server action that names a RECORD — a student, a receipt, a family, a
+ * class — checks that record's own session, not only the label it was handed
+ * (PR #143 review). A test account can post `sessionLabel=TEST-2026-27` with
+ * a real child's id; the label check passes and the write lands on real data.
+ * So the session comes from the record: `assertStudentVisible`,
+ * `assertStudentsVisible`, `assertReceiptVisible`, `assertFamilyVisible`,
+ * `assertClassVisible`. An action that only ever works on "the" session must
+ * check that instead (`assertSessionWritable`, `workingSessionFor`), and one
+ * that changes what the whole school shares refuses test accounts outright
+ * (`assertNotTestAccount`).
+ *
+ * "Names a record" is generous on purpose: an id-named parameter, an
+ * `input.studentId`, or the id's name as a string literal anywhere in the
+ * action (`formData.get("studentId")`, `readText(formData, "studentId")`).
+ */
+/** Any of the test-session fence's checks. Shared by the two tests below. */
+const SESSION_GUARD =
+  /assert(?:Students?|Receipts?|Family|Class|CollectionRequest|CollectionRound|MessageSend|ImportBatch|PhotoProposal)Visible\(|assertSessionWritable\(|assertSessionVisible\(|filterVisibleStudentIds\(|assertNotTestAccount\(|workingSessionFor\(/;
+
+describe("actions that name a student, receipt, family or class check its session", () => {
+  const ID =
+    "(?:studentId|studentIds|receiptId|receiptIds|receiptNumber|familyGroupId|classId|student_id|receipt_id|family_group_id|class_id)";
+  const IN_PARAMS = new RegExp(`\\b${ID}\\b`);
+  const AS_STRING = new RegExp(`["']${ID}["']`);
+  const FROM_INPUT = new RegExp(`\\b(?:input|args|params|payload|data|values|form|parsed\\.data|body)\\.${ID}\\b`);
+  const ACTIVE = /getActiveSessionLabel\(/;
+  const GUARD = SESSION_GUARD;
+  const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
+
+  /**
+   * Known open, each with its reason. Empty since Phase C: the 22 native
+   * (vppsone) academic writes Phase B left open now check the record they name
+   * by id (`passesFence(() => assertStudentVisible(…))` and friends). Not a
+   * place to park a new action — the last test below fails when an entry here
+   * gains a guard or disappears, so the list only ever shrinks.
+   */
+  const OPEN: Record<string, string> = {};
+
+  function paramsOf(body: string): string {
+    const open = body.indexOf("(");
+    let depth = 0;
+    for (let i = open; i < body.length; i += 1) {
+      if (body[i] === "(") depth += 1;
+      else if (body[i] === ")") {
+        depth -= 1;
+        if (depth === 0) return body.slice(open, i + 1);
+      }
+    }
+    return "";
+  }
+
+  const actions = sourceFiles
+    .map((file) => ({ file, source: readFileSync(file, "utf8").replace(/\r\n/g, "\n") }))
+    .filter(({ source }) => /^["']use server["']/.test(source.trimStart()))
+    .flatMap(({ file, source }) => {
+      const starts = [...source.matchAll(EXPORTED)].map((match) => ({ name: match[1], index: match.index ?? 0 }));
+      return starts.map((start, i) => ({
+        id: `${relative(file)} :: ${start.name}`,
+        body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
+      }));
+    })
+    .filter(
+      ({ body }) => IN_PARAMS.test(paramsOf(body)) || AS_STRING.test(body) || FROM_INPUT.test(body) || ACTIVE.test(body),
+    );
+
+  it("finds the actions it is supposed to be guarding", () => {
+    // About a hundred today; far fewer means the patterns stopped matching.
+    expect(actions.length).toBeGreaterThan(80);
+  });
+
+  it.each(actions.filter(({ id }) => !(id in OPEN)).map(({ id, body }) => [id, body]))(
+    "%s checks the session of the record it names",
+    (id, body) => {
+      expect(
+        GUARD.test(body),
+        `${id} names a student, receipt, family or class (or works on the active session) and never ` +
+          "checks that record's own session. A test account handing a TEST label with a real id must be refused.",
+      ).toBe(true);
+    },
+  );
+
+  it("keeps the open list honest: every entry exists and is still unguarded", () => {
+    const byId = new Map(actions.map((action) => [action.id, action.body]));
+    for (const id of Object.keys(OPEN)) {
+      expect(byId.has(id), `${id} no longer names a record; remove it from OPEN`).toBe(true);
+      expect(GUARD.test(byId.get(id) ?? ""), `${id} is guarded now; remove it from OPEN`).toBe(false);
+    }
+  });
+});
+
+/**
+ * Every collection server action passes the test-session fence (PR #144
+ * review). The test above finds actions by the ids they name, and collection
+ * writes name a request, a queued message or a submission by a bare `id` it
+ * cannot recognise — so it passed while a test account could close a real
+ * request, rotate its parents' link, or send a real queued message. Every
+ * collection write goes through the service-role client, which the database's
+ * own fence never sees. So here the rule is simply: every exported action in
+ * a collection "use server" file calls one of the fence's checks.
+ */
+describe("collection actions pass the test-session fence", () => {
+  const EXPORTED = /export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g;
+  const collectionRoot = `${relative(srcRoot)}/app/(app)/collection/`;
+
+  const actions = sourceFiles
+    .filter((file) => relative(file).startsWith(collectionRoot))
+    .map((file) => ({ file, source: readFileSync(file, "utf8").replace(/\r\n/g, "\n") }))
+    .filter(({ source }) => /^["']use server["']/.test(source.trimStart()))
+    .flatMap(({ file, source }) => {
+      const starts = [...source.matchAll(EXPORTED)].map((match) => ({ name: match[1], index: match.index ?? 0 }));
+      return starts.map((start, i) => ({
+        id: `${relative(file)} :: ${start.name}`,
+        body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
+      }));
+    });
+
+  it("finds the collection actions", () => {
+    expect(actions.length).toBeGreaterThan(20);
+  });
+
+  it.each(actions.map(({ id, body }) => [id, body]))("%s checks the fence", (id, body) => {
+    expect(
+      SESSION_GUARD.test(body),
+      `${id} writes collection data through the service-role client without asking whether this ` +
+        "viewer may. Check the record's own session, or refuse test accounts for a school-wide write.",
+    ).toBe(true);
   });
 });

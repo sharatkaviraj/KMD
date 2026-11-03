@@ -1,3 +1,4 @@
+import { deskModeOf } from "@/modules/receipts/vx/domain/day-close";
 import { p } from "@/vx/text";
 
 /** The words on /receipts, English with Hindi (src/vx/text.ts). */
@@ -16,6 +17,7 @@ export const W = {
   cheque: p("Cheque", "चेक"),
   bank: p("Bank", "बैंक"),
   other: p("Other", "अन्य"),
+  online: p("Online (Razorpay)", "ऑनलाइन (Razorpay)"),
   reversed: p("Reversed", "रद्द"),
   reversedSub: p("kept in history, not counted", "इतिहास में, गिनती में नहीं"),
   toCount: p("to count", "गिनना है"),
@@ -55,6 +57,7 @@ export const W = {
   feeReceipt: "रसीद · FEE RECEIPT",
   school: p("Shri Veer Patta Senior Secondary School", "श्री वीर पत्ता सीनियर सेकेंडरी स्कूल"),
   classSr: p("Class · SR", "कक्षा · SR"),
+  classOnly: p("Class", "कक्षा"),
   father: p("Father", "पिता"),
   dateTime: p("Date · time", "तारीख · समय"),
   totalReceived: p("Total received", "कुल प्राप्त"),
@@ -82,7 +85,7 @@ export const W = {
   hRead: p("Read by parent", "अभिभावक ने पढ़ी"),
   footnote: p(
     "Receipts are never edited. A reversal writes a separate entry and this receipt stays in history.",
-    "रसीद कभी बदली नहीं जाती। रद्द करने पर अलग प्रविष्टि बनती है और यह रसीद इतिहास में रहती है।",
+    "रसीद कभी बदली नहीं जाती। रद्द करने पर यह अलग से लिखा जाता है और यह रसीद इतिहास में रहती है।",
   ),
   pendingReversal: p("Reversal asked · waiting for an admin", "रद्द करने का अनुरोध · एडमिन की प्रतीक्षा"),
   back: p("Back to receipts", "रसीदों पर वापस"),
@@ -96,19 +99,45 @@ export const W = {
   rWrongStudentSub: p("Then take the fee again for the right child", "फिर सही बच्चे के लिए फीस दोबारा लें"),
   rBouncedSub: p("The dues come back on the family", "बकाया परिवार पर लौट आता है"),
   rDuplicateSub: p("The second copy is cancelled", "दूसरी प्रति रद्द होती है"),
-  notePlaceholder: p("Anything the accountant should know", "अकाउंटेंट को जो जानना चाहिए"),
+  // The accountant writes to the admin who decides; the admin writes for the record (smoke 20 Oct).
+  notePlaceholderRequest: p("Anything the admin should know", "एडमिन को जो जानना चाहिए"),
+  notePlaceholderAdmin: p("Anything to keep on record", "रिकॉर्ड में रखने लायक कोई बात"),
   noteOptional: p("Note (optional)", "टिप्पणी (वैकल्पिक)"),
   keepReceipt: p("Keep receipt", "रसीद रखें"),
   askAdmin: p("Ask an admin to reverse", "एडमिन से रद्द करवाएँ"),
+  // Says what really happens: the receipt leaves the total of its OWN day, not today's (smoke 20 Oct).
   impactAdmin: p(
-    "A reversal entry of {amount} is written today. {no} stays in history marked REVERSED, {name}’s dues go back up by {back}, and the day total drops.",
-    "आज {amount} की रद्द प्रविष्टि लिखी जाएगी। {no} इतिहास में 'रद्द' के निशान के साथ रहेगी, {name} का बकाया {back} बढ़ेगा और दिन का कुल घटेगा।",
+    "{no} stays in history marked REVERSED and is taken out of the total for its own day, {day} ({amount}). {name}’s dues go back up by {back}.",
+    "{no} इतिहास में 'रद्द' के निशान के साथ रहेगी और अपने दिन, {day}, के कुल से हट जाएगी ({amount})। {name} का बकाया {back} बढ़ेगा।",
   ),
+  impactDayClosed: p(
+    "{day} is already closed. After this its cash count will not match: an admin reopens that day and it is counted again.",
+    "{day} पहले ही बंद हो चुका है। इसके बाद उस दिन की नकद गिनती मेल नहीं खाएगी: एडमिन वह दिन फिर खोलेंगे और दोबारा गिनती होगी।",
+  ),
+  askedBy: p("Asked by {name} · {when}", "{name} ने पूछा · {when}"),
+  askedBare: p("Asked · {when}", "पूछा गया · {when}"),
+  askedReason: p("Their reason", "उनका कारण"),
+  hAsked: p("Reversal asked by {name}", "{name} ने रद्द करने को कहा"),
+  hAskedBare: p("Reversal asked", "रद्द करने को कहा गया"),
+  reversalAskedTag: p("Reversal asked", "रद्द का अनुरोध"),
+  decline: p("Keep receipt · decline", "रसीद रखें · मना करें"),
+  declineWhy: p("Why is the receipt kept? The accountant will read this.", "रसीद क्यों रखी जा रही है? अकाउंटेंट यह पढ़ेंगे।"),
+  declineConfirm: p("Decline the request", "अनुरोध मना करें"),
+  doneDeclined: p("Request declined. The receipt stays as it is.", "अनुरोध मना हुआ। रसीद जैसी है वैसी रहेगी।"),
+  plusReversed: (n: number) => p(` (+${n} reversed)`, ` (+${n} रद्द)`),
+  waitingHead: p("Waiting for an admin to reverse", "एडमिन के रद्द करने की प्रतीक्षा"),
+  waitingBody: p(
+    "These are still counted below. If the admin reverses one after you close, this day will need to be reopened and counted again.",
+    "ये नीचे अभी गिनी गई हैं। बंद करने के बाद एडमिन इनमें से कोई रद्द करें, तो यह दिन फिर खोलकर दोबारा गिनना होगा।",
+  ),
+  coinsTotal: p("Coins, total in ₹", "सिक्के, कुल ₹"),
+  coinsHint: p("Add up all the coins and type the rupees", "सारे सिक्के जोड़कर कुल रुपये लिखें"),
   impactRequest: p(
     "Nothing changes yet. This goes to Needs you, and an admin reverses it.",
     "अभी कुछ नहीं बदलेगा। यह 'आपके लिए' में जाएगा और एडमिन रद्द करेंगे।",
   ),
   doneReversed: p("Receipt reversed. It stays in history.", "रसीद रद्द हुई। यह इतिहास में रहेगी।"),
+  impactRequestNote: p("The admin sees your reason and note.", "एडमिन आपका कारण और टिप्पणी देखेंगे।"),
   doneRequested: p("Sent to an admin under Needs you.", "एडमिन को 'आपके लिए' में भेजा।"),
   doneExists: p("An admin has already been asked about this receipt.", "इस रसीद के लिए एडमिन से पहले ही पूछा गया है।"),
   // share sheet
@@ -187,6 +216,17 @@ export const MODE_WORD: Record<string, { en: string; hi?: string }> = {
   bank: W.bank,
   other: W.other,
 };
+
+/**
+ * What one receipt's mode reads as. The desk files an `online` (Razorpay)
+ * receipt under UPI for its totals, but the receipt itself says where the
+ * money came from — never "Cash", and not plain "UPI" the office would look
+ * for in its own bank app (fees app #86 / #103).
+ */
+export function receiptModeWord(paymentMode: string | null | undefined): { en: string; hi?: string } {
+  if (paymentMode === "online") return W.online;
+  return MODE_WORD[deskModeOf(paymentMode)];
+}
 
 export const REASON_WORD: Record<string, { en: string; hi?: string }> = {
   wrong_amount: W.rWrongAmount,

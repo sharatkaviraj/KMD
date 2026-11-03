@@ -1,3 +1,4 @@
+import { atTimeP, longDayHi, shortDayHi, timeHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 
 /*
@@ -47,14 +48,40 @@ export function ampm(value: string | Date): string {
   return `${hour}:${minute} ${half}`.trim();
 }
 
+/*
+ * The same as pairs, for `tx()`: a Hindi reader gets Hindi day and month
+ * names and "सुबह 8:52" instead of "8:52 am" (smoke 20 Oct, dev.groups[10]).
+ * Prefer these to the English-only forms above in anything a reader sees.
+ */
+
+/** "Thu 8 Oct" / "गुरु 8 अक्टूबर". */
+export function dShortP(value: string | Date): Pair {
+  return p(dShort(value), shortDayHi(value));
+}
+
+/** "Thursday 8 October" / "गुरुवार, 8 अक्टूबर". */
+export function dLongP(value: string | Date): Pair {
+  return p(dLong(value), longDayHi(value));
+}
+
+/** "8:52 am" / "सुबह 8:52". */
+export function ampmP(value: string | Date): Pair {
+  return p(ampm(value), timeHi(value));
+}
+
+/** In a sentence: "at 8:52 am" / "सुबह 8:52 बजे". */
+export function atP(value: string | Date): Pair {
+  return atTimeP(value);
+}
+
 /** "today 8:10 am", "Yesterday · 4:30 pm", "Mon 5 Oct" — when a notice was sent. */
 export function whenSent(iso: string, today: string): Pair {
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(asDate(iso));
-  if (day === today) return p(`Today · ${ampm(iso)}`, `आज · ${ampm(iso)}`);
+  if (day === today) return p(`Today · ${ampm(iso)}`, `आज · ${timeHi(iso)}`);
   const y = new Date(`${today}T12:00:00+05:30`);
   y.setUTCDate(y.getUTCDate() - 1);
-  if (day === new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(y)) return p(`Yesterday · ${ampm(iso)}`, `कल · ${ampm(iso)}`);
-  return p(dShort(iso));
+  if (day === new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(y)) return p(`Yesterday · ${ampm(iso)}`, `कल · ${timeHi(iso)}`);
+  return dShortP(iso);
 }
 
 /** "Good morning" in the school's day, with its Hindi. */

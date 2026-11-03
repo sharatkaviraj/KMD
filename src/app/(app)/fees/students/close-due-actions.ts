@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
 import { revalidateSessionFinance } from "@/modules/system-sync/data/finance-revalidation";
+import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 export type CloseDueActionState = {
   status: "idle" | "success" | "error";
@@ -56,6 +57,8 @@ export async function closeDueAsDiscountAction(
   try {
     const studentId = (formData.get("studentId") ?? "").toString().trim();
     const sessionLabel = (formData.get("sessionLabel") ?? "").toString().trim();
+    await assertSessionWritable(null, sessionLabel);
+    await assertStudentVisible(null, studentId);
     const amount = parseAmount(formData.get("amount"));
     const reason = (formData.get("reason") ?? "").toString().trim();
     const writeOffReason = (formData.get("writeOffReason") ?? "").toString().trim();

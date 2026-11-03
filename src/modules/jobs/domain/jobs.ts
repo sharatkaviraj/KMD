@@ -1,4 +1,5 @@
 import { primary, t, type Language, type Localized } from "@/platform/i18n/language";
+import { HEALTH_SUMMARY_LABELS } from "@/modules/ops-health/domain/health";
 
 /**
  * The jobs, as a list rather than as four route files that grew apart.
@@ -21,6 +22,11 @@ export const jobNames = [
   "missing-marks-nudge",
   "daily-summary",
   "staff-notices",
+  "fee-day-summary",
+  "fee-day-not-closed",
+  "document-backup",
+  "drive-backup",
+  "health",
 ] as const;
 
 export type JobName = (typeof jobNames)[number];
@@ -106,15 +112,80 @@ export const JOBS: Record<JobName, JobDefinition> = {
   },
   "staff-notices": {
     name: "staff-notices",
-    label: t("व्यवस्था की सूचनाएँ", "Cover notices"),
+    label: t("स्टाफ़ की WhatsApp सूचनाएँ", "Staff WhatsApp notices"),
     what: t(
-      "व्यवस्था की बाकी सूचनाएँ भेजता है और अटकी हुई जाँचता है। हर बदलाव के बाद भी अपने-आप चलता है।",
-      "Sends any cover notices still waiting and settles stuck ones. Also runs by itself after every cover change.",
+      "स्टाफ़ की बाकी सूचनाएँ (व्यवस्था, हाज़िरी, फ़ीस…) भेजता है — सिर्फ़ उन्हें जिन्होंने हामी भरी है, सुबह 7 से रात 8 के बीच — और अटकी हुई जाँचता है। हर बदलाव के बाद भी अपने-आप चलता है।",
+      "Sends staff notices still waiting (cover, registers, fees…) — only to people who agreed, between 07:00 and 20:00 — and settles stuck ones. Also runs by itself after every change.",
     ),
     schedule: "0 2 * * *",
     when: t("हर सुबह 7:30 बजे, और हर बदलाव के बाद", "Every morning at 7:30, and after every change"),
     // A safety net, not the main path — running it twice only sends what is
     // still due, because every send is claimed under a lease first (P4).
+    oncePerDay: false,
+  },
+  "fee-day-summary": {
+    name: "fee-day-summary",
+    label: t("दिन के संग्रह की सूचना", "Day's collection to the office"),
+    what: t(
+      "आज कितनी फ़ीस आई — कुल, रसीदें और किस तरह (नकद, UPI…) — लेखाकार और प्रशासक को WhatsApp पर भेजता है, जिन्होंने हामी भरी है। आज कोई रसीद नहीं तो कुछ नहीं।",
+      "WhatsApps the accountant and the admin, if they agreed to it, what came in today: the total, the receipts and how (cash, UPI…). Nothing on a day with no receipts.",
+    ),
+    // 13:30 UTC is 19:00 in school.
+    schedule: "30 13 * * *",
+    when: t("हर शाम 7:00 बजे", "Every evening at 19:00"),
+    // Keyed by day: a second run queues nothing new.
+    oncePerDay: false,
+  },
+  "fee-day-not-closed": {
+    name: "fee-day-not-closed",
+    label: t("दिन बंद नहीं हुआ", "Day not closed"),
+    what: t(
+      "रात 8 बजे देखता है कि आज का दिन (नकद गिनकर) बंद हुआ या नहीं; नहीं हुआ तो लेखाकार और प्रशासक को WhatsApp करता है।",
+      "At 20:00, checks whether today was closed (cash counted); if not, WhatsApps the accountant and the admin.",
+    ),
+    // 14:30 UTC is 20:00 in school, the moment the staff send window closes.
+    schedule: "30 14 * * *",
+    when: t("हर रात 8:00 बजे", "Every night at 20:00"),
+    oncePerDay: false,
+  },
+  "document-backup": {
+    name: "document-backup",
+    label: t("कागज़ात की सुरक्षित प्रति", "Document backup"),
+    what: t(
+      "स्कूल के Google Drive की जाँच करता है, फिर हर नए कागज़ की बंद (एन्क्रिप्टेड) प्रति दूसरी जगह रखता है। Drive चालू न हो तो कुछ नहीं करता।",
+      "Checks the school's Google Drive, then keeps a sealed (encrypted) copy of every new document somewhere else. Does nothing while Drive is off.",
+    ),
+    // 21:30 UTC is 03:00 in school: nobody is uploading.
+    schedule: "30 21 * * *",
+    when: t("हर रात 3 बजे", "Every night at 3:00"),
+    // Running it again only copies what is still missing.
+    oncePerDay: false,
+  },
+  "drive-backup": {
+    name: "drive-backup",
+    label: t("Google Drive में पूरी सुरक्षित प्रति", "Backup to Google Drive"),
+    what: t(
+      "सारे रिकॉर्ड (फ़ीस सहित) और हर रखी हुई फ़ाइल की बंद (एन्क्रिप्टेड) प्रति स्कूल के Google Drive फ़ोल्डर में रखता है, साथ में एक सूची जिसमें गिनती और जाँच-अंक होते हैं।",
+      "Keeps a sealed (encrypted) copy of every record, fees included, and of every stored file in the school's Google Drive folder, with a list of counts and checksums beside it.",
+    ),
+    // 22:00 UTC is 03:30 in school, after the document backup.
+    schedule: "0 22 * * *",
+    when: t("हर रात 3:30 बजे", "Every night at 3:30"),
+    // A second run makes a second snapshot and copies only what changed.
+    oncePerDay: false,
+  },
+  health: {
+    name: "health",
+    label: t("सिस्टम जाँच", "System check"),
+    what: t(
+      "गिनती से देखता है कि कुछ अटका या विफल तो नहीं — ऑनलाइन भुगतान, रसीद और स्टाफ़ के संदेश, डेटाबेस टाइमर, ऐप के काम, Drive बैकअप, इस महीने के WhatsApp — और कुछ हो तो प्रशासक को WhatsApp करता है।",
+      "Counts whether anything is stuck or failing — online payments, receipt and staff messages, database timers, app jobs, the Drive backup, this month's WhatsApp — and WhatsApps the admins if something is.",
+    ),
+    // 02:30 UTC is 08:00 in school, inside the staff send window. The
+    // database timer (docs/cutover/one-live-cron-jobs.sql) runs it again at
+    // 16:00; the same problems on the same day are one alert.
+    schedule: "30 2 * * *",
+    when: t("हर सुबह 8:00 बजे", "Every morning at 8:00"),
     oncePerDay: false,
   },
 };
@@ -225,6 +296,8 @@ export const summaryLabels: Record<string, Localized> = {
   registers_submitted: t("हाज़िरी जमा", "registers submitted"),
   school_open: t("विद्यालय खुला", "school open"),
   self_study: t("स्वयं अध्ययन", "self study"),
+  // The health job (Phase G) writes one key per check.
+  ...HEALTH_SUMMARY_LABELS,
 };
 
 /**

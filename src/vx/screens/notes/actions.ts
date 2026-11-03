@@ -16,7 +16,11 @@ import { assertNotPreviewing } from "@/vx/view-as";
 
 import { noteViewer, visibleNotes, visiblePlans, type NoteViewer } from "./data";
 import {
+  canEditNote,
   canWorkOnNote,
+  EDIT_DAYS,
+  FOLLOW_ON_MAX_DAYS,
+  pickedFollowOn,
   followUpDate,
   kindForTags,
   NOTE_TAGS,
@@ -62,10 +66,17 @@ async function inScope(viewer: NoteViewer, studentId: string, sessionLabel: stri
   return classId !== null && viewer.classIds.has(classId) ? classId : false;
 }
 
-/** Who a follow-up goes to, as a person: the class teacher of that class, a coordinator, an admin. */
-async function followUpStaff(owner: FollowOwner, actorId: string, classId: string | null, sessionLabel: string): Promise<string | null> {
+/**
+ * Who a follow-up goes to, as a person: the class teacher of that class, a
+ * coordinator, an admin. A coordinator who hands a note to "the coordinator"
+ * keeps it herself, as notesPeople() names her (smoke 20 Oct: with two
+ * coordinators it went to the other one).
+ */
+async function followUpStaff(owner: FollowOwner, actor: { id: string; role: string }, classId: string | null, sessionLabel: string): Promise<string | null> {
   const admin = createAdminClient();
+  const actorId = actor.id;
   if (owner === "me") return actorId;
+  if (owner === "coordinator" && actor.role === "academic_coordinator") return actorId;
   if (owner === "class_teacher") {
     if (!classId) return null;
     const { data } = await admin
@@ -116,6 +127,8 @@ const createSchema = z.object({
   needsFollowUp: z.boolean(),
   followWhen: z.enum(["tomorrow", "next_monday", "one_week"]).nullable(),
   followOwner: z.enum(["me", "class_teacher", "coordinator", "admin"]).nullable(),
+  /** A date the writer picked instead of the three ready choices (YYYY-MM-DD); wins over followWhen. */
+  followOn: z.string().max(10).nullable().optional(),
   visibility: z.enum(["team", "private"]),
   tellParents: z.boolean(),
 });
@@ -137,8 +150,12 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
   const kind = await kindId(kindForTags(v.tags));
   if (!kind) return NOT_SAVED();
   const today = schoolToday();
+  const picked = v.followOn ? pickedFollowOn(v.followOn, today) : null;
+  if (v.needsFollowUp && v.followOn && !picked) {
+    return fail(`Pick a follow-up date after today and within ${FOLLOW_ON_MAX_DAYS} days.`, `आज के बाद और ${FOLLOW_ON_MAX_DAYS} दिन के अंदर की तारीख़ चुनें।`);
+  }
   const owner = v.needsFollowUp ? (v.followOwner ?? "me") : null;
-  const ownerId = owner ? await followUpStaff(owner, staff.id, classId, ctx.sessionLabel) : null;
+  const ownerId = owner ? await followUpStaff(owner, staff, classId, ctx.sessionLabel) : null;
   const relation = classId && ctx.viewer.heldClassIds.has(classId) ? "class_teacher" : classId && ctx.viewer.classIds.has(classId) ? "subject_teacher" : staff.role;
 
   const admin = createAdminClient();
@@ -154,7 +171,7 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
       source: v.source,
       tags: v.tags,
       needs_follow_up: v.needsFollowUp,
-      follow_up_on: v.needsFollowUp ? followUpDate(v.followWhen ?? "tomorrow", today) : null,
+      follow_up_on: v.needsFollowUp ? (picked ?? followUpDate(v.followWhen ?? "tomorrow", today)) : null,
       follow_up_owner: owner,
       follow_up_staff_id: ownerId,
       visibility: v.visibility,
@@ -205,6 +222,32 @@ export async function undoNoteAction(noteId: string): Promise<NoteResult> {
   return { ok: true };
 }
 
+/**
+ * Change a saved note's words (smoke 20 Oct: a 680-letter note could only be
+ * undone, not corrected). Only its author, while it is not done and within
+ * EDIT_DAYS of writing it (`canEditNote`). The note's history gets a line
+ * saying it was changed and when; the earlier words are not kept, so a
+ * teacher who takes out something she should not have written takes it out.
+ * A message already queued for the parents is not changed.
+ */
+export async function editNoteAction(noteId: string, body: string): Promise<NoteResult> {
+  const staff = await writer(await assertPermission("notes:view"));
+  const text = String(body ?? "").trim();
+  if (!text || text.length > 2000) return fail("Write the note first.", "पहले नोट लिखें।");
+  const found = await workable(staff, noteId);
+  if (!found) return fail("That note was not found.", "यह नोट नहीं मिला।");
+  if (!canEditNote(found.note, staff.id, schoolToday())) {
+    return fail(`Only the teacher who wrote a note can change it, within ${EDIT_DAYS} days and before it is done. Add a reply instead.`, `नोट वही अध्यापक बदल सकते हैं जिन्होंने लिखा, ${EDIT_DAYS} दिन के अंदर और पूरा होने से पहले। इसके बजाय जवाब जोड़ें।`);
+  }
+  if (text === found.note.body.trim()) return { ok: true, id: noteId };
+  const admin = createAdminClient();
+  const { error } = await admin.from("notes").update({ body: text }).eq("id", noteId).eq("written_by", staff.id);
+  if (error) return NOT_SAVED();
+  await admin.from("note_replies").insert({ note_id: noteId, body: "Note changed", source: "system", written_by: staff.id });
+  revalidateNotes();
+  return { ok: true, id: noteId };
+}
+
 async function workable(staff: CurrentStaff, noteId: string) {
   const ctx = await context(staff);
   if (!ctx || !UUID.safeParse(noteId).success) return null;
@@ -221,7 +264,7 @@ export async function setNoteStatusAction(noteId: string, status: "open" | "work
   const found = await workable(staff, noteId);
   if (!found) return fail("That note was not found.", "यह नोट नहीं मिला।");
   if (!canWorkOnNote(found.note, found.viewer)) {
-    return fail("Only the writer, the class teacher or the person following up can change this.", "इसे लिखने वाले, कक्षा अध्यापक या फ़ॉलो-अप करने वाले ही बदल सकते हैं।");
+    return fail("Only the writer, the class teacher or the person following up can change this.", "इसे लिखने वाले, कक्षा अध्यापक या इसे फिर से देखने वाले ही बदल सकते हैं।");
   }
   if (found.note.status === status) return { ok: true };
   const admin = createAdminClient();
@@ -263,8 +306,8 @@ export async function setFollowUpAction(noteId: string, owner: FollowOwner, when
   if (when !== null && !["tomorrow", "next_monday", "one_week"].includes(when)) return NOT_SAVED();
   const found = await workable(staff, noteId);
   if (!found) return fail("That note was not found.", "यह नोट नहीं मिला।");
-  if (!canWorkOnNote(found.note, found.viewer)) return fail("You cannot change who follows this up.", "आप फ़ॉलो-अप करने वाले को नहीं बदल सकते।");
-  const ownerId = await followUpStaff(owner, staff.id, found.note.classId, found.sessionLabel);
+  if (!canWorkOnNote(found.note, found.viewer)) return fail("You cannot change who follows this up.", "आप नहीं बदल सकते कि इसे फिर से कौन देखेगा।");
+  const ownerId = await followUpStaff(owner, staff, found.note.classId, found.sessionLabel);
   const on = when ? followUpDate(when, schoolToday()) : (found.note.followUpOn ?? followUpDate("next_monday", schoolToday()));
   const { error } = await createAdminClient()
     .from("notes")
@@ -335,10 +378,12 @@ export async function createPlanAction(input: z.input<typeof planSchema>): Promi
   // plan is read by the child's whole team, so it may not start from a note
   // she cannot see, about another child, or carry an Only me note's words
   // or its parents' message unasked.
+  let sourceBody: string | null = null;
   if (v.noteId) {
     const [source] = await visibleNotes(ctx.viewer, ctx.sessionLabel, { noteId: v.noteId, limit: 1 });
     const refusal = planSourceRefusal(source ?? null, { viewerId: staff.id, studentId: v.studentId, goal: v.goal, tellParents: v.tellParents, shareExcerpt: v.shareExcerpt === true });
     if (refusal) return PLAN_SOURCE_REFUSED[refusal]();
+    sourceBody = source?.body ?? null;
   }
 
   const admin = createAdminClient();
@@ -373,7 +418,7 @@ export async function createPlanAction(input: z.input<typeof planSchema>): Promi
     const plans = await visiblePlans(ctx.viewer, ctx.sessionLabel, { planId: data.id });
     const plan = plans[0];
     if (plan) {
-      const msg = parentPlanMessage({ childName: plan.studentName, goal: plan.goal, steps: plan.steps.map((s) => s.body), school: schoolProfile.shortName });
+      const msg = parentPlanMessage({ childName: plan.studentName, goal: plan.goal, steps: plan.steps.map((s) => s.body), school: schoolProfile.shortName, noteBody: sourceBody });
       await admin.from("parent_message_queue").insert({ session_label: ctx.sessionLabel, kind: "support_plan", student_id: v.studentId, class_id: classId, plan_id: data.id, note_id: v.noteId, day: schoolToday(), body_hi: msg.hi, body_en: msg.en, queued_by: staff.id });
     }
   }
@@ -455,12 +500,18 @@ export async function tellParentsAboutPlanAction(planId: string): Promise<NoteRe
   const found = await plannable(staff, planId);
   if (!found) return fail("That plan was not found.", "यह योजना नहीं मिली।");
   const { plan } = found;
+  let noteBody: string | null = null;
   if (plan.noteId) {
     // An Only me note's plan stays with the school (R01), as the note does (createNoteAction).
-    const { data: source } = await createAdminClient().from("notes").select("visibility").eq("id", plan.noteId).maybeSingle<{ visibility: string }>();
+    const { data: source, error: sourceError } = await createAdminClient().from("notes").select("visibility, body").eq("id", plan.noteId).maybeSingle<{ visibility: string; body: string }>();
+    // A failed/missing read does not prove that this note may be shared.
+    if (sourceError) return NOT_SAVED();
+    if (!source) return PLAN_SOURCE_REFUSED.missing();
     if (source?.visibility === "private") return PLAN_SOURCE_REFUSED.private_to_parents();
+    // A goal that repeats the note's staff wording is left out of the parents' message (smoke 20 Oct).
+    noteBody = source?.body ?? null;
   }
-  const msg = parentPlanMessage({ childName: plan.studentName, goal: plan.goal, steps: plan.steps.map((s) => s.body), school: schoolProfile.shortName });
+  const msg = parentPlanMessage({ childName: plan.studentName, goal: plan.goal, steps: plan.steps.map((s) => s.body), school: schoolProfile.shortName, noteBody });
   const admin = createAdminClient();
   const { error } = await admin.from("parent_message_queue").insert({
     session_label: found.sessionLabel,

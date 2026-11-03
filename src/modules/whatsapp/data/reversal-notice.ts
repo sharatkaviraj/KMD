@@ -196,7 +196,8 @@ export async function sendReversalNotice(
     destination,
     userName: values.parentName,
     templateParams,
-    source: "veerpatta-fees-app/reversal",
+    source: "vppsone/reversal",
+    gate: { kind: "reversal", sessionLabel, actor: staffId ? { userId: staffId } : "system" },
   });
 
   await supabase

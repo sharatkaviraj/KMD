@@ -48,6 +48,13 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "collection:manage",
     "documents:view",
     "documents:manage",
+    // Authorized school records, separate from financial and template authority.
+    "certificates:view",
+    "certificates:issue",
+    "government:view",
+    "government:export",
+    "government:import",
+    "outcomes:view",
     "assessments:view",
     "marks:view",
     "reports:view",
@@ -108,6 +115,8 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
   ],
 
   exam_coordinator: [
+    "outcomes:view",
+    "outcomes:manage",
     "dashboard:view",
     "staff:view",
     "academics:view",

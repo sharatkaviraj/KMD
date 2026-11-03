@@ -8,6 +8,7 @@ const actions=["@/app/login/actions","@/app/(app)/preferences/actions","@/app/(a
 export default defineConfig({root,envDir:local("empty-env"),publicDir:local("../../public"),cacheDir:local("../../.test-artifacts/sampark-vite"),define:{"process.env":"{}"},
   plugins:[{name:"refuse-unmocked-server-imports",async load(id){if(id.includes("/src/")&&/\.[cm]?[jt]sx?$/.test(id)){const content=await readFile(id,"utf8");if(/^['"]use server['"];|import ['"]server-only['"]/m.test(content))throw new Error(`Synthetic fixture needs explicit server boundary: ${id}`);}}}],
   resolve:{alias:[...actions.map(find=>({find,replacement:local("actions.js")})),
+    {find:"@/vx/screens/admin/student-document-actions",replacement:local("../mobile-ui/student-actions.ts")},
     {find:"@/vx/screens/family-contact/actions",replacement:local("../mobile-ui/student-actions.ts")},
     {find:"@/vx/screens/notes/actions",replacement:local("../mobile-ui/student-actions.ts")},
     {find:"next/navigation",replacement:local("../mobile-ui/navigation.ts")},

@@ -354,6 +354,25 @@
     animation: slide-up 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
+  /* Press feedback for a control that navigates — a tile, a chip, a tab. The
+     server answers in a few hundred ms; this answers the thumb in the same
+     frame, so a tap never looks ignored. Colours ease rather than snap when the
+     new page lands. Transform and colour only: nothing here forces layout. */
+  .tap {
+    transition-property: transform, background-color, border-color, color, box-shadow;
+    transition-duration: 160ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tap:active {
+    transform: scale(0.97);
+  }
+
+  /* A <details> panel opens with a short rise instead of a jump. */
+  .reveal[open] > :not(summary) {
+    animation: slide-up 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   /* Legacy aliases — kept so existing class names and tests keep working.
      They all route to the four canonical keyframes above. */
   .animate-bottom-sheet-up { animation: slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -643,6 +662,7 @@
 
   .anim-fade-in,
   .anim-slide-up,
+  .reveal[open] > :not(summary),
   .anim-shimmer,
   .anim-route-progress,
   .anim-check-halo,
@@ -683,6 +703,10 @@
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
+  }
+
+  .tap:active {
+    transform: none;
   }
 
   /* Deliberately NOT silenced. A pending button's spinner is the only signal

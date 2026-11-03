@@ -215,7 +215,7 @@ export function mayChangeAuthority(actorRole: StaffRole): boolean {
 }
 
 /** Why `change_staff_authority` said no. The database's own words. */
-export type AuthorityRefusal = "not_admin" | "not_found" | "self" | "last_admin";
+export type AuthorityRefusal = "not_admin" | "not_found" | "self" | "last_admin" | "test_account";
 
 export const authorityRefusalMessages: Record<AuthorityRefusal, Localized> = {
   not_admin: t(
@@ -230,6 +230,11 @@ export const authorityRefusalMessages: Record<AuthorityRefusal, Localized> = {
   last_admin: t(
     "स्कूल में कम से कम एक सक्रिय प्रशासक रहना ज़रूरी है।",
     "The school must keep at least one active administrator.",
+  ),
+  // Phase 3 (D-340): a test account manages only test accounts.
+  test_account: t(
+    "टेस्ट खाता केवल टेस्ट खातों को बदल सकता है।",
+    "A test account can change only test accounts.",
   ),
 };
 

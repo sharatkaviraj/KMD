@@ -5,24 +5,29 @@ import { useEffect, useRef, useState, useTransition, type CSSProperties } from "
 
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { agoP, dayMonth } from "@/vx/format";
+import { agoP, dayMonth, dayMonthHi, shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { useSpeech } from "@/vx/ui/voice";
+import { NoteAssist } from "@/vx/assist/note-assist";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
 
 import { createNoteAction, undoNoteAction } from "../actions";
 import type { ChildChoice, NotesPeople } from "../data";
 import {
   excerpt,
+  findKids,
+  FOLLOW_ON_MAX_DAYS,
   followUpDate,
   followUpLabel,
-  followUpOwnerText,
+  followUpWho,
   isSensitiveNote,
   nextOpenAction,
   noteStage,
   NOTE_TAGS,
   parentNoteMessage,
+  pickedFollowOn,
+  pickerStartClass,
   suggestTags,
   TAG_TEXT,
   type BoardNote,
@@ -31,7 +36,7 @@ import {
   type NoteTag,
   type Visibility,
 } from "../domain/notes";
-import { BOARD_TAG, day, ini, nameTone, ownerRoleText, replaceParams, Seg, StagePill, TEACH_TAG, toneAt, useBoth, WaBubble } from "./look";
+import { BOARD_TAG, day, ini, nameTone, replaceParams, Seg, StagePill, TEACH_TAG, toneAt, useBoth, useNoteWords, WaBubble } from "./look";
 import type { AddStep, ClientViewer } from "./parts";
 
 /*
@@ -81,7 +86,12 @@ export type ComposerInit = {
   ownerFor: (child: ChildChoice | null) => FollowOwner;
   /** Tags already picked when the composer opens (the board starts on Studies, as its design does). */
   tags?: NoteTag[];
+  /** The school's today, for a follow-up date picked by hand. */
+  today: string;
 };
+
+/** A follow-up choice: one of the three ready days, or a date picked by hand. */
+export type FollowChoice = FollowWhen | "pick";
 
 /** The composer's state and its two writes (save, undo). */
 export function useComposer(init: ComposerInit) {
@@ -97,7 +107,9 @@ export function useComposer(init: ComposerInit) {
   const [lang, setLang] = useState<Lang>(init.lang);
   // A plain note is just a note; a follow-up is chosen, not assumed (BUG-11).
   const [follow, setFollow] = useState(false);
-  const [when, setWhen] = useState<FollowWhen>("next_monday");
+  const [when, setWhen] = useState<FollowChoice>("next_monday");
+  // A date picked by hand (smoke 20 Oct: "only three fixed days", the PTM was in two weeks).
+  const [followOn, setFollowOn] = useState("");
   const [owner, setOwner] = useState<FollowOwner | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("team");
   const [tellParents, setTellParents] = useState(false);
@@ -113,6 +125,8 @@ export function useComposer(init: ComposerInit) {
 
   const child = init.kids.find((k) => k.id === studentId) ?? null;
   const ownerKey: FollowOwner = owner ?? init.ownerFor(child);
+  /** The follow-up day this note would get, or null for a picked date that is not one yet. */
+  const followOnDate = when === "pick" ? pickedFollowOn(followOn, init.today) : followUpDate(when, init.today);
 
   const speech = useSpeech((text) => setHeard((cur) => (cur ? `${cur} ${text}` : text)));
 
@@ -268,6 +282,7 @@ export function useComposer(init: ComposerInit) {
     setMode("voice");
     setFollow(false);
     setWhen("next_monday");
+    setFollowOn("");
     setOwner(null);
     setVisibility("team");
     setTellParents(false);
@@ -291,6 +306,10 @@ export function useComposer(init: ComposerInit) {
         setError(p("Speak or type the note first.", "पहले नोट बोलें या लिखें।"));
         return;
       }
+      if (follow && when === "pick" && !followOnDate) {
+        setError(p(`Pick the day to look at this again: after today, within ${FOLLOW_ON_MAX_DAYS} days.`, `फिर से देखने का दिन चुनें: आज के बाद, ${FOLLOW_ON_MAX_DAYS} दिन के अंदर।`));
+        return;
+      }
       if (!navigator.onLine) {
         setError(p("You are offline. This note has not been saved. Reconnect and tap Save note.", "आप ऑफलाइन हैं। यह नोट सेव नहीं हुआ है। इंटरनेट आने पर नोट सेव करें दबाएँ।"));
         return;
@@ -302,7 +321,8 @@ export function useComposer(init: ComposerInit) {
           tags,
           source: voice ? "voice" : "typed",
           needsFollowUp: follow,
-          followWhen: follow ? when : null,
+          followWhen: follow && when !== "pick" ? when : null,
+          followOn: follow && when === "pick" ? followOnDate : null,
           followOwner: follow ? ownerKey : null,
           visibility,
           tellParents: tellParents && visibility === "team",
@@ -316,7 +336,7 @@ export function useComposer(init: ComposerInit) {
         // A rejected response may follow a committed save. Keep the text and
         // block another submission in this composer until the history is checked.
         setSaveUncertain(true);
-        setError(p("The save could not be confirmed. Your note is still here. Check your connection and the notes list before starting another note.", "सेव की पुष्टि नहीं हो सकी। आपका नोट यहाँ है। नया नोट शुरू करने से पहले इंटरनेट और नोटों की सूची जाँचें।"));
+        setError(p("We could not tell whether the note was saved. Your note is still here. Check your connection and the notes list before starting another note.", "पता नहीं चल सका कि नोट सहेजा गया या नहीं। आपका नोट यहीं है। नया नोट शुरू करने से पहले इंटरनेट और नोटों की सूची देखें।"));
       }
     });
 
@@ -327,7 +347,7 @@ export function useComposer(init: ComposerInit) {
 
   return {
     step, setStep, child, studentId, pickChild, tags, toggleTag, setTags, body, setBody, voice, mode, setMode, lang, switchLang,
-    follow, setFollow, when, setWhen, owner: ownerKey, setOwner, visibility, pickVisibility, tellParents, toggleTell,
+    follow, setFollow, when, setWhen, followOn, setFollowOn, followOnDate, owner: ownerKey, setOwner, visibility, pickVisibility, tellParents, toggleTell,
     errField, setErrField, error, saveUncertain, pending, draftAt, listen, doneListening, cancelListening, live, timer,
     speech, addPhrase, reset, save, openAction, setError, restoreDraft,
   };
@@ -342,7 +362,8 @@ export const BOARD_DATES = "board";
 /**
  * The follow-up dates the server can set (FOLLOW_WHEN), with their real days:
  * "Tomorrow · Fri 9 Oct" on the teacher's screen, "Mon 12 Oct · next Monday"
- * on the board's (each as its design writes it).
+ * on the board's (each as its design writes it). A date picked by hand is
+ * the fourth choice, drawn by `FollowDatePick`.
  */
 export function followDates(today: string, style?: typeof BOARD_DATES): { key: FollowWhen; label: Pair; date: string }[] {
   const t = followUpDate("tomorrow", today);
@@ -350,24 +371,58 @@ export function followDates(today: string, style?: typeof BOARD_DATES): { key: F
   const w = followUpDate("one_week", today);
   if (style === BOARD_DATES) {
     return [
-      { key: "tomorrow", label: p(day(t)), date: t },
-      { key: "next_monday", label: p(`${day(m)} · next Monday`, `${day(m)} · अगला सोमवार`), date: m },
-      { key: "one_week", label: p(day(w)), date: w },
+      { key: "tomorrow", label: p(day(t), shortDayHi(t)), date: t },
+      { key: "next_monday", label: p(`${day(m)} · next Monday`, `${shortDayHi(m)} · अगला सोमवार`), date: m },
+      { key: "one_week", label: p(day(w), shortDayHi(w)), date: w },
     ];
   }
   return [
-    { key: "tomorrow", label: p(`Tomorrow · ${day(t)}`, `कल · ${day(t)}`), date: t },
-    { key: "next_monday", label: p(`Next Monday · ${dayMonth(m)}`, `अगला सोमवार · ${dayMonth(m)}`), date: m },
-    { key: "one_week", label: p(day(w)), date: w },
+    { key: "tomorrow", label: p(`Tomorrow · ${day(t)}`, `कल · ${shortDayHi(t)}`), date: t },
+    { key: "next_monday", label: p(`Next Monday · ${dayMonth(m)}`, `अगला सोमवार · ${dayMonthHi(m)}`), date: m },
+    { key: "one_week", label: p(day(w), shortDayHi(w)), date: w },
   ];
 }
 
+/** The three ready days and "Pick a date", which opens a date box (smoke 20 Oct). */
+export function FollowDatePick({ c, today, board }: { c: Composer; today: string; board?: boolean }) {
+  const { tx } = useVx();
+  const dates = followDates(today, board ? BOARD_DATES : undefined);
+  const min = followUpDate("tomorrow", today);
+  const max = (() => {
+    const d = new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + FOLLOW_ON_MAX_DAYS);
+    return d.toISOString().slice(0, 10);
+  })();
+  const picked = c.when === "pick" && c.followOnDate;
+  return (
+    <>
+      <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
+        {dates.map((d) => (
+          <button key={d.key} type="button" className={`tap chip${c.when === d.key ? " on" : ""}`} aria-pressed={c.when === d.key} onClick={() => c.setWhen(d.key)}>
+            {tx(d.label)}
+          </button>
+        ))}
+        <button type="button" className={`tap chip${c.when === "pick" ? " on" : ""}`} aria-pressed={c.when === "pick"} onClick={() => c.setWhen("pick")}>
+          <Ic n="calendar" size={14} />
+          {picked ? tx(p(day(picked), shortDayHi(picked))) : tx(p("Pick a date", "तारीख़ चुनें"))}
+        </button>
+      </div>
+      {c.when === "pick" ? (
+        <label className="field nt-ani" style={{ maxWidth: 260 }}>
+          <span>{tx(p("Which day?", "कौन सा दिन?"))}</span>
+          <input className="inp" type="date" min={min} max={max} value={c.followOn} onChange={(e) => c.setFollowOn(e.target.value)} style={{ height: 44 }} />
+        </label>
+      ) : null}
+    </>
+  );
+}
+
 /** The child's open action, offered before a second note (D-266): one line, and "Add update". */
-export function OpenActionNotice({ c, base, today, onUpdate }: { c: Composer; base: string; today: string; onUpdate: (href: string) => void }) {
+export function OpenActionNotice({ c, base, today, viewerId, onUpdate }: { c: Composer; base: string; today: string; viewerId: string; onUpdate: (href: string) => void }) {
   const { tx } = useVx();
   const a = c.openAction;
   if (!a || !c.child) return null;
-  const who = followUpOwnerText(a);
+  const who = followUpWho(a, viewerId);
   const due = followUpLabel(a.followUpOn, today, dayMonth);
   const meta = [who ? tx(who) : null, due ? tx(due.text) : null].filter(Boolean).join(" · ");
   return (
@@ -387,14 +442,52 @@ export function OpenActionNotice({ c, base, today, onUpdate }: { c: Composer; ba
   );
 }
 
-/** Pick the child: recent names, a class, a search, the class list (design TchNotes `cp.picking`). */
-export function KidPicker({ kids, notes, viewerId, onPick, teacher, initialClass }: { kids: ChildChoice[]; notes: readonly BoardNote[]; viewerId: string; onPick: (id: string) => void; teacher?: boolean; initialClass?: string | null }) {
+/** A child's name, with her SR number and father under it when another child of the class shares the name. */
+export function KidName({ kid, size = 15 }: { kid: ChildChoice; size?: number }) {
+  const { tx } = useVx();
+  return (
+    <span className="nx-c" style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+      <span className="nx-e" style={{ fontSize: size, fontWeight: 600 }}>{kid.name}</span>
+      {kid.hint ? <span className="nt-hn">{tx(kid.hint)}</span> : null}
+    </span>
+  );
+}
+
+function KidRow({ k, i, teacher, onPick }: { k: ChildChoice; i: number; teacher?: boolean; onPick: (id: string) => void }) {
+  const [bg, fg] = nameTone(k.name);
+  return (
+    <button type="button" className="tap row nx-f nt-ani" onClick={() => onPick(k.id)} style={{ width: "100%", gap: 12, minHeight: 52, padding: "6px 8px", border: 0, borderRadius: 12, background: "transparent", color: "var(--fg)", textAlign: "left", animationDelay: `${Math.min(i, 12) * 40}ms`, font: "inherit" }}>
+      <span className="num nx-m" style={{ width: 22, textAlign: "center", fontWeight: 700, fontSize: 12 }}>{k.rollNo ?? ""}</span>
+      <span className="nt-av" style={{ width: 34, height: 34, fontSize: 12, background: bg, color: fg }}>{ini(k.name)}</span>
+      <KidName kid={k} size={teacher ? 15 : 14} />
+      <span className="nx-m">{k.classLabel}</span>
+    </button>
+  );
+}
+
+/**
+ * Pick the child (design TchNotes `cp.picking`): recent names, a class, a
+ * search, the class list. It opens on the reader's own class and searches
+ * that class first, then her other classes (smoke 20 Oct, dev.groups[11]);
+ * a reader with no class is told so, not to check the spelling.
+ */
+export function KidPicker({ kids, notes, viewerId, held, onPick, teacher, initialClass }: { kids: ChildChoice[]; notes: readonly BoardNote[]; viewerId: string; held: readonly string[]; onPick: (id: string) => void; teacher?: boolean; initialClass?: string | null }) {
   const { tx } = useVx();
   const classes = [...new Map(kids.map((k) => [k.classId, k.classLabel])).entries()];
-  // Opened from a class, the picker starts on that class — not the first in
-  // the school (B10). A class she cannot write about falls back to the list.
-  const [cls, setCls] = useState(initialClass && classes.some(([id]) => id === initialClass) ? initialClass : (classes[0]?.[0] ?? ""));
+  const [cls, setCls] = useState(() => pickerStartClass(classes.map(([id]) => id), { initial: initialClass, held }));
   const [q, setQ] = useState("");
+  if (kids.length === 0) {
+    return (
+      <div className="nt-nt" role="status" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>
+        <Ic n="info" size={18} style={{ marginTop: 1 }} />
+        <span>
+          {teacher
+            ? tx(p("You have no class yet, so there is no child to pick. Ask the office to give you a class.", "आपको अभी कोई कक्षा नहीं मिली, इसलिए कोई बच्चा नहीं दिखेगा। ऑफ़िस से कक्षा दिलवाएँ।"))
+            : tx(p("No children are in any class this session yet. The office adds them on admission.", "इस सत्र में अभी किसी कक्षा में बच्चे नहीं हैं। ऑफ़िस प्रवेश पर उन्हें जोड़ता है।"))}
+        </span>
+      </div>
+    );
+  }
   const recent: ChildChoice[] = [];
   for (const n of notes) {
     if (n.writtenBy !== viewerId || !n.studentId) continue;
@@ -402,9 +495,13 @@ export function KidPicker({ kids, notes, viewerId, onPick, teacher, initialClass
     if (k && !recent.includes(k)) recent.push(k);
     if (recent.length >= 5) break;
   }
-  const needle = q.trim().toLowerCase();
-  const pool = needle ? kids.filter((k) => k.name.toLowerCase().includes(needle)) : kids.filter((k) => k.classId === cls);
-  const shown = pool.slice(0, 8);
+  const searching = q.trim().length > 0;
+  const { here, elsewhere } = findKids(kids, cls, q);
+  const limit = searching ? 20 : 80;
+  const shown = here.slice(0, limit);
+  const others = elsewhere.slice(0, 8);
+  const clsLabel = classes.find(([id]) => id === cls)?.[1] ?? "";
+  const pickClass = (v: string) => setCls(v);
   return (
     <>
       {recent.length ? (
@@ -414,11 +511,11 @@ export function KidPicker({ kids, notes, viewerId, onPick, teacher, initialClass
             {recent.map((r) => {
               const [bg, fg] = nameTone(r.name);
               return (
-                <button key={r.id} type="button" className="tap chip" onClick={() => onPick(r.id)} style={{ height: 46, padding: "0 14px 0 6px" }}>
+                <button key={r.id} type="button" className="tap chip" onClick={() => onPick(r.id)} style={{ minHeight: 46, height: "auto", padding: "4px 14px 4px 6px" }}>
                   <span className="nt-av" style={{ width: 34, height: 34, fontSize: 12, background: bg, color: fg }}>{ini(r.name)}</span>
                   <span className="nx-c" style={{ lineHeight: 1.15, textAlign: "left" }}>
                     {r.name}
-                    <span className="nt-hn">{r.classLabel}</span>
+                    <span className="nt-hn">{r.hint ? `${r.classLabel} · ${tx(r.hint)}` : r.classLabel}</span>
                   </span>
                 </button>
               );
@@ -427,37 +524,34 @@ export function KidPicker({ kids, notes, viewerId, onPick, teacher, initialClass
         </>
       ) : null}
       {classes.length > 1 && classes.length <= 4 ? (
-        <Seg label="Class" options={classes.map(([id, label]) => ({ value: id, label }))} value={needle ? null : cls} onChange={(v) => { setCls(v); setQ(""); }} />
+        <Seg label="Class" options={classes.map(([id, label]) => ({ value: id, label }))} value={cls} onChange={pickClass} />
       ) : classes.length > 4 ? (
-        <select className="inp" aria-label="Class" value={cls} onChange={(e) => { setCls(e.target.value); setQ(""); }} style={{ height: 44 }}>
+        <select className="inp" aria-label="Class" value={cls} onChange={(e) => pickClass(e.target.value)} style={{ height: 44 }}>
           {classes.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       ) : null}
       <label className="nt-srch">
         <Ic n="search" size={18} />
         <span className="sr">Find a child</span>
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(p("Type a name", "नाम लिखें"))} />
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(p(`Type a name in ${clsLabel}`, `${clsLabel} में नाम लिखें`))} />
       </label>
       <div className="nx-c">
-        {shown.map((k, i) => {
-          const [bg, fg] = nameTone(k.name);
-          return (
-            <button key={k.id} type="button" className="tap row nx-f nt-ani" onClick={() => onPick(k.id)} style={{ width: "100%", gap: 12, minHeight: 52, padding: "6px 8px", border: 0, borderRadius: 12, background: "transparent", color: "var(--fg)", textAlign: "left", animationDelay: `${Math.min(i, 12) * 40}ms`, font: "inherit" }}>
-              <span className="num nx-m" style={{ width: 22, textAlign: "center", fontWeight: 700, fontSize: 12 }}>{k.rollNo ?? ""}</span>
-              <span className="nt-av" style={{ width: 34, height: 34, fontSize: 12, background: bg, color: fg }}>{ini(k.name)}</span>
-              <span className="nx-e" style={{ flex: 1, fontSize: teacher ? 15 : 14, fontWeight: 600 }}>{k.name}</span>
-              <span className="nx-m">{k.classLabel}</span>
-            </button>
-          );
-        })}
+        {shown.map((k, i) => <KidRow key={k.id} k={k} i={i} teacher={teacher} onPick={onPick} />)}
       </div>
-      <span className="nx-m">
-        {pool.length > 8
-          ? tx(p(`${pool.length - 8} more in this list — type a name to find them`, `इस सूची में ${pool.length - 8} और — नाम लिखकर खोजें`))
-          : pool.length === 0
-            ? tx(p("No child with that name. Check the spelling.", "इस नाम का कोई बच्चा नहीं। वर्तनी जाँचें।"))
-            : ""}
-      </span>
+      {here.length > limit ? (
+        <span className="nx-m">{tx(p(`${here.length - limit} more in ${clsLabel} — type a name to find them`, `${clsLabel} में ${here.length - limit} और — नाम लिखकर खोजें`))}</span>
+      ) : null}
+      {searching && others.length ? (
+        <>
+          <span className="sech">{here.length ? tx(p("Also in your other classes", "आपकी दूसरी कक्षाओं में भी")) : tx(p(`Not in ${clsLabel} — found in your other classes`, `${clsLabel} में नहीं — आपकी दूसरी कक्षाओं में मिले`))}</span>
+          <div className="nx-c">
+            {others.map((k, i) => <KidRow key={k.id} k={k} i={i} teacher={teacher} onPick={onPick} />)}
+          </div>
+        </>
+      ) : null}
+      {searching && here.length === 0 && others.length === 0 ? (
+        <span className="nx-m" role="status">{tx(p(`No child by that name in ${clsLabel} or your other classes. Try the first name only.`, `${clsLabel} या आपकी दूसरी कक्षाओं में इस नाम का कोई बच्चा नहीं। सिर्फ़ पहला नाम लिखकर देखें।`))}</span>
+      ) : null}
     </>
   );
 }
@@ -486,32 +580,48 @@ function LiveWords({ text, empty }: { text: string; empty?: string }) {
   );
 }
 
+/**
+ * What the composer keeps on this device while the teacher writes. It said
+ * "Saved as draft" / "ड्राफ़्ट सहेजा", which read as saved (smoke 20 Oct); it
+ * is kept, not saved, and says so.
+ */
+function keptLine(at: number): Pair {
+  const ago = agoP(new Date(at));
+  return p(`Kept on this device · ${ago.en} · not saved yet`, `अपने आप रखा गया · ${ago.hi} · अभी सहेजा नहीं`);
+}
+
 function speechNote(c: Composer): Pair {
-  if (c.speech.error) return p(c.speech.error);
+  if (c.speech.errorP) return c.speech.errorP;
   return c.speech.supported ? p("Uses your phone’s own voice typing.", "फ़ोन की अपनी आवाज़ से लिखाई इस्तेमाल होती है।") : p("Speaking is not available here. Use the mic on your keyboard.", "यहाँ बोलना उपलब्ध नहीं। कीबोर्ड का माइक इस्तेमाल करें।");
 }
 
-/** Who will read a note, in one line (design `ad.reach`, `cp.route`). */
+/**
+ * Who will read a note, in one line (design `ad.reach`, `cp.route`). A team
+ * note is read by every teacher of the class — subject teachers too, by
+ * `canSeeNote` — so the line says so (smoke 20 Oct: it named only the
+ * coordinator and the office, and a teacher asked whether subject teachers
+ * would see her question).
+ */
 export function readersLine(input: { child: ChildChoice | null; visibility: Visibility; tags: readonly NoteTag[]; viewer: ClientViewer; people: NotesPeople; followOn?: string | null }): Pair {
   const { child, visibility, tags, viewer, people, followOn } = input;
   if (!child) return p("Then speak or type what you noticed.", "फिर बोलें या लिखें कि आपने क्या देखा।");
   if (visibility === "private") return p("Only you can see this note.", "यह नोट सिर्फ़ आप देख सकते हैं।");
   const ct = people.classTeachers[child.classId] ?? null;
   const mine = viewer.heldClassIds.includes(child.classId);
-  const follow = followOn ? ` · follow-up ${day(followOn)}` : "";
-  const followHi = followOn ? ` · फ़ॉलो-अप ${day(followOn)}` : "";
+  const follow = followOn ? ` · look again ${day(followOn)}` : "";
+  const followHi = followOn ? ` · फिर देखना ${shortDayHi(followOn)}` : "";
   if (isSensitiveNote({ tags })) {
     return mine
       ? p(`You are the class teacher. Only you and the admin can see a health or family note${follow}.`, `आप कक्षा अध्यापक हैं। स्वास्थ्य या परिवार का नोट सिर्फ़ आप और प्रशासक देख सकते हैं${followHi}।`)
       : p(`Only the admin and the class teacher${ct ? ` ${ct}` : ""} can see a health or family note${follow}.`, `स्वास्थ्य या परिवार का नोट सिर्फ़ प्रशासक और कक्षा अध्यापक${ct ? ` ${ct}` : ""} देख सकते हैं${followHi}।`);
   }
   if (mine) {
-    const coord = people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator";
-    return p(`You are the class teacher. ${coord} and the office can see it${follow}.`, `आप कक्षा अध्यापक हैं। समन्वयक और कार्यालय इसे देख सकते हैं${followHi}।`);
+    const coord = people.coordinator ? `${people.coordinator} (coordinator)` : "the coordinator";
+    return p(`You are the class teacher. The class's subject teachers, ${coord} and the office can see it${follow}.`, `आप कक्षा अध्यापक हैं। कक्षा के विषय अध्यापक, समन्वयक और कार्यालय इसे देख सकते हैं${followHi}।`);
   }
   return ct
-    ? p(`${ct} (class teacher) will see it too${follow}.`, `${ct} (कक्षा अध्यापक) भी इसे देखेंगे${followHi}।`)
-    : p(`The class teacher will see it too${follow}.`, `कक्षा अध्यापक भी इसे देखेंगे${followHi}।`);
+    ? p(`${ct} (class teacher), the class's other teachers, the coordinator and the office will see it${follow}.`, `${ct} (कक्षा अध्यापक), कक्षा के दूसरे अध्यापक, समन्वयक और कार्यालय इसे देखेंगे${followHi}।`)
+    : p(`The class's teachers, the coordinator and the office will see it${follow}.`, `कक्षा के अध्यापक, समन्वयक और कार्यालय इसे देखेंगे${followHi}।`);
 }
 
 /* --------------------------------------------------------- board layout */
@@ -537,9 +647,10 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
   const child = c.child;
   const ct = child ? (people.classTeachers[child.classId] ?? null) : null;
   const on = c.step === "listening";
-  const dates = followDates(today, BOARD_DATES);
-  const followOn = c.follow ? (dates.find((d) => d.key === c.when)?.date ?? null) : null;
-  const me = viewer.isCoordinator ? "coordinator" : viewer.isAdmin ? "admin" : null;
+  const followOn = c.follow ? c.followOnDate : null;
+  // "Me" and the role the reader holds are one person: offer one choice (smoke 20 Oct).
+  const holds = child ? viewer.heldClassIds.includes(child.classId) : false;
+  const me = viewer.isCoordinator ? "coordinator" : viewer.isAdmin ? "admin" : holds ? "class_teacher" : null;
   const whos: { key: FollowOwner; label: string }[] = (
     [
       { key: "me", label: tx(p(`Me (${viewer.name.split(" ")[0]})`, `मैं (${viewer.name.split(" ")[0]})`)) },
@@ -559,11 +670,11 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
             <span className="nx-ib" style={{ borderRadius: 19, background: "var(--accs)", color: "var(--accfg)" }}>{child ? ini(child.name) : <Ic n="user" size={18} />}</span>
             <span className="nx-c" style={{ flex: 1 }}>
               <span className="nx-v">{child ? child.name : tx(p("Which child?", "कौन सा बच्चा?"))}</span>
-              <span className="nx-m">{child ? `${child.classLabel}${ct ? ` · ${tx(p("class teacher", "कक्षा अध्यापक"))} ${ct}` : ""}` : tx(p("Tap to choose the child", "बच्चा चुनने के लिए दबाएँ"))}</span>
+              <span className="nx-m">{child ? `${child.classLabel}${child.hint ? ` · ${tx(child.hint)}` : ""}${ct ? ` · ${tx(p("class teacher", "कक्षा अध्यापक"))} ${ct}` : ""}` : tx(p("Tap to choose the child", "बच्चा चुनने के लिए दबाएँ"))}</span>
             </span>
             <span className="nx-m" style={{ color: "var(--acc)", fontWeight: 700 }}>{child ? tx(p("Change", "बदलें")) : tx(p("Choose", "चुनें"))}</span>
           </button>
-          <OpenActionNotice c={c} base={base} today={today} onUpdate={(href) => router.push(href, { scroll: false })} />
+          <OpenActionNotice c={c} base={base} today={today} viewerId={viewer.id} onUpdate={(href) => router.push(href, { scroll: false })} />
 
           <div className="card nx-c" style={{ padding: "20px 18px", gap: 12, alignItems: "center", textAlign: "center" }}>
             {!on ? (
@@ -639,9 +750,10 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
             />
           </label>
           {c.errField === "text" ? <span style={{ fontSize: 13, fontWeight: 600, color: "var(--bad)", marginTop: -8, animation: "xIn .3s var(--ease) both" }}>{tx(p("Speak or type the note first.", "पहले नोट बोलें या लिखें।"))}</span> : null}
+          <NoteAssist body={c.body} childName={c.child?.name ?? null} onApply={(text, tags) => { c.setBody(text); c.setMode("type"); c.setErrField(null); if (tags?.length) c.setTags(tags); }} />
           <span className="nx-m nx-f" style={{ marginTop: -6, gap: 6 }}>
             <Ic n="cloud" size={16} />
-            {c.draftAt && c.body.trim() ? tx(p(`Saved as draft · ${agoP(new Date(c.draftAt)).en}`, `ड्राफ़्ट सहेजा · ${agoP(new Date(c.draftAt)).hi}`)) : tx(p("Drafts save by themselves", "ड्राफ़्ट अपने-आप सहेजे जाते हैं"))}
+            {c.draftAt && c.body.trim() ? tx(keptLine(c.draftAt)) : tx(p("What you write is kept here until you save", "सहेजने तक आपका लिखा यहीं रखा रहता है"))}
           </span>
           <span className="sech">{tx(p("Ready-made phrases", "तैयार वाक्य"))}</span>
           <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
@@ -676,19 +788,13 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
             onChange={(v) => c.setFollow(v === "yes")}
             options={[
               { value: "no", label: tx(p("Just noting", "सिर्फ़ जानकारी")) },
-              { value: "yes", label: tx(p("Needs follow-up", "फ़ॉलो-अप चाहिए")) },
+              { value: "yes", label: tx(p("Needs follow-up", "फिर से देखना है")) },
             ]}
           />
           {c.follow ? (
             <div className="nx-c" style={{ gap: 8, animation: "xIn .3s var(--ease) both" }}>
-              <span className="nx-m" style={{ fontWeight: 700 }}>{tx(p("Follow up on", "फ़ॉलो-अप कब"))}</span>
-              <div className="hs" style={{ display: "flex", gap: 6 }}>
-                {dates.map((d) => (
-                  <button key={d.key} type="button" className={`tap chip${c.when === d.key ? " on" : ""}`} aria-pressed={c.when === d.key} onClick={() => c.setWhen(d.key)}>
-                    {tx(d.label)}
-                  </button>
-                ))}
-              </div>
+              <span className="nx-m" style={{ fontWeight: 700 }}>{tx(p("Follow up on", "फिर कब देखें"))}</span>
+              <FollowDatePick c={c} today={today} board />
               <span className="nx-m" style={{ fontWeight: 700 }}>{tx(p("Who follows up", "कौन देखेगा"))}</span>
               <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
                 {whos.map((w) => (
@@ -733,7 +839,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
       </div>
       <Sheet open={picking} onClose={() => setPicking(false)} icon="user" title={tx(p("Which child?", "कौन सा बच्चा?"))} sub={tx(p("The class teacher of that class sees the note too", "उस कक्षा के अध्यापक भी नोट देखेंगे"))}>
         <div className="nx nx-c" style={{ gap: 10 }}>
-          <KidPicker kids={kids} notes={notes} viewerId={viewer.id} initialClass={initialClass} onPick={(id) => { c.pickChild(id); setPicking(false); }} />
+          <KidPicker kids={kids} notes={notes} viewerId={viewer.id} held={viewer.heldClassIds} initialClass={initialClass} onPick={(id) => { c.pickChild(id); setPicking(false); }} />
         </div>
       </Sheet>
     </div>
@@ -792,7 +898,6 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
   const child = c.child;
   const mine = child ? viewer.heldClassIds.includes(child.classId) : false;
   const ct = child ? (people.classTeachers[child.classId] ?? null) : null;
-  const dates = followDates(today);
   const sugg = suggestTags(c.body);
   const fromVoice = c.voice && c.body.trim().length > 0;
   const voiceIdle = !c.body && c.mode === "voice";
@@ -801,10 +906,12 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
   const sensitive = isSensitiveNote({ tags: c.tags });
   const msg = child ? parentNoteMessage({ childName: child.name, teacher: viewer.name, body: c.body.trim() || "…", school }) : null;
   const ready = Boolean(child) && c.body.trim().length > 0;
+  // The class teacher writing about her own class is "Me (class teacher)":
+  // one person, one choice (smoke 20 Oct offered both).
   const whos: { key: FollowOwner; label: string }[] = [
-    { key: "me", label: tx(p("Me", "मैं")) },
-    { key: "class_teacher", label: `${tx(p("Class teacher", "कक्षा अध्यापक"))}${!mine && ct ? ` · ${ct}` : ""}` },
-    { key: "coordinator", label: tx(p("Coordinator", "समन्वयक")) },
+    { key: "me", label: mine ? tx(p("Me (class teacher)", "मैं (कक्षा अध्यापक)")) : tx(p("Me", "मैं")) },
+    ...(mine ? [] : [{ key: "class_teacher" as const, label: `${tx(p("Class teacher", "कक्षा अध्यापक"))}${ct ? ` · ${ct}` : ""}` }]),
+    { key: "coordinator", label: `${tx(p("Coordinator", "समन्वयक"))}${people.coordinator ? ` · ${people.coordinator}` : ""}` },
     { key: "admin", label: tx(p("Admin", "प्रशासक")) },
   ];
   const pick = (id: string) => {
@@ -822,6 +929,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                 <span className="nt-av" style={{ width: 46, height: 46, fontSize: 14, background: nameTone(child.name)[0], color: nameTone(child.name)[1] }}>{ini(child.name)}</span>
                 <span className="nx-c" style={{ flex: 1 }}>
                   <span style={{ fontSize: 16, fontWeight: 700 }}>{child.name}</span>
+                  {child.hint ? <span className="nt-hn">{tx(child.hint)}</span> : null}
                   <span className="nx-m" style={{ fontSize: 12 }}>
                     {child.classLabel} · {mine ? tx(p("you are the class teacher", "आप कक्षा अध्यापक हैं")) : `${tx(p("you teach here", "आप यहाँ पढ़ाते हैं"))}${ct ? ` · ${tx(p("class teacher", "कक्षा अध्यापक"))} ${ct}` : ""}`}
                   </span>
@@ -829,9 +937,9 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                 <button type="button" className="tap btn sec" onClick={() => setPicking(true)}>{tx(p("Change", "बदलें"))}</button>
               </div>
             ) : (
-              <KidPicker kids={kids} notes={notes} viewerId={viewer.id} initialClass={initialClass} onPick={pick} teacher />
+              <KidPicker kids={kids} notes={notes} viewerId={viewer.id} held={viewer.heldClassIds} initialClass={initialClass} onPick={pick} teacher />
             )}
-            <OpenActionNotice c={c} base={base} today={today} onUpdate={(href) => router.push(href, { scroll: false })} />
+            <OpenActionNotice c={c} base={base} today={today} viewerId={viewer.id} onUpdate={(href) => router.push(href, { scroll: false })} />
           </StepCard>
 
           <StepCard
@@ -839,9 +947,10 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
             title={p("What did you notice?", "आपने क्या देखा?")}
             style={{ borderColor: c.errField === "text" ? "var(--bad)" : undefined }}
             right={c.draftAt && c.body.trim() ? (
-              <span className="pill nt-ani" style={{ background: "var(--oks)", color: "var(--ok)" }}>
+              // Grey, not green: kept on this device is not saved.
+              <span className="pill nt-ani" style={{ background: "var(--s2)", color: "var(--mut)" }}>
                 <Ic n="cloud" size={12} />
-                {tx(p(`Saved as draft · ${agoP(new Date(c.draftAt)).en}`, `ड्राफ़्ट सहेजा · ${agoP(new Date(c.draftAt)).hi}`))}
+                {tx(keptLine(c.draftAt))}
               </span>
             ) : undefined}
           >
@@ -887,6 +996,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                     style={{ minHeight: 120, fontSize: 16 }}
                   />
                 </label>
+                <NoteAssist body={c.body} childName={c.child?.name ?? null} onApply={(text, tags) => { c.setBody(text); c.setMode("type"); c.setErrField(null); if (tags?.length) c.setTags(tags); }} />
                 <div className="nx-f" style={{ flexWrap: "wrap", gap: 8 }}>
                   <button type="button" className="tap btn soft" onClick={() => (fromVoice ? (c.setBody(""), c.listen(false)) : c.listen(Boolean(c.body.trim())))}>
                     <Ic n="mic" size={18} />
@@ -948,19 +1058,13 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
               onChange={(v) => c.setFollow(v === "yes")}
               options={[
                 { value: "no", label: <SegLabel t={p("Just noting", "सिर्फ़ नोट")} /> },
-                { value: "yes", label: <SegLabel t={p("Needs follow-up", "ध्यान देना है")} /> },
+                { value: "yes", label: <SegLabel t={p("Needs follow-up", "फिर से देखना है")} /> },
               ]}
             />
             {c.follow ? (
               <div className="nx-c nt-ani" style={{ gap: 10 }}>
                 <span className="sech">{tx(p("When", "कब"))}</span>
-                <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
-                  {dates.map((d) => (
-                    <button key={d.key} type="button" className={`tap chip${c.when === d.key ? " on" : ""}`} aria-pressed={c.when === d.key} onClick={() => c.setWhen(d.key)}>
-                      {tx(d.label)}
-                    </button>
-                  ))}
-                </div>
+                <FollowDatePick c={c} today={today} />
                 <span className="sech">{tx(p("Who follows up", "कौन देखेगा"))}</span>
                 <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
                   {whos.map((w) => (
@@ -991,7 +1095,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                 ? tx(p("Only you will see this note. Good for private thoughts.", "यह नोट सिर्फ़ आप देखेंगे। निजी बातों के लिए ठीक।"))
                 : sensitive
                   ? tx(p(`A health or family note: only the admin and ${firstName ? `${firstName}’s` : "the"} class teacher can see it. Parents never see notes.`, "स्वास्थ्य या परिवार का नोट: सिर्फ़ प्रशासक और कक्षा अध्यापक देख सकते हैं। माता-पिता नोट कभी नहीं देखते।"))
-                  : tx(p(`Teachers of ${firstName || "the child"}, the coordinator and the office can see it. Parents never see notes.`, `${firstName || "बच्चे"} के शिक्षक, समन्वयक और कार्यालय इसे देख सकते हैं। माता-पिता नोट कभी नहीं देखते।`))}
+                  : tx(p(`All of ${firstName || "the child"}’s teachers (class teacher and subject teachers), the coordinator and the office can see it. Parents never see notes.`, `${firstName || "बच्चे"} के सभी अध्यापक (कक्षा अध्यापक और विषय अध्यापक), समन्वयक और कार्यालय इसे देख सकते हैं। माता-पिता नोट कभी नहीं देखते।`))}
             </span>
           </StepCard>
 
@@ -1016,7 +1120,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                 <span className="nx-m" style={{ fontSize: 12 }}>{tx(p(`Queued for the office to send · 1 WhatsApp from the school’s number · about ${COST}`, `कार्यालय भेजेगा · स्कूल के नंबर से 1 व्हाट्सऐप · लगभग ${COST}`))}</span>
               </>
             ) : (
-              <span className="nx-m" style={{ fontSize: 12 }}>{c.visibility === "private" ? tx(p("Not for “Only me” notes.", "“सिर्फ़ मैं” नोट के लिए नहीं।")) : tx(p("Off · parents are not told. Turn on to queue a WhatsApp after saving.", "बंद · माता-पिता को नहीं बताया जाएगा। सहेजने के बाद व्हाट्सऐप के लिए चालू करें।"))}</span>
+              <span className="nx-m" style={{ fontSize: 12 }}>{c.visibility === "private" ? tx(p("Not for “Only me” notes.", "“सिर्फ़ मैं” नोट के लिए नहीं।")) : tx(p("Off · parents are not told. Turn it on and, when you save, the office sends the parents a WhatsApp.", "बंद · माता-पिता को नहीं बताया जाएगा। चालू करेंगे तो सहेजने पर ऑफ़िस माता-पिता को व्हाट्सऐप भेजेगा।"))}</span>
             )}
           </div>
         </div>
@@ -1025,7 +1129,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
         <span className="nx-c nt-rt" style={{ flex: 1 }}>
           <span className="nt-f14" style={{ fontSize: 14, fontWeight: 700 }}>{child ? tx(p(`Note about ${child.name}`, `${child.name} के बारे में नोट`)) : tx(p("Pick a child first", "पहले बच्चा चुनें"))}</span>
           <span className="nx-m" role={c.error ? "alert" : undefined} style={{ fontSize: 12, color: c.error ? "var(--bad)" : undefined, fontWeight: c.error ? 600 : undefined }}>
-            {c.error ? tx(c.error) : tx(readersLine({ child, visibility: c.visibility, tags: c.tags, viewer, people, followOn: null }))}
+            {c.error ? tx(c.error) : tx(readersLine({ child, visibility: c.visibility, tags: c.tags, viewer, people, followOn: c.follow ? c.followOnDate : null }))}
           </span>
         </span>
         <button type="button" className="tap btn pri nt-big mfull" disabled={c.pending || c.saveUncertain} onClick={() => c.save(onSaved)} style={{ opacity: ready ? 1 : 0.6 }}>
@@ -1108,6 +1212,9 @@ function savedReaders(note: BoardNote, viewer: ClientViewer, people: NotesPeople
     out.push({ label: `${people.admin ?? tx(p("Admin", "प्रशासक"))} · ${tx(p("admin", "प्रशासक"))}`, initials: people.admin ? ini(people.admin) : "AD" });
     return out;
   }
+  // Every teacher of the class reads a team note (canSeeNote); the chips left
+  // the subject teachers out (smoke 20 Oct).
+  out.push({ label: tx(p(`${note.classLabel} · subject teachers`, `${note.classLabel} · विषय अध्यापक`)), initials: "ST" });
   out.push({ label: `${people.coordinator ?? tx(p("Coordinator", "समन्वयक"))} · ${tx(p("coordinator", "समन्वयक"))}`, initials: people.coordinator ? ini(people.coordinator) : "CO" });
   out.push({ label: tx(p("Office", "कार्यालय")), initials: "OF" });
   return out;
@@ -1122,12 +1229,13 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
   const line: string[] = [];
   if (note.visibility !== "team") line.push(tx(p("Only you can see this note.", "यह नोट सिर्फ़ आप देख सकते हैं।")));
   else if (isSensitiveNote(note)) line.push(tx(p("Only the admin and the class teacher can see it now.", "अब सिर्फ़ प्रशासक और कक्षा अध्यापक इसे देख सकते हैं।")));
-  else if (mine) line.push(tx(p(`${people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator"} and the office can see it now.`, "समन्वयक और कार्यालय अब इसे देख सकते हैं।")));
-  else line.push(tx(p(`${ct ?? "The class teacher"} (class teacher) and the coordinator can see this.`, `${ct ?? "कक्षा अध्यापक"} (कक्षा अध्यापक) और समन्वयक इसे देख सकते हैं।`)));
+  else if (mine) line.push(tx(p(`The class's subject teachers, ${people.coordinator ? `${people.coordinator} (coordinator)` : "the coordinator"} and the office can see it now.`, "कक्षा के विषय अध्यापक, समन्वयक और कार्यालय अब इसे देख सकते हैं।")));
+  else line.push(tx(p(`${ct ?? "The class teacher"} (class teacher), the class's other teachers, the coordinator and the office can see it.`, `${ct ?? "कक्षा अध्यापक"} (कक्षा अध्यापक), कक्षा के दूसरे अध्यापक, समन्वयक और कार्यालय इसे देख सकते हैं।`)));
   if (note.tellParents) line.push(tx(p("A WhatsApp to the parents is queued for the office.", "माता-पिता के लिए व्हाट्सऐप कार्यालय की कतार में है।")));
-  if (note.needsFollowUp && note.followUpOn) line.push(tx(p(`Reminder on ${day(note.followUpOn)}.`, `${day(note.followUpOn)} को याद दिलाया जाएगा।`)));
+  if (note.needsFollowUp && note.followUpOn) line.push(tx(p(`Reminder on ${day(note.followUpOn)}.`, `${shortDayHi(note.followUpOn)} को याद दिलाया जाएगा।`)));
   const timeline = notes.filter((n) => n.studentId === note.studentId);
   const who = savedReaders(note, viewer, people, tx);
+  const words = useNoteWords(viewer.id);
   return (
     <div className="pad nx-c" style={{ padding: "26px 28px 40px", gap: 18, maxWidth: 780, margin: "0 auto", width: "100%", animation: "xPush .36s var(--ease) both" }}>
       <div className="nx-c" style={{ alignItems: "center", gap: 10, textAlign: "center" }}>
@@ -1148,7 +1256,7 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
         </div>
       </div>
       <div className="nx-c" style={{ gap: 10 }}>
-        <span className="sech">{tx(p(`${note.studentName}’s notes · timeline`, `${note.studentName} के नोट्स · समय-रेखा`))}</span>
+        <span className="sech">{tx(p(`${words.name(note)}’s notes · timeline`, `${words.name(note)} के नोट्स · समय-रेखा`))}</span>
         {timeline.map((n) => {
           const me = n.id === note.id;
           const stage = noteStage(n);
@@ -1170,7 +1278,7 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
                 <span style={{ fontSize: 15 }}>{n.body}</span>
                 <span className="nx-m" style={{ fontSize: 12 }}>
                   {n.writtenBy === viewer.id ? `${viewer.name} (${tx(p("you", "आप"))})` : n.writtenByName}
-                  {n.needsFollowUp && n.followUpOn ? ` · ${tx(p("follow up", "फ़ॉलो-अप"))} ${day(n.followUpOn)}${ownerRoleText(n.followUpOwner) ? ` · ${tx(ownerRoleText(n.followUpOwner)!)}` : ""}` : ""}
+                  {n.needsFollowUp && n.followUpOn ? ` · ${tx(p(`follow up ${day(n.followUpOn)}`, `फिर देखना ${shortDayHi(n.followUpOn)}`))}${words.who(n) ? ` · ${words.who(n)}` : ""}` : ""}
                 </span>
               </div>
             </div>

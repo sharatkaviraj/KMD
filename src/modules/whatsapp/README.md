@@ -4,8 +4,8 @@ Fee reminders and the message templates behind them.
 
 | | |
 |---|---|
-| Route | /protected/reminders (+ campaigns, runs) · /protected/admin-tools/whatsapp-templates |
-| Files | 20 domain · 10 data · 15 ui |
+| Route | /fees/reminders (+ fix, families, ladder, notices, campaigns, runs) · /fees/admin-tools/whatsapp-templates |
+| Files | 31 domain · 17 data · 24 ui |
 
 ## Owns
 
@@ -15,7 +15,7 @@ Fee reminders and the message templates behind them.
 - Reminder cadence — which families to remind, and how often
 - The AiSensy send path
 - The fee calendar's read of who is due a reminder today (`domain/installment-calendar.ts`)
-- Grouping the audience into families, one message per phone (`domain/family-grouping.ts`)
+- Grouping the audience into families, one message per family: a shared number or linked siblings (`domain/family-grouping.ts`)
 - Turning the same audience into paper a teacher can carry (`domain/collection-list.ts`)
 
 ## Invariants
@@ -83,8 +83,8 @@ Fee reminders and the message templates behind them.
   to `skip_open`. A tile href carries the hand-picked students; the office is
   refining a list, not rebuilding one.
 - **The amount is DERIVED from the tiles, never chosen.** `quotedAmountFor` —
-  fees still pending on the selected installments, or the carry-forward
-  remainder on Last year. The ledger late fee the three account-balance
+  fees still pending on the selected installments, plus the carry-forward
+  remainder when Last year is on. The ledger late fee the three account-balance
   notices print is scoped to the same tiles (`lateFeeOnSelected`), so
   "Installment 2 only" for a family late on 1 and 2 quotes installment 2's late
   fee beside installment 2's fees — `loadAppliedLateFees` keeps the figures per
@@ -127,7 +127,7 @@ Fee reminders and the message templates behind them.
   persisting one would message that family every night. `savedAudienceFrom`
   reads every key concretely and has no legacy branch — production held zero
   rows when the tiles shipped on 2026-09-10 — and `savedAudienceParams` emits
-  every key, `installments=last_year` included, or a Last-year campaign would
+  every key, `last_year` in `installments` included, or a Last-year campaign would
   replay on the calendar's default and chase this year's installments under
   last year's wording.
 - **One list of query keys** (`REMINDER_QUERY_KEYS`) and one serialiser
@@ -139,8 +139,18 @@ Fee reminders and the message templates behind them.
   form posts, so a key missing there messages a different set of families than
   the office ticked.
 - **`installments` carries the tiles, and the token `last_year` IS the
-  Last-year tile.** One key, so Last year and the installments are exclusive by
-  construction — no URL can carry both. Absent, blank or garbage
+  Last-year tile.** One key, and since 2026-10-28 the two COMBINE:
+  `1,2,last_year` chases installments 1 and 2 OR last session's balance, and
+  asks for both added (`quotedAmountFor`). The any/all match is among the
+  installments only. Slot {{4}} reads "किश्त 1 एवं 2 + पिछले सत्र 2025-26 का
+  बकाया" through `scopePhrase` — one composition for a child and for a whole
+  phone. It is composed on the SERVER (`scopeLinesFor`, carried as
+  `ReminderCandidate.scopeLine`) so the wording never reaches the browser:
+  the test panel runs `noticeValuesFrom` client-side on a route whose gzip
+  ceiling only ratchets down, and composing it there cost 176 bytes. The
+  Balance notice's headline adds the carry-forward too. Last
+  year opens ON beside the calendar's installments once one has passed
+  (`defaultLastYearFor`). Absent, blank or garbage
   (`0,9,banana`) opens on the calendar's default: zero tiles is not a state,
   because the quoted amount is derived from them and an empty set would quote
   ₹0. `parseInstallmentsValue` is the one reader, for the URL, the posted form
@@ -151,10 +161,15 @@ Fee reminders and the message templates behind them.
 - **The collection lists are per STUDENT.** Family grouping is for messages; a class teacher collects from children, and siblings sit in different classes.
 - **The send screen gains no client JavaScript.** `/protected/reminders` has ~800 gzip bytes of headroom; every download, share and copy control lives on `/protected/reminders/lists`.
 - Cadence decides who is due a reminder. It exists so staff stop unticking the same families by hand every day.
-- **The calendar decides the installments, not a constant.** `defaultInstallmentsFor(calendar)` — every installment past its due date, else the next, else 1 — is resolved once, in `parseReminderFilters`, so the filter, the quoted amount and the slot {{4}} phrase cannot disagree. Slot {{4}} names the selected tiles on EVERY notice (the previous session on Last year); the per-notice `contextInstallments` and `TEMPLATE_INSTALLMENTS` are gone.
+- **The calendar decides the installments, not a constant.** `defaultInstallmentsFor(calendar)` — every installment past its due date, else the next, else 1 — is resolved once, in `parseReminderFilters`, so the filter, the quoted amount and the slot {{4}} phrase cannot disagree. Slot {{4}} names the selected tiles on EVERY notice (the previous session on Last year, added after the installments when both are on); the per-notice `contextInstallments` and `TEMPLATE_INSTALLMENTS` are gone.
 - **A late fee is read, never derived.** `late_fee_applied` quotes `v_workbook_installment_balances.late_fee_pending`. The view is the only thing that knows about waivers and the accrual rule at once — recomputing it in TypeScript is the trap `waive_late_fee` fell into from the other side.
 - **Fees and the late fee reach the message in separate slots.** `pending_amount` is fees, `late_fee_pending` is the late fee, and only `total_pending` adds them. A message folding the first two together would be the first place "a late fee is not a fee" broke.
-- **One phone, one message.** The audience is derived per student because the ledger and the send log are keyed that way, but `sendFamily` groups by destination. Siblings get `covered_by_sibling` rows carrying the messaged sibling's `provider_message_id`, so the unique index, the cadence gap and the run outcomes all still work per student. Since 2026-09-04 a phone with siblings gets the family template on fee_due, balance and upcoming (`domain/family-notice.ts` decides; `late_fee_applied` stays per-child until its date and total slots have a source), and every row carries the name of the message that went — so "already messaged today" reads BOTH names a notice can log under. `app_settings.whatsapp_one_message_per_family = 'false'` switches the grouping off (one message per child, as before 2026-09-05); both the Send button and the cron read it through `data/reminder-settings.ts`.
+- **One family, one message.** A family is every child on the list joined by a shared number OR by the office's sibling link (`student_family_members`), chained. The audience loader draws it once (`familyKeysFor` → each candidate's `familyKey`), and the screen's message count, the budget guard and the sender all group by that key.
+  - The message goes to the spokesperson's number, the biggest debt's.
+  - A linked sibling's own number is the family's second number for escalation.
+  - Until 2026-10-30 only the number counted, so 41 of 96 linked families got one message per number.
+  - If the links cannot be read, grouping falls back to the number alone.
+- **The audience is derived per student** because the ledger and the send log are keyed that way, but `sendFamily` sends per family. Siblings get `covered_by_sibling` rows carrying the messaged sibling's `provider_message_id`, so the unique index, the cadence gap and the run outcomes all still work per student. Since 2026-09-04 a phone with siblings gets the family template on fee_due, balance and upcoming (`domain/family-notice.ts` decides; `late_fee_applied` stays per-child until its date and total slots have a source), and every row carries the name of the message that went — so "already messaged today" reads BOTH names a notice can log under. `app_settings.whatsapp_one_message_per_family = 'false'` switches the grouping off (one message per child, as before 2026-09-05); both the Send button and the cron read it through `data/reminder-settings.ts`.
 - **Language belongs to the family.** The run's language is a default; `student_collection_flags.whatsapp_language` overrides it, and the send row records what actually went out.
 - **`approved` is explicit on every descriptor.** `campaignFor` refuses an unapproved campaign, and the picker shows the chip disabled rather than hiding it. All eighteen `_v3` campaigns have been approved and Live since 2026-09-04; the ten `_v4` (waiver window, waiver last call, overdue final, promise due, exam clearance) went Live on 2026-09-08, the day they were submitted. Approval is changed in code and deployed, never from a screen or a settings row.
 - **The late fee has TWO MODES, on every notice, and the office picks.**
@@ -174,7 +189,123 @@ Fee reminders and the message templates behind them.
   about the ledger, and the counter will ask for something different.
   `describeLateFeeDrift` takes `statesAccountBalance` for exactly that, and it
   still warns rather than blocks — it is the owner's school and the owner's call.
+- **A failed send is retried the same day, but only a definite rejection.** `sendOne` takes a `failed` row back to `pending` on the next run (fees 1b932785). In a real session a failure whose fate is unknown — a network error or a 5xx, recorded with the `delivery-unknown:` prefix (`DELIVERY_UNKNOWN_PREFIX` in `data/aisensy.ts`) — stays claimed: AiSensy may already have accepted it, and one parent missed beats one parent messaged twice. A TEST session retries any row, `sent` included, and its `pay_code` is rotated, which retires the earlier message's link (fees 31e85d27). One differs from the fees app here (D-352).
 - **The ledger-quoted notices never take a late fee from the screen.** `late_fee_applied` and the two waiver notices quote `late_fee_pending` per family (`LEDGER_QUOTED_SITUATIONS`); the control is replaced by hidden inputs. `promise_due` prints each family's own promised date (`RUN_DATE_FREE_SITUATIONS`), so the run's date is neither shown nor guarded on it.
+
+- **A reminder profile is an audience filter, never a property of the template.**
+  `domain/reminder-profile.ts` — On-time, Standard, Chronic, Hardship, Quiet. An
+  unset profile is the ledger's SUGGESTION, recomputed on every load (late fees
+  on two passed installments → Chronic, a clean record → On-time, an active
+  repayment plan → Hardship); `student_collection_flags.whatsapp_profile` fixes a
+  family in place. The run picks which profiles it reaches (`profiles` in the one
+  query-key list), Hardship and Quiet are out by default, and a family held out
+  is a `profile` hold-back — named on the screen, kept on the collection lists,
+  never silently missing. Do not branch a notice on a profile: the reminder plan
+  picks profiles per step as a saved audience, which is the only way they meet.
+- **The reminder plan is saved campaigns, nothing else.** `domain/reminder-ladder.ts`
+  writes the same steps around every installment as ordinary campaigns with a
+  schedule (`ladderStep`, `messageDateOffsetDays`), so the due card, the runner
+  and every guard treat them like a hand-built campaign. A step's printed date
+  moves with its installment; "Set up" creates only what is missing; nothing is
+  created by looking.
+- **The morning timer is the database's.** pg_cron calls
+  `/api/cron/whatsapp-scheduled-runs` at 09:30 IST (`20261026120020`) with Vault's
+  `VPPS_WHATSAPP_CRON_SECRET`, which the route checks in Postgres
+  (`whatsapp_cron_secret_matches`, `20261027090000`) — one copy, never returned.
+  Only campaigns ticked "sends itself" go; without the Vault secret it calls nothing.
+- **The workspace gets `WorkspaceCandidate` only** (`ui/workspace-candidate.ts`),
+  mapped on the server, because the whole audience used to travel to the phone
+  on every tap. Every Reminders link is the shell's `NavLink` (progress bar);
+  Narrow down's yes/no questions are one-tap links, not a form.
+- **The send screen explains its own number.** Each tile reads "1 of 134" when
+  Narrow down hides families; the headline names each filter as a removable chip
+  with how many it hides, and "Why N?" splits everyone owing on the tiles by the
+  first thing keeping them off. The send bars count billed messages — one per
+  phone when siblings are grouped, two once the other parent is escalated to.
+- **`_v6` is one template for one child or several, with Pay now.**
+  `domain/campaign-bodies-v6.ts` (bodies — server only) and
+  `domain/campaign-generation.ts` (names and the approval set — safe anywhere).
+  Until a name is in `APPROVED_V6`, every path sends the older generation exactly
+  as before. The Pay now button's URL suffix is the send's own `pay_code`.
+  `late_fee_applied` has no Pay now: its headline is fees plus late fee, and the
+  pay page shows fees only.
+- **Pay now opens the one-screen pay page** (`src/app/pay/[code]`) for one to four
+  children, and a UPI Payment Link takes the money. Live for every family since
+  2026-10-30. A send's `pay_code` is rotated when a test session resends the same
+  child the same day, which retires the earlier message's link.
+- **School notices are their own lane.** `school_notice_sends`, their own budget,
+  their own screen. A fee profile or cadence never stops an absence alert; the
+  no-call flag and quiet hours do.
+
+## The failure desk (2026-10-30)
+
+`/protected/reminders/fix` lists every family a fee reminder did not reach, why,
+and the one thing that fixes it. `data/fix-desk.ts` reads it, and
+`domain/fix-desk.ts` holds the rules.
+
+- **Five lanes.**
+  - Refused: `status = 'failed'`, AiSensy said no.
+  - Not delivered: `sent` and `delivery_status = 'failed'`, from the report CSV or the webhook.
+  - No answer: still `pending` after 15 minutes.
+  - No usable number.
+  - Left out: owes on passed installments and has a number, but has not been reached since the latest passed due date.
+
+  The tab's red count is the number of cards: the tab and the page both read `loadFixDesk`, under `cache()`.
+- **One cause rule.** `domain/failure-cause.ts` turns AiSensy's text, WhatsApp's
+  code (131026 …) and the HTTP status into one of nine causes. The sender, the
+  report import and the webhook all write `failure_cause` through it. Each
+  cause sets the row's words (English and Hindi), its button, and whether
+  Resend is allowed (`resendPolicyFor`). Template and account faults are the
+  school's, so they show as one banner for the group, not as forty rows.
+- **Resend is not a second send path.** It rebuilds the Send screen's form:
+  the run's notice, language and installments, the failed children named by
+  hand, plus `withFamily` and `skipNothingDue`. That form goes to
+  `sendRemindersAction`. So the resend gets:
+  - every guard;
+  - the budget;
+  - the ledger re-check of every child;
+  - the claim. The sender takes a failed row back with an update guarded on its
+    status, so two presses at once send ONE message.
+
+  The old run-page retry re-sent stored params with no claim and re-quoted
+  one-child Pay now rows only. It now goes through the same path.
+- **An undelivered message reached nobody.** `loadSentToday` and `loadLastSentOn`
+  skip `delivery_status = 'failed'`, and the sender's reclaim takes such a row
+  back, so a family WhatsApp did not deliver to is still due today's reminder.
+  The filter is `or(delivery_status.is.null, delivery_status.neq.failed)` —
+  `neq` alone drops the NULLs, which is every row no report has touched.
+- **A dead number is not paid for twice.** The `whatsapp_number_health` table is
+  keyed by the last ten digits and written by trigger. A number is dead while
+  its latest word is not_on_whatsapp, invalid_number or opted_out, with nothing
+  delivered since. `pickFamilyNumber` (`domain/phone-numbers.ts`) then picks the other
+  parent's number, and the audience and the desk share it, so "Resend to
+  mother's number" is what the send does. With neither number usable, the
+  family is listed on the cannot-reach page with `reason = 'dead'`. Re-typing a
+  rejected number in the sheet needs a tick, so the office vouches for it on purpose.
+- **History is the database's job.** `whatsapp_send_attempts` gets one append-only
+  row for each:
+  - provider answer;
+  - delivery result;
+  - human resolution.
+
+  The `whatsapp_send_after_write` trigger writes it, so no code path can forget.
+  `whatsapp_send_before_update` counts a reclaim as the next attempt and clears
+  the previous message's delivery result.
+- **Delivered-later and paid-since are derived, never stored.** A failure is "sorted itself" when:
+  - a later reminder reached the child; or
+  - nothing is owed any more on the installments it asked for.
+
+  The ledger and the send log decide, so the desk cannot disagree with them.
+  `resolution` stores only what a person says: called, slip_sent, or dismissed
+  with a reason.
+- **One report import covers the session.** An AiSensy campaign report spans
+  every run that used the template. Rows are matched by message id. The
+  phone + day fallback fires only for a report row with NO id: a row whose id
+  matches nothing is a message since resent, and matching it by phone would
+  mark the resend failed.
+- **Numbers are fixed with the staff member's own client.** The
+  `audit_students` trigger records who changed what. Siblings who carried the
+  same old number change with it when ticked.
 
 ## Never
 

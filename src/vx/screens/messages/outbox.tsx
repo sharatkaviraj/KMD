@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 
 import {
   approveCalendarNoticeAction,
+  clearOutOfDateAction,
   declineCalendarNoticeAction,
   prepareReminderBatchAction,
   sendByHandAction,
@@ -40,7 +41,7 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
   const [query, setQuery] = useState("");
   const [handoff, setHandoff] = useState<{ key: string; link: string } | null>(null);
   const inFlight = useRef(false);
-  const failed = p("That action could not be confirmed. Reload before trying again.", "उस कार्य की पुष्टि नहीं हो सकी। फिर कोशिश से पहले पेज फिर खोलें।");
+  const failed = p("Not sure that went through. Reload before trying again.", "पता नहीं वह हुआ या नहीं। फिर कोशिश से पहले पेज फिर खोलें।");
 
   const after = (result: OutboxResult) => {
     toast.show({ text: tx(result.message), tone: result.ok ? "ok" : "bad" });
@@ -91,9 +92,10 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
   };
 
   const q = query.trim().toLowerCase();
-  const shown = data.items.filter((i) => !q || `${i.name} ${i.about} ${i.group} ${i.phone}`.toLowerCase().includes(q));
+  const shown = data.items.filter((i) => !q || `${i.name} ${i.about} ${tx(i.groupLabel)} ${i.phone}`.toLowerCase().includes(q));
   const groups = new Map<string, OutboxItem[]>();
   for (const item of shown) groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
+  const stale = data.outOfDate.length + data.repeats;
   const waiting = data.items.filter((i) => i.status === "queued").length;
 
   return (
@@ -103,7 +105,7 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
         {tx(
           p(
             `Open WhatsApp with the message filled in and press send there. Then return here and choose I sent it. Opening or closing WhatsApp keeps the message in To send until you confirm; Undo works for ${UNDO_MINUTES} minutes after confirmation. Nothing is sent by the app.`,
-            `WhatsApp में तैयार संदेश खोलें और वहाँ भेजें। फिर यहाँ लौटकर मैंने भेज दिया चुनें। पुष्टि होने तक संदेश भेजने की सूची में रहेगा। पुष्टि के बाद ${UNDO_MINUTES} मिनट तक वापस रख सकते हैं। ऐप कोई संदेश नहीं भेजता।`,
+            `WhatsApp में तैयार संदेश खोलें और वहाँ भेजें। फिर यहाँ लौटकर "मैंने भेज दिया" चुनें। तब तक संदेश भेजने की सूची में रहेगा। उसके बाद ${UNDO_MINUTES} मिनट तक वापस रख सकते हैं। ऐप कोई संदेश नहीं भेजता।`,
           ),
         )}
       </Banner>
@@ -156,13 +158,33 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
         <SearchBox value={query} onChange={setQuery} placeholder={tx(p("Search name or class", "नाम खोजें"))} style={{ width: 260 }} />
       </div>
 
+      {stale > 0 ? (
+        <Banner tone="warn">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span>
+              {tx(
+                p(
+                  `${data.outOfDate.length ? `${data.outOfDate.length} ${data.outOfDate.length === 1 ? "message speaks" : "messages speak"} of a day that has passed (like "absent today" from an earlier day), so ${data.outOfDate.length === 1 ? "it is" : "they are"} kept off this list. ` : ""}${data.repeats ? `${data.repeats} repeated ${data.repeats === 1 ? "copy is" : "copies are"} folded into one row. ` : ""}Clear them so nobody sends them by mistake; they stay on record.`,
+                  `${data.outOfDate.length ? `${data.outOfDate.length} संदेश बीते दिन के हैं (जैसे पहले के दिन का "आज अनुपस्थित"), इसलिए सूची से अलग रखे गए हैं। ` : ""}${data.repeats ? `${data.repeats} दोहराए संदेश एक पंक्ति में जोड़े गए हैं। ` : ""}इन्हें हटा दें ताकि कोई ग़लती से न भेजे; रिकॉर्ड में रहेंगे।`,
+                ),
+              )}
+            </span>
+            <span>
+              <Btn variant="sec" icon="x" disabled={pending} onClick={() => run("clear-stale", clearOutOfDateAction)}>
+                {busy === "clear-stale" ? "…" : tx(p("Clear out-of-date and repeated", "पुराने और दोहराए संदेश हटाएँ"))}
+              </Btn>
+            </span>
+          </div>
+        </Banner>
+      ) : null}
+
       {data.items.length === 0 ? (
         <EmptyState icon="send" title={tx(p("Nothing to send", "भेजने को कुछ नहीं"))} body={tx(p("Notices, fee reminders and teachers' messages to parents appear here once they are ready.", "सूचनाएँ, फीस रिमाइंडर और शिक्षकों के संदेश तैयार होने पर यहाँ दिखेंगे।"))} />
       ) : null}
 
       {[...groups.entries()].map(([group, rows]) => (
         <div key={group} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <SecHead action={<span style={{ fontSize: 12, color: "var(--mut)" }}>{rows.filter((r) => r.status === "queued").length}</span>}>{group}</SecHead>
+          <SecHead action={<span style={{ fontSize: 12, color: "var(--mut)" }}>{rows.filter((r) => r.status === "queued").length}</span>}>{tx(rows[0].groupLabel)}</SecHead>
           <Card pad={false} style={{ overflow: "hidden" }}>
             {rows.map((item, i) => (
               <div key={`${item.source}${item.id}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : undefined }}>
@@ -170,6 +192,8 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
                   <div style={{ fontWeight: 600 }}>
                     {item.name}
                     {item.about ? <span style={{ color: "var(--mut)", fontWeight: 400 }}> · {item.about}</span> : null}
+                    {item.forDay ? <span style={{ color: "var(--mut)", fontWeight: 400 }}> · {dateLabel(item.forDay)}</span> : null}
+                    {item.copies && item.copies > 1 ? <span style={{ color: "var(--warnfg)", fontWeight: 600, fontSize: 12 }}> · {tx(p(`queued ${item.copies} times`, `${item.copies} बार कतार में`))}</span> : null}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--mut)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={item.preview}>
                     {item.phone} · {item.preview.split("\n").find((l) => l.trim()) ?? ""}

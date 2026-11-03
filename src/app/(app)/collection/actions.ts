@@ -5,6 +5,15 @@ import { revalidatePath } from "next/cache";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
+import {
+  assertClassVisible,
+  assertCollectionRequestVisible,
+  assertMessageSendVisible,
+  assertNotTestAccount,
+  assertSessionWritable,
+  assertStudentVisible,
+  passesFence,
+} from "@/platform/auth/test-session-access";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
   classLabelMap,
@@ -31,10 +40,7 @@ import {
   setTemplateActive,
   upsertTemplate,
 } from "@/modules/collection/data/messages-repo";
-import {
-  deleteDocument,
-  storeDocument,
-} from "@/modules/collection/data/documents-repo";
+import { deleteDocument, openableDocument } from "@/modules/collection/data/documents-repo";
 import { fieldSchema, slugFieldKey } from "@/modules/collection/domain/fields";
 import {
   requestInputSchema,
@@ -43,11 +49,6 @@ import {
 import { decideSchema, decisionSentence } from "@/modules/collection/domain/review";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { needsProviderReconciliation, isGenericMessageTemplate } from "@/modules/collection/domain/messages";
-import {
-  checkDocument,
-  documentKinds,
-  type DocumentKind,
-} from "@/modules/collection/domain/review";
 import { queueSchema, templateSchema } from "@/modules/collection/domain/messages";
 import {
   idleCollectionState,
@@ -89,6 +90,8 @@ export async function saveFieldAction(
   formData: FormData,
 ): Promise<CollectionState> {
   const actor = await assertPermission("collection:manage");
+  // Fields are shared by every session and every form: never a test account.
+  if (!(await passesFence(() => assertNotTestAccount(actor)))) return failure(m.accessDenied);
 
   const labelEn = (formData.get("labelEn") ?? "").toString();
   const givenKey = (formData.get("key") ?? "").toString().trim();
@@ -137,7 +140,8 @@ export async function saveFieldAction(
 }
 
 export async function retireFieldAction(formData: FormData) {
-  await assertPermission("collection:manage");
+  const actor = await assertPermission("collection:manage");
+  if (!(await passesFence(() => assertNotTestAccount(actor)))) return;
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return;
@@ -169,6 +173,8 @@ export async function createRequestAction(
   });
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+  // The class's own session (Phase 3 fence), not only the resolved one.
+  if (!(await passesFence(() => assertClassVisible(actor, parsed.data.classId)))) return failure(m.notFound);
 
   const labels = await classLabelMap(sessionLabel);
   const classLabel = labels.get(parsed.data.classId);
@@ -185,11 +191,13 @@ export async function createRequestAction(
 }
 
 export async function setRequestStatusAction(formData: FormData) {
-  await assertPermission("collection:manage");
+  const actor = await assertPermission("collection:manage");
 
   const id = (formData.get("id") ?? "").toString();
   const status = (formData.get("status") ?? "").toString() as RequestStatus;
   if (!id || !["draft", "open", "closed"].includes(status)) return;
+  // The request's own session (Phase 3 fence): the write is by id.
+  if (!(await passesFence(() => assertCollectionRequestVisible(actor, id)))) return;
 
   await setRequestStatus(id, status);
   revalidatePath("/collection");
@@ -197,10 +205,12 @@ export async function setRequestStatusAction(formData: FormData) {
 }
 
 export async function rotateTokenAction(formData: FormData) {
-  await assertPermission("collection:manage");
+  const actor = await assertPermission("collection:manage");
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return;
+  // A rotated token breaks every link already sent to parents.
+  if (!(await passesFence(() => assertCollectionRequestVisible(actor, id)))) return;
 
   await rotateToken(id);
   revalidatePath(`/collection/${id}`);
@@ -217,6 +227,7 @@ export async function decideSubmissionsAction(
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);
+  if (!(await passesFence(() => assertSessionWritable(actor, sessionLabel)))) return failure(m.accessDenied);
 
   const parsed = decideSchema.safeParse({
     submissionIds: stringsFrom(formData, "submissionIds"),
@@ -260,58 +271,23 @@ export async function decideSubmissionsAction(
 
 /* ---------------------------------------------------------- documents */
 
-export async function uploadDocumentAction(
-  _previous: CollectionState,
-  formData: FormData,
-): Promise<CollectionState> {
-  const actor = await assertPermission("documents:manage");
-
-  const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return failure(m.noSessionFound);
-
-  const studentId = (formData.get("studentId") ?? "").toString();
-  const kindRaw = (formData.get("kind") ?? "other").toString();
-  const kind = (documentKinds as readonly string[]).includes(kindRaw)
-    ? (kindRaw as DocumentKind)
-    : "other";
-
-  const file = formData.get("file");
-  if (!studentId || !(file instanceof File) || file.size === 0) {
-    return failure(t("फ़ाइल चुनें", "Choose a file"));
-  }
-
-  const allowed = checkDocument({
-    contentType: file.type,
-    byteSize: file.size,
-  });
-
-  if (!allowed.ok) return failure(allowed.reason);
-
-  try {
-    await storeDocument({
-      sessionLabel,
-      studentId,
-      kind,
-      fileName: file.name,
-      contentType: file.type,
-      bytes: await file.arrayBuffer(),
-      note: (formData.get("note") ?? "").toString().trim() || null,
-      uploadedByStaffId: actor.id,
-    });
-  } catch {
-    return failure(m.notSaved);
-  }
-
-  revalidatePath(`/teach/student/${studentId}`);
-  return { ...idleCollectionState, status: "saved" };
-}
+// Uploads no longer go through a Server Action (#125, D-334): its 1 MB body
+// limit refused real documents, and a second path into the bucket is one the
+// central-storage rule cannot see. See app/(app)/documents/bucket-upload and
+// app/(app)/documents/uploads.
 
 export async function deleteDocumentAction(formData: FormData) {
-  await assertPermission("documents:manage");
+  const actor = await assertPermission("documents:manage");
 
   const id = (formData.get("id") ?? "").toString();
   const studentId = (formData.get("studentId") ?? "").toString();
   if (!id) return;
+
+  // The document's own child decides (Phase 3 fence) — not the studentId the
+  // form carries, which is only where to refresh.
+  const document = await openableDocument(id);
+  if (!document) return;
+  if (!(await passesFence(() => assertStudentVisible(actor, document.studentId)))) return;
 
   await deleteDocument(id);
   if (studentId) revalidatePath(`/teach/student/${studentId}`);
@@ -323,7 +299,9 @@ export async function saveTemplateAction(
   _previous: CollectionState,
   formData: FormData,
 ): Promise<CollectionState> {
-  await assertPermission("collection:manage");
+  const actor = await assertPermission("collection:manage");
+  // Templates are shared by every session: never a test account.
+  if (!(await passesFence(() => assertNotTestAccount(actor)))) return failure(m.accessDenied);
 
   const parsed = templateSchema.safeParse({
     code: (formData.get("code") ?? "").toString(),
@@ -350,7 +328,8 @@ export async function saveTemplateAction(
 }
 
 export async function setTemplateActiveAction(formData: FormData) {
-  await assertPermission("collection:manage");
+  const actor = await assertPermission("collection:manage");
+  if (!(await passesFence(() => assertNotTestAccount(actor)))) return;
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return;
@@ -379,6 +358,20 @@ export async function queueMessageAction(
   });
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+  // Phase 3 fence: the session it is queued in, and the student and request it
+  // is about, are ones this viewer may open.
+  if (!(await passesFence(() => assertSessionWritable(actor, sessionLabel)))) return failure(m.notSaved);
+  if (parsed.data.studentId) {
+    try {
+      await assertStudentVisible(actor, parsed.data.studentId);
+    } catch {
+      return failure(m.notSaved);
+    }
+  }
+  const { requestId } = parsed.data;
+  if (requestId && !(await passesFence(() => assertCollectionRequestVisible(actor, requestId)))) {
+    return failure(m.notSaved);
+  }
 
   const template = (await listTemplates()).find(
     (entry) => entry.id === parsed.data.templateId,
@@ -419,11 +412,14 @@ export async function sendMessageAction(
   _previous: CollectionState,
   formData: FormData,
 ): Promise<CollectionState> {
-  await assertPermission("collection:manage");
+  const actor = await assertPermission("collection:manage");
   await assertNotPreviewing();
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return failure(m.notSaved);
+  // The message's own session (Phase 3 fence): a test account never sends a
+  // real queued message, whatever its audience.
+  if (!(await passesFence(() => assertMessageSendVisible(actor, id)))) return failure(m.notFound);
 
   const send = await getSend(id);
   if (!send) return failure(m.notSaved);
@@ -445,17 +441,19 @@ export async function markSentAction(formData: FormData) {
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return;
+  if (!(await passesFence(() => assertMessageSendVisible(actor, id)))) return;
 
   await markSentByHand(id, actor.id);
   revalidatePath("/collection/messages");
 }
 
 export async function cancelSendAction(formData: FormData) {
-  await assertPermission("collection:manage");
+  const actor = await assertPermission("collection:manage");
   await assertNotPreviewing();
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return;
+  if (!(await passesFence(() => assertMessageSendVisible(actor, id)))) return;
 
   await cancelSend(id);
   revalidatePath("/collection/messages");
@@ -468,6 +466,7 @@ export async function confirmProviderResultAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const note = String(formData.get("note") ?? "");
   if (formData.get("checked") !== "yes" || !/^[0-9a-f-]{36}$/i.test(id)) throw new Error("Confirm the provider log check.");
+  if (!(await passesFence(() => assertMessageSendVisible(actor, id)))) throw new Error("No provider attempt is waiting for confirmation.");
   const send = await getSend(id);
   if (!send || !needsProviderReconciliation(send)) throw new Error("No provider attempt is waiting for confirmation.");
   await confirmDispatchReceived(id, send.providerMessageId, note, actor.id);
@@ -490,6 +489,7 @@ export async function approveParentMessageAction(
 ): Promise<ParentSendState> {
   const actor = await assertPermission("collection:manage");
   const id = (formData.get("id") ?? "").toString();
+  if (id && !(await passesFence(() => assertMessageSendVisible(actor, id)))) return { status: "error", message: m.notFound };
   const send = id ? await getSend(id) : null;
   if (!send || send.audience !== "parent") return { status: "error", message: m.notFound };
   if (send.taskId) return { status: "error", message: ms.taskPreview };
@@ -524,6 +524,7 @@ export async function confirmParentSentAction(
 ): Promise<ParentSendState> {
   const actor = await assertPermission("collection:manage");
   const id = (formData.get("id") ?? "").toString();
+  if (id && !(await passesFence(() => assertMessageSendVisible(actor, id)))) return { status: "error", message: m.notFound };
   const send = id ? await getSend(id) : null;
   if (!send || send.audience !== "parent") return { status: "error", message: m.notFound };
 
@@ -555,6 +556,13 @@ export async function flagRouteAction(
   if (!/^\d{10}$/.test(phone.replace(/\D/g, "").slice(-10)) || reason === "") {
     return failure(ms.messagesFlagNeedsReason);
   }
+  // A flag stops every message to that number, so it is school-wide: about a
+  // child, only one this viewer may open; about a bare number, never from a
+  // test account (Phase 3 fence).
+  const fenced = studentId
+    ? await passesFence(() => assertStudentVisible(actor, studentId))
+    : await passesFence(() => assertNotTestAccount(actor));
+  if (!fenced) return failure(m.notFound);
 
   let withdrawn = 0;
   try {
@@ -576,6 +584,8 @@ export async function flagRouteAction(
 /** An administrator clears a wrong-number flag, saying why. The flag is kept. */
 export async function clearRouteFlagAction(formData: FormData) {
   const actor = await assertPermission("jobs:run");
+  // A route flag is school-wide: never cleared by a test account.
+  if (!(await passesFence(() => assertNotTestAccount(actor)))) return;
   const id = (formData.get("id") ?? "").toString();
   const note = (formData.get("note") ?? "").toString().trim();
   if (!id || note === "") return;
@@ -594,6 +604,8 @@ export async function saveParentPolicyAction(
   formData: FormData,
 ): Promise<CollectionState> {
   const actor = await assertPermission("jobs:run");
+  // Policy is school-wide, and can turn on auto-send to real parents.
+  if (!(await passesFence(() => assertNotTestAccount(actor)))) return failure(m.accessDenied);
   const category = (formData.get("category") ?? "").toString() as ParentCategory;
   if (!parentCategories.includes(category)) return failure(m.notSaved);
 

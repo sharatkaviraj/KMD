@@ -10,6 +10,7 @@ import {
 } from "@/modules/repayment-plans/domain/types";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 import { revalidateSessionFinance } from "@/modules/system-sync/data/finance-revalidation";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { publishOfficeSyncEvent } from "@/modules/system-sync/data/office-sync-events";
@@ -128,6 +129,9 @@ export async function activateRepaymentPlanAction(
 
     const studentId = readText(formData, "studentId");
     const sessionLabel = readText(formData, "sessionLabel");
+    // Phase 3 fence: the named session, and the student's own.
+    await assertSessionWritable(null, sessionLabel);
+    await assertStudentVisible(null, studentId);
     const scope = readText(formData, "scope");
     const reason = readText(formData, "reason");
     const monthlyAmount = readInteger(formData, "monthlyAmount");
@@ -221,6 +225,9 @@ export async function rescheduleRepaymentPlanAction(
     const planId = readText(formData, "planId");
     const studentId = readText(formData, "studentId");
     const sessionLabel = readText(formData, "sessionLabel");
+    // Phase 3 fence: the named session, and the student's own.
+    await assertSessionWritable(null, sessionLabel);
+    await assertStudentVisible(null, studentId);
     const reason = readText(formData, "reason");
     const monthlyAmount = readInteger(formData, "monthlyAmount");
     const firstDueDate = readText(formData, "firstDueDate");
@@ -292,6 +299,9 @@ export async function cancelRepaymentPlanAction(
     const planId = readText(formData, "planId");
     const studentId = readText(formData, "studentId");
     const sessionLabel = readText(formData, "sessionLabel");
+    // Phase 3 fence: the named session, and the student's own.
+    await assertSessionWritable(null, sessionLabel);
+    await assertStudentVisible(null, studentId);
     const reason = readText(formData, "reason");
 
     if (!planId) return fail("EMI plan is required.", "cancel");
@@ -354,6 +364,9 @@ export async function waiveEmiLateFeeAction(
     const planId = readText(formData, "planId");
     const studentId = readText(formData, "studentId");
     const sessionLabel = readText(formData, "sessionLabel");
+    // Phase 3 fence: the named session, and the student's own.
+    await assertSessionWritable(null, sessionLabel);
+    await assertStudentVisible(null, studentId);
     const installmentId = readText(formData, "installmentId");
     const sequenceNo = readInteger(formData, "sequenceNo");
     const amount = readInteger(formData, "amount");

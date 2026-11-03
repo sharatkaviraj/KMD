@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -24,6 +25,7 @@ import { resolveReminderDateDefaults } from "@/modules/whatsapp/data/reminder-co
 import { sendRemindersAction } from "@/app/(app)/fees/reminders/actions";
 import { sendFeeStatementAction } from "@/app/(app)/fees/students/actions";
 import { NOTICE_SITUATIONS } from "@/modules/whatsapp/domain/campaigns";
+import { StudentWhatsappHistory } from "@/modules/whatsapp/ui/student-whatsapp-history";
 import { StudentInfoGroupEditButton } from "@/modules/students-fees/ui/student-info-sheet";
 import { StudentFeePlanEditButton } from "@/modules/students-fees/ui/student-fee-plan-edit-button";
 import { StudentMoneyBand } from "@/modules/students-fees/ui/student-money-band";
@@ -57,7 +59,7 @@ import { getStudentDeletionSafety, getStudentFamilyMembersDetail } from "@/modul
 import {
   STUDENT_INFO_GROUPS,
   getStudentInfoFieldsByGroup,
-  getStudentInfoOptionKey,
+  studentInfoOptionLabel,
 } from "@/modules/students-fees/domain/info-fields";
 import { getStudentWorkspaceData } from "@/modules/students-fees/data/workspace";
 import {
@@ -66,6 +68,7 @@ import {
   requireStaffPermission,
 } from "@/modules/fees/platform/session";
 import { safeReturnTo } from "@/platform/navigation/return-to";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 type StudentDetailPageProps = {
   params: Promise<{
@@ -129,6 +132,8 @@ export default async function StudentDetailPage({
   if (!isUuid(resolvedParams.studentId)) {
     notFound();
   }
+  // A student in a session this viewer cannot open reads as not found (Phase 3).
+  await notFoundUnlessVisible(() => assertStudentVisible(null, resolvedParams.studentId));
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const activeTab = normalizeTab(resolvedSearchParams?.tab);
   const mobileTab = normalizeMobileTab(resolvedSearchParams?.tab);
@@ -455,6 +460,7 @@ export default async function StudentDetailPage({
     upi: "UPI",
     bank_transfer: "Bank transfer",
     cheque: "Cheque",
+    online: "Online (Razorpay)",
   };
   const receiptIdByNumber = new Map(receipts.map((r) => [r.receiptNumber, r.id]));
 
@@ -1182,6 +1188,10 @@ export default async function StudentDetailPage({
         )}
       </MobileSectionCard>
 
+      <Suspense fallback={null}>
+        <StudentWhatsappHistory studentId={student.id} />
+      </Suspense>
+
       {/* The annual half of the desktop "Fee plan" tab. Collapsed: it answers a
           policy question, not the one a parent is asking at the counter. */}
       {financialSnapshot ? (
@@ -1313,9 +1323,10 @@ export default async function StudentDetailPage({
                       {ts(field.labelKey)}
                     </dt>
                     <dd className="text-right text-[12.5px] font-bold text-foreground">
-                      {field.options && field.translateOptions !== false
-                        ? ts(getStudentInfoOptionKey(value))
-                        : value}
+                      {/* Never the option's message key looked up directly: a
+                          stored "GENERAL" has none, and this card printed
+                          "Students.infoOptionGENERAL" on every phone. */}
+                      {studentInfoOptionLabel(field, value, ts)}
                     </dd>
                   </div>
                 );
@@ -1521,6 +1532,9 @@ export default async function StudentDetailPage({
           <div className="space-y-6">
             {receiptsContent}
             {paymentsContent}
+            <Suspense fallback={null}>
+              <StudentWhatsappHistory studentId={student.id} />
+            </Suspense>
           </div>
         }
         duesContent={duesContent}

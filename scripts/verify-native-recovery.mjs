@@ -5,10 +5,11 @@ import { parseEnv } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import { QA_ACCOUNTS } from "../tests/fixtures/qa-accounts.ts";
 import { can } from "../src/platform/auth/permissions.ts";
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { assertTestAccountUser, toolScope } from "./target-guard.mjs";
 
 const env = parseEnv(readFileSync(".env.local", "utf8"));
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error("Native recovery verification is dev only.");
+// Rule 3 / D-346, Phase 3: One's main project only, confined to TEST-2026-27 and test accounts on every marker.
+const scope = await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-native-recovery", mode: "test-scoped" });
 const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const admin = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
@@ -26,11 +27,14 @@ function checked(result) {
 }
 async function asAccount(account) {
   const link = checked(await admin.auth.admin.generateLink({ type: "magiclink", email: account.email }));
+  await assertTestAccountUser({ scope, url, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, userId: link.user?.id, email: account.email });
   const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   checked(await client.auth.verifyOtp({ type: "magiclink", token_hash: link.properties.hashed_token }));
   return client;
 }
-const student = checked(await admin.from("students").select("id").limit(1).single());
+// Confined (Phase 3): a TEST-2026-27 child, never a real one.
+const testClassIds = scope.confined ? checked(await admin.from("classes").select("id").eq("session_label", scope.sessionLabel)).map((row) => row.id) : null;
+const student = checked(await (testClassIds ? admin.from("students").select("id").in("class_id", testClassIds) : admin.from("students").select("id")).limit(1).single());
 try {
   checked(await admin.from("defaulter_contacts").insert({
     id: contactId, student_id: student.id, session_label: session, channel: "call", outcome: "promised_pay",

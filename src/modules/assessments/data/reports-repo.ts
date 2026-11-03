@@ -1,7 +1,11 @@
 import "server-only";
+import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
+import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import {
@@ -202,7 +206,7 @@ export async function previewReportCard(input: {
 
   const admin = createAdminClient();
 
-  const { data: student } = await admin
+  let { data: student } = await admin
     .schema(FEE_SCHEMA)
     .from("students")
     .select("id, full_name, admission_no, father_name")
@@ -214,6 +218,7 @@ export async function previewReportCard(input: {
       father_name: string | null;
     }>();
 
+  if(!student && feesBridgeEnabled())student=(await retiredStudentLabels([input.studentId],input.sessionLabel))[0]??null;
   if (!student) return null;
 
   const { data: enrolment } = await admin
@@ -239,7 +244,10 @@ export async function previewReportCard(input: {
   const termIds = new Set(inTerm.map((entry) => entry.id));
   const termPapers = papers.filter((paper) => termIds.has(paper.assessmentId));
 
-  const marks = await marksForPapers(termPapers.map((paper) => paper.id));
+  const [marks, grace] = await Promise.all([
+    marksForPapers(termPapers.map((paper) => paper.id), input.studentId),
+    graceForPapers(termPapers.map((paper) => paper.id), input.studentId),
+  ]);
 
   // The reporting period: the scheme's, or the session so far.
   const today = schoolToday();
@@ -288,8 +296,14 @@ export async function previewReportCard(input: {
             from,
             to,
             notRecorded,
+            // Why two children of one class show different day counts (smoke 20 Oct: 24/24 and
+            // 21/25): days on leave are out of both halves, and a day the register was saved
+            // without this child is not counted either way.
+            leave: inPeriod.length - summary.counted,
+            unmarked: [...recorded].filter((day) => !inPeriod.some((entry) => entry.day === day)).length,
           },
     scheme: scheme ? cardSchemeOf(scheme) : null,
+    grace: graceOf(grace, input.studentId),
     generatedAt: new Date().toISOString(),
   });
 
@@ -306,6 +320,76 @@ export async function previewReportCard(input: {
       attendance: { from, to, recordedDays: recorded.size, notRecordedDays: notRecorded },
     },
   };
+}
+
+/** Grace given on these papers, `paper|student` → marks; one child's only when `studentId` is given. */
+async function graceForPapers(paperIds: string[], studentId?: string): Promise<Map<string, number>> {
+  if (paperIds.length === 0) return new Map();
+  const res = await fetchInChunks<{ paper_id: string; student_id: string; grace: number | string }>(paperIds, IN_FILTER_CHUNK_SIZE, (chunk) => {
+    const query = createAdminClient().from("exam_grace").select("paper_id, student_id, grace").in("paper_id", chunk);
+    return studentId ? query.eq("student_id", studentId) : query;
+  });
+  if (res.error) throw new Error("Could not read the grace marks.");
+  const out = new Map<string, number>();
+  for (const row of res.data) {
+    const key = `${row.paper_id}|${row.student_id}`;
+    out.set(key, (out.get(key) ?? 0) + Number(row.grace));
+  }
+  return out;
+}
+
+/** One child's grace by paper id, out of `graceForPapers`. */
+function graceOf(all: Map<string, number>, studentId: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [key, value] of all) {
+    const [paperId, student] = key.split("|");
+    if (student === studentId) out.set(paperId, value);
+  }
+  return out;
+}
+
+/**
+ * Every child's card for a class and term, built as the preview builds it
+ * today (attendance left out), so the class list and the card print the same
+ * percentage and the same result: one `buildReportCard`, never a second sum
+ * (smoke 20 Oct: the list said 63.9% where the card said 65.3%).
+ */
+export async function classTermCards(input: {
+  classId: string;
+  sessionLabel: string;
+  term: string;
+  students: { id: string; fullName: string; rollNo: string | null }[];
+}): Promise<Map<string, ReportCard>> {
+  await assertPermission("reports:view");
+  const [assessments, papers, schemes] = await Promise.all([
+    listAssessments(input.sessionLabel),
+    papersForClass(input.classId, input.sessionLabel),
+    schemesFor(input.sessionLabel, input.term),
+  ]);
+  const scheme = approvedScheme(schemes);
+  const inTerm = assessments.filter((entry) => entry.term === input.term && entry.status !== "draft");
+  const termIds = new Set(inTerm.map((entry) => entry.id));
+  const termPapers = papers.filter((paper) => termIds.has(paper.assessmentId));
+  const ids = termPapers.map((paper) => paper.id);
+  const [marks, grace] = await Promise.all([marksForPapers(ids), graceForPapers(ids)]);
+  const generatedAt = new Date().toISOString();
+  return new Map(
+    input.students.map((student) => [
+      student.id,
+      buildReportCard({
+        sessionLabel: input.sessionLabel,
+        term: input.term,
+        student: { id: student.id, fullName: student.fullName, admissionNo: null, rollNo: student.rollNo, classLabel: termPapers[0]?.classLabel ?? "", fatherName: null },
+        assessments: inTerm,
+        papers: termPapers,
+        marks,
+        attendance: null,
+        scheme: scheme ? cardSchemeOf(scheme) : null,
+        grace: graceOf(grace, student.id),
+        generatedAt,
+      }),
+    ]),
+  );
 }
 
 export type IssuedCard = {
@@ -558,7 +642,7 @@ export async function termSummaries(
   if (papers.length === 0) return [];
 
   const [marks, subjectRows] = await Promise.all([
-    marksForPapers(papers.map((paper) => paper.id)),
+    marksForPapers(papers.map((paper) => paper.id), studentId),
     admin
       .from("subjects")
       .select("id, name_en, name_hi, sort_order")

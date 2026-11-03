@@ -1,9 +1,12 @@
 import { requirePermission } from "@/platform/auth/current-staff";
+import { Suspense } from "react";
+import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { schoolToday } from "@/vx/format";
-import { sortInbox } from "@/vx/screens/admin/logic";
+import { schoolMinutes, sortInbox } from "@/vx/screens/admin/logic";
 import { loadInbox } from "@/vx/screens/admin/data";
 import { InboxScreen } from "@/vx/screens/admin/inbox";
 import { T } from "@/vx/screens/admin/text";
@@ -50,8 +53,12 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
     );
   }
 
-  const { items, unavailable } = await loadInbox(staff, sessionLabel, schoolToday(), {
+  // The same clock as Today: a lab seat's set time, everyone else's real one (reads only, D-269).
+  const now = await schoolNow(staff);
+  const day = schoolToday(now);
+  const { items, unavailable } = await loadInbox(staff, sessionLabel, day, {
     refunds: can(staff, "fees:view") ? pendingMoneyRequests : undefined,
+    nowMinutes: schoolMinutes(now),
   });
   const canAssign = can(staff, "collection:manage");
   const tasks = canAssign ? await listTeacherTasks(true).catch(() => null) : [];
@@ -69,14 +76,14 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
         initial={item}
         previewing={previewing !== null}
         unavailable={unavailable.length > 0}
-        scope={{ accountId: staff.userId, sessionLabel, day: schoolToday() }}
+        scope={{ accountId: staff.userId, sessionLabel, day }}
         taskActions={canAssign ? (
           <>
             {reviewPhotos ? <Btn icon="camera" href="/collection/review">{lead(photoMessages.review, staff.language)}</Btn> : null}
             <AssignmentLauncher language={staff.language} variant="pri" />
           </>
         ) : undefined}
-        taskPanel={canAssign ? <TeacherWork rows={tasks} language={staff.language} compact={params.tasks !== "all"} reviewPhotos={reviewPhotos} /> : undefined}
+        taskPanel={<><Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>{canAssign ? <TeacherWork rows={tasks} language={staff.language} compact={params.tasks !== "all"} reviewPhotos={reviewPhotos} /> : null}</>}
         taskDetail={selectedTask && chosen ? (
           <TaskDetailSheet title={chosen.title} sub={chosen.teacherName ?? undefined} back={queueHref}>
             <ManageTask id={selectedTask} language={staff.language} collection={chosen.kind === "collection"} />

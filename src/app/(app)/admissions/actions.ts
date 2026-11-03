@@ -7,7 +7,7 @@ import { syncStudentEnrolments } from "@/modules/enrolments/data/enrolments-repo
 import { assertPermission } from "@/platform/auth/current-staff";
 import {
   admitStudent,
-  loadAdmissionsFeeContext,
+  loadAdmissionsRosterContext,
   countTcsIssued,
   editStudent,
   findNameMatches,
@@ -28,6 +28,7 @@ import {
 } from "@/vx/screens/admissions/data";
 import { groupFamilies, isLikelySameChild, nextStage, parseDob, tcNumber, type FamilyCard, type Stage } from "@/vx/screens/admissions/logic";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
 
 /*
  * Every write: `fees:manage` (admitting a child creates a fee record, which
@@ -41,6 +42,7 @@ function message(error: unknown) {
 
 export async function addEnquiryAction(input: { sessionLabel: string; childName: string; classLabel: string; parentName: string; phone: string }) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, input.sessionLabel);
   await assertNotPreviewing();
   if (!input.childName.trim()) return { ok: false as const, message: "Write the child's name." };
   try {
@@ -143,6 +145,8 @@ export async function admitAction(request: AdmitRequest) {
 
 export async function editStudentAction(studentId: string, sessionLabel: string, patch: EditPatch & { dob?: string; nameHi?: string; docs?: Partial<Record<DocKey, boolean>> }) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, sessionLabel);
+  await assertStudentVisible(staff, studentId);
   await assertNotPreviewing();
   const { dob, nameHi, docs, ...rest } = patch;
   const fee: EditPatch = { ...rest };
@@ -170,6 +174,8 @@ export async function editStudentAction(studentId: string, sessionLabel: string,
 
 export async function withdrawAction(input: { studentId: string; sessionLabel: string; leftOn: string; reason: string }) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, input.sessionLabel);
+  await assertStudentVisible(staff, input.studentId);
   await assertNotPreviewing();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.leftOn)) return { ok: false as const, message: "Pick the last day in school." };
   try {
@@ -191,6 +197,7 @@ export async function withdrawAction(input: { studentId: string; sessionLabel: s
 export async function undoWithdrawAction(studentId: string) {
   const staff = await assertPermission("fees:manage");
   await assertNotPreviewing();
+  await assertStudentVisible(staff, studentId);
   try {
     const result = await undoWithdraw(studentId);
     if (result.ok) await syncStudentEnrolments([studentId], staff.userId).catch(() => undefined);
@@ -210,7 +217,8 @@ export async function saveSeatsAction(input: { seats: { classId: string; seats: 
   try {
     const actor = await assertPermission("settings:manage");
     await assertNotPreviewing();
-    const ctx = await loadAdmissionsFeeContext();
+    const ctx = await loadAdmissionsRosterContext();
+    await assertSessionWritable(actor, ctx.sessionLabel);
     const known = new Set(ctx.classes.map((c) => c.id));
     if (!ctx.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };
     if (!Array.isArray(input.seats) || input.seats.some((r) => !r || !known.has(r.classId))) return { ok: false, error: "Choose classes from the active session." };

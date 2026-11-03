@@ -1,4 +1,4 @@
-import type { CollectionBucket, ClasswiseRow, DefaulterRow } from "@/modules/reports/vx/domain/reports";
+import type { Classwise, CollectionBucket, DefaulterRow } from "@/modules/reports/vx/domain/reports";
 import type { ClassInfo, ReportSchedule } from "@/modules/reports/vx/reports-data";
 
 export type ReportsView = "hub" | "collection" | "defaulters" | "classwise" | "daybook" | "schedule";
@@ -72,7 +72,7 @@ export type ReportsPageData = {
   collection: CollectionData | null;
   /** All defaulters including students who left; the screen filters. */
   defaulters: (Omit<DefaulterRow, "fatherPhone"> & { phone: string })[] | null;
-  classwise: { rows: ClasswiseRow[]; installmentNos: number[]; dueDates: Record<number, string> } | null;
+  classwise: Classwise | null;
   cell: CellData | null;
   daybook: DayBookData | null;
   schedules: ReportSchedule[];

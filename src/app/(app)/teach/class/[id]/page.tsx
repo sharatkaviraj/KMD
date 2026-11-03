@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertClassVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";
 import { schoolToday } from "@/platform/dates";
 import { primary, t } from "@/platform/i18n/language";
@@ -45,6 +46,8 @@ export default async function ClassPage(props: PageProps<"/teach/class/[id]">) {
   const language = staff.language;
   const { id: classId } = await props.params;
   const sessionLabel = await resolveSessionLabel();
+  // Phase 3 fence: a class in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertClassVisible(staff, classId));
 
   if (!sessionLabel) {
     return (

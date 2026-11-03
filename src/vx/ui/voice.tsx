@@ -3,6 +3,22 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { Ic } from "@/vx/icons";
+import { useVx } from "@/vx/i18n";
+import { p, type Pair } from "@/vx/text";
+
+const SAY = {
+  unsupported: p("Speaking is not available in this browser. Use the mic on your keyboard.", "इस ब्राउज़र में बोलकर लिखना नहीं चलता। कीबोर्ड का माइक दबाएँ।"),
+  allowMic: p("Allow the microphone to speak a note.", "बोलकर लिखने के लिए माइक की अनुमति दें।"),
+  notHeard: p("Could not hear that. Try again or type.", "सुनाई नहीं दिया। फिर से बोलें या लिखें।"),
+  placeholder: p("Type or speak the note…", "नोट लिखें या बोलें…"),
+  note: p("Note", "नोट"),
+  speak: p("Speak the note", "नोट बोलें"),
+  stop: p("Stop listening", "सुनना बंद करें"),
+  listeningHi: p("Listening… speak in Hindi", "सुन रहे हैं… हिंदी में बोलें"),
+  listeningEn: p("Listening… speak in English", "सुन रहे हैं… अंग्रेज़ी में बोलें"),
+  speakIn: p("Speak in", "बोलने की भाषा"),
+  tip: p("Tip: use the mic on your phone keyboard to speak.", "सुझाव: बोलने के लिए फ़ोन के कीबोर्ड का माइक दबाएँ।"),
+};
 
 /*
  * Speak a note (PLAN A.11). The Web Speech API, `hi-IN` or `en-IN`, which
@@ -39,7 +55,9 @@ export function useSpeech(onText: (finalText: string) => void) {
   );
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [errorP, setError] = useState<Pair | null>(null);
+  /** The English line, for callers that still wrap it in `p()`; prefer `errorP`. */
+  const error = errorP?.en ?? null;
   const rec = useRef<Recognition | null>(null);
   const cb = useRef(onText);
   useEffect(() => {
@@ -51,7 +69,7 @@ export function useSpeech(onText: (finalText: string) => void) {
   const start = (lang: "hi-IN" | "en-IN") => {
     const Ctor = recognitionCtor();
     if (!Ctor) {
-      setError("Speaking is not available in this browser. Use the mic on your keyboard.");
+      setError(SAY.unsupported);
       return;
     }
     setError(null);
@@ -69,7 +87,7 @@ export function useSpeech(onText: (finalText: string) => void) {
       setInterim(live);
     };
     r.onerror = (e) => {
-      setError(e.error === "not-allowed" ? "Allow the microphone to speak a note." : "Could not hear that. Try again or type.");
+      setError(e.error === "not-allowed" ? SAY.allowMic : SAY.notHeard);
       setListening(false);
     };
     r.onend = () => {
@@ -86,7 +104,7 @@ export function useSpeech(onText: (finalText: string) => void) {
     setListening(false);
   };
 
-  return { supported, listening, interim, error, start, stop };
+  return { supported, listening, interim, error, errorP, start, stop };
 }
 
 /** Animated bars while listening (xWave). */
@@ -118,7 +136,7 @@ export function Waveform({ active = true, bars = 18 }: { active?: boolean; bars?
 export function VoiceNote({
   value,
   onChange,
-  placeholder = "Type or speak the note…",
+  placeholder,
   lang = "hi-IN",
   onLangChange,
   rows = 5,
@@ -132,6 +150,7 @@ export function VoiceNote({
   rows?: number;
   name?: string;
 }) {
+  const { tx } = useVx();
   const valueRef = useRef(value);
   useEffect(() => {
     valueRef.current = value;
@@ -150,14 +169,14 @@ export function VoiceNote({
           rows={rows}
           value={speech.listening && speech.interim ? `${value}${value ? " " : ""}${speech.interim}` : value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          aria-label="Note"
+          placeholder={placeholder ?? tx(SAY.placeholder)}
+          aria-label={tx(SAY.note)}
           style={{ paddingRight: 64 }}
         />
         <button
           type="button"
           className="tap"
-          aria-label={speech.listening ? "Stop listening" : "Speak the note"}
+          aria-label={tx(speech.listening ? SAY.stop : SAY.speak)}
           aria-pressed={speech.listening}
           onClick={() => (speech.listening ? speech.stop() : speech.start(lang))}
           style={{ position: "absolute", right: 10, bottom: 10, width: 48, height: 48, borderRadius: 24, border: 0, background: speech.listening ? "var(--bad)" : "var(--pri)", color: "var(--prifg)", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -175,13 +194,13 @@ export function VoiceNote({
       {speech.listening ? (
         <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--accfg)", fontSize: 13, fontWeight: 600 }}>
           <Waveform />
-          Listening… speak in {lang === "hi-IN" ? "Hindi" : "English"}
+          {tx(lang === "hi-IN" ? SAY.listeningHi : SAY.listeningEn)}
         </div>
       ) : null}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12, color: "var(--mut)" }}>
         {onLangChange ? (
           <>
-            <span>Speak in</span>
+            <span>{tx(SAY.speakIn)}</span>
             {(["hi-IN", "en-IN"] as const).map((l) => (
               <button key={l} type="button" className={`tap chip${lang === l ? " on" : ""}`} aria-pressed={lang === l} onClick={() => onLangChange(l)} style={{ height: 30 }}>
                 {l === "hi-IN" ? "हिंदी" : "English"}
@@ -189,7 +208,7 @@ export function VoiceNote({
             ))}
           </>
         ) : null}
-        {speech.error ? <span role="alert" style={{ color: "var(--warnfg)" }}>{speech.error}</span> : !speech.supported ? <span>Tip: use the mic on your phone keyboard to speak.</span> : null}
+        {speech.errorP ? <span role="alert" style={{ color: "var(--warnfg)" }}>{tx(speech.errorP)}</span> : !speech.supported ? <span>{tx(SAY.tip)}</span> : null}
       </div>
     </div>
   );

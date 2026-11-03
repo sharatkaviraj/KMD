@@ -21,7 +21,7 @@ import { Btn, Card, EmptyState, Kpi, Pill } from "@/vx/ui/primitives";
 
 type Lang = "hi" | "en" | "both";
 
-const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "Cheque", bank_transfer: "Bank" };
+const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "Cheque", bank_transfer: "Bank", online: "Online (Razorpay)" };
 const MODE_COLOR: Record<string, string> = { upi: "var(--pri)", cash: "var(--acc)", cheque: "var(--warn)", bank_transfer: "var(--sub)" };
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -44,6 +44,16 @@ const T = {
   print: p("Print", "प्रिंट"),
   export: p("Export", "निर्यात"),
   send: p("Send to class teachers", "कक्षा अध्यापकों को भेजें"),
+};
+
+/** Words for the due rule, which every money screen shares (fees/domain/due-rule.ts). */
+const W = {
+  pendingTodayAsOf: (day: string) => p(`Pending today · ${day}`, `आज तक बकाया · ${day}`),
+  pendingStudentsInst: (n: number, inst: string) =>
+    p(`${n} ${n === 1 ? "student" : "students"} · installments ${inst}`, `${n} छात्र · किस्त ${inst}`),
+  nothingDue: p("Nothing due yet", "अभी कुछ देय नहीं"),
+  pendingRule: p("Pending today = due before today; an installment due today is not late yet.", "आज तक बकाया = आज से पहले की देय तारीख वाली फ़ीस; आज देय किस्त अभी देर से नहीं है।"),
+  datesVary: p("* A few children have a different due date for this installment; each child is counted by their own date.", "* इस किस्त की देय तारीख कुछ बच्चों की अलग है; हर बच्चा अपनी तारीख से गिना गया है।"),
 };
 
 /* ---------- pins (per device) ---------- */
@@ -803,8 +813,11 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
   const { tx } = useVx();
   const cw = data.classwise!;
   const cell = data.cell;
-  const due = cw.installmentNos.filter((n) => (cw.dueDates[n] ?? "9999") <= data.today);
-  const notDue = cw.installmentNos.filter((n) => !due.includes(n));
+  // Each child is judged by their own due date, by the rule every money screen
+  // uses (due before today = pending today), so an installment can have cells
+  // on both sides when a few children's dates differ.
+  const due = cw.dueNos;
+  const notDue = cw.notDueNos;
   const order = new Map(data.classes.map((k, i) => [k.id, i]));
   const rows = [...cw.rows].sort((a, b) => (order.get(a.classId ?? "") ?? 999) - (order.get(b.classId ?? "") ?? 999));
   const teacher = (cid: string | null) => data.classes.find((k) => k.id === cid)?.teacher ?? null;
@@ -815,7 +828,10 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
   const instName = (n: number) => (n === 99 ? "Last year" : `Inst ${n}`);
   const instLong = (n: number) => (n === 99 ? "Last year" : `Installment ${n}`);
   const dm = (iso: string | undefined) => (iso ? dayName(iso).split(" ").slice(1).join(" ") : "");
-  const pendingStudents = rows.reduce((s, r) => s + due.reduce((t, n) => t + (r.cells[n]?.due?.students ?? 0), 0), 0);
+  // Each child once, however many installments they owe (was 929 for ~583 children).
+  const pendingStudents = cw.studentsPendingToday;
+  const varies = cw.installmentNos.some((n) => n !== 99 && cw.dueVaries[n]);
+  const head = (n: number) => `${instName(n)}${cw.dueDates[n] && n !== 99 ? ` · ${dm(cw.dueDates[n])}${cw.dueVaries[n] ? "*" : ""}` : ""}`;
   const heat = (amount: number): CSSProperties => {
     const k = amount / max;
     return { background: `color-mix(in srgb, var(--acc) ${Math.round(12 + k * 60)}%, var(--card))`, color: k > 0.6 ? "var(--onsolid)" : "var(--fg)" };
@@ -886,7 +902,7 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
           {detail ? <div className="only-m"><Card pad={false}>{detail}</Card></div> : null}
           <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
             {[
-              { label: "Pending today", v: rupeesShort(pendingToday), sub: due.length ? `${pendingStudents} students · installments ${due.filter((n) => n !== 99).join("–") || "—"}` : "nothing due yet", fg: "var(--warnfg)" },
+              { label: tx(W.pendingTodayAsOf(dm(data.today))), v: rupeesShort(pendingToday), sub: due.length ? tx(W.pendingStudentsInst(pendingStudents, due.filter((n) => n !== 99).join("–") || "—")) : tx(W.nothingDue), fg: "var(--warnfg)" },
               ...due
                 .filter((n) => n !== 99)
                 .slice(-2)
@@ -901,7 +917,10 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
             ))}
           </div>
           <div className="rp-f" style={{ justifyContent: "space-between" }}>
-            <span className="rp-m">Tap any cell to see those students. Darker = more pending.</span>
+            <span className="rp-m">
+              {tx(W.pendingRule)} Tap any cell to see those students. Darker = more pending.
+              {varies ? ` ${tx(W.datesVary)}` : ""}
+            </span>
             <span className="rp-f rp-m hide-m" style={{ gap: 4 }}>
               Less {[15, 30, 45, 60, 72].map((v) => <span key={v} style={{ width: 16, height: 10, borderRadius: 3, background: `color-mix(in srgb, var(--acc) ${v}%, var(--card))` }} />)} More
             </span>
@@ -917,9 +936,9 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
                   </tr>
                   <tr>
                     <th />
-                    {due.map((n) => <th key={n}>{instName(n)}{cw.dueDates[n] && n !== 99 ? ` · ${dm(cw.dueDates[n])}` : ""}</th>)}
+                    {due.map((n) => <th key={n}>{head(n)}</th>)}
                     <th>Total</th>
-                    {notDue.map((n) => <th key={n}>{instName(n)} · {dm(cw.dueDates[n])}</th>)}
+                    {notDue.map((n) => <th key={n}>{head(n)}</th>)}
                     <th>Total</th>
                   </tr>
                 </thead>

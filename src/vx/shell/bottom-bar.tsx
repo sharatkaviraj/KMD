@@ -26,11 +26,18 @@ const under = (path: string, href: string) => (href === "/" ? path === "/" : pat
  * lights Menu there (AC-*, MAD-*, M-Fees …, UI-78).
  */
 export function activeTab(tabs: readonly BottomTab[], pathname: string): string | null {
-  const best = tabs.filter((t) => !t.center && under(pathname, t.href)).sort((a, b) => b.href.length - a.href.length)[0] ?? null;
+  // A teacher's bar has no Menu; More (notices, links, leave) is her catch-all,
+  // so Marks and remarks light More rather than Today (smoke 20 Oct).
+  const menu = tabs.find((t) => t.key === "menu") ?? tabs.find((t) => t.key === "more") ?? null;
+  // The role's home lights only on itself where there is a Menu to light instead:
+  // Cheques, UPI & refunds (/accounts/books) is reached from Menu, and lit
+  // Today (smoke 20 Oct). A role without a Menu tab keeps its home lit.
+  const isHome = (t: BottomTab) => (t.key === "home" || t.key === "today") && menu !== null && pathname !== t.href;
+  const best = tabs.filter((t) => !t.center && under(pathname, t.href) && !isHome(t)).sort((a, b) => b.href.length - a.href.length)[0] ?? null;
   const center = tabs.find((t) => t.center && t.href.startsWith("/") && under(pathname, t.href.split("?")[0]));
   if (center && (!best || center.href.length > best.href.length)) return null;
   if (best) return best.href;
-  return tabs.find((t) => t.key === "menu")?.href ?? null;
+  return menu?.href ?? null;
 }
 
 type RouterPrefetchOptions = NonNullable<Parameters<ReturnType<typeof useRouter>["prefetch"]>[1]>;
@@ -85,12 +92,13 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
                 <CenterBlob icon={n.icon} />
               </button>
             ) : (
-              <IntentLink key={n.key} href={n.href} className="tap" aria-label={tx(n.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <IntentLink feedback key={n.key} href={n.href} className="tap" aria-label={tx(n.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <CenterBlob icon={n.icon} />
               </IntentLink>
             )
           ) : (
             <IntentLink
+              feedback
               key={n.key}
               href={n.href}
               className="tap"

@@ -29,6 +29,8 @@ export function formatPaymentModeLabel(value: string) {
       return "Cash";
     case "discount":
       return "Written off";
+    case "online":
+      return "Online (Razorpay)";
     default:
       return value || "Unknown";
   }

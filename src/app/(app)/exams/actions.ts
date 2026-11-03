@@ -9,8 +9,8 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { p } from "@/vx/text";
-import { assignmentsFor, classesFor, logActivity } from "@/vx/screens/exams/data";
-import { codeFor, papersToCreate } from "@/vx/screens/exams/domain/board";
+import { assignmentsFor, classesFor, logActivity, paperById } from "@/vx/screens/exams/data";
+import { codeFor, exemptSwitch, papersToCreate } from "@/vx/screens/exams/domain/board";
 import type { GroupKey } from "@/vx/screens/exams/domain/groups";
 import { previewRefusal } from "@/vx/screens/exams/guards";
 import type { ActionResult } from "@/vx/screens/exams/save-types";
@@ -146,3 +146,36 @@ export async function createExamAction(input: CreateExamInput): Promise<ActionRe
   return { ok: true, message: p(`Exam created${papers ? ` · ${papers} papers` : ""}`, `परीक्षा बनी${papers ? ` · ${papers} पेपर` : ""}`), data: { id: made.id } };
 }
 
+
+/**
+ * The exam office's per-paper "a child may be excused" switch (smoke 20 Oct:
+ * 90 of 107 Half yearly papers do not allow it, and the marks stream asked
+ * whether they should). Changes one paper's `allow_exempt`, nothing else, and
+ * only as `exemptSwitch` allows; which papers should allow it is the
+ * school's call, so no paper is changed by this commit.
+ */
+export async function setPaperExemptAction(input: { paperId: string; allow: boolean }): Promise<ActionResult> {
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
+  if (preview) return { ok: false, message: preview };
+
+  const paper = await paperById(input.paperId);
+  if (!paper) return { ok: false, message: p("That paper was not found.", "वह पेपर नहीं मिला।") };
+  const verdict = exemptSwitch({ allowExempt: paper.allow_exempt, entryRevision: paper.entry_revision }, input.allow);
+  if (!verdict.ok) {
+    return { ok: false, message: p("Marks are already being entered on this paper, so excusing can no longer be switched off.", "इस पेपर के अंक भरे जा रहे हैं, इसलिए अब छूट बंद नहीं हो सकती।") };
+  }
+  if (verdict.change) {
+    const { error } = await createAdminClient().from("assessment_subjects").update({ allow_exempt: input.allow }).eq("id", paper.id);
+    if (error) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया। फिर कोशिश करें।") };
+    await logActivity({
+      assessmentId: paper.assessment_id,
+      kind: "paper",
+      en: `${staff.displayName} ${input.allow ? "allowed" : "stopped"} excusing a child from ${paper.class_label} ${paper.subject_code}`,
+      hi: `${staff.displayName} ने ${paper.class_label} ${paper.subject_code} में छूट ${input.allow ? "दी" : "बंद की"}`,
+      actorId: staff.id,
+    }).catch(() => undefined);
+  }
+  revalidatePath("/exams");
+  return { ok: true, message: input.allow ? p("A child can now be excused from this paper.", "अब इस पेपर में बच्चे को छूट दी जा सकती है।") : p("Excusing is off for this paper.", "इस पेपर में छूट बंद।") };
+}

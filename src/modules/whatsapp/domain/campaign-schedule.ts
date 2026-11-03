@@ -26,6 +26,26 @@ export type CampaignSchedule = {
   /** `YYYY-MM-DD` for a one-off that is not tied to an installment. */
   runOn?: string;
   /**
+   * Due every morning, not once. The promise notices are the use: whoever's
+   * promised date is today or tomorrow changes daily, and the audience is
+   * rebuilt from the contact log each time.
+   */
+  everyDay?: boolean;
+  /**
+   * The date the MESSAGE prints, relative to the installment's due date (or to
+   * the run's own day for `everyDay`). Without it a standing campaign printed
+   * whatever fixed date it was saved with, which goes stale the first time it
+   * replays — a waiver window has to move with the installment it is about.
+   * Absent keeps the saved `last_date`, exactly as before.
+   */
+  messageDateOffsetDays?: number;
+  /**
+   * Which step of the reminder plan this campaign is (`domain/reminder-ladder`),
+   * so the plan screen can find it again. Absent on a campaign the office built
+   * by hand, which the plan simply does not claim.
+   */
+  ladderStep?: string;
+  /**
    * Let the cron send this without a press.
    *
    * Off unless an admin turns it on, and the screen says out loud that the
@@ -43,6 +63,33 @@ export type CampaignSchedule = {
  * screen down — the same rule `parseReminderFilters` follows for the query
  * string.
  */
+/**
+ * Whether the 09:30 timer actually sends.
+ *
+ * OFF by the owner's decision on 2026-10-27 ("leave timer off and keep sending
+ * by hand"): `20261027090000` is deliberately unapplied, so the scheduled-runs
+ * route refuses the timer. While this is false no screen offers or promises an
+ * automatic send — a step marked to send itself would only slide from Due to
+ * Missed — and every due step waits for somebody to press Send.
+ */
+export const SCHEDULED_SENDS_LIVE: boolean = false;
+
+/**
+ * A schedule the Reminder plan owns: a plan step, an every-morning step, or a
+ * fixed date. Its timing is edited on the Plan tab, never on Campaigns — that
+ * editor only knows installment + offset, and saving through it dropped the
+ * step's identity and its printed-date offset.
+ */
+export function isPlanManagedSchedule(schedule: CampaignSchedule | null): boolean {
+  return Boolean(
+    schedule &&
+      (schedule.ladderStep ||
+        schedule.everyDay ||
+        schedule.runOn ||
+        schedule.messageDateOffsetDays !== undefined),
+  );
+}
+
 export function parseCampaignSchedule(value: unknown): CampaignSchedule | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
@@ -51,17 +98,32 @@ export function parseCampaignSchedule(value: unknown): CampaignSchedule | null {
   const runOn = typeof raw.runOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.runOn)
     ? raw.runOn
     : undefined;
+  const messageOffset = Number(raw.messageDateOffsetDays);
+  // Carried alongside whichever kind of slot this is. Kept out of the object
+  // entirely when absent, so a campaign saved before these existed parses to
+  // exactly the shape it always did.
+  const extras: Pick<CampaignSchedule, "messageDateOffsetDays" | "ladderStep"> = {
+    ...(raw.messageDateOffsetDays !== undefined &&
+    raw.messageDateOffsetDays !== null &&
+    Number.isFinite(messageOffset)
+      ? { messageDateOffsetDays: Math.trunc(messageOffset) }
+      : {}),
+    ...(typeof raw.ladderStep === "string" && /^[a-z0-9_]{1,40}$/.test(raw.ladderStep)
+      ? { ladderStep: raw.ladderStep }
+      : {}),
+  };
 
   const installment = Number(raw.installment);
   const offsetDays = Number(raw.offsetDays);
   const hasInstallment = Number.isInteger(installment) && installment >= 1 && installment <= 4;
   const hasOffset = Number.isFinite(offsetDays);
 
-  if (runOn) return { runOn, auto };
+  if (runOn) return { runOn, auto, ...extras };
+  if (raw.everyDay === true) return { everyDay: true, auto, ...extras };
   if (hasInstallment) {
     // An offset of 0 is meaningful — "on the day it falls due" — so a missing
     // one defaults to it rather than invalidating the schedule.
-    return { installment, offsetDays: hasOffset ? Math.trunc(offsetDays) : 0, auto };
+    return { installment, offsetDays: hasOffset ? Math.trunc(offsetDays) : 0, auto, ...extras };
   }
   return null;
 }
@@ -70,8 +132,11 @@ export function parseCampaignSchedule(value: unknown): CampaignSchedule | null {
 export function scheduledDateFor(
   schedule: CampaignSchedule,
   calendar: InstallmentCalendar,
+  /** Today, `YYYY-MM-DD` — the slot of an `everyDay` campaign. */
+  today?: string,
 ): string | null {
   if (schedule.runOn) return schedule.runOn;
+  if (schedule.everyDay) return today ?? null;
   if (!schedule.installment) return null;
 
   const timing = calendar.timings.find(
@@ -140,7 +205,7 @@ export function campaignsDueOn(
     const schedule = parseCampaignSchedule(campaign.schedule);
     if (!schedule) continue;
 
-    const scheduledFor = scheduledDateFor(schedule, calendar);
+    const scheduledFor = scheduledDateFor(schedule, calendar, today);
     if (!scheduledFor) continue;
 
     const daysOverdue = daysBetweenIsoDates(scheduledFor, today);
@@ -178,6 +243,7 @@ export function campaignsDueOn(
  */
 export function describeSchedule(schedule: CampaignSchedule): string {
   if (schedule.runOn) return `On ${schedule.runOn}`;
+  if (schedule.everyDay) return "Every morning";
   if (!schedule.installment) return "No schedule";
 
   const offset = schedule.offsetDays ?? 0;
@@ -188,4 +254,27 @@ export function describeSchedule(schedule: CampaignSchedule): string {
     return `${days} day${days === 1 ? "" : "s"} before ${target} is due`;
   }
   return `${offset} day${offset === 1 ? "" : "s"} after ${target} was due`;
+}
+
+/**
+ * The date a scheduled run's MESSAGE prints, `YYYY-MM-DD`, or null to keep the
+ * campaign's saved date.
+ *
+ * Relative to the installment's due date — "pay by 31-10" for a waiver step
+ * that opens on the 21st — or to the run's own day for an `everyDay` campaign.
+ * Null when the schedule carries no offset, which is every campaign saved
+ * before this existed: they keep printing the date they were saved with.
+ */
+export function messageDateFor(
+  schedule: CampaignSchedule,
+  calendar: InstallmentCalendar,
+  scheduledFor: string,
+): string | null {
+  if (schedule.messageDateOffsetDays === undefined) return null;
+  if (schedule.everyDay || schedule.runOn) {
+    return addIsoDays(scheduledFor, schedule.messageDateOffsetDays);
+  }
+  const timing = calendar.timings.find((entry) => entry.installmentNo === schedule.installment);
+  if (!timing) return null;
+  return addIsoDays(timing.dueDate, schedule.messageDateOffsetDays);
 }

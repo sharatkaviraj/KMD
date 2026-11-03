@@ -22,6 +22,7 @@
  * data. Rule 3: dev only.
  */
 
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -29,7 +30,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { isDevProjectUrl } from "./target-guard.mjs";
+import { toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const asJson = process.argv.includes("--json");
@@ -46,10 +47,8 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
-  console.error("Refusing to run: .env.local is not the dev project (rule 3).");
-  process.exit(1);
-}
+// Rule 3 / D-346: One's main project only, and on production it only reads.
+await toolScope({ url: env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "verify-fee-parity", mode: "read-only" });
 
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
@@ -110,9 +109,25 @@ check(
 );
 
 const fingerprints = Object.fromEntries(rows.map((row) => [row.name, row.md5]));
+
+// One-only preambles (supabase/fee-migrations/README.md) are inserted between
+// `-- [vppsone:<name>]` and `-- [/vppsone]` lines. With those blocks removed a
+// function is byte for byte the fees app's, so its md5 then is the
+// "fees-identical" fingerprint plan §8.3 compares against the fees catalogue
+// to tell fees drift from One's own changes.
+const ONE_ONLY_BLOCK = /  -- \[vppsone:[a-z0-9-]+\]\n[\s\S]*?  -- \[\/vppsone\]\n/g;
+const feesIdentical = Object.fromEntries(
+  rows
+    .filter((row) => /  -- \[vppsone:[a-z0-9-]+\]\n/.test(row.definition ?? ""))
+    .map((row) => [row.name, createHash("md5").update(row.definition.replace(ONE_ONLY_BLOCK, ""), "utf8").digest("hex")]),
+);
+
 if (writeBaseline || !existsSync(baselinePath)) {
   mkdirSync(path.dirname(baselinePath), { recursive: true });
-  writeFileSync(baselinePath, `${JSON.stringify({ recordedAt: new Date().toISOString(), count: rows.length, fingerprints }, null, 2)}\n`);
+  writeFileSync(
+    baselinePath,
+    `${JSON.stringify({ recordedAt: new Date().toISOString(), count: rows.length, fingerprints, feesIdentical }, null, 2)}\n`,
+  );
   console.log(`  · baseline written: ${path.relative(repoRoot, baselinePath)} (${rows.length} objects)`);
 }
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8")).fingerprints;

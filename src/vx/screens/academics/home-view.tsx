@@ -4,7 +4,7 @@ import { logoutAction } from "@/app/login/actions";
 import type { Language } from "@/platform/i18n/language";
 import { renderReminder } from "@/modules/staff-notices/domain/notices";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
-import { daysBetween, dayMonth } from "@/vx/format";
+import { daysBetween, dayMonth, dayMonthHi, shortDayHi } from "@/vx/format";
 import { Ic, type IconName } from "@/vx/icons";
 import { lead as leadText, under, type Pair } from "@/vx/text";
 import { HelpButton } from "@/vx/ui/overlays";
@@ -13,9 +13,9 @@ import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
 
 import { PrintButton, RemindRegistersButton, RemindSheet, type SendPreview } from "./client";
 import type { AttentionChild, DayAttendance, MarksEntry, UpcomingEvent } from "./data";
-import { fillTemplate, subjectName, type WeekFacts } from "./domain";
+import { classPair, fillTemplate, subjectName, type WeekFacts } from "./domain";
 import { WeekDraft } from "./week-draft";
-import { AttentionRow, CardTitle, CoordKpi, CoordTop, dayName, dayNameYear, formalName, GhostLink, HeatCell, HeatLegend, HeatStrip, joinAnd, LinkSeg, nameInitials, sayer, ToneAvatar } from "./ui";
+import { AttentionRow, CardTitle, CoordKpi, CoordTop, dayName, dayNameHi, dayNameYear, dayNameYearHi, formalName, GhostLink, HeatCell, HeatLegend, HeatStrip, joinAnd, LinkSeg, nameInitials, sayer, subjectHi, ToneAvatar } from "./ui";
 
 /*
  * AcadHome (docs/design-handoff SCREENS "Academic coordinator · Today"), drawn
@@ -27,7 +27,8 @@ import { AttentionRow, CardTitle, CoordKpi, CoordTop, dayName, dayNameYear, form
 
 export type AcadHomeWeek = {
   monday: string;
-  daily: { day: string; pct: number | null }[];
+  /** `holiday`: the school was closed that day, with the calendar's name for it. */
+  daily: { day: string; pct: number | null; holiday?: { label: string | null; labelHi: string | null } }[];
   trend: { monday: string; pct: number | null }[];
   facts: WeekFacts;
   improved: { studentId: string; name: string; classLabel: string; by: string }[];
@@ -87,7 +88,14 @@ export function AcadHomeView(props: AcadHomeProps) {
   const late = entry.late;
   const examName = entry.exam ? (language === "hi" && entry.exam.labelHi ? entry.exam.labelHi : entry.exam.label) : say("Marks", "अंक");
   const due = entry.dueOn ? dayName(entry.dueOn) : null;
+  const dueHi = entry.dueOn ? dayNameHi(entry.dueOn) : null;
+  // Dates, classes and subjects in the reader's language (smoke 20 Oct: "अंतिम तिथि Wed 14 Oct").
+  const day = (d: string) => say(dayName(d), dayNameHi(d));
+  const classHi = (label: string) => classPair(label).hi ?? label;
+  const cls = (label: string) => say(label, classHi(label));
   const unmarked = today.notMarked;
+  const closed = today.closed;
+  const closedName = closed ? say(closed.label ?? (closed.kind === "sunday" ? "Sunday" : "Holiday"), closed.labelHi ?? closed.label ?? (closed.kind === "sunday" ? "रविवार" : "छुट्टी")) : null;
   const away = new Set(props.away);
   const remindHref = (extra = "") => `${mode === "home" ? "/academics?" : `/academics?view=${mode}&`}sheet=remind${extra}`;
   const closeHref = mode === "home" ? "/academics" : `/academics?view=${mode}`;
@@ -127,8 +135,8 @@ export function AcadHomeView(props: AcadHomeProps) {
           closeHref={closeHref}
           mode="registers"
           title={{ en: `Ask ${people.length} ${people.length === 1 ? "class" : "classes"} to mark?`, hi: `${people.length} कक्षाओं से हाज़िरी लेने को कहें?` }}
-          sub={{ en: `Today's register · ${dayName(props.today)}`, hi: `आज का रजिस्टर · ${dayName(props.today)}` }}
-          people={people.map((c) => ({ id: c.classId, name: `${c.label} · ${c.teacherName}`, tag: c.teacherAway ? { en: "on leave", hi: "छुट्टी पर" } : undefined, on: true }))}
+          sub={{ en: `Today's register · ${dayName(props.today)}`, hi: `आज का रजिस्टर · ${dayNameHi(props.today)}` }}
+          people={people.map((c) => ({ id: c.classId, name: `${cls(c.label)} · ${c.teacherName}`, tag: c.teacherAway ? { en: "on leave", hi: "छुट्टी पर" } : undefined, on: true }))}
           previews={Object.fromEntries(
             people.map((c) => {
               // The words the staff-notice dispatcher sends for this reminder.
@@ -146,11 +154,12 @@ export function AcadHomeView(props: AcadHomeProps) {
       const pool = props.who ? late.filter((t) => t.teacherId === props.who) : late;
       const list = pool.length ? pool : late;
       const papersOf = (t: (typeof late)[number]) => t.papers.map((p) => `${p.classLabel} ${subjectName(p.subject)} ${p.entered}/${p.roll}`).join(" · ");
+      const papersOfHi = (t: (typeof late)[number]) => t.papers.map((p) => `${classHi(p.classLabel)} ${subjectHi(p.subject)} ${p.entered}/${p.roll}`).join(" · ");
       const previews: Record<string, SendPreview> = Object.fromEntries(
         list.map((t) => {
           // The same two variables the send action fills: the teacher's name and her open papers.
           const vars = [t.name, t.papers.map((p) => `${p.classLabel} ${p.subject}`).sort().join(", ")];
-          return [t.teacherId, props.marksTemplate ? { hi: fillTemplate(props.marksTemplate.hi, vars), en: fillTemplate(props.marksTemplate.en, vars) } : { hi: `${t.name} — ${papersOf(t)}`, en: `${examName} marks are pending for ${papersOf(t)}.` }];
+          return [t.teacherId, props.marksTemplate ? { hi: fillTemplate(props.marksTemplate.hi, vars), en: fillTemplate(props.marksTemplate.en, vars) } : { hi: `${t.name} — ${papersOfHi(t)}`, en: `${examName} marks are pending for ${papersOf(t)}.` }];
         }),
       );
       const onLeave = list.filter((t) => away.has(t.teacherId));
@@ -159,7 +168,7 @@ export function AcadHomeView(props: AcadHomeProps) {
           closeHref={closeHref}
           mode="marks"
           title={list.length === 1 ? { en: `Remind ${list[0].name}?`, hi: `${list[0].name} को याद दिलाएँ?` } : { en: `Remind ${list.length} late teachers?`, hi: `${list.length} देर वाले शिक्षकों को याद दिलाएँ?` }}
-          sub={{ en: `${examName} marks${due ? ` · deadline ${due}` : ""}`, hi: `${examName} अंक${due ? ` · अंतिम तिथि ${due}` : ""}` }}
+          sub={{ en: `${examName} marks${due ? ` · deadline ${due}` : ""}`, hi: `${examName} अंक${dueHi ? ` · अंतिम तिथि ${dueHi}` : ""}` }}
           people={list.map((t) => ({ id: t.teacherId, name: t.name, tag: away.has(t.teacherId) ? { en: "on leave", hi: "छुट्टी पर" } : undefined, on: true }))}
           whoNote={onLeave.length ? { en: `${joinAnd(onLeave.map((t) => t.name))} ${onLeave.length === 1 ? "is" : "are"} on leave today — you can leave them out.`, hi: `${onLeave.map((t) => t.name).join(", ")} आज छुट्टी पर हैं — चाहें तो हटा दें।` } : null}
           previews={previews}
@@ -176,11 +185,11 @@ export function AcadHomeView(props: AcadHomeProps) {
   if (mode === "menu") {
     const tiles: { href: string; icon: IconName; tone: [string, string]; title: Pair; sub: string; subTone: string }[] = [
       { href: "/academics/progress", icon: "trend", tone: ["var(--accs)", "var(--accfg)"], title: { en: "Student progress", hi: "छात्र प्रगति" }, sub: say(`${attention.length} children need attention`, `${attention.length} बच्चों पर ध्यान चाहिए`), subTone: "var(--accfg)" },
-      { href: "/academics/attendance", icon: "calCheck", tone: ["var(--oks)", "var(--ok)"], title: { en: "Attendance", hi: "हाज़िरी" }, sub: unmarked.length ? say(`${unmarked.length} ${unmarked.length === 1 ? "class" : "classes"} not marked yet`, `${unmarked.length} कक्षाएँ अभी दर्ज नहीं`) : say("Every class marked", "सभी कक्षाएँ दर्ज"), subTone: "var(--ok)" },
+      { href: "/academics/attendance", icon: "calCheck", tone: ["var(--oks)", "var(--ok)"], title: { en: "Attendance", hi: "हाज़िरी" }, sub: closedName ? say(`School closed · ${closedName}`, `विद्यालय बंद · ${closedName}`) : unmarked.length ? say(`${unmarked.length} ${unmarked.length === 1 ? "class" : "classes"} not marked yet`, `${unmarked.length} कक्षाएँ अभी दर्ज नहीं`) : say("Every class marked", "सभी कक्षाएँ दर्ज"), subTone: "var(--ok)" },
       ...(notesHref ? [{ href: notesHref, icon: "notePen" as IconName, tone: ["var(--warns)", "var(--warnfg)"] as [string, string], title: { en: "Notes on children", hi: "बच्चों के नोट्स" }, sub: say(`${notes.open} need action`, `${notes.open} पर कार्रवाई`), subTone: "var(--warnfg)" }] : []),
       { href: "/exams", icon: "clipboard", tone: ["var(--infos)", "var(--info)"], title: { en: "Marks & results", hi: "अंक व परिणाम" }, sub: say(`${examName} ${entry.pct}% entered`, `${examName} ${entry.pct}% दर्ज`), subTone: "var(--info)" },
       { href: "/timetable", icon: "clock", tone: ["var(--s3)", "var(--fg)"], title: { en: "Timetable", hi: "समय सारणी" }, sub: say("Classes, teachers and cover", "कक्षाएँ, शिक्षक और व्यवस्था"), subTone: "var(--mut)" },
-      { href: "/calendar", icon: "calendar", tone: ["var(--accs)", "var(--accfg)"], title: { en: "Calendar", hi: "कैलेंडर" }, sub: props.events[0] ? `${language === "hi" && props.events[0].titleHi ? props.events[0].titleHi : props.events[0].title} ${dayName(props.events[0].startsOn)}` : say("Exams, PTMs and holidays", "परीक्षा, बैठकें और छुट्टियाँ"), subTone: "var(--accfg)" },
+      { href: "/calendar", icon: "calendar", tone: ["var(--accs)", "var(--accfg)"], title: { en: "Calendar", hi: "कैलेंडर" }, sub: props.events[0] ? `${language === "hi" && props.events[0].titleHi ? props.events[0].titleHi : props.events[0].title} ${day(props.events[0].startsOn)}` : say("Exams, PTMs and holidays", "परीक्षा, बैठकें और छुट्टियाँ"), subTone: "var(--accfg)" },
       { href: "/academics?view=week", icon: "file", tone: ["var(--infos)", "var(--info)"], title: { en: "Weekly summary", hi: "साप्ताहिक सारांश" }, sub: say("Ready to send", "भेजने को तैयार"), subTone: "var(--info)" },
       ...(mayRemind ? [{ href: "/academics?view=menu&sheet=remind", icon: "send" as IconName, tone: ["var(--warns)", "var(--warnfg)"] as [string, string], title: { en: "Remind late teachers", hi: "शिक्षकों को याद दिलाएँ" }, sub: late.length ? say(`${late.length} still behind`, `${late.length} अभी पीछे`) : say("Nobody is behind", "कोई पीछे नहीं"), subTone: "var(--warnfg)" }] : []),
       { href: "/academics/setup", icon: "settings", tone: ["var(--s3)", "var(--fg)"], title: { en: "Academic set-up", hi: "शैक्षणिक सेटअप" }, sub: say("Subjects, classes, class teachers", "विषय, कक्षाएँ, कक्षा-अध्यापक"), subTone: "var(--mut)" },
@@ -240,7 +249,7 @@ export function AcadHomeView(props: AcadHomeProps) {
   if (mode === "week" && props.week) {
     const w = props.week;
     const last = props.today;
-    const range = `${dayName(w.monday).replace(/ \w+$/, "")} – ${dayName(last)}`;
+    const range = say(`${dayName(w.monday).replace(/ \w+$/, "")} – ${dayName(last)}`, `${dayNameHi(w.monday).replace(/ \S+$/, "")} – ${dayNameHi(last)}`);
     return (
       <VxPage>
         <CoordTop
@@ -263,12 +272,17 @@ export function AcadHomeView(props: AcadHomeProps) {
           me={props.me.name}
           principals={w.principals}
           range={range}
-          trend={w.trend.map((t) => ({ label: dayMonth(t.monday).replace("Sept", "Sep"), pct: t.pct }))}
-          days={w.daily.map((d) => ({ label: dayName(d.day).split(" ")[0], pct: d.pct }))}
-          improved={w.improved.map((c) => ({ id: c.studentId, name: c.name, sub: say(`${c.classLabel} · noted by ${c.by}`, `${c.classLabel} · ${c.by} ने दर्ज किया`) }))}
-          help={w.help.slice(0, 4).map((c) => ({ id: c.studentId, name: c.name, sub: c.classLabel, chip: c }))}
-          marks={{ name: examName, pct: entry.pct, due, ...w.papers }}
-          lastSent={w.lastSent ? dayName(w.lastSent) : null}
+          trend={w.trend.map((t) => ({ label: say(dayMonth(t.monday).replace("Sept", "Sep"), dayMonthHi(t.monday)), pct: t.pct }))}
+          days={w.daily.map((d) => ({
+            label: say(dayName(d.day).split(" ")[0], shortDayHi(d.day).split(" ")[0]),
+            pct: d.pct,
+            // A closed day says so: "Holiday · Dussehra", not a bare "—" (smoke 20 Oct).
+            holiday: d.holiday ? say(`Holiday${d.holiday.label ? ` · ${d.holiday.label}` : ""}`, `छुट्टी${d.holiday.labelHi ?? d.holiday.label ? ` · ${d.holiday.labelHi ?? d.holiday.label}` : ""}`) : null,
+          }))}
+          improved={w.improved.map((c) => ({ id: c.studentId, name: c.name, sub: say(`${c.classLabel} · noted by ${c.by}`, `${classHi(c.classLabel)} · ${c.by} ने दर्ज किया`) }))}
+          help={w.help.slice(0, 4).map((c) => ({ id: c.studentId, name: c.name, sub: cls(c.classLabel), chip: c }))}
+          marks={{ name: examName, pct: entry.pct, due: due ? say(due, dueHi ?? due) : null, ...w.papers }}
+          lastSent={w.lastSent ? day(w.lastSent) : null}
           template={props.summaryTemplate}
           canSend={mayRemind}
         />
@@ -285,16 +299,21 @@ export function AcadHomeView(props: AcadHomeProps) {
   // One class of nineteen is not "the school's attendance": until half the
   // classes have marked, the big number waits (coordinators B19).
   const tooEarly = today.marked > 0 && today.marked * 2 < today.classes.length;
+  // On a closed day nobody is asked to mark: the line names the holiday instead of "19 classes have not marked".
+  const attendanceClause = closedName
+    ? say(`School is closed today (${closedName})`, `आज विद्यालय बंद है (${closedName})`)
+    : say(`${unmarked.length} ${unmarked.length === 1 ? "class has" : "classes have"} not marked attendance`, `${unmarked.length} कक्षाओं ने हाज़िरी नहीं ली`);
   const summary = say(
-    `${unmarked.length} ${unmarked.length === 1 ? "class has" : "classes have"} not marked attendance, ${late.length} ${late.length === 1 ? "teacher is" : "teachers are"} behind on ${examName} marks and ${attention.length} children need attention.`,
-    `${unmarked.length} कक्षाओं ने हाज़िरी नहीं ली, ${late.length} शिक्षक ${examName} के अंकों में पीछे हैं और ${attention.length} बच्चों पर ध्यान चाहिए।`,
+    `${attendanceClause}, ${late.length} ${late.length === 1 ? "teacher is" : "teachers are"} behind on ${examName} marks and ${attention.length} children need attention.`,
+    `${attendanceClause}, ${late.length} शिक्षक ${examName} के अंकों में पीछे हैं और ${attention.length} बच्चों पर ध्यान चाहिए।`,
   );
   const remindAllLabel = say(`Remind all late (${late.length})`, `देर वालों को याद दिलाएँ (${late.length})`);
-  const unmarkedText = unmarked.map((c) => `${c.label} (${c.teacherAway ? say(`${c.teacherName} on leave`, `${c.teacherName} छुट्टी पर`) : c.teacherName})`);
+  const unmarkedText = unmarked.map((c) => `${cls(c.label)} (${c.teacherAway ? say(`${c.teacherName} on leave`, `${c.teacherName} छुट्टी पर`) : c.teacherName})`);
+  const weekday = (d: string) => say(dayName(d).split(" ")[0], shortDayHi(d).split(" ")[0]);
 
   const upcoming: { id: string; href: string; day: string; kind: string; title: string; sub: string }[] = [
     ...(entry.dueOn && entry.dueOn >= props.today && late.length
-      ? [{ id: "marks-due", href: "/exams", day: entry.dueOn, kind: "deadline", title: say(`${examName} marks deadline`, `${examName} अंकों की अंतिम तिथि`), sub: say(`${dayName(entry.dueOn).split(" ")[0]} · ${late.length} ${late.length === 1 ? "teacher" : "teachers"} still behind`, `${late.length} शिक्षक अभी पीछे`) }]
+      ? [{ id: "marks-due", href: "/exams", day: entry.dueOn, kind: "deadline", title: say(`${examName} marks deadline`, `${examName} अंकों की अंतिम तिथि`), sub: say(`${weekday(entry.dueOn)} · ${late.length} ${late.length === 1 ? "teacher" : "teachers"} still behind`, `${weekday(entry.dueOn)} · ${late.length} शिक्षक अभी पीछे`) }]
       : []),
     ...props.events.map((e) => ({
       id: e.id,
@@ -302,7 +321,7 @@ export function AcadHomeView(props: AcadHomeProps) {
       day: e.startsOn,
       kind: e.kind,
       title: language === "hi" && e.titleHi ? e.titleHi : e.title,
-      sub: [e.startsOn === e.endsOn ? dayName(e.startsOn).split(" ")[0] : `${dayName(e.startsOn)} – ${dayName(e.endsOn)}`, e.startsAt ? e.startsAt.slice(0, 5) : null, e.place].filter(Boolean).join(" · "),
+      sub: [e.startsOn === e.endsOn ? weekday(e.startsOn) : `${day(e.startsOn)} – ${day(e.endsOn)}`, e.startsAt ? e.startsAt.slice(0, 5) : null, e.place].filter(Boolean).join(" · "),
     })),
   ]
     .sort((a, b) => a.day.localeCompare(b.day))
@@ -315,9 +334,9 @@ export function AcadHomeView(props: AcadHomeProps) {
   return (
     <VxPage>
       <CoordTop
-        crumb={say(`Academics · ${dayNameYear(props.today)}`, `शैक्षणिक · ${dayNameYear(props.today)}`)}
+        crumb={say(`Academics · ${dayNameYear(props.today)}`, `शैक्षणिक · ${dayNameYearHi(props.today)}`)}
         title={say("Today", "आज")}
-        mSub={`${dayName(props.today)} · ${props.me.name}`}
+        mSub={`${day(props.today)} · ${props.me.name}`}
         mAvatar={nameInitials(props.me.name)}
         actions={
           <>
@@ -342,7 +361,7 @@ export function AcadHomeView(props: AcadHomeProps) {
           </Link>
         </div>
 
-        {today.closed ? <Banner tone="info">{say(`School is closed today${today.closed.label ? ` · ${today.closed.label}` : ""}.`, `आज विद्यालय बंद है${today.closed.label ? ` · ${today.closed.label}` : ""}।`)}</Banner> : null}
+        {closedName ? <Banner tone="info">{say(`School is closed today · ${closedName}. No register today.`, `आज विद्यालय बंद है · ${closedName}। आज हाज़िरी नहीं लगेगी।`)}</Banner> : null}
 
         <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
           <CoordKpi
@@ -350,12 +369,14 @@ export function AcadHomeView(props: AcadHomeProps) {
             icon="calCheck"
             tone="ok"
             label={say("Attendance today", "आज की हाज़िरी")}
-            value={tooEarly ? "—" : pct}
-            pill={unmarked.length ? { tone: "warn", text: say(`${unmarked.length} not marked`, `${unmarked.length} दर्ज नहीं`) } : { tone: "ok", text: say("All marked", "सभी दर्ज") }}
+            value={closedName || tooEarly ? "—" : pct}
+            pill={closedName ? { tone: "mut", text: say("School closed", "विद्यालय बंद") } : unmarked.length ? { tone: "warn", text: say(`${unmarked.length} not marked`, `${unmarked.length} दर्ज नहीं`) } : { tone: "ok", text: say("All marked", "सभी दर्ज") }}
             sub={
-              tooEarly
-                ? say(`${today.marked} of ${today.classes.length} classes marked — too early to tell`, `${today.classes.length} में ${today.marked} कक्षाएँ दर्ज — अभी कहना जल्दी`)
-                : say(`${today.marked} of ${today.classes.length} classes marked`, `${today.classes.length} में ${today.marked} कक्षाएँ दर्ज`)
+              closedName
+                ? closedName
+                : tooEarly
+                  ? say(`${today.marked} of ${today.classes.length} classes marked — too early to tell`, `${today.classes.length} में से ${today.marked} कक्षाएँ दर्ज — अभी कहना जल्दी`)
+                  : say(`${today.marked} of ${today.classes.length} classes marked`, `${today.classes.length} में से ${today.marked} कक्षाएँ दर्ज`)
             }
           />
           <CoordKpi
@@ -364,7 +385,7 @@ export function AcadHomeView(props: AcadHomeProps) {
             label={say(`${examName} marks entered`, `${examName} अंक भरे गए`)}
             value={`${entry.pct}%`}
             pill={late.length ? { tone: "bad", text: say(`${late.length} ${late.length === 1 ? "teacher" : "teachers"} late`, `${late.length} शिक्षक पीछे`) } : { tone: "ok", text: say("Nobody late", "कोई पीछे नहीं") }}
-            sub={due ? say(`Deadline ${due}`, `अंतिम तिथि ${due}`) : entry.exam?.endsOn ? say(`Exam ended ${dayName(entry.exam.endsOn)}`, `परीक्षा ${dayName(entry.exam.endsOn)} को समाप्त`) : null}
+            sub={due ? say(`Deadline ${due}`, `अंतिम तिथि ${dueHi}`) : entry.exam?.endsOn ? say(`Exam ended ${dayName(entry.exam.endsOn)}`, `परीक्षा ${dayNameHi(entry.exam.endsOn)} को समाप्त`) : null}
             delay={60}
           />
           <CoordKpi
@@ -383,8 +404,19 @@ export function AcadHomeView(props: AcadHomeProps) {
             tone="acc"
             label={say("Notes needing action", "कार्रवाई वाले नोट्स")}
             value={notes.open}
-            pill={notes.due ? { tone: "acc", text: say(`${notes.due} due${notes.dueOn ? ` ${dayName(notes.dueOn)}` : ""}`, `${notes.due} देय${notes.dueOn ? ` ${dayName(notes.dueOn)}` : ""}`) } : null}
-            sub={say("Follow-ups from teachers", "शिक्षकों के फ़ॉलो-अप")}
+            pill={
+              notes.due
+                ? {
+                    tone: "acc",
+                    text: !notes.dueOn
+                      ? say(`${notes.due} due this week`, `इस सप्ताह ${notes.due} नोट फिर देखने हैं`)
+                      : notes.dueOn < props.today
+                        ? say(`${notes.due} late since ${dayName(notes.dueOn)}`, `${dayNameHi(notes.dueOn)} से ${notes.due} बाकी`)
+                        : say(`${notes.due} due · from ${dayName(notes.dueOn)}`, `${dayNameHi(notes.dueOn)} से ${notes.due} नोट फिर देखने हैं`),
+                  }
+                : null
+            }
+            sub={say("Teachers' notes to look at again", "शिक्षकों के नोट जिन्हें फिर देखना है")}
             delay={180}
           />
         </div>
@@ -395,22 +427,26 @@ export function AcadHomeView(props: AcadHomeProps) {
               <CardTitle
                 title={say("Today's attendance by class", "कक्षावार आज की हाज़िरी")}
                 sub={
-                  today.marked === 0
-                    ? say("No class has marked attendance yet", "अभी किसी कक्षा ने हाज़िरी नहीं ली")
-                    : say(`${pct} present in ${today.marked} marked ${today.marked === 1 ? "class" : "classes"} · ${presentNow} of ${counted} children`, `${today.marked} दर्ज कक्षाओं में ${pct} उपस्थित · ${counted} में ${presentNow} बच्चे`)
+                  closedName && today.marked === 0
+                    ? say(`School closed today · ${closedName}`, `आज विद्यालय बंद · ${closedName}`)
+                    : today.marked === 0
+                      ? say("No class has marked attendance yet", "अभी किसी कक्षा ने हाज़िरी नहीं ली")
+                      : say(`${pct} present in ${today.marked} marked ${today.marked === 1 ? "class" : "classes"} · ${presentNow} of ${counted} children`, `${today.marked} दर्ज कक्षाओं में ${pct} उपस्थित · ${counted} में से ${presentNow} बच्चे`)
                 }
                 action={<GhostLink href="/academics/attendance">{say("Open", "खोलें")}</GhostLink>}
               />
               <HeatStrip count={today.classes.length}>
                 {today.classes.map((c) => (
-                  <HeatCell key={c.classId} label={c.label} pct={c.pct} href={`/academics/attendance?view=register&class=${c.classId}`} title={`${c.label} · ${c.pct === null ? say("not marked", "दर्ज नहीं") : `${Math.round(c.pct)}% ${say("present", "उपस्थित")}`}`} />
+                  <HeatCell key={c.classId} label={c.label} pct={c.pct} href={`/academics/attendance?view=register&class=${c.classId}`} title={`${cls(c.label)} · ${c.pct === null ? (closedName ? say("school closed", "विद्यालय बंद") : say("not marked", "दर्ज नहीं")) : `${Math.round(c.pct)}% ${say("present", "उपस्थित")}`}`} />
                 ))}
               </HeatStrip>
               <HeatLegend say={say} />
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: "var(--s2)" }}>
-                <Ic n={unmarked.length ? "info" : "checkCircle"} size={18} style={{ flex: "none", color: unmarked.length ? "var(--info)" : "var(--ok)" }} />
+                <Ic n={closedName ? "calendar" : unmarked.length ? "info" : "checkCircle"} size={18} style={{ flex: "none", color: closedName ? "var(--mut)" : unmarked.length ? "var(--info)" : "var(--ok)" }} />
                 <span style={{ flex: 1, minWidth: 200 }}>
-                  {unmarked.length
+                  {closedName
+                    ? say(`School is closed today · ${closedName}. Nobody needs to mark a register. The last school day's registers are under Attendance › Month.`, `आज विद्यालय बंद है · ${closedName}। आज किसी को हाज़िरी नहीं लगानी। पिछले स्कूल दिवस के रजिस्टर हाज़िरी › महीना में हैं।`)
+                    : unmarked.length
                     ? say(
                         `${unmarked.length} ${unmarked.length === 1 ? "class" : "classes"} not marked yet: ${joinAnd(unmarkedText)}.${today.marked ? " Tap any class to see who marked it." : ""}`,
                         `${unmarked.length} कक्षाएँ अभी दर्ज नहीं: ${joinAnd(unmarkedText, "और")}।${today.marked ? " किसी कक्षा पर टैप करके देखें किसने दर्ज किया।" : ""}`,
@@ -437,8 +473,8 @@ export function AcadHomeView(props: AcadHomeProps) {
                   <span className="num" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>{entry.pct}%</span>
                 </span>
                 <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: 15, fontWeight: 700 }}>{say(`${examName} marks entry`, `${examName} अंक प्रविष्टि`)}</span>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${examName}${due ? ` · deadline ${due}` : ""} · ${late.length} ${late.length === 1 ? "teacher" : "teachers"} behind`, `${examName}${due ? ` · अंतिम तिथि ${due}` : ""} · ${late.length} शिक्षक पीछे`)}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>{say(`${examName} marks entry`, `${examName} के अंक भरना`)}</span>
+                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${examName}${due ? ` · deadline ${due}` : ""} · ${late.length} ${late.length === 1 ? "teacher" : "teachers"} behind`, `${examName}${dueHi ? ` · अंतिम तिथि ${dueHi}` : ""} · ${late.length} शिक्षक पीछे`)}</span>
                 </span>
                 {mayRemind ? (
                   late.length ? (
@@ -455,7 +491,7 @@ export function AcadHomeView(props: AcadHomeProps) {
                 ) : null}
               </div>
               <LinkSeg
-                label={say("Marks entry", "अंक प्रविष्टि")}
+                label={say("Marks entry", "अंक भरना")}
                 current={marksTab}
                 style={{ maxWidth: 340 }}
                 tabs={[
@@ -478,7 +514,7 @@ export function AcadHomeView(props: AcadHomeProps) {
                               <span style={{ fontWeight: 600 }}>{t.name}</span>
                               {away.has(t.teacherId) ? <Pill tone="warn">{say("On leave today", "आज छुट्टी पर")}</Pill> : null}
                             </span>
-                            <span style={{ fontSize: 12, color: "var(--mut)" }}>{t.papers.map((p) => `${p.classLabel} ${subjectName(p.subject)} ${p.entered}/${p.roll}`).join(" · ")}</span>
+                            <span style={{ fontSize: 12, color: "var(--mut)" }}>{t.papers.map((p) => `${cls(p.classLabel)} ${say(subjectName(p.subject), subjectHi(p.subject))} ${p.entered}/${p.roll}`).join(" · ")}</span>
                             <span style={{ height: 6, maxWidth: 320, borderRadius: 4, background: "var(--s3)", overflow: "hidden", display: "flex" }}>
                               <span style={{ width: `${w}%`, height: "100%", borderRadius: 4, background: t.entered ? "var(--c3)" : "var(--bad)", transformOrigin: "left", animation: "xGrowX .7s var(--ease) both" }} />
                             </span>
@@ -504,7 +540,7 @@ export function AcadHomeView(props: AcadHomeProps) {
                 <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: "2px 22px" }}>
                   {entry.byClass.map((c, i) => (
                     <div key={c.classId} style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 34, animation: `xIn .3s var(--ease) ${Math.min(i * 20, 300)}ms both` }}>
-                      <span className="clip" style={{ width: 96, flex: "none", fontSize: 13, fontWeight: 600 }}>{c.label}</span>
+                      <span className="clip" style={{ width: 96, flex: "none", fontSize: 13, fontWeight: 600 }}>{cls(c.label)}</span>
                       <span style={{ flex: 1, minWidth: 0, height: 6, borderRadius: 4, background: "var(--s3)", overflow: "hidden", display: "flex" }}>
                         <span style={{ width: `${c.pct}%`, height: "100%", borderRadius: 4, background: c.pct === 100 ? "var(--ok)" : c.pct < 50 ? "var(--c3)" : "var(--acc)", transformOrigin: "left", animation: "xGrowX .7s var(--ease) both" }} />
                       </span>
@@ -546,7 +582,7 @@ export function AcadHomeView(props: AcadHomeProps) {
                   return (
                     <Link key={u.id} href={u.href} className="row tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: i ? "1px solid var(--bd)" : undefined, color: "var(--fg)" }}>
                       <span style={{ flex: "none", width: 50, padding: "6px 0", borderRadius: 12, background: bg, color: fg, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <span style={{ fontSize: 11, fontWeight: 700 }}>{dayMonth(u.day).split(" ")[1]?.toUpperCase()}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700 }}>{language === "hi" ? dayMonthHi(u.day).split(" ")[1] : dayMonth(u.day).split(" ")[1]?.toUpperCase()}</span>
                         <span className="num" style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1 }}>{Number(u.day.slice(8, 10))}</span>
                       </span>
                       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>

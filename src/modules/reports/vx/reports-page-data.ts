@@ -17,6 +17,8 @@ import {
   daysInRange,
   type InstallmentBalance,
 } from "@/modules/reports/vx/domain/reports";
+import { isPendingOn } from "@/modules/fees/domain/due-rule";
+import { collectionModeOf, isLeft } from "@/modules/reports/vx/domain/reports";
 import { getClasses, getCollectionReceipts, getInstallmentBalances, getReportSchedules } from "@/modules/reports/vx/reports-data";
 import type { CollectionPreset, ReportsPageData, ReportsSheet, ReportsView } from "@/modules/reports/vx/types";
 
@@ -73,10 +75,14 @@ export async function getReportsPageData(input: {
     const todayLive = live.filter((r) => r.paymentDate === today);
     const month = live.filter((r) => r.paymentDate >= monthFrom);
     const share = { upi: 0, cash: 0, cheque: 0, bank_transfer: 0 };
-    for (const r of month) if (r.paymentMode in share) share[r.paymentMode as keyof typeof share] += r.amount;
+    for (const r of month) {
+      const column = collectionModeOf(r.paymentMode);
+      if (column in share) share[column as keyof typeof share] += r.amount;
+    }
     const defaulters = buildDefaulters(balances, today);
     const leftOwing = buildDefaulters(balances, today, { includeLeft: true }).filter((r) => r.left);
-    const notDueYet = balances.filter((b) => b.dueDate > today).reduce((s, b) => s + Math.max(0, b.pendingAmount), 0);
+    // Everything owed that is not pending today, by the same rule (due-rule.ts).
+    const notDueYet = balances.filter((b) => !isLeft(b.studentStatus) && !isPendingOn(b, today)).reduce((s, b) => s + Math.max(0, b.pendingAmount), 0);
     base.hub = {
       todayTotal: todayLive.reduce((s, r) => s + r.amount, 0),
       todayReceipts: todayLive.length,
@@ -114,7 +120,7 @@ export async function getReportsPageData(input: {
     if (cellClass === "*") {
       // `?view=cell` with no cell named: open the busiest class's latest due installment.
       const top = [...base.classwise.rows].sort((a, b) => b.pendingToday - a.pendingToday)[0];
-      const dueNos = base.classwise.installmentNos.filter((n) => top?.cells[n]?.due);
+      const dueNos = base.classwise.dueNos.filter((n) => top?.cells[n]?.due);
       cellClass = top?.classLabel;
       cellInst = dueNos[dueNos.length - 1] ?? base.classwise.installmentNos[0];
     }

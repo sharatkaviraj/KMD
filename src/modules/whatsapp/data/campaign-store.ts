@@ -221,6 +221,41 @@ export async function saveCampaign(
 }
 
 /**
+ * Turn a scheduled campaign's "sends itself" on or off, keeping the rest of its
+ * schedule exactly as it was.
+ *
+ * Read-modify-write on the jsonb rather than a fresh object, so the plan's
+ * extras (`ladderStep`, `messageDateOffsetDays`) survive the toggle. A campaign
+ * with no schedule has nothing to automate and is refused.
+ */
+export async function setCampaignAuto(
+  supabase: any,
+  id: string,
+  auto: boolean,
+  staffId: string | null,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("whatsapp_campaigns")
+    .select("schedule")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Could not read that campaign: ${error.message}`);
+  const schedule = data?.schedule;
+  if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) {
+    throw new Error("That campaign has no schedule to send on.");
+  }
+  const { error: updateError } = await supabase
+    .from("whatsapp_campaigns")
+    .update({
+      schedule: { ...(schedule as Record<string, unknown>), auto },
+      updated_by: staffId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (updateError) throw new Error(`Could not update that campaign: ${updateError.message}`);
+}
+
+/**
  * Archive rather than delete. A campaign is referenced by its runs, and a run is
  * evidence that parents were messaged.
  */
@@ -282,6 +317,14 @@ export async function openRun(
         late_fee_phrase: run.lateFeePhrase,
         selected_count: run.selectedCount,
         started_by: run.startedBy,
+        // All four were accepted above and never written, so no slot ever read
+        // as done (the plan showed a sent step as Due, then Missed, and the due
+        // card offered it for a week), cron runs read as manual, and every
+        // admin override lost its reason.
+        source: run.source ?? "manual",
+        scheduled_for: run.scheduledFor ?? null,
+        overridden_guards: run.overriddenGuards ?? [],
+        override_reason: run.overrideReason ?? null,
       })
       .select("id")
       .maybeSingle();
@@ -379,16 +422,27 @@ export async function loadRunRecipients(
     destination: string;
     dueAmount: number;
     status: string;
+    /** The LATEST reason: the delivery failure, else the last refusal, else the first. */
     error: string | null;
+    deliveryStatus: string | null;
+    failureCause: string | null;
+    resolution: string | null;
   }>
 > {
-  const { data, error } = await supabase
-    .from("whatsapp_reminder_sends")
-    // `full_name` on the base table — `student_name` exists only on the
-    // matview, which is not what this joins to.
-    .select("student_id, destination, due_amount, status, error_message, students(admission_no, full_name)")
-    .eq("run_id", runId)
-    .order("due_amount", { ascending: false });
+  // `full_name` on the base table — `student_name` exists only on the
+  // matview, which is not what this joins to.
+  const base = "student_id, destination, due_amount, status, error_message, last_error, delivery_status, students(admission_no, full_name)";
+  const read = (columns: string) =>
+    supabase
+      .from("whatsapp_reminder_sends")
+      .select(columns)
+      .eq("run_id", runId)
+      .order("due_amount", { ascending: false });
+  let { data, error } = await read(`${base}, delivery_error, failure_cause, resolution`);
+  // Before `20261030190000` there are no failure columns.
+  if (error && /failure_cause|delivery_error|resolution/.test(String(error.message))) {
+    ({ data, error } = await read(base));
+  }
 
   if (error) throw new Error(`Could not read who this run messaged: ${error.message}`);
 
@@ -399,7 +453,14 @@ export async function loadRunRecipients(
     destination: String(row.destination ?? ""),
     dueAmount: Number(row.due_amount ?? 0),
     status: String(row.status ?? ""),
-    error: row.error_message ? String(row.error_message) : null,
+    error:
+      (row.delivery_status === "failed" ? row.delivery_error : null) ??
+      row.last_error ??
+      row.error_message ??
+      null,
+    deliveryStatus: row.delivery_status ?? null,
+    failureCause: row.failure_cause ?? null,
+    resolution: row.resolution ?? null,
   }));
 }
 

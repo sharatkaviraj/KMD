@@ -23,6 +23,9 @@ import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
+// "Run now" runs the job inside this page's server action; the Drive backup
+// needs the same five minutes the scheduled run gets.
+export const maxDuration = 300;
 
 export async function generateMetadata() {
   return { title: await pageTitle(m.jobsTitle) };

@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
@@ -19,6 +21,8 @@ import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { menuRoleLabel } from "@/vx/shell/role-line";
 import { getViewer } from "@/vx/view-as";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { LedgerNotice } from "@/vx/shell/ledger-notice";
 
 export const runtime = "nodejs";
 
@@ -63,16 +67,17 @@ export default async function TodayPage() {
   }
 
   const seesMoney = can(staff, "fees:view");
+  const canonicalMoney = usesCanonicalFees(staff, sessionLabel);
   const [facts, fees, inbox, week] = await Promise.all([
     loadToday(staff, sessionLabel, today, minutes),
-    seesMoney
+    seesMoney && !canonicalMoney
       ? todayMoney(today)
           // Promises are counted in the fee session the money figures come from.
           .then(async (figures) => ({ figures, promised: await promisedToday(figures.sessionLabel, today).catch(() => null) }))
           .catch(() => null)
       : Promise.resolve(null),
     can(staff, "attendance:correct")
-      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingMoneyRequests : undefined })
+      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney && !canonicalMoney ? pendingMoneyRequests : undefined, nowMinutes: minutes })
       : Promise.resolve(null),
     can(staff, "attendance:view") ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
   ]);
@@ -113,6 +118,8 @@ export default async function TodayPage() {
   return (
     <VxPage label={lead(T.today, language)}>
       <TodayScreen
+        notice={seesMoney && canonicalMoney ? <LedgerNotice language={language} /> : null}
+        officeWork={<Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>}
         firstName={staff.displayName.split(/\s+/)[0] ?? staff.displayName}
         greeting={greeting}
         dayLine={longDay(today)}

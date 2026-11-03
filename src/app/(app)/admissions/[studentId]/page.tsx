@@ -8,6 +8,7 @@ import { VxPage } from "@/vx/ui/page";
 import { loadAdmissionDetails } from "@/vx/screens/admissions/data";
 import { dobForInput } from "@/vx/screens/admissions/logic";
 import { StudentRecord } from "@/vx/screens/admissions/record";
+import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ export default async function AdmissionRecordPage(props: PageProps<"/admissions/
   const { studentId } = await props.params;
   await requirePermission("fees:manage", `/admissions/${studentId}`);
   if (!UUID.test(studentId)) notFound();
+  await notFoundUnlessVisible(() => assertStudentVisible(null, studentId));
   const search = await props.searchParams;
 
   const student = await getStudentDetail(studentId);

@@ -1,3 +1,4 @@
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { byClassLabel } from "@/modules/academics/domain/class-order";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { daysBetween, shortDay } from "@/vx/format";
@@ -9,10 +10,12 @@ import { currentExam, graceFor, issuedStudents, locksFor, marksOf, moderationFor
 import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { histogram } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
-import { averagePct, graceVerdict, pipelineStates, unusualAverages, type PaperAverage } from "@/vx/screens/exams/domain/results";
+import { averagePct, graceVerdict, pipelineStates, sameNameHints, unusualAverages, type PaperAverage } from "@/vx/screens/exams/domain/results";
 import { classReadiness } from "@/vx/screens/exams/domain/progress";
 import { isLate } from "@/vx/screens/exams/domain/tracker";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
+import { absentExams } from "@/modules/assessments/domain/report-card";
+import { absentLine } from "@/vx/screens/exams/domain/card-notes";
 import { ResultsBoard, type ResultsView, type ResultsProps } from "@/vx/screens/exams/results-board";
 
 import {
@@ -42,7 +45,8 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const view: ResultsView = (VIEWS as readonly string[]).includes(one("view") ?? "") ? (one("view") as ResultsView) : "pipeline";
 
-  const ctx = await officeContext();
+  const now = await schoolNow(staff);
+  const ctx = await officeContext(now);
   const exam = ctx ? currentExam(ctx.exams, ctx.today, one("exam")) : null;
   if (!ctx || !exam) {
     return (
@@ -101,6 +105,12 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
   const given = new Map(grace.map((g) => [`${g.paper_id}|${g.student_id}`, Number(g.grace)]));
   const markOf = new Map(progress.marks.map((m) => [`${m.assessment_subject_id}|${m.student_id}`, m]));
   const graceRows: ResultsProps["grace"]["rows"] = [];
+  // Two children with one name in one class get their SR no. (or father's name) beside it.
+  const hints = sameNameHints(
+    [...progress.roll].flatMap(([classId, kids]) =>
+      kids.map((k) => ({ id: k.studentId, group: classId, name: nameOf(k.studentId), sr: names.get(k.studentId)?.admissionNo ?? null, father: names.get(k.studentId)?.fatherName ?? null })),
+    ),
+  );
   for (const [classId, kids] of progress.roll) {
     const papers = progress.rows.filter((r) => r.class_id === classId);
     for (const kid of kids) {
@@ -116,6 +126,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
       graceRows.push({
         studentId: kid.studentId,
         name: nameOf(kid.studentId),
+        hint: hints.get(kid.studentId) ?? null,
         classId,
         classLabel: papers[0]?.class_label ?? "",
         canPass: verdict.canPass,
@@ -153,6 +164,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         readiness: ready.state,
         readyToLock: ready.readyToLock,
         invalid: ready.invalid,
+        fix: papers.filter((x) => (x.invalid ?? 0) > 0).map((x) => ({ subjectCode: x.subjectCode, count: x.invalid ?? 0 })),
         // Every late paper, whether or not a teacher is assigned to it: an
         // unassigned paper past its due date is the most late of all (B7).
         late: papers.filter((x) => isLate(x, progress.expected)).length,
@@ -191,6 +203,9 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         invalid: facts?.invalid ?? 0,
         decision: moderation.get(r.id)?.decision ?? null,
         sat: values.length,
+        onRoll: facts?.total,
+        absent: facts?.absent,
+        exempt: facts?.exempt,
         below: r.pass_marks === null ? 0 : values.filter((v) => v < Number(r.pass_marks)).length,
         highest: values.length ? Math.max(...values) : null,
         spread: histogram(values, Number(r.max_marks), 10),
@@ -203,7 +218,9 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
   const sampleClass = classes.find((c) => c.locked) ?? classes.find((c) => c.allSubmitted) ?? null;
   let sample: ResultsProps["cards"]["sample"] = null;
   const sampleKid = sampleClass ? progress.roll.get(sampleClass.id)?.[0] : undefined;
-  if (sampleKid) {
+  // Only the Cards and Publish steps show the sample; building a full card (marks, grace,
+  // attendance) for every other step is what made Grace take 9.4 s (smoke 20 Oct).
+  if (sampleKid && (view === "cards" || view === "publish")) {
     const graceMap = await graceByStudent(termExams, sampleClass!.id);
     const state = await cardState({ studentId: sampleKid.studentId, sessionLabel, term: exam.term, grace: graceMap.get(sampleKid.studentId) ?? {} }).catch(() => null);
     if (state) {
@@ -213,12 +230,13 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         classId: sampleClass!.id,
         classLabel: state.card.classLabel,
         issued: state.issued,
-        rows: state.card.rows.map((r) => ({ subject: r.subjectCode, scored: r.scored, outOf: r.outOf, grade: r.grade, grace: state.grace[r.subjectCode] ?? 0 })),
+        rows: state.card.rows.map((r) => ({ subject: r.subjectCode, scored: r.scored, outOf: r.outOf, grade: r.grade, grace: state.grace[r.subjectCode] ?? 0, absent: absentLine(absentExams(r)) || undefined })),
         total: state.card.totals.scored,
         outOf: state.card.totals.outOf,
         percent: state.card.totals.percent,
         grade: state.card.grade,
         passed: state.card.passed,
+        shortIn: [...new Set([...(state.card.shortIn ?? []), ...(state.card.absentIn ?? [])])],
       };
     }
   }

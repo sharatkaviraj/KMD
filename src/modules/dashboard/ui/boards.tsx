@@ -47,6 +47,7 @@ const MODE_LABELS: Record<string, string> = {
   upi: "UPI",
   bank_transfer: "Bank",
   cheque: "Cheque",
+  online: "Online",
 };
 
 /* ── Overview ──────────────────────────────────────────────────────────── */

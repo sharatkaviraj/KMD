@@ -12,11 +12,16 @@ permissions:
 jobs:
   targeted-phone:
     runs-on: ubuntu-latest
+    # Keep all matrix check identities; reuse the version-matched browsers/OS.
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        config: [export-followup.playwright.config.ts, cheque-followup.playwright.config.ts, module-followup.playwright.config.ts, fee-followup.playwright.config.ts, class-followup.playwright.config.ts, academic-followup.playwright.config.ts, student360-sibling.playwright.config.ts]
+        config: [export-followup.playwright.config.ts, cheque-followup.playwright.config.ts, module-followup.playwright.config.ts, fee-followup.playwright.config.ts, class-followup.playwright.config.ts, academic-followup.playwright.config.ts, student360-sibling.playwright.config.ts, login-ui.playwright.config.ts, receipt-navigation.playwright.config.ts]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,7 +29,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Verify preinstalled browser version matches lockfile
+        run: node -e "const v=require('@playwright/test/package.json').version; if(v !== '1.63.0') throw new Error('Update the Playwright container to match '+v)"
       - name: Targeted touch component checks
         run: |
           if [ "${{ matrix.config }}" = "class-followup.playwright.config.ts" ]; then
@@ -35,7 +41,7 @@ jobs:
             npx vite build --config tests/sibling-context/vite.config.ts
             export PHONEOPS_SIBLING_STATIC_DIR="../evidence/sibling-context-static"
           fi
-          npx playwright test --config ${{ matrix.config }}
+          npx playwright test --config tests/playwright/${{ matrix.config }}
       - name: Collect safe generated follow-up evidence
         if: always()
         run: |

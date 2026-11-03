@@ -41,6 +41,7 @@ import {
   type StudentView,
 } from "@/vx/screens/admin/students-logic";
 import { ST } from "@/vx/screens/admin/students-text";
+import { StudentSearchForm, StudentSearchInput, StudentSearchProvider } from "@/vx/screens/admin/student-search";
 import { T } from "@/vx/screens/admin/text";
 
 import "./students.css";
@@ -108,6 +109,8 @@ export type StudentListRow = {
 };
 
 export type StudentsProps = {
+  enrollment?: "active"|"inactive"|"left"|"graduated"|"all";
+  sourceData?: boolean;
   session: string;
   rows: StudentListRow[];
   total: number;
@@ -136,6 +139,8 @@ export type StudentsProps = {
   canCollect: boolean;
   canAdmit: boolean;
   canRemind: boolean;
+  /** Real financial lists stay on the canonical Fees service during coexistence. */
+  feesDirectoryHref?: string;
   /** The quick actions this reader may open from "New" in the top bar. */
   quick?: string[];
   failed: boolean;
@@ -259,15 +264,16 @@ function withMissing(href: string, missing: string | undefined): string {
   url.searchParams.delete("page");
   return `${url.pathname}${url.search}`;
 }
-
-/** How long the list waits after the last key before it searches. */
-const SEARCH_PAUSE_MS = 450;
+function withEnrollment(href:string,status:StudentsProps["enrollment"]):string {
+  const url=new URL(href,"https://students.invalid");
+  if(status)url.searchParams.set("status",status);else url.searchParams.delete("status");
+  return `${url.pathname}${url.search}`;
+}
 
 export function StudentsScreen(props: StudentsProps) {
   const { tx, language } = useVx();
   const toast = useToast();
   const router = useRouter();
-  const [q, setQ] = useState(props.q);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(props.initialPicked ?? []));
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const onePage = props.window.pages <= 1;
@@ -290,8 +296,8 @@ export function StudentsScreen(props: StudentsProps) {
     ? [{ value: "photo", label: ms.taskNoPhoto }, ...props.taskAssignment.fields.map((f) => ({ value: f.key, label: { hi: f.hi, en: f.en } }))]
     : [];
   const missingLabel = missingOptions.find((o) => o.value === missing)?.label;
-  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => {
-    const href = withSort(studentsHref({ ...here, ...query }), serverSort);
+  const hrefFor = (query: Parameters<typeof studentsHref>[0], order: StudentSort | null = serverSort) => {
+    const href = withEnrollment(withSort(studentsHref({ ...here, ...query }), order),props.enrollment);
     // A page link keeps its page; withMissing would drop it.
     return missing ? `${href}${href.includes("?") ? "&" : "?"}missing=${encodeURIComponent(missing)}` : href;
   };
@@ -300,20 +306,6 @@ export function StudentsScreen(props: StudentsProps) {
   const rows = layout === "class" ? sortStudentRows(props.rows, { key: "class", dir: 1 }) : onePage ? sortStudentRows(props.rows, sort) : props.rows;
   // A money order across pages cannot be honest; the phone says so instead of pretending (ST.sortPendingNote).
   const moneySortIdle = !onePage && layout !== "class" && (sort.key === "pending" || sort.key === "notdue" || sort.key === "paid");
-
-  // The list follows the box as you type (school-day run B11): a short pause,
-  // then the same GET the form makes on Enter, in place of the current entry.
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(searchTimer.current), []);
-  const typeQuery = (value: string) => {
-    setQ(value);
-    clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      const next = value.trim();
-      if (next === props.q.trim()) return;
-      router.replace(hrefFor({ q: next || undefined }), { scroll: false });
-    }, SEARCH_PAUSE_MS);
-  };
 
   // Back from a profile: put the list where it was, once, and only for the same list.
   useEffect(() => {
@@ -351,7 +343,7 @@ export function StudentsScreen(props: StudentsProps) {
     } catch {
       // Not remembered, but the URL still opens the view chosen.
     }
-    router.push(studentsHref({ q: props.q, classId: props.classId, view: next, look: lookParam }));
+    router.push(withEnrollment(studentsHref({ q: props.q, classId: props.classId, view: next, look: lookParam }),next==="fees"?props.enrollment:undefined));
   };
 
   /** The Filter sheet's choices as one navigation: class, filters, order and layout together. */
@@ -375,7 +367,7 @@ export function StudentsScreen(props: StudentsProps) {
     });
     setSort(next.sort);
     const sorted = next.sort.key === "name" && next.sort.dir === 1 ? href : withSort(href, next.sort);
-    router.push(props.taskAssignment ? withMissing(sorted, next.missing) : sorted);
+    router.push(withEnrollment(props.taskAssignment ? withMissing(sorted, next.missing) : sorted,next.view==="fees"?props.enrollment:undefined));
   };
   const pickMissing = (value: string) => router.push(withMissing(`${location.pathname}${location.search}`, value));
 
@@ -391,13 +383,13 @@ export function StudentsScreen(props: StudentsProps) {
       const next = nextSort(sort, key);
       setSort(next);
       try {
-        const url = withSort(studentsHref(here), next);
+        const url = withEnrollment(withSort(studentsHref(here), next),props.enrollment);
         window.history.replaceState(window.history.state, "", url);
       } catch {
         // The order holds on screen; only a reload forgets it.
       }
     } else if (mode === "server") {
-      router.push(withSort(studentsHref(here), { key, dir: 1 }));
+      router.push(withEnrollment(withSort(studentsHref(here), { key, dir: 1 }),props.enrollment));
     }
   };
 
@@ -634,7 +626,7 @@ export function StudentsScreen(props: StudentsProps) {
     const [bg, fg] = TONES[i % TONES.length];
     const meta = [row.classLabel, row.sr ? `SR ${row.sr}` : null, fees ? row.route : null].filter(Boolean).join(" · ");
     return (
-      <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 16, 160)}ms` }}>
+      <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 8, 56)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap card stu-mcard">
           <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{row.photoUrl ? <PrivatePhoto src={row.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(row.name)}</span>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -665,7 +657,7 @@ export function StudentsScreen(props: StudentsProps) {
     // The name gets the room: a compact line names the class (short), By class (whose heading is the class) the SR no.
     const meta = inClass ? (row.sr ? `SR ${row.sr}` : "") : classChipLabel(row.classLabel);
     return (
-      <div key={row.id} className="hs stu-swipe stu-cline" style={{ animationDelay: `${Math.min(i * 12, 120)}ms` }}>
+      <div key={row.id} className="hs stu-swipe stu-cline" style={{ animationDelay: `${Math.min(i * 8, 56)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap stu-crow">
           <span className="clip" style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600 }}>{row.name}</span>
           {meta ? <span className="num clip stu-cmeta">{meta}</span> : null}
@@ -725,6 +717,7 @@ export function StudentsScreen(props: StudentsProps) {
   const hidden = (
     <>
       {props.taskAssignment?.missing ? <input type="hidden" name="missing" value={props.taskAssignment.missing}/> : null}
+      {props.enrollment?<input type="hidden" name="status" value={props.enrollment}/>:null}
       {props.classId ? <input type="hidden" name="class" value={props.classId} /> : null}
       {viewParam ? <input type="hidden" name="view" value={viewParam} /> : null}
       {filters.length ? <input type="hidden" name="seg" value={filters.join(",")} /> : null}
@@ -770,7 +763,7 @@ export function StudentsScreen(props: StudentsProps) {
   ) : null;
 
   return (
-    <>
+    <StudentSearchProvider query={props.q} href={hrefFor({ q: undefined }, sort)}>
       <div className="only-d" style={{ display: "contents" }}>
         <TopBar
           crumb={tx(T.studentsCrumb(props.session))}
@@ -783,7 +776,7 @@ export function StudentsScreen(props: StudentsProps) {
           }
         />
       </div>
-      <div className="vx-pmain stu">
+      <div className="vx-pmain stu" data-student-source-directory={props.sourceData?"true":undefined}>
         {/* Phone: the design's own header, not a top bar (F05). */}
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
@@ -791,12 +784,12 @@ export function StudentsScreen(props: StudentsProps) {
             <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{props.total > rows.length ? tx(ST.showingOf(rows.length, props.total)) : tx(ST.showing(rows.length))}</span>
           </div>
           <div className="stu-mfind">
-            <form action="/students" method="get" role="search" className="stu-msearch">
+            <StudentSearchForm className="stu-msearch">
               <Ic n="search" />
               <label className="sr" htmlFor="stu-q-m">{tx(ST.searchLabel)}</label>
-              <input id="stu-q-m" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
+              <StudentSearchInput id="stu-q-m" placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
               {hidden}
-            </form>
+            </StudentSearchForm>
             {/* Class, fee filters, order and layout in one sheet (UI-94). */}
             <button type="button" className="tap stu-fbtn" data-on={activeCount ? "" : undefined} aria-label={activeCount ? tx(ST.filterOn(activeCount)) : tx(ST.filter)} aria-haspopup="dialog" onClick={() => setSheetOpen(true)}>
               <Ic n="sliders" />
@@ -815,12 +808,12 @@ export function StudentsScreen(props: StudentsProps) {
 
         <div className="stu-wrap">
           <div className="only-d stu-tools">
-            <form action="/students" method="get" role="search" className="stu-dsearch">
+            <StudentSearchForm className="stu-dsearch">
               <Ic n="search" />
               <label className="sr" htmlFor="stu-q-d">{tx(ST.searchLabel)}</label>
-              <input id="stu-q-d" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.search)} />
+              <StudentSearchInput id="stu-q-d" placeholder={tx(ST.search)} />
               {hidden}
-            </form>
+            </StudentSearchForm>
             <div className="hs" role="group" aria-label={tx(T.students)} style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }}>
               {classChip}
               {filterChips}
@@ -836,7 +829,11 @@ export function StudentsScreen(props: StudentsProps) {
             {props.canAdmit ? <Btn variant="pri" icon="userPlus" href="/admissions/new">{tx(T.addStudent)}</Btn> : null}
           </div>
 
-          {props.failed ? <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
+          {props.feesDirectoryHref ? <Banner>{tx(ST.sourceFeesHint)}{" "}<a href={props.feesDirectoryHref} style={{ textDecoration: "underline" }}>{tx(ST.sourceFeesLink)}</a></Banner> : null}
+          {props.enrollment?<nav className="hs" aria-label={tx(ST.enrollment)} style={{display:"flex",gap:6,padding:"8px 0",flexWrap:"wrap"}}>
+            {([['active',ST.statusActive],['inactive',ST.statusInactive],['left',ST.statusLeft],['graduated',ST.statusGraduated],['all',ST.statusAll]] as const).map(([value,label])=><Link prefetch={false} key={value} href={withEnrollment(hrefFor({page:1}),value)} className={`tap chip${props.enrollment===value?" on":""}`} aria-current={props.enrollment===value?"page":undefined}>{tx(label)}</Link>)}
+          </nav>:null}
+          {props.failed ? <p role="alert" data-student-source-unavailable="true" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
 
           {askBanner}
 
@@ -853,7 +850,7 @@ export function StudentsScreen(props: StudentsProps) {
                 {rows.length === 0
                   ? noRows
                   : rows.map((row, i) => (
-                      <div key={row.id} role="row" className={`stu-row${picked.has(row.id) ? " sel" : ""}`} style={{ gridTemplateColumns: tracks, borderTop: i === 0 ? 0 : undefined, animationDelay: `${Math.min(i * 30, 400)}ms` }}>
+                      <div key={row.id} role="row" className={`stu-row${picked.has(row.id) ? " sel" : ""}`} style={{ gridTemplateColumns: tracks, borderTop: i === 0 ? 0 : undefined, animationDelay: `${Math.min(i * 8, 56)}ms` }}>
                         <span role="cell" style={{ display: "flex", justifyContent: "center" }}>
                           <Tick on={picked.has(row.id)} label={tx(T.selectRow(row.name))} onToggle={() => toggle(row.id)} />
                         </span>
@@ -868,7 +865,7 @@ export function StudentsScreen(props: StudentsProps) {
                             <span role="cell" className="stu-td num" style={{ textAlign: "right", color: "var(--mut)" }}>{row.money.notDueYet > 0 ? rupees(row.money.notDueYet) : "—"}</span>
                             <span role="cell" style={{ padding: "0 8px 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
                               <span style={{ flex: 1, height: 6, borderRadius: 3, background: "var(--s3)", overflow: "hidden", display: "block" }}>
-                                <span className="stu-bar" style={{ width: `${row.money.percent}%`, background: row.money.percent >= 100 ? "var(--ok)" : row.money.pendingToday > 0 ? "var(--warn)" : "var(--acc)", animationDelay: `${Math.min(i * 30, 400)}ms` }} />
+                                <span className="stu-bar" style={{ width: `${row.money.percent}%`, background: row.money.percent >= 100 ? "var(--ok)" : row.money.pendingToday > 0 ? "var(--warn)" : "var(--acc)", animationDelay: `${Math.min(i * 8, 56)}ms` }} />
                               </span>
                               <span className="num" style={{ width: 36, fontSize: 12, fontWeight: 700, textAlign: "right" }}>{row.money.percent}%</span>
                             </span>
@@ -974,6 +971,6 @@ export function StudentsScreen(props: StudentsProps) {
       ) : null}
       {/* Outside the bulk bar, so clearing the selection cannot close an open sheet. */}
       {props.taskAssignment ? <AssignmentLauncher ref={askPicked} trigger={null} language={language} selectedIds={selectedRows.map((row) => row.id)} initialMissing={missing} /> : null}
-    </>
+    </StudentSearchProvider>
   );
 }

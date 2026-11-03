@@ -4,6 +4,7 @@ import { WHATSAPP_MESSAGE_COST_RUPEES } from "@/modules/whatsapp/domain/run-meas
 import { loadCalendar } from "./load";
 import { buildCalendar, type CalendarParams } from "./model";
 import { CalendarView } from "./view";
+import { BoardDeadlineLinks } from "@/vx/screens/board-office/links";
 
 /*
  * School calendar (SCREENS "Calendar"). One calendar for the school:
@@ -22,5 +23,5 @@ export async function SchoolCalendar({ staff, ...params }: Props) {
   const asked: CalendarParams = params;
   const data = await loadCalendar(staff, asked);
   const model = data ? buildCalendar(data, asked, WHATSAPP_MESSAGE_COST_RUPEES) : ({ screen: "closed", language: staff.language } as const);
-  return <CalendarView model={model} />;
+  return <CalendarView model={model} officeDeadlines={data ? <BoardDeadlineLinks sessionLabel={data.session} /> : undefined} />;
 }

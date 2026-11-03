@@ -21,7 +21,9 @@ import {
 import {
   COUNTER_CONCESSION,
   deskChips,
+  deskLateDefault,
   deskProblems,
+  deskWaivesLate,
   deskTotals,
   findRecentDuplicate,
   hasPaise,
@@ -54,7 +56,7 @@ import { useKeyboardOffset } from "@/ui/hooks/use-keyboard-offset";
 import { Banner, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill, Skel, WhatsAppPreview } from "@/vx/ui/primitives";
 
-import { ampm, dueDay, oldBalanceLabel, sessionDash, shortDate, wordsOf } from "./look";
+import { ampm, dotJoin, dueDay, oldBalanceLabel, sessionDash, shortDate, srTag, wordsOf } from "./look";
 import { ReceiptCard } from "./receipt-card";
 import { W } from "./words";
 
@@ -70,6 +72,8 @@ type Form = {
   chequeBank: string;
   chequeDate: string;
   late: "take" | "waive";
+  /** "yes" once the cashier tapped the late-fee choice; until then `late` is the Q20 default. A string: the form is stored as one. */
+  lateChosen: "" | "yes";
   waiveReason: string;
   waiveNote: string;
   notes: string;
@@ -140,7 +144,7 @@ export type DeskActions = Omit<typeof SERVER, OptionalActions> & Partial<Pick<ty
 
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
 const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
-const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
+const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", online: "Online (Razorpay)" };
 const REMOVE_WINDOW_MS = 10 * 60_000;
 /** A child's dues read as the finger landed on the row are used if the tap follows within this. */
 const PRIME_MS = 10_000;
@@ -182,8 +186,9 @@ function freshForm(boot: DeskBoot): Form {
     chequeNo: "",
     chequeBank: "",
     chequeDate: boot.today,
-    late: "take",
-    waiveReason: "",
+    // Waived by default for anyone allowed to waive (plan Q20, owner 31 Oct).
+    ...deskLateDefault(boot.me.canWaive),
+    lateChosen: "",
     waiveNote: "",
     notes: "",
     receivedBy: boot.me.name,
@@ -393,7 +398,8 @@ export function PaymentDesk({
   const dayClosed = closedDay?.date === paymentDate && closedDay.session === boot.sessionLabel;
   const totals = deskTotals(rows, today);
   const waiveAllowed = boot.me.canWaive && Boolean(student) && !student?.onPlan;
-  const waiveLate = waiveAllowed && form.late === "waive" && totals.lateFee > 0;
+  const lateOn = lateFeesOn(rows, paymentDate);
+  const waiveLate = deskWaivesLate({ waiveAllowed, late: form.late, lateChosen: form.lateChosen === "yes", lateFeeOwed: totals.lateFee, lateOn });
   const walk = walkPayment(rows, Number.isFinite(amount) ? amount : 0, { paymentDate, today, waiveLate, concession: Number.isFinite(concession) ? concession : 0, authoritative: true });
   const cut = Number.isFinite(concession) ? concession : 0;
   const chips: { key: string; label: string; amount: number | null; disabled?: boolean }[] = student?.repaymentPlan
@@ -413,7 +419,6 @@ export function PaymentDesk({
           }))
           .filter((c) => c.amount > 0 && !seen.has(c.amount) && Boolean(seen.add(c.amount)));
       })();
-  const lateOn = lateFeesOn(rows, paymentDate);
   const lateNowAmt = lateOn.due.reduce((s, r) => s + r.lateFeePending, 0);
   const problems = deskProblems(
     { amount, paymentDate, mode: form.mode, chequeNo: form.chequeNo, chequeBank: form.chequeBank, waiveLate, waiveReason: form.waiveReason },
@@ -907,7 +912,7 @@ export function PaymentDesk({
         <span className="sr">{tx(W.searchLabel)}</span>
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tx(W.search)} autoComplete="off" />
         {query ? (
-          <button type="button" className="tap btn ghost" aria-label={tx(W.clearSearch)} onClick={() => setQuery("")} style={{ width: 36, height: 36, padding: 0 }}>
+          <button type="button" className="tap btn ghost" aria-label={tx(W.clearSearch)} onClick={() => setQuery("")} style={{ width: 44, height: 44, padding: 0 }}>
             <Ic n="x" />
           </button>
         ) : null}
@@ -956,9 +961,9 @@ export function PaymentDesk({
                   style={{ animationDelay: `${Math.min(i, 10) * 16}ms` }}
                 >
                   <span className="pd-av" style={{ borderRadius: 20, background: tone[0], color: tone[1] }}>{initials(s.name)}</span>
-                  <span className="pd-c" style={{ flex: 1 }}>
-                    <span className="pd-b pd-e">{s.name}</span>
-                    <span className="pd-m pd-e">{searching ? `${s.classLabel} · ` : ""}SR {s.sr}{s.father ? ` · ${s.father}` : ""}</span>
+                  <span className="pd-c pd-identity">
+                    <span className="pd-b">{s.name}</span>
+                    <span className="pd-m">{dotJoin(searching && s.classLabel, srTag(s.sr), s.father)}</span>
                   </span>
                   <span className="pd-end" style={{ gap: 0 }}>
                     <span className="num pd-v" style={{ color: s.pendingToday > 0 ? "var(--warnfg)" : "var(--ok)" }}>{s.pendingToday > 0 ? rupees(s.pendingToday) : tx(W.paidUp)}</span>
@@ -997,10 +1002,11 @@ export function PaymentDesk({
               <Seg
                 label={tx(W.lateFee)}
                 value={form.late}
-                onChange={(v) => set({ late: v })}
+                onChange={(v) => set({ late: v, lateChosen: "yes" })}
                 options={[
-                  { value: "take", label: tx(W.lateTake) },
+                  // Waive first: it is the default (plan Q20).
                   { value: "waive", label: tx(W.lateWaive) },
+                  { value: "take", label: tx(W.lateTake) },
                 ]}
               />
             </div>
@@ -1009,6 +1015,9 @@ export function PaymentDesk({
           )}
           {waiveLate ? (
             <div className="pd-c fadein" style={{ gap: 8, color: "var(--warnfg)" }}>
+              <span role="status" data-testid="late-waived-now" style={{ fontSize: 13, fontWeight: 700, color: "var(--ok)" }}>
+                {tx(W.lateWaivedNow(rupees(walk.waiverAmount)))}
+              </span>
               <span style={{ fontSize: 12, fontWeight: 700 }}>{tx(W.whyWaive)}</span>
               <div className="pd-chips">
                 {W.waiveReasons.map((r) => (
@@ -1256,7 +1265,7 @@ export function PaymentDesk({
   /* ---------- page ---------- */
   const shownName = student?.name ?? boot.students.find((s) => s.id === selId)?.name ?? tx(W.title);
   const mTitle = saved ? tx(saved.removed ? W.removedTitle : W.saved) : selId ? shownName : tx(W.title);
-  const mSub = saved ? saved.receiptNumber : selId ? (student ? `${student.classLabel} · SR ${student.sr}` : "") : `${shortDate(today)} · ${boot.me.name}`;
+  const mSub = saved ? saved.receiptNumber : selId ? (student ? dotJoin(student.classLabel, srTag(student.sr)) : "") : `${shortDate(today)} · ${boot.me.name}`;
   const reviewOpen = Boolean(student) && reviewing && sheet === "" && !saved;
   const locked = saving || Boolean(attempt);
   // The phone's steps apply while one child's payment is being entered; a saved receipt is one screen.
@@ -1425,7 +1434,7 @@ export function PaymentDesk({
         onClose={() => { if (!saving) setReviewing(false); }}
         dismissable={!saving}
         title={student ? tx(W.confirmTitle(rupees(amount))) : undefined}
-        sub={student ? `${student.name} · ${student.classLabel} · SR ${student.sr}` : undefined}
+        sub={student ? dotJoin(student.name, student.classLabel, srTag(student.sr)) : undefined}
         footer={
           <>
             <button type="button" className="tap btn sec" style={{ flex: 1, height: 52 }} disabled={locked} onClick={() => setReviewing(false)}>
@@ -1679,7 +1688,7 @@ function StudentCard({
             <span className="pill" style={{ background: "var(--s3)", color: "var(--mut)" }}>{tx(student.isNew ? W.newStudent : W.oldStudent)}</span>
             {student.onPlan ? <Pill tone="info" icon="layers">{tx(W.onPlan)}</Pill> : null}
           </span>
-          <span className="pd-m num">{student.classLabel} · SR {student.sr}{phone ? ` · ${phone}` : ""}</span>
+          <span className="pd-m num">{dotJoin(student.classLabel, srTag(student.sr), phone)}</span>
           <span className="pd-m">
             {student.father ? `${tx(W.father)} ${student.father} · ` : ""}{student.route ? `${tx(W.bus)}: ${student.route}` : tx(W.noBus)}
           </span>
@@ -1706,8 +1715,10 @@ function StudentCard({
       <div className="pd-c">
         {rows.map((r) => {
           const overdue = isOverdueOn(r, today);
+          const dueNow = isDueOn(r, today);
           const left = Math.max(0, r.feesPending);
-          const st = left <= 0 ? (["var(--oks)", "var(--ok)", W.stPaid] as const) : overdue ? (["var(--bads)", "var(--bad)", W.stOverdue] as const) : r.feesPaid > 0 ? (["var(--infos)", "var(--info)", W.stPart] as const) : (["var(--s3)", "var(--mut)", W.stNotDue] as const);
+          // Due today is its own state, as the tile above says ("₹4,000 more is due today"), never "Not due yet".
+          const st = left <= 0 ? (["var(--oks)", "var(--ok)", W.stPaid] as const) : overdue ? (["var(--bads)", "var(--bad)", W.stOverdue] as const) : dueNow ? (["var(--warns)", "var(--warnfg)", W.dueToday] as const) : r.feesPaid > 0 ? (["var(--infos)", "var(--info)", W.stPart] as const) : (["var(--s3)", "var(--mut)", W.stNotDue] as const);
           const days = !overdue && left > 0 ? daysBetween(today, r.dueDate) : 0;
           return (
             <div key={r.id} className="pd-lrow">

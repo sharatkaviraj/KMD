@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { parseAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { getPaymentDeskStudentSummary } from "@/modules/payments/data/queries";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertSessionVisible, assertStudentVisible, refusalResponse } from "@/platform/auth/test-session-access";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -83,6 +84,13 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
+  // The desk can be handed any student id and any ?session=: both must be
+  // ones this viewer may open (Phase 3).
+  const refused = await refusalResponse(async () => {
+    await assertStudentVisible(null, studentId);
+    if (sessionLabel) await assertSessionVisible(null, sessionLabel);
+  });
+  if (refused) return refused;
 
   try {
     const tSummary0 = performance.now();

@@ -63,6 +63,7 @@ const MODE_KEYS: Record<PaymentMode, string> = {
   bank_transfer: "paymentModeBankTransfer",
   cheque: "paymentModeCheque",
   discount: "paymentModeDiscount",
+  online: "paymentModeOnline",
 };
 
 type ReceiptsQuickLoadProps = {

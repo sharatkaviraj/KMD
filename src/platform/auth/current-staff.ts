@@ -3,7 +3,9 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
+import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { hasRequiredEnvVars } from "@/platform/env";
 import { resolveLanguage, type Language } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
@@ -44,6 +46,23 @@ export type CurrentStaff = {
    * it must never restore a grant an admin removed from the matrix.
    */
   permissions?: readonly string[] | null;
+  /**
+   * A Smoke Lab test account (D-311). `can()` withholds staff and settings
+   * management from it (D-314), and the request is refused once its pass or
+   * run is no longer live.
+   */
+  smokeLab?: boolean;
+  /**
+   * Fenced to test sessions (Phase 3, D-340): `staff_profiles.is_test_account`,
+   * OR any account at all on a confined deployment (`isConfinedDeployment()` —
+   * every Preview and local `next dev`, which point at the production
+   * database), an admin included. Sees and writes TEST-2026-27 only;
+   * `test-session-policy.ts` is the rule. Always set by `readCurrentStaff`;
+   * optional only so hand-built fixtures stay valid (absent reads as false).
+   */
+  isTestAccount?: boolean;
+  /** True on a confined deployment (Preview, local), for every account: the shell says so. */
+  confined?: boolean;
 };
 
 type StaffProfileRow = {
@@ -55,11 +74,12 @@ type StaffProfileRow = {
   is_active: boolean;
   preferred_language: string | null;
   preferred_start: string | null;
+  is_test_account?: boolean | null;
 };
 
 const STAFF_PROFILE_COLUMNS =
   "id, display_name, short_name, role, is_teaching, is_active, preferred_language, " +
-  "preferred_start";
+  "preferred_start, is_test_account";
 
 /**
  * Sentinel for "signed in, but nobody has given this account a staff profile".
@@ -111,6 +131,15 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     if (error || allowed !== true) return { staff: null, reason: "inactive" };
   }
 
+  // Smoke Lab accounts, likewise, only while a pass and its run are live. The
+  // middleware asks the same question first; this holds for anything that
+  // reaches a page or an action without passing through it.
+  const smokeLab = isSmokeAccount(claims);
+  if (smokeLab) {
+    const { data: allowed, error } = await supabase.rpc("smoke_access_allowed");
+    if (error || allowed !== true) return { staff: null, reason: "inactive" };
+  }
+
   // Through the cookie client, so RLS applies: the SELECT policy on
   // staff_profiles is what permits this read. The service-role client is for
   // writes, after a permission check — not for reading your own row.
@@ -144,6 +173,8 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     language: resolveLanguage(data.preferred_language),
     preferredStart: data.preferred_start,
     permissions,
+    ...(smokeLab ? { smokeLab: true } : {}),
+    ...testAccountFlags(data.is_test_account === true),
   };
 
   if (!staff.isActive) {
@@ -155,6 +186,22 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
 
   return { staff, reason: null };
 });
+
+/**
+ * The profile's own flag, widened by the deployment: on a confined deployment
+ * every account is a test account (owner override T1, D-346). Exported for
+ * the tests that pin it.
+ */
+export function testAccountFlags(
+  profileFlag: boolean,
+  env: { readonly [name: string]: string | undefined } = process.env,
+): { isTestAccount: boolean; confined: boolean } {
+  const confined = isConfinedDeployment(env);
+  // `confined` is the deployment's, whatever the profile says: the banner tells
+  // everybody on a Preview or local build — a test admin included — that this
+  // build only reaches test data (tests/e2e/test-session.spec.ts).
+  return { isTestAccount: profileFlag || confined, confined };
+}
 
 /**
  * The signed-in person's permissions from the editable matrix, through

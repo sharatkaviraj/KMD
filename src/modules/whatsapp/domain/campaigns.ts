@@ -226,6 +226,8 @@ export type NoticeValues = {
   studentClass: string;
   /** fee_due {{4}} — e.g. "Installment 1 and 2" / "किश्त 1 एवं 2". */
   installmentPhrase?: string;
+  /** The installments that phrase names, so a family message can join siblings'. */
+  owedInstallments?: number[];
   /** fee_due {{5}} */
   amountDue?: number;
   /** balance {{4}} */
@@ -1210,6 +1212,16 @@ export type NoticeSubject = {
    * names these, for the same reason.
    */
   overdueInstallments?: number[];
+  /**
+   * The selected installments this family still owes on. When present the
+   * context line names THESE — see `ReminderCandidate.owedInstallments`.
+   */
+  owedInstallments?: number[];
+  /**
+   * Slot {{4}} in both languages when the Last-year tile is on — "किश्त 1 एवं 2
+   * + पिछले सत्र 2025-26 का बकाया". Built by `scopeLinesFor` on the server.
+   */
+  scopeLine?: Partial<Record<NoticeLanguage, string>> | null;
   /** The date this family gave, ISO. `promise_lapsed` and `promise_due` read it. */
   promisedOn?: string | null;
   /** The IST date the office spoke with the family, ISO. Only `promise_due` reads it. */
@@ -1222,8 +1234,9 @@ export type NoticeSettings = {
   /** The selected tiles. Slot {{4}} names exactly these, on every notice. */
   installments: number[];
   /**
-   * The Last-year tile. Slot {{4}} names the previous session instead of an
-   * installment, because that balance has no installment to name.
+   * The Last-year tile. On its own, slot {{4}} names the previous session,
+   * because that balance has no installment to name; beside installments it
+   * names both — "Installment 1 and 2 + previous session 2025-26 balance".
    */
   lastYear?: boolean;
   lastDate: string;
@@ -1257,7 +1270,8 @@ export type NoticeSettings = {
  * installments than the amount beside it. Now the fees, the late fee and the
  * line naming them are all derived from the one selection, so they describe
  * the same rows by construction. The Last-year tile has no installment to
- * name, so it names the session instead.
+ * name, so it names the session instead — after the installments when both
+ * are in the amount (`scopePhrase`).
  *
  * An EMPTY selection is unreachable from the screen — the parser never yields
  * one without `lastYear` — but a caller that builds settings by hand can still
@@ -1266,7 +1280,21 @@ export type NoticeSettings = {
  * own overdue rows, which is at least the money the amount was summed over.
  */
 function contextLine(subject: NoticeSubject, settings: NoticeSettings): string {
-  if (settings.lastYear) return sessionPhrase(subject.prevSessionLabel, settings.language);
+  if (settings.lastYear) {
+    // Composed on the server (`scopeLinesFor`) and carried on the family, so
+    // the wording never reaches a browser bundle — the test panel runs this
+    // projection too, on a route whose gzip ceiling only ratchets down. A
+    // subject without it names the session, as Last year always has.
+    return (
+      subject.scopeLine?.[settings.language] ??
+      sessionPhrase(subject.prevSessionLabel, settings.language)
+    );
+  }
+  // The tiles this family actually owes on, so the line and the amount beside
+  // it describe the same rows even under "owing on any of them".
+  if (subject.owedInstallments?.length) {
+    return installmentPhrase(subject.owedInstallments, settings.language);
+  }
   if (settings.installments.length === 0 && subject.overdueInstallments?.length) {
     return installmentPhrase(subject.overdueInstallments, settings.language);
   }
@@ -1384,6 +1412,7 @@ export function noticeValuesFrom(
     studentName: subject.studentName,
     studentClass: subject.studentClass,
     installmentPhrase: contextLine(subject, settings),
+    owedInstallments: subject.owedInstallments,
     amountDue: subject.dueAmount,
     receivedSoFar: subject.totalPaid,
     balanceDue: subject.balanceDue,
@@ -1443,4 +1472,65 @@ export function sessionPhrase(
   const words = language === "hi" ? "पिछला सत्र" : "Previous session";
   const label = String(sessionLabel ?? "").trim();
   return label ? `${words} ${label}` : words;
+}
+
+/**
+ * The installment line when the amount may include last session's balance —
+ * the ONE composition, for one child (`contextLine`) and for a whole phone
+ * (the `_v6` family message), so the two cannot word it differently.
+ *
+ * - installments and last year: "Installment 1 and 2 + previous session
+ *   2025-26 balance" / "किश्त 1 एवं 2 + पिछले सत्र 2025-26 का बकाया"
+ * - last year alone: `sessionPhrase` — "Previous session 2025-26"
+ * - installments alone: `installmentPhrase`
+ *
+ * Never empty: WhatsApp rejects an empty parameter.
+ */
+export function scopePhrase(args: {
+  installments: readonly number[];
+  includesPrevYear: boolean;
+  prevSessionLabel: string | null | undefined;
+  language: NoticeLanguage;
+}): string {
+  const { installments, includesPrevYear, prevSessionLabel, language } = args;
+  if (installments.length === 0) return sessionPhrase(prevSessionLabel, language);
+  const line = installmentPhrase([...installments], language);
+  if (!includesPrevYear) return line;
+  const label = String(prevSessionLabel ?? "").trim();
+  const balance =
+    language === "hi"
+      ? `पिछले सत्र${label ? ` ${label}` : ""} का बकाया`
+      : `previous session${label ? ` ${label}` : ""} balance`;
+  return `${line} + ${balance}`;
+}
+
+/**
+ * One family's slot {{4}} on a Last-year run, in both languages — what
+ * `NoticeSubject.scopeLine` carries.
+ *
+ * The installments this family owes on, beside last year's balance when it
+ * carries one. A family owing only last year names only the session; one who
+ * owes nothing at all (named by hand) still gets the tiles, never "".
+ *
+ * Server-side only, by use rather than by rule: nothing in the browser calls
+ * it, so the bundler drops it and `scopePhrase` from the client chunk.
+ */
+export function scopeLinesFor(
+  subject: Pick<NoticeSubject, "owedInstallments" | "prevYearBalance" | "prevSessionLabel">,
+  tiles: readonly number[],
+): Record<NoticeLanguage, string> {
+  const owesLastYear = subject.prevYearBalance > 0;
+  const installments = subject.owedInstallments?.length
+    ? subject.owedInstallments
+    : owesLastYear
+      ? []
+      : tiles;
+  const line = (language: NoticeLanguage) =>
+    scopePhrase({
+      installments,
+      includesPrevYear: owesLastYear,
+      prevSessionLabel: subject.prevSessionLabel,
+      language,
+    });
+  return { hi: line("hi"), en: line("en") };
 }

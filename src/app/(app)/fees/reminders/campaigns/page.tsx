@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 import { PageHeader } from "@/ui/shell/page-header";
-import { Button } from "@/ui/primitives/button";
 import { SectionCard } from "@/ui/shell/section-card";
 import { OfficeNotice } from "@/ui/office/office-ui";
 import { CampaignManager } from "@/modules/whatsapp/ui/campaign-manager";
 import { RunComparisons } from "@/modules/whatsapp/ui/run-comparisons";
+import { RemindersNav } from "@/modules/whatsapp/ui/reminders-nav";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { hasStaffPermission, requireAnyStaffPermission } from "@/modules/fees/platform/session";
 import {
@@ -45,7 +45,20 @@ export default async function ReminderCampaignsPage() {
 
   try {
     sessionLabel = await resolveReminderSessionLabel(supabase);
-    const policy = await getFeePolicySummary({ useAdmin: true }).catch(() => null);
+    // All four at once: none needs another's answer. In turn they were four
+    // round trips before this tab could draw anything.
+    const [policy, savedCampaigns, runOutcomes, { data: classes }] = await Promise.all([
+      getFeePolicySummary({ useAdmin: true }).catch(() => null),
+      listCampaigns(supabase, sessionLabel),
+      listRunOutcomes(supabase, sessionLabel),
+      supabase
+        .from("classes")
+        .select("id, class_name")
+        .eq("session_label", sessionLabel)
+        .order("class_name"),
+    ]);
+    campaigns = savedCampaigns;
+    runs = runOutcomes;
     defaultLateFeeAmount = Number(policy?.lateFeeFlatAmount ?? 0);
     const upcoming = (policy?.installmentSchedule ?? [])
       .map((entry) => entry.dueDate)
@@ -53,16 +66,6 @@ export default async function ReminderCampaignsPage() {
       .sort()[0];
     defaultLastDate = formatDdMmYyyy(upcoming ?? null);
 
-    [campaigns, runs] = await Promise.all([
-      listCampaigns(supabase, sessionLabel),
-      listRunOutcomes(supabase, sessionLabel),
-    ]);
-
-    const { data: classes } = await supabase
-      .from("classes")
-      .select("id, class_name")
-      .eq("session_label", sessionLabel)
-      .order("class_name");
     classOptions = ((classes ?? []) as Array<{ id: string; class_name: string }>).map((row) => ({
       classId: String(row.id),
       label: String(row.class_name),
@@ -84,16 +87,13 @@ export default async function ReminderCampaignsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Reminders"
-        title="Campaigns"
-        description="Named settings you can apply again. Saving one sends nothing."
-        actions={
-          // Desk only: this route is a mobile takeover, so MobileTakeoverBar
-          // already puts a Back arrow at the top of the phone screen.
-          <Button asChild variant="outline" size="sm" className="max-md:hidden">
-            <Link href="/fees/reminders">Back to sending</Link>
-          </Button>
-        }
+        title="Saved campaigns and history"
+        description="Named settings you can run again, and how every send so far did. Saving one sends nothing."
       />
+      {/* The same tabs as every other Reminders screen. This one had none, so
+          reaching it from the tab bar left the office a Back button as the
+          only way on. */}
+      <RemindersNav active="campaigns" />
 
       {loadError ? (
         <OfficeNotice title="Could not load campaigns" tone="danger">

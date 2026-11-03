@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";
 import { countOf, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
@@ -70,6 +71,8 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
       </>
     );
   }
+  // Phase 3 fence: a record in a session this viewer cannot open is "not found".
+  await notFoundUnlessVisible(() => assertSessionVisible(staff, assessment.sessionLabel));
 
   const [papers, labels, subjects] = await Promise.all([
     papersFor(assessment.id),

@@ -7,6 +7,7 @@ import { closeDayAction, reopenDayAction } from "@/app/(app)/receipts/actions";
 import {
   cashDiff,
   closeBlocker,
+  deskModeOf,
   countedCash,
   DENOMINATIONS,
   DESK_MODES,
@@ -23,7 +24,7 @@ import { Btn, Pill } from "@/vx/ui/primitives";
 import { deskHref } from "./href";
 import { deskDay, MODE_LOOK } from "./look";
 import type { DeskProps } from "./types";
-import { fill, MODE_WORD, receiptCount, W } from "./words";
+import { fill, MODE_WORD, receiptCount, receiptModeWord, W } from "./words";
 
 /** The drawn tick on "Day closed": a soft disc, a ring and a check that draw in. */
 function ClosedTick() {
@@ -36,12 +37,12 @@ function ClosedTick() {
   );
 }
 
-/** − count + for one note: 40px buttons around a number that can also be typed. */
+/** − count + for one note: 44px buttons around a number that can also be typed. */
 function Count({ label, value, onChange, max, disabled }: { label: string; value: number; onChange: (v: number) => void; max: number; disabled?: boolean }) {
   const { tx } = useVx();
   return (
     <span role="group" aria-label={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneLess)} ${label}`} onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled} style={{ width: 40, height: 40, padding: 0 }}>
+      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneLess)} ${label}`} onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled} style={{ width: 44, height: 44, padding: 0 }}>
         <Ic n="minus" />
       </button>
       <input
@@ -56,7 +57,7 @@ function Count({ label, value, onChange, max, disabled }: { label: string; value
         }}
         style={{ width: 44, minWidth: 44, textAlign: "center", border: 0, background: "transparent", outline: "none", fontSize: 17, fontWeight: 700, color: "var(--fg)" }}
       />
-      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneMore)} ${label}`} onClick={() => onChange(Math.min(max, value + 1))} disabled={disabled} style={{ width: 40, height: 40, padding: 0 }}>
+      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneMore)} ${label}`} onClick={() => onChange(Math.min(max, value + 1))} disabled={disabled} style={{ width: 44, height: 44, padding: 0 }}>
         <Ic n="plus" />
       </button>
     </span>
@@ -71,6 +72,7 @@ export function ClosePanel(props: DeskProps) {
   // they can hold a number (accountant B12).
   const live = useSyncExternalStore(noSubscribe, () => true, () => false);
   const { rows, anchor, today, span, closeEvent, perms, sessionLabel } = props;
+  const waiting = props.waitingReversals ?? [];
   const { tx } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -193,6 +195,21 @@ export function ClosePanel(props: DeskProps) {
               {props.lastReopen.actorName ? ` · ${props.lastReopen.actorName}` : ""}
             </Pill>
           ) : null}
+          {waiting.length > 0 ? (
+            // A reversal asked and not yet decided: its cash is still in the count below (smoke 20 Oct).
+            <div id="rc-waiting" className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6, background: "var(--warns)", color: "var(--warnfg)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700 }}>
+                <Ic n="clock" size={16} />
+                {tx(W.waitingHead)}
+              </span>
+              {waiting.map((w) => (
+                <span key={w.receiptNumber} className="num" style={{ fontSize: 13 }}>
+                  {w.receiptNumber} · {rupees(w.amount)} · {tx(receiptModeWord(w.mode))}
+                </span>
+              ))}
+              <span style={{ fontSize: 12, lineHeight: 1.5 }}>{tx(W.waitingBody)}</span>
+            </div>
+          ) : null}
           <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(W.expects)}</h2>
@@ -238,10 +255,39 @@ export function ClosePanel(props: DeskProps) {
           </div>
           {DENOMINATIONS.map((d) => {
             const label = d === 1 ? tx(W.coins) : `₹${d}`;
+            // Coins come in ₹1, ₹2, ₹5, ₹10, ₹20: one tap per coin counted a ₹5 coin as ₹1
+            // (smoke 20 Oct). Their row takes the rupee total, typed, with no − / + buttons.
+            if (d === 1) {
+              return (
+                <div key={d} style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 96px", gap: 10, alignItems: "center", padding: "4px 0" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>{tx(W.coinsTotal)}</span>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, height: 44, padding: "0 12px", borderRadius: 12, border: "1px solid var(--bds)", background: "var(--card)" }}>
+                      <span aria-hidden="true" style={{ fontWeight: 700, color: "var(--mut)" }}>₹</span>
+                      <input
+                        className="num"
+                        inputMode="numeric"
+                        aria-label={tx(W.coinsTotal)}
+                        disabled={!live}
+                        value={counts[1] ? String(counts[1]) : ""}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const n = Number(e.target.value.replace(/\D/g, ""));
+                          setCounts((c) => ({ ...c, 1: Math.min(99999, Math.max(0, Number.isFinite(n) ? n : 0)) }));
+                        }}
+                        style={{ flex: 1, minWidth: 0, border: 0, outline: "none", background: "transparent", fontSize: 17, fontWeight: 700, color: "var(--fg)" }}
+                      />
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx(W.coinsHint)}</span>
+                  </label>
+                  <span className="num" style={{ textAlign: "right", fontSize: 14, fontWeight: 600, color: "var(--mut)" }}>{rupees(counts[1] ?? 0)}</span>
+                </div>
+              );
+            }
             return (
               <div key={d} style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 96px", gap: 10, alignItems: "center", padding: "4px 0" }}>
                 <span className="num" style={{ fontSize: 15, fontWeight: 700 }}>{label}</span>
-                <Count label={label} value={counts[d] ?? 0} max={d === 1 ? 99999 : 9999} disabled={!live} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
+                <Count label={label} value={counts[d] ?? 0} max={9999} disabled={!live} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
                 <span className="num" style={{ textAlign: "right", fontSize: 14, fontWeight: 600, color: "var(--mut)" }}>{rupees((counts[d] ?? 0) * d)}</span>
               </div>
             );

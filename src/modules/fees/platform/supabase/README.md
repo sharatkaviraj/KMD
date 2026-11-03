@@ -20,3 +20,17 @@ is recorded that can disagree with the first), fee writes bypass RLS and
 That trade is only safe because it is enforced rather than remembered.
 `tests/architecture.test.ts` asserts that every file touching this client also
 checks a permission in the same file.
+
+## The fee writes switch (D-345, D-346)
+
+Both server clients send every request through `write-guard.ts`. It is the
+one place the app decides whether a fee write may happen *now*: while writes
+are test-only — any Preview or local deployment (`isConfinedDeployment()`),
+`app_settings.fee_writes_enabled = 'false'`, or a production database before
+the key is `'true'` — an insert, update, upsert, delete or write RPC goes
+through only if every student, receipt, plan, waiver, refund, class or
+session it names resolves to a TEST session. Anything else is answered with
+the database's own `VPP01` refusal, without reaching PostgREST. The money
+functions check the same rule themselves
+(`supabase/fee-migrations/20261030230000_fee_writes_guard.sql`), so a direct
+RPC call is refused too.

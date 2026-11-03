@@ -18,7 +18,8 @@
  * Idempotent: re-running replaces the seeded version rather than stacking
  * another one beside it.
  *
- * Rule 3: dev only. It refuses to run anywhere else.
+ * Rule 3 / D-346: One's main project only. While the marker says production
+ * it is confined: TEST-2026-27 and test-account teachers only.
  * Rule 6: the fixture is the one already in the repo; nothing new is written
  * into it here.
  */
@@ -35,10 +36,10 @@ import {
   parseTimetable,
 } from "../src/modules/timetable/domain/parse-timetable.ts";
 import { readActiveSession } from "./read-active-session.mjs";
-import { DEV_PROJECT_REFS, isDevProjectUrl } from "./target-guard.mjs";
+import { decidePromoteSeed, teacherShortNameMap } from "./migrate/lib/quarantine-rules.mjs";
+import { assertOneMainTarget, toolScope } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const [DEV_PROJECT_REF] = DEV_PROJECT_REFS;
 const LABEL = "Fixture v11 (seeded)";
 
 function readEnv() {
@@ -56,13 +57,6 @@ function readEnv() {
 const env = readEnv();
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-if (!isDevProjectUrl(url)) {
-  console.error(
-    `Refusing to run: .env.local points at ${url}, not the dev project ${DEV_PROJECT_REF} (rule 3).`,
-  );
-  process.exit(1);
-}
-
 const db = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "vppsone" },
   auth: { persistSession: false },
@@ -75,11 +69,119 @@ const die = (label, error) => {
   }
 };
 
+// --production-promote (go-live phase H, critique1 A4): the ONE path that
+// publishes the REAL session's timetable on production, run by
+// promote-master-data.mjs once the real teacher profiles exist. Guarded by
+// the marker AND the flag: every input read exactly (an unreadable marker is
+// a refusal here, not "production"), fee writes still shut, a succeeded
+// promote-master-data run, no cutover (lib/quarantine-rules.mjs
+// decidePromoteSeed). It names ONLY real (non-test) staff as teachers.
+// Without the flag: Rule 3 / D-346 — One's main project only, and CONFINED
+// on production: it publishes into TEST-2026-27 (never the active, real
+// session) and names only test-account staff as teachers. Every write below
+// is filtered by `sessionLabel`, so nothing outside that session is touched.
+const productionPromote = process.argv.includes("--production-promote");
+let scope;
+if (productionPromote) {
+  assertOneMainTarget(url, "seed:timetable --production-promote");
+  const pub = db.schema("public");
+  const [marker, setting, promoted, cutover] = await Promise.all([
+    db.from("deployment").select("environment").eq("id", 1).maybeSingle(),
+    pub.from("app_settings").select("value").eq("key", "fee_writes_enabled").maybeSingle(),
+    db.from("migration_runs").select("id", { count: "exact", head: true }).eq("script", "promote-master-data").eq("kind", "run").eq("status", "succeeded"),
+    db.from("migration_runs").select("id", { count: "exact", head: true }).eq("kind", "cutover"),
+  ]);
+  const decision = decidePromoteSeed({
+    environment: marker.error ? null : (marker.data?.environment ?? null),
+    feeWritesEnabled: setting.error ? null : (setting.data?.value ?? null),
+    promoteRuns: promoted.error ? 0 : (promoted.count ?? 0),
+    hasCutover: cutover.error ? null : (cutover.count ?? 0) > 0,
+  });
+  if (!decision.ok) {
+    console.error(`Refusing seed:timetable --production-promote: ${decision.reasons.join("; ")}.`);
+    process.exit(1);
+  }
+  scope = { production: true, confined: false, realOnly: true, sessionLabel: null };
+  console.log("seed:timetable --production-promote: the real session, real staff only (phase H).");
+} else {
+  scope = await toolScope({ url, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY, label: "seed:timetable", mode: "test-scoped" });
+}
+
 /* ------------------------------------------------------------ the session */
 
 // The session the app is working in. See src/platform/config/active-session.ts
 // for why this is not "the label that sorts last".
-const sessionLabel = await readActiveSession(db);
+// On production: always TEST-2026-27 (`scope.sessionLabel`).
+const sessionLabel = scope.confined ? scope.sessionLabel : await readActiveSession(db);
+
+/* --------------------------------------- the TEST session's own master data */
+
+// TEST-2026-27 has its classes and students in the fee schema (the fees app's
+// rehearsal session) but none of One's own rows that hang off them: no
+// timetable labels for its classes and no enrolments, so every teacher screen
+// in it is an empty state and the fixture's class names resolve to nothing
+// (Phase C, 31 Oct). When confined, and only for the TEST session, this fills
+// the two in — idempotently, and touching no row of any other session:
+//   - class_aliases: the real session's timetable label for the class of the
+//     same name, pointed at the TEST class;
+//   - enrolments: every active student of a TEST class, enrolled in it.
+if (scope.confined) {
+  const pub = db.schema("public");
+  const activeSession = await readActiveSession(db);
+  const [{ data: testClasses, error: testClassesError }, { data: realAliases, error: realAliasesError }, { data: testAliases, error: testAliasesError }] =
+    await Promise.all([
+      pub.from("classes").select("id, class_name").eq("session_label", sessionLabel),
+      db.from("class_aliases").select("class_id, timetable_label, display_name, sort_order").eq("session_label", activeSession),
+      db.from("class_aliases").select("class_id").eq("session_label", sessionLabel),
+    ]);
+  die("Could not read the TEST classes", testClassesError);
+  die("Could not read the timetable labels", realAliasesError);
+  die("Could not read the TEST timetable labels", testAliasesError);
+
+  const { data: realClasses, error: realClassesError } = await pub
+    .from("classes")
+    .select("id, class_name")
+    .in("id", (realAliases ?? []).map((row) => row.class_id));
+  die("Could not read the real classes", realClassesError);
+
+  const testClassByName = new Map((testClasses ?? []).map((row) => [row.class_name.toLowerCase(), row.id]));
+  const realNameById = new Map((realClasses ?? []).map((row) => [row.id, row.class_name.toLowerCase()]));
+  const aliased = new Set((testAliases ?? []).map((row) => row.class_id));
+  const aliasRows = (realAliases ?? [])
+    .map((row) => ({ ...row, class_id: testClassByName.get(realNameById.get(row.class_id) ?? "") }))
+    .filter((row) => row.class_id && !aliased.has(row.class_id))
+    .map((row) => ({
+      class_id: row.class_id,
+      session_label: sessionLabel,
+      timetable_label: row.timetable_label,
+      display_name: row.display_name,
+      sort_order: row.sort_order,
+    }));
+  if (aliasRows.length > 0) {
+    die("Could not write the TEST timetable labels", (await db.from("class_aliases").insert(aliasRows)).error);
+  }
+
+  const testClassIds = (testClasses ?? []).map((row) => row.id);
+  const { data: testStudents, error: testStudentsError } = testClassIds.length
+    ? await pub.from("students").select("id, class_id").in("class_id", testClassIds).eq("status", "active")
+    : { data: [], error: null };
+  die("Could not read the TEST students", testStudentsError);
+  const today = new Date().toISOString().slice(0, 10);
+  const enrolmentRows = (testStudents ?? []).map((row) => ({
+    student_id: row.id,
+    class_id: row.class_id,
+    session_label: sessionLabel,
+    status: "enrolled",
+    enrolled_on: today,
+  }));
+  for (let index = 0; index < enrolmentRows.length; index += 500) {
+    const { error } = await db
+      .from("enrolments")
+      .upsert(enrolmentRows.slice(index, index + 500), { onConflict: "student_id,session_label", ignoreDuplicates: true });
+    die("Could not write the TEST enrolments", error);
+  }
+  console.log(`TEST master data: ${aliasRows.length} timetable labels added, ${enrolmentRows.length} active students enrolled (existing kept)`);
+}
 
 /* ------------------------------------------------------------ the mapping */
 
@@ -88,16 +190,26 @@ const [{ data: aliases }, { data: staff }, { data: subjects }] = await Promise.a
     .from("class_aliases")
     .select("class_id, timetable_label")
     .eq("session_label", sessionLabel),
-  db.from("staff_profiles").select("id, short_name").eq("is_active", true),
+  db.from("staff_profiles").select("id, short_name, is_test_account").eq("is_active", true),
   db.from("subjects").select("id, code").eq("is_active", true),
 ]);
+
+// On production a teacher resolves only to a test account (D-346): a short
+// name that belongs to real staff is "unresolved" below, and the run stops.
+// --production-promote is the mirror image: real staff only, so the real
+// timetable never names a test account. After promote-master-data the
+// fixture's short names are real profiles, so confined mode falls back from
+// X to the test twin `T-X` (lib/quarantine-rules.mjs teacherShortNameMap) and
+// the TEST timetable can still be re-seeded.
+if (scope.realOnly) {
+  const realSession = sessionLabel;
+  if (/^(test|uat|demo)-/i.test(realSession)) die("--production-promote", `the active session is ${realSession}, a TEST session`);
+}
 
 const classesByLabel = new Map(
   (aliases ?? []).map((row) => [row.timetable_label.toLowerCase(), row.class_id]),
 );
-const teachersByShortName = new Map(
-  (staff ?? []).map((row) => [row.short_name.toLowerCase(), row.id]),
-);
+const teachersByShortName = teacherShortNameMap(staff ?? [], { realOnly: Boolean(scope.realOnly), confined: Boolean(scope.confined) });
 const subjectsByCode = new Map(
   (subjects ?? []).map((row) => [row.code.toLowerCase(), row.id]),
 );

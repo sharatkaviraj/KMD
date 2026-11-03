@@ -26,6 +26,14 @@ export type DeliveryReportRow = {
   status: DeliveryStatus;
   /** ISO timestamp, when the report carries one. */
   at: string | null;
+  /**
+   * Why it failed, verbatim, when the report has a reason column. Absent (not
+   * null) when there is none, so a report without one parses to exactly the
+   * shape it always did.
+   */
+  reason?: string;
+  /** WhatsApp's error code, from a code column or pulled out of the reason. */
+  errorCode?: string;
 };
 
 export type DeliveryReportParse = {
@@ -123,10 +131,22 @@ export function splitCsvLine(line: string): string[] {
 }
 
 /** Find a column by what its heading contains, not by an exact match. */
-function findColumn(headers: string[], candidates: readonly string[]): number {
-  return headers.findIndex((header) =>
-    candidates.some((candidate) => header.includes(candidate)),
+function findColumn(
+  headers: string[],
+  candidates: readonly string[],
+  /** Columns already claimed, so "Error code" is not also read as the reason. */
+  taken: readonly number[] = [],
+): number {
+  return headers.findIndex(
+    (header, index) =>
+      !taken.includes(index) && candidates.some((candidate) => header.includes(candidate)),
   );
+}
+
+/** A WhatsApp code inside a sentence: "(#131026) Message undeliverable". */
+function codeInText(text: string): string | null {
+  const match = text.match(/\b(13\d{4})\b/);
+  return match ? match[1]! : null;
 }
 
 export function parseDeliveryReport(csv: string): DeliveryReportParse {
@@ -143,6 +163,19 @@ export function parseDeliveryReport(csv: string): DeliveryReportParse {
   const destinationColumn = findColumn(headers, ["destination", "phone", "mobile", "number", "to"]);
   const statusColumn = findColumn(headers, ["status", "state", "delivery"]);
   const atColumn = findColumn(headers, ["time", "date", "timestamp", "updated"]);
+  // The failure reason and WhatsApp's code. Both optional: a report without them
+  // still imports every status, as it always did. The code column is found first
+  // so a heading like "Error code" is not also taken as the reason.
+  const codeColumn = findColumn(
+    headers,
+    ["error code", "error_code", "errorcode", "failure code", "reason code", "code"],
+    [statusColumn, messageIdColumn, destinationColumn],
+  );
+  const reasonColumn = findColumn(
+    headers,
+    ["reason", "failure", "error", "remark", "description", "comment", "detail"],
+    [statusColumn, messageIdColumn, destinationColumn, codeColumn],
+  );
 
   if (statusColumn === -1 || (messageIdColumn === -1 && destinationColumn === -1)) {
     return {
@@ -178,11 +211,19 @@ export function parseDeliveryReport(csv: string): DeliveryReportParse {
     const rawAt = atColumn === -1 ? null : (cells[atColumn] || "").trim();
     const parsedAt = rawAt ? new Date(rawAt) : null;
 
+    const reason = reasonColumn === -1 ? "" : (cells[reasonColumn] || "").trim();
+    const codeCell = codeColumn === -1 ? "" : (cells[codeColumn] || "").trim();
+    const errorCode = codeCell || codeInText(reason) || "";
+
     rows.push({
       providerMessageId,
       destinationDigits,
       status,
       at: parsedAt && !Number.isNaN(parsedAt.getTime()) ? parsedAt.toISOString() : null,
+      // Only a failure has a reason worth keeping; a "Delivered" row whose
+      // remarks column says "OK" is not one.
+      ...(status === "failed" && reason ? { reason } : {}),
+      ...(status === "failed" && errorCode ? { errorCode } : {}),
     });
   }
 
@@ -203,6 +244,8 @@ export type DeliveryUpdate = {
   id: string;
   status: DeliveryStatus;
   at: string | null;
+  reason?: string;
+  errorCode?: string;
 };
 
 export type DeliveryMatchResult = {
@@ -256,7 +299,12 @@ export function matchDeliveryReport(
     // Fallback: destination plus the day. Only when it is unambiguous — a phone
     // that received two messages the same day cannot be told apart, and guessing
     // would put a delivery result on the wrong notice.
-    if (!send && row.destinationDigits) {
+    //
+    // And only when the report row carries NO id. A row whose id matches nothing
+    // is a message since resent: the resend took the same row back with a new
+    // id, so matching the old message's "failed" onto it by phone would mark a
+    // message that may well have arrived as failed.
+    if (!send && !row.providerMessageId && row.destinationDigits) {
       const candidates = byDestination.get(row.destinationDigits) ?? [];
       const sameDay = row.at
         ? candidates.filter((candidate) => candidate.sentOn === row.at!.slice(0, 10))
@@ -281,7 +329,13 @@ export function matchDeliveryReport(
       continue;
     }
 
-    best.set(send.id, { id: send.id, status: row.status, at: row.at });
+    best.set(send.id, {
+      id: send.id,
+      status: row.status,
+      at: row.at,
+      ...(row.reason ? { reason: row.reason } : {}),
+      ...(row.errorCode ? { errorCode: row.errorCode } : {}),
+    });
   }
 
   return { updates: [...best.values()], unmatched, unchanged };

@@ -7,6 +7,8 @@ import { isPlatformCron, tokenMatches } from "@/modules/jobs/domain/token";
 import { schoolToday } from "@/platform/dates";
 
 export const runtime = "nodejs";
+// The Drive backup exports every table and copies files; give it five minutes.
+export const maxDuration = 300;
 
 /**
  * Where the scheduler knocks.

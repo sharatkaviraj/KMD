@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 
 import { getOfficeWorkbookData } from "@/modules/transactions/data/dues";
 import type { OfficeWorkbookView } from "@/modules/transactions/domain/workbook";
@@ -17,7 +17,9 @@ import {
 import { STUDENT_INFO_FIELDS } from "@/modules/students-fees/domain/info-fields";
 import { getStudentConventionalDiscountAssignments } from "@/modules/fees/domain/queries";
 import { buildTransportRouteLabel } from "@/modules/fees/domain/label";
-import { getAuthenticatedStaff, hasStaffPermission } from "@/modules/fees/platform/session";
+import { getAuthenticatedStaff, hasAnyStaffPermission, hasStaffPermission } from "@/modules/fees/platform/session";
+import { STUDENT_PHOTO_DOWNLOAD_PERMISSIONS } from "@/modules/students-fees/domain/photo-permissions";
+import { studentPhotoWorkbookResponse } from "@/modules/exports/data/student-photo-workbook";
 import { formatExportName } from "@/platform/helpers/export";
 import { recordActivity } from "@/modules/activity/data/events";
 
@@ -30,9 +32,10 @@ import {
   hasDefaulterFilterParams,
   parseDefaulterFiltersFromQuery,
 } from "@/modules/exports/domain/defaulter-filters";
+import { visibleSessionForRoute } from "@/modules/fees/platform/session-context/route-session";
 
 // overrun Vercel's default function timeout on real data volumes.
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 type RouteContext = {
   params: Promise<{
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 async function handleExport(request: NextRequest, context: RouteContext) {
   const staff = await getAuthenticatedStaff();
-  if (!staff) {
+  if (!staff || !staff.isActive) {
     return new Response("Unauthorized", { status: 401 });
   }
   if (!hasStaffPermission(staff, "reports:view")) {
@@ -72,7 +75,7 @@ async function handleExport(request: NextRequest, context: RouteContext) {
    * claimed it. Restricting bulk Aadhaar downloads to admin/accountant would be
    * a different, narrower check.
    */
-  const AADHAAR_BEARING_EXPORTS = new Set(["student-master", "ai-context-bundle"]);
+  const AADHAAR_BEARING_EXPORTS = new Set(["student-master", "student-master-photos", "ai-context-bundle"]);
 
   if (
     AADHAAR_BEARING_EXPORTS.has(exportType) &&
@@ -80,7 +83,18 @@ async function handleExport(request: NextRequest, context: RouteContext) {
   ) {
     return new Response("Forbidden", { status: 403 });
   }
-  const requestedSessionLabel = (request.nextUrl.searchParams.get("session") ?? "").trim();
+  if (exportType === "student-master-photos") {
+    if (!hasAnyStaffPermission(staff, STUDENT_PHOTO_DOWNLOAD_PERMISSIONS)) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    if (request.nextUrl.searchParams.get("format")?.trim().toLowerCase() === "pdf") {
+      return new Response("Student records with photos are available as Excel only.", { status: 400 });
+    }
+  }
+  // A named session must be one this viewer may open; none means their own (Phase 3).
+  const routeSession = await visibleSessionForRoute(request.nextUrl.searchParams.get("session"));
+  if (!routeSession.ok) return routeSession.response;
+  const requestedSessionLabel = routeSession.sessionLabel;
   // The export follows the filter. Downloading "all students" while the
   // Students page is filtered to "Never paid" and getting all 509 back is the
   // same class of surprise as the filter not applying at all.
@@ -100,7 +114,7 @@ async function handleExport(request: NextRequest, context: RouteContext) {
   const exportTitle = `${exportType.replace(/-/g, " ")} · ${resolvedSessionLabel || "current"}`;
 
   // Fire-and-forget activity log for the dashboard recent-activity strip.
-  void recordActivity({
+  if (exportType !== "student-master-photos") void recordActivity({
     userId: (staff?.id as string | undefined) ?? null,
     kind: "export_downloaded",
     payload: { exportType, sessionLabel: resolvedSessionLabel, filename, format },
@@ -150,7 +164,7 @@ async function handleExport(request: NextRequest, context: RouteContext) {
    * `students:view` check at the top of handleExport, and should be handled as
    * the identity document it is once downloaded.
    */
-  if (exportType === "student-master") {
+  if (exportType === "student-master" || exportType === "student-master-photos") {
     const rows = await getAllStudents({
       query: (request.nextUrl.searchParams.get("query") ?? "").trim(),
       sessionLabel: resolvedSessionLabel,
@@ -164,11 +178,7 @@ async function handleExport(request: NextRequest, context: RouteContext) {
     });
     const masterById = await getStudentMasterFieldsByIds(rows.map((row) => row.id));
 
-    return rowsResponse(
-      format,
-      filenameBase,
-      exportTitle,
-      rows.map((row) => {
+    const masterRows = rows.map((row) => {
         const info = masterById.get(row.id);
 
         return {
@@ -194,8 +204,20 @@ async function handleExport(request: NextRequest, context: RouteContext) {
             ]),
           ),
         };
-      }),
-    );
+      });
+    if (exportType === "student-master-photos") {
+      const headers = ["SR no", "Student", "Class", "Date of birth", "Admission date", "Father name", "Mother name", "Father phone", "Mother phone", "Email", "Address", "Route", "Record status", ...STUDENT_INFO_FIELDS.map((field) => field.header)];
+      const response = await studentPhotoWorkbookResponse(filename, masterRows, rows, headers);
+      if (response.ok) after(async () => {
+        await recordActivity({
+          userId: staff.id,
+          kind: "export_downloaded",
+          payload: { exportType, sessionLabel: resolvedSessionLabel, filename, format, studentCount: rows.length },
+        });
+      });
+      return response;
+    }
+    return rowsResponse(format, filenameBase, exportTitle, masterRows);
   }
 
   if (exportType === "emi-plans") {

@@ -35,13 +35,17 @@ export type OfficeContext = {
   coordinatorName: string | null;
 };
 
-export async function officeContext(): Promise<OfficeContext | null> {
+/**
+ * `now` is the reader's school clock (`schoolNow(staff)`, the lab clock for a
+ * lab account): it decides what "today" reads as, never what is saved.
+ */
+export async function officeContext(now?: Date): Promise<OfficeContext | null> {
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return null;
   const [exams, classes, staff] = await Promise.all([listExams(sessionLabel), classesFor(sessionLabel), staffList()]);
   return {
     sessionLabel,
-    today: schoolToday(),
+    today: schoolToday(now),
     exams,
     classes,
     staff,

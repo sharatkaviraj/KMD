@@ -7,7 +7,9 @@ import { formatInr } from "@/platform/helpers/currency";
 import { formatMediumDate } from "@/platform/helpers/date";
 import { isUuid } from "@/platform/helpers/uuid";
 import { getReceiptDetail } from "@/modules/receipts/data/queries";
+import { receiptVerifyPath } from "@/modules/receipts/domain/verify-url";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { assertReceiptVisible, refusalResponse } from "@/platform/auth/test-session-access";
 
 /**
  * 1080×1080 PNG receipt card for WhatsApp sharing (Ledger Calm 2.0).
@@ -43,13 +45,15 @@ export async function GET(
   if (!isUuid(receiptId.trim())) {
     return NextResponse.json({ error: "Invalid receipt id" }, { status: 400 });
   }
+  const refused = await refusalResponse(() => assertReceiptVisible(null, { id: receiptId.trim() }));
+  if (refused) return refused;
 
   const receipt = await getReceiptDetail(receiptId.trim());
   if (!receipt) {
     return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
   }
 
-  const verifyUrl = `${getSiteUrl()}/r/${encodeURIComponent(receipt.receiptNumber)}`;
+  const verifyUrl = `${getSiteUrl()}${receiptVerifyPath(receipt.receiptNumber)}`;
   const clearedLabels = receipt.breakdown.map((item) => item.installmentLabel);
   const clearedLine =
     clearedLabels.length > 0 ? clearedLabels.join(" · ") : "Fee payment";

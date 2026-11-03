@@ -20,6 +20,10 @@ import { isYearCleared } from "@/modules/fees/domain/year-clear";
 import { calculateOverdueBaseAmount, calculatePendingLateFeeAmount } from "@/modules/fees/domain/due-amounts";
 import { getStudentFinancialSnapshot } from "@/modules/fees/data/policy";
 import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules/prev-year-dues/domain/display";
+import { STUDENT_LIST_FEE_SEGMENTS } from "@/platform/fees-bridge/student-directory";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getBridgeDirectory, getBridgeWorkspace } from "@/platform/fees-bridge/client";
+import { feesFromBridge, moneyListFromBridge } from "./canonical-students";
 
 /**
  * The fee side of the admin's Students list and Student 360 (P5).
@@ -36,25 +40,13 @@ import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules
  * phone's Filter sheet (UI-94). The fee app combines them — either of two in
  * one family (Pending or Paid up), both across families (Pending and on a bus).
  */
-const SEGMENT_OF = {
-  pending: "overdue",
-  late: "lateFeePending",
-  never: "neverPaid",
-  part: "partlyPaid",
-  paid: "yearClear",
-  emi: "onEmi",
-  emiMissed: "emiMissed",
-  old: "oldBalanceDue",
-  bus: "onTransport",
-  new: "newThisYear",
-  concession: "hasDiscount",
-  noPhone: "missingPhone",
-} as const satisfies Record<string, SegmentId>;
+const SEGMENT_OF = STUDENT_LIST_FEE_SEGMENTS;
 
 type ListFilter = keyof typeof SEGMENT_OF;
 
 export type MoneyListRow = {
   id: string;
+  photoUrl?: string | null;
   fullName: string;
   admissionNo: string;
   classLabel: string;
@@ -105,10 +97,12 @@ export async function studentMoneyList(input: {
   sessionLabel?: string;
   /** The fee app's own orders: by name, or by class then name. */
   sort?: "name" | "class";
+  status?: "active" | "inactive" | "left" | "graduated" | "all";
 }): Promise<MoneyList> {
-  await assertPermission("fees:view");
+  const staff=await assertPermission("fees:view");
   const view = input.sessionLabel ? { sessionLabel: input.sessionLabel } : await resolveViewSession({ cookieSession: await getViewSessionCookie() });
   const segments: SegmentId[] = input.filters.map((f) => SEGMENT_OF[f]);
+  if(usesCanonicalFees(staff,view.sessionLabel))return moneyListFromBridge(await getBridgeDirectory({...input,sessionLabel:view.sessionLabel,segments,sort:input.sort??"name"}));
 
   const [page, counts] = await Promise.all([
     getStudentsPage(
@@ -183,7 +177,12 @@ export async function recentReceiptsFor(
   studentId: string,
   limit = 2,
 ): Promise<{ id: string; number: string; amount: number; date: string; mode: string; reversed: boolean }[]> {
-  await assertPermission("fees:view");
+  const staff=await assertPermission("fees:view");
+  const view=await resolveViewSession({cookieSession:await getViewSessionCookie()});
+  if(usesCanonicalFees(staff,view.sessionLabel)) {
+    const source=await getBridgeWorkspace(studentId,view.sessionLabel);
+    return (source.receipts??[]).slice(0,limit).map(row=>({id:row.id,number:row.receiptNumber,amount:row.totalAmount,date:row.paymentDate,mode:row.paymentMode,reversed:row.isReversed}));
+  }
   const result = await createAdminClient()
     .from("receipts")
     .select("id, receipt_number, payment_date, total_amount, payment_mode, created_at")
@@ -276,15 +275,20 @@ export type StudentFees = {
 };
 
 export async function studentFees(studentId: string): Promise<StudentFees> {
-  await assertPermission("fees:view");
+  const staff=await assertPermission("fees:view");
+  const view=await resolveViewSession({cookieSession:await getViewSessionCookie()});
+  if(usesCanonicalFees(staff,view.sessionLabel)) {
+    const result=feesFromBridge(await getBridgeWorkspace(studentId,view.sessionLabel));
+    if(!result)throw new Error("The Fees record is not available to this account.");
+    return result;
+  }
   const admin = createAdminClient();
 
   // One wave, not three. The session, the receipts' reversal totals and the
   // fee breakup used to wait on each other; each now starts the moment what it
   // needs exists. The snapshot is the fee app's own, cached per student and
   // busted by every posting (`student:{id}`).
-  const [view, balances, receipts, family, detail, snapshot] = await Promise.all([
-    getViewSessionCookie().then((cookieSession) => resolveViewSession({ cookieSession })),
+  const [balances, receipts, family, detail, snapshot] = await Promise.all([
     getWorkbookInstallmentBalances(studentId),
     admin
       .from("receipts")

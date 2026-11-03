@@ -1,4 +1,4 @@
-import { addDays, type DeskMode } from "@/modules/receipts/vx/domain/day-close";
+import { addDays, type DaySpan, type DeskMode } from "@/modules/receipts/vx/domain/day-close";
 import { shortDay } from "@/vx/format";
 import type { IconName } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
@@ -60,6 +60,21 @@ export function dayGroupLabel(date: string, today: string): Pair {
   if (date === today) return { en: `${W.today.en} · ${day}`, hi: `${W.today.hi} · ${day}` };
   if (date === addDays(today, -1)) return { en: `${W.yesterday.en} · ${day}`, hi: `${W.yesterday.hi} · ${day}` };
   return { en: day, hi: day };
+}
+
+/**
+ * The day toggle's own reading of the picked day, and what its first two
+ * options say. With yesterday picked (`?date=` yesterday, one day) it reads
+ * as today's "Yesterday" option, so the toggle does not show both "Tue 20
+ * Oct" and "Yesterday" for the same day (smoke 21 Oct). For an older day the
+ * second option is the day before it, so it is dated rather than called
+ * "Yesterday". `null` for a label means "Today" / "Yesterday".
+ */
+export function daySeg(anchor: string, today: string, span: DaySpan): { anchor: string; span: DaySpan; first: string | null; second: string | null } {
+  const yesterday = addDays(today, -1);
+  const seg = anchor === yesterday && span === "today" ? { anchor: today, span: "yesterday" as const } : { anchor, span };
+  const onToday = seg.anchor === today;
+  return { ...seg, first: onToday ? null : seg.anchor, second: onToday ? null : addDays(seg.anchor, -1) };
 }
 
 /** "Initials" for the list's avatar: first letters of the first two words. */

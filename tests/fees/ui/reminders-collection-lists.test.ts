@@ -1,0 +1,326 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// The fees app mocks these once in tests/setup.ts; One has no shared setup
+// file, so each ported test carries the same three (go-live Phase D).
+vi.mock("server-only", () => ({}));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
+  unstable_cache:
+    <T extends (...args: unknown[]) => unknown>(callback: T) =>
+    callback,
+}));
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+});
+
+
+/**
+ * Turning the eligibility filter into paper somebody can carry.
+ *
+ * Two properties here are structural rather than cosmetic, and both fail
+ * silently: the send screen's byte ceiling, and the export re-deriving its own
+ * audience instead of trusting one posted from a browser.
+ */
+
+function read(path: string) {
+  // CRLF on a Windows checkout; the fees app only ever runs this on LF.
+  return readFileSync(join(process.cwd(), path), "utf8").replace(/\r\n/g, "\n");
+}
+
+const LINKS = "src/modules/whatsapp/ui/collection-list-links.tsx";
+const LISTS_PAGE = "src/app/(app)/fees/reminders/lists/page.tsx";
+const EXPORT_ROUTE = "src/app/(app)/fees/reminders/lists/export/route.ts";
+const ACTIONS = "src/modules/whatsapp/ui/collection-list-actions.tsx";
+const WORKSPACE = "src/modules/whatsapp/ui/reminders-workspace.tsx";
+const SEND_PAGE = "src/app/(app)/fees/reminders/page.tsx";
+const AUDIENCE = "src/modules/whatsapp/domain/audience.ts";
+
+describe("the send screen stays under its byte ceiling", () => {
+  it("reaches the lists with a server-rendered link and no client code", () => {
+    const source = read(LINKS);
+
+    // /fees/reminders has ~800 gzip bytes of headroom and the file's own
+    // rule is that ceilings ratchet down. A "use client" here spends them.
+    expect(source).not.toContain('"use client"');
+    expect(source).not.toContain("useState");
+  });
+
+  it("names no download route on the send screen's own files", () => {
+    // DownloadAnchor is a client component, and tests/ui/exports-page-links
+    // fails any .tsx naming a download route beside a <Link> unless it is
+    // allowlisted. Linking to a PAGE avoids both problems.
+    // Asserted on the IMPORT, not the word: the files explain this rule in
+    // prose, and a test that trips over its own explanation teaches nobody.
+    for (const path of [LINKS, WORKSPACE, SEND_PAGE]) {
+      const source = read(path);
+      expect(source).not.toContain("lists/export?");
+      expect(source).not.toMatch(/^import .*download-anchor/m);
+    }
+  });
+
+  it("passes the links in as a ReactNode, the way holdoutControl already is", () => {
+    const workspace = read(WORKSPACE);
+    const page = read(SEND_PAGE);
+
+    expect(workspace).toContain("listActions: ReactNode;");
+    expect(workspace).toContain("{listActions}");
+    expect(page).toContain("listActions={<CollectionListLinks");
+  });
+});
+
+describe("the list follows the filter", () => {
+  it("carries every audience-shaping value through to the lists screen", () => {
+    // Drop one and the printed list is not the list on screen. This used to be
+    // a hand-written object in the links component, checked here name by name —
+    // which guarded the eight that existed and nothing added afterwards. Both
+    // sides now read ONE list, so a new filter is carried by construction.
+    expect(read(LINKS)).toContain("reminderQuery(filters)");
+    expect(read(LISTS_PAGE)).toContain("const CARRIED_PARAMS = REMINDER_QUERY_KEYS");
+
+    // And that list really does hold every audience-shaping key.
+    const source = read(AUDIENCE);
+    const keys = source.slice(
+      source.indexOf("REMINDER_QUERY_KEYS = ["),
+      source.indexOf("] as const", source.indexOf("REMINDER_QUERY_KEYS = [")),
+    );
+    for (const name of [
+      "situation",
+      "language",
+      "installments",
+      "installmentMatch",
+      "paid",
+      "minDueAmount",
+      "lateFee",
+      "promise",
+      "skipOverdue",
+      "preDueWindowDays",
+      "classId",
+      "includeRte",
+      "include",
+      "exclude",
+    ]) {
+      expect(keys).toContain(`"${name}"`);
+    }
+    // Retired on 2026-09-10 with the presets. A key here is a key the lists
+    // page would carry and nothing would read.
+    for (const name of ["maxTotalPaid", "minTotalPaid", "overdue", "carryForward", "quote"]) {
+      expect(keys).not.toContain(`"${name}"`);
+    }
+  });
+
+  it("re-derives the audience in the export rather than trusting the client", () => {
+    const source = read(EXPORT_ROUTE);
+
+    // A family who paid since the page loaded must not appear on a sheet the
+    // office is about to hand a teacher — and the audience is never stored.
+    expect(source).toContain("resolveReminderContext");
+    expect(source).not.toContain("formData");
+    expect(source).not.toContain("request.json()");
+  });
+
+  it("builds the screen and the export from the same two pure functions", () => {
+    for (const path of [LISTS_PAGE, EXPORT_ROUTE]) {
+      const source = read(path);
+      expect(source).toContain("buildCollectionRows");
+      expect(source).toContain("groupCollectionRows");
+    }
+  });
+});
+
+describe("the export route", () => {
+  it("gates on settings:view, so a collector who cannot send can still print", () => {
+    const source = read(EXPORT_ROUTE);
+
+    expect(source).toContain('hasStaffPermission(staff, "settings:view")');
+    expect(source).not.toContain('"settings:write"');
+  });
+
+  it("wraps every response in the download token the anchor's spinner reads", () => {
+    expect(read(EXPORT_ROUTE)).toContain("withDownloadToken(request,");
+  });
+
+  it("runs on Node with a raised ceiling, because react-pdf needs both", () => {
+    const source = read(EXPORT_ROUTE);
+
+    expect(source).toContain('export const runtime = "nodejs"');
+    expect(source).toContain("export const maxDuration");
+  });
+
+  it("imports the PDF renderer dynamically, so a load failure is a handled 500", () => {
+    const source = read(EXPORT_ROUTE);
+
+    expect(source).toContain('await import(\n        "@/modules/whatsapp/domain/collection-list-pdf"');
+  });
+});
+
+describe("the lists screen", () => {
+  it("keeps the grouping in the URL, not in client state", () => {
+    const source = read(LISTS_PAGE);
+
+    // A list somebody is about to print has to survive a refresh and a back
+    // button — the same rule the dashboard boards follow.
+    expect(source).not.toContain('"use client"');
+    expect(source).toContain("groupBy");
+    expect(source).toContain("aria-current");
+  });
+
+  it("breaks one group per printed page", () => {
+    expect(read(LISTS_PAGE)).toContain("print:break-after-page");
+  });
+
+  it("renders cards on a phone and a table on the desk", () => {
+    const source = read(LISTS_PAGE);
+
+    expect(source).toContain("MobileRecordCard");
+    expect(source).toContain("md:hidden");
+    expect(source).toContain("hidden overflow-x-auto");
+  });
+
+  it("hides the app chrome from the printed sheet", () => {
+    expect(read(LISTS_PAGE)).toContain("print:hidden");
+  });
+
+  it("gives every tap target a phone-sized height", () => {
+    const source = read(LISTS_PAGE);
+
+    expect(source).toContain("min-h-11");
+  });
+});
+
+describe("the files the office actually takes away", () => {
+  it("sends the PDF as an attachment, so the button downloads it", () => {
+    // Unlike the receipt and fee-statement PDFs, which open inline: those are
+    // one page somebody glances at, this is a stack of class sheets to print.
+    const source = read(EXPORT_ROUTE);
+
+    expect(source).toContain('`attachment; filename="${formatExportName(filenameBase, "pdf")}"`');
+    expect(source).not.toContain("inline; filename");
+  });
+
+  it("does not open a tab it would only close again", () => {
+    // An attachment plus target="_blank" flashes a blank tab on every download.
+    const source = read(LISTS_PAGE);
+
+    expect(source).not.toContain('target="_blank"');
+    expect(source).toContain("download");
+  });
+
+  it("gives the WHOLE list the same four actions a single group gets", () => {
+    // Share and Copy were per-group only, so the office could send one teacher
+    // their class but could not send anybody the lot.
+    const source = read(LISTS_PAGE);
+
+    // Two CollectionListActions: one on the whole-list bar, one per group.
+    expect(source.match(/<CollectionListActions/g)?.length).toBe(2);
+    expect(source).toContain('text={allText}');
+    expect(source).toContain("renderAllCollectionsText");
+  });
+
+  it("builds the whole-list text from the per-group renderer, not beside it", () => {
+    // One list must not be formatted two ways.
+    const source = read("src/modules/whatsapp/domain/collection-list.ts");
+
+    expect(source).toMatch(/renderAllCollectionsText[\s\S]*renderCollectionText\(group\)/);
+  });
+
+  it("prints on A4 landscape, because eight columns do not fit portrait", () => {
+    // Portrait gives 539pt of usable width, which is ~17 characters for a
+    // student name at 9pt. Landscape gives 786pt.
+    const source = read("src/modules/whatsapp/domain/collection-list-pdf.tsx");
+
+    expect(source).toContain('size="A4" orientation="landscape"');
+  });
+
+  it("packs the groups into one page set instead of a page each", () => {
+    // A page per group meant a class of five burned a whole A4 sheet and
+    // eighteen classes came to nineteen pages for 114 children.
+    const source = read("src/modules/whatsapp/domain/collection-list-pdf.tsx");
+
+    // Counted on the page SIZE, not on "<Page": the file explains the old
+    // shape in prose and a test that trips over its own explanation is noise.
+    expect(source.match(/size="A4"/g)?.length).toBe(1);
+    // The old shape: a component that WAS a page per group.
+    expect(source).not.toContain("function GroupPage");
+    expect(source).toContain("function GroupBlock");
+  });
+
+  it("keeps a group heading from stranding at the foot of a page", () => {
+    // Without this a group title can be the last thing that fits, and its
+    // students start the next sheet under a column header with no name on it.
+    const source = read("src/modules/whatsapp/domain/collection-list-pdf.tsx");
+
+    expect(source).toContain("minPresenceAhead");
+  });
+
+  it("widths every workbook column so nothing opens as ####", () => {
+    const source = read("src/modules/exports/data/responses.ts");
+
+    expect(source).toContain('worksheet["!cols"]');
+    // SheetJS CE emits no <pane>, so a freeze here would be a claim, not a
+    // behaviour — verified against the generated sheet XML.
+    expect(source).not.toContain('worksheet["!freeze"]');
+  });
+});
+
+describe("the lists screen on a phone", () => {
+  it("collapses each group's roll, so eighteen classes are not one long scroll", () => {
+    // Expanded, the live fee_due list is 114 cards across 18 classes — roughly
+    // fifteen thousand pixels to reach 12 Commerce. Collapsed, each group is
+    // one tappable row.
+    const source = read(LISTS_PAGE);
+
+    expect(source).toContain("<details");
+    expect(source).toContain("Show {group.rows.length}");
+    // The desk has room for the table and keeps it open.
+    expect(source).toContain("md:hidden print:hidden");
+  });
+
+  it("still prints the full table when the print comes from a phone", () => {
+    // The table is `hidden md:block` and the phone roll is a collapsed
+    // <details>. Without `print:block` a Ctrl+P from a handset prints
+    // eighteen empty pages.
+    const source = read(LISTS_PAGE);
+
+    expect(source).toMatch(/hidden overflow-x-auto[^"]*md:block print:block/);
+  });
+
+  it("lays the per-group actions out as one even row, not two wrapped ones", () => {
+    const source = read(LISTS_PAGE);
+
+    expect(source).toContain("grid w-full grid-cols-4");
+  });
+
+  it("gives the group-by control an even row on a phone", () => {
+    for (const path of [LISTS_PAGE, LINKS]) {
+      expect(read(path)).toContain("grid grid-cols-3");
+    }
+  });
+});
+
+describe("sharing a list to a teacher", () => {
+  it("fetches before sharing, in two presses", () => {
+    const source = read(ACTIONS);
+
+    // Fetching inside the sharing click consumes the transient user activation
+    // iOS Safari requires, and the share is rejected with "could not share".
+    expect(source).toContain("file ? share : prepare");
+    expect(source).toContain("selectShareStrategy");
+  });
+
+  it("stays quiet when the person cancels the share", () => {
+    // A cancelled share is a decision, not a failure.
+    expect(read(ACTIONS)).toContain("AbortError");
+  });
+
+  it("does not reuse the parent-facing share sheet", () => {
+    // DocumentShareSheet takes a parent's numbers to choose between; a teacher
+    // is picked from the operating system's own sheet.
+    expect(read(ACTIONS)).not.toMatch(/^import .*document-share-sheet/m);
+  });
+});

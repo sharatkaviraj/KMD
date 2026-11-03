@@ -40,3 +40,18 @@ describe("activeTab", () => {
     expect(tabs.find((t) => t.key === "notes")?.icon).toBe("note");
   });
 });
+
+describe("a screen under the accountant's Today but reached from Menu (smoke 20 Oct)", () => {
+  it("lights Menu on Cheques, UPI & refunds, and Today only on Today", () => {
+    const tabs = bottomFor("accountant", all);
+    expect(activeTab(tabs, "/accounts/books")).toBe("/menu");
+    expect(activeTab(tabs, "/accounts")).toBe("/accounts");
+  });
+
+  it("lights a teacher's More on Marks and remarks, never Today (smoke 20 Oct)", () => {
+    const tabs = bottomFor("teacher", all);
+    expect(activeTab(tabs, "/teach")).toBe("/teach");
+    expect(activeTab(tabs, "/teach/marks")).toBe("/teach/more");
+    expect(activeTab(tabs, "/teach/more")).toBe("/teach/more");
+  });
+});

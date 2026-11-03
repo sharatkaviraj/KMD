@@ -1,8 +1,13 @@
 import "server-only";
 
 import { recordActivity } from "@/modules/activity/data/events";
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import {
+  DELIVERY_UNKNOWN_PREFIX,
+  payNowButton,
+  sendAisensyCampaignMessage,
+} from "@/modules/whatsapp/data/aisensy";
 import { closeRun, openRun } from "@/modules/whatsapp/data/campaign-store";
+import { approvedV6Campaign, v6HeadlineAmount } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import {
   campaignFor,
   type CampaignDescriptor,
@@ -22,8 +27,19 @@ import {
 } from "@/modules/whatsapp/domain/fee-reminders";
 import { randomBytes } from "node:crypto";
 
+import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { isoFromDdMmYyyy } from "@/platform/helpers/date";
+import { isMissingColumn } from "@/platform/supabase/missing-column";
+import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { crossCampaignSince, familyMessagedRecently } from "@/modules/whatsapp/domain/cross-campaign-dedupe";
+import {
+  familyHoldsFeesPayCode,
+  loadFeesPayCodeHolders,
+  type FeesPayCodeHolders,
+} from "@/modules/whatsapp/data/fees-pay-codes";
 
+import { classifyFailure } from "@/modules/whatsapp/domain/failure-cause";
 import { lateFeePhrase } from "@/modules/whatsapp/domain/late-fee";
 import { splitHoldout } from "@/modules/whatsapp/domain/run-measurement";
 
@@ -60,7 +76,25 @@ export type ReminderRunOutcome = {
   messagesAttempted: number;
   /** Families deliberately not messaged, so the run has a control group. */
   heldOut: number;
+  /**
+   * Families the last-moment ledger check stopped: paid since the list was
+   * built, or quoted a figure the ledger no longer agrees with. Zero unless
+   * `recheckLedger` was passed (online payments switched on).
+   */
+  stoppedByLedger: number;
 };
+
+/**
+ * The ledger's answer for one child's Pay now scope, read immediately before
+ * dispatch. Null means it could not be read — and then nothing is sent with a
+ * Pay now link, because a stale figure is worse than a late one.
+ */
+export type LedgerRecheck = (scope: {
+  studentId: string;
+  installments: number[];
+  lastYear: boolean;
+  situation: string;
+}) => Promise<{ total: number; eligible: boolean; reasons: string[] } | null | "not_applicable">;
 
 export type ExecuteReminderRunArgs = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,6 +167,12 @@ export type ExecuteReminderRunArgs = {
    * each child's own figure — how every run before 2026-09-05 went.
    */
   oneMessagePerFamily?: boolean;
+  /**
+   * Re-quote each one-child Pay now message from the ledger just before it is
+   * sent. Passed by both callers when online payments are switched on; without
+   * it the run behaves exactly as it did before online payments existed.
+   */
+  recheckLedger?: LedgerRecheck;
 };
 
 export async function executeReminderRun(
@@ -156,6 +196,7 @@ export async function executeReminderRun(
     overriddenGuards = [],
     overrideReason = null,
     oneMessagePerFamily = true,
+    recheckLedger,
   } = args;
 
   // Anyone already logged today is counted and never grouped.
@@ -193,6 +234,7 @@ export async function executeReminderRun(
     preferredLanguage: candidate.preferredLanguage,
     sentCount: candidate.sentCount,
     secondaryDestination: candidate.secondaryDestination,
+    familyKey: candidate.familyKey,
   }));
   const families = oneMessagePerFamily
     ? groupIntoFamilies(members, filters.language)
@@ -213,6 +255,7 @@ export async function executeReminderRun(
       failures: [],
       messagesAttempted,
       heldOut: heldOut.length,
+      stoppedByLedger: 0,
     };
   }
 
@@ -267,10 +310,35 @@ export async function executeReminderRun(
   let failed = 0;
   let alreadySentToday = alreadyLoggedToday;
   let moneyQuoted = 0;
+  let stoppedByLedger = 0;
   const failures: ReminderRunOutcome["failures"] = [];
   const sentStudentIds: string[] = [];
 
   const byStudentId = new Map(toMessage.map((candidate) => [candidate.studentId, candidate]));
+
+  // One only: every send this family had in the window, whatever its campaign
+  // name (critique0 #11). Read once for the run; null means it could not be
+  // read, and then nobody in a real session is messaged.
+  const latestSentOn = isTestAcademicSessionLabel(sessionLabel)
+    ? undefined
+    : await loadLatestSends(supabase, toMessage.map((candidate) => candidate.studentId), today);
+
+  // One only (critique0 #4): families who can still pay through a Pay now
+  // link the fees app sent get the text-only notice, never a second, One
+  // Pay now for the same money. Null (could not tell): nobody gets Pay now.
+  // A TEST session has no fees links of its own to collide with.
+  const feesPayCodes = isTestAcademicSessionLabel(sessionLabel)
+    ? undefined
+    : await loadFeesPayCodeHolders(supabase, {
+        studentIds: toMessage.map((candidate) => candidate.studentId),
+        destinations: toMessage.flatMap((candidate) =>
+          [candidate.destination, candidate.secondaryDestination].filter((value): value is string => Boolean(value)),
+        ),
+        today,
+      });
+  if (feesPayCodes === null) {
+    console.warn("[whatsapp-reminders] could not read the fees app's pay codes; this run sends no Pay now button");
+  }
 
   for (let index = 0; index < families.length; index += SEND_CONCURRENCY) {
     const batch = families.slice(index, index + SEND_CONCURRENCY);
@@ -285,6 +353,9 @@ export async function executeReminderRun(
           today,
           staffId,
           runId,
+          recheckLedger,
+          latestSentOn,
+          feesPayCodes,
         }),
       ),
     );
@@ -293,6 +364,7 @@ export async function executeReminderRun(
       failed += outcome.failed;
       alreadySentToday += outcome.already;
       moneyQuoted += outcome.moneyQuoted;
+      stoppedByLedger += outcome.stoppedByLedger;
       sentStudentIds.push(...outcome.sentStudentIds);
       failures.push(...outcome.failures);
     }
@@ -351,6 +423,7 @@ export async function executeReminderRun(
     failures,
     messagesAttempted,
     heldOut: heldOut.length,
+    stoppedByLedger,
   };
 }
 
@@ -363,6 +436,23 @@ type PreparedMessage = {
   campaignName: string;
   templateParams: string[];
   dueAmount: number;
+  /**
+   * True for a template carrying the Pay now URL button (`_v6`). `sendOne`
+   * fills its suffix with the pay code it mints for this very send, so the link
+   * opens on exactly the figure this message quoted.
+   */
+  payButton?: boolean;
+  /**
+   * What the Pay now link covers, from the numbers that built the message.
+   * Written to the send row; the pay page re-quotes it from the ledger.
+   */
+  payScope?: {
+    studentIds: string[];
+    installments: number[];
+    lastYear: boolean;
+    situation: string;
+    amount: number;
+  };
 };
 
 type SendOutcome =
@@ -377,6 +467,7 @@ type FamilyOutcome = {
   failed: number;
   already: number;
   moneyQuoted: number;
+  stoppedByLedger: number;
   sentStudentIds: string[];
   failures: ReminderRunOutcome["failures"];
 };
@@ -386,6 +477,7 @@ const EMPTY_FAMILY_OUTCOME = (): FamilyOutcome => ({
   failed: 0,
   already: 0,
   moneyQuoted: 0,
+  stoppedByLedger: 0,
   sentStudentIds: [],
   failures: [],
 });
@@ -424,12 +516,44 @@ async function sendFamily(args: {
   today: string;
   staffId: string | null;
   runId: string | null;
+  recheckLedger?: LedgerRecheck;
+  /** Newest send per child under any campaign; undefined in a test session, null when unreadable. */
+  latestSentOn?: ReadonlyMap<string, string> | null;
+  /** Fees pay codes still payable; undefined in a test session, null when unreadable. */
+  feesPayCodes?: FeesPayCodeHolders | null;
 }): Promise<FamilyOutcome> {
   const { supabase, family, byStudentId, filters, sessionLabel, today, staffId, runId } = args;
   const outcome = EMPTY_FAMILY_OUTCOME();
 
   const spokesperson = byStudentId.get(family.spokesperson.studentId);
   if (!spokesperson) return outcome;
+
+  // One only (critique0 #11): a family already messaged today, or inside its
+  // cadence window, under ANY campaign — the fees app's `_v6` included — is
+  // not messaged again. Counted as already sent, which is what it was.
+  if (args.latestSentOn === null) {
+    outcome.failed += 1;
+    outcome.failures.push({
+      admissionNo: spokesperson.admissionNo,
+      studentName: spokesperson.studentName,
+      error: "Could not read this family's earlier messages. Not sent.",
+    });
+    return outcome;
+  }
+  if (
+    args.latestSentOn &&
+    familyMessagedRecently({
+      members: family.members.map((member) => ({
+        studentId: member.studentId,
+        cadence: byStudentId.get(member.studentId)?.cadence,
+      })),
+      latestSentOn: args.latestSentOn,
+      today,
+    })
+  ) {
+    outcome.already += 1;
+    return outcome;
+  }
 
   // Resolved per FAMILY, not per run: a family who reads English gets the
   // English campaign out of a Hindi run. The run's language is the default that
@@ -455,7 +579,64 @@ async function sendFamily(args: {
   // same message, and the send log's `template_params` is what went, not what
   // would have gone had the amounts moved between the two.
   const familyCampaign = chooseFamilyCampaign(family, filters.situation);
-  const message: PreparedMessage = familyCampaign
+  // `_v6` first, once Meta has approved it: ONE template for one child or
+  // several, quoting the phone's total, with a Pay now button. Every member's
+  // values come from the same `noticeValuesFor` the per-child path uses, so
+  // the figures cannot mean something different in the family message.
+  //
+  // One only (critique0 #4): not for a family that can still pay through a
+  // fees app link — they get the earlier text-only notice instead.
+  const holdsFeesPayCode =
+    args.feesPayCodes !== undefined &&
+    familyHoldsFeesPayCode(args.feesPayCodes, {
+      studentIds: family.members.map((member) => member.studentId),
+      destinations: family.destinations.map((target) => target.destination),
+    });
+  const v6 = holdsFeesPayCode ? null : approvedV6Campaign(filters.situation, family.language);
+  const memberValues = v6
+    ? family.members
+        .map((member) => byStudentId.get(member.studentId))
+        .filter((candidate): candidate is ReminderCandidate => Boolean(candidate))
+        .map((candidate) => noticeValuesFor(candidate, familyFilters))
+    : [];
+  const v6Params = v6
+    ? v6.buildFamilyParams(memberValues, {
+        lateFeeSource: familyFilters.lateFeeSource,
+        policyLateFeeAmount: familyFilters.policyLateFeeAmount,
+        lateFeeAmount: familyFilters.lateFeeAmount,
+        lateFeeBasis: familyFilters.lateFeeBasis,
+        lastYear: familyFilters.lastYear,
+      })
+    : [];
+  // The figure slot 1 prints, as the number it was formatted from — never
+  // parsed back out of the text. It was the selected tiles' fees once, so a
+  // Balance notice said "Rs. 23,250" and Pay now opened on ₹14,125.
+  const v6Amount = v6 ? v6HeadlineAmount(filters.situation, memberValues) : 0;
+  const message: PreparedMessage = v6
+    ? {
+        campaignName: v6.campaignName,
+        templateParams: v6Params,
+        dueAmount: v6Amount,
+        payButton: v6.buttons.includes("pay_url"),
+        payScope: {
+          studentIds: family.members.map((member) => member.studentId),
+          // The installments the message names for this phone, and last
+          // session's balance when the run includes it and a child owes it.
+          installments:
+            filters.situation === "prevyear"
+              ? []
+              : [...new Set(memberValues.flatMap((values) => values.owedInstallments ?? []))].sort(
+                  (a, b) => a - b,
+                ),
+          lastYear:
+            filters.situation === "prevyear" ||
+            (filters.lastYear === true &&
+              memberValues.some((values) => Number(values.prevYearBalance ?? 0) > 0)),
+          situation: filters.situation,
+          amount: v6Amount,
+        },
+      }
+    : familyCampaign
     ? {
         campaignName: familyCampaign.campaignName,
         templateParams: familyCampaign.buildParams(
@@ -474,6 +655,41 @@ async function sendFamily(args: {
         dueAmount: spokesperson.dueAmount,
       };
 
+  // The last look at the ledger before a Pay now message goes, for the one-child
+  // messages the pay page can take online. A family who paid since the list was
+  // built is not chased; a figure the ledger no longer agrees with is not sent
+  // — the office presses Send again and the list is rebuilt from the ledger.
+  if (args.recheckLedger && message.payButton && message.payScope?.studentIds.length === 1) {
+    const scope = message.payScope;
+    const quote = await args.recheckLedger({
+      studentId: scope.studentIds[0],
+      installments: scope.installments,
+      lastYear: scope.lastYear,
+      situation: scope.situation,
+    });
+    const stop =
+      quote === "not_applicable"
+        ? null
+        : quote === null
+        ? "Could not re-check the ledger just before sending. Not sent."
+        : quote.reasons.includes("nothing_due")
+        ? "Paid since the list was built. Not sent."
+        : quote.eligible && quote.total !== message.dueAmount
+        ? "The amount changed since the list was built. Not sent — refresh and send again."
+        : null;
+    if (stop) {
+      outcome.stoppedByLedger += 1;
+      outcome.failures.push({
+        admissionNo: spokesperson.admissionNo,
+        studentName: spokesperson.studentName,
+        error: stop,
+      });
+      return outcome;
+    }
+  }
+
+  // Siblings are covered once, by the first number the message reached.
+  let siblingsCovered = false;
   for (const target of family.destinations) {
     const result = await sendOne({
       supabase,
@@ -491,9 +707,9 @@ async function sendFamily(args: {
 
     if (result.kind === "sent") {
       outcome.sent += 1;
-      // Counted ONCE per family, on the primary. A second number reaching the
-      // same family is a second message, not a second debt.
-      if (target.role === "primary") {
+      // Counted ONCE per family, on the first number reached. A second number
+      // reaching the same family is a second message, not a second debt.
+      if (!siblingsCovered) {
         outcome.moneyQuoted += family.totalAmount;
         outcome.sentStudentIds.push(...family.members.map((member) => member.studentId));
       }
@@ -508,9 +724,12 @@ async function sendFamily(args: {
       });
     }
 
-    // Siblings are recorded against the PRIMARY message only. The secondary is
-    // the same message to another handset, not a second thing that happened.
-    if (target.role === "primary" && result.kind === "sent") {
+    // Siblings are recorded against the FIRST message that went — the primary
+    // normally. When the primary failed and the second parent's number got it,
+    // the siblings were still reached; recording them only on a primary success
+    // left them selectable, and the retry messaged just them.
+    if (result.kind === "sent" && !siblingsCovered) {
+      siblingsCovered = true;
       await recordSiblingCoverage({
         supabase,
         family,
@@ -620,37 +839,113 @@ async function sendOne(args: {
   // Claim the day BEFORE calling the provider. Two staff members working the
   // same list at the same time collide on the unique index here, and the loser
   // never reaches AiSensy — rather than both passing a check-then-send.
-  const { data: claim, error: claimError } = await supabase
-    .from("whatsapp_reminder_sends")
-    .insert({
-      student_id: candidate.studentId,
-      session_label: sessionLabel,
-      sent_on: today,
-      campaign_name: campaignName,
+  const claimRow = {
+    student_id: candidate.studentId,
+    session_label: sessionLabel,
+    sent_on: today,
+    campaign_name: campaignName,
+    destination,
+    // What the MESSAGE quotes: one child's figure, or the family's total.
+    due_amount: message.dueAmount,
+    template_params: templateParams,
+    status: "pending",
+    // What actually went out, not the run default. Answering "which language
+    // did this parent get" from the run record would be a guess.
+    language: args.language ?? filters.language,
+    destination_role: destinationRole,
+    pay_code: payCode,
+    pay_code_expires_on: lastDateIsoFor(filters, candidate),
+    pay_scope: message.payScope ?? null,
+    sent_by: staffId,
+    // Stamped on the claim, so the grouping survives even if this action dies
+    // before it can close the run. NOT part of the unique index — that index
+    // is what stops a family being messaged the same notice twice in one day,
+    // and including run_id would let a second run that day repeat all of them.
+    run_id: runId,
+  };
+  const claimWith = (row: Record<string, unknown>) =>
+    supabase.from("whatsapp_reminder_sends").insert(row).select("id").single();
+  let { data: claim, error: claimError } = await claimWith(claimRow);
+  // A deployment that landed before `20261028140100` has no `pay_scope`
+  // column. The reminder still goes; the pay page offers UPI as it always did.
+  if (isMissingColumn(claimError, "pay_scope")) {
+    const { pay_scope: _payScope, ...withoutScope } = claimRow;
+    void _payScope;
+    ({ data: claim, error: claimError } = await claimWith(withoutScope));
+  }
+
+  let claimId: string | null = claim?.id ?? null;
+  if (claimError) {
+    if (claimError.code !== "23505") {
+      return { kind: "failed", error: `Could not claim send slot: ${claimError.message}` };
+    }
+    // Today's slot is taken. If what took it is a FAILED send, this is the
+    // retry it needs: take the row back to pending with today's message and a
+    // fresh pay code. Guarded on `status = 'failed'`, so two retries racing
+    // each other still send once — the loser updates nothing and reads
+    // "already". A failed row used to block the family for the rest of the
+    // day, reported as "already had today's reminder" when nothing went.
+    //
+    // A SENT row WhatsApp later reported undelivered (`delivery_status =
+    // 'failed'`, from the report or the webhook) is taken back too: it reached
+    // nobody, exactly like a refusal. Nothing else that is `sent` ever is — an
+    // acceptance with no report yet may well have arrived.
+    //
+    // In a TEST / UAT / DEMO session a SENT row is taken back too: once a day
+    // protects parents, and a test session has none, while testing the pay
+    // link needed a second message to the office's own number the same day.
+    // A `pending` row is never taken — that is a send still in flight.
+    //
+    // In a real session a failure whose fate is unknown is NOT taken back: a
+    // timeout or a 5xx can come after AiSensy accepted the message, and one
+    // parent missed beats one parent messaged twice. Only a definite rejection
+    // (or a sent row WhatsApp later reported undelivered) is retried. The fees
+    // app retries every failed row; One differs here (D-352 (4)).
+    //
+    // The attempt counter, and clearing the previous message's delivery result,
+    // are the database's job (`whatsapp_send_before_update`), and the earlier
+    // attempt survives in `whatsapp_send_attempts`.
+    const testSession = isTestAcademicSessionLabel(sessionLabel);
+    const reclaimRow: Record<string, unknown> = {
+      status: "pending",
       destination,
-      // What the MESSAGE quotes: one child's figure, or the family's total.
       due_amount: message.dueAmount,
       template_params: templateParams,
-      status: "pending",
-      // What actually went out, not the run default. Answering "which language
-      // did this parent get" from the run record would be a guess.
       language: args.language ?? filters.language,
-      destination_role: destinationRole,
       pay_code: payCode,
       pay_code_expires_on: lastDateIsoFor(filters, candidate),
+      pay_scope: message.payScope ?? null,
       sent_by: staffId,
-      // Stamped on the claim, so the grouping survives even if this action dies
-      // before it can close the run. NOT part of the unique index — that index
-      // is what stops a family being messaged the same notice twice in one day,
-      // and including run_id would let a second run that day repeat all of them.
       run_id: runId,
-    })
-    .select("id")
-    .single();
-
-  if (claimError) {
-    if (claimError.code === "23505") return { kind: "already" };
-    return { kind: "failed", error: `Could not claim send slot: ${claimError.message}` };
+      error_message: null,
+      updated_at: new Date().toISOString(),
+    };
+    const reclaimWith = (values: Record<string, unknown>) => {
+      const query = supabase
+        .from("whatsapp_reminder_sends")
+        .update(values)
+        .eq("student_id", candidate.studentId)
+        .eq("session_label", sessionLabel)
+        .eq("sent_on", today)
+        .eq("campaign_name", campaignName)
+        .eq("destination_role", destinationRole);
+      return (
+        testSession
+          ? query.in("status", ["failed", "sent"])
+          : query.or(
+              `and(status.eq.failed,or(error_message.is.null,error_message.not.like.${DELIVERY_UNKNOWN_PREFIX.trim()}*)),and(status.eq.sent,delivery_status.eq.failed)`,
+            )
+      ).select("id");
+    };
+    let { data: reclaimed, error: reclaimError } = await reclaimWith(reclaimRow);
+    if (isMissingColumn(reclaimError, "pay_scope")) {
+      const { pay_scope: _payScope, ...withoutScope } = reclaimRow;
+      void _payScope;
+      ({ data: reclaimed, error: reclaimError } = await reclaimWith(withoutScope));
+    }
+    const row = ((reclaimed ?? []) as Array<{ id: string }>)[0];
+    if (!row) return { kind: "already" };
+    claimId = row.id;
   }
 
   const result = await sendAisensyCampaignMessage({
@@ -658,24 +953,101 @@ async function sendOne(args: {
     destination,
     userName: candidate.parentName,
     templateParams,
-    source: "veerpatta-fees-app/admin-tools",
+    source: "vppsone/reminders",
+    // A cron run has nobody behind it; a pressed Send has the staff member.
+    gate: { kind: "fee_reminder", sessionLabel, actor: staffId ? { userId: staffId } : "system" },
+    // The pay code just minted and claimed above, as the Pay now button's URL
+    // suffix — so the page a parent opens is this send's own row.
+    ...(message.payButton ? { buttons: [payNowButton(payCode)] } : {}),
   });
 
-  await supabase
-    .from("whatsapp_reminder_sends")
-    .update({
-      status: result.ok ? "sent" : "failed",
-      provider_message_id: result.ok ? result.messageId : null,
-      error_message: result.ok ? null : result.error,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", claim.id);
+  // The cause is written WITH the status, in one update, because the database
+  // trigger that records the attempt and marks a dead number reads both from
+  // the same row change. A failure whose fate is unknown keeps One's
+  // `delivery-unknown:` prefix, so it is never retried by the machine.
+  const failureText = result.ok
+    ? null
+    : result.deliveryUnknown
+      ? `${DELIVERY_UNKNOWN_PREFIX}${result.error}`
+      : result.error;
+  const outcomeRow: Record<string, unknown> = {
+    status: result.ok ? "sent" : "failed",
+    provider_message_id: result.ok ? result.messageId : null,
+    error_message: failureText,
+    last_error: failureText,
+    failure_cause: result.ok
+      ? null
+      : classifyFailure({ text: result.error, httpStatus: result.status }),
+    updated_at: new Date().toISOString(),
+  };
+  const writeOutcome = (values: Record<string, unknown>) =>
+    supabase.from("whatsapp_reminder_sends").update(values).eq("id", claimId);
+  const { error: outcomeError } = await writeOutcome(outcomeRow);
+  // Before `20261030190000` there is no `failure_cause`: record the outcome as before.
+  if (isMissingColumn(outcomeError, "failure_cause")) {
+    const { failure_cause: _cause, ...withoutCause } = outcomeRow;
+    void _cause;
+    await writeOutcome(withoutCause);
+  }
 
   return result.ok
     ? { kind: "sent", providerMessageId: result.messageId ?? null }
     : { kind: "failed", error: result.error };
 }
 
+
+/**
+ * Each child's newest reminder `sent_on` in the cross-campaign window, by
+ * student alone — not by campaign, not by session. Null when the read fails.
+ *
+ * - **Reminders only** (`notice_kind = 'reminder'`), as the fees app's
+ *   `loadLastSentOn` reads it: a receipt notice to a family that just paid is
+ *   not a reminder, and counting it would silence them for a whole cadence.
+ * - **A delivery-unknown failure counts as sent.** A timeout or a 5xx may
+ *   follow AiSensy's acceptance; the same-day retry refuses those rows for
+ *   that reason, and so does this.
+ * - **Paged, newest first.** PostgREST stops at 1,000 rows without saying so,
+ *   and an unordered cut could drop exactly today's send.
+ */
+export async function loadLatestSends(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  studentIds: readonly string[],
+  today: string,
+): Promise<Map<string, string> | null> {
+  if (studentIds.length === 0) return new Map();
+  const since = crossCampaignSince(today);
+  type Row = { student_id: string; sent_on: string; status: string; error_message: string | null };
+  try {
+    const { data, error } = await fetchInChunks<Row>(
+      studentIds,
+      IN_FILTER_CHUNK_SIZE,
+      (chunk) =>
+        fetchAllPages<Row>((from, to) =>
+          supabase
+            .from("whatsapp_reminder_sends")
+            .select("id, student_id, sent_on, status, error_message")
+            .in("student_id", chunk)
+            .eq("notice_kind", "reminder")
+            .gte("sent_on", since)
+            .in("status", ["sent", "pending", "covered_by_sibling", "failed"])
+            .order("sent_on", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
+    );
+    if (error) return null;
+    const latest = new Map<string, string>();
+    for (const row of data) {
+      if (row.status === "failed" && !String(row.error_message ?? "").startsWith(DELIVERY_UNKNOWN_PREFIX)) continue;
+      const seen = latest.get(row.student_id);
+      if (!seen || row.sent_on > seen) latest.set(row.student_id, row.sent_on);
+    }
+    return latest;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The date a pay link stops resolving: the notice's own date.

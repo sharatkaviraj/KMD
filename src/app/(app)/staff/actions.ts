@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 
 import { m } from "@/messages";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { isRealAdmin } from "@/platform/auth/test-session-policy";
+import { testSessionMessages } from "@/messages/setup";
+import { createClient } from "@/platform/supabase/server";
+import { assertNotPreviewing } from "@/vx/view-as";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
   authorityChangeIn,
@@ -21,9 +25,11 @@ import {
   changeStaffAuthority,
   createStaff,
   findByShortName,
+  actorMayManage,
   getStaffById,
   updateStaff,
 } from "@/modules/staff/data/staff-repo";
+import { writeStaffConsent } from "@/modules/staff-notices/data/consent";
 
 export type StaffFormState = {
   status: "idle" | "error";
@@ -107,7 +113,8 @@ export async function createStaffAction(
   }
 
   try {
-    await createStaff(parsed.data, staff.userId);
+    // A test account's new colleague is a test account too (Phase 3).
+    await createStaff(parsed.data, staff.userId, { isTestAccount: staff.isTestAccount === true });
   } catch (error) {
     // The race the check above cannot close: two admins submitting the same
     // short name at once. The index catches it; this translates it.
@@ -146,6 +153,9 @@ export async function updateStaffAction(
   const target = await getStaffById(id);
   if (!target) {
     return failure({}, m.profileNotFound);
+  }
+  if (!(await actorMayManage(actor, target.id))) {
+    return failure({}, authorityRefusalMessages.test_account);
   }
 
   // Changing your own role is how an admin accidentally locks the school out
@@ -216,6 +226,9 @@ export async function setStaffActiveAction(formData: FormData) {
   if (!target) {
     throw new Error("That profile was not found.");
   }
+  if (!(await actorMayManage(actor, target.id))) {
+    throw new Error(authorityRefusalMessages.test_account.en);
+  }
 
   // The same rule the button's disabled state uses, checked again here —
   // a disabled button is a hint, not a guard.
@@ -237,5 +250,86 @@ export async function setStaffActiveAction(formData: FormData) {
   }
 
   revalidatePath("/staff");
+  revalidatePath(`/staff/${id}`);
+}
+
+/**
+ * Mark or unmark a test account (Phase 3, D-340; critique0 #14). A real
+ * administrator only — role admin and not a test account, which on a confined
+ * deployment nobody is — never on themselves, with a reason, logged to
+ * staff_authority_changes.
+ *
+ * Through the signed-in person's own client, not the service role:
+ * `vppsone.set_test_account` reads the actor from auth.uid() and checks all of
+ * that again against the rows as they are now, and a direct UPDATE of the flag
+ * from a signed-in session is refused by a trigger. A plain form action, so a
+ * refusal throws into the page's error boundary (as setStaffActiveAction does).
+ */
+export async function setTestAccountAction(formData: FormData) {
+  const actor = await assertPermission("staff:manage");
+  await assertNotPreviewing();
+  if (!isRealAdmin(actor)) {
+    throw new Error(testSessionMessages.notRealAdmin.en);
+  }
+
+  const id = (formData.get("id") ?? "").toString();
+  const value = formData.get("isTestAccount") === "true";
+  const reason = (formData.get("reason") ?? "").toString().trim();
+  if (!reason) throw new Error(testSessionMessages.reasonRequired.en);
+  if (id === actor.id) throw new Error(testSessionMessages.notSelf.en);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_test_account", {
+    p_profile_id: id,
+    p_value: value,
+    p_reason: reason.slice(0, 500),
+  });
+  const result = (data ?? null) as { ok?: boolean; reason?: string } | null;
+  if (error || !result?.ok) {
+    const why = result?.reason;
+    throw new Error(
+      why === "self"
+        ? testSessionMessages.notSelf.en
+        : why === "not_real_admin"
+          ? testSessionMessages.notRealAdmin.en
+          : why === "reason_required"
+            ? testSessionMessages.reasonRequired.en
+            : testSessionMessages.failed.en,
+    );
+  }
+
+  revalidatePath("/staff");
+  revalidatePath(`/staff/${id}`);
+}
+
+/**
+ * An administrator records WhatsApp consent collected in person or on the
+ * training form (go-live Phase F, plan §8.3), or that the person said no.
+ * Administrators only, never a test account on a real profile (D-351 (4)),
+ * and stamped with who recorded it. A plain form action, like the two above:
+ * the form is only rendered for an administrator, so a refusal is a replay.
+ */
+export async function recordWhatsappConsentAction(formData: FormData) {
+  const actor = await assertPermission("staff:manage");
+  await assertNotPreviewing();
+  if (!mayChangeAuthority(actor.role)) {
+    throw new Error(authorityRefusalMessages.not_admin.en);
+  }
+  const id = (formData.get("id") ?? "").toString();
+  const choice = (formData.get("consent") ?? "").toString();
+  if (choice !== "form" && choice !== "admin_recorded" && choice !== "no") {
+    throw new Error("Choose what was recorded.");
+  }
+  const target = await getStaffById(id);
+  if (!target) throw new Error("That profile was not found.");
+  if (!(await actorMayManage(actor, target.id))) {
+    throw new Error(authorityRefusalMessages.test_account.en);
+  }
+  await writeStaffConsent({
+    staffId: target.id,
+    optIn: choice !== "no",
+    source: choice === "no" ? "admin_recorded" : choice,
+    recordedBy: actor.id,
+  });
   revalidatePath(`/staff/${id}`);
 }

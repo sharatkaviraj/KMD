@@ -1,0 +1,5 @@
+@font-face{font-family:OfficeInter;src:url('../../src/app/fonts/Inter-Variable.woff2')}
+@font-face{font-family:OfficeDevanagari;src:url('../../src/app/fonts/NotoSansDevanagari-Variable.woff2')}
+@font-face{font-family:OfficeSerif;src:url('../../src/app/fonts/SourceSerif4-Variable.woff2')}
+:root{--font-sans:OfficeInter;--font-devanagari:OfficeDevanagari;--font-display:OfficeSerif}
+body{margin:0}.vx-page{min-height:100vh;background:var(--bg)}
