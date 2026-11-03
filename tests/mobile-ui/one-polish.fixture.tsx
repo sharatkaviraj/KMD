@@ -25,7 +25,7 @@ const language = params.get("locale") === "hi" ? "hi" : "en";
 document.documentElement.lang = language;
 if (params.get("theme") === "dark") document.documentElement.classList.add("dark");
 const currentLabel = params.get("label") ?? "2026-27";
-const sessions = params.has("failed") || params.has("loading") ? [] : [
+const sessions = params.has("failed") || params.has("loading") || params.has("arrives") ? [] : [
   { id: "current", session_label: "2026-27", is_current: true, status: "active" },
   { id: "test", session_label: "TEST-2026-27", is_current: false, status: "active" },
   { id: "archive", session_label: "2025-26", is_current: false, status: "active" },
