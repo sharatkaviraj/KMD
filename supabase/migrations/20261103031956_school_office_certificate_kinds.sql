@@ -272,28 +272,12 @@ grant execute on function vppsone.school_certificate_roster(uuid,text,boolean) t
 -- The attention card follows study certificates; it reads the study template,
 -- not whichever kind was saved last.
 create or replace function vppsone.school_office_attention(p_actor uuid,p_session text,p_confined boolean default false)
-returns jsonb language plpgsql stable set search_path='' as $
+returns jsonb language plpgsql stable set search_path='' as $$
 declare certificates boolean; government boolean; t jsonb; candidates jsonb:='[]'; artifacts jsonb:='[]'; batches jsonb:='[]'; unavailable boolean:=false;
 begin
  certificates:=vppsone.school_office_actor_allowed(p_actor,'certificates:view',p_session,p_confined);
  government:=vppsone.school_office_actor_allowed(p_actor,'government:view',p_session,p_confined);
- if p_session is null or p_session !~ '^(TEST-)?[0-9]{4}-[0-9]{2}: status, number, kind, date and the name for the
--- server to mask. No class, parentage, DOB or anything else from the profile.
--- TEST issues answer as unknown so a test document cannot be vouched for.
-create function vppsone.school_certificate_verify(p_code text)
-returns jsonb language sql stable security definer set search_path='' as $$
- select case when p_code !~ '^[a-f0-9]{16}$' then null else (
-   select jsonb_build_object('status',i.status,'serial',i.serial,'kind',i.kind,'issuedOn',i.snapshot->>'issuedOn',
-     'studentName',i.student_name,'school',i.snapshot->'school'->>'name','supersededBy',
-     (select n.serial from vppsone.school_certificate_issues n where n.supersedes=i.id and n.status in('prepared','issued') limit 1))
-   from vppsone.school_certificate_issues i where i.verify_code=p_code and i.artifact_state='ready' and not coalesce((i.snapshot->>'isTest')::boolean,false)) end;
-$$;
-revoke all on function vppsone.school_certificate_verify(text) from public,anon,authenticated;
-grant execute on function vppsone.school_certificate_verify(text) to service_role;
-
-notify pgrst,'reload schema';
-commit;
- or not(certificates or government) then raise exception 'office:forbidden'; end if;
+ if p_session is null or p_session !~ '^(TEST-)?[0-9]{4}-[0-9]{2}$' or not(certificates or government) then raise exception 'office:forbidden'; end if;
  if certificates then
   select template||jsonb_build_object('active',active) into t from vppsone.school_certificate_templates where kind='study' order by version desc limit 1;
   select coalesce(jsonb_agg(to_jsonb(x)),'[]'::jsonb) into artifacts from (
@@ -377,7 +361,7 @@ commit;
  return jsonb_build_object('template',t,'certificate_candidates',candidates,'certificate_artifacts',artifacts,
   'return_batches',batches,'certificate_unavailable',unavailable);
 end;
-$;
+$$;
 
 -- Public check behind the QR: status, number, kind, date and the name for the
 -- server to mask. No class, parentage, DOB or anything else from the profile.

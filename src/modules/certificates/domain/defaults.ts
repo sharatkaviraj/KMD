@@ -2,7 +2,7 @@ import { defaultStudyTemplate, type CertificateKind, type CertificateTemplate } 
 
 /**
  * The wording the migration seeds for each kind
- * (`20261103100000_school_office_certificate_kinds.sql`). Used for previews
+ * (`20261103031956_school_office_certificate_kinds.sql`). Used for previews
  * and tests; the database row, not this file, is what an issue freezes.
  */
 const common = { active: true, language: "en" as const, signaturePolicy: "manual" as const, purposeEn: defaultStudyTemplate.purposeEn, purposeHi: defaultStudyTemplate.purposeHi };
