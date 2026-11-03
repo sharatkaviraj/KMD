@@ -121,6 +121,20 @@ test("lost save survives switching student and reload without a second receipt a
   expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
 });
 
+test("390px: a scroll that starts on the class list moves the page", async ({ page }) => {
+  // The list used to be a "contain" scroller with no height cap: on a phone it swallowed the
+  // finger, and a class could not be scrolled through (16 Oct).
+  await page.setViewportSize({ width: 390, height: 420 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const row = page.getByRole("button", { name: /TEST Child A/ });
+  await expect(row).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)).toBe(true);
+  const box = (await row.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 200);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+});
+
 test("mobile bulk entry is visible only with bulk permission", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?role=fee_collector", { waitUntil: "domcontentloaded" });

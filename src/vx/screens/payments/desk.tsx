@@ -3,7 +3,8 @@
 import "./paydesk.css";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 
 import {
   checkDeskPaymentAction,
@@ -51,6 +52,7 @@ import type { Pair } from "@/vx/text";
 import { Chip, Input, Seg } from "@/vx/ui/controls";
 import { BackLink } from "@/vx/ui/back-link";
 import { Sheet, useToast } from "@/vx/ui/overlays";
+import { useKeyboardOffset } from "@/ui/hooks/use-keyboard-offset";
 import { Banner, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill, Skel, WhatsAppPreview } from "@/vx/ui/primitives";
 
@@ -144,6 +146,18 @@ const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, ba
 const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
 const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", online: "Online (Razorpay)" };
 const REMOVE_WINDOW_MS = 10 * 60_000;
+/** A child's dues read as the finger landed on the row are used if the tap follows within this. */
+const PRIME_MS = 10_000;
+
+/** A field that brings up the keyboard (not a radio, a tick box or the date picker). */
+function textField(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.matches("input:not([type=radio]):not([type=checkbox]):not([type=date]):not([type=button]), textarea");
+}
+
+/** Keeps the focus (and so the phone's keyboard) where it is when a button is pressed. */
+function keepFocus(event: { preventDefault: () => void }) {
+  event.preventDefault();
+}
 /** The design's avatar tones, cycled down the class list. */
 const TONES: [string, string][] = [["var(--accs)", "var(--accfg)"], ["var(--infos)", "var(--info)"], ["var(--oks)", "var(--ok)"], ["var(--warns)", "var(--warnfg)"], ["var(--s3)", "var(--fg)"]];
 
@@ -251,6 +265,16 @@ export function PaymentDesk({
   // step needs scrolling (UI-95). A desk shows all three side by side and
   // never reads this.
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Typing on a phone: the keyboard is up (measured), or a text field has the
+  // focus (a browser that shrinks the page itself reports no keyboard). The
+  // bar then rides on the keyboard and the stepper and tab bar step aside.
+  const keyboard = useKeyboardOffset();
+  const [typing, setTyping] = useState(false);
+  // Typing ends a moment after the field lets go, not at once: the tap that
+  // took the focus away (Review & save, a mode, the summary) must land where
+  // it was aimed before the bar and stepper move back.
+  const typingEnd = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(typingEnd.current), []);
   // A save whose answer never arrived. Until the desk has asked the database
   // whether it posted, it will not offer to save again.
   const [uncertain, setUncertain] = useState<{ checking: boolean } | null>(null);
@@ -429,6 +453,18 @@ export function PaymentDesk({
     }
   }
 
+  // A child's dues start loading as the finger lands on their row, not when it lifts.
+  const primed = useRef(new Map<string, { at: number; read: Promise<DeskStudentResult> }>());
+  function prime(id: string) {
+    if (posting.current || !recoveryReady || id === selId) return;
+    const hit = primed.current.get(id);
+    if (hit && wallClock() - hit.at < PRIME_MS) return;
+    const read = api.loadStudentDeskAction({ studentId: id, sessionLabel: boot.sessionLabel }).catch(
+      (): DeskStudentResult => ({ ok: false, message: tx(W.couldNotLoad), repairable: false }),
+    );
+    primed.current.set(id, { at: wallClock(), read });
+  }
+
   async function selectStudent(id: string) {
     if (posting.current || !recoveryReady) return;
     const scope = previewing ? null : attemptKey;
@@ -450,9 +486,13 @@ export function PaymentDesk({
     syncUrl(id);
     const hit = boot.students.find((s) => s.id === id);
     if (hit) setClassId(hit.classId);
-    const res = await api.loadStudentDeskAction({ studentId: id, sessionLabel: boot.sessionLabel }).catch(
-      (): DeskStudentResult => ({ ok: false, message: tx(W.couldNotLoad), repairable: false }),
-    );
+    const early = primed.current.get(id);
+    primed.current.delete(id);
+    const res = await (early && wallClock() - early.at < PRIME_MS
+      ? early.read
+      : api.loadStudentDeskAction({ studentId: id, sessionLabel: boot.sessionLabel }).catch(
+          (): DeskStudentResult => ({ ok: false, message: tx(W.couldNotLoad), repairable: false }),
+        ));
     if (seq !== loadSeq.current) return;
     if (currentRecoveryScope.current !== scope) return;
     setResult(res);
@@ -506,7 +546,7 @@ export function PaymentDesk({
    * ledger can take (and a reason for a waiver), so step 3 never opens on a
    * problem that only step 2 can fix; the date's own problems stay on step 3.
    */
-  function goStep(next: 1 | 2 | 3) {
+  function goStep(next: 1 | 2 | 3, opts: { focusAmount?: boolean } = {}) {
     if (next === 3 && phoneStep < 3) {
       const own = problems.find((p) => p.key === "nothing-owed" || p.key === "amount" || p.key === "over" || p.key === "waive-reason");
       if (own) {
@@ -516,12 +556,22 @@ export function PaymentDesk({
         return;
       }
     }
-    setStep(next);
+    // Arriving at the amount (from the dues, or "Change amount") opens the
+    // number pad at once. The step is drawn synchronously first: a phone opens
+    // its keyboard only for a focus made inside the tap itself, and only on a
+    // field that is on screen.
+    const phone = typeof window !== "undefined" && window.matchMedia?.("(max-width: 899px)").matches;
+    const focus = phone && next === 2 && (phoneStep === 1 || opts.focusAmount);
+    if (focus) flushSync(() => setStep(next));
+    else setStep(next);
     try {
       window.scrollTo({ top: 0 });
     } catch {
       // Older browsers: the step still changes, only the scroll stays.
     }
+    if (focus) document.getElementById("pd-amount")?.focus({ preventScroll: true });
+    // The date step needs no keyboard: put it away so the whole step shows.
+    else if (phone && next === 3 && document.activeElement instanceof HTMLElement) document.activeElement.blur();
   }
 
   /** The phone's back arrow: a step back while collecting, else back to the class list. */
@@ -894,7 +944,9 @@ export function PaymentDesk({
             {searching ? <button type="button" className="tap btn sec" onClick={() => setQuery("")}>{tx(W.clearSearch)}</button> : null}
           </div>
         ) : (
-          <div className="pd-list scroll" style={{ maxHeight: listMaxH }}>
+          // Its own scroll area only where its height is capped (a desk with a child open). Uncapped, a
+          // "contain" scroller swallowed the finger on a phone and the class list could not be scrolled.
+          <div className={`pd-list${listMaxH ? " scroll" : ""}`} style={{ maxHeight: listMaxH }}>
             {listRows.map((s, i) => {
               const tone = TONES[i % TONES.length];
               return (
@@ -904,8 +956,9 @@ export function PaymentDesk({
                   className={`pd-row row tap${s.id === selId ? " sel" : ""}`}
                   disabled={!recoveryReady || saving || Boolean(uncertain?.checking)}
                   aria-current={s.id === selId ? "true" : undefined}
+                  onPointerDown={() => prime(s.id)}
                   onClick={() => selectStudent(s.id)}
-                  style={{ animationDelay: `${Math.min(i, 12) * 32}ms` }}
+                  style={{ animationDelay: `${Math.min(i, 10) * 16}ms` }}
                 >
                   <span className="pd-av" style={{ borderRadius: 20, background: tone[0], color: tone[1] }}>{initials(s.name)}</span>
                   <span className="pd-c pd-identity">
@@ -1032,7 +1085,7 @@ export function PaymentDesk({
         {chips.length ? (
           <div className="pd-chips pd-qchips" role="group" aria-label={tx(W.chipNote)}>
             {chips.map((c) => (
-              <button type="button" className={`tap chip${c.amount !== null && amount === c.amount ? " on" : ""}`} key={c.key} aria-pressed={c.amount !== null && amount === c.amount} disabled={c.disabled || Boolean(attempt)} onClick={() => set({ amount: c.amount === null ? "" : String(c.amount) })}>
+              <button type="button" className={`tap chip${c.amount !== null && amount === c.amount ? " on" : ""}`} key={c.key} aria-pressed={c.amount !== null && amount === c.amount} disabled={c.disabled || Boolean(attempt)} onPointerDown={keepFocus} onClick={() => set({ amount: c.amount === null ? "" : String(c.amount) })}>
                 {c.label}
                 {c.amount !== null ? <span className="num" style={{ opacity: 0.8 }}>{rupees(c.amount)}</span> : null}
               </button>
@@ -1060,7 +1113,7 @@ export function PaymentDesk({
       </div>
 
       {/* Step 3 on a phone opens on what is being saved; a tap goes back to change it. */}
-      <button type="button" className="only-m tap card pd-cd pd-sum" data-st="3" onClick={() => goStep(2)} disabled={saving || Boolean(attempt)}>
+      <button type="button" className="only-m tap card pd-cd pd-sum" data-st="3" onClick={() => goStep(2, { focusAmount: true })} disabled={saving || Boolean(attempt)}>
         <span className="pd-f pd-j" style={{ width: "100%" }}>
           <span className="pd-c">
             <span className="pd-m" style={{ fontWeight: 600 }}>{tx(W.amountReceived)}</span>
@@ -1169,13 +1222,13 @@ export function PaymentDesk({
         <span className="pd-m hide-m" style={{ maxWidth: 260, textAlign: "right" }}>{previewing ? tx(W.previewing) : firstProblem ?? tx(W.checkThenSave)}</span>
         {/* A phone's steps: Back, and Next until the last, where Review & save takes its place (UI-95). */}
         {phoneStep > 1 && !stepLocked ? (
-          <button type="button" className="only-m tap btn sec pd-sback" onClick={() => goStep((phoneStep - 1) as 1 | 2)} aria-label={tx(W.back)}>
+          <button type="button" className="only-m tap btn sec pd-sback" onPointerDown={keepFocus} onClick={() => goStep((phoneStep - 1) as 1 | 2)} aria-label={tx(W.back)}>
             <Ic n="chevLeft" size={20} />
           </button>
         ) : null}
         {phoneStep < 3 ? (
           // Held while another child's save is unresolved: the form is frozen until it is resumed.
-          <button type="button" className="only-m tap btn pri pd-big pd-snext" disabled={Boolean(attempt)} onClick={() => goStep((phoneStep + 1) as 2 | 3)} style={{ opacity: phoneStep === 2 && problems.some((p) => p.key === "amount" || p.key === "over" || p.key === "nothing-owed") ? 0.55 : undefined }}>
+          <button type="button" className="only-m tap btn pri pd-big pd-snext" disabled={Boolean(attempt)} onPointerDown={keepFocus} onClick={() => goStep((phoneStep + 1) as 2 | 3)} style={{ opacity: phoneStep === 2 && problems.some((p) => p.key === "amount" || p.key === "over" || p.key === "nothing-owed") ? 0.55 : undefined }}>
             {tx(phoneStep === 1 ? W.toAmount : W.toSave)} <Ic n="arrowRight" size={20} />
           </button>
         ) : null}
@@ -1272,7 +1325,21 @@ export function PaymentDesk({
             ) : null}
           </div>
         ) : null}
-        <div className="pd-desk pad" data-step={stepping ? phoneStep : undefined}>
+        <div
+          className="pd-desk pad"
+          data-step={stepping ? phoneStep : undefined}
+          data-kb={stepping && (typing || keyboard > 80) ? "" : undefined}
+          onFocus={(e: ReactFocusEvent) => {
+            if (!textField(e.target)) return;
+            window.clearTimeout(typingEnd.current);
+            setTyping(true);
+          }}
+          onBlur={(e: ReactFocusEvent) => {
+            if (!textField(e.target) || textField(e.relatedTarget)) return;
+            window.clearTimeout(typingEnd.current);
+            typingEnd.current = window.setTimeout(() => setTyping(false), 250);
+          }}
+        >
           {stepping ? (
             <nav className="only-m pd-steps" aria-label={tx(W.steps)}>
               {([[1, W.stepDues], [2, W.stepAmount], [3, W.stepSave]] as const).map(([n, label]) => (
@@ -1634,7 +1701,7 @@ function StudentCard({
       ))}
       <div className="pd-tiles">
         {tiles.map((t, i) => (
-          <div key={t.k.en} className="pd-tile" style={{ animationDelay: `${i * 32}ms`, boxShadow: t.ring ? "inset 0 0 0 1.5px var(--acc)" : "none" }}>
+          <div key={t.k.en} className="pd-tile" style={{ animationDelay: `${i * 20}ms`, boxShadow: t.ring ? "inset 0 0 0 1.5px var(--acc)" : "none" }}>
             <span className="pd-m" style={{ fontWeight: 600 }}>{tx(t.k)}</span>
             <span className="num" style={{ fontSize: 20, fontWeight: 700, color: t.color }}>{rupees(t.v)}</span>
             <span className="pd-m">{tx(t.sub)}</span>

@@ -29,12 +29,18 @@ async function open(page: Page, width: number, query = "") {
   await expect(page.locator("#pd-amount")).toBeHidden();
   await page.getByRole("button", { name: "Enter amount", exact: true }).tap();
   await expect(page.locator("#pd-amount")).toBeVisible();
+  // The number pad opens at once, and the desk lays out for typing: Back/Next ride on the keyboard.
+  await expect(page.locator("#pd-amount")).toBeFocused();
+  await expect(page.locator(".pd-desk")).toHaveAttribute("data-kb", "");
+  expect(await page.locator(".pd-pbar").evaluate(bar => getComputedStyle(bar).position)).toBe("fixed");
   expect((await snapshot(page)).effects).toHaveLength(0);
 }
 /** From the amount to the date, mode and Review & save. */
 async function toSave(page: Page) {
   await page.getByRole("button", { name: "Next: date & mode", exact: true }).tap();
   await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
+  // The date step needs no keyboard: it is put away and the layout returns.
+  await expect(page.locator(".pd-desk")).not.toHaveAttribute("data-kb", "");
 }
 type Balance = { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number };
 /** The design's receipt freezes the balance after it, part by part (RULES B keeps the late fee apart). */

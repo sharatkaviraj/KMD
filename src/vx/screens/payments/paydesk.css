@@ -39,7 +39,7 @@
 :where(.vx) .pd-cls{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 :where(.vx) .pd-cls>button{height:40px;padding:0 2px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 :where(.vx) .pd-cls>button.on{background:var(--pri);border-color:var(--pri);color:var(--prifg)}
-:where(.vx) .pd-list{overflow-y:auto;overscroll-behavior:contain}
+:where(.vx) .pd-list{min-width:0}
 :where(.vx) .pd-row{position:relative;width:100%;display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:4px 12px;padding:10px 14px;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--fg);text-align:left;animation:xIn .32s var(--ease) both}
 /* Identity gets the available width; long financial copy follows on its own line. */
 :where(.vx) .pd-identity{overflow-wrap:anywhere}
@@ -151,7 +151,18 @@
   .vx .pd-fold:not(.open){display:none}
   .vx .pd-pbar .pd-sback{flex:none;width:52px;height:52px;padding:0;border-radius:14px}
   .vx .pd-pbar .pd-big.pd-snext{flex:1;width:auto}
+  /* Typing: Back/Next ride on top of the keyboard (--keyboard-offset is the part of the page it
+     covers, 0 where the browser shrinks the page instead), the stepper steps aside, and nothing
+     holds the bar down to the screen's foot. The tab bar is hidden below. */
+  .vx .pd-desk[data-kb]{min-height:0;padding-bottom:84px}
+  .vx .pd-desk[data-kb] .pd-steps{display:none}
+  .vx .pd-desk[data-kb]>.pd-pbar{position:fixed;left:0;right:0;bottom:var(--keyboard-offset,0px);margin:0;z-index:30}
+  /* A step that opens is quick: the cards come in a little faster than elsewhere. */
+  .vx .pd-desk[data-step] .fadein{animation-duration:.2s}
+  .vx .pd-desk[data-step] .pd-tile{animation-duration:.28s}
 }
+/* The tab bar would sit on top of the keyboard and cover the amount; it comes back when typing ends. */
+@media (max-width:899px){body:has(.pd-desk[data-kb]) .vx-bottom{display:none!important}}
 /* A narrow phone (and Hindi's longer words): only the current step keeps its name; the others are their number or tick. */
 @container vx (max-width:379px){
   .vx .pd-steps{display:flex}
