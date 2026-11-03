@@ -230,7 +230,7 @@ describe("the sheet's request id", () => {
 
 describe("the migration", () => {
   const sql = readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20261103124512_teacher_leave_request_id.sql"),
+    path.join(process.cwd(), "supabase/migrations/20261103192446_teacher_leave_request_id.sql"),
     "utf8",
   ).replace(/--[^\n]*/g, "");
 
