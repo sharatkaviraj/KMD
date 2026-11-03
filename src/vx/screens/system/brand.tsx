@@ -13,7 +13,8 @@ import { lead, p, under } from "@/vx/text";
 
 export const PLACE = p("Amet, Rajasthan", "आमेट, राजस्थान");
 
-export function Crest({ size, radius, shadow }: { size: number; radius: number; shadow?: boolean }) {
+/** `still`: no pop-in — for the logo on a receipt, record or report rather than a greeting. */
+export function Crest({ size, radius, shadow, still = false }: { size: number; radius: number; shadow?: boolean; still?: boolean }) {
   return (
     <span
       style={{
@@ -27,7 +28,7 @@ export function Crest({ size, radius, shadow }: { size: number; radius: number; 
         justifyContent: "center",
         overflow: "hidden",
         boxShadow: shadow ? "0 20px 40px -18px rgba(0,0,0,.6)" : undefined,
-        animation: "xPopIn .5s var(--spring) both",
+        animation: still ? undefined : "xPopIn .5s var(--spring) both",
       }}
     >
       <Image src={schoolBrand.logo} alt="" width={size} height={size} sizes={`${size}px`} style={{ width: "78%", height: "78%", objectFit: "contain" }} />

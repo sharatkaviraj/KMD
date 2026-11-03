@@ -209,7 +209,7 @@ function PhonePreview({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="mx-ph" aria-label={tx(p("WhatsApp preview", "व्हाट्सऐप झलक"))}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--pri)", color: "var(--prifg)" }}>
-        <Crest size={32} radius={16} />
+        <Crest size={32} radius={16} still />
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>Shri Veer Patta School</span>
           <span style={{ fontSize: 11, opacity: 0.8 }}>Business account</span>

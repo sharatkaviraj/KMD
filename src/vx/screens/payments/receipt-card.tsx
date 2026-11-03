@@ -65,7 +65,7 @@ export function ReceiptCard({
   return (
     <article className="card pd-rc" aria-label={`${tx(W.feeReceipt)} ${receipt.receiptNumber}`}>
       <header className="pd-f" style={{ gap: 10, paddingBottom: 10, borderBottom: "1.5px dashed var(--bds)" }}>
-        <Crest size={40} radius={11} />
+        <Crest size={40} radius={11} still />
         <span className="pd-c">
           <span className="pd-b" lang="hi">{W.school.hi}</span>
           <span className="serif" style={{ fontSize: 13, color: "var(--mut)" }}>{W.school.en}</span>

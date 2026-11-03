@@ -668,7 +668,7 @@ function DefaultersView({ data, sheet, setSheet, close, initialLeft }: ViewProps
         {rows.length ? (
           <div className="rp-paper">
             <div className="rp-ph">
-              <Crest size={44} radius={10} />
+              <Crest size={44} radius={10} still />
               <span className="rp-c" style={{ flex: 1 }}>
                 <b style={{ fontSize: 16 }}>{lang === "en" ? PAPER.school.en : PAPER.school.hi}</b>
                 {lang !== "en" ? <span style={{ fontSize: 13 }}>{PAPER.school.en}</span> : null}

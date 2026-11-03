@@ -1309,7 +1309,7 @@ function Publish(props: PlanProps & { href: (v: PlanView, extra?: string) => str
       <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.35fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <article className="card" style={{ padding: "24px 26px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 12, borderBottom: "2px solid var(--fg)" }}>
-            <Crest size={50} radius={14} />
+            <Crest size={50} radius={14} still />
             <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: 16, fontWeight: 600 }}>{SCHOOL.hi}</span>
               <span className="serif" style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25 }}>{SCHOOL.en}</span>
