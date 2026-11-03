@@ -1,5 +1,18 @@
 # VPPS One — progress
 
+## Review plan, Phase 2: daily speed and clarity — 3 November 2026
+
+Branch `feat/review-daily-phase2`, stacked on Phase 1 (#167). Student 360 no
+longer rebuilds itself when fees arrive (P01: one mounted card, thumbnail kept);
+a photo viewer with zoom and Save (P04); concessions summary and folded settings
+(P05); compact household and history with restrictions always visible (P06);
+the Students list labels stale results while searching and replaces the quick
+pills with one Filters button and a grouped sheet including enrolment (S02/S03).
+Also fixed: phone masking regex and per-parent numbers. Verified with unit
+tests, the Student 360 / documents / admin-mobile browser specs (documents run
+serially; parallel runs time out on this machine) and harness screenshots. No
+migration, data write or message. Remaining: release, then Phase 3.
+
 ## Review plan, Phase 1: trust fixes — 3 November 2026
 
 Branch `fix/review-trust-phase1` from `2437e9ae`. Raj's 3 Nov review plan is

@@ -1,5 +1,15 @@
 # Decisions
 
+## Review plan, Phase 2: daily speed and clarity — 3 November 2026
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-370 | **Student 360 keeps one card mounted and updates it in place when the fee read lands** (`useSettled` over the streamed promise, not a Suspense fallback swap); a rejected read is the card's own unavailable state; the ring keeps the thumbnail address it first painted | The fallback and resolved trees were two cards: the swap rebuilt the whole profile — slide-in replayed, scroll reset, portrait re-downloaded (thumb → full). Staff saw "refreshes twice" (P01). `tests/student360-stream-recovery.test.tsx` now pins the same DOM node across the fee arrival |
+| D-371 | **Tapping a portrait opens a full-screen viewer** (fit, pinch/wheel/double-tap/buttons zoom, drag, Close/Escape/Back, focus returned); **Save photo for anyone who can already see it** (owner, 3 Nov), downloaded through the same authorised address — no public link, one photo | P04. The viewer requests the full photograph; the ring keeps its thumbnail |
+| D-372 | **Students has no row of scrolling quick pills: one labelled Filters button on every width opens the grouped sheet (now with enrolment status); what is on shows as removable chips; while a search travels the count reads "Updating results…" and the old rows dim and cannot be tapped** | S02/S03. Raj disliked the pills; stale rows could be opened by mistake during a search |
+| D-373 | **Fees' concessions lead with what applies (label, effect, reason); every setting stays under "How this fee is worked out"; household contacts are compact cards; histories fold to one line with a count, empty ones share one line; do-not-call, WhatsApp pause, review and no-contact are never folded** | P05/P06. Rows with nothing to say are hidden on screen only; no field, value, relationship or history is changed or dropped |
+| D-374 | **Each parent shows their own number from Fees, and numbers are masked as designed** | `maskPhone` used `/D/g` (masked nothing); both parent rows showed one shared phone |
+
 ## Review plan, Phase 1: trust — 3 November 2026
 
 Raj's 3 Nov review (`docs/plans/2026-11-03-review-plan-implementation.md`)

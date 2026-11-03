@@ -30,6 +30,18 @@ path, which is why QA did not see it.
 | P03 header | Fees always fills `transportRouteLabel` ("No transport" when none) | `shownTransportLabel` hides the placeholder; custom transport (no route id) still shows | — |
 | F01 waiver | Waive late fee shown ticked before any child was chosen | Shown only for a chosen child with a pending late fee (amount shown), ticked by default; Review waits for that read; a failed read keeps the old box | `tests/fees-bridge-live-desk.test.tsx` |
 
+## Phase 2 — daily speed and clarity (branch `feat/review-daily-phase2`)
+
+| ID | Found | Built | Evidence |
+|---|---|---|---|
+| P01 | Suspense fallback and resolved view were two cards; the swap rebuilt the profile; the portrait switched thumb → full | One mounted card updated in place (`useSettled`); ring keeps the thumbnail | Same-DOM-node regression test; Student 360 stream and documents browser specs |
+| P02 | One large uncached workspace read per profile | Unchanged here: P01 removes the visible double paint; trimming the payload needs a Fees-side split | — |
+| P04 | Portrait not interactive | Full-screen viewer, zoom/pan, Save through the same authorised address | Unit tests for zoom maths and filename; open/close test |
+| P05 | Long definition list of every setting, "—" for unset | Applicable concessions with effect and reason; every setting folded under "How this fee is worked out" | `tests/student360-compact.test.ts`; harness screenshot |
+| P06 | Long contact record, empty history boxes, one shared parent phone, masking broken | Compact contact cards; histories folded with counts; restrictions visible; per-parent numbers; masking fixed | Harness screenshots |
+| S02 | Old list and total stayed with no indicator | "Updating results…" in the count; stale rows dimmed and not tappable | Directory tests |
+| S03 | Horizontal quick pills | One Filters button (phone and desk), grouped sheet incl. enrolment, removable chips | Admin-mobile browser spec (390/412/844) |
+
 ## Fees source reads (schoolfees `feat/one-bridge-office-reads`)
 
 Narrow `/api/one/v1` reads requested: `/summary/today`, `/requests/pending`,
