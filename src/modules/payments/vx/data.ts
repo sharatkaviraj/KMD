@@ -242,7 +242,7 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
   const live = Boolean(payload.live);
   const sessionStart = sessionStartDate(sessionLabel);
   // The ledger and the session's receipts need only the child, so they start
-  // beside the summary's own waves instead of after them (D-295). A rejection
+  // beside the summary's own waves instead of after them (D-362). A rejection
   // is held until awaited below, so neither can go unhandled.
   const ledgerEarly = getWorkbookInstallmentRows({ studentId }).then(
     (rows) => ({ rows, error: null as unknown }),
