@@ -121,6 +121,8 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
   { route: "/school-office/certificates/[id]", allow: ["admin", "office"], because: "Certificate details and original reprints belong to authorized school-office staff." },
   { route: "/school-office/returns", allow: ["admin", "office"], because: "School-office staff prepare official reference sheets and verified return files." },
   { route: "/school-office/returns/[id]", allow: ["admin", "office"], because: "Official batches retain private source files and reconciliation history." },
+  { route: "/school-office/returns/d/[key]", allow: ["admin", "office"], because: "A destination's readiness grid names every child blocked from an official return." },
+  { route: "/school-office/returns/[id]/copilot", allow: ["admin", "office"], because: "The manual entry assistant shows a prepared official list row by row for portal entry." },
   { route: "/school-office/returns/formats", allow: ["admin"], because: "An administrator approves a supported format against its current specimen." },
   { route: "/exam-office/board", allow: ["admin", "office", "exam_coordinator"], because: "Board readiness uses a separate sourced cycle and official-outcome capability." },
   { route: "/exam-office/official-results", allow: ["admin", "office", "exam_coordinator"], because: "Official results remain separate from internal assessment marks." },

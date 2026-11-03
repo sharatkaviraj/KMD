@@ -245,6 +245,10 @@ export function NewRoundForm({
                 id={`ask-${field.id}`}
                 name="fieldIds"
                 value={field.id}
+                // A round narrowed to the children missing a field arrives
+                // asking for that field (the returns board links here with
+                // `gap=`); the office can still untick it.
+                defaultChecked={audience.gapKeys.includes(field.key)}
                 label={{ hi: field.label, en: field.label }}
                 language={language}
               />

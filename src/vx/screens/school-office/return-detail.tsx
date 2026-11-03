@@ -7,13 +7,16 @@ import type { GovernmentBatch } from "@/modules/government-records/domain/exchan
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
 import { dateLabel } from "@/vx/format";
-import { Btn, Pill } from "@/vx/ui/primitives";
+import { Btn, Pill, Progress } from "@/vx/ui/primitives";
 import { O } from "./text";
+import { C, enteredOf } from "./copilot-text";
 import { G, PORTAL_LABELS, RETURN_STATE, returnReason } from "./return-text";
 import "./office.css";
+import "./returns.css";
 
 const PORTAL_URL: Record<string, string> = { psp: "https://rajpsp.rajasthan.gov.in/", udise: "https://udiseplus.gov.in/", class5: "https://rajshaladarpan.rajasthan.gov.in/Class5th_8thExam/Home/HomePage.aspx", class8: "https://rajshaladarpan.rajasthan.gov.in/Class5th_8thExam/Home/HomePage.aspx", rbse10: "https://rajeduboard.rajasthan.gov.in/", rbse12: "https://rajeduboard.rajasthan.gov.in/" };
-export function ReturnBatchDetail({ batch, events, canExport, canImport }: { batch: GovernmentBatch & { apply_receipt?: { applied: number; unchanged: number }; evidence_name?: string }; events: BatchEvent[]; canExport: boolean; canImport: boolean }) {
+export type CopilotSummary = { total: number; entered: number; mismatches: { key: string; name: string; note: string }[]; open: boolean };
+export function ReturnBatchDetail({ batch, events, canExport, canImport, copilot = null }: { batch: GovernmentBatch & { apply_receipt?: { applied: number; unchanged: number }; evidence_name?: string }; events: BatchEvent[]; canExport: boolean; canImport: boolean; copilot?: CopilotSummary | null }) {
   const { tx } = useVx(); const router = useRouter();
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false), [outcome, setOutcome] = useState("submitted");
   const applyCommand = useRef<string | null>(null), importCommand = useRef<string | null>(null);
@@ -26,6 +29,13 @@ export function ReturnBatchDetail({ batch, events, canExport, canImport }: { bat
     <div className="office-tools"><Btn href="/school-office/returns" icon="chevLeft">{tx(G.batches)}</Btn><Pill tone={batch.state === "accepted" || batch.state === "applied" ? "ok" : "mut"}>{tx(RETURN_STATE[batch.state])}</Pill></div>
     <div className="card" style={{ padding: 20 }}><h1 className="serif" style={{ margin: 0, fontSize: 27 }}>{tx(PORTAL_LABELS[batch.portal])} · {batch.module}</h1><p>{batch.session_label} · {dateLabel(batch.created_at)}</p><strong>{batch.adapter.mode === "manual_reference" ? tx(G.manual) : tx(G.verified)}</strong><p style={{ color: "var(--mut)", lineHeight: 1.6 }}>{tx(G.outcomeHint)}</p><div className="office-tools">{Object.entries(batch.payload.counts).map(([key, count]) => <Pill key={key} tone={key === "conflict" || key === "unmatched" || key === "excluded" ? "warn" : "mut"}>{count} {tx(({ ready: G.ready, selected: p("selected", "चुने हुए"), excluded: p("excluded", "छोड़े हुए"), unchanged: G.unchanged, conflict: G.conflict, unmatched: G.unmatched } as Record<string, ReturnType<typeof p>>)[key] ?? p(key, key))}</Pill>)}</div></div>
     <div className="office-tools">{batch.file_path ? <Btn variant="pri" icon="download" href={`/school-office/returns/${batch.id}/file`} prefetch={false}>{tx(G.download)}</Btn> : batch.direction === "export" && canExport ? <Btn disabled={busy} onClick={retry}>{tx(O.retry)}</Btn> : null}<Btn icon="globe" href={PORTAL_URL[batch.portal]} target="_blank">{tx(G.portal)}</Btn>{batch.parent_batch_id ? <Btn href={`/school-office/returns/${batch.parent_batch_id}`}>{tx(p("Original batch", "मूल सूची"))}</Btn> : null}</div>
+    {copilot ? <div className="card rb-section">
+      <div className="rb-row" style={{ justifyContent: "space-between" }}><strong>{tx(C.title)}</strong><Pill tone={copilot.entered === copilot.total && copilot.total > 0 ? "ok" : "info"}>{tx(enteredOf(copilot.entered, copilot.total))}</Pill></div>
+      <Progress value={copilot.entered} max={copilot.total} tone="var(--ok)" />
+      <p className="rb-meta" style={{ margin: 0 }}>{tx(C.honesty)} {tx(C.enteredMeaning)}</p>
+      {copilot.open || copilot.entered + copilot.mismatches.length > 0 ? <div className="rb-row"><Btn variant={copilot.open ? "pri" : "sec"} className="wrap" icon="keyboard" href={`/school-office/returns/${batch.id}/copilot`}>{tx(C.open)}</Btn></div> : null}
+      {copilot.mismatches.length ? <div style={{ display: "grid", gap: 8 }}><strong style={{ fontSize: 14 }}>{tx(C.mismatches)} · {copilot.mismatches.length}</strong>{copilot.mismatches.slice(0, 50).map((row) => <div key={row.key} style={{ fontSize: 13, borderTop: "1px solid var(--bd)", paddingTop: 8, overflowWrap: "anywhere" }}><strong>{row.name}</strong> — {row.note}</div>)}</div> : null}
+    </div> : null}
     {failed ? <div className="office-note" role="alert">{tx(G.checkFailed)}<br />{tx(G.importHint)}</div> : null}
     {batch.direction === "import" ? <>
       <div className="office-note">{tx(G.conflictHint)}</div>

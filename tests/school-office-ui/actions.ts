@@ -20,6 +20,11 @@ export async function checkReturnAction(input: unknown) {
 export async function prepareReturnAction(input: unknown) { log("prepare-return", input); return { ok: true as const, id: "synthetic-batch" }; }
 export async function applyReturnAction(input: unknown) { log("apply-return", input); return { ok: true as const }; }
 export async function recordReturnOutcomeAction(input: FormData) { log("record-outcome", Object.fromEntries(input)); return { ok: true as const }; }
+export async function markCopilotRowAction(input: { state: "entered" | "mismatch"; note?: string }) {
+  log("mark-copilot", input);
+  if (window.schoolOfficeScenario === "mark-fails") return { ok: false as const };
+  return { ok: true as const, mark: { state: input.state, note: input.note ?? null, updatedAt: "2026-11-03T10:00:00Z" } };
+}
 export async function resumeReturnAction(input: unknown) { log("resume-return", input); return { ok: true as const }; }
 export async function stageReturnAction(input: FormData) { log("stage-return", Object.fromEntries(input)); return { ok: true as const, id: "synthetic-import" }; }
 export async function inspectReturnSpecimenAction(input: FormData) { log("inspect-specimen", Object.fromEntries(input)); return { ok: true as const, headers: ["Admission number", "School", "Session", "External ID"] }; }
