@@ -4,7 +4,7 @@ import { z } from "zod";
 import { assertPermission, assertStaff, type CurrentStaff } from "@/platform/auth/current-staff";
 import { createClient } from "@/platform/supabase/server";
 import { assertNotPreviewing } from "@/vx/view-as";
-import { bridgeDirectorySchema, bridgeReceiptDetailSchema, bridgeWorkspaceSchema } from "./student-read-contracts";
+import { bridgeDirectoryLookupSchema, bridgeDirectorySchema, bridgeReceiptDetailSchema, bridgeWorkspaceSchema } from "./student-read-contracts";
 import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import {
   officeCommandStatusSchema, refundDecisionInputSchema, refundDecisionResultSchema, refundProcessInputSchema, refundProcessResultSchema,
@@ -59,6 +59,20 @@ export async function getBridgeDirectory(input: {sessionLabel:string; query:stri
   if (input.segments.length) params.set("seg",input.segments.join(","));
   const result = await bridgeRequest({...(await credentials(staff,input.sessionLabel)),path:`/directory?${params}`,schema:bridgeDirectorySchema});
   if (result.sessionLabel !== input.sessionLabel || (input.classId && result.students.some(row=>row.classId!==input.classId))) throw new FeesBridgeError("invalid_response","The Fees directory did not match this request.");
+  return result;
+}
+
+/**
+ * The search palette's few names (S01): the directory's rows without its
+ * facet counts and whole-set money totals, which Fees builds by walking every
+ * matching student and which the palette never shows.
+ */
+export async function lookupBridgeDirectory(input: {sessionLabel:string; query:string; status:"active"|"all"; pageSize:number}) {
+  const staff = await assertPermission("fees:view");
+  const params = new URLSearchParams({session:input.sessionLabel,query:z.string().trim().min(2).max(100).parse(input.query),
+    status:input.status,pageSize:String(z.number().int().min(1).max(10).parse(input.pageSize))});
+  const result = await bridgeRequest({...(await credentials(staff,input.sessionLabel)),path:`/directory/lookup?${params}`,schema:bridgeDirectoryLookupSchema});
+  if (result.sessionLabel !== input.sessionLabel) throw new FeesBridgeError("invalid_response","The Fees directory did not match this request.");
   return result;
 }
 

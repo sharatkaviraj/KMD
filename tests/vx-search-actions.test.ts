@@ -35,7 +35,7 @@ vi.mock("@/modules/academics/data/academics-repo", () => ({
   classLabelMap: vi.fn(async () => new Map([["qa-class-7", "Class 7"]])),
 }));
 vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: () => state.canonical, feesBridgeOfficeReads: () => state.officeReads }));
-vi.mock("@/platform/fees-bridge/client", () => ({ getBridgeDirectory: state.directory, lookupBridgeReceipt: state.lookup, getBridgeReceiptDetail: state.detail }));
+vi.mock("@/platform/fees-bridge/client", () => ({ lookupBridgeDirectory: state.directory, lookupBridgeReceipt: state.lookup, getBridgeReceiptDetail: state.detail }));
 vi.mock("@/modules/students/data/directory-repo", () => ({ searchStudents: state.roster }));
 vi.mock("@/modules/staff/data/staff-repo", () => ({
   listStaff: vi.fn(async () => [

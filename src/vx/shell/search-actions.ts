@@ -11,7 +11,7 @@ import { searchStudents } from "@/modules/students/data/directory-repo";
 import { assertStaff, type CurrentStaff } from "@/platform/auth/current-staff";
 import { assertStudentVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";
-import { getBridgeDirectory, getBridgeReceiptDetail, lookupBridgeReceipt } from "@/platform/fees-bridge/client";
+import { getBridgeReceiptDetail, lookupBridgeDirectory, lookupBridgeReceipt } from "@/platform/fees-bridge/client";
 import { RECEIPT_NUMBER } from "@/platform/fees-bridge/office-read-contracts";
 import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
@@ -130,7 +130,7 @@ async function canonicalSearch(ask: Ask, sessionLabel: string): Promise<Seen> {
   try {
     if (ask.money) {
       const read = (status: "active" | "all") =>
-        getBridgeDirectory({ sessionLabel, query: ask.term, classId: "", segments: [], sort: "name", page: 1, pageSize: SHOWN, status });
+        lookupBridgeDirectory({ sessionLabel, query: ask.term, pageSize: SHOWN, status });
       // Children on the roll first; a child who left still owes and is still found.
       let page = await read("active");
       if (page.students.length === 0) page = await read("all");
