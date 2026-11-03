@@ -5,7 +5,7 @@ import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 const actions=vi.hoisted(()=>({bridgeLateFeeAction:vi.fn(),checkBridgePaymentAction:vi.fn(),reviewBridgePaymentAction:vi.fn(),saveBridgePaymentAction:vi.fn(),searchBridgeStudentsAction:vi.fn()}));
 vi.mock("@/app/(app)/payments/bridge-actions",()=>actions);
-import {LiveFeesDesk,officialPrintUrl} from "@/vx/screens/payments/live-fees-desk";
+import {LiveFeesDesk,savedReceiptHref} from "@/vx/screens/payments/live-fees-desk";
 import type {BridgeQuote} from "@/platform/fees-bridge/contracts";
 
 const student={id:"00000000-0000-4000-8000-000000000001",name:"Synthetic Student",srNo:"QA-001",className:"QA Class",classId:"00000000-0000-4000-8000-000000000002",sessionLabel:"2026-27",status:"active"};
@@ -43,6 +43,10 @@ describe("live payment recovery",()=>{
     expect(actions.saveBridgePaymentAction.mock.calls[1][0]).toEqual(original);
     expect(sessionStorage.getItem(recoveryKey)).toBeNull();
     expect(host.textContent).toContain("Payment recorded");expect(host.textContent).toContain("SYN-001");
+    // The saved receipt opens in One by id and year; Fees' print address is never followed (F01).
+    const print=[...host.querySelectorAll("a")].find(link=>link.textContent?.includes("print receipt"));
+    expect(print?.getAttribute("href")).toBe("/receipts/SYN-001?receiptId=00000000-0000-4000-8000-000000000003&session=2026-27");
+    expect([...host.querySelectorAll("a")].some(link=>link.getAttribute("href")?.includes("/protected/receipts/"))).toBe(false);
   });
   it("offers the late-fee waiver only for a chosen child with a late fee, ticked by default",async()=>{
     await render();
@@ -65,10 +69,11 @@ describe("live payment recovery",()=>{
     expect(actions.saveBridgePaymentAction).not.toHaveBeenCalled();
     expect(host.textContent).toContain("Collection in One is currently closed");
   });
-  it("does not turn an untrusted print link into an external destination",()=>{
-    expect(officialPrintUrl("https://evil.test/receipt")).toBeNull();
-    expect(officialPrintUrl("javascript:alert(1)")).toBeNull();
-    expect(officialPrintUrl("https://fees.vpps.co.in@evil.test/receipt")).toBeNull();
-    expect(officialPrintUrl("/protected/receipts/synthetic/pdf")).toBe("https://fees.vpps.co.in/protected/receipts/synthetic/pdf");
+  it("never turns Fees' print address into a destination, however it is written",()=>{
+    const id="00000000-0000-4000-8000-000000000003";
+    for(const printUrl of ["https://evil.test/receipt","javascript:alert(1)","https://fees.vpps.co.in@evil.test/receipt","/protected/receipts/synthetic/pdf"]){
+      expect(savedReceiptHref({receiptId:id,receiptNumber:"SYN 1/2",student,amountReceived:500,paymentDate:"2026-11-01",paymentMode:"cash",receivedBy:null,referenceNumber:null,notes:null,reversed:false,allocations:[],printUrl}))
+        .toBe(`/receipts/SYN%201%2F2?receiptId=${id}&session=2026-27`);
+    }
   });
 });

@@ -9,8 +9,10 @@ import { Btn, Card, EmptyState, Pill, SecHead } from "@/vx/ui/primitives";
 import { RetryButton } from "@/vx/ui/read-state";
 import { BridgeReceiptPaper } from "@/modules/receipts/vx/bridge-receipt-paper";
 import { receiptDetailFromBridge } from "@/modules/receipts/vx/bridge-receipt";
+import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
 import { PrintButton } from "./print-button";
 import { ReverseReceiptButton } from "./office-command";
+import { feesReceiptExit, sourceReceiptHref } from "./source-receipt";
 
 function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return <dl style={{ margin: 0, display: "grid", gap: 12 }}>{rows.map(([label, value]) => <div key={label} style={{ minWidth: 0 }}>
@@ -27,15 +29,19 @@ function paperOf(detail: BridgeReceiptDetail["detail"]) {
 /**
  * A source receipt is read in place (review F03): the Fees receipt itself —
  * the same template, logo, stamp and signature Fees prints — with Print and
- * Download PDF for a role that may print receipts. No local reversal, send or
- * write control; those open in Fees. Every fact stays below under one fold.
+ * Download PDF for a role that may print receipts, and reversal through Fees
+ * where One's writes are open (F01). Sending to the family stays Fees' own
+ * act; the way there is offered only for what Fees would let this person do
+ * (`mayReverse`: the role holds `payments:reverse_any`, whether or not One's
+ * writes are open). Every fact stays below under one fold.
  */
-export function CanonicalReceipt({ receipt, language, canPrint = false, canReverse = false }: { receipt: BridgeReceiptDetail; language: Language; canPrint?: boolean; canReverse?: boolean }) {
+export function CanonicalReceipt({ receipt, language, canPrint = false, canReverse = false, mayReverse = canReverse }: { receipt: BridgeReceiptDetail; language: Language; canPrint?: boolean; canReverse?: boolean; mayReverse?: boolean }) {
   const d = receipt.detail;
   const t = (en: string, hi: string) => lead({ en, hi }, language);
   const back = `/students/${receipt.studentId}?tab=fees`;
-  const receiptHref = (id: string, number: string) => `/receipts/${encodeURIComponent(number)}?${new URLSearchParams({ receiptId: id, session: receipt.sessionLabel })}`;
-  const sourceHref = `https://fees.vpps.co.in/protected/receipts/${receipt.receiptId}?${new URLSearchParams({ session: receipt.sessionLabel })}`;
+  const receiptHref = (id: string, number: string) => sourceReceiptHref(number, id, receipt.sessionLabel);
+  const sourceHref = `${FEES_ORIGIN}/protected/receipts/${receipt.receiptId}?${new URLSearchParams({ session: receipt.sessionLabel })}`;
+  const exit = feesReceiptExit({ canPrint, canReverseHere: canReverse, mayReverse, isVoided: Boolean(d.isVoided) });
   const paper = paperOf(d);
   const pdfHref = `/api/fees-bridge/receipts/${receipt.receiptId}/pdf?${new URLSearchParams({ session: receipt.sessionLabel })}`;
   const printing = canPrint && paper ? <>
@@ -102,7 +108,7 @@ export function CanonicalReceipt({ receipt, language, canPrint = false, canRever
         <Btn href={back}>{t("Back to student", "विद्यार्थी पर वापस")}</Btn>
         {/* Reversal through Fees (review F01): only where One's fee writes are open, the role may reverse and something is left. */}
         {canReverse && !d.isVoided ? <ReverseReceiptButton receiptId={receipt.receiptId} receiptNumber={d.receiptNumber} sessionLabel={receipt.sessionLabel} amount={d.totalAmount} /> : null}
-        <Btn href={sourceHref}>{canReverse ? t("Send in Fees", "Fees में भेजें") : t("Reverse or send in Fees", "Fees में रद्द करें या भेजें")}</Btn>
+        {exit ? <Btn href={sourceHref}>{lead(exit, language)}</Btn> : null}
       </div>
     </div></Section>
   </VxPage>;
@@ -120,7 +126,7 @@ export type ReceiptUnavailableReason = "missing_link" | "unreadable" | "access" 
 
 const WHY: Record<ReceiptUnavailableReason, { en: string; hi: string }> = {
   missing_link: { en: "This link has only the receipt number, so One cannot be sure which receipt it means. Open it in Fees, or open it from the student's Fees tab.", hi: "इस लिंक में केवल रसीद नंबर है, इसलिए One यह तय नहीं कर सकता कि कौन-सी रसीद है। इसे Fees में खोलें, या विद्यार्थी के फ़ीस टैब से खोलें।" },
-  unreadable: { en: "One cannot open this receipt for this session. A receipt that covers fees from another school year opens in Fees; a mistyped link opens nothing.", hi: "One इस सत्र के लिए यह रसीद नहीं खोल सकता। दूसरे सत्र की फ़ीस वाली रसीद Fees में खुलती है; ग़लत लिखा लिंक कुछ नहीं खोलता।" },
+  unreadable: { en: "One cannot show this receipt in any school year your account can open here. Fees may still have it; a mistyped link opens nothing.", hi: "One यह रसीद उन किसी भी सत्रों में नहीं दिखा सकता जो आपका खाता यहाँ खोल सकता है। हो सकता है यह Fees में हो; ग़लत लिखा लिंक कुछ नहीं खोलता।" },
   access: { en: "Your account cannot open receipts for this session here. Ask an administrator if you need it.", hi: "आपका खाता यहाँ इस सत्र की रसीदें नहीं खोल सकता। ज़रूरत हो तो व्यवस्थापक से पूछें।" },
   error: { en: "Fees did not answer just now. Your receipt is not lost — try again in a moment.", hi: "Fees से अभी जवाब नहीं मिला। आपकी रसीद खोई नहीं है — थोड़ी देर में फिर प्रयास करें।" },
 };
@@ -136,8 +142,8 @@ export function CanonicalReceiptUnavailable({ language, reason = "error", receip
   const t = (en: string, hi: string) => lead({ en, hi }, language);
   // Fees' own receipt page when the exact receipt is known; otherwise its receipt list.
   const fees = receiptId
-    ? `https://fees.vpps.co.in/protected/receipts/${receiptId}${sessionLabel ? `?${new URLSearchParams({ session: sessionLabel })}` : ""}`
-    : "https://fees.vpps.co.in/protected/receipts";
+    ? `${FEES_ORIGIN}/protected/receipts/${receiptId}${sessionLabel ? `?${new URLSearchParams({ session: sessionLabel })}` : ""}`
+    : `${FEES_ORIGIN}/protected/receipts`;
   const back = studentId ? `/students/${studentId}?tab=fees` : "/students";
   return <VxPage><TopBar title={receiptNumber || t("Receipt unavailable", "रसीद उपलब्ध नहीं है")} crumb={t("Receipt unavailable", "रसीद उपलब्ध नहीं है")} mBack={back} />
     <Section><EmptyState icon="receipt" title={t("This receipt cannot be shown here", "यह रसीद यहाँ नहीं दिखाई जा सकती")} body={lead(WHY[reason], language)}
