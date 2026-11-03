@@ -42,6 +42,17 @@ path, which is why QA did not see it.
 | S02 | Old list and total stayed with no indicator | "Updating results…" in the count; stale rows dimmed and not tappable | Directory tests |
 | S03 | Horizontal quick pills | One Filters button (phone and desk), grouped sheet incl. enrolment, removable chips | Admin-mobile browser spec (390/412/844) |
 
+## Phase 3 — native workflows (branch `feat/review-native-phase3`)
+
+| ID | Built | Evidence |
+|---|---|---|
+| F03 | Fees receipt template in One; Print; Download PDF (`/api/fees-bridge/receipts/:id/pdf`, `receipts:print`) | `tests/bridge-receipt-print.test.ts` |
+| F02 (cont.) | Number-only links resolve through Fees' lookup (behind the switch) | `tests/fees-bridge-native-receipt.test.tsx` |
+| T02/T03 (cont.) | Today shows Fees' Dashboard figures; Fees refund requests in Needs you (behind the switch) | `tests/fees-office-reads.test.ts` |
+| N01/N02 | "Decide several": grouped, reviewed, confirmed per item, retry failed only with the same command | `tests/inbox-batch.test.tsx` |
+| A01 | Reminder reasons and class-teacher link; "queued" wording | `tests/vx-attendance-why.test.ts` |
+| C01 | First-step button, dash for nothing to cover, named halves, classic link explained | e2e wording updated |
+
 ## Fees source reads (schoolfees `feat/one-bridge-office-reads`)
 
 Narrow `/api/one/v1` reads requested: `/summary/today`, `/requests/pending`,

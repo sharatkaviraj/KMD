@@ -1,5 +1,21 @@
 # VPPS One — progress
 
+## Review plan, Phase 3: native workflows — 3 November 2026
+
+Branch `feat/review-native-phase3`, stacked on Phase 2 (#168). The Fees
+receipt template, Print and Download PDF inside One (F03); "Decide several" in
+Needs you with grouped, confirmed, retryable decisions (N01/N02); attendance
+reminder reasons (A01); cover's first step and plain empty states (C01); Fees
+office reads wired behind `FEES_BRIDGE_OFFICE_READS` (off). Fees side: PR
+#133 merged as `5dc9ebe4` (code deployed; office reads answer 503 until its
+migration `20261103170000_one_bridge_office_reads` is applied with
+`npx supabase db push --linked --yes` from the schoolfees checkout — not run
+here: production database access needs the owner). Fees write commands
+(reversal, refund decisions, day close) are being built on a local schoolfees
+branch, default off. Remaining: Phase 3 release; apply the Fees migration, then
+set `FEES_BRIDGE_OFFICE_READS=true`; review and release the write commands;
+MCP feasibility after that.
+
 ## Review plan, Phase 2: daily speed and clarity — 3 November 2026
 
 Branch `feat/review-daily-phase2`, stacked on Phase 1 (#167). Student 360 no
