@@ -139,6 +139,21 @@ for (const condition of ["only-test&label=TEST-2026-27", "loading"]) {
   });
 }
 
+test("a session that arrives while the picker is open joins the keyboard loop", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/one-polish.html?arrives");
+  await page.locator(".vx-sessionbar-m button").click();
+  const dialog = page.getByRole("dialog");
+  const close = dialog.getByRole("button", {name: "Close", exact: true});
+  const row = dialog.getByRole("button", {name: /TEST-2026-27/});
+  await expect(row).toBeEnabled();
+  await close.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(row).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+});
+
 test("catalogue retry recovers into available sessions", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/one-polish.html?failed&recover");
