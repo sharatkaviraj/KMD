@@ -4,6 +4,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
+import { Crest } from "@/vx/screens/system/crest";
 import { LangButton } from "@/vx/shell/sidebar";
 import { p } from "@/vx/text";
 import { BackLink } from "@/vx/ui/back-link";
@@ -78,8 +79,9 @@ export function OfficeTop({
             <Ic n="chevLeft" size={24} />
           </BackLink>
         ) : logo ? (
-          <span className="serif" aria-hidden="true" style={{ flex: "none", width: 38, height: 38, margin: "0 4px", borderRadius: 12, background: "var(--nav)", color: "var(--navfg)", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            VP
+          // The school's logo, not a hard-coded "VP" (D-369); beside a page title, it is the school's only mark here, so it is named (T01).
+          <span style={{ flex: "none", margin: "0 4px", display: "flex" }}>
+            <Crest size={38} radius={12} still named />
           </span>
         ) : (
           <span style={{ width: 8 }} />

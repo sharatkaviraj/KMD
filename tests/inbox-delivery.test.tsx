@@ -132,6 +132,65 @@ it("a removed device copy cannot be resurrected by a timer without a storage eve
   await act(async () => { await vi.advanceTimersByTimeAsync(6000); window.dispatchEvent(new Event("pagehide")); });
   expect(fetch).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0); expect(approveButton()).toBeDefined();
 });
+/* Review N02: never look done before the server confirms. */
+const buttonNamed = (text: string) => [...host.querySelectorAll("button")].find(b => b.textContent === text);
+const lines = () => [...host.querySelectorAll(".vx-save")].map(l => l.textContent ?? "");
+it("keeps a held and then sending decision in the list, dimmed, with no tick and no success toast", async () => {
+  let resolve!: (v: Response) => void; vi.mocked(fetch).mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  await approve();
+  expect(host.textContent).toContain("QA child");
+  expect(lines().some(l => l.includes("Will send in a moment"))).toBe(true);
+  expect(host.querySelector(".vx-held")).not.toBeNull();
+  expect(buttonNamed("Undo")).toBeDefined();
+  expect(host.textContent).not.toMatch(/\bSaved\b/);
+  const toast = state.toast.mock.calls[0][0];
+  expect(toast.tone).toBe("info"); expect(toast.text).toContain("Will send in a moment");
+  await act(async () => { vi.advanceTimersByTime(6000); });
+  expect(fetch).toHaveBeenCalledOnce();
+  expect(lines().some(l => l.includes("Sending…"))).toBe(true);
+  expect(buttonNamed("Undo")).toBeUndefined();
+  expect(host.textContent).toContain("QA child"); expect(host.textContent).not.toMatch(/\bSaved\b/);
+  await act(async () => resolve(response()));
+});
+it("removes the item only after the server confirms, with the tick first", async () => {
+  await approve(); await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(localStorage.length).toBe(0);
+  expect(host.textContent).toContain("QA child");
+  expect(lines().some(l => l.includes("Saved"))).toBe(true);
+  expect(state.refresh).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(900); });
+  expect(host.querySelector(".vx-leave")).not.toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(450); });
+  expect(host.textContent).not.toContain("QA child");
+  expect(host.textContent).toContain("Saved and taken off the list");
+  expect(state.refresh).toHaveBeenCalledOnce();
+});
+it("a failure keeps the item and its buttons, says what happened and what to do, and Try again sends the same command", async () => {
+  vi.mocked(fetch).mockRejectedValueOnce(new Error("QA offline")); await approve();
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(host.textContent).toContain("QA child"); expect(approveButton()).toBeDefined();
+  expect(host.querySelector(".vx-held")).toBeNull();
+  const failure = lines().find(l => l.includes("Could not save · No answer"))!;
+  expect(failure).toContain("Try again sends the same decision once more");
+  expect(host.textContent).not.toMatch(/\bSaved\b/);
+  expect(state.toast.mock.calls.at(-1)![0].tone).toBe("bad");
+  await act(async () => { buttonNamed("Try again")!.click(); await vi.advanceTimersByTimeAsync(0); });
+  expect(fetch).toHaveBeenCalledTimes(2); expect(body(1).commandId).toBe(body(0).commandId);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1350); });
+  expect(host.textContent).not.toContain("QA child");
+});
+it("Undo on the item during the hold restores it fully and sends nothing", async () => {
+  await approve();
+  await act(async () => buttonNamed("Undo")!.click());
+  expect(approveButton()).toBeDefined(); expect(host.querySelector(".vx-held")).toBeNull();
+  expect(lines().join("")).toBe(""); expect(localStorage.length).toBe(0);
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); window.dispatchEvent(new Event("pagehide")); });
+  expect(fetch).not.toHaveBeenCalled(); expect(host.textContent).toContain("Absent to present");
+});
+it("on a TEST session the waiting line says it is TEST", async () => {
+  await render({ ...scope, sessionLabel: "TEST-2026-27" }); await approve();
+  expect(host.querySelector(".vx-save-test")?.textContent).toBe("TEST session");
+});
 it("older own decisions stay visible for review while another account's copies stay private", async () => {
   vi.mocked(fetch).mockRejectedValue(new Error("QA offline")); await approve(); await act(async () => root.unmount());
   root = createRoot(host); await render({ ...scope, day: "2026-10-12" });

@@ -8,6 +8,7 @@ import { useVx } from "@/vx/i18n";
 import { agoP, dayMonth, dayMonthHi, shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
+import { SAVE_IDLE, SaveStatus, useSlowSave, type SaveState } from "@/vx/ui/save-status";
 import { useSpeech } from "@/vx/ui/voice";
 import { NoteAssist } from "@/vx/assist/note-assist";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
@@ -88,7 +89,14 @@ export type ComposerInit = {
   tags?: NoteTag[];
   /** The school's today, for a follow-up date picked by hand. */
   today: string;
+  /** A TEST session: the saving line says so. */
+  testSession?: boolean;
 };
+
+/** A lost answer is not a failure we can retry: the note may be saved already (U01). */
+const NOTE_UNCERTAIN = p("We could not tell whether the note was saved. Your note is still here. Check your connection and the notes list before starting another note.", "पता नहीं चल सका कि नोट सहेजा गया या नहीं। आपका नोट यहीं है। नया नोट शुरू करने से पहले इंटरनेट और नोटों की सूची देखें।");
+const NOTE_SAVE_UNSURE = { failed: p("Not confirmed", "पुष्टि नहीं हुई") };
+const NOTE_KEPT = p("Your note, child and choices are still here.", "आपका नोट, बच्चा और चुनी गई बातें यहीं हैं।");
 
 /** A follow-up choice: one of the three ready days, or a date picked by hand. */
 export type FollowChoice = FollowWhen | "pick";
@@ -116,6 +124,8 @@ export function useComposer(init: ComposerInit) {
   const [errField, setErrField] = useState<"kid" | "text" | null>(null);
   const [error, setError] = useState<Pair | null>(null);
   const [saveUncertain, setSaveUncertain] = useState(false);
+  // The server's refusal of the last save, kept apart from "pick a child" and the like (U01).
+  const [refused, setRefused] = useState<Pair | null>(null);
   const [draftAt, setDraftAt] = useState<number | null>(null);
   const [heard, setHeard] = useState("");
   const [append, setAppend] = useState(false);
@@ -289,31 +299,35 @@ export function useComposer(init: ComposerInit) {
     setError(null);
     setErrField(null);
     setSaveUncertain(false);
+    setRefused(null);
     setDraftAt(null);
   };
 
-  const save = (onSaved: (id: string, child: ChildChoice) => void) =>
+  // What is checked here is checked before the transition starts, so "Saving…" only ever
+  // means the note is on its way to the server.
+  const save = (onSaved: (id: string, child: ChildChoice) => void) => {
+    if (saveUncertain || pending) return;
+    setError(null);
+    setRefused(null);
+    if (!child) {
+      setErrField("kid");
+      setError(p("First pick the child.", "पहले बच्चा चुनें।"));
+      return;
+    }
+    if (!body.trim()) {
+      setErrField("text");
+      setError(p("Speak or type the note first.", "पहले नोट बोलें या लिखें।"));
+      return;
+    }
+    if (follow && when === "pick" && !followOnDate) {
+      setError(p(`Pick the day to look at this again: after today, within ${FOLLOW_ON_MAX_DAYS} days.`, `फिर से देखने का दिन चुनें: आज के बाद, ${FOLLOW_ON_MAX_DAYS} दिन के अंदर।`));
+      return;
+    }
+    if (!navigator.onLine) {
+      setError(p("You are offline. This note has not been saved. Reconnect and tap Save note.", "आप ऑफलाइन हैं। यह नोट सेव नहीं हुआ है। इंटरनेट आने पर नोट सेव करें दबाएँ।"));
+      return;
+    }
     start(async () => {
-      if (saveUncertain) return;
-      setError(null);
-      if (!child) {
-        setErrField("kid");
-        setError(p("First pick the child.", "पहले बच्चा चुनें।"));
-        return;
-      }
-      if (!body.trim()) {
-        setErrField("text");
-        setError(p("Speak or type the note first.", "पहले नोट बोलें या लिखें।"));
-        return;
-      }
-      if (follow && when === "pick" && !followOnDate) {
-        setError(p(`Pick the day to look at this again: after today, within ${FOLLOW_ON_MAX_DAYS} days.`, `फिर से देखने का दिन चुनें: आज के बाद, ${FOLLOW_ON_MAX_DAYS} दिन के अंदर।`));
-        return;
-      }
-      if (!navigator.onLine) {
-        setError(p("You are offline. This note has not been saved. Reconnect and tap Save note.", "आप ऑफलाइन हैं। यह नोट सेव नहीं हुआ है। इंटरनेट आने पर नोट सेव करें दबाएँ।"));
-        return;
-      }
       try {
         const res = await createNoteAction({
           studentId: child.id,
@@ -331,14 +345,25 @@ export function useComposer(init: ComposerInit) {
           writeDraft(init.viewer.id, null);
           setDraftAt(null);
           onSaved(res.id, child);
-        } else if (!res.ok) setError(res.error);
+        } else if (!res.ok) setRefused(res.error);
       } catch {
         // A rejected response may follow a committed save. Keep the text and
         // block another submission in this composer until the history is checked.
         setSaveUncertain(true);
-        setError(p("We could not tell whether the note was saved. Your note is still here. Check your connection and the notes list before starting another note.", "पता नहीं चल सका कि नोट सहेजा गया या नहीं। आपका नोट यहीं है। नया नोट शुरू करने से पहले इंटरनेट और नोटों की सूची देखें।"));
       }
     });
+  };
+
+  // The save bar's one saving line (U01). Never "Saved": a confirmed note opens its own saved screen.
+  const slow = useSlowSave(pending);
+  const saveLine: SaveState = pending
+    ? { kind: "saving", slow }
+    : saveUncertain
+      ? { kind: "failed", message: NOTE_UNCERTAIN }
+      : refused
+        ? { kind: "failed", message: refused, next: NOTE_KEPT }
+        : SAVE_IDLE;
+  const saveWords = saveUncertain ? NOTE_SAVE_UNSURE : undefined;
 
   // A child with an action already open is shown it first: an update on it
   // beats a second note that says the same thing (D-266). Writing a new one
@@ -350,7 +375,30 @@ export function useComposer(init: ComposerInit) {
     follow, setFollow, when, setWhen, followOn, setFollowOn, followOnDate, owner: ownerKey, setOwner, visibility, pickVisibility, tellParents, toggleTell,
     errField, setErrField, error, saveUncertain, pending, draftAt, listen, doneListening, cancelListening, live, timer,
     speech, addPhrase, reset, save, openAction, setError, restoreDraft,
+    saveLine, saveWords, refused, testSession: init.testSession ?? false,
   };
+}
+
+/**
+ * The save bar's line: the saving line while a save is out or after it failed,
+ * otherwise the problem to fix or who will read the note. The saving line is
+ * always mounted, so its change is announced; Try again keeps the child, the
+ * words and every choice, and is offered only for a refusal, never for an
+ * answer that was lost (that note may be saved already).
+ */
+export function SaveBarLine({ c, onSaved, idle, style }: { c: Composer; onSaved: (id: string, child: ChildChoice) => void; idle: string; style?: CSSProperties }) {
+  const { tx } = useVx();
+  const busy = c.saveLine.kind !== "idle";
+  return (
+    <span className="nx-c" style={{ gap: 0, ...style }}>
+      <SaveStatus state={c.saveLine} words={c.saveWords} test={c.testSession} onRetry={c.refused ? () => c.save(onSaved) : undefined} reserve={false} />
+      {busy ? null : (
+        <span className="nx-m" role={c.error ? "alert" : undefined} style={{ fontSize: style?.fontSize, color: c.error ? "var(--bad)" : undefined, fontWeight: c.error ? 600 : undefined }}>
+          {c.error ? tx(c.error) : idle}
+        </span>
+      )}
+    </span>
+  );
 }
 
 export type Composer = ReturnType<typeof useComposer>;
@@ -829,9 +877,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
         </div>
       </div>
       <div className="glass nx-f nx-msave">
-        <span className="nx-m" role={c.error ? "alert" : undefined} style={{ flex: 1, minWidth: 200, color: c.error ? "var(--bad)" : undefined, fontWeight: c.error ? 600 : undefined }}>
-          {c.error ? tx(c.error) : tx(readersLine({ child, visibility: c.visibility, tags: c.tags, viewer, people, followOn }))}
-        </span>
+        <SaveBarLine c={c} onSaved={onSaved} idle={tx(readersLine({ child, visibility: c.visibility, tags: c.tags, viewer, people, followOn }))} style={{ flex: 1, minWidth: 200 }} />
         <button type="button" className="tap btn pri mfull" disabled={c.pending || c.saveUncertain} onClick={() => c.save(onSaved)} style={{ height: 52, fontSize: 16, minWidth: 260 }}>
           {c.pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="check" size={18} />}
           {both(p("Save note", "नोट सहेजें"))}
@@ -1128,9 +1174,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
       <div className="glass nt-sbar">
         <span className="nx-c nt-rt" style={{ flex: 1 }}>
           <span className="nt-f14" style={{ fontSize: 14, fontWeight: 700 }}>{child ? tx(p(`Note about ${child.name}`, `${child.name} के बारे में नोट`)) : tx(p("Pick a child first", "पहले बच्चा चुनें"))}</span>
-          <span className="nx-m" role={c.error ? "alert" : undefined} style={{ fontSize: 12, color: c.error ? "var(--bad)" : undefined, fontWeight: c.error ? 600 : undefined }}>
-            {c.error ? tx(c.error) : tx(readersLine({ child, visibility: c.visibility, tags: c.tags, viewer, people, followOn: c.follow ? c.followOnDate : null }))}
-          </span>
+          <SaveBarLine c={c} onSaved={onSaved} idle={tx(readersLine({ child, visibility: c.visibility, tags: c.tags, viewer, people, followOn: c.follow ? c.followOnDate : null }))} style={{ fontSize: 12 }} />
         </span>
         <button type="button" className="tap btn pri nt-big mfull" disabled={c.pending || c.saveUncertain} onClick={() => c.save(onSaved)} style={{ opacity: ready ? 1 : 0.6 }}>
           {c.pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="check" size={18} />}

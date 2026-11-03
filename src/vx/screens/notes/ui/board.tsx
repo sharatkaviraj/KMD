@@ -205,6 +205,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     initialStep: props.initialStep,
     lang: language === "hi" ? "hi-IN" : "en-IN",
     today: props.today,
+    testSession: props.testSession,
     tags: ["studies"],
     ownerFor: (child) => (child && props.viewer.heldClassIds.includes(child.classId) ? "me" : "class_teacher"),
   });

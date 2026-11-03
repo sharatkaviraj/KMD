@@ -6,10 +6,10 @@ import { useRef, useState } from "react";
 
 import { decideLeaveAction } from "@/app/(app)/timetable/vx-actions";
 import { useVx } from "@/vx/i18n";
-import { Ic } from "@/vx/icons";
 import { p } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";
 import { Btn } from "@/vx/ui/primitives";
+import { SAVE_WORDS, SaveMark } from "@/vx/ui/save-status";
 import { BATCH_GROUPS, BATCH_WORDS, batchGroupOf, batchSummary, groupSelection, type BatchChoice, type BatchGroup, type ItemOutcome } from "@/vx/screens/admin/inbox-batch-logic";
 import type { InboxScope } from "@/vx/screens/admin/inbox-outbox";
 import type { InboxItem } from "@/vx/screens/admin/types";
@@ -24,9 +24,10 @@ const W = {
   review: p("Check before saving", "सहेजने से पहले देखें"),
   confirm: (label: string, n: number) => p(`${label} · ${n}`, `${label} · ${n}`),
   back: p("Back", "वापस"),
-  saving: p("Saving…", "सहेजा जा रहा है…"),
-  saved: p("Saved", "सहेजा गया"),
-  failed: p("Could not save", "सहेजा नहीं जा सका"),
+  // The one saving vocabulary (U01): the single-decision line says the same words.
+  saving: SAVE_WORDS.saving,
+  saved: SAVE_WORDS.saved,
+  failed: SAVE_WORDS.failed,
   retry: p("Try the failed ones again", "जो नहीं हुए उन्हें फिर करें"),
   close: p("Close", "बंद करें"),
   previewing: p("Preview only: nothing is saved while you view as another role.", "केवल पूर्वावलोकन: दूसरी भूमिका में देखते समय कुछ सहेजा नहीं जाता।"),
@@ -112,7 +113,7 @@ export function InboxBatch({ items, scope, previewing, onSettled }: { items: Inb
       <li key={item.id} className={`vx-batch-row${outcome?.state === "done" ? " done" : ""}`}>
         {choice ? (
           <span className="vx-batch-state" aria-hidden="true">
-            {outcome?.state === "saving" ? <Ic n="refresh" size={18} className="spin" /> : outcome?.state === "done" ? <Ic n="check" size={18} style={{ color: "var(--ok)" }} /> : outcome?.state === "failed" ? <Ic n="alert" size={18} style={{ color: "var(--bad)" }} /> : null}
+            <SaveMark kind={outcome?.state === "saving" ? "saving" : outcome?.state === "done" ? "saved" : outcome?.state === "failed" ? "failed" : "idle"} />
           </span>
         ) : (
           <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={tx(item.title)} />

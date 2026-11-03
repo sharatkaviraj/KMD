@@ -7,6 +7,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { agoP } from "@/vx/format";
+import { Crest } from "@/vx/screens/system/crest";
 import { p, type Pair } from "@/vx/text";
 import { Field, Input, Seg, Select, Textarea } from "@/vx/ui/controls";
 import { Confirm, Sheet } from "@/vx/ui/overlays";
@@ -1101,9 +1102,8 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
           <>
             <div className="card xc x8" style={{ padding: 16, boxShadow: "var(--shh)", transform: "rotate(-1deg)", animation: "xRise .5s var(--ease) both" }}>
               <div className="xr x8" style={{ paddingBottom: 8, borderBottom: "2px solid var(--fg)" }}>
-                <span className="serif xi xb" style={{ width: 32, height: 32, borderRadius: 9, background: "#082F49", color: "#F7F6F3", fontSize: 12 }}>
-                  VP
-                </span>
+                {/* The school's logo, as on the issued card (D-369); the name beside it says the school, so it is decorative. */}
+                <Crest size={32} radius={9} still />
                 <span className="xc">
                   <span className="x11 x6w">{SCHOOL.hi}</span>
                   <span className="serif x11 x6w">{SCHOOL.en}</span>

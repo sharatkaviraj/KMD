@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 
 import { decideLeaveAction } from "@/app/(app)/timetable/vx-actions";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -12,6 +13,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar } from "@/vx/ui/page";
 import { Btn, Pill, toneColors, type Tone } from "@/vx/ui/primitives";
 import { CouldNotRead } from "@/vx/ui/read-state";
+import { SAVE_IDLE, SAVE_WORDS, SaveStatus, type SaveState } from "@/vx/ui/save-status";
 import { InboxBatch } from "@/vx/screens/admin/inbox-batch";
 import { FeesRefundActions } from "@/vx/screens/receipts/office-command";
 import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
@@ -25,11 +27,30 @@ import { readEarlierInboxDecisions, readInboxDecisions, removeInboxDecision, sto
  * seconds before it is sent, so Undo really undoes: nothing has reached the
  * server yet. Leaving the page sends whatever is still held.
  *
+ * It never looks done before the server says so (review N02): a held or
+ * sending decision stays in the list, dimmed, with "Will send in a moment ·
+ * Undo" and then "Sending…" in place of its buttons, and no tick. Only the
+ * server's answer gives it the tick, and it leaves the list after that. A
+ * failure keeps it with its buttons, the reason and Try again.
+ *
  * On a desk it is the design's two panes (the list, the selected item); on a
  * phone every item is a card with its actions on it, under a large title.
  */
 
 const HOLD_MS = 6000;
+/** A confirmed decision shows its tick this long, then leaves the list in LEAVE_MS. */
+const SAVED_MS = 900;
+const LEAVE_MS = 450;
+
+const W = {
+  failedWhy: p("No answer, or the server did not take it. Nothing is assumed saved.", "जवाब नहीं मिला, या सर्वर ने नहीं लिया। कुछ भी सहेजा हुआ नहीं माना गया।"),
+  failedNext: p("Try again sends the same decision once more, so it is never saved twice. Or reload to see where it stands.", "फिर कोशिश करने पर वही निर्णय दोबारा जाता है, इसलिए दो बार नहीं सहेजा जाता। या पेज फिर खोलकर देखें कि क्या हुआ।"),
+};
+/** A decision is sent, not saved, from the person's point of view. */
+const SAVE_LINE = { saving: SAVE_WORDS.sending };
+
+/** One item's save line; `retry` when Try again re-sends the same held decision. */
+type ItemSave = { state: SaveState; retry?: boolean };
 
 const TYPE_LABEL: Record<"all" | InboxType, Pair> = {
   all: T.tAll,
@@ -73,41 +94,104 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   const [picking, setPicking] = useState<InboxItem | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [earlier, setEarlier] = useState<PendingInboxDecision[]>([]);
+  // What each decided item shows until the server answers (N02), and the ones leaving after it did.
+  const [saves, setSaves] = useState<ReadonlyMap<string, ItemSave>>(new Map());
+  const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
+  // The item lines are drawn, not announced (a desk row is a button); this one line says each change aloud.
+  const [announce, setAnnounce] = useState<SaveState>(SAVE_IDLE);
   const held = useRef(new Map<string, Held>());
+  const test = isTestSessionLabel(scope.sessionLabel);
+  // A decision flushed as the page goes is confirmed after it has gone: nothing is left to re-read then.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   const live = items.filter((item) => !hidden.has(item.id));
   const counts = inboxCounts(live);
   const shown = filter === "all" ? live : live.filter((item) => item.type === filter);
   const selected = live.find((item) => item.id === selectedId) ?? shown[0] ?? null;
 
+  function mark(id: string, next: ItemSave | null) {
+    setSaves((all) => {
+      const copy = new Map(all);
+      if (next) copy.set(id, next);
+      else copy.delete(id);
+      return copy;
+    });
+  }
+  const failed = (retry: boolean, message: Pair = W.failedWhy): ItemSave => {
+    // The toast says it aloud; the live line must not go on reading "Sending…".
+    setAnnounce(SAVE_IDLE);
+    return { state: { kind: "failed", message, next: retry ? W.failedNext : undefined }, retry };
+  };
+  // The server has it: the tick, a moment to see it, then a gentle exit.
+  function confirmed(id: string) {
+    mark(id, { state: { kind: "saved" } });
+    setAnnounce({ kind: "saved" });
+    window.setTimeout(() => setLeaving((all) => new Set(all).add(id)), SAVED_MS);
+    window.setTimeout(() => {
+      if (!alive.current) return;
+      setHidden((all) => new Set(all).add(id));
+      setLeaving((all) => { const next = new Set(all); next.delete(id); return next; });
+      mark(id, null);
+      setAnnounce({ kind: "removed" });
+      router.refresh();
+    }, SAVED_MS + LEAVE_MS);
+  }
+  function markSending(id: string) {
+    mark(id, { state: { kind: "saving" } });
+    setAnnounce({ kind: "saving" });
+  }
+
   function acknowledge(id: string, entry: Held) {
     if (held.current.get(id) !== entry) return;
     try { removeInboxDecision(entry); } catch { /* A replay remains safe with the same id. */ }
     held.current.delete(id); setPendingCount(held.current.size);
+    confirmed(id);
   }
   function stillStored(id: string, entry: Held): boolean {
     if (held.current.get(id) !== entry) return false;
     const saved = readInboxDecisions(entry.scope).find(d => d.itemId === id && d.beacon.commandId === entry.beacon.commandId);
     if (saved && JSON.stringify(saved.beacon) === JSON.stringify(entry.beacon)) return true;
     window.clearTimeout(entry.timer); held.current.delete(id); setPendingCount(held.current.size);
-    setHidden(all => { const next = new Set(all); next.delete(id); return next; });
+    mark(id, null);
     return false;
   }
   async function deliver(id: string, entry: Held) {
+    // Called from timers, events and the Try again button, never while rendering; like
+    // handleDecision, the forwarded actions object hides that from the compiler.
+    // eslint-disable-next-line react-hooks/purity
     if (entry.sending || entry.flushing || previewing || (!entry.attempted && Date.now() < entry.readyAt)) return;
     try { if (!stillStored(id, entry)) return; }
     catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
     entry.attempted = true;
-    try { storeInboxDecision(entry); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
+    try { storeInboxDecision(entry); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); mark(id, failed(true, T.inboxStorageFailed)); return; }
     entry.sending = true;
+    markSending(id);
     const result = await entry.send().catch(() => ({ ok: false, message: T.failed }));
     entry.sending = false;
-    if (result.ok) acknowledge(id, entry);
-    else {
-      setHidden(all => { const next = new Set(all); next.delete(id); return next; });
-      toast.show({ text: tx(result.message ?? T.failed), tone: "bad" });
-    }
+    // Confirmed: the item leaves after its tick, and the page is re-read then.
+    if (result.ok) { acknowledge(id, entry); return; }
+    mark(id, failed(true));
+    toast.show({ text: tx(result.message ?? T.failed), tone: "bad" });
     router.refresh();
+  }
+  function undoDecision(id: string) {
+    const entry = held.current.get(id);
+    if (!entry || entry.sending || entry.attempted) return;
+    try { removeInboxDecision(entry); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
+    window.clearTimeout(entry.timer);
+    held.current.delete(id);
+    setPendingCount(held.current.size);
+    mark(id, null);
+    setSelectedId(id);
+  }
+  // The same held decision, with the same command: the server replays it rather than deciding twice.
+  function retryDecision(id: string) {
+    const entry = held.current.get(id);
+    if (entry) void deliver(id, entry);
   }
 
   // Send anything still held when the page goes away; the person decided it.
@@ -126,11 +210,13 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
         const ids = new Set(saved.map(d => d.itemId));
         for (const [id, entry] of pending) if (!ids.has(id) && !entry.sending) {
           window.clearTimeout(entry.timer); pending.delete(id);
-          setHidden(all => { const next = new Set(all); next.delete(id); return next; });
+          mark(id, null);
         }
         for (const d of saved) if (!pending.has(d.itemId)) {
           const entry: Held = { ...d, timer: 0, label: "", send: () => post(d), sending: false, flushing: false };
           pending.set(d.itemId, entry);
+          // Kept from before: still waiting, never shown as done. Only an untried one can be undone.
+          mark(d.itemId, { state: { kind: d.attempted ? "saving" : "held" } });
           entry.timer = window.setTimeout(() => { void deliver(d.itemId, entry); }, Math.max(0, d.readyAt - Date.now()));
         }
         setPendingCount(pending.size);
@@ -148,11 +234,13 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
         window.clearTimeout(entry.timer);
         entry.sending = true;
         entry.flushing = true;
+        mark(id, { state: { kind: "saving" } });
         void post(entry, true)
           .then((response) => {
             if (response.ok) acknowledge(id, entry);
+            else mark(id, failed(true));
           })
-          .catch(() => undefined)
+          .catch(() => mark(id, failed(true)))
           .finally(() => { entry.flushing = false; entry.sending = false; });
       }
     };
@@ -181,8 +269,9 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     // eslint-disable-next-line react-hooks/purity
     const decision: PendingInboxDecision = { itemId: item.id, beacon, scope, readyAt: Date.now() + HOLD_MS, attempted: false };
     try { storeInboxDecision(decision); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
-    setHidden((all) => new Set(all).add(item.id));
-    const next = live.find((other) => other.id !== item.id && (filter === "all" || other.type === filter));
+    // It stays in the list, waiting; the selection moves on so triage keeps its pace.
+    mark(item.id, { state: { kind: "held" } });
+    const next = shown.find((other) => other.id !== item.id && !saves.has(other.id) && !held.current.has(other.id));
     setSelectedId(next?.id ?? null);
 
     const timer = window.setTimeout(async () => {
@@ -197,24 +286,13 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     held.current.set(item.id, { ...decision, timer, send, label, sending: false, flushing: false });
     setPendingCount(held.current.size);
 
+    // Not a success toast: no tick, and it says the decision has not gone yet.
     toast.show({
-      text: label,
+      text: `${label} · ${tx(SAVE_WORDS.held)}`,
+      tone: "info",
       undoLabel: tx(T.undo),
       ms: HOLD_MS,
-      undo: () => {
-        const entry = held.current.get(item.id);
-        if (!entry || entry.sending || entry.attempted) return;
-        try { removeInboxDecision(entry); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
-        window.clearTimeout(entry.timer);
-        held.current.delete(item.id);
-        setPendingCount(held.current.size);
-        setHidden((all) => {
-          const copy = new Set(all);
-          copy.delete(item.id);
-          return copy;
-        });
-        setSelectedId(item.id);
-      },
+      undo: () => undoDecision(item.id),
     });
   }
 
@@ -238,16 +316,20 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     if (!item.leaveId || deciding) return;
     const id = item.leaveId;
     startDeciding(async () => {
+      markSending(item.id);
       try {
         const result = await decideLeaveAction({ id, approve });
         toast.show({ text: tx(result.message), tone: result.ok && !result.coverDay ? "ok" : "bad" });
-        if (result.ok) {
+        if (result.ok && result.coverDay) {
           setHidden((all) => new Set(all).add(item.id));
-          if (result.coverDay) router.push(`/timetable?view=subs&day=${result.coverDay}`);
-          else router.refresh();
-        }
+          mark(item.id, null);
+          router.push(`/timetable?view=subs&day=${result.coverDay}`);
+        } else if (result.ok) confirmed(item.id);
+        // Refused: the buttons stay, with the server's reason; deciding again is the retry.
+        else mark(item.id, failed(false, result.message));
       } catch {
         toast.show({ text: tx(T.failed), tone: "bad" });
+        mark(item.id, failed(false));
       }
     });
   };
@@ -255,6 +337,11 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   const on: DetailActions = {
     leave: decideLeave,
     busy: deciding,
+    save: (item) => saves.get(item.id),
+    leaving: (item) => leaving.has(item.id),
+    undo: (item) => undoDecision(item.id),
+    retry: (item) => retryDecision(item.id),
+    test,
     remind: (item) =>
       handleDecision(item, tx(T.reminded(item.remindable ?? 0)), { kind: "remind", commandId: crypto.randomUUID(), classIds: item.classIds ?? [] }),
     assign,
@@ -275,7 +362,10 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     ));
 
   // Recovery notices: decisions kept on this device from an earlier visit, or still waiting for the server.
-  const hasNotices = unavailable || (!previewing && earlier.length > 0) || pendingCount > 0;
+  // A decision waiting on its own item already says so there (N02), so the list does not jump for it;
+  // the notice is for one this list cannot show (filtered out, or no longer in it).
+  const pendingUnseen = pendingCount > 0 && (saves.size === 0 || [...saves.keys()].some((id) => !shown.some((item) => item.id === id)));
+  const hasNotices = unavailable || (!previewing && earlier.length > 0) || pendingUnseen;
   const notices = hasNotices ? (
     <>
       {unavailable ? <CouldNotRead partial={live.length > 0} /> : null}
@@ -289,7 +379,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
           }}>{tx(T.inboxClearReviewed)}</Btn>
         </div>
       ) : null}
-      {pendingCount > 0 ? (
+      {pendingUnseen ? (
         <div className="card" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
           <span>{tx(T.inboxPending)}</span>
           <Btn variant="ghost" style={{ alignSelf: "flex-start" }} onClick={() => { for (const [id, entry] of held.current) void deliver(id, entry); }}>{tx(T.inboxRetry)}</Btn>
@@ -299,7 +389,8 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   ) : null;
 
   // Several decisions at once, over what this list shows (review N01). Hidden when fewer than two can be batched.
-  const batch = <InboxBatch items={shown} scope={scope} previewing={previewing} onSettled={(ids) => setHidden((all) => { const next = new Set(all); for (const id of ids) next.add(id); return next; })} />;
+  // An item already decided and waiting for the server is not offered again.
+  const batch = <InboxBatch items={shown.filter((item) => !saves.has(item.id))} scope={scope} previewing={previewing} onSettled={(ids) => setHidden((all) => { const next = new Set(all); for (const id of ids) next.add(id); return next; })} />;
 
   const oldest = live.reduce<string | null>((min, item) => (item.at && (!min || item.at < min) ? item.at : min), null);
   // With a source unread, "0 waiting" would read as "All clear": say what is known instead (T03).
@@ -320,12 +411,14 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {shown.map((item, i) => {
               const sel = selected?.id === item.id;
+              const save = saves.get(item.id);
+              const waitingOn = save !== undefined && save.state.kind !== "failed";
               return (
-                <li key={item.id}>
+                <li key={item.id} className={leaving.has(item.id) ? "vx-leave" : undefined}>
                   <button
                     type="button"
                     onClick={() => select(item)}
-                    className="tap"
+                    className={`tap${waitingOn ? " vx-held" : ""}`}
                     aria-current={sel ? "true" : undefined}
                     style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, padding: "14px 18px", border: 0, borderBottom: "1px solid var(--bd)", background: sel ? "var(--accs)" : "transparent", boxShadow: sel ? "inset 0 0 0 1px var(--acc)" : "none", color: "var(--fg)", textAlign: "left", overflow: "hidden", animation: `xIn .4s var(--ease) ${Math.min(i * 40, 400)}ms both` }}
                   >
@@ -334,7 +427,12 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
                       <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
                     </span>
                     <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{tx(item.title)}</span>
-                    <span className="clip" style={{ fontSize: 13, color: "var(--mut)", width: "100%" }}>{tx(item.sub)}</span>
+                    {/* The waiting line takes the sub line's place, so the row does not grow; the page's live line says it aloud. */}
+                    {save ? (
+                      <SaveStatus state={save.state.kind === "failed" ? { kind: "failed" } : save.state} words={SAVE_LINE} test={test} live={false} reserve={false} style={{ width: "100%" }} />
+                    ) : (
+                      <span className="clip" style={{ fontSize: 13, color: "var(--mut)", width: "100%" }}>{tx(item.sub)}</span>
+                    )}
                   </button>
                 </li>
               );
@@ -379,6 +477,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
       <div className="vx-pmain">
         {desk}
         {phone}
+        <SaveStatus state={announce} words={SAVE_LINE} test={test} reserve={false} className="sr" />
       </div>
       {taskDetail}
       <Sheet
@@ -425,7 +524,49 @@ type DetailActions = {
   /** Approve (or record as taken, for days gone) or decline a leave request here. */
   leave: (item: InboxItem, approve: boolean) => void;
   busy: boolean;
+  /** The item's decision while it waits for the server, or after it failed (N02). */
+  save: (item: InboxItem) => ItemSave | undefined;
+  /** Confirmed, and on its way out of the list. */
+  leaving: (item: InboxItem) => boolean;
+  undo: (item: InboxItem) => void;
+  retry: (item: InboxItem) => void;
+  /** A TEST session: the save line says so. */
+  test: boolean;
 };
+
+/**
+ * The item's buttons — or, while its decision waits for the server, the save
+ * line in their place, at their height (N02). A failure keeps the buttons and
+ * adds the reason under them, with Try again for a held decision.
+ */
+function Decided({ item, on, actions, height, gap, pad = 0 }: { item: InboxItem; on: DetailActions; actions: ReactNode; height: number; gap: number; pad?: number }) {
+  const save = on.save(item);
+  const waiting = save !== undefined && save.state.kind !== "failed";
+  const row = useRef<HTMLDivElement>(null);
+  useRefocus(waiting, row);
+  if (save && waiting) {
+    return <SaveStatus state={save.state} words={SAVE_LINE} test={on.test} live={false} reserve={height + pad} style={{ paddingTop: pad || undefined }} onUndo={save.state.kind === "held" ? () => on.undo(item) : undefined} />;
+  }
+  return (
+    <>
+      <div ref={row} style={{ display: "flex", flexWrap: "wrap", gap, alignItems: "center", paddingTop: pad || undefined }}>{actions}</div>
+      {save ? <SaveStatus state={save.state} words={SAVE_LINE} test={on.test} live={false} reserve={false} onRetry={save.retry ? () => on.retry(item) : undefined} /> : null}
+    </>
+  );
+}
+
+/** After Undo the line gives way to the buttons again; focus that fell to the page goes to the first one, and nowhere else. */
+function useRefocus(waiting: boolean, row: RefObject<HTMLDivElement | null>) {
+  const was = useRef(waiting);
+  useEffect(() => {
+    const before = was.current;
+    was.current = waiting;
+    if (!before || waiting) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    row.current?.querySelector<HTMLElement>("button:not([disabled]), a[href]")?.focus({ preventScroll: true });
+  }, [waiting, row]);
+}
 
 /** "5 Oct", for the phone's "oldest" line. */
 function dayMonth(iso: string): string {
@@ -529,8 +670,12 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
       break;
   }
 
+  const save = on.save(item);
+  const waiting = save !== undefined && save.state.kind !== "failed";
+  const leaving = on.leaving(item);
   return (
-    <article className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, overflow: "hidden", animation: `xRise .44s var(--ease) ${delay}ms both` }}>
+    // While leaving, the class's animation replaces the entrance one.
+    <article className={`card${waiting ? " vx-held" : ""}${leaving ? " vx-leave" : ""}`} style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, overflow: "hidden", animation: leaving ? undefined : `xRise .44s var(--ease) ${delay}ms both` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <Tag item={item} size="m" />
         <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
@@ -538,7 +683,7 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
       <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.3 }}>{tx(item.title)}</h2>
       <p style={{ margin: 0, fontSize: 14, color: "var(--mut)", lineHeight: 1.45 }}>{tx(body)}</p>
       {item.kind === "cover" && !best ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(T.nobodyFree)}</span> : null}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 4 }}>{actions}</div>
+      <Decided item={item} on={on} actions={actions} height={44} gap={8} pad={4} />
     </article>
   );
 }
@@ -601,8 +746,10 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
       break;
   }
 
+  const save = on.save(item);
+  const waiting = save !== undefined && save.state.kind !== "failed";
   return (
-    <article style={{ maxWidth: 760, padding: "32px 40px 48px", display: "flex", flexDirection: "column", gap: 18, animation: "xIn .3s var(--ease) both" }}>
+    <article className={waiting ? "vx-held" : undefined} style={{ maxWidth: 760, padding: "32px 40px 48px", display: "flex", flexDirection: "column", gap: 18, animation: "xIn .3s var(--ease) both" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Tag item={item} size="l" />
         <span style={{ fontSize: 13, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
@@ -621,7 +768,7 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
           </dl>
         </div>
       ) : null}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>{actions}</div>
+      <Decided item={item} on={on} actions={actions} height={44} gap={10} />
       {item.footnote ? <span style={{ fontSize: 13, color: "var(--mut)", lineHeight: 1.55 }}>{tx(item.footnote)}</span> : null}
     </article>
   );

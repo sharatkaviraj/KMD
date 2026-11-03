@@ -581,7 +581,8 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
     <section style={{ background: "var(--nav)", color: "var(--navfg)", padding: "14px 18px 20px", borderRadius: "0 0 30px 30px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <Crest size={38} radius={12} />
+          {/* Beside the app's name, not the school's: here the crest is the school's only mark, so it is named (T01). */}
+          <Crest size={38} radius={12} named />
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <span style={{ fontWeight: 600, fontSize: 15 }}>VPPS One</span>
             {props.roleLine ? <span className="clip" style={{ fontSize: 12, color: "var(--navm)" }}>{tx(props.roleLine)}</span> : null}

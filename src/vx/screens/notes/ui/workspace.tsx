@@ -49,4 +49,6 @@ export type NotesProps = {
   initialClass?: string | null;
   /** `?saved=`: the note just saved, for the "Saved" states. */
   savedId?: string | null;
+  /** The session is a TEST one: the saving line says so (U01). */
+  testSession?: boolean;
 };
