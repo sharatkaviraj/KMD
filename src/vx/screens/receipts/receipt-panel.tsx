@@ -161,7 +161,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
 
       <div className="card" style={{ position: "relative", padding: "20px 20px 16px", display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 12, borderBottom: "1.5px dashed var(--bds)" }}>
-          <Crest size={42} radius={12} />
+          <Crest size={42} radius={12} still />
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <span className="serif" style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>{W.school.en}</span>
             <span lang="hi" style={{ fontSize: 12, color: "var(--mut)" }}>{W.school.hi}</span>
