@@ -264,3 +264,11 @@
 .vx .vx-receipt-paper{min-width:0;overflow-x:auto}
 .vx .vx-receipt-more{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:6px 16px 12px}
 .vx .vx-receipt-more>summary{min-height:44px;display:flex;align-items:center;font-weight:650;cursor:pointer}
+/* Review N01/N02: several decisions at once, each confirmed by the server before it shows a tick. */
+.vx-batch-list{list-style:none;margin:8px 0;padding:0;display:flex;flex-direction:column}
+.vx-batch-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid var(--bd);min-height:44px;transition:opacity .18s var(--ease)}
+.vx-batch-row input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--acc)}
+.vx-batch-state{flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center}
+.vx-batch-row.done{opacity:.6}
+.vx-batch-group{display:flex;flex-direction:column;gap:6px;padding:8px 0 14px;border-bottom:1px solid var(--bd)}
+@media (prefers-reduced-motion:reduce){.vx-batch-row{transition:none}}
