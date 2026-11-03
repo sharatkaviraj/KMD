@@ -19,6 +19,7 @@ export const TO = {
         ? p(`${n} waiting · oldest ${oldest}`, `${n} बाकी · सबसे पुराना ${oldest}`)
         : p(`${n} waiting`, `${n} बाकी`),
   allClear: p("All clear", "सब निपट गया"),
+  notAllRead: p("Not everything could be read", "सब कुछ पढ़ा नहीं जा सका"),
   allClearSub: p("Nothing in this list is waiting on you.", "इस सूची में आपके लिए कुछ बाकी नहीं।"),
   nothingInFilter: p("Nothing in this filter.", "इस छँटाई में कुछ नहीं।"),
   notMarkedCard: (classes: string): Pair =>

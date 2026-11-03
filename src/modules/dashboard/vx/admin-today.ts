@@ -7,6 +7,7 @@ import { resolveViewSession } from "@/modules/fees/platform/session-context/reso
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { settleParts } from "@/platform/helpers/partial-read";
 import { deskReason } from "@/modules/dashboard/domain/desk-reason";
 import { p, type Pair } from "@/vx/text";
 
@@ -226,8 +227,21 @@ export async function pendingAccountRequests(): Promise<PendingRefund[]> {
   });
 }
 
-/** Everything money-side that waits on an admin: refunds, the desk's reversal and write-off requests, and the accounts desk's requests. */
+/**
+ * Everything money-side that waits on an admin: refunds, the desk's reversal
+ * and write-off requests, and the accounts desk's requests. Each part stands
+ * alone: one that cannot be read no longer hides the others (T03) — the rest
+ * arrive inside a `PartialReadError` and the queue says something is missing.
+ */
 export async function pendingMoneyRequests(): Promise<PendingRefund[]> {
-  const [refunds, desk, acc] = await Promise.all([pendingRefunds(), pendingDeskRequests(), pendingAccountRequests()]);
-  return [...refunds, ...desk, ...acc];
+  return settleParts<PendingRefund>([["refunds", pendingRefunds], ["desk", pendingDeskRequests], ["accounts", pendingAccountRequests]]);
+}
+
+/**
+ * The same queue under the live Fees connection: One's own desk and accounts
+ * requests only. Fees' refund requests live in Fees, and the local
+ * `refund_requests` read is refused there by design.
+ */
+export async function pendingOneMoneyRequests(): Promise<PendingRefund[]> {
+  return settleParts<PendingRefund>([["desk", pendingDeskRequests], ["accounts", pendingAccountRequests]]);
 }

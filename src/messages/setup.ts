@@ -108,6 +108,11 @@ export const ms = {
   taskRevoke: t("लिंक बंद करें", "Revoke link"),
   taskReassign: t("फिर सौंपें और पुराना लिंक बंद करें", "Reassign and revoke old link"),
   taskUnavailable: t("शिक्षकों के काम अभी पढ़ नहीं सके। फिर प्रयास करें।", "Teacher tasks could not be read. Try again."),
+  taskTryAgain: t("फिर प्रयास करें", "Try again"),
+  taskUnmatched: t(
+    "कुछ बच्चे One में इस सत्र में दर्ज हैं पर Fees की मौजूदा सूची में नहीं हैं (छोड़ दिया, कक्षा बदली या रोका गया)। वे इस सूची में नहीं दिखेंगे। संख्या:",
+    "Some children are enrolled in One this session but not on the current Fees roster (left, moved class or held). They are left out of this list. Count:",
+  ),
   messagesProviderCheck: t("प्रदाता का परिणाम जाँचें", "Check provider result"),
   messagesProviderCheckHint: t("संदेश पहुँच सकता है। प्रदाता का डिलीवरी लॉग जाँचे बिना दोबारा न भेजें।", "This message may have arrived. Check the provider delivery log before sending again."),
   messagesProviderChecked: t("मैंने डिलीवरी लॉग जाँचा और संदेश पहुँचना सत्यापित किया।", "I checked the delivery log and verified that it arrived."),

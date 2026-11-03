@@ -26,6 +26,17 @@ export const SENTINEL_NO_TRANSPORT_ROUTE_NAME = "no transport";
 export const NO_TRANSPORT_LABEL = "No transport";
 
 /**
+ * The transport words to put beside a child, or null for no school transport.
+ * Fees always fills a label — "No transport" when there is none — so a header
+ * that showed any label drew "Bus · No transport" (review P03). A custom
+ * transport charge has no route id but is transport, so this keys on the label.
+ */
+export function shownTransportLabel(label: string | null | undefined): string | null {
+  const text = (label ?? "").trim();
+  return text && text.toLowerCase() !== NO_TRANSPORT_LABEL.toLowerCase() ? text : null;
+}
+
+/**
  * True when this route row is the placeholder rather than a real route.
  *
  * Lives here rather than in `label.ts` for the reason this module exists: every

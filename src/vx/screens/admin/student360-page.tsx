@@ -30,6 +30,7 @@ import { usesCanonicalFees, FEES_ORIGIN } from "@/platform/fees-bridge/policy";
 import { getBridgeWorkspace } from "@/platform/fees-bridge/client";
 import { bridgeStudentPhotoHref } from "@/platform/fees-bridge/student-photo";
 import { feesFromBridge } from "@/modules/students-fees/vx/canonical-students";
+import { shownTransportLabel } from "@/modules/fees/domain/transport-route-key";
 import { resolvePage } from "@/modules/students/domain/directory";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -102,7 +103,7 @@ export async function Student360Content({ id, search }: { id: string; search: Re
           source,name:source.student.fullName,classLabel:source.student.classLabel,sr:source.student.admissionNo,rollNo:source.student.rollNo,
           father:source.student.fatherName,mother:source.student.motherName,phone:source.student.guardianPhone||source.student.fatherPhone||source.student.motherPhone,
           photoUrl:source.student.hasPhoto?bridgeStudentPhotoHref(id,source.sessionLabel,"full"):null,
-          status:source.student.status,address:source.student.address,dob:source.student.dateOfBirth,joined:source.student.joinedOn,route:source.student.transportRouteLabel||null,
+          status:source.student.status,address:source.student.address,dob:source.student.dateOfBirth,joined:source.student.joinedOn,route:shownTransportLabel(source.student.transportRouteLabel),
         }:{};
         return fees === "unavailable" ? { ...profile,unavailable: true } : fees
           ? {

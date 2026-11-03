@@ -6,6 +6,7 @@ import { lead } from "@/vx/text";
 import { rupees } from "@/vx/format";
 import { Grid, Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Card, EmptyState, Pill, SecHead } from "@/vx/ui/primitives";
+import { RetryButton } from "@/vx/ui/read-state";
 
 function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return <dl style={{ margin: 0, display: "grid", gap: 12 }}>{rows.map(([label, value]) => <div key={label} style={{ minWidth: 0 }}>
@@ -75,8 +76,43 @@ export function CanonicalReceipt({ receipt, language }: { receipt: BridgeReceipt
   </VxPage>;
 }
 
-export function CanonicalReceiptUnavailable({ language }: { language: Language }) {
-  return <VxPage><TopBar title={lead({ en: "Receipt unavailable", hi: "रसीद उपलब्ध नहीं है" }, language)} mBack="/students" />
-    <Section><EmptyState icon="receipt" title={lead({ en: "The receipt could not be loaded. Please try again.", hi: "रसीद लोड नहीं हो सकी। कृपया फिर प्रयास करें।" }, language)} action={<Btn href="/students">{lead({ en: "Students", hi: "विद्यार्थी" }, language)}</Btn>} /></Section>
+/**
+ * Why a receipt cannot be shown here, in words staff can act on (F02) — never
+ * a bare "Page not found". `missing_link`: an older link carried only the
+ * number; `unreadable`: Fees refused or does not have it — one message for
+ * both, so this page never confirms that a refused receipt exists; `access`:
+ * this account or session may not use the Fees connection; `error`: Fees did
+ * not answer.
+ */
+export type ReceiptUnavailableReason = "missing_link" | "unreadable" | "access" | "error";
+
+const WHY: Record<ReceiptUnavailableReason, { en: string; hi: string }> = {
+  missing_link: { en: "This link has only the receipt number, so One cannot be sure which receipt it means. Open it in Fees, or open it from the student's Fees tab.", hi: "इस लिंक में केवल रसीद नंबर है, इसलिए One यह तय नहीं कर सकता कि कौन-सी रसीद है। इसे Fees में खोलें, या विद्यार्थी के फ़ीस टैब से खोलें।" },
+  unreadable: { en: "One cannot open this receipt for this session. A receipt that covers fees from another school year opens in Fees; a mistyped link opens nothing.", hi: "One इस सत्र के लिए यह रसीद नहीं खोल सकता। दूसरे सत्र की फ़ीस वाली रसीद Fees में खुलती है; ग़लत लिखा लिंक कुछ नहीं खोलता।" },
+  access: { en: "Your account cannot open receipts for this session here. Ask an administrator if you need it.", hi: "आपका खाता यहाँ इस सत्र की रसीदें नहीं खोल सकता। ज़रूरत हो तो व्यवस्थापक से पूछें।" },
+  error: { en: "Fees did not answer just now. Your receipt is not lost — try again in a moment.", hi: "Fees से अभी जवाब नहीं मिला। आपकी रसीद खोई नहीं है — थोड़ी देर में फिर प्रयास करें।" },
+};
+
+export function CanonicalReceiptUnavailable({ language, reason = "error", receiptNumber, receiptId, sessionLabel, studentId }: {
+  language: Language;
+  reason?: ReceiptUnavailableReason;
+  receiptNumber?: string;
+  receiptId?: string;
+  sessionLabel?: string;
+  studentId?: string;
+}) {
+  const t = (en: string, hi: string) => lead({ en, hi }, language);
+  // Fees' own receipt page when the exact receipt is known; otherwise its receipt list.
+  const fees = receiptId
+    ? `https://fees.vpps.co.in/protected/receipts/${receiptId}${sessionLabel ? `?${new URLSearchParams({ session: sessionLabel })}` : ""}`
+    : "https://fees.vpps.co.in/protected/receipts";
+  const back = studentId ? `/students/${studentId}?tab=fees` : "/students";
+  return <VxPage><TopBar title={receiptNumber || t("Receipt unavailable", "रसीद उपलब्ध नहीं है")} crumb={t("Receipt unavailable", "रसीद उपलब्ध नहीं है")} mBack={back} />
+    <Section><EmptyState icon="receipt" title={t("This receipt cannot be shown here", "यह रसीद यहाँ नहीं दिखाई जा सकती")} body={lead(WHY[reason], language)}
+      action={<div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
+        {reason === "error" ? <RetryButton /> : null}
+        {reason !== "access" ? <Btn href={fees}>{t("Open in Fees", "Fees में खोलें")}</Btn> : null}
+        <Btn href={back}>{studentId ? t("Back to student", "विद्यार्थी पर वापस") : t("Students", "विद्यार्थी")}</Btn>
+      </div>} /></Section>
   </VxPage>;
 }

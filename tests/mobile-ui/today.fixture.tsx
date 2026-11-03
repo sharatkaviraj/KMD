@@ -44,6 +44,9 @@ const NAMES = new Map(SLOTS.map((slot) => [slot.staffProfileId, `${slot.teacherS
 export function TodayFixture({ language }: { language: Language }) {
   const params = new URLSearchParams(location.search);
   const at = params.get("at") ?? "10:05";
+  // T03 states: `missing=refunds,submissions` (Needs you sources unread), `unread=board` (Today's own reads).
+  const inboxMissing = (params.get("missing") ?? "").split(",").filter(Boolean);
+  const todayMissing = (params.get("unread") ?? "").split(",").filter(Boolean);
   const [h, m] = at.split(":").map(Number);
   const schedule = scheduleNow({
     bells: BELLS,
@@ -75,6 +78,8 @@ export function TodayFixture({ language }: { language: Language }) {
             staffAway={2}
             cover={{ missed: 0, needed: 2, arranged: 1 }}
             inbox={[]}
+            inboxMissing={inboxMissing}
+            todayMissing={todayMissing}
             timeline={[
               { time: "07:45", title: { en: "First bell" }, sub: { en: "Period 1 starts" }, state: "done" },
               { time: "08:25", title: { en: "Attendance closes" }, sub: { en: "4 not marked yet" }, state: "alert" },
@@ -83,10 +88,10 @@ export function TodayFixture({ language }: { language: Language }) {
             ]}
             schedule={schedule}
             scheduleFailed={false}
-            exceptions={{ notMarked: ["9A", "9B", "10A", "12 Arts"], cover: [] }}
+            exceptions={todayMissing.includes("board") ? { notMarked: null, cover: null } : { notMarked: ["9A", "9B", "10A", "12 Arts"], cover: [] }}
             support={{ needsAction: 1, due: 1 }}
             actions={[]}
-            links={{ collect: false, attendance: true, substitutions: true, review: false, timetable: true }}
+            links={{ collect: false, attendance: true, substitutions: true, review: inboxMissing.includes("submissions"), timetable: true }}
             unavailable={false}
           />
           <div id="vx-layer" />

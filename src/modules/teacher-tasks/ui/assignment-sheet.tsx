@@ -52,7 +52,7 @@ export function AssignmentLauncher({ language, selectedIds, initialKind = "colle
   return <>
     {button}
     <Sheet open={open} onClose={() => setOpen(false)} title={single ? `${lead(ms.taskAssign, language)} · ${single.name}` : lead(ms.taskAssign, language)}>
-      {error ? <p role="alert">{lead(ms.taskUnavailable, language)}</p> : context ? <AssignmentEditor key={`${selectedIds?.join(",")}:${initialKind}:${initialMissing}`} context={context} selectedIds={selectedIds} initialKind={initialKind} initialMissing={initialMissing} language={language} close={() => setOpen(false)} /> : <p aria-live="polite">…</p>}
+      {error ? <div role="alert" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}><p style={{ margin: 0 }}>{lead(ms.taskUnavailable, language)}</p><Btn icon="refresh" disabled={pending} onClick={show}>{lead(ms.taskTryAgain, language)}</Btn></div> : context ? <>{context.unmatched > 0 ? <p role="status" style={{ margin: "0 0 10px", fontSize: 13, color: "var(--warnfg)", background: "var(--warns)", padding: "8px 12px", borderRadius: 12 }}>{lead(ms.taskUnmatched, language)} {context.unmatched}</p> : null}<AssignmentEditor key={`${selectedIds?.join(",")}:${initialKind}:${initialMissing}`} context={context} selectedIds={selectedIds} initialKind={initialKind} initialMissing={initialMissing} language={language} close={() => setOpen(false)} /></> : <p aria-live="polite">…</p>}
     </Sheet>
   </>;
 }

@@ -1,5 +1,23 @@
 # VPPS One — progress
 
+## Review plan, Phase 1: trust fixes — 3 November 2026
+
+Branch `fix/review-trust-phase1` from `2437e9ae`. Raj's 3 Nov review plan is
+mapped per ID in `docs/plans/2026-11-03-review-plan-implementation.md`. Root
+cause shared by most findings: readers left on local fee tables after the Fees
+connection went live, with refusals turned into empty results. Built: global
+search through the Fees directory/One roster with honest failure (S01), no
+false "fee figures could not be read" (T02), per-part money requests and
+could-not-read states with Try again instead of 0/"All clear" (T03),
+Assign Work tolerant of children missing from the Fees roster (N03, confirmed
+from production `student_missing`), explained receipt refusals (F02), the real
+logo (T01), no "Bus · No transport" (P03), and the waiver shown only when a
+late fee is pending. No migration, no data write, no message. Fees-side reads
+(`/summary/today`, `/requests/pending`, `/receipts/lookup`, `/receipts`,
+cross-session receipt detail) are being built in schoolfees
+`feat/one-bridge-office-reads`; One wires them in the next branch. Remaining:
+release CI, then Phase 2.
+
 ## School Office second pass — 3 November 2026
 
 Branch `feat/school-office-v2` (with `feat/returns-readiness-copilot` merged in),

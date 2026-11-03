@@ -6,7 +6,7 @@ import { flat, type Language } from "@/platform/i18n/language";
 import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
 import type { BridgePostInput, BridgePostedPayment, BridgeQuote, BridgeStudent, BridgeReceipt } from "@/platform/fees-bridge/contracts";
 import { postInputSchema } from "@/platform/fees-bridge/contracts";
-import { checkBridgePaymentAction, reviewBridgePaymentAction, saveBridgePaymentAction, searchBridgeStudentsAction } from "@/app/(app)/payments/bridge-actions";
+import { bridgeLateFeeAction, checkBridgePaymentAction, reviewBridgePaymentAction, saveBridgePaymentAction, searchBridgeStudentsAction } from "@/app/(app)/payments/bridge-actions";
 
 const money = (value:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(value);
 const field = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900";
@@ -32,6 +32,9 @@ export function LiveFeesDesk(props:{
   const [date,setDate]=useState(props.today);
   const [discount,setDiscount]=useState("0");
   const [waive,setWaive]=useState(props.canWaive);
+  // The waiver is offered only once a chosen child has a late fee pending (review: it showed, ticked,
+  // before any child was picked). null: not known yet; a failed read leaves the box shown, as before.
+  const [lateFee,setLateFee]=useState<{studentId:string;pending:number|null}|null>(null);
   const [mode,setMode]=useState<BridgePostInput["paymentMode"]>("cash");
   const [reference,setReference]=useState("");
   const [remarks,setRemarks]=useState("");
@@ -67,6 +70,17 @@ export function LiveFeesDesk(props:{
     });
     return()=>{active=false;};
   },[recoveryKey,props.sessionLabel,props.language]);
+  useEffect(()=>{
+    if(!studentId||!props.canWaive)return;
+    let active=true;
+    bridgeLateFeeAction(studentId,props.sessionLabel)
+      .then(result=>{if(active)setLateFee({studentId,pending:result.ok?result.data:null});})
+      .catch(()=>{if(active)setLateFee({studentId,pending:null});});
+    return()=>{active=false;};
+  },[studentId,props.sessionLabel,props.canWaive]);
+  const lateFeeKnown=lateFee?.studentId===studentId?lateFee.pending:undefined;
+  // Ticked by default when shown (the office's 27 Oct call); hidden with nothing to waive.
+  const offerWaive=props.canWaive && Boolean(studentId) && (lateFeeKnown===null || (lateFeeKnown??0)>0);
   const locked=pending || command!==null || recoveryError;
   const feesLink=`${FEES_ORIGIN}/protected/payments?${new URLSearchParams({session:props.sessionLabel,...(studentId?{studentId}:{})})}`;
   const receipt=saved??openedReceipt;
@@ -83,7 +97,7 @@ export function LiveFeesDesk(props:{
   });}
   function review(){startTransition(async()=>{
     try{
-      const result=await reviewBridgePaymentAction({studentId,sessionLabel:props.sessionLabel,paymentDate:date,amount:Number(amount),quickDiscountAmount:Number(discount),lateFeeWaiverAmount:0},waive);
+      const result=await reviewBridgePaymentAction({studentId,sessionLabel:props.sessionLabel,paymentDate:date,amount:Number(amount),quickDiscountAmount:Number(discount),lateFeeWaiverAmount:0},waive&&offerWaive);
       if(!result.ok){setMessage(result.message);setQuote(null);return;}
       setQuote(result.data);setMessage(null);
     }catch{setQuote(null);setMessage(label(ms.bridgeUnavailable));}
@@ -139,10 +153,11 @@ export function LiveFeesDesk(props:{
           <label className="text-sm">{label(ms.bridgeMode)}<select className={field} value={mode} onChange={event=>{setMode(event.target.value as BridgePostInput["paymentMode"]);}}><option value="cash">{label(ms.bridgeCash)}</option><option value="upi">{label(ms.bridgeUpi)}</option><option value="bank_transfer">{label(ms.bridgeBank)}</option><option value="cheque">{label(ms.bridgeCheque)}</option></select></label>
           <label className="text-sm">{label(ms.bridgeReference)}<input className={field} maxLength={200} value={reference} onChange={event=>setReference(event.target.value)}/></label>
           {props.canDiscount && <label className="text-sm">{label(ms.bridgeDiscount)}<input className={field} type="number" min="0" step="1" inputMode="numeric" value={discount} onChange={event=>{setDiscount(event.target.value);changed();}}/></label>}
-          {props.canWaive && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={waive} onChange={event=>{setWaive(event.target.checked);changed();}}/>{label(ms.bridgeWaive)}</label>}
+          {offerWaive && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={waive} onChange={event=>{setWaive(event.target.checked);changed();}}/>{label(ms.bridgeWaive)}{lateFeeKnown ? ` · ${money(lateFeeKnown)}` : ""}</label>}
         </div>
         <label className="block text-sm">{label(ms.bridgeNotes)}<textarea className={field} maxLength={1000} value={remarks} onChange={event=>setRemarks(event.target.value)}/></label>
-        <button className={button} disabled={!studentId || !amount} onClick={review}>{label(ms.bridgeReview)}</button>
+        {/* Review waits for the child's late fee, so the default waiver is never skipped by a quick tap. */}
+        <button className={button} disabled={!studentId || !amount || (props.canWaive && lateFeeKnown===undefined)} onClick={review}>{label(ms.bridgeReview)}</button>
       </fieldset>
       {quote && <div className="space-y-3 rounded-xl border border-slate-200 p-4">
         <h2 className="font-semibold">{quote.student.name} · {quote.student.srNo}</h2>

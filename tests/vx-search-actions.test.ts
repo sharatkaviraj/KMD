@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * The search palette's one server call keeps its permission checks while it
@@ -13,6 +13,9 @@ const state = vi.hoisted(() => ({
   master: vi.fn(),
   receipts: vi.fn(),
   recent: vi.fn(),
+  canonical: false,
+  directory: vi.fn(),
+  roster: vi.fn(),
 }));
 
 vi.mock("@/platform/auth/current-staff", () => ({ assertStaff: vi.fn(async () => ({ id: "qa-staff", role: "admin" })) }));
@@ -22,6 +25,13 @@ vi.mock("@/modules/fees/platform/session-context/resolver", () => ({ resolveView
 vi.mock("@/modules/students-fees/data/queries", () => ({ getStudents: state.students, getStudentMasterFieldsByIds: state.master }));
 vi.mock("@/modules/receipts/data/queries", () => ({ getReceiptsList: state.receipts }));
 vi.mock("@/modules/students-fees/vx/admin-students", () => ({ recentReceiptsFor: state.recent }));
+vi.mock("@/modules/academics/data/academics-repo", () => ({
+  resolveSessionLabel: vi.fn(async () => (state.canonical ? "2026-27" : "QA-2026-27")),
+  classLabelMap: vi.fn(async () => new Map([["qa-class-7", "Class 7"]])),
+}));
+vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: () => state.canonical }));
+vi.mock("@/platform/fees-bridge/client", () => ({ getBridgeDirectory: state.directory }));
+vi.mock("@/modules/students/data/directory-repo", () => ({ searchStudents: state.roster }));
 vi.mock("@/modules/staff/data/staff-repo", () => ({
   listStaff: vi.fn(async () => [
     { id: "qa-t1", displayName: "Jainendra Test", shortName: "JT", isActive: true },
@@ -96,5 +106,80 @@ describe("searchEverythingAction", () => {
     state.perms = new Set(["students:view", "fees:view"]);
     expect(await searchEverythingAction("a")).toEqual({ students: [], receipts: [], actions: [] });
     expect(state.students).not.toHaveBeenCalled();
+  });
+
+  it("says the students part failed instead of returning a confident empty list", async () => {
+    state.perms = new Set(["students:view", "fees:view"]);
+    state.students.mockRejectedValue(new Error("refused"));
+    const r = await searchEverythingAction("aarav");
+    expect(r.students).toEqual([]);
+    expect(r.failed).toEqual(["students"]);
+  });
+});
+
+describe("searchEverythingAction under the live Fees connection (S01)", () => {
+  const row = {
+    id: "qa-child", classId: "qa-class-7", fullName: "Aarav Test", admissionNo: "0001", classLabel: "Class 7", status: "active",
+    fatherName: "Synthetic Father", motherName: "Synthetic Mother", fatherPhone: "9000000001", motherPhone: "9000000002",
+    overdueAmount: 4200, outstandingAmount: 17500, pendingLateFeeAmount: 100, totalPaid: 6800, totalDue: 24400, lateFeeTotal: 100,
+  };
+  const page = (students: unknown[]) => ({ sessionLabel: "2026-27", students });
+
+  beforeEach(() => {
+    state.canonical = true;
+    state.directory.mockResolvedValue(page([row]));
+    state.roster.mockResolvedValue({ rows: [{ studentId: "qa-child", fullName: "Aarav Test", admissionNo: "0001", fatherName: "Synthetic Father", guardianPhone: "9000000001", classId: "qa-class-7", rollNo: "4" }], total: 1 });
+    state.recent.mockResolvedValue([{ id: "00000000-0000-4000-8000-000000000001", number: "SVP-1", amount: 2400, date: "2026-10-02", mode: "upi", reversed: false, session: "2026-27" }]);
+  });
+  afterEach(() => {
+    state.canonical = false;
+  });
+
+  it("asks the Fees directory, never the refused local tables, and keeps money, Collect and the call", async () => {
+    state.perms = new Set(["students:view", "fees:view", "fees:collect"]);
+    const r = await searchEverythingAction("aarav");
+    expect(state.students).not.toHaveBeenCalled();
+    expect(state.receipts).not.toHaveBeenCalled();
+    expect(state.directory).toHaveBeenCalledWith(expect.objectContaining({ sessionLabel: "2026-27", query: "aarav", status: "active", pageSize: 5 }));
+    expect(r.students[0]).toEqual(expect.objectContaining({ name: "Aarav Test", sr: "0001", parent: "Synthetic Father", money: { kind: "pending", amount: 4200 } }));
+    expect(r.actions.map((a) => a.kind)).toEqual(["collect", "call"]);
+    expect(r.failed).toBeUndefined();
+  });
+
+  it("links a child's receipt with its source id and session, so the receipt page can open it", async () => {
+    state.perms = new Set(["students:view", "fees:view"]);
+    const r = await searchEverythingAction("aarav");
+    expect(r.receipts[0].href).toBe("/receipts/SVP-1?receiptId=00000000-0000-4000-8000-000000000001&session=2026-27");
+  });
+
+  it("finds a child who has left when nobody on the roll matches", async () => {
+    state.perms = new Set(["fees:view"]);
+    state.directory.mockResolvedValueOnce(page([])).mockResolvedValueOnce(page([row]));
+    const r = await searchEverythingAction("aarav");
+    expect(state.directory.mock.calls.map(([input]) => input.status)).toEqual(["active", "all"]);
+    expect(r.students).toHaveLength(1);
+  });
+
+  it("explains a parent's-name match and sends a pasted phone as ten digits", async () => {
+    state.perms = new Set(["fees:view"]);
+    expect((await searchEverythingAction("synthetic mother")).students[0].why).toEqual({ kind: "mother", text: "Synthetic Mother" });
+    await searchEverythingAction("+91 90000 00002");
+    expect(state.directory).toHaveBeenLastCalledWith(expect.objectContaining({ query: "9000000002" }));
+  });
+
+  it("uses One's own roster for a reader without fee access", async () => {
+    state.perms = new Set(["students:view"]);
+    const r = await searchEverythingAction("aarav");
+    expect(state.directory).not.toHaveBeenCalled();
+    expect(state.roster).toHaveBeenCalledWith({ text: "aarav", classId: null, page: 1 }, "2026-27");
+    expect(r.students[0]).toEqual(expect.objectContaining({ classLabel: "Class 7", money: null, href: "/students/qa-child" }));
+  });
+
+  it("reports a failed Fees read instead of Nothing matches", async () => {
+    state.perms = new Set(["fees:view"]);
+    state.directory.mockRejectedValue(new Error("source down"));
+    const r = await searchEverythingAction("aarav");
+    expect(r.students).toEqual([]);
+    expect(r.failed).toEqual(["students"]);
   });
 });

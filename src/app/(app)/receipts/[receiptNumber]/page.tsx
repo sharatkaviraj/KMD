@@ -10,7 +10,11 @@ import { canAccessSession } from "@/platform/auth/test-session-policy";
 import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { getBridgeReceiptDetail } from "@/platform/fees-bridge/client";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
-import { CanonicalReceipt, CanonicalReceiptUnavailable } from "@/vx/screens/receipts/canonical-receipt";
+import { CanonicalReceipt, CanonicalReceiptUnavailable, type ReceiptUnavailableReason } from "@/vx/screens/receipts/canonical-receipt";
+
+function safeDecode(value: string): string {
+  try { return decodeURIComponent(value); } catch { return value; }
+}
 
 export const runtime = "nodejs";
 
@@ -29,16 +33,23 @@ export default async function ReceiptPage({
   const session = requestedSession ?? await getViewSessionCookie();
   if (usesCanonicalFees(staff, session)) {
     // A display number alone must never choose an unrelated local receipt.
+    // Every refusal below explains itself rather than ending in a 404 (F02).
+    const number = safeDecode(receiptNumber);
     const receiptId = typeof search.receiptId === "string" ? search.receiptId : "";
-    if (!requestedSession || !/^\d{4}-\d{2}$/.test(requestedSession) || !canAccessSession(staff, requestedSession)
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receiptId)) notFound();
+    const unavailable = (reason: ReceiptUnavailableReason, id?: string) => (
+      <CanonicalReceiptUnavailable language={staff.language} reason={reason} receiptNumber={number} receiptId={id} sessionLabel={requestedSession ?? undefined} />
+    );
+    if (!requestedSession || !/^\d{4}-\d{2}$/.test(requestedSession) || !canAccessSession(staff, requestedSession)) return unavailable(requestedSession ? "access" : "missing_link");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receiptId)) return unavailable("missing_link");
     let receipt;
     try { receipt = await getBridgeReceiptDetail(receiptId, requestedSession); }
     catch (error) {
-      if (error instanceof FeesBridgeError && ["not_found", "forbidden", "unauthorized"].includes(error.code)) notFound();
-      return <CanonicalReceiptUnavailable language={staff.language} />;
+      const code = error instanceof FeesBridgeError ? error.code : "";
+      // Refused and missing read alike, so the page never confirms a refused receipt exists.
+      return code === "forbidden" || code === "not_found" ? unavailable("unreadable") : code === "unauthorized" ? unavailable("access") : unavailable("error", receiptId);
     }
-    if (receipt.detail.receiptNumber !== receiptNumber) notFound();
+    // The number in the address must be this receipt's; compared decoded, as the local branch does.
+    if (receipt.detail.receiptNumber !== number) return unavailable("unreadable");
     return <CanonicalReceipt receipt={receipt} language={staff.language} />;
   }
   const props = await loadReceiptsDesk(staff, search, decodeURIComponent(receiptNumber));

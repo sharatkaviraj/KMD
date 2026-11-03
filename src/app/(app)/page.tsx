@@ -7,11 +7,11 @@ import { can } from "@/platform/auth/permissions";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { resolveStart } from "@/platform/config/start";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { pendingMoneyRequests, todayMoney } from "@/modules/dashboard/vx/admin-today";
+import { todayMoney } from "@/modules/dashboard/vx/admin-today";
 import { initials, longDay, schoolToday } from "@/vx/format";
 import { MENU_HOME, QUICK_ACTIONS } from "@/vx/nav";
 import { boardSummary, runningPeriod, schoolMinutes, sortInbox } from "@/vx/screens/admin/logic";
-import { loadInbox, loadToday, promisedToday, weekAttendance } from "@/vx/screens/admin/data";
+import { loadInbox, loadToday, moneyRequestsFor, promisedToday, weekAttendance } from "@/vx/screens/admin/data";
 import { T } from "@/vx/screens/admin/text";
 import { TodayScreen, type TodayProps } from "@/vx/screens/admin/today";
 import { dayPercent } from "@/vx/screens/admin/today-logic";
@@ -77,7 +77,7 @@ export default async function TodayPage() {
           .catch(() => null)
       : Promise.resolve(null),
     can(staff, "attendance:correct")
-      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney && !canonicalMoney ? pendingMoneyRequests : undefined, nowMinutes: minutes })
+      ? loadInbox(staff, sessionLabel, today, { refunds: moneyRequestsFor(staff, sessionLabel), nowMinutes: minutes })
       : Promise.resolve(null),
     can(staff, "attendance:view") ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
   ]);
@@ -127,11 +127,15 @@ export default async function TodayPage() {
         today={today}
         beforeNoon={minutes < 12 * 60}
         money={money}
-        moneyFailed={seesMoney && money === null}
+        // Under the Fees connection the local money read is never attempted, so its
+        // absence is not a failure (review T02): the ledger notice says where the figures live.
+        moneyFailed={seesMoney && !canonicalMoney && money === null}
         attendance={board && summary ? { marked: summary.marked, total: summary.total, percent: summary.percent, schoolOpen: board.schoolOpen } : null}
         staffAway={facts.staffAway}
         cover={facts.cover}
         inbox={inbox ? sortInbox(inbox.items) : null}
+        inboxMissing={inbox?.unavailable ?? []}
+        todayMissing={facts.unavailable}
         timeline={facts.timeline}
         schedule={facts.schedule}
         scheduleFailed={facts.scheduleFailed}

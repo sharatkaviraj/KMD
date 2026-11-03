@@ -8,6 +8,9 @@ import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { addDays, dayLabel, weekdayLabel, weekdayName } from "@/platform/dates";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { PartialReadError } from "@/platform/helpers/partial-read";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { pendingMoneyRequests, pendingOneMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
@@ -111,14 +114,29 @@ type MoneyRequest = { id: string; studentId: string; studentName: string; amount
 type MoneyRequests = () => Promise<MoneyRequest[]>;
 const moneyRequests = cache((read: MoneyRequests) => read());
 
-/** Run a read; a failure becomes null and is recorded rather than shown as nought (D-93). */
+/**
+ * Run a read; a failure becomes null and is recorded rather than shown as
+ * nought (D-93). A partial read keeps what arrived and is still recorded, so
+ * the queue shows those items and says the rest could not be read (T03).
+ */
 async function guard<T>(missing: string[], key: string, read: () => Promise<T>): Promise<T | null> {
   try {
     return await read();
-  } catch {
+  } catch (error) {
     missing.push(key);
-    return null;
+    return error instanceof PartialReadError ? (error.partial as T) : null;
   }
+}
+
+/**
+ * Who may see money requests, and where they come from: the full local queue,
+ * or under the live Fees connection One's own desk and accounts requests
+ * (Fees' refund queue is not readable from here). One stable function per
+ * case, so the request cache shares one read between the page and the badge.
+ */
+export function moneyRequestsFor(staff: CurrentStaff, sessionLabel: string): MoneyRequests | undefined {
+  if (!can(staff, "fees:view")) return undefined;
+  return usesCanonicalFees(staff, sessionLabel) ? pendingOneMoneyRequests : pendingMoneyRequests;
 }
 
 /* ------------------------------------------------------- class teachers */
