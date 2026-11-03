@@ -42,3 +42,33 @@ export type BridgeReceiptLookup = z.infer<typeof bridgeReceiptLookupSchema>;
 
 /** The receipt-number shape Fees accepts for a lookup; anything else is never sent. */
 export const RECEIPT_NUMBER = /^[A-Za-z0-9/_.-]{1,64}$/;
+
+export const bridgeReceiptListSchema = z.object({
+  ...pins,
+  from: text,
+  to: text,
+  query: text,
+  receipts: z.array(z.object({
+    receiptId: uuid,
+    receiptNumber: text,
+    paymentDate: text,
+    createdAt: text,
+    student: z.object({ id: uuid.nullable(), name: text, classLabel: text, srNo: text }),
+    amount,
+    paymentMode: text,
+    paymentModeLabel: text,
+    referenceNumber: nullableText,
+    status: z.enum(["active", "reversed"]),
+    collectedBy: nullableText,
+  })),
+  pagination: z.object({ page: count, pageSize: count, totalCount: count, hasMore: z.boolean() }),
+  totals: z.object({ receiptCount: count, totalAmount: amount, averageAmount: amount, truncated: z.boolean() }),
+  days: z.array(z.object({
+    date: text,
+    receiptCount: count,
+    totalAmount: amount,
+    dayClose: z.object({ status: text, closedAt: nullableText, closedBy: nullableText }).nullable(),
+  })),
+  dayCloseVisible: z.boolean(),
+});
+export type BridgeReceiptList = z.infer<typeof bridgeReceiptListSchema>;

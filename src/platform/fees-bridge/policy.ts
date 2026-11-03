@@ -65,7 +65,10 @@ const NATIVE_FINANCE_ROUTES: Readonly<Record<string, string>> = {
 };
 
 /** Exact path segments, fixed origin and no tokens or untrusted query forwarding. */
-export function delegatedFeesPath(pathname: string): string | null {
+export function delegatedFeesPath(pathname: string, env: Environment = process.env): string | null {
+  // The receipts list and day book are native once Fees' office reads are live (review F01);
+  // everything under it (reversal, close, print screens) stays with Fees.
+  if (pathname === "/receipts" && feesBridgeOfficeReads(env)) return null;
   if (pathname === "/fees" || pathname.startsWith("/fees/")) {
     const candidate=pathname === "/fees" ? "/protected/dashboard" : `/protected${pathname.slice(5)}`;
     return isExistingFeesPath(candidate)?candidate:"/protected/dashboard";

@@ -5,7 +5,7 @@ import { assertPermission, assertStaff, type CurrentStaff } from "@/platform/aut
 import { createClient } from "@/platform/supabase/server";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { bridgeDirectorySchema, bridgeReceiptDetailSchema, bridgeWorkspaceSchema } from "./student-read-contracts";
-import { bridgePendingRequestsSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
+import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import { oneStudentReadPermissions, permittedFinanceKinds, restrictStudentWorkspace } from "./read-permissions";
 import { assertBridgeSession, feesBridgeOrigin, feesBridgeWritesEnabled, usesCanonicalFees } from "./policy";
 import { bridgeDocumentRequest, bridgePhotoRequest, bridgeRequest, FeesBridgeError } from "./transport";
@@ -111,6 +111,19 @@ export async function lookupBridgeReceipt(receiptNumber:string,sessionLabel:stri
   const number=z.string().regex(RECEIPT_NUMBER).parse(receiptNumber);
   const result=await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/receipts/lookup?${new URLSearchParams({session:sessionLabel,number})}`,schema:bridgeReceiptLookupSchema});
   if(result.sessionLabel!==sessionLabel || result.receiptNumber!==number)throw new FeesBridgeError("invalid_response","The Fees receipt did not match this number.");
+  return result;
+}
+
+/** Fees' Receipts page for a date range: receipts, totals by day and each day's close. */
+export async function getBridgeReceipts(input:{sessionLabel:string;from:string;to:string;query:string;page:number;pageSize:number}) {
+  const staff=await assertPermission("fees:view");
+  if(!oneStudentReadPermissions(staff).receipts)throw new FeesBridgeError("forbidden","Your account cannot view receipts.");
+  const day=z.iso.date();
+  const params=new URLSearchParams({session:input.sessionLabel,from:day.parse(input.from),to:day.parse(input.to),
+    query:z.string().trim().max(100).regex(/^[\p{L}\p{N} /_.-]*$/u).parse(input.query),
+    page:String(z.number().int().min(1).max(10000).parse(input.page)),pageSize:String(z.number().int().min(1).max(100).parse(input.pageSize))});
+  const result=await bridgeRequest({...(await credentials(staff,input.sessionLabel)),path:`/receipts?${params}`,schema:bridgeReceiptListSchema});
+  if(result.sessionLabel!==input.sessionLabel)throw new FeesBridgeError("invalid_response","The Fees receipts did not match this session.");
   return result;
 }
 

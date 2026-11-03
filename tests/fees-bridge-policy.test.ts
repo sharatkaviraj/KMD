@@ -1,5 +1,5 @@
 import { describe,it,expect } from "vitest";
-import { assertBridgeSession,feesBridgeEnabled,feesBridgeOrigin,feesBridgeWritesEnabled,feesDestination,usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { assertBridgeSession,delegatedFeesPath,feesBridgeEnabled,feesBridgeOrigin,feesBridgeWritesEnabled,feesDestination,usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { projectionUrl } from "@/platform/fees-bridge/projection-policy";
 
 const production={FEES_BRIDGE_ENABLED:"true",VERCEL_ENV:"production"};
@@ -51,5 +51,16 @@ describe("identity projection contract",()=>{
   });
   it("never translates ledger tables or an RPC",()=>{
     for(const table of ["receipts","payments","student_fee_ledger","rpc/post_student_payment","v_student_directory"])expect(projectionUrl(new URL(`https://one.supabase.co/rest/v1/${table}`))).toBeNull();
+  });
+});
+
+describe("native receipts list once Fees' office reads are live (review F01)",()=>{
+  const on={FEES_BRIDGE_ENABLED:"true",FEES_BRIDGE_OFFICE_READS:"true"};
+  it("keeps /receipts in One with the switch on, and only then",()=>{
+    expect(delegatedFeesPath("/receipts",on)).toBeNull();
+    expect(delegatedFeesPath("/receipts",{FEES_BRIDGE_ENABLED:"true"})).toBe("/protected/receipts");
+  });
+  it("still sends every nested receipts operation to Fees",()=>{
+    expect(delegatedFeesPath("/receipts/SVP-1/reverse",on)).toBe("/protected/receipts");
   });
 });

@@ -127,6 +127,7 @@ export const ANNOTATIONS = {
   FEES_BRIDGE_SYNC_KEY: ["deployment operator", "separate source sync credential; production only"],
   FEES_BRIDGE_CRON_SECRET: ["deployment operator", "dedicated One scheduler credential; same value in Vault; production only"],
   FEES_BRIDGE_WRITES_ENABLED: [OWNER, "false until canonical TEST command acceptance and named actor grants; never enables local real fee writes"],
+  FEES_BRIDGE_OFFICE_READS: [OWNER, "false until Fees migration 20261103170000_one_bridge_office_reads is applied; then true for Fees totals, refund requests, receipt lookup and the day book"],
   ONE_BRIDGE_ENABLED: ["Fees deployment operator", "set on Fees production for coexistence; database read/command/sync gates remain independent"],
   ONE_BRIDGE_KEY: ["Fees deployment operator", "set on Fees production; new server-only credential matching One; no preview copy"],
   ONE_BRIDGE_SYNC_SECRET: ["Fees deployment operator", "set on Fees production; separate synchronization credential"],
