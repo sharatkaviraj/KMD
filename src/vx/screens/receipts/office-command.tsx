@@ -150,7 +150,7 @@ const R = {
   means: (amount: string) => p(`Takes back what is left of ${amount} on this receipt. Fees records it in your name and the dues return to the student. The family is not messaged.`, `इस रसीद की ${amount} में से बची राशि वापस ली जाएगी। Fees इसे आपके नाम दर्ज करेगा और बकाया विद्यार्थी पर लौटेगा। परिवार को संदेश नहीं जाएगा।`),
   reason: p("Reason", "कारण"),
   note: p("What happened", "क्या हुआ"),
-  typeNumber: (number: string) => p(`Type the receipt number to confirm: ${number}`, `पुष्टि के लिए रसीद नंबर लिखें: ${number}`),
+  typeNumber: (number: string) => p(`Type the receipt number to confirm: ${number}`, `पक्का करने के लिए रसीद नंबर लिखें: ${number}`),
   confirm: p("Reverse in Fees", "Fees में रद्द करें"),
   cancel: p("Cancel", "रहने दें"),
   done: (amount: string) => p(`Reversed in Fees: ${amount} taken back.`, `Fees में रद्द: ${amount} वापस लिया गया।`),
