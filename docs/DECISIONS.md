@@ -1,5 +1,17 @@
 # Decisions
 
+## Fees office commands in One — 3 November 2026
+
+The owner asked for everything to be finished and released: apply the Fees
+migrations, merge the Fees branches, deploy all of it.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-380 | **The Fees transport permits the office reads and commands by exact shape**, and a lost answer is uncertain for every command path, never for a read | Its route allowlist predated them, so every office read was refused inside One before leaving (unit tests mocked the client). Found before the office reads switch reached users; hotfix #170 |
+| D-381 | **A Fees refusal of an office read hides the figure or queue for that person instead of failing it**; One skips the read when the role's Fees counterpart lacks Dashboard / Finance controls | Fees checks each person's own Fees permission; a permanent "could not read" would have been false for them |
+| D-382 | **Reverse a receipt, approve or reject a refund and post an approved refund are done from One through Fees' own engines** (schoolfees #134, `20261103190000`), with the payment desk's durability: the command kept on the device first, Saving… until Fees answers, a lost answer checked by the same id and only that id resent, refusals in plain words. Offered only where One's writes are open, the role holds the Fees permission and (for refunds) Fees says this person may decide; posting a refund takes two taps | F01. The migration and its SQL fixture passed together inside one rolled-back transaction on the live Fees schema before it was applied; after applying, every grant's new flags are off — **nobody can use them until the owner names who** |
+| D-383 | **Day close stays the nightly Fees job** | Fees has no manual close, no permission for one and no SQL engine; bringing it into One means first moving the close into one Fees function both callers share — the owner's call |
+
 ## Review plan, Phase 3: native workflows — 3 November 2026
 
 | Decision | Outcome | Evidence and reason |

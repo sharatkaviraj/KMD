@@ -1,5 +1,22 @@
 # VPPS One — progress
 
+## Fees office commands and release of the review plan — 3 November 2026
+
+Released: Phase 3 (#169, `d6c44cb7`); Fees office reads (schoolfees #133,
+migration `20261103170000` live, confirmed by read) and `FEES_BRIDGE_OFFICE_READS=true`
+in One production; Fees office commands (schoolfees #134 `c7f91a1f`, migration
+`20261103190000` dry-run with its fixture in a rolled-back transaction on live,
+then applied with `supabase db push`; all grant flags off, browser roles denied).
+Hotfix #170 (`94b854a8`): the transport allowlist refused the office reads
+(D-380). #171 (`feat/fees-office-commands-ui`): Reverse on the Fees receipt
+page and refund decisions in Needs you (D-382). Grant flags `can_reverse`,
+`can_decide_refund`, `can_process_refund` set on the two admin grants for
+2026-27 (owner's choice: admins only); everyone else stays refused by Fees.
+Surprised: the phone harnesses need every new server-action module aliased to
+a stub, or Vite's dependency scan fails and reloads the page mid-test.
+Remaining: day close (D-383); MCP feasibility; a real-device pass; a first
+reversal or refund decision by a signed-in admin, which no test has made live.
+
 ## Review plan, Phase 3: native workflows — 3 November 2026
 
 Branch `feat/review-native-phase3`, stacked on Phase 2 (#168). The Fees

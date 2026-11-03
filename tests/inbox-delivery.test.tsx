@@ -18,6 +18,9 @@ vi.mock("@/vx/ui/primitives", () => ({
   toneColors: () => ({ bg: "", fg: "" }),
 }));
 vi.mock("@/app/(app)/timetable/vx-actions", () => ({ decideLeaveAction: vi.fn() }));
+vi.mock("@/app/(app)/receipts/office-command-actions", () => ({
+  reverseFeesReceiptAction: vi.fn(), decideFeesRefundAction: vi.fn(), processFeesRefundAction: vi.fn(), checkFeesOfficeCommandAction: vi.fn(),
+}));
 import { InboxScreen } from "@/vx/screens/admin/inbox";
 let root: Root; let host: HTMLDivElement;
 const scope = { accountId: "qa-account", sessionLabel: "QA-2026", day: "2026-10-11" };

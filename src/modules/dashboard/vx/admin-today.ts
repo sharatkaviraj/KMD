@@ -11,7 +11,7 @@ import { settleParts } from "@/platform/helpers/partial-read";
 import { getBridgePendingRequests } from "@/platform/fees-bridge/client";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
-import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { FEES_ORIGIN, feesBridgeWritesEnabled } from "@/platform/fees-bridge/policy";
 import { deskReason } from "@/modules/dashboard/domain/desk-reason";
 import { p, type Pair } from "@/vx/text";
 
@@ -84,6 +84,8 @@ export async function todayMoney(today: string): Promise<TodayMoney> {
   };
 }
 
+export type FeesRefundRef = { id: string; kind: "refund_approval" | "refund_processing"; sessionLabel: string; amount: number; actionable: boolean };
+
 export type PendingRefund = {
   id: string;
   studentId: string;
@@ -97,6 +99,8 @@ export type PendingRefund = {
   requestedAt: string;
   /** Where the request is decided; the fee refund screen when absent. */
   href?: string;
+  /** A Fees refund request, and whether this reader may decide it from One (review F01). */
+  feesRefund?: FeesRefundRef;
   /** Set for a fee desk request, which is not a refund. */
   deskKind?: "reversal" | "write_off";
   receiptNumber?: string | null;
@@ -265,7 +269,14 @@ export async function pendingFeesRefunds(sessionLabel: string): Promise<PendingR
     throw error;
   });
   if (!result) return [];
+  const feeRole = feePermissionsFor(staff.role);
+  const writes = feesBridgeWritesEnabled();
   return result.items.map((item) => ({
+    feesRefund: {
+      id: item.id, kind: item.kind, sessionLabel: result.sessionLabel, amount: item.amount,
+      // Fees' own answer for this person, One's role, and One's write switch — all three.
+      actionable: writes && item.canDecide && feeRole.includes(item.kind === "refund_approval" ? "finance:approve" : "finance:write"),
+    },
     id: `fees:${item.id}`,
     studentId: item.student.id,
     studentName: item.student.name,

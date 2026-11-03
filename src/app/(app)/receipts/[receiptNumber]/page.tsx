@@ -7,7 +7,7 @@ import { loadReceiptsDesk } from "@/vx/screens/receipts/load";
 import { assertReceiptVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { canAccessSession } from "@/platform/auth/test-session-policy";
-import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { feesBridgeOfficeReads, feesBridgeWritesEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { getBridgeReceiptDetail, lookupBridgeReceipt } from "@/platform/fees-bridge/client";
 import { RECEIPT_NUMBER } from "@/platform/fees-bridge/office-read-contracts";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
@@ -58,7 +58,8 @@ export default async function ReceiptPage({
     }
     // The number in the address must be this receipt's; compared decoded, as the local branch does.
     if (receipt.detail.receiptNumber !== number) return unavailable("unreadable");
-    return <CanonicalReceipt receipt={receipt} language={staff.language} canPrint={feePermissionsFor(staff.role).includes("receipts:print")} />;
+    const feeRole = feePermissionsFor(staff.role);
+    return <CanonicalReceipt receipt={receipt} language={staff.language} canPrint={feeRole.includes("receipts:print")} canReverse={feesBridgeWritesEnabled() && feeRole.includes("payments:reverse_any")} />;
   }
   const props = await loadReceiptsDesk(staff, search, decodeURIComponent(receiptNumber));
   if (!props.selected) notFound();

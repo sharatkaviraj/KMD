@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({ notFound: () => { state.notFound(); throw new Error("synthetic_not_found"); }, redirect: (to: string) => { state.redirect(to); throw new Error("synthetic_redirect"); }, RedirectType: { replace: "replace" } }));
 vi.mock("@/platform/auth/current-staff", () => ({ requirePermission: async () => ({ role: "admin", isTestAccount: false, isActive: true, language: "en" }) }));
 vi.mock("@/modules/fees/platform/session-context/cookie", () => ({ getViewSessionCookie: async () => state.cookie }));
-vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: () => state.canonical, feesBridgeOfficeReads: () => state.officeReads }));
+vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: () => state.canonical, feesBridgeOfficeReads: () => state.officeReads, feesBridgeWritesEnabled: () => false }));
 vi.mock("@/platform/fees-bridge/client", () => ({ getBridgeReceiptDetail: state.get, lookupBridgeReceipt: state.lookup }));
 vi.mock("@/vx/screens/receipts/load", () => ({ loadReceiptsDesk: state.local }));
 vi.mock("@/vx/screens/receipts/desk", () => ({ ReceiptsDesk: () => null }));

@@ -13,6 +13,7 @@ import { TopBar } from "@/vx/ui/page";
 import { Btn, Pill, toneColors, type Tone } from "@/vx/ui/primitives";
 import { CouldNotRead } from "@/vx/ui/read-state";
 import { InboxBatch } from "@/vx/screens/admin/inbox-batch";
+import { FeesRefundActions } from "@/vx/screens/receipts/office-command";
 import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
 import { TO } from "@/vx/screens/admin/ops-text";
 import { T } from "@/vx/screens/admin/text";
@@ -516,7 +517,9 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
       );
       break;
     case "refund":
-      actions = <Btn variant="pri" href={item.href}>{tx(T.review)}</Btn>;
+      actions = item.feesRefund?.actionable
+        ? <><FeesRefundActions refundId={item.feesRefund.id} kind={item.feesRefund.kind} sessionLabel={item.feesRefund.sessionLabel} amount={item.feesRefund.amount} /><Btn variant="ghost" href={item.href}>{tx(T.review)}</Btn></>
+        : <Btn variant="pri" href={item.href}>{tx(T.review)}</Btn>;
       break;
     case "job":
       actions = <Btn variant="pri" href={item.href}>{tx(T.openJobs)}</Btn>;
@@ -586,7 +589,9 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
       );
       break;
     case "refund":
-      actions = <Btn variant="pri" style={BIG} href={item.href}>{tx(T.review)}</Btn>;
+      actions = item.feesRefund?.actionable
+        ? <><FeesRefundActions refundId={item.feesRefund.id} kind={item.feesRefund.kind} sessionLabel={item.feesRefund.sessionLabel} amount={item.feesRefund.amount} big /><Btn variant="ghost" style={QUIET} href={item.href}>{tx(T.review)}</Btn></>
+        : <Btn variant="pri" style={BIG} href={item.href}>{tx(T.review)}</Btn>;
       break;
     case "job":
       actions = <Btn variant="pri" style={BIG} href={item.href}>{tx(T.openJobs)}</Btn>;

@@ -35,6 +35,8 @@ export type InboxItem = {
   /** A leave request decided here: its id, and whether all its days have passed. */
   leaveId?: string;
   leavePast?: boolean;
+  /** A Fees refund request this reader may decide here (review F01). */
+  feesRefund?: { id: string; kind: "refund_approval" | "refund_processing"; sessionLabel: string; amount: number; actionable: boolean };
 };
 
 export type BoardData = {

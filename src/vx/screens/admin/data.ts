@@ -10,7 +10,7 @@ import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { PartialReadError } from "@/platform/helpers/partial-read";
 import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
-import { pendingCanonicalMoneyRequests, pendingMoneyRequests, pendingOneMoneyRequests } from "@/modules/dashboard/vx/admin-today";
+import { pendingCanonicalMoneyRequests, pendingMoneyRequests, pendingOneMoneyRequests, type FeesRefundRef } from "@/modules/dashboard/vx/admin-today";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
@@ -110,7 +110,7 @@ const leaveDays = (r: AskedLeave): Pair => {
   return p(`${from.en} – ${to.en}`, `${from.hi} – ${to.hi}`);
 };
 
-type MoneyRequest = { id: string; studentId: string; studentName: string; amount: number; reason: string | null; reasonText?: Pair; title?: Pair; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null };
+type MoneyRequest = { id: string; studentId: string; studentName: string; amount: number; reason: string | null; reasonText?: Pair; title?: Pair; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null; feesRefund?: FeesRefundRef };
 type MoneyRequests = () => Promise<MoneyRequest[]>;
 const moneyRequests = cache((read: MoneyRequests) => read());
 
@@ -916,6 +916,7 @@ async function readInbox(
       ],
       footnote: r.deskKind || r.title ? p("Decided on the receipt, dues or accounts screen; nothing moves until you decide it there.", "फ़ैसला रसीद, बकाया या हिसाब स्क्रीन पर होता है; वहाँ तय किए बिना कुछ नहीं बदलता।") : T.refundFootnote,
       href: r.href ?? "/fees/finance-controls",
+      ...(r.feesRefund ? { feesRefund: r.feesRefund } : {}),
     });
   }
 
