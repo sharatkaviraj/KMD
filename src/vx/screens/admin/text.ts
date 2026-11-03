@@ -121,7 +121,14 @@ export const T = {
   remind: p("Remind", "याद दिलाएँ"),
   // The count is classes, not people: one teacher with two classes is reminded for both (school-day run B21).
   remindN: (n: number): Pair => p(`Remind the teachers of ${n} class${n === 1 ? "" : "es"}`, `${n} कक्षाओं के अध्यापकों को याद दिलाएँ`),
-  reminded: (n: number): Pair => p(`Reminder sent for ${n} class${n === 1 ? "" : "es"}`, `${n} कक्षाओं के लिए याद दिलाया`),
+  // Queued, not sent: the staff WhatsApp outbox delivers it, subject to its own switches (review A01).
+  reminded: (n: number): Pair => p(`Reminder queued for ${n} class${n === 1 ? "" : "es"}`, `${n} कक्षाओं के लिए याद दिलाना कतार में`),
+  remindWhy: (b: { notMarked: number; canRemind: number; reminded: number; noTeacher: number; teacherAway: number }): Pair => {
+    const en = [`${b.canRemind} can be reminded now`, b.reminded ? `${b.reminded} already reminded today` : "", b.noTeacher ? `${b.noTeacher} have no class teacher` : "", b.teacherAway ? `${b.teacherAway} with the teacher away` : ""].filter(Boolean).join(" · ");
+    const hi = [`${b.canRemind} को अभी याद दिला सकते हैं`, b.reminded ? `${b.reminded} को आज याद दिलाया जा चुका` : "", b.noTeacher ? `${b.noTeacher} का कोई कक्षा-अध्यापक नहीं` : "", b.teacherAway ? `${b.teacherAway} के अध्यापक अनुपस्थित` : ""].filter(Boolean).join(" · ");
+    return p(`Of ${b.notMarked} not marked: ${en}.`, `${b.notMarked} में से: ${hi}।`);
+  },
+  assignClassTeachers: p("Assign class teachers", "कक्षा-अध्यापक तय करें"),
   nobodyToRemind: p("Every class teacher has been reminded already, or is away.", "सभी कक्षा-अध्यापकों को याद दिलाया जा चुका है, या वे अनुपस्थित हैं।"),
   openBoard: p("Open attendance board", "हाज़िरी बोर्ड खोलें"),
   classes: p("Classes", "कक्षाएँ"),

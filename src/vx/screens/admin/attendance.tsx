@@ -21,6 +21,7 @@ import {
   initialMarks,
   markCounts,
   remindable,
+  reminderBreakdown,
   type BoardFilter,
   type ClassBoardRow,
   type MarkStatus,
@@ -76,6 +77,14 @@ export function AttendanceScreen({
   const [busy, startBusy] = useTransition();
   const summary = boardSummary(board.rows, board.halfDayCredit);
   const sendable = remindable(board.rows);
+  const why = reminderBreakdown(board.rows);
+  // Shown whenever something is unmarked and not every class can simply be reminded (A01).
+  const whyLine = canMark && board.schoolOpen && why.notMarked > 0 && why.canRemind < why.notMarked ? (
+    <p role="note" style={{ margin: 0, fontSize: 13, color: "var(--mut)", display: "flex", flexWrap: "wrap", gap: "4px 12px", alignItems: "center" }}>
+      <span>{tx(T.remindWhy(why))}</span>
+      {why.noTeacher > 0 ? <Link href="/academics/class-teachers" className="tap" style={{ color: "var(--acc)", fontWeight: 600, minHeight: 32, display: "inline-flex", alignItems: "center" }}>{tx(T.assignClassTeachers)}</Link> : null}
+    </p>
+  ) : null;
   const allowed = canMark && board.schoolOpen;
 
   // The desk's panel is hidden below 900px of page width; then marking is the phone's sheet.
@@ -129,6 +138,7 @@ export function AttendanceScreen({
               {summary.percent !== null ? <BigPill bg="var(--s3)" fg="var(--fg)">{tx(T.pctPresent(summary.percent))}</BigPill> : null}
             </div>
             <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.countsOnlyMarked)}</span>
+            {whyLine}
           </div>
           {allowed && sendable.length > 0 ? (
             <Btn variant="pri" icon="message" style={{ height: 44 }} disabled={busy} onClick={() => remind(sendable.map((row) => row.classId))}>
@@ -252,6 +262,7 @@ export function AttendanceScreen({
           )}
         </div>
         ) : null}
+        {phoneFilter !== "marked" ? whyLine : null}
         {allowed && sendable.length > 0 && phoneFilter !== "marked" ? (
           <button type="button" className="tap btn pri" disabled={busy} onClick={() => remind(sendable.map((row) => row.classId))} style={{ height: "auto", minHeight: 52, padding: "8px 16px", borderRadius: 18, fontSize: 15, whiteSpace: "normal", textAlign: "center" }}>
             <Ic n="message" size={18} />

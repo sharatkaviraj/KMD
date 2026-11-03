@@ -86,6 +86,25 @@ export function remindable(rows: readonly ClassBoardRow[]): ClassBoardRow[] {
   return rows.filter((row) => !row.recorded && !row.teacherAway && row.teacherId !== null && !row.remindedAt);
 }
 
+/**
+ * Why each unmarked class can or cannot be reminded now (review A01), so
+ * "Remind 1 class" beside "18 not marked" explains itself. One reason per
+ * class, in this order: already reminded today, no class teacher, teacher
+ * away, else it can be reminded — the same rule as `remindable`.
+ */
+export function reminderBreakdown(rows: readonly ClassBoardRow[]): { notMarked: number; canRemind: number; reminded: number; noTeacher: number; teacherAway: number } {
+  const out = { notMarked: 0, canRemind: 0, reminded: 0, noTeacher: 0, teacherAway: 0 };
+  for (const row of rows) {
+    if (row.recorded) continue;
+    out.notMarked += 1;
+    if (row.remindedAt) out.reminded += 1;
+    else if (row.teacherId === null) out.noTeacher += 1;
+    else if (row.teacherAway) out.teacherAway += 1;
+    else out.canRemind += 1;
+  }
+  return out;
+}
+
 /** Present share of one marked class, half days at the school's credit. */
 export function classPercent(row: Pick<ClassBoardRow, "present" | "absent" | "halfDay">, halfDayCredit = 0.5): number {
   const counted = row.present + row.absent + row.halfDay;
