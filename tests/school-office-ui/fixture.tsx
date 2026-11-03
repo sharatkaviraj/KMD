@@ -7,6 +7,10 @@ import { CertificateRegister } from "@/vx/screens/school-office/certificates";
 import { StudyCertificateButton } from "@/vx/screens/school-office/study-certificate-button";
 import { CertificateDetail } from "@/vx/screens/school-office/certificate-detail";
 import { CertificateTemplateForm } from "@/vx/screens/school-office/template";
+import { StudentCertificateTools } from "@/vx/screens/school-office/student-certificates";
+import { CertificateBatch } from "@/vx/screens/school-office/batch";
+import { defaultTemplates } from "@/modules/certificates/domain/defaults";
+import { offeredExtras, requiredExtras, certificateKinds } from "@/modules/certificates/domain/certificate";
 import { ReturnsBoard } from "@/vx/screens/school-office/returns";
 import { ReturnDestination } from "@/vx/screens/school-office/return-destination";
 import { PortalCopilot } from "@/vx/screens/school-office/copilot";
@@ -24,6 +28,11 @@ import "../../src/app/globals.css";
 import "../../src/vx/vx.css";
 import "./fixture.css";
 
+// The certificate sheet reads its kinds from the server; answer it with the seeded defaults.
+const nativeFetch = window.fetch.bind(window);
+window.fetch = (input, init) => String(input).includes("/school-office/certificates/kinds")
+  ? Promise.resolve(new Response(JSON.stringify({ kinds: certificateKinds.map((kind) => ({ kind, titleEn: defaultTemplates[kind].titleEn, titleHi: defaultTemplates[kind].titleHi, language: defaultTemplates[kind].language, required: requiredExtras(defaultTemplates[kind], "historical"), offered: offeredExtras(defaultTemplates[kind]), purpose: kind === "study" || kind === "character" })) }), { headers: { "content-type": "application/json" } }))
+  : nativeFetch(input, init);
 const params = new URLSearchParams(location.search);
 const language = params.get("language") === "hi" ? "hi" : params.get("language") === "both" ? "both" : "en";
 const screen = params.get("screen") ?? "register";
@@ -67,6 +76,9 @@ function Fixture() {
     {destination === "source" ? <h1>Synthetic authoritative student correction</h1> : null}
     {destination === "register" ? <CertificateRegister rows={[issue, { ...issue, id: "synthetic-issued", status: "issued" as const, serial: "TEST/VPPS/STUDY/TEST-2026-27/0002" }].filter(row => (!local.get("q") || row.snapshot.facts.studentName.toLowerCase().includes(local.get("q")!.toLowerCase())) && (!local.get("status") || row.status === local.get("status")))} count={local.get("status") ? 1 : 62} page={Number(local.get("page") ?? 1)} query={local.get("q") ?? ""} status={local.get("status") ?? ""} studentId={studentId} sessionLabel={sessionLabel} canManage canGovernment unavailable={window.schoolOfficeScenario === "unavailable"} /> : null}
     {destination === "certificate" ? <CertificateDetail issue={window.schoolOfficeScenario === "artifact-failed" ? { ...issue, artifact_state: "failed" } : issue} events={[{ id: "event-1", kind: "prepared", created_at: issuedAt, actor_id: "synthetic-staff", reason: null }]} canIssue canManage /> : null}
+    {destination === "desk" ? <CertificateRegister rows={[issue, { ...issue, id: "synthetic-issued", kind: "tc" as const, status: "issued" as const, serial: "TEST/VPPS/TC/TEST-2026-27/0002" }]} count={2} page={1} query="" status="" sessionLabel={sessionLabel} canManage canGovernment canIssue unavailable={false} counts={{ today: 3, tray: 2, handedThisMonth: 14, total: 41 }} tray={[issue, { ...issue, id: "synthetic-tray-2", kind: "character" as const, serial: "TEST/VPPS/CC/TEST-2026-27/0003", snapshot: { ...issue.snapshot, facts: { ...issue.snapshot.facts, studentName: "Synthetic Second Child" } } }]} /> : null}
+    {destination === "sheet" ? <><h1>Synthetic student profile</h1><StudentCertificateTools studentId={studentId} studentName="Synthetic Scholar" sessionLabel={sessionLabel} canIssue editHref={`/admissions/${studentId}`} /></> : null}
+    {destination === "classbatch" ? <CertificateBatch sessionLabel={sessionLabel} roster={Array.from({ length: 12 }, (_, i) => ({ studentId: `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`, studentName: `Synthetic Child ${i + 1}`, admissionNo: String(100 + i), classId: "c8", classLabel: "8 A" }))} /> : null}
     {destination === "template" ? <CertificateTemplateForm templates={{ study: defaultStudyTemplate }} identity={DEFAULT_IDENTITY} schoolName="Synthetic School" /> : null}
     {destination === "returns" ? <ReturnsBoard sessionLabel={sessionLabel} cards={destinations.map((d, i) => ({ destination: d, counts: window.schoolOfficeScenario === "source-unavailable" ? null : readinessCounts(preflightReturn(readinessRows, d.mode === "verified_upload" ? verifiedAdapter : manualReferenceAdapter(d.portal, d.module, sessionLabel, ""))), latest: i === 0 ? { id: batch.id, state: batch.state, created_at: batch.created_at } : null, manual: null }))} canManage unavailable={false} sourceUnavailable={window.schoolOfficeScenario === "source-unavailable"} /> : null}
     {destination === "destination" ? destinationScreen(window.schoolOfficeScenario === "verified") : null}

@@ -8,7 +8,7 @@ export async function generateStudyCertificateAction(input: CertificateCommand):
   log("generate", input);
   if (window.schoolOfficeScenario === "blocked") return { ok: false, code: "blocked", blockers: [{ field: "admissionNo", reason: "missing_field" }, { field: "identity", reason: "identity_unverified" }] };
   if (window.schoolOfficeScenario === "retry" && window.schoolOfficeCalls.filter(c => c.name === "generate").length === 1) throw new Error("Synthetic interrupted response");
-  return { ok: true, issueId: "synthetic-issue", existing: false };
+  return { ok: true, issueId: "synthetic-issue", existing: false, serial: "TEST/VPPS/TC/TEST-2026-27/0001" };
 }
 export const generateCertificateAction = generateStudyCertificateAction;
 export async function handOverManyAction(input: { items: { issueId: string }[] }) { log("hand-over", input); return { ok: true as const, done: input.items.map((item) => item.issueId) }; }

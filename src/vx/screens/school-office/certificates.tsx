@@ -71,6 +71,7 @@ function SigningTray({ tray }: { tray: CertificateIssue[] }) {
   const [asking, setAsking] = useState(false);
   const [collector, setCollector] = useState("");
   const [busy, setBusy] = useState(false);
+  const [closed, setClosed] = useState(false);
   const commands = useRef(new Map<string, string>());
   const visible = useMemo(() => tray.filter((row) => !gone.has(row.id)), [tray, gone]);
   const picked = visible.filter((row) => chosen.has(row.id));
@@ -82,7 +83,10 @@ function SigningTray({ tray }: { tray: CertificateIssue[] }) {
     const items = picked.slice(0, 60).map((row) => { if (!commands.current.has(row.id)) commands.current.set(row.id, crypto.randomUUID()); return { issueId: row.id, commandId: commands.current.get(row.id)! }; });
     try {
       const result = await handOverManyAction({ items, collectedBy: collector.trim() });
-      setGone((old) => new Set([...old, ...result.done]));
+      const nextGone = new Set([...gone, ...result.done]);
+      setGone(nextGone);
+      // Let the rows slide out before the card itself folds away.
+      if (tray.every((row) => nextGone.has(row.id))) window.setTimeout(() => setClosed(true), 480);
       setAsking(false);
       toast.show({ text: `${tx(O.handedDone)} · ${result.done.length}`, tone: result.ok ? "ok" : "bad" });
       window.setTimeout(() => router.refresh(), 500);
@@ -90,8 +94,8 @@ function SigningTray({ tray }: { tray: CertificateIssue[] }) {
     finally { setBusy(false); }
   }
 
-  if (!visible.length) return null;
-  return <section className="card" aria-label={tx(O.tray)} style={{ overflow: "hidden", animation: "xRise .42s var(--ease) both" }}>
+  if (closed) return null;
+  return <section className="card" aria-label={tx(O.tray)} style={{ overflow: "hidden", animation: visible.length ? "xRise .42s var(--ease) both" : "xOut .3s var(--ease) .2s forwards" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px", flexWrap: "wrap" }}>
       <span style={{ width: 40, height: 40, borderRadius: 13, background: "var(--warns)", color: "var(--warn)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Ic n="notePen" size={19} /></span>
       <div style={{ flex: 1, minWidth: 200 }}><h2 className="serif" style={{ margin: 0, fontSize: 21 }}>{tx(O.tray)} <span className="num" style={{ color: "var(--warn)" }}>{visible.length}</span></h2><p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--mut)" }}>{tx(O.trayHint)}</p></div>

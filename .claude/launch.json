@@ -56,6 +56,17 @@
       ],
       "port": 3202,
       "url": "http://127.0.0.1:3202"
+    },
+    {
+      "name": "school-office-harness",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--config",
+        "tests/school-office-ui/vite.config.ts"
+      ],
+      "port": 3216,
+      "url": "http://127.0.0.1:3216"
     }
   ]
 }

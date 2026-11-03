@@ -9,7 +9,6 @@ import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Btn, SuccessTick } from "@/vx/ui/primitives";
-import { schoolProfile } from "@/platform/config/school";
 import { downloadCertificate, printCertificate, shareCertificate } from "./artifact";
 import { CONDUCT_LABELS, EXTRA_LABELS, FIELD_LABELS, KIND_HINTS, KIND_LABELS, LEAVING_REASONS, O, PURPOSES } from "./text";
 import "./cert.css";
@@ -166,13 +165,13 @@ export function CertificateSheet({ open, onClose, studentId, studentName, sessio
       <strong style={{ fontSize: 17 }}>{tx(O.ready)}</strong>
       <div className="cert-serial">{phase.serial}</div>
       {phase.existing ? <div className="cert-note">{tx(O.reprintFound)}</div> : null}
-      <Paper kindTitle={info ? (language === "hi" ? info.titleHi : info.titleEn) : ""} name={studentName} serial={phase.serial} />
       <div className="cert-actions">
         <Btn variant="pri" icon="printer" disabled={!!busyAction} onClick={() => act("print")}>{tx(O.print)}</Btn>
         <Btn icon="download" disabled={!!busyAction} onClick={() => act("download")}>{tx(O.download)}</Btn>
         <Btn icon="send" disabled={!!busyAction} onClick={() => act("share")}>{tx(O.share)}</Btn>
       </div>
       <Btn icon="history" href={`/school-office/certificates/${phase.issueId}`} style={{ width: "100%" }}>{tx(O.openIssue)}</Btn>
+      <Paper kindTitle={info ? (language === "hi" ? info.titleHi : info.titleEn) : ""} name={studentName} serial={phase.serial} />
     </div> : null}
 
     {phase.at === "blocked" ? <div className="cert-stack" aria-live="polite">
@@ -190,7 +189,7 @@ export function CertificateSheet({ open, onClose, studentId, studentName, sessio
 function Paper({ busy = false, kindTitle, name, serial }: { busy?: boolean; kindTitle: string; name: string; serial?: string }) {
   const { tx } = useVx();
   return <div className={`cert-paper${busy ? " busy" : ""}`} aria-hidden="true">
-    <div className="cp-school">{schoolProfile.shortName}</div><div className="cp-rule" />
+    <div className="cp-school" style={{ width: "58%", height: 7, borderRadius: 3, background: "#0B2545", opacity: .85 }} /><div className="cp-rule" />
     <div className="cp-title">{busy ? "" : kindTitle}</div>
     <div className="cp-line s" style={{ marginTop: 10 }} />
     <div className="cp-name">{busy ? "" : name}</div>

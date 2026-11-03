@@ -1,5 +1,25 @@
 # VPPS One — progress
 
+## School Office second pass — 3 November 2026
+
+Branch `feat/school-office-v2` (with `feat/returns-readiness-copilot` merged in),
+based on `37c9e6e3`. Certificates: study, character, date-of-birth and TC kinds;
+a formal navy-and-gold A4 layout with the principal's block and a verification QR
+(`/cv/{code}`); a certificate sheet on Student 360 (kind, purpose, conduct/TC
+reason, prepare, print/download/share, reprint-first, draft kept across a fix);
+a desk with counts, a signing tray printed as one file and handed over together,
+kind filters and class batches; settings for school identity, signature policy,
+pre-printed paper and wording with insert chips and a live preview. Returns: a
+readiness board, class x field heat grid and the Portal Copilot.
+Migrations `20261103031956_school_office_certificate_kinds` and
+`20261103032018_returns_copilot_rows` are applied to wtgx; a rolled-back check
+proved per-kind serials, reprint-first, the TC `not_left` refusal, the roster
+and that TEST issues never verify. Surprise: the QA sign-in tool now refuses
+the QA accounts on production, so screens were checked in the synthetic School
+Office harness rather than signed in. Remaining: the school's real principal
+name, place and codes in Certificate settings; a real certificate printed and
+signed once by the office.
+
 ## Android landscape password follow-up — 3 November 2026
 
 Branch `codex/android-landscape-password-20261102`, based on released `0007d514`.
