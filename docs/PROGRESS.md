@@ -10,9 +10,11 @@ office reads wired behind `FEES_BRIDGE_OFFICE_READS` (off). Fees side: PR
 #133 merged as `5dc9ebe4` (code deployed; office reads answer 503 until its
 migration `20261103170000_one_bridge_office_reads` is applied with
 `npx supabase db push --linked --yes` from the schoolfees checkout — not run
-here: production database access needs the owner). Fees write commands
-(reversal, refund decisions, day close) are being built on a local schoolfees
-branch, default off. Remaining: Phase 3 release; apply the Fees migration, then
+here: production database access needs the owner). Fees write commands are
+draft schoolfees PR #134: reversal, refund decision and refund processing, each
+behind `commands_enabled` and its own grant flag (default off); day close was
+skipped (Fees has no manual close or SQL engine; only the nightly cron writes it).
+Its SQL fixture must run on an isolated schema copy before merge. Remaining: Phase 3 release; apply the Fees migration, then
 set `FEES_BRIDGE_OFFICE_READS=true`; review and release the write commands;
 MCP feasibility after that.
 
