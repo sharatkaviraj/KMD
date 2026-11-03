@@ -8,6 +8,6 @@ export async function GET(request: Request) {
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
   try {
     const data = await listCertificates(parsed.data.session, { studentId: parsed.data.student });
-    return Response.json({ rows: data.rows.map(({ id, serial, status }) => ({ id, serial, status })), count: data.count }, { headers: { "Cache-Control": "private, no-store" } });
+    return Response.json({ rows: data.rows.map(({ id, serial, status, kind, issued_at, artifact_state }) => ({ id, serial, status, kind: kind ?? "study", issuedAt: issued_at, ready: artifact_state === "ready" })), count: data.count }, { headers: { "Cache-Control": "private, no-store" } });
   } catch { return Response.json({ error: "unavailable" }, { status: 403 }); }
 }

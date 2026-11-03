@@ -8,8 +8,11 @@ export async function generateStudyCertificateAction(input: CertificateCommand):
   log("generate", input);
   if (window.schoolOfficeScenario === "blocked") return { ok: false, code: "blocked", blockers: [{ field: "admissionNo", reason: "missing_field" }, { field: "identity", reason: "identity_unverified" }] };
   if (window.schoolOfficeScenario === "retry" && window.schoolOfficeCalls.filter(c => c.name === "generate").length === 1) throw new Error("Synthetic interrupted response");
-  return { ok: true, issueId: "synthetic-issue", existing: false };
+  return { ok: true, issueId: "synthetic-issue", existing: false, serial: "TEST/VPPS/TC/TEST-2026-27/0001" };
 }
+export const generateCertificateAction = generateStudyCertificateAction;
+export async function handOverManyAction(input: { items: { issueId: string }[] }) { log("hand-over", input); return { ok: true as const, done: input.items.map((item) => item.issueId) }; }
+export async function saveCertificateIdentityAction(input: unknown) { log("save-identity", input); return { ok: true as const }; }
 export async function certificateEventAction(input: unknown) { log("certificate-event", input); return { ok: !(window.schoolOfficeScenario === "event-denied" && window.schoolOfficeCalls.filter(call => call.name === "certificate-event").length === 1) }; }
 export async function saveCertificateTemplateAction(input: unknown) { log("save-template", input); return { ok: true as const }; }
 export async function checkReturnAction(input: unknown) {
@@ -20,6 +23,11 @@ export async function checkReturnAction(input: unknown) {
 export async function prepareReturnAction(input: unknown) { log("prepare-return", input); return { ok: true as const, id: "synthetic-batch" }; }
 export async function applyReturnAction(input: unknown) { log("apply-return", input); return { ok: true as const }; }
 export async function recordReturnOutcomeAction(input: FormData) { log("record-outcome", Object.fromEntries(input)); return { ok: true as const }; }
+export async function markCopilotRowAction(input: { state: "entered" | "mismatch"; note?: string }) {
+  log("mark-copilot", input);
+  if (window.schoolOfficeScenario === "mark-fails") return { ok: false as const };
+  return { ok: true as const, mark: { state: input.state, note: input.note ?? null, updatedAt: "2026-11-03T10:00:00Z" } };
+}
 export async function resumeReturnAction(input: unknown) { log("resume-return", input); return { ok: true as const }; }
 export async function stageReturnAction(input: FormData) { log("stage-return", Object.fromEntries(input)); return { ok: true as const, id: "synthetic-import" }; }
 export async function inspectReturnSpecimenAction(input: FormData) { log("inspect-specimen", Object.fromEntries(input)); return { ok: true as const, headers: ["Admission number", "School", "Session", "External ID"] }; }

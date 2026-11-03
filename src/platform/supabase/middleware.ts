@@ -56,6 +56,9 @@ function isPublicPath(pathname: string) {
   // (the fees app's `/r/{receiptNumber}`, moved because `/r/` is a request
   // token here). It shows a receipt number, date, amount and reversal state,
   // nothing about the child — see `src/app/rv/[code]/page.tsx`.
+  //
+  // `/cv/*` is the QR on a school certificate: status, number, kind, date and
+  // a masked name for one random code — see `src/app/cv/[code]/page.tsx`.
   return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
@@ -81,6 +84,7 @@ function isPublicPath(pathname: string) {
 export const PUBLIC_PREFIXES = [
   "/r",
   "/rv",
+  "/cv",
   "/t",
   "/w",
   "/pay",

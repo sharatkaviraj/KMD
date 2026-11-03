@@ -44,12 +44,19 @@ export async function adapterForViewer(id: string, sessionLabel: string): Promis
   return adapterSchema.parse(data.adapter);
 }
 export async function rosterForAdapter(sessionLabel: string, adapter: GovernmentAdapter, permission: StaffPermission): Promise<ReturnStudent[]> {
-  const [roster, links] = await Promise.all([
-    schoolOfficeRoster(sessionLabel, permission),
-    (await createClient()).from("school_external_records").select("student_id,external_id,registration_status,revision").eq("session_label", sessionLabel).eq("portal", adapter.portal).eq("module", adapter.module).eq("school_code", adapter.schoolCode),
-  ]);
+  const [roster, links] = await Promise.all([schoolOfficeRoster(sessionLabel, permission), externalRecords(sessionLabel, adapter)]);
+  return withExternalRecords(roster, adapter, links);
+}
+type ExternalRecord = { student_id: string; external_id: string | null; registration_status: string | null; revision: number };
+/** One destination's portal IDs for a session. Bounded by the roster limit. */
+export async function externalRecords(sessionLabel: string, adapter: Pick<GovernmentAdapter, "portal" | "module" | "schoolCode">): Promise<ExternalRecord[]> {
+  const links = await (await createClient()).from("school_external_records").select("student_id,external_id,registration_status,revision").eq("session_label", sessionLabel).eq("portal", adapter.portal).eq("module", adapter.module).eq("school_code", adapter.schoolCode).limit(2000);
   if (links.error) throw new Error("External identifiers unavailable");
-  const byId = new Map((links.data ?? []).map((row) => [row.student_id, row]));
+  return (links.data ?? []) as ExternalRecord[];
+}
+/** The shared roster, stamped with one destination's school code and portal IDs. */
+export function withExternalRecords(roster: ReturnStudent[], adapter: Pick<GovernmentAdapter, "schoolCode">, links: ExternalRecord[]): ReturnStudent[] {
+  const byId = new Map(links.map((row) => [row.student_id, row]));
   return roster.map((row) => { const held = byId.get(row.studentId); return { ...row, schoolCode: adapter.schoolCode, externalId: held?.external_id ?? "", registrationStatus: held?.registration_status ?? "", externalRevision: held?.revision ?? 0 }; });
 }
 export async function returnEvents(batchId: string): Promise<BatchEvent[]> {

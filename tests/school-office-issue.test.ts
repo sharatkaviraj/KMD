@@ -13,7 +13,7 @@ beforeEach(() => {
 });
 
 it("stores one artifact and finishes the reserved issue", async () => {
-  await expect(executeCertificateIssue(command, ports)).resolves.toEqual({ ok: true, issueId: issue.id, existing: false });
+  await expect(executeCertificateIssue(command, ports)).resolves.toEqual({ ok: true, issueId: issue.id, existing: false, serial: issue.serial });
   expect(ports.storeArtifact).toHaveBeenCalledTimes(1);
   expect(ports.finish).toHaveBeenCalledWith(issue, expect.any(String), bytes);
   expect(ports.reserve).toHaveBeenCalledWith(command, facts, defaultStudyTemplate);

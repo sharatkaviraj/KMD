@@ -1,5 +1,45 @@
 # Decisions
 
+## School Office second pass — 3 November 2026
+
+The owner found the first School Office build unsatisfying and asked for every
+brainstorm recommendation (docs/plans/2026-11-03-school-office-brainstorm.md)
+to be built, the certificates to look good, and a live release. Decisions made
+here (rule 8), each reversible in Certificate settings or a later template:
+
+- **Four kinds, each its own template, series and reprint-first rule:** study
+  (VPPS/STUDY, existing approved wording kept), character (VPPS/CC), date of
+  birth (VPPS/DOB) and TC (VPPS/TC). New default wording is active so the office
+  can use it; a manager edits it as a new version. A purpose line prints only
+  when the office gives one. Gendered words come from the record and stay
+  neutral ("child", "the student") when gender is blank; nothing is guessed.
+- **A TC is a document, not the leaving act.** It is refused (`not_left`) until
+  the student's enrolment already has a leaving date; reason and conduct are
+  required at the counter. Fee dues are not checked or printed: whether dues
+  may block a TC is a school policy nobody has stated. A fee (80C) certificate
+  is not built: receipts are not in One until the cutover, and it belongs to the
+  fee module.
+- **The paper carries no workflow notice.** "Signature required" moved from the
+  PDF into the register status; the page has a signature line, the principal's
+  printed name and designation, a seal circle and a QR. Signature policy is a
+  setting, manual by default; a facsimile prints only after a manager switches
+  it on, and the switch records who and when. Pre-printed stationery is a layout
+  option with millimetre offsets.
+- **Public check `/cv/{code}`:** a 64-bit random code frozen into each new issue;
+  shows status, number, kind, date and a masked name only; TEST issues and
+  issues prepared before this release answer "not recognised".
+- **Signing tray and class batches** re-lay out frozen snapshots into one print
+  file; they never allocate, sign or record. Handover is one idempotent event
+  per document with "collected by". Batches run the ordinary command one child
+  at a time in the browser (no queue, no worker), so the office can stop.
+- **The attention card stays study-only** and now reads the study template, not
+  the newest template of any kind.
+- **Government returns** become a readiness board, destination heat grid and a
+  manual-entry Copilot whose "entered" marks are human evidence only, never
+  portal acceptance. "Ask class teachers" links to the existing collection
+  rounds; no blocking return field is collectable there yet, so nothing is
+  pre-ticked.
+
 ## Student documents stay inside the profile — 2 November 2026
 
 The owner requested a simpler Documents section that fits One and a live release.

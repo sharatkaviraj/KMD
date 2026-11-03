@@ -13,6 +13,7 @@ import { hashBytes, returnBatchForViewer, storeOfficeArtifact } from "@/modules/
 import { inspectReturnSpecimen, MAX_RETURN_FILE_BYTES } from "@/modules/government-records/data/files";
 import { returnAcceptance } from "@/modules/government-records/domain/acceptance";
 import { adapterSchema } from "@/modules/government-records/domain/exchange";
+import { markCopilotRow } from "@/modules/government-records/data/copilot";
 
 export async function checkReturnAction(input: unknown) {
   await assertPermission("government:export");
@@ -24,6 +25,11 @@ export async function checkReturnAction(input: unknown) {
 export async function prepareReturnAction(input: unknown) {
   await assertPermission("government:export"); await assertNotPreviewing();
   try { const id = await prepareReturn(input); revalidatePath("/school-office/returns"); return { ok: true as const, id }; } catch { return { ok: false as const }; }
+}
+/** Manual entry assistant: one person's own mark on one prepared row. Never portal acceptance. */
+export async function markCopilotRowAction(input: unknown) {
+  await assertPermission("government:export"); await assertNotPreviewing();
+  try { return { ok: true as const, mark: await markCopilotRow(input) }; } catch { return { ok: false as const }; }
 }
 export async function resumeReturnAction(id: string) {
   await assertPermission("government:export"); await assertNotPreviewing();

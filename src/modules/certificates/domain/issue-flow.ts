@@ -3,7 +3,7 @@ import { certificatePreflight, type CertificateCommand, type CertificateFacts, t
 export type CertificateIssuePorts = {
   replay: (command: CertificateCommand) => Promise<CertificateIssue | null>;
   currentIssue: (command: CertificateCommand) => Promise<CertificateIssue | null>;
-  template: () => Promise<CertificateTemplate>;
+  template: (command: CertificateCommand) => Promise<CertificateTemplate>;
   facts: (command: CertificateCommand) => Promise<CertificateFacts>;
   reserve: (command: CertificateCommand, facts: CertificateFacts, template: CertificateTemplate) => Promise<{ issue: CertificateIssue; existing: boolean }>;
   readArtifact: (path: string) => Promise<Uint8Array | null>;
@@ -31,14 +31,14 @@ export async function executeCertificateIssue(command: CertificateCommand, ports
       existing = Boolean(held);
     }
     if (!held) {
-      const [template, facts] = await Promise.all([ports.template(), ports.facts(command)]);
-      const blockers = certificatePreflight(facts, template);
+      const [template, facts] = await Promise.all([ports.template(command), ports.facts(command)]);
+      const blockers = certificatePreflight(facts, template, command.extras);
       if (blockers.length) return { ok: false, code: "blocked", blockers };
       const reserved = await ports.reserve(command, facts, template);
       held = reserved.issue;
       existing = reserved.existing;
     }
-    if (held.artifact_state === "ready") return { ok: true, issueId: held.id, existing };
+    if (held.artifact_state === "ready") return { ok: true, issueId: held.id, existing, serial: held.serial };
     if (held.status === "cancelled" || held.status === "superseded") return { ok: false, code: "invalid" };
     const path = certificateArtifactPath(held);
     let bytes = await ports.readArtifact(path);
@@ -54,7 +54,7 @@ export async function executeCertificateIssue(command: CertificateCommand, ports
     }
     if (!validCertificatePdf(bytes)) throw new Error("Invalid certificate PDF");
     await ports.finish(held, path, bytes);
-    return { ok: true, issueId: held.id, existing };
+    return { ok: true, issueId: held.id, existing, serial: held.serial };
   } catch {
     if (held) await ports.failed(held.id).catch(() => undefined);
     return { ok: false, code: "unavailable" };

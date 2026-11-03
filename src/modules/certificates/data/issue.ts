@@ -5,27 +5,55 @@ import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/tes
 import { can } from "@/platform/auth/permissions";
 import { schoolProfile } from "@/platform/config/school";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
+import { getSiteUrl } from "@/platform/env";
+import { loadSignatureImage } from "@/platform/pdf/document-kit";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { cleanProfile } from "@/vx/screens/settings/domain/settings";
-import { certificateCommandSchema, type CertificateFacts, type CertificateIssue, type CertificateResult } from "../domain/certificate";
+import { certificateCommandSchema, type CertificateFacts, type CertificateIssue, type CertificateResult, type CertificateSchool } from "../domain/certificate";
+import { cleanIdentity } from "../domain/identity";
 import { executeCertificateIssue } from "../domain/issue-flow";
 import { CERTIFICATES_BUCKET, currentCertificateTemplate } from "./repo";
+import { IDENTITY_KEY } from "./identity";
 import { recordCertificateAttention, clearCertificateAttention } from "./attention";
 
-export async function issueStudyCertificate(input: unknown): Promise<CertificateResult> {
+/** The letterhead and signatory to freeze into a new issue, read at reservation time. */
+async function schoolForSnapshot(db: ReturnType<typeof createAdminClient>): Promise<CertificateSchool> {
+  const [profile, identityRow] = await Promise.all([
+    db.from("school_settings").select("value").eq("key", "profile").maybeSingle(),
+    db.from("school_settings").select("value").eq("key", IDENTITY_KEY).maybeSingle(),
+  ]);
+  if (profile.error || identityRow.error) throw new Error("School letterhead unavailable");
+  const school = cleanProfile(profile.data?.value, { nameEn: schoolProfile.name, nameHi: "", address: schoolProfile.address, phone: schoolProfile.phone, affiliation: "", footer: "", logo: null, signature: null });
+  const identity = cleanIdentity(identityRow.data?.value);
+  let signature: string | null = null;
+  if (identity.signaturePolicy === "facsimile") {
+    const file = school.signature ? null : await loadSignatureImage();
+    signature = school.signature ?? (file ? `data:image/png;base64,${Buffer.from(file.data).toString("base64")}` : null);
+  }
+  return {
+    name: school.nameEn, nameHi: school.nameHi, address: school.address, phone: school.phone, email: schoolProfile.email, logo: school.logo, affiliation: school.affiliation,
+    place: identity.place, udiseCode: identity.udiseCode, pspCode: identity.pspCode, recognitionNo: identity.recognitionNo,
+    principalName: identity.principalName, principalDesignation: identity.principalDesignation, principalDesignationHi: identity.principalDesignationHi,
+    signaturePolicy: signature ? "facsimile" : "manual", signature, layout: identity.layout, offsetX: identity.offsetX, offsetY: identity.offsetY,
+    verifyBase: getSiteUrl(),
+  };
+}
+
+export async function issueCertificate(input: unknown): Promise<CertificateResult> {
   const staff = await assertPermission("certificates:issue");
   await assertNotPreviewing();
   const parsed = certificateCommandSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "invalid" };
   const command = parsed.data;
+  const kind = command.kind ?? "study";
   if (!can(staff, "certificates:view") || (command.supersedes && (!can(staff, "certificates:manage") || !command.reason))) return { ok: false, code: "forbidden" };
   await assertSessionWritable(staff, command.sessionLabel);
   // Reprints deliberately remain available through a source outage. New issues
   // additionally check the current student before the database reserves them.
   const db = createAdminClient();
   const confined = isConfinedDeployment();
-  const hash = createHash("sha256").update(JSON.stringify({ student: command.studentId, session: command.sessionLabel, new: !!command.newIssue, supersedes: command.supersedes ?? null, reason: command.reason ?? null, resumeIssue: command.resumeIssue ?? null })).digest("hex");
+  const hash = createHash("sha256").update(JSON.stringify({ student: command.studentId, session: command.sessionLabel, kind, purpose: command.purpose ?? null, extras: command.extras ?? {}, new: !!command.newIssue, supersedes: command.supersedes ?? null, reason: command.reason ?? null, resumeIssue: command.resumeIssue ?? null })).digest("hex");
   const bucket = db.storage.from(CERTIFICATES_BUCKET);
   const result = await executeCertificateIssue(command, {
     async replay() {
@@ -40,23 +68,21 @@ export async function issueStudyCertificate(input: unknown): Promise<Certificate
     async currentIssue() {
       // Record even a reprint command so a delayed retry cannot allocate a new
       // serial after the original document has since been cancelled.
-      const { data, error } = await db.rpc("school_certificate_current", { p_actor: staff.id, p_student: command.studentId, p_session: command.sessionLabel, p_command: command.commandId, p_request_hash: hash, p_confined: confined, p_issue: command.resumeIssue ?? null });
+      const { data, error } = await db.rpc("school_certificate_current_v2", { p_actor: staff.id, p_student: command.studentId, p_session: command.sessionLabel, p_kind: kind, p_command: command.commandId, p_request_hash: hash, p_confined: confined, p_issue: command.resumeIssue ?? null });
       if (error) throw error;
       return data as CertificateIssue | null;
     },
-    template: currentCertificateTemplate,
+    template: () => currentCertificateTemplate(kind),
     async facts() {
       await assertStudentVisible(staff, command.studentId);
-      const { data, error } = await db.rpc("school_certificate_facts", { p_actor: staff.id, p_student: command.studentId, p_session: command.sessionLabel, p_confined: confined });
+      const { data, error } = await db.rpc("school_certificate_facts_v2", { p_actor: staff.id, p_student: command.studentId, p_session: command.sessionLabel, p_kind: kind, p_confined: confined });
       if (error || !data) throw new Error("Certificate facts unavailable");
       return data as CertificateFacts;
     },
     async reserve(_, facts, template) {
-      const profile = await db.from("school_settings").select("value").eq("key", "profile").maybeSingle();
-      if (profile.error) throw new Error("School letterhead unavailable");
-      const school = cleanProfile(profile.data?.value, { nameEn: schoolProfile.name, nameHi: "", address: schoolProfile.address, phone: schoolProfile.phone, affiliation: "", footer: "", logo: null, signature: null });
-      const { data, error } = await db.rpc("school_certificate_reserve", { p_actor: staff.id, p_student: command.studentId, p_session: command.sessionLabel, p_command: command.commandId, p_request_hash: hash, p_expected_facts: facts,
-        p_expected_template: template.version, p_school: { name: school.nameEn, nameHi: school.nameHi, address: school.address, phone: school.phone, email: schoolProfile.email, logo: school.logo, affiliation: school.affiliation }, p_new: command.newIssue ?? false, p_supersedes: command.supersedes ?? null, p_reason: command.reason ?? null, p_confined: confined });
+      const school = await schoolForSnapshot(db);
+      const { data, error } = await db.rpc("school_certificate_reserve_v2", { p_actor: staff.id, p_student: command.studentId, p_session: command.sessionLabel, p_kind: kind, p_command: command.commandId, p_request_hash: hash, p_expected_facts: facts,
+        p_school: school, p_expected_template: template.version, p_purpose: command.purpose ?? null, p_extras: command.extras ?? {}, p_new: command.newIssue ?? false, p_supersedes: command.supersedes ?? null, p_reason: command.reason ?? null, p_confined: confined });
       if (error || !data) throw new Error("Certificate reservation unavailable");
       return data as { issue: CertificateIssue; existing: boolean };
     },
@@ -69,8 +95,8 @@ export async function issueStudyCertificate(input: unknown): Promise<Certificate
       return new Uint8Array(await data.arrayBuffer());
     },
     async render(snapshot) {
-      const { renderStudyCertificatePdf } = await import("../ui/certificate-pdf");
-      return new Uint8Array(await renderStudyCertificatePdf(snapshot));
+      const { renderCertificatePdf } = await import("../ui/certificate-pdf");
+      return new Uint8Array(await renderCertificatePdf(snapshot));
     },
     async storeArtifact(path, bytes) {
       const { error } = await bucket.upload(path, bytes, { contentType: "application/pdf", upsert: false, cacheControl: "0" });
@@ -84,7 +110,13 @@ export async function issueStudyCertificate(input: unknown): Promise<Certificate
       await db.from("school_certificate_issues").update({ artifact_state: "failed" }).eq("id", issueId).neq("artifact_state", "ready");
     },
   });
-  if (result.ok) await clearCertificateAttention(staff, command);
-  else if (result.code === "blocked" && result.blockers) await recordCertificateAttention(staff, command, result.blockers);
+  // The Today attention card follows study certificates, the routine document.
+  if (kind === "study") {
+    if (result.ok) await clearCertificateAttention(staff, command);
+    else if (result.code === "blocked" && result.blockers) await recordCertificateAttention(staff, command, result.blockers);
+  }
   return result;
 }
+
+/** Kept for callers written before kinds existed. */
+export const issueStudyCertificate = issueCertificate;

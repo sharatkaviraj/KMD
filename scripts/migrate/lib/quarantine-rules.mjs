@@ -89,6 +89,7 @@ export const TABLES = {
   school_return_adapters: { bucket: "K", why: "post go-live School Office authority and audit" },
   school_return_batches: { bucket: "K", why: "post go-live School Office authority and audit" },
   school_return_events: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_return_copilot_rows: { bucket: "K", why: "post go-live School Office authority and audit" },
   // Coexistence is a separately authenticated canonical projection. It is not
   // old One academic activity and must never be relabelled by quarantine.
   fees_bridge_state: { bucket: "K", why: "coexistence publication and source manifest" },

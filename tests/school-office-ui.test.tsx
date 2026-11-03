@@ -4,7 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ generate: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
-vi.mock("@/app/(app)/school-office/actions", () => ({ generateStudyCertificateAction: mock.generate, certificateEventAction: vi.fn(), saveCertificateTemplateAction: vi.fn() }));
+vi.mock("@/app/(app)/school-office/actions", () => ({ generateCertificateAction: mock.generate, generateStudyCertificateAction: mock.generate, certificateEventAction: vi.fn(), saveCertificateTemplateAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mock.push, refresh: mock.refresh }) }));
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ language: "en", tx: (p: { en: string } | string) => typeof p === "string" ? p : p.en, sub: () => null }) }));

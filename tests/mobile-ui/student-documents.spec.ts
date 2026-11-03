@@ -133,7 +133,7 @@ test("school-issued certificates stay separate below uploaded records", async ({
   const uploaded = await page.getByRole("region", { name: "Uploaded documents" }).boundingBox();
   const issued = await page.getByText("School-issued certificates", { exact: true }).boundingBox();
   expect(issued!.y).toBeGreaterThan(uploaded!.y + uploaded!.height);
-  await expect(page.locator(".s360-body").getByRole("button", { name: "Study certificate", exact: true })).toBeVisible();
+  await expect(page.locator(".s360-body").getByRole("button", { name: "Certificate", exact: true })).toBeVisible();
 });
 
 for (const state of ["draft", "retry", "inflight"] as const) test(`fee stream preserves the document ${state}`, async ({ page }) => {
