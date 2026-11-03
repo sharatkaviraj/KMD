@@ -10,6 +10,7 @@ import { RetryButton } from "@/vx/ui/read-state";
 import { BridgeReceiptPaper } from "@/modules/receipts/vx/bridge-receipt-paper";
 import { receiptDetailFromBridge } from "@/modules/receipts/vx/bridge-receipt";
 import { PrintButton } from "./print-button";
+import { ReverseReceiptButton } from "./office-command";
 
 function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return <dl style={{ margin: 0, display: "grid", gap: 12 }}>{rows.map(([label, value]) => <div key={label} style={{ minWidth: 0 }}>
@@ -29,7 +30,7 @@ function paperOf(detail: BridgeReceiptDetail["detail"]) {
  * Download PDF for a role that may print receipts. No local reversal, send or
  * write control; those open in Fees. Every fact stays below under one fold.
  */
-export function CanonicalReceipt({ receipt, language, canPrint = false }: { receipt: BridgeReceiptDetail; language: Language; canPrint?: boolean }) {
+export function CanonicalReceipt({ receipt, language, canPrint = false, canReverse = false }: { receipt: BridgeReceiptDetail; language: Language; canPrint?: boolean; canReverse?: boolean }) {
   const d = receipt.detail;
   const t = (en: string, hi: string) => lead({ en, hi }, language);
   const back = `/students/${receipt.studentId}?tab=fees`;
@@ -97,7 +98,12 @@ export function CanonicalReceipt({ receipt, language, canPrint = false }: { rece
       </Link>)}</div></Card> : null}
         </div>
       </details>
-      <div className="print:hidden" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}><Btn href={back}>{t("Back to student", "विद्यार्थी पर वापस")}</Btn><Btn href={sourceHref}>{t("Reverse or send in Fees", "Fees में रद्द करें या भेजें")}</Btn></div>
+      <div className="print:hidden" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <Btn href={back}>{t("Back to student", "विद्यार्थी पर वापस")}</Btn>
+        {/* Reversal through Fees (review F01): only where One's fee writes are open, the role may reverse and something is left. */}
+        {canReverse && !d.isVoided ? <ReverseReceiptButton receiptId={receipt.receiptId} receiptNumber={d.receiptNumber} sessionLabel={receipt.sessionLabel} amount={d.totalAmount} /> : null}
+        <Btn href={sourceHref}>{canReverse ? t("Send in Fees", "Fees में भेजें") : t("Reverse or send in Fees", "Fees में रद्द करें या भेजें")}</Btn>
+      </div>
     </div></Section>
   </VxPage>;
 }

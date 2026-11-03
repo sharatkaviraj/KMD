@@ -6,6 +6,11 @@ import { createClient } from "@/platform/supabase/server";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { bridgeDirectorySchema, bridgeReceiptDetailSchema, bridgeWorkspaceSchema } from "./student-read-contracts";
 import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
+import {
+  officeCommandStatusSchema, refundDecisionInputSchema, refundDecisionResultSchema, refundProcessInputSchema, refundProcessResultSchema,
+  reversalInputSchema, reversalResultSchema, type RefundDecisionInput, type RefundProcessInput, type ReversalInput,
+} from "./office-command-contracts";
+import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { oneStudentReadPermissions, permittedFinanceKinds, restrictStudentWorkspace } from "./read-permissions";
 import { assertBridgeSession, feesBridgeOrigin, feesBridgeWritesEnabled, usesCanonicalFees } from "./policy";
 import { bridgeDocumentRequest, bridgePhotoRequest, bridgeRequest, FeesBridgeError } from "./transport";
@@ -171,6 +176,53 @@ export async function getBridgeCommand(commandId: string) {
   z.uuid().parse(commandId);
   const result = await bridgeRequest({...(await credentials(staff)),path:`/commands/${commandId}`,schema:commandSchema});
   if(result.commandId !== commandId) throw new FeesBridgeError("invalid_response","The Fees response did not match this payment. Check its status.",true);
+  return result;
+}
+
+/**
+ * One office command (review F01, Fees 20261103190000): the One role must hold
+ * the Fees permission the command needs, writes must be open, and Fees then
+ * checks the person's own grant flag. The answer must be about this command.
+ */
+async function officeCommand<T extends { commandId: string }>(permission: "payments:reverse_any" | "finance:approve" | "finance:write", sessionLabel: string, commandId: string, path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
+  const staff = await assertPermission("fees:view");
+  await assertNotPreviewing();
+  if (!feesBridgeWritesEnabled()) throw new FeesBridgeError("read_only", "Use the Fees app while One's fee desk is read-only.");
+  if (!feePermissionsFor(staff.role).includes(permission)) throw new FeesBridgeError("forbidden", "Your account cannot do this.");
+  const result = await bridgeRequest({...(await credentials(staff, sessionLabel)), path, body, schema});
+  if (result.commandId !== commandId) throw new FeesBridgeError("invalid_response", "The Fees answer was about another request. Check its status.", true);
+  return result;
+}
+
+export async function postBridgeReversal(input: ReversalInput) {
+  const body = reversalInputSchema.parse(input);
+  const result = await officeCommand("payments:reverse_any", body.sessionLabel, body.commandId, "/reversals", body, reversalResultSchema);
+  if (result.receiptId !== body.receiptId) throw new FeesBridgeError("invalid_response", "The Fees answer was about another receipt. Check its status.", true);
+  return result;
+}
+
+export async function postBridgeRefundDecision(refundRequestId: string, input: RefundDecisionInput) {
+  const id = z.uuid().parse(refundRequestId);
+  const body = refundDecisionInputSchema.parse(input);
+  const result = await officeCommand("finance:approve", body.sessionLabel, body.commandId, `/refunds/${id}/decision`, body, refundDecisionResultSchema);
+  if (result.refundRequestId !== id) throw new FeesBridgeError("invalid_response", "The Fees answer was about another refund. Check its status.", true);
+  return result;
+}
+
+export async function postBridgeRefundProcess(refundRequestId: string, input: RefundProcessInput) {
+  const id = z.uuid().parse(refundRequestId);
+  const body = refundProcessInputSchema.parse(input);
+  const result = await officeCommand("finance:write", body.sessionLabel, body.commandId, `/refunds/${id}/process`, body, refundProcessResultSchema);
+  if (result.refundRequestId !== id) throw new FeesBridgeError("invalid_response", "The Fees answer was about another refund. Check its status.", true);
+  return result;
+}
+
+/** A lost answer: Fees' stored outcome for this command id, or not found (send the same id again). */
+export async function getBridgeOfficeCommand(commandId: string) {
+  const staff = await assertPermission("fees:view");
+  z.uuid().parse(commandId);
+  const result = await bridgeRequest({...(await credentials(staff)), path: `/commands/${commandId}`, schema: officeCommandStatusSchema});
+  if (result.commandId !== commandId) throw new FeesBridgeError("invalid_response", "The Fees answer was about another request.", true);
   return result;
 }
 
