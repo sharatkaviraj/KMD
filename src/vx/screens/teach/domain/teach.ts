@@ -522,6 +522,24 @@ export const LEAVE_REASONS: { key: string; text: Pair }[] = [
   { key: "other", text: p("Other", "अन्य") },
 ];
 
+/** One leave submission's id and the exact request it was made for. */
+export type LeaveSubmission = { id: string; request: string };
+
+/**
+ * The id a leave send carries (`requestLeaveVx`): the same one for every try
+ * of the same request, so a send whose answer was lost and is tapped again
+ * files once; a fresh one as soon as the request differs in any way — another
+ * day, span, reason or note is another request and must file on its own.
+ */
+export function leaveSubmissionFor(
+  previous: LeaveSubmission | null,
+  input: { days: readonly string[]; span: string; reason: string; note: string },
+  newId: () => string,
+): LeaveSubmission {
+  const request = JSON.stringify([[...input.days], input.span, input.reason, input.note]);
+  return previous && previous.request === request ? previous : { id: newId(), request };
+}
+
 /* --------------------------------------------------- messages to parents */
 
 /**

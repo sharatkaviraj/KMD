@@ -22,6 +22,7 @@ import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attendance/domain/attendance-receipt";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
+import { m } from "@/messages";
 import { schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -209,35 +210,86 @@ const leaveSchema = z.object({
   span: z.enum(["full", "first_half", "second_half"]),
   reason: z.string().trim().max(60),
   note: z.string().trim().max(300),
+  // One id per submission, kept by the leave sheet across retries of it.
+  // Optional only for a sheet loaded before this shipped; the sheet sends it.
+  requestId: z.string().uuid().optional(),
 });
 
-/** Leave goes to the admin as one `teacher_leave` row per run of days, asked, never approved here. */
-export async function requestLeaveVx(input: z.input<typeof leaveSchema>): Promise<VxResult> {
+export type LeaveRequestResult =
+  | { ok: true; leaveIds: string[]; repeated: boolean }
+  | { ok: false; error: Pair };
+
+const leaveFail = (en: string, hi: string): LeaveRequestResult => ({ ok: false, error: p(en, hi) });
+const leaveNotSent = (): LeaveRequestResult => ({ ok: false, error: m.leaveNotSentRetry });
+
+/** What this person already filed under a request id, run by run; null when it could not be read. */
+async function leaveFiledUnder(staffId: string, requestId: string): Promise<string[] | null> {
+  const { data, error } = await createAdminClient()
+    .from("teacher_leave")
+    .select("id")
+    .eq("staff_profile_id", staffId)
+    .eq("client_request_id", requestId)
+    .order("from_day", { ascending: true });
+  if (error) return null;
+  return ((data ?? []) as { id: string }[]).map((row) => row.id);
+}
+
+/**
+ * Leave goes to the admin as one `teacher_leave` row per run of days, asked,
+ * never approved here.
+ *
+ * **A retry files once.** The sheet sends the same `requestId` for every try
+ * of one submission; when that id is already filed for her, she gets the
+ * original rows back and nothing is inserted. That check comes before
+ * anything that reads the clock, so a retry that lands after midnight is not
+ * refused for a day that was valid when she first sent it. Two tries at once
+ * meet `teacher_leave_request_once`: the loser reads back what the winner
+ * filed.
+ */
+export async function requestLeaveVx(input: z.input<typeof leaveSchema>): Promise<LeaveRequestResult> {
   const staff = await assertPermission("attendance:view");
   await assertNotPreviewing();
   const parsed = leaveSchema.safeParse(input);
-  if (!parsed.success) return fail("Pick the days first.", "पहले दिन चुनें।");
+  if (!parsed.success) return leaveFail("Pick the days first.", "पहले दिन चुनें।");
+  const requestId = parsed.data.requestId ?? null;
+  if (requestId) {
+    const filed = await leaveFiledUnder(staff.id, requestId);
+    if (filed === null) return leaveNotSent();
+    if (filed.length > 0) return { ok: true, leaveIds: filed, repeated: true };
+  }
   const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return fail("There is no school session yet.", "अभी कोई सत्र नहीं है।");
+  if (!sessionLabel) return leaveFail("There is no school session yet.", "अभी कोई सत्र नहीं है।");
   const today = schoolToday();
   const ahead = parsed.data.days.filter((d) => d >= today);
   // A holiday needs no leave and no cover: it is dropped from the request
   // (smoke 20 Oct, leave on Dussehra was counted as periods needing cover).
   const calendar = await attendanceCalendar(sessionLabel).catch(() => null);
   const open = calendar ? ahead.filter((d) => isSchoolOpen(d, calendar)) : ahead;
-  if (ahead.length > 0 && open.length === 0) return fail("School is closed on the days you picked. No leave is needed.", "चुने गए दिनों पर स्कूल बंद है। छुट्टी की ज़रूरत नहीं।");
+  if (ahead.length > 0 && open.length === 0) return leaveFail("School is closed on the days you picked. No leave is needed.", "चुने गए दिनों पर स्कूल बंद है। छुट्टी की ज़रूरत नहीं।");
   const runs = leaveRuns(open);
-  if (runs.length === 0) return fail("Leave can be asked for today or later.", "छुट्टी आज या आगे के दिनों के लिए ही माँगी जा सकती है।");
+  if (runs.length === 0) return leaveFail("Leave can be asked for today or later.", "छुट्टी आज या आगे के दिनों के लिए ही माँगी जा सकती है।");
   const half = runs.length === 1 && runs[0].from === runs[0].to ? parsed.data.span : "full";
   const note = [parsed.data.reason, parsed.data.note].filter(Boolean).join(" · ") || null;
-  const { error } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from("teacher_leave")
-    .insert(runs.map((r) => ({ session_label: sessionLabel, staff_profile_id: staff.id, from_day: r.from, to_day: r.to, span: half, note, status: "asked", requested_by: staff.id })));
-  if (error) return fail("Not sent. Try again.", "नहीं भेजा गया। फिर कोशिश करें।");
+    .insert(runs.map((r) => ({
+      session_label: sessionLabel, staff_profile_id: staff.id, from_day: r.from, to_day: r.to, span: half, note, status: "asked", requested_by: staff.id,
+      ...(requestId ? { client_request_id: requestId } : {}),
+    })))
+    .select("id");
+  if (error) {
+    // The same submission sent twice at once: the unique index let the other
+    // one in, so hand back what it filed rather than a failure.
+    if (requestId && error.code === "23505") {
+      const filed = await leaveFiledUnder(staff.id, requestId);
+      if (filed && filed.length > 0) return { ok: true, leaveIds: filed, repeated: true };
+    }
+    return leaveNotSent();
+  }
   revalidatePath("/teach");
   revalidatePath("/teach/more");
   revalidatePath("/inbox");
-  return { ok: true };
+  return { ok: true, leaveIds: ((data ?? []) as { id: string }[]).map((row) => row.id), repeated: false };
 }
 
 const previewSchema = z.object({
