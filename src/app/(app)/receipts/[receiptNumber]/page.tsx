@@ -7,8 +7,9 @@ import { loadReceiptsDesk } from "@/vx/screens/receipts/load";
 import { assertReceiptVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { canAccessSession } from "@/platform/auth/test-session-policy";
-import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
-import { getBridgeReceiptDetail } from "@/platform/fees-bridge/client";
+import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getBridgeReceiptDetail, lookupBridgeReceipt } from "@/platform/fees-bridge/client";
+import { RECEIPT_NUMBER } from "@/platform/fees-bridge/office-read-contracts";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { CanonicalReceipt, CanonicalReceiptUnavailable, type ReceiptUnavailableReason } from "@/vx/screens/receipts/canonical-receipt";
@@ -40,8 +41,14 @@ export default async function ReceiptPage({
     const unavailable = (reason: ReceiptUnavailableReason, id?: string) => (
       <CanonicalReceiptUnavailable language={staff.language} reason={reason} receiptNumber={number} receiptId={id} sessionLabel={requestedSession ?? undefined} />
     );
+    const pinned = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receiptId);
+    // An older link with only the number: Fees resolves it to the exact receipt, under the detail rule.
+    if (!pinned && feesBridgeOfficeReads() && session && /^\d{4}-\d{2}$/.test(session) && canAccessSession(staff, session) && RECEIPT_NUMBER.test(number)) {
+      const found = await lookupBridgeReceipt(number, session).catch(() => null);
+      if (found) redirect(`/receipts/${encodeURIComponent(found.receiptNumber)}?${new URLSearchParams({ receiptId: found.receiptId, session })}`, RedirectType.replace);
+    }
     if (!requestedSession || !/^\d{4}-\d{2}$/.test(requestedSession) || !canAccessSession(staff, requestedSession)) return unavailable(requestedSession ? "access" : "missing_link");
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receiptId)) return unavailable("missing_link");
+    if (!pinned) return unavailable("missing_link");
     let receipt;
     try { receipt = await getBridgeReceiptDetail(receiptId, requestedSession); }
     catch (error) {

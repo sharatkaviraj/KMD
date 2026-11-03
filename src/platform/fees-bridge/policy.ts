@@ -14,6 +14,16 @@ export function feesBridgeEnabled(env: Environment = process.env): boolean {
   return value === "true";
 }
 
+/**
+ * Fees' office reads (today's totals, pending refunds, receipt lookup). Off
+ * until the Fees side has migration 20261103170000 applied: before that every
+ * office read answers 503, and showing that as "could not read" would bring
+ * back the false failure review T02 removed.
+ */
+export function feesBridgeOfficeReads(env: Environment = process.env): boolean {
+  return feesBridgeEnabled(env) && env.FEES_BRIDGE_OFFICE_READS === "true";
+}
+
 export function feesBridgeWritesEnabled(env: Environment = process.env): boolean {
   return feesBridgeEnabled(env) && !isConfinedDeployment(env) && env.FEES_BRIDGE_WRITES_ENABLED === "true";
 }

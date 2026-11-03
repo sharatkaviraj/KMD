@@ -5,6 +5,7 @@ import { assertPermission, assertStaff, type CurrentStaff } from "@/platform/aut
 import { createClient } from "@/platform/supabase/server";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { bridgeDirectorySchema, bridgeReceiptDetailSchema, bridgeWorkspaceSchema } from "./student-read-contracts";
+import { bridgePendingRequestsSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import { oneStudentReadPermissions, permittedFinanceKinds, restrictStudentWorkspace } from "./read-permissions";
 import { assertBridgeSession, feesBridgeOrigin, feesBridgeWritesEnabled, usesCanonicalFees } from "./policy";
 import { bridgeDocumentRequest, bridgePhotoRequest, bridgeRequest, FeesBridgeError } from "./transport";
@@ -78,9 +79,38 @@ export async function getBridgeReceiptDetail(receiptId:string,sessionLabel:strin
   if(!oneStudentReadPermissions(staff).receipts)throw new FeesBridgeError("forbidden","Your account cannot view receipts.");
   z.uuid().parse(receiptId);
   const result=await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/receipts/${receiptId}/detail?${new URLSearchParams({session:sessionLabel})}`,schema:bridgeReceiptDetailSchema});
-  if(result.receiptId!==receiptId || result.detail.id!==receiptId || result.studentId!==result.detail.studentId || result.sessionLabel!==sessionLabel || result.detail.sessionLabel!==sessionLabel) {
+  // A receipt belongs to a session when any allocation does (Fees 20261103170000); its own label
+  // names the first allocation's session, which for a receipt across two granted years may be the other.
+  const inSession=result.detail.sessionLabel===sessionLabel || result.detail.breakdown.some(row=>row.sessionLabel===sessionLabel);
+  if(result.receiptId!==receiptId || result.detail.id!==receiptId || result.studentId!==result.detail.studentId || result.sessionLabel!==sessionLabel || !inSession) {
     throw new FeesBridgeError("invalid_response","The Fees receipt did not match this request.");
   }
+  return result;
+}
+
+/** Fees' Dashboard "Today": collected, receipts and by mode, uncached. */
+export async function getBridgeTodaySummary(sessionLabel:string) {
+  const staff=await assertPermission("fees:view");
+  const result=await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/summary/today?${new URLSearchParams({session:sessionLabel})}`,schema:bridgeTodaySummarySchema});
+  if(result.sessionLabel!==sessionLabel)throw new FeesBridgeError("invalid_response","The Fees summary did not match this session.");
+  return result;
+}
+
+/** Fees' refund requests waiting on someone, as Finance controls lists them. */
+export async function getBridgePendingRequests(sessionLabel:string) {
+  const staff=await assertPermission("fees:view");
+  const result=await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/requests/pending?${new URLSearchParams({session:sessionLabel})}`,schema:bridgePendingRequestsSchema});
+  if(result.sessionLabel!==sessionLabel)throw new FeesBridgeError("invalid_response","The Fees requests did not match this session.");
+  return result;
+}
+
+/** A printed receipt number to its source id, under the receipt detail rule. */
+export async function lookupBridgeReceipt(receiptNumber:string,sessionLabel:string) {
+  const staff=await assertPermission("fees:view");
+  if(!oneStudentReadPermissions(staff).receipts)throw new FeesBridgeError("forbidden","Your account cannot view receipts.");
+  const number=z.string().regex(RECEIPT_NUMBER).parse(receiptNumber);
+  const result=await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/receipts/lookup?${new URLSearchParams({session:sessionLabel,number})}`,schema:bridgeReceiptLookupSchema});
+  if(result.sessionLabel!==sessionLabel || result.receiptNumber!==number)throw new FeesBridgeError("invalid_response","The Fees receipt did not match this number.");
   return result;
 }
 

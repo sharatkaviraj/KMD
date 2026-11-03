@@ -21,7 +21,8 @@ import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { menuRoleLabel } from "@/vx/shell/role-line";
 import { getViewer } from "@/vx/view-as";
-import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { getBridgeTodaySummary } from "@/platform/fees-bridge/client";
 import { LedgerNotice } from "@/vx/shell/ledger-notice";
 
 export const runtime = "nodejs";
@@ -68,7 +69,14 @@ export default async function TodayPage() {
 
   const seesMoney = can(staff, "fees:view");
   const canonicalMoney = usesCanonicalFees(staff, sessionLabel);
-  const [facts, fees, inbox, week] = await Promise.all([
+  // Under the live connection, today's figures are Fees' own Dashboard numbers (review T02).
+  const feesToday = seesMoney && canonicalMoney && feesBridgeOfficeReads()
+    ? getBridgeTodaySummary(sessionLabel).then(
+        (s) => ({ total: s.totalCollected, count: s.receiptCount, byMode: s.byMode.map((m) => ({ label: m.paymentModeLabel, amount: m.amount, count: m.receiptCount })), asOf: s.asOf }),
+        () => "failed" as const,
+      )
+    : Promise.resolve(null);
+  const [facts, fees, inbox, week, ledgerToday] = await Promise.all([
     loadToday(staff, sessionLabel, today, minutes),
     seesMoney && !canonicalMoney
       ? todayMoney(today)
@@ -80,6 +88,7 @@ export default async function TodayPage() {
       ? loadInbox(staff, sessionLabel, today, { refunds: moneyRequestsFor(staff, sessionLabel), nowMinutes: minutes })
       : Promise.resolve(null),
     can(staff, "attendance:view") ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
+    feesToday,
   ]);
   const money = fees?.figures ?? null;
   const promised = fees?.promised ?? null;
@@ -130,6 +139,7 @@ export default async function TodayPage() {
         // Under the Fees connection the local money read is never attempted, so its
         // absence is not a failure (review T02): the ledger notice says where the figures live.
         moneyFailed={seesMoney && !canonicalMoney && money === null}
+        ledgerToday={ledgerToday}
         attendance={board && summary ? { marked: summary.marked, total: summary.total, percent: summary.percent, schoolOpen: board.schoolOpen } : null}
         staffAway={facts.staffAway}
         cover={facts.cover}

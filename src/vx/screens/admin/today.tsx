@@ -41,6 +41,8 @@ export type TodayMoneyView = {
 /** The "+ New" menu's tile colours (`QUICK_ACTIONS` in `vx/nav.ts`). */
 export type QuickTone = "pri" | "acc" | "info" | "ok" | "warn" | "plain";
 
+export type LedgerToday = { total: number; count: number; byMode: { label: string; amount: number; count: number }[]; asOf: string };
+
 export type TodayProps = {
   notice?: ReactNode;
   officeWork?: ReactNode;
@@ -53,6 +55,8 @@ export type TodayProps = {
   today: string;
   money: TodayMoneyView | null;
   moneyFailed: boolean;
+  /** Under the live Fees connection: Fees' own "Today" figures, or "failed" when that read failed; absent when not offered. */
+  ledgerToday?: LedgerToday | "failed" | null;
   attendance: { marked: number; total: number; percent: number | null; schoolOpen: boolean } | null;
   staffAway: number | null;
   cover: { needed: number; arranged: number; missed: number } | null;
@@ -289,7 +293,8 @@ export function TodayScreen(props: TodayProps) {
     ) : null;
 
   // With the Fees ledger notice shown, "fee figures are shown to the fee desk" would be wrong for this reader.
-  const moneyNote = money ? null : props.moneyFailed ? (
+  const ledgerCard = props.ledgerToday ? <LedgerTodayCard today={props.ledgerToday} /> : null;
+  const moneyNote = money ? null : ledgerCard ? ledgerCard : props.moneyFailed ? (
     <Card><p style={{ margin: 0, color: "var(--mut)" }}>{tx(TD.feesUnavailable)}</p></Card>
   ) : props.notice ? null : (
     <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(T.moneyHidden)}</p>
@@ -617,7 +622,13 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             </span>
             <Spark values={weekRunning(money, props.today)} w={128} h={54} color={HERO_TEAL} stroke={2.5} dot={4.5} end={[124, 6]} />
           </div>
-        ) : props.moneyFailed ? (
+        ) : props.ledgerToday && props.ledgerToday !== "failed" ? (
+          <div className="td-hero-card" style={{ ...heroCard, gridColumn: "1 / -1", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ fontSize: 12, color: "var(--navm)" }}>{tx(TD.feesCollectedToday)}</span>
+            <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{rupees(props.ledgerToday.total)}</span>
+            <span style={{ fontSize: 12, color: "var(--navm)" }}>{tx(TD.ledgerLine(props.ledgerToday.count, asOfTime(props.ledgerToday.asOf)))}</span>
+          </div>
+        ) : props.ledgerToday === "failed" || props.moneyFailed ? (
           <div className="td-hero-card" style={{ ...heroCard, gridColumn: "1 / -1", padding: "14px 16px", fontSize: 13, color: "var(--navm)" }}>{tx(TD.feesUnavailable)}</div>
         ) : null}
         {attendance ? (
@@ -724,6 +735,30 @@ function PhoneNeeds({ inbox, incomplete }: { inbox: InboxItem[] | null; incomple
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** Clock time in the school's zone, for "as of 11:05". */
+function asOfTime(iso: string): string {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? "" : at.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Fees' own "Today" (Dashboard) figures, with when they were read; a failed read says so and offers Try again. */
+function LedgerTodayCard({ today }: { today: LedgerToday | "failed" }) {
+  const { tx } = useVx();
+  if (today === "failed") return <CouldNotRead message={TD.feesUnavailable} />;
+  return (
+    <Card>
+      <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(TD.feesCollectedToday)}</span>
+      <div className="num" style={{ fontSize: 28, fontWeight: 700, margin: "4px 0" }}>{rupees(today.total)}</div>
+      <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(TD.ledgerLine(today.count, asOfTime(today.asOf)))}</span>
+      {today.byMode.length ? (
+        <ul style={{ listStyle: "none", margin: "10px 0 0", padding: 0, display: "flex", flexWrap: "wrap", gap: "6px 16px", fontSize: 13 }}>
+          {today.byMode.map((m) => <li key={m.label}><strong>{m.label}</strong> <span className="num">{rupees(m.amount)}</span> <span style={{ color: "var(--mut)" }}>· {m.count}</span></li>)}
+        </ul>
+      ) : null}
+    </Card>
   );
 }
 
