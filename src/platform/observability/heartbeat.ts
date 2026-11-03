@@ -7,9 +7,10 @@
  * watcher raises the alarm when it does not.
  *
  * The URL is whatever the monitoring service hands out for a "check-in" —
- * Honeybadger today, any other ping-a-URL service later — so changing provider
- * is an environment-variable change, not a code change. No variable set means
- * no ping, and a ping never fails or slows the job it reports on.
+ * Healthchecks.io (free tier) today, any other ping-a-URL service later —
+ * so changing provider is an environment-variable change, not a code change.
+ * No variable set means no ping, and a ping never fails or slows the job it
+ * reports on.
  *
  * One variable per job: `HEARTBEAT_URL_DRIVE_BACKUP` for `drive-backup`, and so on.
  */
