@@ -96,3 +96,12 @@
 }
 @media (prefers-reduced-motion:reduce){.stu-row,.stu-bar,.stu-bulk{animation:none}}
 .stu-ask{min-width:0}
+/* Review S02: while a search is on its way the old rows stay, dimmed and not tappable, under "Updating results…". */
+.stu:has(form[aria-busy="true"]) .stu-card,.stu:has(form[aria-busy="true"]) .stu-cards{opacity:.5;pointer-events:none;transition:opacity .15s var(--ease)}
+@media (prefers-reduced-motion:reduce){.stu:has(form[aria-busy="true"]) .stu-card,.stu:has(form[aria-busy="true"]) .stu-cards{transition:none}}
+/* Review S03: one labelled Filters button on every width; what is on wraps instead of scrolling sideways. */
+.stu-on{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.stu-mchips.stu-on{overflow:visible}
+.stu-dfbtn{flex:none;height:40px;gap:8px;position:relative}
+.stu-dfbtn[data-on]{border-color:var(--acc);color:var(--accfg)}
+.stu-dfbtn .stu-fcount{position:static;margin-left:2px}

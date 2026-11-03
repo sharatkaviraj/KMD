@@ -102,7 +102,10 @@ export async function Student360Content({ id, search }: { id: string; search: Re
         const profile:Student360Fees=source&&source!=="unavailable"?{
           source,name:source.student.fullName,classLabel:source.student.classLabel,sr:source.student.admissionNo,rollNo:source.student.rollNo,
           father:source.student.fatherName,mother:source.student.motherName,phone:source.student.guardianPhone||source.student.fatherPhone||source.student.motherPhone,
-          photoUrl:source.student.hasPhoto?bridgeStudentPhotoHref(id,source.sessionLabel,"full"):null,
+          fatherPhone:source.student.fatherPhone,motherPhone:source.student.motherPhone,
+          // The ring keeps the thumbnail the first paint already shows (the same address, so no second
+          // download when the fees land, review P01); the photo viewer asks for the full image itself.
+          photoUrl:source.student.hasPhoto?bridgeStudentPhotoHref(id,source.sessionLabel):null,
           status:source.student.status,address:source.student.address,dob:source.student.dateOfBirth,joined:source.student.joinedOn,route:shownTransportLabel(source.student.transportRouteLabel),
         }:{};
         return fees === "unavailable" ? { ...profile,unavailable: true } : fees

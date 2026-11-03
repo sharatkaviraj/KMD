@@ -1,5 +1,18 @@
 # VPPS One — progress
 
+## Review plan, Phase 2: daily speed and clarity — 3 November 2026
+
+Branch `feat/review-daily-phase2`, stacked on Phase 1 (#167). Student 360 no
+longer rebuilds itself when fees arrive (P01: one mounted card, thumbnail kept);
+a photo viewer with zoom and Save (P04); concessions summary and folded settings
+(P05); compact household and history with restrictions always visible (P06);
+the Students list labels stale results while searching and replaces the quick
+pills with one Filters button and a grouped sheet including enrolment (S02/S03).
+Also fixed: phone masking regex and per-parent numbers. Verified with unit
+tests, the Student 360 / documents / admin-mobile browser specs (documents run
+serially; parallel runs time out on this machine) and harness screenshots. No
+migration, data write or message. Remaining: release, then Phase 3.
+
 ## Review plan, Phase 1: trust fixes — 3 November 2026
 
 Branch `fix/review-trust-phase1` from `2437e9ae`. Raj's 3 Nov review plan is
@@ -14,9 +27,11 @@ from production `student_missing`), explained receipt refusals (F02), the real
 logo (T01), no "Bus · No transport" (P03), and the waiver shown only when a
 late fee is pending. No migration, no data write, no message. Fees-side reads
 (`/summary/today`, `/requests/pending`, `/receipts/lookup`, `/receipts`,
-cross-session receipt detail) are being built in schoolfees
-`feat/one-bridge-office-reads`; One wires them in the next branch. Remaining:
-release CI, then Phase 2.
+cross-session receipt detail) are in schoolfees PR #133. **Released:** PR #167
+merged as `ca58c86f` (26/26 checks). CI caught a WebKit stall on the payment
+desk: the new logo used the real `next/image` in a harness that stubs it
+nowhere else and popped in with a spring transform; harnesses now stub it and
+the logo is still on documents.
 
 ## School Office second pass — 3 November 2026
 
