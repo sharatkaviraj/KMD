@@ -5,6 +5,7 @@ import { runJob } from "@/modules/jobs/data/run-job";
 import { isJobName } from "@/modules/jobs/domain/jobs";
 import { isPlatformCron, tokenMatches } from "@/modules/jobs/domain/token";
 import { schoolToday } from "@/platform/dates";
+import { sendHeartbeat } from "@/platform/observability/heartbeat";
 
 export const runtime = "nodejs";
 // The Drive backup exports every table and copies files; give it five minutes.
@@ -52,6 +53,10 @@ export async function POST(
   const day = request.nextUrl.searchParams.get("day") ?? schoolToday();
 
   const result = await runJob(job, { trigger: "schedule", day }, () => jobWork[job](day));
+
+  // "Already done today" still proves the scheduler fired; a failed or busy
+  // run stays silent so the outside watcher raises the alarm.
+  if (result.status === "ok" || result.status === "skipped") await sendHeartbeat(job);
 
   // 200 even for a failed run. The scheduler asked us to try, we tried, and we
   // wrote down what happened — the failure belongs in the row a person reads
