@@ -21,6 +21,7 @@ export const ST = {
   searchLabel: p("Search students", "विद्यार्थी खोजें"),
   showing: (n: number): Pair => p(`Showing ${n}`, `${n} दिख रहे`),
   showingOf: (n: number, total: number): Pair => p(`Showing ${n} of ${total}`, `${total} में से ${n} दिख रहे`),
+  updating: p("Updating results…", "नतीजे बदल रहे हैं…"),
   /** "Showing 12 of 12 students" on one page, "Showing 51–100 of 583 students" on more. */
   footer: (a: number, b: number, total: number): Pair => {
     const span = a <= 1 && b >= total ? `${total}` : `${a}–${b}`;
@@ -49,6 +50,8 @@ export const ST = {
 
   /* the phone's Filter sheet (UI-94) */
   filter: p("Filter", "फ़िल्टर"),
+  filters: p("Filters", "फ़िल्टर"),
+  filtersOn: p("Filters that are on", "लगे हुए फ़िल्टर"),
   filterOn: (n: number): Pair => p(`Filter and sort · ${n} on`, `फ़िल्टर और क्रम · ${n} लगे`),
   sheetTitle: p("Filter and view", "फ़िल्टर और दृश्य"),
   sheetSub: p("Pick what to see. Nothing changes until Show.", "जो देखना है चुनें। 'दिखाएँ' दबाने पर ही बदलेगा।"),

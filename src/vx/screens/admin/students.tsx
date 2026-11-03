@@ -14,8 +14,8 @@ import { useToast } from "@/vx/ui/overlays";
 import { IntentLink } from "@/vx/ui/intent-link";
 import { Banner, TopBar } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
-import { mobileOf, QUICK_FILTERS, studentsHref, toCsv, type StudentFilter, type StudentSegment } from "@/vx/screens/admin/logic";
-import { FILTER_WORD, StudentFilterSheet, type FilterChoice } from "@/vx/screens/admin/students-filter";
+import { mobileOf, studentsHref, toCsv, type StudentFilter, type StudentSegment } from "@/vx/screens/admin/logic";
+import { ENROLLMENT_WORD, FILTER_WORD, StudentFilterSheet, type FilterChoice } from "@/vx/screens/admin/students-filter";
 import {
   attendanceFigure,
   classChipLabel,
@@ -41,7 +41,7 @@ import {
   type StudentView,
 } from "@/vx/screens/admin/students-logic";
 import { ST } from "@/vx/screens/admin/students-text";
-import { StudentSearchForm, StudentSearchInput, StudentSearchProvider } from "@/vx/screens/admin/student-search";
+import { StudentSearchForm, StudentSearchInput, StudentSearchProvider, StudentSearchStatus } from "@/vx/screens/admin/student-search";
 import { T } from "@/vx/screens/admin/text";
 
 import "./students.css";
@@ -148,14 +148,6 @@ export type StudentsProps = {
   initialPicked?: string[];
   taskAssignment?: { matchingIds: string[]; missing: string; fields: { key:string; hi:string; en:string }[] };
 };
-
-const SEGS: { key: StudentSegment; label: keyof typeof T }[] = [
-  { key: "all", label: "segAll" },
-  { key: "pending", label: "segPending" },
-  { key: "bus", label: "segBus" },
-  { key: "new", label: "segNew" },
-  { key: "paid", label: "segPaid" },
-];
 
 type Tx = ReturnType<typeof useVx>["tx"];
 
@@ -367,7 +359,7 @@ export function StudentsScreen(props: StudentsProps) {
     });
     setSort(next.sort);
     const sorted = next.sort.key === "name" && next.sort.dir === 1 ? href : withSort(href, next.sort);
-    router.push(withEnrollment(props.taskAssignment ? withMissing(sorted, next.missing) : sorted,next.view==="fees"?props.enrollment:undefined));
+    router.push(withEnrollment(props.taskAssignment ? withMissing(sorted, next.missing) : sorted,next.view==="fees"?(next.enrollment ?? props.enrollment):undefined));
   };
   const pickMissing = (value: string) => router.push(withMissing(`${location.pathname}${location.search}`, value));
 
@@ -669,20 +661,13 @@ export function StudentsScreen(props: StudentsProps) {
   };
 
   const selectedRows = props.rows.filter((row) => picked.has(row.id));
-  // A quick chip shows just its group, as before; combinations come from the Filter sheet.
-  const chips = fees ? (
-    <>
-      {SEGS.map((s) => {
-        const on = s.key === "all" ? filters.length === 0 : filters.length === 1 && filters[0] === s.key;
-        const count = props.counts?.[s.key];
-        return (
-          <Link key={s.key} href={hrefFor({ view: "fees", segs: s.key === "all" ? [] : [s.key] })} className={`tap chip${on ? " on" : ""}`} aria-current={on ? "true" : undefined}>
-            {tx(T[s.label] as { en: string; hi?: string })}
-            {count != null ? <span className="num" style={{ opacity: 0.7 }}>{count}</span> : null}
-          </Link>
-        );
-      })}
-    </>
+  // Review S03: no row of scrolling quick pills. Filters are chosen in one grouped sheet;
+  // what is on shows here as removable chips — the plain-language summary of the list.
+  const enrollmentChip = fees && props.enrollment && props.enrollment !== "active" ? (
+    <Link href={withEnrollment(hrefFor({ page: 1 }), "active")} className="tap chip on" aria-label={tx(ST.removeFilter(tx(ENROLLMENT_WORD[props.enrollment])))}>
+      {tx(ENROLLMENT_WORD[props.enrollment])}
+      <Ic n="x" size={14} />
+    </Link>
   ) : null;
   const classChip =
     props.classId && props.classLabel ? (
@@ -691,8 +676,8 @@ export function StudentsScreen(props: StudentsProps) {
         <Ic n="x" size={14} />
       </Link>
     ) : null;
-  // Filters a lit quick chip cannot show (from the sheet, or more than one), each with its own ×.
-  const filterChips = (filters.length === 1 && QUICK_FILTERS.includes(filters[0]) ? [] : filters).map((f) => (
+  // Every filter that is on, each with its own ×.
+  const filterChips = filters.map((f) => (
     <Link key={f} href={hrefFor({ segs: filters.filter((x) => x !== f) })} className="tap chip on" aria-label={tx(ST.removeFilter(tx(FILTER_WORD[f])))}>
       {tx(FILTER_WORD[f])}
       <Ic n="x" size={14} />
@@ -705,7 +690,7 @@ export function StudentsScreen(props: StudentsProps) {
       <Ic n="x" size={14} />
     </button>
   ) : null;
-  const activeCount = (props.classId ? 1 : 0) + filters.length + (missing ? 1 : 0);
+  const activeCount = (props.classId ? 1 : 0) + filters.length + (missing ? 1 : 0) + (enrollmentChip ? 1 : 0);
   // Asking teachers is offered where it applies: for a filter's matches here, for picked rows in the bulk bar.
   const askBanner = props.taskAssignment && missingLabel ? (
     <div className="stu-ask">
@@ -781,7 +766,7 @@ export function StudentsScreen(props: StudentsProps) {
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
             <h1 className="serif" style={{ margin: 0, fontSize: 30, fontWeight: 600 }}>{tx(T.students)}</h1>
-            <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{props.total > rows.length ? tx(ST.showingOf(rows.length, props.total)) : tx(ST.showing(rows.length))}</span>
+            <StudentSearchStatus className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{props.total > rows.length ? tx(ST.showingOf(rows.length, props.total)) : tx(ST.showing(rows.length))}</StudentSearchStatus>
           </div>
           <div className="stu-mfind">
             <StudentSearchForm className="stu-msearch">
@@ -796,12 +781,12 @@ export function StudentsScreen(props: StudentsProps) {
               {activeCount ? <span className="num stu-fcount">{activeCount}</span> : null}
             </button>
           </div>
-          {chips || classChip || filterChips.length || missingChip ? (
-            <div className="hs stu-mchips" role="group" aria-label={tx(T.students)}>
+          {classChip || filterChips.length || missingChip || enrollmentChip ? (
+            <div className="stu-mchips stu-on" role="group" aria-label={tx(ST.filtersOn)}>
+              {enrollmentChip}
               {classChip}
               {missingChip}
               {filterChips}
-              {chips}
             </div>
           ) : null}
         </header>
@@ -814,10 +799,15 @@ export function StudentsScreen(props: StudentsProps) {
               <StudentSearchInput id="stu-q-d" placeholder={tx(ST.search)} />
               {hidden}
             </StudentSearchForm>
-            <div className="hs" role="group" aria-label={tx(T.students)} style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }}>
+            <button type="button" className="tap btn sec stu-dfbtn" data-on={activeCount ? "" : undefined} aria-haspopup="dialog" onClick={() => setSheetOpen(true)}>
+              <Ic n="sliders" size={18} />
+              {tx(ST.filters)}
+              {activeCount ? <span className="num stu-fcount">{activeCount}</span> : null}
+            </button>
+            <div className="stu-on" role="group" aria-label={tx(ST.filtersOn)} style={{ display: "flex", flexWrap: "wrap", gap: 6, flex: 1, minWidth: 0 }}>
+              {enrollmentChip}
               {classChip}
               {filterChips}
-              {chips}
             </div>
             {props.taskAssignment ? (
               <Select aria-label={tx(ms.taskMissing)} title={tx(ms.taskMissing)} value={missing} onChange={(e) => pickMissing(e.target.value)} style={{ width: "auto", maxWidth: 150, height: 40, fontSize: 14, paddingRight: 30, flex: "none" }}>
@@ -830,9 +820,6 @@ export function StudentsScreen(props: StudentsProps) {
           </div>
 
           {props.feesDirectoryHref ? <Banner>{tx(ST.sourceFeesHint)}{" "}<a href={props.feesDirectoryHref} style={{ textDecoration: "underline" }}>{tx(ST.sourceFeesLink)}</a></Banner> : null}
-          {props.enrollment?<nav className="hs" aria-label={tx(ST.enrollment)} style={{display:"flex",gap:6,padding:"8px 0",flexWrap:"wrap"}}>
-            {([['active',ST.statusActive],['inactive',ST.statusInactive],['left',ST.statusLeft],['graduated',ST.statusGraduated],['all',ST.statusAll]] as const).map(([value,label])=><Link prefetch={false} key={value} href={withEnrollment(hrefFor({page:1}),value)} className={`tap chip${props.enrollment===value?" on":""}`} aria-current={props.enrollment===value?"page":undefined}>{tx(label)}</Link>)}
-          </nav>:null}
           {props.failed ? <p role="alert" data-student-source-unavailable="true" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
 
           {askBanner}
@@ -925,7 +912,7 @@ export function StudentsScreen(props: StudentsProps) {
           </div>
 
           <div className="stu-foot">
-            {rows.length > 0 ? <span className="only-d" style={{ fontSize: 12, color: "var(--sub)" }}>{tx(ST.footer(props.window.firstRow, props.window.lastRow, props.total))}</span> : <span />}
+            {rows.length > 0 ? <StudentSearchStatus className="only-d" style={{ fontSize: 12, color: "var(--sub)" }}>{tx(ST.footer(props.window.firstRow, props.window.lastRow, props.total))}</StudentSearchStatus> : <span />}
             {pager}
             {/* On a phone the view is chosen in the Filter sheet. */}
             {viewSwitch ? <span className="only-d">{viewSwitch}</span> : null}
@@ -937,7 +924,7 @@ export function StudentsScreen(props: StudentsProps) {
       <StudentFilterSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        current={{ classId: props.classId, filters, sort, layout, view: props.view, missing }}
+        current={{ classId: props.classId, filters, sort, layout, view: props.view, missing, ...(props.enrollment ? { enrollment: props.enrollment } : {}) }}
         missingOptions={missingOptions}
         missingTitle={ms.taskMissingTitle}
         classes={props.classes}

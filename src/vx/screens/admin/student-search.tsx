@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { normaliseQuery } from "@/modules/students/domain/directory";
+import { useVx } from "@/vx/i18n";
+import { ST } from "@/vx/screens/admin/students-text";
 
 const SEARCH_PAUSE_MS = 250;
 type SearchState = {
@@ -84,6 +86,17 @@ function useStudentSearch() {
 export function StudentSearchForm(props: Omit<ComponentProps<"form">, "onSubmit">) {
   const search = useStudentSearch();
   return <form {...props} action="/students" method="get" role="search" aria-busy={search.pending} onSubmit={event => { event.preventDefault(); search.submit(); }} />;
+}
+
+/**
+ * The list's count, or "Updating results…" while a search is on its way (review
+ * S02): the old rows and total stay up during the transition, so they are
+ * labelled stale here and dimmed (and not tappable) by `.stu:has(form[aria-busy])`.
+ */
+export function StudentSearchStatus({ children, className, style }: { children: ReactNode; className?: string; style?: ComponentProps<"span">["style"] }) {
+  const search = useStudentSearch();
+  const { tx } = useVx();
+  return <span className={className} style={style} role="status" aria-live="polite">{search.pending ? tx(ST.updating) : children}</span>;
 }
 
 export function StudentSearchInput(props: Omit<ComponentProps<"input">, "value" | "onChange" | "onCompositionStart" | "onCompositionEnd">) {

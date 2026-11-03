@@ -25,6 +25,17 @@ export type FilterChoice = {
   view: StudentView;
   /** A detail the record lacks ("photo", a field key), for asking a teacher; "" for none. */
   missing: string;
+  /** Enrolment status, where the list offers it (the Fees directory); grouped here, not a row of pills (review S03). */
+  enrollment?: Enrollment;
+};
+
+export type Enrollment = "active" | "inactive" | "left" | "graduated" | "all";
+export const ENROLLMENT_WORD: Record<Enrollment, Pair> = {
+  active: ST.statusActive,
+  inactive: ST.statusInactive,
+  left: ST.statusLeft,
+  graduated: ST.statusGraduated,
+  all: ST.statusAll,
 };
 
 export const FILTER_WORD: Record<StudentFilter, Pair> = {
@@ -118,7 +129,7 @@ export function StudentFilterSheet({
             type="button"
             className="tap btn sec"
             style={{ flex: 1, height: 52 }}
-            onClick={() => setDraft({ ...draft, classId: null, filters: [], sort: SORT_OF.name, missing: "" })}
+            onClick={() => setDraft({ ...draft, classId: null, filters: [], sort: SORT_OF.name, missing: "", ...(draft.enrollment ? { enrollment: "active" as const } : {}) })}
           >
             {tx(ST.clearAll)}
           </button>
@@ -157,6 +168,19 @@ export function StudentFilterSheet({
             ))}
           </div>
         </section>
+
+        {draft.enrollment && fees ? (
+          <section>
+            <span className="sech">{tx(ST.enrollment)}</span>
+            <div className="stu-fchips" role="radiogroup" aria-label={tx(ST.enrollment)}>
+              {(Object.keys(ENROLLMENT_WORD) as Enrollment[]).map((value) => (
+                <Chip key={value} on={draft.enrollment === value} onClick={() => setDraft((d) => ({ ...d, enrollment: value }))}>
+                  {tx(ENROLLMENT_WORD[value])}
+                </Chip>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {fees ? (
           <>

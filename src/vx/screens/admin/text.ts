@@ -15,6 +15,7 @@ export const T = {
   profileCashReceived: p("Cash received this session", "इस सत्र प्राप्त भुगतान"),
   studentPortrait: (name: string): Pair => p(`Portrait of ${name}`, `${name} का फोटो`),
   studentInitials: (name: string): Pair => p(`Initials for ${name}`, `${name} के नाम के अक्षर`),
+  viewPhoto: (name: string): Pair => p(`View ${name}'s photo`, `${name} का फोटो बड़ा देखें`),
   profileDueNow: p("Due now", "अभी देय"),
   profileUpcoming: p("Upcoming dues", "आगामी बकाया"),
   profileConcessions: p("Concessions reduce fees; they are not cash received.", "रियायतों से फीस घटती है; यह प्राप्त नकद नहीं है।"),

@@ -98,6 +98,19 @@ describe("Student 360 delayed fee streaming", () => {
     expect(host.querySelector('[role="alert"]')).toBeNull(); expect(selected()).toBe("Family");
     expect(host.textContent).toContain("QA Sibling");
   });
+  it("updates the card in place when fees arrive instead of building it again (review P01)", async () => {
+    const read = deferred(); await render(read.promise);
+    const head = host.querySelector(".s360-head"); const tabs = host.querySelector(".s360-tabs");
+    expect(head).not.toBeNull();
+    await act(async () => read.resolve(fees));
+    expect(host.querySelector(".s360-head")).toBe(head); expect(host.querySelector(".s360-tabs")).toBe(tabs);
+    expect(host.querySelector('[aria-busy="true"]')).toBeNull();
+  });
+  it("shows the card's own unavailable state when the fee read rejects outright", async () => {
+    const read = deferred(); await render(read.promise);
+    await act(async () => read.reject(new Error("QA fee read failed")));
+    expect(host.textContent).toContain("QA Child"); expect(host.querySelector('[role="alert"]')?.textContent).toContain("could not be loaded");
+  });
   it("does not expose fee tabs or a loading fee tile for a school-only model", async () => {
     await render(undefined, { ...p, tabs: ["overview", "attendance", "marks", "notes"] });
     expect(host.textContent).toContain("QA Child"); expect(host.textContent).toContain("90%");
@@ -125,6 +138,23 @@ describe("Student 360 overview", () => {
     expect(host.querySelector('.s360-ava [role="img"]')?.textContent).toBe("QC");
     await render(undefined, { ...p, photoUrl: "/synthetic-portrait-new.png" });
     expect(host.querySelector('.s360-ava img')).not.toBeNull();
+  });
+
+  it("opens the photo viewer from the portrait and closes it with Escape (review P04)", async () => {
+    const layer = document.createElement("div"); layer.id = "vx-layer"; document.body.append(layer);
+    try {
+      await render(undefined, { ...p, photoUrl: "/api/fees-bridge/students/x/photo?session=2026-27&variant=thumb" });
+      await act(async () => host.querySelector<HTMLButtonElement>(".s360-ava-open")!.click());
+      const dialog = layer.querySelector('[role="dialog"]');
+      expect(dialog).not.toBeNull();
+      // The viewer asks for the full photograph; the ring keeps its thumbnail.
+      expect(dialog!.querySelector("img")?.getAttribute("src")).toContain("variant=full");
+      expect(host.querySelector(".s360-ava img")?.getAttribute("src")).toContain("variant=thumb");
+      await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+      expect(layer.querySelector('[role="dialog"]')).toBeNull();
+    } finally {
+      layer.remove();
+    }
   });
 
   it("does not invent active status or empty academic records when a read failed", async () => {

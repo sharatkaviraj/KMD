@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { AssignmentLauncher, type AssignmentHandle } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ms, photoMessages as photoWords } from "@/messages/setup";
 import { useRouter } from "next/navigation";
-import { Suspense, use, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 
 import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
@@ -14,6 +14,7 @@ import { Ic } from "@/vx/icons";
 import { p as pair, type Pair } from "@/vx/text";
 import { CloseLink, useCloseTo } from "@/vx/ui/back-link";
 import { Sheet } from "@/vx/ui/overlays";
+import { PhotoViewer } from "@/vx/ui/photo-viewer";
 import { Btn, EmptyState, Pill, Skel, type Tone } from "@/vx/ui/primitives";
 import { mobileOf, parseTab, provisionalLabel, type InstallmentState, type MarkStatus, type MonthCell, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
 import { SupportActions } from "@/vx/screens/admin/support-actions";
@@ -96,6 +97,9 @@ export type Student360Props = {
   father: string | null;
   mother: string | null;
   phone: string | null;
+  /** Each parent's own number, from the Fees record; absent on the older card, which has one `phone`. */
+  fatherPhone?: string | null;
+  motherPhone?: string | null;
   address: string | null;
   dob: string | null;
   joined: string | null;
@@ -183,7 +187,7 @@ export type Student360Props = {
 
 /** Everything on the card that comes from the fee app's reads. */
 export type Student360Fees = Partial<
-  Pick<Student360Props, "source" | "name" | "classLabel" | "sr" | "rollNo" | "father" | "mother" | "phone" | "photoUrl" | "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family" | "familyGroupId">
+  Pick<Student360Props, "source" | "name" | "classLabel" | "sr" | "rollNo" | "father" | "mother" | "phone" | "fatherPhone" | "motherPhone" | "photoUrl" | "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family" | "familyGroupId">
 > & { unavailable?: boolean };
 
 const TAB_LABEL: Record<StudentTab, Pair> = {
@@ -286,18 +290,64 @@ export function Student360({ p, fees }: { p: Student360Props; fees?: Promise<Stu
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [p.id, p.tabs]);
-  const view = !fees ? <Student360View p={p} tab={tab} setTab={setTab} feesLoading={false} /> : (
-    <Suspense fallback={<Student360View p={p} tab={tab} setTab={setTab} feesLoading />}>
-      <WithFees p={p} fees={fees} tab={tab} setTab={setTab} />
-    </Suspense>
+  // One card, updated in place when the fee read lands (review P01). A Suspense
+  // fallback and its resolved children are two different trees: the swap built
+  // the whole card again — the slide-in replayed, the panel scrolled to the top
+  // and the portrait reloaded — which staff saw as the profile "refreshing twice".
+  const settled = useSettled(fees);
+  const loaded = settled?.state === "done" ? settled.value : null;
+  const { unavailable, ...details } = loaded ?? {};
+  const view = (
+    <Student360View
+      p={loaded ? { ...p, ...details } : p}
+      tab={tab}
+      setTab={setTab}
+      feesLoading={settled?.state === "pending"}
+      feesUnavailable={settled?.state === "failed" || unavailable === true}
+    />
   );
   return <StudentDocumentWorkspace studentId={p.id} uploadMode={p.documentUploadMode}>{view}</StudentDocumentWorkspace>;
 }
 
-function WithFees({ p, fees, tab, setTab }: { p: Student360Props; fees: Promise<Student360Fees | null>; tab: StudentTab; setTab: (t: StudentTab) => void }) {
-  const loaded = use(fees);
-  const { unavailable: feesUnavailable, ...details } = loaded ?? {};
-  return <Student360View p={loaded ? { ...p, ...details } : p} tab={tab} setTab={setTab} feesLoading={false} feesUnavailable={feesUnavailable === true} />;
+type Settled<T> = { state: "pending" } | { state: "done"; value: T } | { state: "failed" };
+const PENDING: Settled<never> = { state: "pending" };
+const SETTLED = new WeakMap<Promise<unknown>, Settled<unknown>>();
+const noFees = () => () => {};
+
+/**
+ * Where a streamed promise has got to, without suspending. A promise React has
+ * already seen resolve (a warm, prefetched profile) is read at once; otherwise
+ * the card renders loading and re-renders in place when it settles. A rejected
+ * read is "failed" — the card's own unavailable state, not the route's error page.
+ */
+function readSettled<T>(promise: Promise<T>): Settled<T> {
+  const known = SETTLED.get(promise) as Settled<T> | undefined;
+  if (known) return known;
+  const thenable = promise as Promise<T> & { status?: string; value?: T };
+  if (thenable.status === "fulfilled") {
+    const done: Settled<T> = { state: "done", value: thenable.value as T };
+    SETTLED.set(promise, done);
+    return done;
+  }
+  return PENDING;
+}
+
+function useSettled<T>(promise?: Promise<T>): Settled<T> | null {
+  const subscribe = useCallback((notify: () => void) => {
+    if (!promise) return () => {};
+    let live = true;
+    promise.then(
+      (value) => { SETTLED.set(promise, { state: "done", value }); if (live) notify(); },
+      () => { SETTLED.set(promise, { state: "failed" }); if (live) notify(); },
+    );
+    return () => { live = false; };
+  }, [promise]);
+  return useSyncExternalStore(
+    promise ? subscribe : noFees,
+    () => (promise ? readSettled(promise) : null),
+    // The server and hydration always draw the loading card, so the first client render matches.
+    () => (promise ? PENDING : null),
+  );
 }
 
 function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }: { p: Student360Props; tab: StudentTab; setTab: (t: StudentTab) => void; feesLoading: boolean; feesUnavailable?: boolean }) {
@@ -771,16 +821,34 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   );
 }
 
-/** The child's face in the ring: the school photograph when there is one, the initials otherwise. */
+/** The Fees photo proxy serves a thumbnail in the ring; the viewer asks for the full photograph. */
+function largePhoto(url: string): string {
+  if (!url.startsWith("/api/fees-bridge/")) return url;
+  const parsed = new URL(url, "https://one.invalid");
+  parsed.searchParams.set("variant", "full");
+  return `${parsed.pathname}${parsed.search}`;
+}
+
+/**
+ * The child's face in the ring: the school photograph when there is one, the
+ * initials otherwise. A photograph opens the viewer when tapped (review P04);
+ * anyone who can see it here may enlarge and save it (owner, 3 Nov).
+ */
 function StudentFace({ name, url, bg }: { name: string; url?: string | null; bg: string }) {
   const [failed, setFailed] = useState<string | null>(null);
+  const [viewing, setViewing] = useState(false);
   const { tx } = useVx();
+  const shown = url && failed !== url ? url : null;
   return (
     <span className="serif s360-ava" style={{ background: bg, color: "var(--accfg)" }}>
-      {url && failed !== url ? (
-        // Signed private URLs are short-lived; do not cache them in an image proxy.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={tx(T.studentPortrait(name))} onError={() => setFailed(url)} />
+      {shown ? (
+        <>
+          {/* Signed private URLs are short-lived; do not cache them in an image proxy. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={shown} alt={tx(T.studentPortrait(name))} onError={() => setFailed(shown)} />
+          <button type="button" className="tap s360-ava-open" aria-label={tx(T.viewPhoto(name))} aria-haspopup="dialog" onClick={() => setViewing(true)} />
+          <PhotoViewer open={viewing} onClose={() => setViewing(false)} src={largePhoto(shown)} alt={tx(T.studentPortrait(name))} name={name} />
+        </>
       ) : (
         <span role="img" aria-label={tx(T.studentInitials(name))}>{initials(name)}</span>
       )}
@@ -807,7 +875,7 @@ function SubjectBar({ s, i, big = false }: { s: NonNullable<Student360Props["ter
 
 /** A parent's number as the design shows it on screen (98••• ••246); Call and WhatsApp still dial the whole number. */
 function maskPhone(phone: string | null): string | null {
-  const digits = (phone ?? "").replace(/D/g, "");
+  const digits = (phone ?? "").replace(/\D/g, "");
   if (digits.length < 7) return phone;
   const last10 = digits.slice(-10);
   return `${last10.slice(0, 2)}••• ••${last10.slice(-3)}`;
@@ -1079,10 +1147,11 @@ function MarksTab({ p }: { p: Student360Props }) {
 /** Family: the parents with Call and WhatsApp, the brothers and sisters in school, and the contact log (D-265). */
 function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: { p: Student360Props; siblings: NonNullable<Student360Props["family"]>; feesLoading: boolean; feesUnavailable: boolean; loadingCard: ReactNode }) {
   const { tx } = useVx();
-  const mobile = mobileOf(p.phone);
-  const parents: [Pair, string][] = [];
-  if (p.father) parents.push([T.father, p.father]);
-  if (p.mother) parents.push([T.mother, p.mother]);
+  // Each parent with their own number when Fees keeps two (review: both rows showed one shared phone).
+  const perParent = p.fatherPhone !== undefined || p.motherPhone !== undefined;
+  const parents: [Pair, string, string | null][] = [];
+  if (p.father) parents.push([T.father, p.father, perParent ? (p.fatherPhone ?? null) : p.phone]);
+  if (p.mother) parents.push([T.mother, p.mother, perParent ? (p.motherPhone ?? null) : p.phone]);
   const seesFamily = p.family !== null || feesLoading || feesUnavailable;
   // Only when every child's figures were read: a total over some of them is not a family total.
   const members = p.family ?? [];
@@ -1093,12 +1162,12 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
     <>
       {parents.length ? (
         <div className="card" style={{ overflow: "hidden" }}>
-          {parents.map(([role, name]) => (
+          {parents.map(([role, name, phone]) => { const mobile = mobileOf(phone); return (
             <div key={role.en} className="s360-row">
               <span style={{ flex: "none", width: 42, height: 42, borderRadius: 21, background: "var(--s3)", color: "var(--fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700 }}>{initials(name)}</span>
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{name}</span>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.parentRole(role, maskPhone(p.phone)))}</span>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.parentRole(role, maskPhone(phone)))}</span>
               </span>
               {mobile ? (
                 <>
@@ -1107,7 +1176,7 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
                 </>
               ) : null}
             </div>
-          ))}
+          ); })}
         </div>
       ) : null}
       {seesFamily ? (
