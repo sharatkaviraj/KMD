@@ -1,10 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { getBridgeCommand, listBridgeStudents, postBridgePayment, quoteBridgePayment } from "@/platform/fees-bridge/client";
+import { getBridgeCommand, getBridgeStudent, listBridgeStudents, postBridgePayment, quoteBridgePayment } from "@/platform/fees-bridge/client";
 import { quoteInputSchema, type BridgePostInput, type BridgeQuoteInput } from "@/platform/fees-bridge/contracts";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { assertStaff } from "@/platform/auth/current-staff";
+import { assertSessionVisible } from "@/platform/auth/test-session-access";
 
 type Result<T> = {ok:true;data:T} | {ok:false;code:string;message:string;uncertain:boolean};
 async function result<T>(operation:()=>Promise<T>):Promise<Result<T>> {
@@ -17,6 +18,17 @@ async function result<T>(operation:()=>Promise<T>):Promise<Result<T>> {
 export async function searchBridgeStudentsAction(session:string,query:string,cursor:string|null) {
   await assertStaff();
   return result(()=>listBridgeStudents(z.string().regex(/^\d{4}-\d{2}$/).parse(session),z.string().max(100).parse(query),z.string().max(256).nullable().parse(cursor)));
+}
+
+/** The chosen child's pending late fee, so the desk offers the waiver only when there is one to waive. Read only. */
+export async function bridgeLateFeeAction(studentId:string,session:string) {
+  const staff=await assertStaff();
+  return result(async()=>{
+    const sessionLabel=z.string().regex(/^\d{4}-\d{2}$/).parse(session);
+    // The real session only: a test account handing a real label is refused here, as Fees refuses it too.
+    await assertSessionVisible(staff,sessionLabel);
+    return (await getBridgeStudent(z.uuid().parse(studentId),sessionLabel)).standing.lateFeePending;
+  });
 }
 
 export async function reviewBridgePaymentAction(input:BridgeQuoteInput,waiveLateFee:boolean) {

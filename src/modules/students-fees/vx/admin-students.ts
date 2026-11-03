@@ -176,12 +176,12 @@ export async function parentNamesFor(studentIds: readonly string[]): Promise<Map
 export async function recentReceiptsFor(
   studentId: string,
   limit = 2,
-): Promise<{ id: string; number: string; amount: number; date: string; mode: string; reversed: boolean }[]> {
+): Promise<{ id: string; number: string; amount: number; date: string; mode: string; reversed: boolean; session?: string }[]> {
   const staff=await assertPermission("fees:view");
   const view=await resolveViewSession({cookieSession:await getViewSessionCookie()});
   if(usesCanonicalFees(staff,view.sessionLabel)) {
     const source=await getBridgeWorkspace(studentId,view.sessionLabel);
-    return (source.receipts??[]).slice(0,limit).map(row=>({id:row.id,number:row.receiptNumber,amount:row.totalAmount,date:row.paymentDate,mode:row.paymentMode,reversed:row.isReversed}));
+    return (source.receipts??[]).slice(0,limit).map(row=>({id:row.id,number:row.receiptNumber,amount:row.totalAmount,date:row.paymentDate,mode:row.paymentMode,reversed:row.isReversed,session:view.sessionLabel}));
   }
   const result = await createAdminClient()
     .from("receipts")

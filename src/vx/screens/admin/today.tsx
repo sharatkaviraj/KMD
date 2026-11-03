@@ -1,5 +1,6 @@
 "use client";
 
+import { Crest } from "@/vx/screens/system/brand";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -11,6 +12,7 @@ import type { Pair } from "@/vx/text";
 import { Seg } from "@/vx/ui/controls";
 import { Grid } from "@/vx/ui/page";
 import { Card, CardHead, IconTile, Kpi, Pill } from "@/vx/ui/primitives";
+import { CouldNotRead } from "@/vx/ui/read-state";
 import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
 import { coverStanding, foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
@@ -55,6 +57,10 @@ export type TodayProps = {
   staffAway: number | null;
   cover: { needed: number; arranged: number; missed: number } | null;
   inbox: InboxItem[] | null;
+  /** Needs-you sources that could not be read; the queue is then not "All clear" (T03). */
+  inboxMissing?: readonly string[];
+  /** Today's own reads that failed (board, cover, …), so a card can say so rather than show nothing. */
+  todayMissing?: readonly string[];
   timeline: TimelineItem[];
   /** Who is scheduled to teach now and next; null when this reader has no timetable. */
   schedule: ScheduleView | null;
@@ -151,6 +157,10 @@ export function TodayScreen(props: TodayProps) {
   const avg = money ? vsAverage(dailySeries(money.days, props.today, 30), props.today) : null;
   const pace = money && money.expected > 0 ? yearPace({ expected: money.expected, collected: money.collected, dueSoFar: money.dueSoFar }) : null;
   const awaiting = inbox ? inbox.length : 0;
+  // A queue with a source that could not be read is never reported as nought.
+  const inboxMissing = props.inboxMissing ?? [];
+  const todayMissing = props.todayMissing ?? [];
+  const inboxIncomplete = inboxMissing.length > 0;
   const dataChanges = inbox
     ? inbox.reduce((n, item) => n + (item.kind === "submission" || item.kind === "confirmations" ? (item.submissionIds?.length ?? 1) : 0), 0)
     : 0;
@@ -168,7 +178,7 @@ export function TodayScreen(props: TodayProps) {
     { key: "staff_away", label: "Teachers away today", value: props.staffAway != null ? String(props.staffAway) : null },
     { key: "cover_arranged", label: "Periods needing cover, and how many are arranged", value: props.cover ? `${props.cover.arranged} of ${props.cover.needed} arranged` : null },
     { key: "cover_missed", label: "Periods that went without cover", value: props.cover?.missed ? String(props.cover.missed) : null },
-    { key: "needs_you", label: "Items waiting in Needs you", value: inbox ? String(awaiting) : null },
+    { key: "needs_you", label: "Items waiting in Needs you", value: inbox && !inboxIncomplete ? String(awaiting) : null },
     { key: "notes_action", label: "Notes on children needing action", value: props.support ? String(props.support.needsAction) : null },
     { key: "notes_due", label: "Note follow-ups due", value: props.support ? String(props.support.due) : null },
     { key: "collected_today", label: "Fees collected today", value: money ? `${rupees(money.today)} in ${money.receiptsToday} receipts` : null },
@@ -201,6 +211,7 @@ export function TodayScreen(props: TodayProps) {
 
   const notMarked = props.exceptions.notMarked ?? [];
   const coverRows = props.exceptions.cover ?? [];
+  const exceptionsUnread = ["board", "calendar", "cover"].some((key) => todayMissing.includes(key));
   const exceptionsCard = (
     <Card pad={false} style={{ overflow: "hidden" }}>
       <div style={{ padding: "16px 18px 10px" }}>
@@ -215,7 +226,9 @@ export function TodayScreen(props: TodayProps) {
           }
         />
       </div>
-      {notMarked.length === 0 && coverRows.length === 0 ? (
+      {notMarked.length === 0 && coverRows.length === 0 && exceptionsUnread ? (
+        <CouldNotRead style={{ margin: "0 18px 16px" }} />
+      ) : notMarked.length === 0 && coverRows.length === 0 ? (
         <p style={{ margin: 0, padding: "0 18px 16px", color: "var(--mut)", fontSize: 14 }}>
           {attendance && !attendance.schoolOpen ? tx(T.schoolClosed) : tx(TD.noExceptions)}
         </p>
@@ -266,18 +279,19 @@ export function TodayScreen(props: TodayProps) {
         {inbox && props.links.review ? (
           <Kpi
             label={tx(TD.approvals)}
-            value={dataChanges}
+            value={inboxMissing.includes("submissions") && dataChanges === 0 ? "—" : dataChanges}
             href="/collection/review"
             icon="clipboard"
-            sub={dataChanges > 0 ? tx(TD.dataChanges(dataChanges)) : tx(TD.noDataChanges)}
+            sub={inboxMissing.includes("submissions") ? tx(T.couldNotRead) : dataChanges > 0 ? tx(TD.dataChanges(dataChanges)) : tx(TD.noDataChanges)}
           />
         ) : null}
       </Grid>
     ) : null;
 
+  // With the Fees ledger notice shown, "fee figures are shown to the fee desk" would be wrong for this reader.
   const moneyNote = money ? null : props.moneyFailed ? (
     <Card><p style={{ margin: 0, color: "var(--mut)" }}>{tx(TD.feesUnavailable)}</p></Card>
-  ) : (
+  ) : props.notice ? null : (
     <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(T.moneyHidden)}</p>
   );
 
@@ -297,7 +311,7 @@ export function TodayScreen(props: TodayProps) {
         <div className="only-m" style={{ lineHeight: 1.4 }}>
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
           {props.notice ? <div className="vx-today-notice">{props.notice}</div> : null}
-          <PhoneNeeds inbox={inbox} />
+          <PhoneNeeds inbox={inbox} incomplete={inboxIncomplete} />
           {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
           <TodayBrief facts={briefFacts} style={{ padding: "18px 18px 0" }} />
@@ -348,7 +362,7 @@ export function TodayScreen(props: TodayProps) {
           </div>
           <aside style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
             <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-              {inbox ? <RailNeeds inbox={inbox} awaiting={awaiting} /> : null}
+              {inbox ? <RailNeeds inbox={inbox} awaiting={awaiting} incomplete={inboxIncomplete} /> : null}
               {props.officeWork}
               <section className="card" style={{ padding: "14px 18px 8px", animation: "xRise .45s .15s var(--ease) both" }}>
                 <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h3>
@@ -562,7 +576,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
     <section style={{ background: "var(--nav)", color: "var(--navfg)", padding: "14px 18px 20px", borderRadius: "0 0 30px 30px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span className="serif" aria-hidden="true" style={{ flex: "none", width: 38, height: 38, borderRadius: 12, background: "#F7F6F3", color: HERO_INK, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 15 }}>VP</span>
+          <Crest size={38} radius={12} />
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <span style={{ fontWeight: 600, fontSize: 15 }}>VPPS One</span>
             {props.roleLine ? <span className="clip" style={{ fontSize: 12, color: "var(--navm)" }}>{tx(props.roleLine)}</span> : null}
@@ -672,7 +686,7 @@ function CountPill({ n }: { n: number }) {
   return <span className="pill num" style={{ minWidth: 22, justifyContent: "center", background: "var(--bad)", color: "var(--onsolid)" }}>{n}</span>;
 }
 
-function PhoneNeeds({ inbox }: { inbox: InboxItem[] | null }) {
+function PhoneNeeds({ inbox, incomplete }: { inbox: InboxItem[] | null; incomplete: boolean }) {
   const { tx } = useVx();
   if (!inbox) return null;
   return (
@@ -697,7 +711,8 @@ function PhoneNeeds({ inbox }: { inbox: InboxItem[] | null }) {
             </div>
           ))}
         </div>
-      ) : (
+      ) : null}
+      {incomplete ? <CouldNotRead partial={inbox.length > 0} /> : inbox.length === 0 ? (
         <div className="card" style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, animation: "xIn .3s var(--ease) both" }}>
           <span aria-hidden="true" style={{ flex: "none", width: 44, height: 44, borderRadius: 22, background: "var(--oks)", color: "var(--ok)", display: "flex", alignItems: "center", justifyContent: "center", animation: "xPopIn .5s var(--spring) both" }}>
             <Ic n="check" />
@@ -707,7 +722,7 @@ function PhoneNeeds({ inbox }: { inbox: InboxItem[] | null }) {
             <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(TD.allClearSub)}</span>
           </span>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -1089,7 +1104,7 @@ function HowTheyPay({ money }: { money: TodayMoneyView }) {
   );
 }
 
-function RailNeeds({ inbox, awaiting }: { inbox: InboxItem[]; awaiting: number }) {
+function RailNeeds({ inbox, awaiting, incomplete }: { inbox: InboxItem[]; awaiting: number; incomplete: boolean }) {
   const { tx } = useVx();
   return (
     <section className="card" style={{ overflow: "hidden", animation: "xRise .45s .1s var(--ease) both" }}>
@@ -1110,7 +1125,9 @@ function RailNeeds({ inbox, awaiting }: { inbox: InboxItem[]; awaiting: number }
           <Link href={`/inbox?item=${encodeURIComponent(item.id)}`} className="tap btn soft" style={{ flex: "none", height: 32, padding: "0 12px", fontSize: 13 }}>{tx(ACTION_OF[item.kind] ?? T.open)}</Link>
         </div>
       ))}
-      {awaiting === 0 ? <div style={{ padding: "14px 18px 18px", fontSize: 13, color: "var(--mut)", borderTop: "1px solid var(--bd)" }}>{tx(TD.allClearRail)}</div> : null}
+      {incomplete ? (
+        <div style={{ padding: "12px 18px 16px", borderTop: "1px solid var(--bd)" }}><CouldNotRead partial={awaiting > 0} /></div>
+      ) : awaiting === 0 ? <div style={{ padding: "14px 18px 18px", fontSize: 13, color: "var(--mut)", borderTop: "1px solid var(--bd)" }}>{tx(TD.allClearRail)}</div> : null}
     </section>
   );
 }

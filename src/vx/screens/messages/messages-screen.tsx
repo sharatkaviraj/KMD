@@ -1,5 +1,6 @@
 "use client";
 
+import { Crest } from "@/vx/screens/system/brand";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
@@ -208,7 +209,7 @@ function PhonePreview({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="mx-ph" aria-label={tx(p("WhatsApp preview", "व्हाट्सऐप झलक"))}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--pri)", color: "var(--prifg)" }}>
-        <span className="serif" aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 16, background: "var(--prifg)", color: "var(--pri)", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>VP</span>
+        <Crest size={32} radius={16} />
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>Shri Veer Patta School</span>
           <span style={{ fontSize: 11, opacity: 0.8 }}>Business account</span>

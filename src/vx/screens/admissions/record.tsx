@@ -1,5 +1,6 @@
 "use client";
 
+import { Crest } from "@/vx/screens/system/brand";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 
@@ -542,7 +543,7 @@ function WithdrawPanel(props: RecordProps & { onCancel: () => void }) {
               <span className="sech">{tx(p("TC preview · Hindi first", "टीसी नमूना · पहले हिंदी"))}</span>
               <div className="card" style={{ position: "relative", padding: 20, display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 12, borderBottom: "1.5px dashed var(--bds)" }}>
-                  <span className="serif" style={{ flex: "none", width: 42, height: 42, borderRadius: 12, background: "#082F49", color: "#F7F6F3", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>VP</span>
+                  <Crest size={42} radius={12} />
                   <span className="serif" style={{ fontSize: 14, fontWeight: 600, minWidth: 0 }}>{props.schoolName}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>

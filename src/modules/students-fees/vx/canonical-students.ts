@@ -4,6 +4,7 @@ import { STUDENT_LIST_FEE_SEGMENTS } from "@/platform/fees-bridge/student-direct
 import { bridgeStudentPhotoHref } from "@/platform/fees-bridge/student-photo";
 import { segmentCount } from "@/modules/students-fees/domain/student-segments";
 import { isYearCleared } from "@/modules/fees/domain/year-clear";
+import { shownTransportLabel } from "@/modules/fees/domain/transport-route-key";
 import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules/prev-year-dues/domain/display";
 import { buildFeeBreakupDisplayRows } from "@/modules/fees/domain/display-breakdown";
 
@@ -39,6 +40,6 @@ export function feesFromBridge(source:BridgeWorkspace):StudentFees|null {
     breakup:snapshot?{rows:breakupRows,annualTotal:snapshot.resolvedBreakdown.annualTotal,discountTotal:breakupRows.filter(row=>row.kind==="discount").reduce((sum,row)=>sum+Math.abs(row.amount),0),discountLabels:snapshot.resolvedBreakdown.conventionalDiscountLabels,tuitionOverride:source.feeProfile?.tuitionOverride??null,transportOverride:source.feeProfile?.transportOverride??null}:null,
     receipts:(source.receipts??[]).map(row=>({id:row.id,number:row.receiptNumber,date:row.paymentDate,amount:row.totalAmount,mode:row.paymentMode,reversed:row.isReversed})),
     family:(source.family?.members??[]).map(row=>({...row,outstanding:row.financials?.outstanding??null,totalDue:row.financials?.totalDue??null,totalPaid:row.financials?.totalPaid??null})),
-    familyGroupId:source.family?.familyGroupId??null,routeLabel:source.student.transportRouteLabel||null,dateOfBirth:source.student.dateOfBirth,joinedOn:source.student.joinedOn,address:source.student.address,status:source.student.status,
+    familyGroupId:source.family?.familyGroupId??null,routeLabel:shownTransportLabel(source.student.transportRouteLabel),dateOfBirth:source.student.dateOfBirth,joinedOn:source.student.joinedOn,address:source.student.address,status:source.student.status,
   };
 }

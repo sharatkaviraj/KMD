@@ -13,7 +13,13 @@ import { resolveSessionLabel, classLabelMap } from "@/modules/academics/data/aca
 import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
 import { planTasks, type TaskStudent, type TaskOwner, type TaskPlan } from "../domain/tasks";
 
-export type AssignmentContext = { session: string; students: TaskStudent[]; owners: TaskOwner[]; fields: { id: string; key: string; labelHi: string; labelEn: string }[]; subjects: { id: string; label: string }[]; papers: { id: string; classId: string; subjectId: string; label: string }[] };
+/**
+ * `unmatched`: children enrolled in One this session whom the current Fees
+ * roster does not hold (left, moved class or held back in Fees). They are left
+ * out and counted, not allowed to fail the whole sheet (N03: one such child
+ * made "Teacher tasks could not be read" for everybody).
+ */
+export type AssignmentContext = { session: string; students: TaskStudent[]; unmatched: number; owners: TaskOwner[]; fields: { id: string; key: string; labelHi: string; labelEn: string }[]; subjects: { id: string; label: string }[]; papers: { id: string; classId: string; subjectId: string; label: string }[] };
 export const assignmentSchema = z.object({
   kind: z.enum(["collection", "marks", "attendance"]), title: z.string().trim().min(1).max(120),
   mode: z.enum(["common", "class", "house", "route", "subject"]), teacherId: z.uuid().optional(), subjectId: z.uuid().optional(),
@@ -57,8 +63,9 @@ export async function assignmentContext(): Promise<AssignmentContext> {
   const recorded = new Map(records.map(r => [`${r.student_id}:${r.field_id}`,r.value]));
   const hasPhoto = new Set(canonical ? students.data.filter(s => !!s.photo_path).map(s => s.id) : photos.data.map(p => p.student_id));
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
-  return { session,
-    students: roll.map(r => { const s=studentOf.get(r.student_id); if(!s) throw new Error("student_missing"); return { id:r.student_id,name:s.full_name??"-",classId:r.class_id,classLabel:labels.get(r.class_id)??"-",house:s.house||null,routeId:s.transport_route_id||null,hasPhoto:hasPhoto.has(r.student_id),values:Object.fromEntries(active.map(f => { const v=f.key==="student_photo" ? (hasPhoto.has(r.student_id)?"present":null) : recorded.get(`${r.student_id}:${f.id}`) ?? (f.feeColumn?s[f.feeColumn]:null); return [f.key,v?.trim()?"present":null]; })) }; }),
+  const matched = roll.filter(r => studentOf.has(r.student_id));
+  return { session, unmatched: roll.length - matched.length,
+    students: matched.map(r => { const s=studentOf.get(r.student_id)!; return { id:r.student_id,name:s.full_name??"-",classId:r.class_id,classLabel:labels.get(r.class_id)??"-",house:s.house||null,routeId:s.transport_route_id||null,hasPhoto:hasPhoto.has(r.student_id),values:Object.fromEntries(active.map(f => { const v=f.key==="student_photo" ? (hasPhoto.has(r.student_id)?"present":null) : recorded.get(`${r.student_id}:${f.id}`) ?? (f.feeColumn?s[f.feeColumn]:null); return [f.key,v?.trim()?"present":null]; })) }; }),
     owners:(profiles.data??[]).map(s => ({id:s.id,name:s.display_name,active:true,classIds:(classTeachers.data??[]).filter(c => c.staff_profile_id===s.id && c.effective_from<=today && (!c.effective_to||c.effective_to>=today)).map(c=>c.class_id),houses:(scopes.data??[]).filter(c=>c.staff_profile_id===s.id&&c.kind==="house").map(c=>c.value),routeIds:(scopes.data??[]).filter(c=>c.staff_profile_id===s.id&&c.kind==="route").map(c=>c.value),subjects:assignments.filter(a=>a.staff_profile_id===s.id).map(a=>({classId:a.class_id,subjectId:a.subject_id}))})),
     fields:active.map(f=>({id:f.id,key:f.key,labelHi:f.labelHi,labelEn:f.labelEn})), subjects:(subjects.data??[]).map(s=>({id:s.id,label:s.code})),
     papers:papers.map(p=>({id:p.id,classId:p.class_id,subjectId:p.subject_id,label:`${p.assessments.label_en} · ${p.class_label} · ${p.subject_code}`})),

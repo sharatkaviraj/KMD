@@ -11,6 +11,7 @@ import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar } from "@/vx/ui/page";
 import { Btn, Pill, toneColors, type Tone } from "@/vx/ui/primitives";
+import { CouldNotRead } from "@/vx/ui/read-state";
 import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
 import { TO } from "@/vx/screens/admin/ops-text";
 import { T } from "@/vx/screens/admin/text";
@@ -275,7 +276,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   const hasNotices = unavailable || (!previewing && earlier.length > 0) || pendingCount > 0;
   const notices = hasNotices ? (
     <>
-      {unavailable ? <p role="status" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)", background: "var(--warns)", padding: "8px 12px", borderRadius: 12 }}>{tx(T.couldNotRead)}</p> : null}
+      {unavailable ? <CouldNotRead partial={live.length > 0} /> : null}
       {!previewing && earlier.length > 0 ? (
         <div className="card" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
           <strong>{tx(T.inboxEarlier)} ({earlier.length})</strong>
@@ -296,7 +297,8 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   ) : null;
 
   const oldest = live.reduce<string | null>((min, item) => (item.at && (!min || item.at < min) ? item.at : min), null);
-  const waiting = tx(TO.waiting(live.length, oldest ? dayMonth(oldest) : null));
+  // With a source unread, "0 waiting" would read as "All clear": say what is known instead (T03).
+  const waiting = unavailable && live.length === 0 ? tx(TO.notAllRead) : tx(TO.waiting(live.length, oldest ? dayMonth(oldest) : null));
 
   /* ---- desk (D03): the list and the selected item side by side ---- */
   const desk = (
@@ -307,7 +309,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
         </div>
         {notices ? <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--bd)" }}>{notices}</div> : null}
         {shown.length === 0 ? (
-          <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--mut)", fontSize: 14 }}>{tx(live.length === 0 ? TO.allClearSub : TO.nothingInFilter)}</div>
+          <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--mut)", fontSize: 14 }}>{tx(live.length === 0 ? (unavailable ? TO.notAllRead : TO.allClearSub) : TO.nothingInFilter)}</div>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {shown.map((item, i) => {
@@ -336,7 +338,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
         {taskPanel ? <div style={{ padding: 16 }}>{taskPanel}</div> : null}
       </div>
       <div style={{ position: "sticky", top: 64, alignSelf: "start", height: "calc(100dvh - 64px)", overflowY: "auto", minWidth: 0 }}>
-        {selected ? <Detail key={selected.id} item={selected} on={on} /> : <AllClear big />}
+        {selected ? <Detail key={selected.id} item={selected} on={on} /> : unavailable ? null : <AllClear big />}
       </div>
     </div>
   );
@@ -355,7 +357,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
       </div>
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
         {notices}
-        {shown.length === 0 ? <AllClear /> : shown.map((item, i) => <PhoneCard key={item.id} item={item} on={on} delay={Math.min(i * 40, 400)} />)}
+        {shown.length === 0 ? (unavailable ? null : <AllClear />) : shown.map((item, i) => <PhoneCard key={item.id} item={item} on={on} delay={Math.min(i * 40, 400)} />)}
         {taskPanel}
       </div>
     </div>
@@ -365,7 +367,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     <>
       {/* The desk's bar; on a phone the design draws a large title instead (above). */}
       <div className="only-d" style={{ display: "contents" }}>
-        <TopBar crumb={tx(T.inboxCrumb(live.length))} title={tx(T.needsYou)} actions={taskActions ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}>{taskActions}</span> : undefined} />
+        <TopBar crumb={unavailable && live.length === 0 ? tx(TO.notAllRead) : tx(T.inboxCrumb(live.length))} title={tx(T.needsYou)} actions={taskActions ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}>{taskActions}</span> : undefined} />
       </div>
       <div className="vx-pmain">
         {desk}

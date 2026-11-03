@@ -3,7 +3,7 @@ import * as React from "react";
 import {act} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
-const actions=vi.hoisted(()=>({checkBridgePaymentAction:vi.fn(),reviewBridgePaymentAction:vi.fn(),saveBridgePaymentAction:vi.fn(),searchBridgeStudentsAction:vi.fn()}));
+const actions=vi.hoisted(()=>({bridgeLateFeeAction:vi.fn(),checkBridgePaymentAction:vi.fn(),reviewBridgePaymentAction:vi.fn(),saveBridgePaymentAction:vi.fn(),searchBridgeStudentsAction:vi.fn()}));
 vi.mock("@/app/(app)/payments/bridge-actions",()=>actions);
 import {LiveFeesDesk,officialPrintUrl} from "@/vx/screens/payments/live-fees-desk";
 import type {BridgeQuote} from "@/platform/fees-bridge/contracts";
@@ -20,6 +20,7 @@ beforeEach(()=>{
   (globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;
   host=document.createElement("div");document.body.append(host);root=createRoot(host);
   actions.reviewBridgePaymentAction.mockResolvedValue({ok:true,data:quote});
+  actions.bridgeLateFeeAction.mockResolvedValue({ok:true,data:100});
 });
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 
@@ -42,6 +43,22 @@ describe("live payment recovery",()=>{
     expect(actions.saveBridgePaymentAction.mock.calls[1][0]).toEqual(original);
     expect(sessionStorage.getItem(recoveryKey)).toBeNull();
     expect(host.textContent).toContain("Payment recorded");expect(host.textContent).toContain("SYN-001");
+  });
+  it("offers the late-fee waiver only for a chosen child with a late fee, ticked by default",async()=>{
+    await render();
+    expect(host.textContent).toContain("Waive late fee");
+    expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    await act(async()=>root.unmount());root=createRoot(host);
+    actions.bridgeLateFeeAction.mockResolvedValue({ok:true,data:0});
+    await render();await amount();
+    expect(host.querySelector('input[type="checkbox"]')).toBeNull();
+    await click("Review current dues");
+    expect(actions.reviewBridgePaymentAction.mock.calls.at(-1)?.[1]).toBe(false);
+  });
+  it("keeps the waiver box when the late fee cannot be read, as before",async()=>{
+    actions.bridgeLateFeeAction.mockResolvedValue({ok:false,code:"unavailable",message:"Synthetic",uncertain:false});
+    await render();
+    expect(host.querySelector('input[type="checkbox"]')).not.toBeNull();
   });
   it("allows live review but does not post while the One pilot is closed",async()=>{
     await render(false);await amount();await click("Review current dues");await click("Confirm payment");

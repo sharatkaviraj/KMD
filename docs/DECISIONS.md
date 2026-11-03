@@ -1,5 +1,22 @@
 # Decisions
 
+## Review plan, Phase 1: trust — 3 November 2026
+
+Raj's 3 Nov review (`docs/plans/2026-11-03-review-plan-implementation.md`)
+found search, Today, Needs you, Assign Work and receipts telling staff
+something untrue. The owner chose Phases 1–3 now (MCP after), Fees-repo reads
+and writes, the late-fee waiver shown only when relevant, and Save Photo for
+anyone who can see the photo.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-364 | **Under the Fees connection, global search reads the Fees directory (fee readers) or One's roster (roster-only readers), never the local fee tables; a failed part is reported, never "Nothing matches".** Active pupils first, then every status when none match; a phone in any usual shape travels as ten digits; a parent or phone match says so ("Father: …", "Phone ••••1234"); receipt links carry `receiptId` and `session`. Receipt-number lookup waits for the Fees `/receipts/lookup` read | The local tables are refused by `createProjectionFetch` (409), and `.catch(() => [])` showed every real search as empty while TEST accounts kept working |
+| D-365 | **A read that failed is never drawn as nought or "All clear".** Money requests settle per part (`PartialReadError` carries what arrived); under the connection only One's own desk/accounts requests are read (Fees' refund queue arrives with `/requests/pending`); Today, the desk rail, the AI brief fact, approvals, exceptions and Needs you show one `CouldNotRead` with Try again, which is `router.refresh()` — the other cards, scroll and session stay | One refused `refund_requests` read rejected the whole money `Promise.all`; eight places then showed 0 or "All clear" beside an error banner |
+| D-366 | **Assign Work leaves out, and counts, enrolled children the current Fees roster does not hold** instead of failing the sheet | Production `student_missing` on `/inbox` and `/students` (2–3 Nov). A left/moved/held child in Fees must not stop every assignment |
+| D-367 | **A receipt that cannot be shown explains why, with Open in Fees / Back / Try again; refused and missing receipts share one message.** The number is compared decoded | "Page not found" was a dead end; one message for forbidden and not-found keeps the earlier non-disclosure property |
+| D-368 | **The late-fee waiver appears only for a chosen child with a late fee pending, ticked by default (the 27 Oct office call), with its amount; Review waits for that read; an unreadable late fee keeps the old box** | Owner choice 3 Nov. A ticked waiver before any child is chosen read as policy for everyone |
+| D-369 | **The school logo replaces every hard-coded "VP" mark; "No transport" is never shown as a route** | One `Crest` component; Fees fills the route label with "No transport" when there is none, which produced "Bus · No transport" |
+
 ## School Office second pass — 3 November 2026
 
 The owner found the first School Office build unsatisfying and asked for every

@@ -1,5 +1,6 @@
 "use client";
 
+import { Crest } from "@/vx/screens/system/brand";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
@@ -1286,7 +1287,7 @@ function Preview(props: ExamsProps & { href: Href }) {
       ) : null}
       <article className="card pad" style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%", maxWidth: 760, margin: "0 auto", padding: "30px 36px", borderRadius: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 14, borderBottom: "2px solid var(--fg)" }}>
-          <span className="serif" style={{ flex: "none", width: 54, height: 54, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", background: "#082F49", color: "#F7F6F3", fontSize: 18, fontWeight: 700 }}>VP</span>
+          <Crest size={54} radius={14} />
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
             <span lang="hi" style={{ fontSize: 17, fontWeight: 600 }}>{CARD.schoolHi}</span>
             <span className="serif" style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.25 }}>{c.school}, Amet</span>

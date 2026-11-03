@@ -1,5 +1,6 @@
 "use client";
 
+import { Crest } from "@/vx/screens/system/brand";
 import "./reports.css";
 
 import Link from "next/link";
@@ -667,7 +668,7 @@ function DefaultersView({ data, sheet, setSheet, close, initialLeft }: ViewProps
         {rows.length ? (
           <div className="rp-paper">
             <div className="rp-ph">
-              <span style={{ width: 44, height: 44, borderRadius: 10, background: "#0b3a5b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, flex: "none" }}>VP</span>
+              <Crest size={44} radius={10} />
               <span className="rp-c" style={{ flex: 1 }}>
                 <b style={{ fontSize: 16 }}>{lang === "en" ? PAPER.school.en : PAPER.school.hi}</b>
                 {lang !== "en" ? <span style={{ fontSize: 13 }}>{PAPER.school.en}</span> : null}

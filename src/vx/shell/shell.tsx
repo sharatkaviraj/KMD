@@ -3,7 +3,6 @@ import { assistFeaturesFor } from "@/modules/assist/data/settings";
 import { Suspense, type ReactNode } from "react";
 
 import { getDuesBadgeCount } from "@/modules/dashboard/data/shell-metrics";
-import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
 import { can, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
 import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
@@ -12,7 +11,7 @@ import { RouteProgress } from "@/ui/shell/route-progress";
 import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { initials, schoolToday } from "@/vx/format";
-import { inboxCount } from "@/vx/screens/admin/data";
+import { inboxCount, moneyRequestsFor } from "@/vx/screens/admin/data";
 import { schoolMinutes } from "@/vx/screens/admin/logic";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
@@ -61,7 +60,7 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
       ? schoolNow(viewer.staff)
           // The badge reads the reader's clock, as Needs you itself does, so a
           // lab seat never sees a count the list disagrees with (smoke 20 Oct).
-          .then((now) => inboxCount(viewer.staff, sessionLabel, schoolToday(now), can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined, schoolMinutes(now)))
+          .then((now) => inboxCount(viewer.staff, sessionLabel, schoolToday(now), moneyRequestsFor(viewer.staff, sessionLabel), schoolMinutes(now)))
           .catch(() => null)
       : null,
   ]);

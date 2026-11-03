@@ -17,6 +17,8 @@ import "./palette.css";
 export type PaletteItem = { href: string; label: Pair; icon: IconName; group: string };
 
 const EMPTY: SearchResult = { students: [], receipts: [], actions: [] };
+/** The call itself failed (offline, signed out): neither part was searched. */
+const UNREACHED: SearchResult = { ...EMPTY, failed: ["students", "receipts"] };
 
 /** The design's avatar tones, taken in turn. */
 const TONES: [string, string][] = [
@@ -56,7 +58,16 @@ const W = {
   searching: { en: "Searching…", hi: "खोज रहे हैं…" },
   paidUp: { en: "Paid up", hi: "पूरा जमा" },
   onTrack: { en: "On track", hi: "समय पर" },
+  couldNot: { en: "Could not search students just now. Check the connection and try again.", hi: "अभी विद्यार्थी नहीं खोज पाए। कनेक्शन देखकर फिर कोशिश करें।" },
+  couldNotReceipts: { en: "Receipts could not be searched just now.", hi: "अभी रसीदें नहीं खोज पाए।" },
+  retry: { en: "Try again", hi: "फिर कोशिश करें" },
 };
+
+/** Why a child is listed when the typed text was a parent or a phone (S01). */
+const whyLine = (why: NonNullable<StudentHit["why"]>): Pair =>
+  why.kind === "father" ? { en: `Father: ${why.text}`, hi: `पिता: ${why.text}` }
+    : why.kind === "mother" ? { en: `Mother: ${why.text}`, hi: `माता: ${why.text}` }
+      : { en: `Phone ${why.text}`, hi: `फ़ोन ${why.text}` };
 
 const nothing = (q: string): Pair => ({ en: `Nothing matches “${q}”. Try an SR no., a phone number or a receipt number.`, hi: `“${q}” से कुछ नहीं मिला। SR नं., फ़ोन या रसीद नंबर लिखें।` });
 const collectFor = (name: string): Pair => ({ en: `Collect fee for ${name}`, hi: `${name} की फ़ीस जमा करें` });
@@ -125,6 +136,8 @@ export function SearchPalette({
   const [result, setResult] = useState<{ q: string; r: SearchResult }>({ q: "", r: EMPTY });
   const [pending, start] = useTransition();
   const [cursor, setCursor] = useState(0);
+  // Try again re-runs the same words without retyping them.
+  const [attempt, setAttempt] = useState(0);
   const timer = useRef<number | undefined>(undefined);
   const input = useRef<HTMLInputElement>(null);
   const restore = useRef<Element | null>(null);
@@ -155,12 +168,12 @@ export function SearchPalette({
     if (term.length < 2) return;
     timer.current = window.setTimeout(() => {
       start(async () => {
-        const r = await search(term).catch(() => EMPTY);
+        const r = await search(term).catch(() => UNREACHED);
         setResult({ q: term, r: r ?? EMPTY });
         setCursor(0);
       });
     }, 220);
-  }, [term, search]);
+  }, [term, search, attempt]);
 
   // While open: focus the box, Escape closes, the page behind does not scroll.
   useEffect(() => {
@@ -195,7 +208,7 @@ export function SearchPalette({
       group: tx(W.students),
       href: s.href,
       title: <Hl text={s.name} q={term} />,
-      sub: [s.classLabel, `SR ${s.sr}`, s.parent].filter(Boolean).join(" · "),
+      sub: [s.classLabel, `SR ${s.sr}`, s.why ? tx(whyLine(s.why)) : s.parent].filter(Boolean).join(" · "),
       icon: "users",
       ibg: TONES[i % TONES.length][0],
       ifg: TONES[i % TONES.length][1],
@@ -250,7 +263,18 @@ export function SearchPalette({
 
   if (!open || !layer) return null;
 
-  const noResults = term.length >= 2 && !pending && result.q === term && shown.students.length + shown.receipts.length + (shown.staff?.length ?? 0) + pages.length === 0;
+  const failedStudents = term.length >= 2 && !pending && result.q === term && Boolean(shown.failed?.includes("students"));
+  const failedReceipts = term.length >= 2 && !pending && result.q === term && !failedStudents && Boolean(shown.failed?.includes("receipts"));
+  // A failed read is never "Nothing matches": it says so and offers Try again.
+  const noResults = term.length >= 2 && !pending && result.q === term && !failedStudents && shown.students.length + shown.receipts.length + (shown.staff?.length ?? 0) + pages.length === 0;
+  const failure = failedStudents || failedReceipts ? (
+    <div className="vxp-none" role="alert">
+      {tx(failedStudents ? W.couldNot : W.couldNotReceipts)}{" "}
+      <button type="button" className="tap" style={{ font: "inherit", fontWeight: 700, color: "var(--acc)", background: "none", border: 0, padding: 0, cursor: "pointer" }} onClick={() => setAttempt((n) => n + 1)}>
+        {tx(W.retry)}
+      </button>
+    </div>
+  ) : null;
 
   const box = (
     <input
@@ -319,7 +343,7 @@ export function SearchPalette({
                       <span className="vxp-ava" style={{ background: TONES[i % TONES.length][0], color: TONES[i % TONES.length][1] }} aria-hidden="true">{initials(s.name)}</span>
                       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                         <span className="clip" style={{ fontSize: 15 }}><Hl text={s.name} q={term} /></span>
-                        <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{`${s.classLabel} · SR ${s.sr}`}</span>
+                        <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{[s.classLabel, `SR ${s.sr}`, s.why ? tx(whyLine(s.why)) : null].filter(Boolean).join(" · ")}</span>
                       </span>
                       {right ? <span className="num" style={{ fontSize: 13, fontWeight: 700, color: right.tone }}>{right.text}</span> : null}
                     </button>
@@ -392,6 +416,7 @@ export function SearchPalette({
             </div>
           ) : null}
           {term.length >= 2 ? <AskRow key={term} question={term} pages={items} onGo={(href) => go({ href })} onSearch={setQ} /> : null}
+          {failure}
           {noResults ? <div className="vxp-none">{tx(nothing(term))}</div> : null}
         </div>
       </section>,
@@ -435,7 +460,8 @@ export function SearchPalette({
               ))}
             </ul>
             {term.length >= 2 ? <AskRow key={term} question={term} pages={items} onGo={(href) => go({ href })} onSearch={setQ} /> : <AskHint />}
-            {pending && rows.length === 0 ? <div className="vxp-none">{tx(W.searching)}</div> : null}
+            {pending && rows.length === 0 ? <div className="vxp-none" role="status">{tx(W.searching)}</div> : null}
+            {failure}
             {noResults ? <div className="vxp-none">{tx(nothing(term))}</div> : null}
           </div>
           <div className="vxp-foot">

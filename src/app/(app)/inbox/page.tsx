@@ -4,10 +4,9 @@ import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { schoolToday } from "@/vx/format";
 import { schoolMinutes, sortInbox } from "@/vx/screens/admin/logic";
-import { loadInbox } from "@/vx/screens/admin/data";
+import { loadInbox, moneyRequestsFor } from "@/vx/screens/admin/data";
 import { InboxScreen } from "@/vx/screens/admin/inbox";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
@@ -57,7 +56,7 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
   const now = await schoolNow(staff);
   const day = schoolToday(now);
   const { items, unavailable } = await loadInbox(staff, sessionLabel, day, {
-    refunds: can(staff, "fees:view") ? pendingMoneyRequests : undefined,
+    refunds: moneyRequestsFor(staff, sessionLabel),
     nowMinutes: schoolMinutes(now),
   });
   const canAssign = can(staff, "collection:manage");

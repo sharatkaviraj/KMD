@@ -22,19 +22,35 @@ it("renders only the pinned canonical receipt and never reads the local ledger",
   const result = await page();
   expect(result.type).toBe(CanonicalReceipt); expect(state.get).toHaveBeenCalledWith(id, "2026-27"); expect(state.local).not.toHaveBeenCalled();
 });
-it.each([{}, { receiptId: id }, { receiptId: "foreign", session: "2026-27" }, { receiptId: id, session: ["2026-27", "TEST-2026-27"] }, { receiptId: id, session: "TEST-2026-27" }])("rejects missing or malformed receipt pins %j before any financial read", async search => {
-  await expect(page(search)).rejects.toThrow("synthetic_not_found"); expect(state.get).not.toHaveBeenCalled(); expect(state.local).not.toHaveBeenCalled();
+// F02: a refusal explains itself instead of ending in "Page not found".
+it.each([
+  [{}, "missing_link"], [{ receiptId: id }, "missing_link"], [{ receiptId: "foreign", session: "2026-27" }, "missing_link"],
+  [{ receiptId: id, session: ["2026-27", "TEST-2026-27"] }, "missing_link"], [{ receiptId: id, session: "TEST-2026-27" }, "access"],
+] as [Record<string, string | string[]>, string][])("explains missing or malformed receipt pins %j before any financial read", async (search, reason) => {
+  const result = await page(search);
+  expect(result.type).toBe(CanonicalReceiptUnavailable); expect(result.props.reason).toBe(reason);
+  expect(state.get).not.toHaveBeenCalled(); expect(state.local).not.toHaveBeenCalled(); expect(state.notFound).not.toHaveBeenCalled();
 });
-it("rejects a mismatched receipt number even when a valid source UUID was supplied", async () => {
-  await expect(page(undefined, "SVP-OTHER")).rejects.toThrow("synthetic_not_found"); expect(state.local).not.toHaveBeenCalled();
+it("refuses a mismatched receipt number even when a valid source UUID was supplied", async () => {
+  const result = await page(undefined, "SVP-OTHER");
+  expect(result.type).toBe(CanonicalReceiptUnavailable); expect(result.props.reason).toBe("unreadable"); expect(state.local).not.toHaveBeenCalled();
+});
+it("compares an encoded receipt number decoded, so a valid link is not refused", async () => {
+  state.get.mockResolvedValue({ receiptId: id, detail: { receiptNumber: "SVP 2026/1" } });
+  expect((await page(undefined, encodeURIComponent("SVP 2026/1"))).type).toBe(CanonicalReceipt);
 });
 it("shows an unavailable state rather than old local financial values after a source failure", async () => {
   state.get.mockRejectedValue(new FeesBridgeError("unavailable", "Synthetic failure"));
-  expect((await page()).type).toBe(CanonicalReceiptUnavailable); expect(state.local).not.toHaveBeenCalled();
+  const result = await page();
+  expect(result.type).toBe(CanonicalReceiptUnavailable); expect(result.props.reason).toBe("error"); expect(state.local).not.toHaveBeenCalled();
 });
-it("does not reveal whether an unauthorized receipt exists", async () => {
-  state.get.mockRejectedValue(new FeesBridgeError("forbidden", "Synthetic refusal"));
-  await expect(page()).rejects.toThrow("synthetic_not_found"); expect(state.local).not.toHaveBeenCalled();
+it("does not reveal whether an unauthorized receipt exists: refused and missing look the same", async () => {
+  state.get.mockRejectedValueOnce(new FeesBridgeError("forbidden", "Synthetic refusal"));
+  const refused = await page();
+  state.get.mockRejectedValueOnce(new FeesBridgeError("not_found", "Synthetic absence"));
+  const missing = await page();
+  expect(refused.props).toEqual(missing.props);
+  expect(refused.props.reason).toBe("unreadable"); expect(refused.props.receiptId).toBeUndefined(); expect(state.local).not.toHaveBeenCalled();
 });
 it("retains local receipt visibility checks for isolated TEST mode", async () => {
   state.canonical = false;
