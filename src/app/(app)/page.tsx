@@ -23,6 +23,8 @@ import { menuRoleLabel } from "@/vx/shell/role-line";
 import { getViewer } from "@/vx/view-as";
 import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { getBridgeTodaySummary } from "@/platform/fees-bridge/client";
+import { FeesBridgeError } from "@/platform/fees-bridge/transport";
+import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { LedgerNotice } from "@/vx/shell/ledger-notice";
 
 export const runtime = "nodejs";
@@ -70,10 +72,11 @@ export default async function TodayPage() {
   const seesMoney = can(staff, "fees:view");
   const canonicalMoney = usesCanonicalFees(staff, sessionLabel);
   // Under the live connection, today's figures are Fees' own Dashboard numbers (review T02).
-  const feesToday = seesMoney && canonicalMoney && feesBridgeOfficeReads()
+  // Only for a role whose Fees counterpart sees the Dashboard; a Fees refusal hides the card rather than failing it.
+  const feesToday = seesMoney && canonicalMoney && feesBridgeOfficeReads() && feePermissionsFor(staff.role).includes("dashboard:view")
     ? getBridgeTodaySummary(sessionLabel).then(
         (s) => ({ total: s.totalCollected, count: s.receiptCount, byMode: s.byMode.map((m) => ({ label: m.paymentModeLabel, amount: m.amount, count: m.receiptCount })), asOf: s.asOf }),
-        () => "failed" as const,
+        (error: unknown) => (error instanceof FeesBridgeError && error.code === "forbidden" ? null : ("failed" as const)),
       )
     : Promise.resolve(null);
   const [facts, fees, inbox, week, ledgerToday] = await Promise.all([
