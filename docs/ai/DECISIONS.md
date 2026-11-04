@@ -20,3 +20,9 @@ The owner asked for the plan to be checked and deployed to the live One app. The
 - **The daily limit is the school's.** While live, only a real admin may change it.
 - **Migration files carry the versions the database recorded.** The three pilot migrations were applied by version `20261104054116`, `…054119`, `…054126`; the files were renamed to match, as was done for `20261104022925`. Each file's MD5 equals the statement the database stored.
 
+## Phone quick substitute and voice typing — 4 November 2026
+
+- **Quick substitute lives in the "+" sheet (D-403).** Photo opens the camera inside the same tap (a file input may only open from a user's tap), and the photo goes straight to the register reader in a sheet; Speak opens Bolo with an example cover sentence; Arrange opens the guided planner. Gated by `coverPhotoEnabled` (permission, switch, session) and hidden while previewing a role. Loaded on demand.
+- **Phone layout.** Hold-to-speak is a full-width 76 px button that turns red, shows the elapsed time and vibrates on start and stop; photo pickers are two large buttons with page thumbnails (made while compressing, so no object URLs to manage); sheet footers stack full-width buttons below 640 px; marks review inputs are 16 px so iPhone Safari does not zoom. The review heading says "Check what the app read": Claude or Gemini may be the reader.
+- **Notes voice typing (D-404)** is fixed in `useSpeech`, which the note composer, note replies and `VoiceNote` share.
+
