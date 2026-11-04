@@ -46,7 +46,7 @@ vi.mock("@/lib/ai/feature-jobs", () => ({
 }));
 
 import type { AiPilotConfig } from "@/lib/ai/config";
-import { supportedSpeech, voiceStudent, voiceTeacher } from "@/lib/ai/voice-intents";
+import { supportedSpeech, teacherInTranscript, voiceStudent, voiceTeacher, withSpokenDay } from "@/lib/ai/voice-intents";
 import type { VoiceReview } from "@/lib/ai/voice-review";
 import { voiceSpec, type VoiceExtraction } from "@/lib/ai/voice-schema";
 import { runVoiceRoute } from "@/lib/ai/voice-service";
@@ -303,6 +303,22 @@ describe("Bolo", () => {
     expect(voiceTeacher([{ name: "Asha Rao", short: "AR" }, { name: "Asha Jain", short: "AJ" }], "Asha mam", (row) => [row.name, row.short])).toBeNull();
   });
 
+  it("reads a left-out teacher or day from the transcript only when it is beyond doubt", () => {
+    const staff = [{ name: "Test teacher Maya", short: "T-Maya" }, { name: "Verma", short: "VR" }, { name: "Asha Rao", short: "AR" }];
+    const labels = (row: (typeof staff)[number]) => [row.name, row.short];
+    expect(teacherInTranscript(staff, "Maya test madam will be absent tomorrow", labels)?.name).toBe("Test teacher Maya");
+    expect(teacherInTranscript(staff, "Maya test madam absent, Verma will take", labels)).toBeNull();
+    expect(teacherInTranscript(staff, "Maya test madam absent, Verma will take", labels, staff[1])?.name).toBe("Test teacher Maya");
+    expect(teacherInTranscript(staff, "Asha mam is absent", labels)).toBeNull();
+    expect(teacherInTranscript(staff, "VR and AR are busy", labels)).toBeNull();
+    const base = { intent: "teacher_absence", unclear: false } as const;
+    expect(withSpokenDay({ ...base, transcript: "Maya will be absent tomorrow" }).day).toBe("tomorrow");
+    expect(withSpokenDay({ ...base, transcript: "Aaj Maya mam absent hai" }).day).toBe("today");
+    expect(withSpokenDay({ ...base, transcript: "Maya mam kal absent rahengi" }).day).toBeUndefined();
+    expect(withSpokenDay({ ...base, transcript: "absent today and tomorrow" }).day).toBeUndefined();
+    expect(withSpokenDay({ ...base, transcript: "absent tomorrow", day: "2026-11-09" }).day).toBe("2026-11-09");
+  });
+
   it("accepts a spoken \"aaj\" as today and still rejects values the speaker did not say", () => {
     const base = { intent: "teacher_absence", unclear: false, teacher: "Maya mam" } as const;
     expect(supportedSpeech({ ...base, transcript: "Aaj Maya mam absent hai, substitute laga do", day: "today" })).toBe(true);
@@ -349,6 +365,15 @@ describe("Bolo", () => {
       expect((await runVoiceRoute(coordinator, config, "apply", { jobId, confirmation })).status).toBe(200);
       expect(scene.arrange).toHaveBeenCalledWith(expect.objectContaining({ day: "2026-11-04", expectedDayRevision: 6, expectedPlan: "plan-01234567-0",
         intent: { kind: "absence", staffProfileId: "maya", periods: [0, 1, 2, 3, 4, 5, 6, 7], choices: [] } }));
+    });
+
+    it("recovers the teacher and the day a model left out (production, 4 Nov)", async () => {
+      // What Gemini returned for the clip: the intent, but no teacher and no day.
+      const raw = { transcript: "Maya test madam will be absent tomorrow. Please arrange her substitute.", intent: "teacher_absence",
+        unclear: false, span: "whole", attendanceStatus: "absent", exceptions: [] } as const;
+      expect((await review(raw, coordinator)).result).toMatchObject({ kind: "teacher_absence", teacher: "Test teacher Maya", day: "2026-11-05", span: "whole" });
+      const two = { ...raw, transcript: "Maya test madam and Verma will be absent tomorrow" };
+      expect((await review(two, coordinator)).result).toEqual({ kind: "clarify", reason: "teacher" });
     });
 
     it("plans tomorrow from a future-tense \"kal\"", async () => {
