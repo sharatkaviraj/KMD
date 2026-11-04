@@ -3,7 +3,6 @@ import "server-only";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 import { AI_INPUT_BUCKET } from "@/lib/ai/media-limits";
-import type { AiModel } from "@/lib/ai/config";
 
 const db = createAdminClient;
 const JOB_COLUMNS = "id, staff_profile_id, action, session_label, target_id, target_revision, roster_stamp, input_paths, model, status, raw_output, reviewed_data, final_applied_data, parse_started_at, parsed_at, created_at, purged_at";
@@ -46,11 +45,12 @@ export async function ownedAiJob(owner: Owner): Promise<AiJob | null> {
   return data;
 }
 
-export async function reserveAiJob(input: Omit<Owner, "id"> & { revision: number; pages: number; model: AiModel }) {
+export async function reserveAiJob(input: Omit<Owner, "id"> & { revision: number; pages: number; model: string; audioExtension?: "webm" | "m4a" | "wav" }) {
   if (input.session !== "TEST-2026-27") throw new Error("Outside AI pilot");
   const { data, error } = await db().rpc("reserve_ai_job", {
     p_staff: input.staffId, p_action: input.action, p_target: input.targetId,
     p_revision: input.revision, p_pages: input.pages, p_model: input.model,
+    p_audio_extension: input.audioExtension ?? null,
   });
   if (error) throw new Error("Could not reserve AI job");
   return typeof data === "string" ? ownedAiJob({ ...input, id: data }) : null;
@@ -86,10 +86,13 @@ export async function purgeBuiltinAiInputs(now = new Date()) {
     .select("id, input_paths, status").is("purged_at", null).lt("created_at", cutoff)
     .order("created_at").limit(250)
     .returns<Pick<AiJob, "id" | "input_paths" | "status">[]>();
+  // The job route may be deployed ahead of the optional TEST-only schema.
+  if (error?.code === "42P01" || error?.code === "PGRST205") return { jobs: 0, paths: 0 };
   if (error) throw new Error("Could not list expired AI jobs");
   if (!data.length) return { jobs: 0, paths: 0 };
   const paths = data.flatMap((job) => job.input_paths.filter((path) =>
-    [1, 2, 3, 4].some((i) => path === job.id + "/" + i + ".jpg"),
+    [1, 2, 3, 4].some((i) => path === job.id + "/" + i + ".jpg") ||
+      ["webm", "m4a", "wav"].some((ext) => path === job.id + "/1." + ext),
   ));
   if (paths.length) {
     const { error: removalError } = await inputBucket().remove(paths);

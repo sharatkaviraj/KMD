@@ -12,25 +12,35 @@ import type { ZodType } from "zod";
 
 import type { AiModel, GeminiConfig } from "@/lib/ai/config";
 
-export type AiMedia = { mimeType: "image/jpeg" | "audio/webm" | "audio/aac" | "audio/wav"; data: Uint8Array };
+export type AiMedia = {
+  mimeType: "image/jpeg" | "audio/webm" | "audio/aac" | "audio/wav" | "audio/mp4" | "audio/m4a";
+  data: Uint8Array;
+};
 
-type Usage = {
-  model: AiModel;
+export type ModelUsage = {
   modelVersion: string | null;
   input: number;
   output: number;
   thinking: number;
   costInr: number;
   usageReported: boolean;
-  outcome: "ok" | "invalid" | "unavailable";
 };
+type Usage = ModelUsage & { model: AiModel; outcome: "ok" | "invalid" | "unavailable" };
 type Result<T> =
   | { ok: true; value: T; attempts: Usage[] }
   | { ok: false; error: "invalid" | "unavailable"; attempts: Usage[] };
-type Generate = (request: GenerateContentParameters) => Promise<GenerateContentResponse>;
+export type Generate = (request: GenerateContentParameters) => Promise<GenerateContentResponse>;
 
-function tokens(value?: number) {
-  return Number.isSafeInteger(value) && value! > 0 && value! <= 10_000_000 ? value! : 0;
+export function validTokenCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 10_000_000;
+}
+
+export function tokens(value: unknown) {
+  return validTokenCount(value) ? value : 0;
+}
+
+export function modelVersion(value: unknown) {
+  return typeof value === "string" && /^[a-z0-9._:/-]{1,120}$/i.test(value) ? value : null;
 }
 
 function estimate(model: AiModel, audio: boolean, input: number, output: number, inrPerUsd: number) {
@@ -41,6 +51,65 @@ function estimate(model: AiModel, audio: boolean, input: number, output: number,
     : model === "gemini-2.5-flash" && audio && Date.now() < Date.UTC(2026, 11, 1) ? 1 : 0.3;
   const outputRate = model === "gemini-3.8-flash" ? (newerRate ? 7.5 : 3.75) : 2.5;
   return (input * inputRate + output * outputRate) / 1_000_000 * inrPerUsd;
+}
+
+export function geminiClient(apiKey: string): Generate {
+  const client = new GoogleGenAI({
+    apiKey, vertexai: false, httpOptions: { baseUrl: "https://generativelanguage.googleapis.com" },
+  });
+  return (request) => client.models.generateContent(request);
+}
+
+export function geminiParts(context: unknown, media: readonly AiMedia[]): Part[] {
+  return [{ text: JSON.stringify(context ?? null) }, ...media.map(({ mimeType, data }) => ({
+    inlineData: {
+      // Safari records AAC in an audio-only MP4 container. Gemini names that format M4A.
+      mimeType: mimeType === "audio/mp4" ? "audio/m4a" : mimeType,
+      data: Buffer.from(data).toString("base64"),
+    },
+  }))];
+}
+
+export function geminiRequest(opts: {
+  config: Pick<GeminiConfig, "thinkingBudget" | "thinkingLevel">;
+  model: AiModel;
+  instructions: string;
+  parts: Part[];
+  responseSchema: Schema;
+  timeout: number;
+  signal: AbortSignal;
+}): GenerateContentParameters {
+  const { config, model, instructions, parts, responseSchema, timeout, signal } = opts;
+  return {
+    model,
+    contents: [{ role: "user", parts }],
+    config: {
+      systemInstruction: instructions,
+      responseMimeType: "application/json",
+      responseSchema,
+      maxOutputTokens: 8192,
+      thinkingConfig: model === "gemini-2.5-flash" && Date.now() < Date.UTC(2026, 11, 1)
+        ? { thinkingBudget: config.thinkingBudget }
+        : { thinkingLevel: model === "gemini-3.8-flash" || config.thinkingLevel === "low" ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL },
+      httpOptions: { timeout, retryOptions: { attempts: 1 } },
+      abortSignal: signal,
+    },
+  };
+}
+
+export function geminiUsage(
+  response: GenerateContentResponse, model: AiModel, audio: boolean, inrPerUsd: number,
+): ModelUsage {
+  const usage = response.usageMetadata;
+  const input = tokens(usage?.promptTokenCount);
+  const output = tokens(usage?.candidatesTokenCount);
+  const thinking = tokens(usage?.thoughtsTokenCount);
+  return {
+    modelVersion: modelVersion(response.modelVersion),
+    input, output, thinking,
+    costInr: estimate(model, audio, input, output + thinking, inrPerUsd),
+    usageReported: validTokenCount(usage?.promptTokenCount),
+  };
 }
 
 /** This gateway has no DB client, tools, URL inputs or side effects beyond its model request. */
@@ -55,13 +124,10 @@ export async function extractWithGemini<T>(opts: {
   validate: ZodType<T>;
 }, generate?: Generate): Promise<Result<T>> {
   const { config } = opts;
-  const client = generate ? null : new GoogleGenAI({ apiKey: config.apiKey, vertexai: false });
-  const invoke: Generate = generate ?? ((request) => client!.models.generateContent(request));
+  const invoke = generate ?? geminiClient(config.apiKey);
   const models = opts.useFallback && opts.primary !== config.fallback ? [opts.primary, config.fallback] : [opts.primary];
   const attempts: Usage[] = [];
-  const parts: Part[] = [{ text: JSON.stringify(opts.context) }, ...opts.media.map(({ mimeType, data }) => ({
-    inlineData: { mimeType, data: Buffer.from(data).toString("base64") },
-  }))];
+  const parts = geminiParts(opts.context, opts.media);
   for (const model of models) {
     const audio = opts.media.some((m) => m.mimeType.startsWith("audio/"));
     let retryable = true;
@@ -72,28 +138,11 @@ export async function extractWithGemini<T>(opts: {
     attempts.push(usage);
     const attemptTimeout = models.length === 1 ? 37_000 : 18_000;
     try {
-      const response = await invoke({
-        model,
-        contents: [{ role: "user", parts }],
-        config: {
-          systemInstruction: opts.instructions,
-          responseMimeType: "application/json",
-          responseSchema: opts.responseSchema,
-          candidateCount: 1,
-          maxOutputTokens: 8192,
-          thinkingConfig: model === "gemini-2.5-flash" && Date.now() < Date.UTC(2026, 11, 1)
-            ? { thinkingBudget: config.thinkingBudget }
-            : { thinkingLevel: model === "gemini-3.8-flash" || config.thinkingLevel === "low" ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL },
-          httpOptions: { timeout: attemptTimeout, retryOptions: { attempts: 1 } },
-          abortSignal: AbortSignal.timeout(attemptTimeout),
-        },
-      });
-      usage.modelVersion = response.modelVersion?.slice(0, 120) ?? null;
-      usage.input = tokens(response.usageMetadata?.promptTokenCount);
-      usage.output = tokens(response.usageMetadata?.candidatesTokenCount);
-      usage.thinking = tokens(response.usageMetadata?.thoughtsTokenCount);
-      usage.usageReported = typeof response.usageMetadata?.promptTokenCount === "number";
-      usage.costInr = estimate(model, audio, usage.input, usage.output + usage.thinking, config.inrPerUsd);
+      const response = await invoke(geminiRequest({
+        config, model, instructions: opts.instructions, parts, responseSchema: opts.responseSchema,
+        timeout: attemptTimeout, signal: AbortSignal.timeout(attemptTimeout),
+      }));
+      Object.assign(usage, geminiUsage(response, model, audio, config.inrPerUsd));
       usage.outcome = "invalid";
       const finish = response.candidates?.[0]?.finishReason;
       if (response.promptFeedback?.blockReason || (finish && finish !== "STOP" && finish !== "MAX_TOKENS")) {
