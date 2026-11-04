@@ -1,5 +1,38 @@
 # VPPS One — progress
 
+## Review plan finish and AI connection — 4 November 2026
+
+Branch `docs/review-finish-20261104` (this record, docs only); matrix per
+requirement ID in `docs/plans/2026-11-04-review-completion-matrix.md`,
+decisions D-384–D-398. **Released (One):** #174 `bcfc5881` (picker focus
+fixture), #175 `ee2fe796` + #177 `02cc89eb` (search without the workspace
+read; lean lookup), #176 `678add9a` (dues on `fees:view`, `assist_log` purge,
+leave idempotency), #178 `04bf7a90` (F01–F03), #182 `45436075` (bridge
+timing), #181 `b0f49acb` (guided cover), #180 `157dd7a0` (N02/U01/T01), #184
+`fc59f2d5` (P02 section reads), #179 `eb9631e8` (AI connection M0/M1).
+**Fees:** #135 `75b4132a`, #137 `4079ff00`. Production READY: One
+`dpl_8x7BSjdNoNMz9TFuQmQowcsQ1Zma` at `eb9631e8`, Fees
+`dpl_2c62oJTDoC6gWuE9dJCrG6w8GzGm` at `4079ff00`; CI green on every merged
+code PR. **Migrations applied (wtgx):** `20261103192446`
+teacher_leave_request_id; `20261104022925` ai_connection_mcp (RLS on, no
+browser grants, functions service_role only, switch off). None on the Fees
+database. **Verified live** (desktop Chrome, admin, timings only): Today
+₹38,125 / 5 receipts matched Fees exactly; MCP discovery correct,
+unauthenticated call 401 with `WWW-Authenticate`, median 95 ms. **Held:**
+#183 + Fees #136 receipt send (Fees migration `20261103213000` needs a
+rolled-back off-hours dry-run first); #185 waits for Fees #138, whose `scan`
+check fails (`rounding-policy-mixed` 5 findings vs budget 4); #186 (Today AI
+status line) on auto-merge. **Not verified:** search misses 500 ms (repeats
+0.58–0.68 s, first-time 1.36–2.2 s, cold 5.4 s); P02's latency effect (one
+cold sample, 4.3 s page); Android (no device); other roles (no logins);
+N01/N03/A01/C01 live lifecycles (would create real records); Claude/ChatGPT
+connection (owner connects himself; ChatGPT needs a paid workspace not
+confirmed). Manual day close still not built (D-383). Surprised: the
+directory SQL is 7 ms warm, so the seconds are in the bridge call chain.
+Next: warm P02 samples (revert #184 if slower); fix #138's scan, merge #138
+then #185 and measure; receipt-notice dry-run off-hours; owner's M0 provider
+test incl. the forwarded-link test; then the switch for named admins.
+
 ## Fees office commands and release of the review plan — 3 November 2026
 
 Released: Phase 3 (#169, `d6c44cb7`); Fees office reads (schoolfees #133,
