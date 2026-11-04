@@ -20,7 +20,7 @@ import { dayLabel } from "@/platform/dates";
 import { readNoticePrefs, readStaffConsent } from "@/modules/staff-notices/data/consent";
 import { KINDS, STAFF_MESSAGE_KINDS } from "@/modules/staff-notices/domain/kinds";
 
-import { aiConnectionMessages } from "@/messages/setup";
+import { aiConnectionMessages } from "@/messages/ai-connection";
 import { loadAiConnectionCard } from "@/modules/mcp/data/card";
 import { AiConnectionCard } from "@/modules/mcp/ui/connection-card";
 

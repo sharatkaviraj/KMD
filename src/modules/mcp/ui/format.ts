@@ -1,5 +1,5 @@
 import type { Localized } from "@/platform/i18n/language";
-import { aiConnectionMessages as a } from "@/messages/setup";
+import { aiConnectionMessages as a } from "@/messages/ai-connection";
 import { connectionStatus, type ConnectionListRow, type ConnectionStatus } from "@/modules/mcp/domain/card";
 import { PROVIDER_NAMES } from "@/modules/mcp/domain/redirects";
 

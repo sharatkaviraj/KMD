@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { aiConnectionMessages as a } from "@/messages/setup";
+import { aiConnectionMessages as a } from "@/messages/ai-connection";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { roleLabels } from "@/platform/auth/permissions";
 import type { Language } from "@/platform/i18n/language";

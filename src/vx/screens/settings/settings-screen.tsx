@@ -20,7 +20,8 @@ import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
 
 import type { SettingsData } from "./data";
-import { aiConnectionMessages as aiConnection, taskIntegrationMessages as taskIntegration } from "@/messages/setup";
+import { aiConnectionLink } from "@/messages/ai-connection-link";
+import { taskIntegrationMessages as taskIntegration } from "@/messages/setup";
 import {
   activityCsv,
   AREA_LABELS,
@@ -178,7 +179,7 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
         { s: "integrations", icon: "link", tone: "warn", title: T.integrations, sub: status.integrations.sub, subTone: status.integrations.tone },
         { s: "ai", icon: "sparkle", tone: "acc", title: T.ai, sub: tx(T.aiSub) },
         // The AI connection (Claude / ChatGPT through MCP) has its own page: the switch and every connection.
-        { s: "ai-connection", icon: "shield", tone: "info", title: aiConnection.title, sub: tx(aiConnection.settingsSub), href: "/settings/ai-connection" },
+        { s: "ai-connection", icon: "shield", tone: "info", title: aiConnectionLink.title, sub: tx(aiConnectionLink.sub), href: "/settings/ai-connection" },
       ],
     },
     {

@@ -1,4 +1,4 @@
-import { aiConnectionMessages as a } from "@/messages/setup";
+import { aiConnectionMessages as a } from "@/messages/ai-connection";
 import { primary, secondary, type Language, type Localized } from "@/platform/i18n/language";
 import { Badge, Card } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";

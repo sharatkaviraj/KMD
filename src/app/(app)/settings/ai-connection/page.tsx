@@ -1,4 +1,4 @@
-import { aiConnectionMessages as a } from "@/messages/setup";
+import { aiConnectionMessages as a } from "@/messages/ai-connection";
 import { requirePermission } from "@/platform/auth/current-staff";
 import type { Language, Localized } from "@/platform/i18n/language";
 import { loadAiConnectionAdmin } from "@/modules/mcp/data/card";
