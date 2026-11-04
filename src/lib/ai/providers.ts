@@ -143,12 +143,24 @@ const TRANSCRIPTION_FORMATS: Partial<Record<AiMedia["mimeType"], { mime: string;
   "audio/m4a": { mime: "audio/mp4", ext: "m4a" },
 };
 
-function transcriptionForm(media: AiMedia, model: string) {
+/** Teacher names and class labels to spell as the school does (`voiceVocabulary`), as transcription hints. */
+function vocabularyHint(context: unknown) {
+  const vocabulary = (context as { vocabulary?: { teachers?: unknown; classes?: unknown } } | null)?.vocabulary;
+  const list = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
+  const teachers = list(vocabulary?.teachers);
+  const classes = list(vocabulary?.classes);
+  const hint = [teachers.length ? `Teachers: ${teachers.join(", ")}.` : "", classes.length ? `Classes: ${classes.join(", ")}.` : ""].filter(Boolean).join(" ");
+  return hint.slice(0, 900);
+}
+
+function transcriptionForm(media: AiMedia, model: string, context?: unknown) {
   const format = TRANSCRIPTION_FORMATS[media.mimeType];
   if (!format) return null;
   const form = new FormData();
   form.set("model", model);
   form.set("response_format", "json");
+  const hint = vocabularyHint(context);
+  if (hint) form.set("prompt", `A school staff request in Hindi, English or both. ${hint}`);
   form.set("file", new Blob([new Uint8Array(media.data)], { type: format.mime }), `recording.${format.ext}`);
   return form;
 }
@@ -258,7 +270,7 @@ export async function extractWithProviders<T>(
   }
   if (voice && config.openAiApiKey && config.anthropicApiKey && selected("openai-claude")) {
     const model = config.openAiTranscriptionModel;
-    const form = transcriptionForm(clip, model);
+    const form = transcriptionForm(clip, model, opts.context);
     if (form) {
       const key = config.openAiApiKey;
       const transcript = await runStep("openai", model, until(10_000), 8_000, attempts,

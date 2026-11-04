@@ -11,7 +11,8 @@ const declarations = {
   attendance_mark: { mode: "review", description: "Prepare a class register or a correction for the teacher to review." },
   single_mark: { mode: "review", description: "Prepare one student's mark as a draft in a named paper." },
   student_note: { mode: "review", description: "Prepare a private student note for a class teacher to review." },
-  substitution: { mode: "review", description: "Prepare cover for one class and period, with explicitly named teachers." },
+  substitution: { mode: "review", description: "Prepare cover for one spoken period of an absent teacher; the class and the substitute may be left out when not spoken." },
+  teacher_absence: { mode: "review", description: "Mark a named teacher away (the whole day, a half, or spoken periods) and prepare cover for each of their lessons, using a named substitute or the timetable's best free teacher." },
 } as const satisfies Record<VoiceIntent, { mode: "read" | "review"; description: string }>;
 
 export function voiceTools(staff: CurrentStaff, hasClass: boolean) {
@@ -21,7 +22,7 @@ export function voiceTools(staff: CurrentStaff, hasClass: boolean) {
   if ((hasClass && can(staff, "attendance:mark")) || can(staff, "attendance:mark_on_behalf") || can(staff, "attendance:correct")) names.push("attendance_mark");
   if (can(staff, "marks:write")) names.push("single_mark");
   if (hasClass && can(staff, "notes:write")) names.push("student_note");
-  if (can(staff, "substitutions:view") && can(staff, "substitutions:manage")) names.push("who_is_free", "substitution");
+  if (can(staff, "substitutions:view") && can(staff, "substitutions:manage")) names.push("who_is_free", "substitution", "teacher_absence");
   return names.map((name) => ({ name, ...declarations[name] }));
 }
 
@@ -47,6 +48,38 @@ export function spokenAttendanceClass(transcript: string) {
 function rollKey(value: string) {
   const normalized = key(value);
   return /^\d+$/u.test(normalized) ? normalized.replace(/^0+(?=\d)/u, "") : normalized;
+}
+
+/**
+ * Forms of address said with a teacher's name and ignored when matching it
+ * ("Maya test mam", "Sharma ji", "Verma sir", "मीना मैडम").
+ */
+const HONORIFICS = new Set([
+  "mam", "maam", "madam", "madame", "mem", "miss", "ms", "mrs", "mr", "sir", "ji", "jee", "teacher", "sahab", "saheb", "sahib",
+  "didi", "bhaiya", "guruji", "shri", "shrimati", "smt", "मैम", "मैडम", "मिस", "सर", "जी", "श्री", "श्रीमती", "टीचर", "दीदी",
+]);
+
+function nameTokens(value: string) {
+  return key(value).replace(/ma['’]am/gu, "maam").replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").split(" ").filter((token) => token && !HONORIFICS.has(token));
+}
+
+/**
+ * One teacher from a spoken name. Honorifics are dropped; then a teacher
+ * whose name is exactly the spoken words wins, otherwise the one teacher
+ * whose names contain every spoken word. Two candidates is no answer.
+ */
+export function voiceTeacher<T>(rows: readonly T[], spoken: string | undefined, labels: (row: T) => readonly string[]) {
+  const want = spoken ? nameTokens(spoken) : [];
+  if (!want.length) return null;
+  const sorted = [...want].sort().join(" ");
+  const exact = rows.filter((row) => labels(row).some((label) => [...nameTokens(label)].sort().join(" ") === sorted));
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return null;
+  const contained = rows.filter((row) => {
+    const have = new Set(labels(row).flatMap(nameTokens));
+    return want.every((token) => have.has(token));
+  });
+  return contained.length === 1 ? contained[0] : null;
 }
 
 /** Only case, digit script and whitespace are normalized; never fuzzy match a target. */
@@ -76,8 +109,10 @@ export function hasSpokenText(transcript: string, value: string) {
 export function supportedSpeech(extraction: VoiceExtraction) {
   if (!extraction.transcript || extraction.unclear || extraction.intent === "unsupported") return false;
   if (!extraction.day && ["yesterday", "tomorrow", "कल", "परसों"].some((day) => hasSpokenText(extraction.transcript, day))) return false;
+  // "today" needs no spoken word: it is also what an unspoken day means. Hindi says "aaj".
+  const today = extraction.day !== undefined && ["today", "aaj", "आज"].includes(key(extraction.day));
   const fields = [extraction.classLabel, extraction.studentName, extraction.roll, extraction.exam, extraction.subject,
-    extraction.noteKind, extraction.teacher, extraction.substitute, extraction.note, extraction.reason, extraction.day,
+    extraction.noteKind, extraction.teacher, extraction.substitute, extraction.note, extraction.reason, today ? undefined : extraction.day,
     extraction.period?.toString(), ...extraction.exceptions?.flatMap(({ studentName, roll }) => [studentName, roll]) ?? []];
   if (extraction.mark && /^\d+(?:\.\d+)?$/u.test(key(extraction.mark))) fields.push(extraction.mark);
   return fields.every((value) => !value || hasSpokenText(extraction.transcript, value));
@@ -86,7 +121,7 @@ export function supportedSpeech(extraction: VoiceExtraction) {
 export function voiceDay(spoken: string | undefined, today: string) {
   if (!spoken) return today;
   const value = key(spoken);
-  if (value === "today" || value === "आज") return today;
+  if (value === "today" || value === "आज" || value === "aaj") return today;
   if (value === "yesterday" || value === "बीता कल") return addDays(today, -1);
   return isIsoDay(value) ? value : null;
 }
