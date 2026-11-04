@@ -12,6 +12,14 @@ Gemini reads a photo or an audio clip and returns a structured draft. VPPS One a
 
 Later ideas: leave-note photos, attendance register catch-up, report-card remarks, translated notices, and an admin read-only school summary.
 
+## Current implementation
+
+The foundation and teacher Marks photo flow are implemented on the pilot branch. The photo entry point appears on a teacher's open, assigned paper only in the opted-in TEST session. The server checks the paper, revision and roster again on Save; it saves a marks draft, so the existing review and submit controls still govern sending the paper to the exam office. It uses the job ID as the ordinary marks command ID so a lost response can be retried safely.
+
+Local evidence: isolated PostgreSQL migration, Storage policy and quota check; synthetic manifest validation; and 390 px Chrome checks in English and Hindi of upload preparation, a mismatched row, the missing-student list and a mocked save. The repository suite passed 20,416 tests (one skipped), the focused AI tests passed again after the final save-error handling change, and the final build and bundle budget check passed. The deployment trace includes the marks prompt. No hosted migration, provider call, or cutover was performed. The 95% and one-minute targets remain open until the approved private set and a timed test-session trial are available.
+
+The repository already contains a timetable import script and a substitution engine. Confirm active TEST timetable, teacher initials, and roster coverage against the actual test target before wiring photo apply; do not reimport from the legacy timetable repository on assumption. The existing staff outbox has transactional claim and cancellation controls; a verified two-minute delay tied to the undo command is still required. Substitution photo apply, voice intents, and the offline/admin phase are future commits.
+
 ## Pilot and configuration
 
 This change starts disabled. Set `VPPSONE_BUILTIN_AI_TEST=1` only for a confined deployment, with an approved paid Gemini API project and synthetic material. The hosted Supabase project formerly called schoolfees-dev is One production (D-346); `TEST-2026-27` is its fenced test session. Configure this only after the test identity/session, school consent, data handling and provider project are checked. The pilot refuses production deployments. Keep the key out of browser variables, source, logs and screenshots.
