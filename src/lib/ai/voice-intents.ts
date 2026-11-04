@@ -36,6 +36,14 @@ export function voiceClassLabel(value: string) {
     .replace(/^(\d{1,2})(?:st|nd|rd|th)?\s*-?\s*([a-z])$/u, "$1$2");
 }
 
+/** A fallback for an explicit numbered class and section in an attendance transcript. */
+export function spokenAttendanceClass(transcript: string) {
+  const labels = new Set(Array.from(key(transcript).matchAll(
+    /(?:^|[^\p{L}\p{M}\p{N}])(?:class|कक्षा)\s+(\d{1,2})\s*-?\s*([a-z])(?=$|[^\p{L}\p{M}\p{N}-])/gu,
+  ), ([, grade, section]) => grade + section));
+  return labels.size === 1 ? [...labels][0] : undefined;
+}
+
 function rollKey(value: string) {
   const normalized = key(value);
   return /^\d+$/u.test(normalized) ? normalized.replace(/^0+(?=\d)/u, "") : normalized;
@@ -88,6 +96,13 @@ export function explicitWholeRegister(transcript: string) {
   if (/\bnot (?:all|everyone|everybody)\b|(?:उपस्थित|हाज़िर|हाजिर) नहीं/u.test(text)) return false;
   return /\b(?:everyone|everybody|all(?: (?:the )?(?:students|children|pupils))?)(?: (?:is|are))? present\b/u.test(text) ||
     /(?:^|\s)(?:सभी|सब)(?: (?:बच्चे|विद्यार्थी|छात्र))? (?:उपस्थित|हाज़िर|हाजिर)(?=\s|[।,]|$)/u.test(text);
+}
+
+export function wholeRegisterStatusAgrees(extraction: VoiceExtraction) {
+  if (!extraction.attendanceStatus) return true;
+  return extraction.exceptions?.length
+    ? extraction.exceptions.every(({ status }) => status === extraction.attendanceStatus)
+    : extraction.attendanceStatus === "present";
 }
 
 export function asksForAbsentNames(extraction: VoiceExtraction) {

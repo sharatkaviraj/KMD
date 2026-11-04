@@ -30,7 +30,7 @@ import { p } from "@/vx/text";
 
 import { loadPhotoRoster, marksPhotoContext } from "./marks-context";
 import { readPhotoMark } from "./marks-review";
-import { asksForAbsentNames, explicitWholeRegister, supportedSpeech, voiceClassLabel, voiceDay, voiceMatch, voiceStudent, voiceTools } from "./voice-intents";
+import { asksForAbsentNames, explicitWholeRegister, spokenAttendanceClass, supportedSpeech, voiceClassLabel, voiceDay, voiceMatch, voiceStudent, voiceTools, wholeRegisterStatusAgrees } from "./voice-intents";
 import type { VoiceResult } from "./voice-review";
 import type { VoiceExtraction } from "./voice-schema";
 
@@ -102,7 +102,7 @@ async function attendance(staff: CurrentStaff, session: string, spoken: VoiceExt
 
   const marks = new Map(previous);
   if (spoken.allPresent === true) {
-    if (!explicitWholeRegister(spoken.transcript) || spoken.studentName || spoken.roll || spoken.attendanceStatus) return clarify("register");
+    if (!explicitWholeRegister(spoken.transcript) || spoken.studentName || spoken.roll || !wholeRegisterStatusAgrees(spoken)) return clarify("register");
     if (!spoken.exceptions?.length && /\bexcept\b|सिवाय|छोड़कर/u.test(spoken.transcript.toLowerCase())) return clarify("register");
     for (const person of roll) marks.set(person.studentId, "present");
     const changed = new Set<string>();
@@ -258,10 +258,11 @@ export async function resolveVoice(staff: CurrentStaff, session: string, spoken:
   if (!day) return clarify("schedule");
   if (spoken.intent === "free_periods") return freePeriods(staff, session, spoken, day);
   if (spoken.intent === "who_is_free") return availableTeachers(session, spoken, day);
-  if (!spoken.classLabel && !asksForAbsentNames(spoken)) return clarify("target");
+  const classLabel = spoken.classLabel ?? (spoken.intent === "attendance_mark" ? spokenAttendanceClass(spoken.transcript) : undefined);
+  if (!classLabel && !asksForAbsentNames(spoken)) return clarify("target");
   const labels = await classLabelMap(session);
-  const match = spoken.classLabel
-    ? voiceMatch([...labels], voiceClassLabel(spoken.classLabel), ([, label]) => [voiceClassLabel(label)])
+  const match = classLabel
+    ? voiceMatch([...labels], voiceClassLabel(classLabel), ([, label]) => [voiceClassLabel(label)])
     : await soleHeldVoiceClass(staff, session, labels);
   if (!match) return clarify("target");
   const target = { id: match[0], label: match[1] };
