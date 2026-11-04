@@ -36,6 +36,8 @@ export const bridgeDirectorySchema = z.object({...pins, students:z.array(directo
   summary:z.object({studentCount:count,expectedFees:amount,totalPaid:amount,totalOutstanding:amount,oldBalanceOutstanding:amount,lateFeeOutstanding:amount,totalDiscount:amount,transportStudentCount:count}),
 });
 export type BridgeDirectory = z.infer<typeof bridgeDirectorySchema>;
+/** `/directory/lookup`: the same rows for the search palette, without facet counts or totals. */
+export const bridgeDirectoryLookupSchema = z.object({...pins, students:z.array(directoryRow).max(10), pagination:page});
 
 const profile = z.object({
   id:uuid, admissionNo:text, fullName:text, dateOfBirth:nullableText, joinedOn:nullableText, leftOn:nullableText,

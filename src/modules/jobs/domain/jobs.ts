@@ -27,6 +27,7 @@ export const jobNames = [
   "document-backup",
   "drive-backup",
   "health",
+  "assist-log-purge",
   "ai-connection-purge",
 ] as const;
 
@@ -189,6 +190,21 @@ export const JOBS: Record<JobName, JobDefinition> = {
     when: t("हर सुबह 8:00 बजे", "Every morning at 8:00"),
     oncePerDay: false,
   },
+  "assist-log-purge": {
+    name: "assist-log-purge",
+    label: t("AI सहायक का पुराना लॉग हटाएँ", "Clear the old AI helper log"),
+    what: t(
+      "AI सहायक के लॉग (किसने, कब, कितनी लागत — लिखा हुआ कभी नहीं) की 180 दिन से पुरानी पंक्तियाँ छोटे-छोटे हिस्सों में हटाता है, और सिर्फ़ गिनती लिखता है।",
+      "Deletes AI helper log rows (who, when, what it cost — never what was written) older than 180 days, in small batches, and writes down only how many.",
+    ),
+    // 21:00 UTC is 02:30 in school, before the two backups and while nobody
+    // is drafting.
+    schedule: "0 21 * * *",
+    when: t("हर रात 2:30 बजे", "Every night at 2:30"),
+    // Running it again only deletes what is still past 180 days, and is how a
+    // backlog larger than one night's batches is finished by hand.
+    oncePerDay: false,
+  },
   "ai-connection-purge": {
     name: "ai-connection-purge",
     label: t("AI कनेक्शन की सफ़ाई", "AI connection clean-up"),
@@ -309,6 +325,10 @@ export const summaryLabels: Record<string, Localized> = {
   registers_submitted: t("हाज़िरी जमा", "registers submitted"),
   school_open: t("विद्यालय खुला", "school open"),
   self_study: t("स्वयं अध्ययन", "self study"),
+  // The AI helper log purge.
+  deleted: t("हटाई गईं", "deleted"),
+  retention_days: t("कितने दिन रखी जाती हैं", "days kept"),
+  more_waiting: t("और बाकी", "more waiting"),
   // The health job (Phase G) writes one key per check.
   ...HEALTH_SUMMARY_LABELS,
 };

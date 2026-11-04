@@ -9,8 +9,9 @@ import { resolveViewSession } from "@/modules/fees/platform/session-context/reso
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { searchStudents } from "@/modules/students/data/directory-repo";
 import { assertStaff, type CurrentStaff } from "@/platform/auth/current-staff";
+import { assertStudentVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";
-import { getBridgeDirectory, getBridgeReceiptDetail, lookupBridgeReceipt } from "@/platform/fees-bridge/client";
+import { getBridgeReceiptDetail, lookupBridgeDirectory, lookupBridgeReceipt } from "@/platform/fees-bridge/client";
 import { RECEIPT_NUMBER } from "@/platform/fees-bridge/office-read-contracts";
 import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
@@ -64,6 +65,12 @@ export type SearchResult = {
   actions: ActionHit[];
   staff?: StaffHit[];
   failed?: ("students" | "receipts")[];
+  /**
+   * The first child's id when their latest receipts may be shown. They are not
+   * read here: that read is the whole Fees workspace, the desk never shows them
+   * (D07), and the phone asks `searchChildReceiptsAction` after the names (S01).
+   */
+  childReceiptsFor?: string;
 };
 
 const EMPTY: SearchResult = { students: [], receipts: [], actions: [] };
@@ -114,11 +121,16 @@ const receiptHref = (number: string, id: string, session?: string) =>
  */
 async function canonicalSearch(ask: Ask, sessionLabel: string): Promise<Seen> {
   const failed: NonNullable<SearchResult["failed"]> = [];
+  // A typed receipt number is resolved by Fees, exactly (its lookup, under the
+  // receipt detail rule), at the same time as the directory rather than after it.
+  const typedReceipt = ask.seesReceipts && feesBridgeOfficeReads() && /\d/.test(ask.term) && RECEIPT_NUMBER.test(ask.term)
+    ? findTypedReceipt(ask.term, sessionLabel)
+    : Promise.resolve({ receipts: [] as ReceiptHit[], failed: false });
   let students: Found[] = [];
   try {
     if (ask.money) {
       const read = (status: "active" | "all") =>
-        getBridgeDirectory({ sessionLabel, query: ask.term, classId: "", segments: [], sort: "name", page: 1, pageSize: SHOWN, status });
+        lookupBridgeDirectory({ sessionLabel, query: ask.term, pageSize: SHOWN, status });
       // Children on the roll first; a child who left still owes and is still found.
       let page = await read("active");
       if (page.students.length === 0) page = await read("all");
@@ -141,33 +153,21 @@ async function canonicalSearch(ask: Ask, sessionLabel: string): Promise<Seen> {
     failed.push("students");
   }
 
-  // A typed receipt number is resolved by Fees, exactly (its lookup, under the
-  // receipt detail rule); otherwise the first child's latest receipts.
-  let receipts: ReceiptHit[] = [];
-  if (ask.seesReceipts && feesBridgeOfficeReads() && /\d/.test(ask.term) && RECEIPT_NUMBER.test(ask.term)) {
-    try {
-      const found = await lookupBridgeReceipt(ask.term, sessionLabel);
-      const read = await getBridgeReceiptDetail(found.receiptId, sessionLabel);
-      const d = read.detail;
-      receipts = [{ id: found.receiptId, number: found.receiptNumber, amount: d.totalAmount, student: d.studentFullName, date: d.paymentDate, mode: d.paymentMode,
-        reversed: Boolean(d.isVoided || (d.reversedAmount ?? 0) > 0), href: receiptHref(found.receiptNumber, found.receiptId, sessionLabel) }];
-    } catch (error) {
-      // Not a receipt number after all is not a failure; anything else is said.
-      if (!(error instanceof FeesBridgeError && ["not_found", "forbidden"].includes(error.code))) failed.push("receipts");
-    }
+  const typed = await typedReceipt;
+  if (typed.failed) failed.push("receipts");
+  return { students, receipts: typed.receipts, failed: failed.length ? failed : undefined };
+}
+
+async function findTypedReceipt(term: string, sessionLabel: string): Promise<{ receipts: ReceiptHit[]; failed: boolean }> {
+  try {
+    const found = await lookupBridgeReceipt(term, sessionLabel);
+    const d = (await getBridgeReceiptDetail(found.receiptId, sessionLabel)).detail;
+    return { failed: false, receipts: [{ id: found.receiptId, number: found.receiptNumber, amount: d.totalAmount, student: d.studentFullName, date: d.paymentDate, mode: d.paymentMode,
+      reversed: Boolean(d.isVoided || (d.reversedAmount ?? 0) > 0), href: receiptHref(found.receiptNumber, found.receiptId, sessionLabel) }] };
+  } catch (error) {
+    // Not a receipt number after all is not a failure; anything else is said.
+    return { receipts: [], failed: !(error instanceof FeesBridgeError && ["not_found", "forbidden"].includes(error.code)) };
   }
-  if (receipts.length === 0 && ask.seesReceipts && students[0]) {
-    try {
-      const first = students[0];
-      receipts = (await recentReceiptsFor(first.id)).map((r) => ({
-        id: r.id, number: r.number, amount: r.amount, student: first.name, date: r.date, mode: r.mode, reversed: r.reversed, byChild: true,
-        href: receiptHref(r.number, r.id, r.session),
-      }));
-    } catch {
-      failed.push("receipts");
-    }
-  }
-  return { students, receipts, failed: failed.length ? failed : undefined };
 }
 
 /** The local path: TEST accounts, TEST sessions, and a deployment without the connection. */
@@ -189,13 +189,8 @@ async function localSearch(ask: Ask, sessionLabel: string, seesStudents: boolean
   ]);
 
   const top = listed.slice(0, SHOWN);
-  // The parents' names are not on the list read; one small read for the five
-  // shown. A name search finds the first child's latest receipts beside it.
-  const byName = ask.seesReceipts && byNumber.length === 0 && top.length > 0;
-  const [parents, recent] = await Promise.all([
-    top.length ? getStudentMasterFieldsByIds(top.map((s) => s.id)).catch(() => null) : null,
-    byName ? recentReceiptsFor(top[0].id).catch(() => []) : Promise.resolve([]),
-  ]);
+  // The parents' names are not on the list read; one small read for the five shown.
+  const parents = top.length ? await getStudentMasterFieldsByIds(top.map((s) => s.id)).catch(() => null) : null;
 
   const students = top.map((s): Found => ({
     id: s.id, name: s.fullName, classLabel: s.classLabel, sr: s.admissionNo,
@@ -203,17 +198,37 @@ async function localSearch(ask: Ask, sessionLabel: string, seesStudents: boolean
     mother: (parents?.get(s.id)?.motherName ?? "").trim() || null,
     fatherPhone: s.fatherPhone, motherPhone: s.motherPhone, money: s,
   }));
-  const receipts: ReceiptHit[] = [
-    ...byNumber.slice(0, SHOWN).map((r) => ({
-      id: r.id, number: r.receiptNumber, amount: Number(r.totalAmount), student: r.studentFullName, date: r.paymentDate, mode: r.paymentMode,
-      reversed: Boolean(r.isReversed), href: receiptHref(r.receiptNumber, r.id),
-    })),
-    ...recent.map((r) => ({
-      id: r.id, number: r.number, amount: r.amount, student: top[0].fullName, date: r.date, mode: r.mode, reversed: r.reversed, byChild: true,
-      href: receiptHref(r.number, r.id),
-    })),
-  ];
+  const receipts: ReceiptHit[] = byNumber.slice(0, SHOWN).map((r) => ({
+    id: r.id, number: r.receiptNumber, amount: Number(r.totalAmount), student: r.studentFullName, date: r.paymentDate, mode: r.paymentMode,
+    reversed: Boolean(r.isReversed), href: receiptHref(r.receiptNumber, r.id),
+  }));
   return { students, receipts, failed: failed.length ? failed : undefined };
+}
+
+/**
+ * The first child's latest receipts, which the phone lists under a name search
+ * (F04). Asked for after the names are on screen, so the slow Fees workspace
+ * read never holds them up; `recentReceiptsFor` checks `fees:view` and the
+ * session itself.
+ */
+export async function searchChildReceiptsAction(studentId: string): Promise<{ receipts: ReceiptHit[]; failed: boolean }> {
+  const staff = await assertStaff();
+  if (!can(staff, "fees:view") || !/^[0-9a-f-]{36}$/i.test(studentId)) return { receipts: [], failed: false };
+  // The id came from the browser: a test account must not read a real child's receipts.
+  try {
+    await assertStudentVisible(staff, studentId);
+  } catch {
+    return { receipts: [], failed: false };
+  }
+  try {
+    const recent = await recentReceiptsFor(studentId);
+    return { failed: false, receipts: recent.map((r) => ({
+      id: r.id, number: r.number, amount: r.amount, student: "", date: r.date, mode: r.mode, reversed: r.reversed, byChild: true,
+      href: receiptHref(r.number, r.id, r.session),
+    })) };
+  } catch {
+    return { receipts: [], failed: true };
+  }
 }
 
 /**
@@ -260,6 +275,7 @@ export async function searchEverythingAction(query: string): Promise<SearchResul
     actions: [],
     ...(found.length ? { staff: found } : {}),
     ...(seen.failed ? { failed: seen.failed } : {}),
+    ...(seesReceipts && seen.receipts.length === 0 && seen.students[0] ? { childReceiptsFor: seen.students[0].id } : {}),
   };
   for (const s of seen.students) {
     const why = matchWhy(term, { name: s.name, sr: s.sr, father: s.father, mother: s.mother, phones: [s.fatherPhone, s.motherPhone] });

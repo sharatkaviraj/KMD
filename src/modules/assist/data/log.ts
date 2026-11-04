@@ -4,6 +4,11 @@ import { createAdminClient } from "@/platform/supabase/admin";
 
 import { dayStartIst, monthStartIst } from "../domain/cost";
 import type { AssistDecision, AssistFeature } from "../domain/features";
+import {
+  ASSIST_LOG_PURGE_BATCH,
+  ASSIST_LOG_PURGE_MAX_BATCHES,
+  assistLogCutoff,
+} from "../domain/retention";
 
 export type LogRow = {
   staffProfileId: string;
@@ -63,6 +68,62 @@ export async function recordDecision(logId: string, staffProfileId: string, deci
     .eq("staff_profile_id", staffProfileId)
     .is("decision", null);
   if (error) throw new Error(error.message);
+}
+
+/** Counts only: no id, member of staff or feature leaves the purge. */
+export type AssistLogPurge = { deleted: number; batches: number; more: boolean };
+
+/**
+ * Delete log rows past retention (`domain/retention.ts`), oldest first, in
+ * bounded batches: at most `batch` rows per delete and `maxBatches` deletes
+ * per run, so one night never holds a long transaction and a backlog finishes
+ * on the nights after. The delete repeats the age filter, so a row is never
+ * removed only because its id was picked.
+ *
+ * Read or fail loudly, as every job does: a failed read is thrown, never a
+ * confident "nothing to delete", and rows past retention that a delete did
+ * not remove are a failure rather than a quiet zero.
+ */
+export async function purgeAssistLog(
+  now: Date = new Date(),
+  limits: { batch: number; maxBatches: number } = {
+    batch: ASSIST_LOG_PURGE_BATCH,
+    maxBatches: ASSIST_LOG_PURGE_MAX_BATCHES,
+  },
+): Promise<AssistLogPurge> {
+  const cutoff = assistLogCutoff(now).toISOString();
+  const client = createAdminClient();
+  let deleted = 0;
+
+  for (let batch = 0; batch < limits.maxBatches; batch += 1) {
+    const { data, error } = await client
+      .from("assist_log")
+      .select("id")
+      .lt("created_at", cutoff)
+      .order("created_at", { ascending: true })
+      .limit(limits.batch);
+    if (error) throw new Error(`Could not read the AI helper log: ${error.message}`);
+    const ids = ((data ?? []) as { id: string }[]).map((row) => row.id);
+    if (ids.length === 0) return { deleted, batches: batch, more: false };
+
+    const { count, error: deleteError } = await client
+      .from("assist_log")
+      .delete({ count: "exact" })
+      .in("id", ids)
+      .lt("created_at", cutoff);
+    if (deleteError) throw new Error(`Could not purge the AI helper log: ${deleteError.message}`);
+    if (!count) throw new Error("AI helper log rows past retention were found, but none was deleted.");
+    deleted += count;
+
+    if (ids.length < limits.batch) return { deleted, batches: batch + 1, more: false };
+  }
+
+  const { count, error } = await client
+    .from("assist_log")
+    .select("id", { count: "exact", head: true })
+    .lt("created_at", cutoff);
+  if (error) throw new Error(`Could not count the AI helper log: ${error.message}`);
+  return { deleted, batches: limits.maxBatches, more: (count ?? 0) > 0 };
 }
 
 export type FeatureUsage = {

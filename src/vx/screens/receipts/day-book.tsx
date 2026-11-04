@@ -8,6 +8,8 @@ import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Input } from "@/vx/ui/controls";
 import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
 import { CouldNotRead } from "@/vx/ui/read-state";
+import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { sourceReceiptHref } from "./source-receipt";
 
 const CLOSE_WORD: Record<string, { en: string; hi: string }> = {
   closed: { en: "Day closed", hi: "दिन बंद" },
@@ -24,7 +26,7 @@ export function DayBookUnavailable({ language, sessionLabel }: { language: Langu
       <TopBar title={t("Receipts and day book", "रसीदें और दिन का हिसाब")} crumb={sessionLabel} />
       <Section>
         <CouldNotRead message={{ en: "Receipts could not be read from Fees just now. They are not lost.", hi: "अभी Fees से रसीदें पढ़ी नहीं जा सकीं। वे खोई नहीं हैं।" }}
-          action={<a href={`https://fees.vpps.co.in/protected/receipts?${new URLSearchParams({ session: sessionLabel })}`} style={{ fontWeight: 700, color: "var(--acc)" }}>{t("Open in Fees", "Fees में खोलें")}</a>} />
+          action={<a href={`${FEES_ORIGIN}/protected/receipts?${new URLSearchParams({ session: sessionLabel })}`} style={{ fontWeight: 700, color: "var(--acc)" }}>{t("Open in Fees", "Fees में खोलें")}</a>} />
       </Section>
     </VxPage>
   );
@@ -33,18 +35,21 @@ export function DayBookUnavailable({ language, sessionLabel }: { language: Langu
 /**
  * Receipts and the day book, native in One (review F01): Fees' own Receipts
  * page read for a date range — every receipt with its exact link, the day's
- * totals as Fees counts them, and each day's close as Fees records it. Closing
- * a day, reversing or sending still happens in Fees, one tap away.
+ * totals as Fees counts them, and each day's close as Fees records it.
+ *
+ * No "close the day" control, here or as a link: Fees has none either. Its
+ * day close is the nightly `auto-day-close` job, and its Finance controls
+ * show that close read-only (D-383). A receipt is reversed from its own page
+ * here; sending one to the family is still Fees' act, from that same page.
  */
 export function DayBook({ data, language, canSeeClose }: { data: BridgeReceiptList; language: Language; canSeeClose: boolean }) {
   const t = (en: string, hi: string) => lead({ en, hi }, language);
   const pageHref = (page: number) => `/receipts?${new URLSearchParams({ from: data.from, to: data.to, ...(data.query ? { q: data.query } : {}), session: data.sessionLabel, page: String(page) })}`;
-  const receiptHref = (id: string, number: string) => `/receipts/${encodeURIComponent(number)}?${new URLSearchParams({ receiptId: id, session: data.sessionLabel })}`;
-  const fees = `https://fees.vpps.co.in/protected/receipts?${new URLSearchParams({ session: data.sessionLabel })}`;
+  const receiptHref = (id: string, number: string) => sourceReceiptHref(number, id, data.sessionLabel);
   const time = (iso: string) => { const at = new Date(iso); return Number.isNaN(at.getTime()) ? "" : at.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }); };
   return (
     <VxPage label={t("Receipts and day book", "रसीदें और दिन का हिसाब")}>
-      <TopBar title={t("Receipts and day book", "रसीदें और दिन का हिसाब")} crumb={`${data.sessionLabel} · ${t("from Fees", "Fees से")}`} actions={<Btn href={fees}>{t("Close a day or reverse in Fees", "Fees में दिन बंद करें या रद्द करें")}</Btn>} />
+      <TopBar title={t("Receipts and day book", "रसीदें और दिन का हिसाब")} crumb={`${data.sessionLabel} · ${t("from Fees", "Fees से")}`} />
       <Section>
         <form method="get" action="/receipts" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "end" }}>
           <input type="hidden" name="session" value={data.sessionLabel} />
@@ -67,12 +72,13 @@ export function DayBook({ data, language, canSeeClose }: { data: BridgeReceiptLi
                   <span className="num">{rupees(day.totalAmount)}</span>
                   <span style={{ color: "var(--mut)" }}>{t(`${day.receiptCount} receipts`, `${day.receiptCount} रसीदें`)}</span>
                   {canSeeClose ? (
-                    day.dayClose ? <Pill tone={day.dayClose.status === "closed" ? "ok" : "warn"}>{lead(CLOSE_WORD[day.dayClose.status] ?? { en: day.dayClose.status, hi: day.dayClose.status }, language)}{day.dayClose.closedAt ? ` · ${time(day.dayClose.closedAt)}` : ""}{day.dayClose.closedBy ? ` · ${day.dayClose.closedBy}` : ""}</Pill> : <Pill tone="mut">{t("Not closed", "बंद नहीं")}</Pill>
+                    day.dayClose ? <Pill tone={day.dayClose.status === "closed" ? "ok" : "warn"}>{lead(CLOSE_WORD[day.dayClose.status] ?? { en: day.dayClose.status, hi: day.dayClose.status }, language)}{day.dayClose.closedAt ? ` · ${time(day.dayClose.closedAt)}` : ""}{day.dayClose.closedBy ? ` · ${day.dayClose.closedBy}` : ""}</Pill> : <Pill tone="mut">{t("Waiting for the overnight close", "रात में अपने-आप बंद होने की प्रतीक्षा")}</Pill>
                   ) : null}
                 </li>
               ))}
             </ul>
           ) : null}
+          {canSeeClose ? <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--mut)" }}>{t("Fees closes each day by itself at midnight. Nobody closes a day by hand, in Fees or here.", "Fees हर दिन आधी रात को अपने-आप बंद करता है। कोई दिन हाथ से बंद नहीं होता — न Fees में, न यहाँ।")}</p> : null}
         </Card>
 
         {data.receipts.length === 0 ? (

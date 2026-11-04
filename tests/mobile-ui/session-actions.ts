@@ -2,8 +2,11 @@
 let attempts = 0;
 export async function listAvailableSessionsAction() {
   attempts += 1;
-  await new Promise((resolve) => setTimeout(resolve, 250));
   const params = new URLSearchParams(location.search);
+  // `?loading` stays loading: resolving after 250 ms gave the picker an enabled
+  // row mid-test, and Shift+Tab rightly wrapped to it.
+  if (params.has("loading")) return new Promise<never>(() => {});
+  await new Promise((resolve) => setTimeout(resolve, 250));
   if (params.has("failed") && (!params.has("recover") || attempts <= 2)) throw new Error("Synthetic catalogue unavailable");
   return [{ id: "test", session_label: "TEST-2026-27", is_current: false, status: "active" }];
 }

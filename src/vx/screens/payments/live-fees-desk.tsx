@@ -7,16 +7,19 @@ import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
 import type { BridgePostInput, BridgePostedPayment, BridgeQuote, BridgeStudent, BridgeReceipt } from "@/platform/fees-bridge/contracts";
 import { postInputSchema } from "@/platform/fees-bridge/contracts";
 import { bridgeLateFeeAction, checkBridgePaymentAction, reviewBridgePaymentAction, saveBridgePaymentAction, searchBridgeStudentsAction } from "@/app/(app)/payments/bridge-actions";
+import { sourceReceiptHref } from "@/vx/screens/receipts/source-receipt";
 
 const money = (value:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(value);
 const field = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900";
 const button = "min-h-11 rounded-lg bg-slate-900 px-4 py-2 font-medium text-white disabled:opacity-50";
 
-export function officialPrintUrl(raw:string):string|null {
-  try {
-    const url=new URL(raw,FEES_ORIGIN);
-    return url.origin===FEES_ORIGIN && !url.username && !url.password ? url.toString() : null;
-  } catch { return null; }
+/**
+ * The saved receipt opens in One (review F01/F03): the same Fees template,
+ * Print and PDF, read live by id and session. Fees' `printUrl` is never
+ * followed, so the counter does not leave One to print.
+ */
+export function savedReceiptHref(receipt:BridgePostedPayment|BridgeReceipt):string {
+  return sourceReceiptHref(receipt.receiptNumber,receipt.receiptId,"sessionLabel" in receipt?receipt.sessionLabel:receipt.student.sessionLabel);
 }
 
 export function LiveFeesDesk(props:{
@@ -139,7 +142,7 @@ export function LiveFeesDesk(props:{
       <p>{label(ms.bridgeReceipt)}: <strong>{receipt.receiptNumber}</strong></p><p>{money(receipt.amountReceived)}</p>
       {!saved && openedReceipt?.reversed && <p className="font-semibold text-red-700">{label(ms.bridgeReversed)}</p>}
       {saved && <p>{label(ms.bridgeRemaining)}: {money(saved.remainingBalance)}</p>}
-      {officialPrintUrl(receipt.printUrl) && <a className="block font-medium underline" href={officialPrintUrl(receipt.printUrl)!} target="_blank" rel="noopener noreferrer">{label(ms.bridgePrint)}</a>}
+      <a className="block font-medium underline" href={savedReceiptHref(receipt)} target="_blank" rel="noopener">{label(ms.bridgePrint)}</a>
       <button className={button} onClick={()=>{setSaved(null);setOpenedReceipt(null);setCommand(null);setQuote(null);setAmount("");setReference("");setRemarks("");}}>{label(ms.bridgeNew)}</button>
     </div> : <>
       <fieldset disabled={locked} className="space-y-4 disabled:opacity-70">

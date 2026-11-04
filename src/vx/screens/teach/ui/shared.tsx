@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
+import { m } from "@/messages";
 import { Ic, type IconName } from "@/vx/icons";
 import { Bi, useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
@@ -13,7 +14,7 @@ import { Sheet } from "@/vx/ui/overlays";
 
 import { previewLeaveVx, requestLeaveVx } from "../actions";
 import { leaveSpanFor, type LeaveDayPeriods } from "@/vx/screens/timetable/domain/timetable";
-import { addDays, LEAVE_REASONS, type LeaveSpan } from "../domain/teach";
+import { addDays, LEAVE_REASONS, leaveSubmissionFor, type LeaveSpan, type LeaveSubmission } from "../domain/teach";
 import { periodClassList } from "../domain/today";
 import { dShortP } from "./fmt";
 
@@ -295,6 +296,9 @@ export function LeaveSheet({ open, onClose, today, closedDays = [] }: { open: bo
   const [sent, setSent] = useState<{ summary: string; covered: boolean } | null>(null);
   const [error, setError] = useState<Pair | null>(null);
   const [pending, start] = useTransition();
+  // The id this request is sent under, kept across tries of the same request
+  // so a send whose answer was lost files once when she taps it again.
+  const submission = useRef<LeaveSubmission | null>(null);
 
   const closedTagOf = (d: string) => closedDays.find((c) => c.day === d)?.tag ?? null;
   const tomorrow = addDays(today, 1);
@@ -321,19 +325,30 @@ export function LeaveSheet({ open, onClose, today, closedDays = [] }: { open: bo
     if (noDay || !reasonPair) return setTries((n) => n + 1);
     const covered = previewTotal(preview) > 0;
     const text = summary;
+    const input = { days, span: leaveSpanFor(days.length, span), reason: reasonPair.en, note };
+    const current = leaveSubmissionFor(submission.current, input, () => crypto.randomUUID());
+    submission.current = current;
     start(async () => {
       setError(null);
-      const res = await requestLeaveVx({ days, span: leaveSpanFor(days.length, span), reason: reasonPair.en, note });
-      if (res.ok) {
-        // No toast: it sat on top of "what happens next" (smoke 20 Oct). The sheet itself says it went.
-        setSent({ summary: text, covered });
-        router.refresh();
-      } else setError(res.error);
+      try {
+        const res = await requestLeaveVx({ ...input, requestId: current.id });
+        if (res.ok) {
+          submission.current = null;
+          // No toast: it sat on top of "what happens next" (smoke 20 Oct). The sheet itself says it went.
+          setSent({ summary: text, covered });
+          router.refresh();
+        } else setError(res.error);
+      } catch {
+        // No answer — it may or may not have gone. The id is kept, so
+        // sending again files it once either way.
+        setError(m.leaveNotSentRetry);
+      }
     });
   };
 
   const close = () => {
     onClose();
+    submission.current = null;
     setSent(null);
     setWhen(null);
     setPicked([]);

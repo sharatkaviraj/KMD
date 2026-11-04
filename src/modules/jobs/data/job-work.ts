@@ -21,6 +21,8 @@ import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
 import { readFeesBridgeState } from "@/platform/fees-bridge/state";
 import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
 import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
+import { purgeAssistLog } from "@/modules/assist/data/log";
+import { ASSIST_LOG_RETENTION_DAYS } from "@/modules/assist/domain/retention";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
@@ -852,6 +854,22 @@ async function driveBackup(): Promise<Summary> {
   return runDriveBackup(await vercelOidcToken());
 }
 
+/* ------------------------------------------------------ AI helper log */
+
+/**
+ * `vppsone.assist_log` past 180 days (D8's retention for metadata-only AI
+ * logs), deleted in bounded batches. The summary is counts only — the run row
+ * never names a member of staff, a feature or a row.
+ */
+export async function assistLogPurge(): Promise<Summary> {
+  const result = await purgeAssistLog(new Date());
+  return {
+    deleted: result.deleted,
+    retention_days: ASSIST_LOG_RETENTION_DAYS,
+    more_waiting: result.more ? "yes" : "no",
+  };
+}
+
 /* ---------------------------------------------------------------- health */
 
 /**
@@ -951,5 +969,6 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "document-backup": documentBackup,
   "drive-backup": driveBackup,
   health: healthCheck,
+  "assist-log-purge": assistLogPurge,
   "ai-connection-purge": aiConnectionPurge,
 };

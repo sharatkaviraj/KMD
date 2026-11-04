@@ -1083,6 +1083,12 @@ export const m = {
     "सहेजे नहीं गए। फिर से कोशिश करें — दो बार नहीं सहेजे जाएँगे।",
     "Not saved. Try again — it will not be saved twice.",
   ),
+  // The leave sheet keeps one id per request across its retries, so sending
+  // again after a lost answer files it once.
+  leaveNotSentRetry: t(
+    "नहीं भेजा गया। फिर से भेजें — यह दो बार नहीं जाएगा।",
+    "Not sent. Send again — it will not be sent twice.",
+  ),
   marksReload: t("पेज फिर से खोलें", "Reload the page"),
   marksNotYourSubject: t(
     "इस कक्षा में यह विषय आपका नहीं है — अंक इसके विषय-अध्यापक भरेंगे।",

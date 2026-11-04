@@ -12,10 +12,26 @@ import { getBridgeReceiptDetail, lookupBridgeReceipt } from "@/platform/fees-bri
 import { RECEIPT_NUMBER } from "@/platform/fees-bridge/office-read-contracts";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
+import { readBridgeSwitcherRows } from "@/platform/fees-bridge/sessions";
 import { CanonicalReceipt, CanonicalReceiptUnavailable, type ReceiptUnavailableReason } from "@/vx/screens/receipts/canonical-receipt";
+import { askYears, receiptSessionOrder, sourceReceiptHref } from "@/vx/screens/receipts/source-receipt";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const REAL_SESSION = /^\d{4}-\d{2}$/;
 
 function safeDecode(value: string): string {
   try { return decodeURIComponent(value); } catch { return value; }
+}
+
+/** Why the asking stopped: a failure another school year would only repeat. */
+class StopAsking extends Error {
+  constructor(readonly reason: ReceiptUnavailableReason) { super(reason); }
+}
+
+/** Refused or missing in this school year: ask the next. Anything else stops the asking. */
+function askNextYear(error: unknown): null {
+  if (error instanceof FeesBridgeError && (error.code === "forbidden" || error.code === "not_found")) return null;
+  throw new StopAsking(error instanceof FeesBridgeError && error.code === "unauthorized" ? "access" : "error");
 }
 
 export const runtime = "nodejs";
@@ -32,7 +48,8 @@ export default async function ReceiptPage({
   const staff = await requirePermission("fees:view", "/receipts");
   const search = await searchParams;
   const requestedSession = typeof search.session === "string" ? search.session : null;
-  const session = requestedSession ?? await getViewSessionCookie();
+  const cookieSession = await getViewSessionCookie();
+  const session = requestedSession ?? cookieSession;
   if (usesCanonicalFees(staff, session)) {
     // A display number alone must never choose an unrelated local receipt.
     // Every refusal below explains itself rather than ending in a 404 (F02).
@@ -41,25 +58,53 @@ export default async function ReceiptPage({
     const unavailable = (reason: ReceiptUnavailableReason, id?: string) => (
       <CanonicalReceiptUnavailable language={staff.language} reason={reason} receiptNumber={number} receiptId={id} sessionLabel={requestedSession ?? undefined} />
     );
-    const pinned = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receiptId);
-    // An older link with only the number: Fees resolves it to the exact receipt, under the detail rule.
-    if (!pinned && feesBridgeOfficeReads() && session && /^\d{4}-\d{2}$/.test(session) && canAccessSession(staff, session) && RECEIPT_NUMBER.test(number)) {
-      const found = await lookupBridgeReceipt(number, session).catch(() => null);
-      if (found) redirect(`/receipts/${encodeURIComponent(found.receiptNumber)}?${new URLSearchParams({ receiptId: found.receiptId, session })}`, RedirectType.replace);
+    const pinned = UUID.test(receiptId);
+    // A repeated or empty `session` is a malformed link: refused before any read.
+    if (search.session !== undefined && !requestedSession) return unavailable("missing_link");
+    if (requestedSession && (!REAL_SESSION.test(requestedSession) || !canAccessSession(staff, requestedSession))) return unavailable("access");
+
+    // The school year the link names first; only when it does not answer, the
+    // others this person may open (the chosen one, the active one, the rest),
+    // read only then (F02). A receipt from an earlier year, or a link that
+    // never said its year, opens here instead of being sent to Fees.
+    const otherYears = async () => {
+      const rows = await readBridgeSwitcherRows().catch(() => null);
+      return receiptSessionOrder({
+        first: [requestedSession, cookieSession], active: rows?.activeSessionLabel,
+        available: rows?.availableSessions.map((row) => row.session_label) ?? [], may: (label) => canAccessSession(staff, label),
+      });
+    };
+    const ask = <T,>(attempt: (sessionLabel: string) => Promise<T | null>) => askYears(requestedSession, otherYears, attempt);
+
+    if (!pinned) {
+      // An older link with only the number: Fees resolves it to the exact receipt, under the detail rule.
+      if (!feesBridgeOfficeReads() || !RECEIPT_NUMBER.test(number)) return unavailable("missing_link");
+      let found;
+      try { found = await ask((sessionLabel) => lookupBridgeReceipt(number, sessionLabel).catch(askNextYear)); }
+      catch (error) { return unavailable(error instanceof StopAsking ? error.reason : "error"); }
+      if (found) redirect(sourceReceiptHref(found.value.receiptNumber, found.value.receiptId, found.sessionLabel), RedirectType.replace);
+      return unavailable("missing_link");
     }
-    if (!requestedSession || !/^\d{4}-\d{2}$/.test(requestedSession) || !canAccessSession(staff, requestedSession)) return unavailable(requestedSession ? "access" : "missing_link");
-    if (!pinned) return unavailable("missing_link");
-    let receipt;
-    try { receipt = await getBridgeReceiptDetail(receiptId, requestedSession); }
-    catch (error) {
-      const code = error instanceof FeesBridgeError ? error.code : "";
-      // Refused and missing read alike, so the page never confirms a refused receipt exists.
-      return code === "forbidden" || code === "not_found" ? unavailable("unreadable") : code === "unauthorized" ? unavailable("access") : unavailable("error", receiptId);
+
+    let read;
+    try {
+      read = await ask(async (sessionLabel) => {
+        const receipt = await getBridgeReceiptDetail(receiptId, sessionLabel).catch(askNextYear);
+        // The number in the address must be this receipt's; compared decoded, as the local branch does.
+        if (receipt && receipt.detail.receiptNumber !== number) throw new StopAsking("unreadable");
+        return receipt;
+      });
+    } catch (error) {
+      const reason = error instanceof StopAsking ? error.reason : "error";
+      return unavailable(reason, reason === "error" ? receiptId : undefined);
     }
-    // The number in the address must be this receipt's; compared decoded, as the local branch does.
-    if (receipt.detail.receiptNumber !== number) return unavailable("unreadable");
+    // Refused and missing read alike, so the page never confirms a refused receipt exists.
+    if (!read) return unavailable("unreadable");
+    // Found under another year (or the link named none): the address says which, so it can be shared.
+    if (read.sessionLabel !== requestedSession) redirect(sourceReceiptHref(number, receiptId, read.sessionLabel), RedirectType.replace);
     const feeRole = feePermissionsFor(staff.role);
-    return <CanonicalReceipt receipt={receipt} language={staff.language} canPrint={feeRole.includes("receipts:print")} canReverse={feesBridgeWritesEnabled() && feeRole.includes("payments:reverse_any")} />;
+    const mayReverse = feeRole.includes("payments:reverse_any");
+    return <CanonicalReceipt receipt={read.value} language={staff.language} canPrint={feeRole.includes("receipts:print")} canReverse={feesBridgeWritesEnabled() && mayReverse} mayReverse={mayReverse} />;
   }
   const props = await loadReceiptsDesk(staff, search, decodeURIComponent(receiptNumber));
   if (!props.selected) notFound();

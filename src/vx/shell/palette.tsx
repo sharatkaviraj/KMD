@@ -9,7 +9,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import type { Pair } from "@/vx/text";
 
-import { searchEverythingAction, type ActionHit, type ReceiptHit, type SearchResult, type StudentHit } from "./search-actions";
+import { searchChildReceiptsAction, searchEverythingAction, type ActionHit, type ReceiptHit, type SearchResult, type StudentHit } from "./search-actions";
 import type { StaffHit } from "./staff-search";
 import { AskHint, AskRow } from "@/vx/assist/ask-assist";
 import "./palette.css";
@@ -122,12 +122,14 @@ export function SearchPalette({
   initialOpen = false,
   initialQuery = "",
   search = searchEverythingAction,
+  childReceipts = searchChildReceiptsAction,
 }: {
   items: PaletteItem[];
   /** The design fixture opens it drawn (D07/F04). */
   initialOpen?: boolean;
   initialQuery?: string;
   search?: (q: string) => Promise<SearchResult>;
+  childReceipts?: (studentId: string) => Promise<{ receipts: ReceiptHit[]; failed: boolean }>;
 }) {
   const { tx } = useVx();
   const router = useRouter();
@@ -174,6 +176,31 @@ export function SearchPalette({
       });
     }, 220);
   }, [term, search, attempt]);
+
+  // The phone lists the first child's latest receipts (F04). They are asked for
+  // after the names are on screen, and dropped if the words changed meanwhile.
+  const childFor = phone && result.q === term ? result.r.childReceiptsFor : undefined;
+  useEffect(() => {
+    if (!childFor) return undefined;
+    let live = true;
+    childReceipts(childFor)
+      .catch(() => ({ receipts: [] as ReceiptHit[], failed: true }))
+      .then((found) => {
+        if (!live) return;
+        setResult((now) => now.q !== term || now.r.childReceiptsFor !== childFor ? now : {
+          q: now.q,
+          r: {
+            ...now.r,
+            childReceiptsFor: undefined,
+            receipts: found.receipts.map((r) => ({ ...r, student: now.r.students[0]?.name ?? r.student })),
+            ...(found.failed ? { failed: [...(now.r.failed ?? []), "receipts" as const] } : {}),
+          },
+        });
+      });
+    return () => {
+      live = false;
+    };
+  }, [childFor, childReceipts, term]);
 
   // While open: focus the box, Escape closes, the page behind does not scroll.
   useEffect(() => {
