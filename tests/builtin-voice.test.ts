@@ -149,6 +149,23 @@ describe("Bolo", () => {
     expect(scene.attendance).toHaveBeenCalledOnce();
   });
 
+  it("recovers an explicit class omitted by extraction and verifies a repeated exception status", async () => {
+    const spoken: VoiceExtraction = {
+      transcript: "In class 7 B today, mark everyone present except roll number 2, who is absent.",
+      intent: "attendance_mark", unclear: false, allPresent: true,
+      exceptions: [{ roll: "2", status: "absent" }], attendanceStatus: "absent",
+    };
+    expect(await review(spoken)).toMatchObject({
+      result: { kind: "attendance_mark", classLabel: "7B", tally: { present: 1, absent: 1 } },
+      confirmation: expect.any(String),
+    });
+    expect(await review({ ...spoken, attendanceStatus: "late" })).toMatchObject({ confirmation: null, result: { kind: "clarify", reason: "register" } });
+    expect(await review({ ...spoken, transcript: spoken.transcript.replace("class 7 B", "class 7 B or class 7 A") })).toMatchObject({
+      confirmation: null, result: { kind: "clarify", reason: "target" },
+    });
+    expect(scene.attendance).not.toHaveBeenCalled();
+  });
+
   it("uses the same command after an uncertain save and refuses a different confirmation", async () => {
     const { confirmation } = await review(attendance);
     scene.attendance.mockResolvedValueOnce({ status: "error" });

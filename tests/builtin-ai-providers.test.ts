@@ -120,7 +120,7 @@ describe("built-in AI provider routing", () => {
     expect(gemini).toHaveBeenCalledOnce();
     expect(gemini.mock.calls[0]).toEqual(["test-free", expect.objectContaining({
       config: expect.objectContaining({
-        responseMimeType: "application/json", responseSchema: options.responseSchema,
+        responseMimeType: "application/json", responseJsonSchema: expect.objectContaining({ type: "object", required: ["rows"] }),
         thinkingConfig: { thinkingLevel: "MINIMAL" }, httpOptions: expect.objectContaining({ retryOptions: { attempts: 1 } }),
       }),
     })]);
@@ -164,6 +164,9 @@ describe("built-in AI provider routing", () => {
     const [[googleUrl, google], [claudeUrl, claude]] = fetch.mock.calls;
     expect(String(googleUrl)).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
     expect(new Headers(google?.headers).get("x-goog-api-key")).toBe("test-free");
+    const generation = JSON.parse(String(google?.body)).generationConfig;
+    expect(generation.responseJsonSchema.properties.rows.items.properties.parsedMarks.type).toEqual(["number", "null"]);
+    expect(generation.responseJsonSchema.properties.rows.maxItems).toBeUndefined();
     expect(String(claudeUrl)).toBe("https://api.anthropic.com/v1/messages");
     expect(new Headers(claude?.headers).get("authorization")).toBe("Bearer test-claude");
   });

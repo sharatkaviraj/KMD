@@ -19,6 +19,7 @@ The owner asked for the plan to be checked and deployed to the live One app. The
 - **WhatsApp for staff stays the school's separate switch.** Photo-applied duties queue `cover_assigned` notices held for the two-minute Undo, exactly like other cover notices. Sending needs `STAFF_NOTICE_TRANSPORT=aisensy` and the `staff_notice_dispatch` flag, which also start every other staff notice; this release does not turn them on.
 - **The daily limit is the school's.** While live, only a real admin may change it.
 - **Migration files carry the versions the database recorded.** The three pilot migrations were applied by version `20261104054116`, `…054119`, `…054126`; the files were renamed to match, as was done for `20261104022925`. Each file's MD5 equals the statement the database stored.
+- **Hosted acceptance and provider compatibility.** The owner selected One's existing Supabase for Preview and subsequently approved the live release. The rehearsal uses fictional records in the protected Preview and `TEST-2026-27`. Gemini rejected the old extraction request format in the hosted run. The Gemini adapter now sends JSON Schema and keeps array bounds in Zod. Bolo can recover a unique, explicitly named numbered class and section from the transcript when the model omits the class field. The app still checks permissions and requires confirmation.
 
 ## Phone quick substitute and voice typing — 4 November 2026
 
