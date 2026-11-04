@@ -1,40 +1,23 @@
-import Image from "next/image";
-
 import { schoolBrand } from "@/platform/config/school-brand";
 import type { Language } from "@/platform/i18n/language";
 import { lead, p, under } from "@/vx/text";
+
+import { Crest } from "./crest";
 
 /*
  * The design's crest and the navy band it sits in (design `Auth`): above the
  * sign-in form on a phone, and above the password and session screens that
  * follow it. The design's crest says "VP"; the school's own logo stands in it
  * (RULES I: keep the name and mark the repo already uses).
+ *
+ * The crest itself is a Client Component (its fallback listens for the
+ * image failing); this file stays server-safe, since sign-in calls
+ * `placeLine` while rendering on the server.
  */
 
-export const PLACE = p("Amet, Rajasthan", "आमेट, राजस्थान");
+export { Crest };
 
-/** `still`: no pop-in — for the logo on a receipt, record or report rather than a greeting. */
-export function Crest({ size, radius, shadow, still = false }: { size: number; radius: number; shadow?: boolean; still?: boolean }) {
-  return (
-    <span
-      style={{
-        flex: "none",
-        width: size,
-        height: size,
-        borderRadius: radius,
-        background: "#F7F6F3",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-        boxShadow: shadow ? "0 20px 40px -18px rgba(0,0,0,.6)" : undefined,
-        animation: still ? undefined : "xPopIn .5s var(--spring) both",
-      }}
-    >
-      <Image src={schoolBrand.logo} alt="" width={size} height={size} sizes={`${size}px`} style={{ width: "78%", height: "78%", objectFit: "contain" }} />
-    </span>
-  );
-}
+export const PLACE = p("Amet, Rajasthan", "आमेट, राजस्थान");
 
 export function placeLine(language: Language): string {
   const second = under(PLACE, language);

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { schoolToday } from "@/vx/format";
@@ -98,6 +99,7 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
     initialStudent: search.student ?? null,
     initialClass: search.class && UUID.test(search.class) ? search.class : null,
     savedId: search.saved && UUID.test(search.saved) ? search.saved : null,
+    testSession: isTestSessionLabel(sessionLabel),
     classes: classIds.map((id) => ({ id, label: labels.get(id) ?? "—" })),
     teachers: authorsOf(notes),
   };

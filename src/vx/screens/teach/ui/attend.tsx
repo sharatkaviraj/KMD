@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 
 import { dayRuns, type ChooserContext, type ClosedWhy, type RegisterContext } from "@/modules/attendance/domain/register-day";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { draftKey } from "@/platform/drafts/policy";
 import { loadDraft, removeDraft, saveDraft } from "@/platform/drafts/store";
 import { useOnline } from "@/platform/drafts/use-durable-draft";
@@ -15,6 +16,7 @@ import { p, type Pair } from "@/vx/text";
 import { Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
+import { SAVE_IDLE, SaveStatus, useSlowSave, type SaveState } from "@/vx/ui/save-status";
 
 import { checkRegisterVx, saveRegisterVx, type VxSaveState } from "../actions";
 import type { AttendChoices, AttendData } from "../data";
@@ -55,6 +57,13 @@ import { DrawnTick, HelpIcon, HelpSheet, LangSeg, TchTop, useUrlState, type Help
  */
 
 type SheetKey = "save" | "help";
+
+/** The shared saving line (U01) in the register's words: the teacher screens say सेव. */
+const REGISTER_SAVE = {
+  saving: p("Saving…", "सेव हो रही है…"),
+  slow: p("Still saving — please wait. Pressing again will not save it twice.", "अभी सेव हो रही है — थोड़ा रुकें। दोबारा दबाने से दो बार सेव नहीं होगी।"),
+  failed: p("Could not save", "सेव नहीं हुई"),
+};
 type ViewKey = "history";
 type S = "P" | "A" | "H";
 
@@ -300,7 +309,6 @@ export function TeachAttend({
   const [outbox, setOutbox] = useState<Outbox | null>(null);
   const [outboxDurable, setOutboxDurable] = useState(true);
   const [pending, start] = useTransition();
-  const [slow, setSlow] = useState(false);
   const sending = useRef(false);
   const typedAt = useRef(0);
 
@@ -349,12 +357,7 @@ export function TeachAttend({
   }, [draftId, outboxId, revision, ids, markScope, recorded, mayChangeHere, fresh, savedMarks, data.canSave, data.closed]);
 
   // A save still going after three seconds says so, so nobody presses twice (smoke run: ~10 s with only a spinner).
-  useEffect(() => {
-    if (!pending) return;
-    const t = window.setTimeout(() => setSlow(true), 3000);
-    return () => window.clearTimeout(t);
-  }, [pending]);
-  const showSlow = pending && slow;
+  const showSlow = useSlowSave(pending);
 
   const counts = countMarks(ids, marks);
   const nP = counts.present + counts.late;
@@ -476,7 +479,8 @@ export function TeachAttend({
   }, [online, outbox]);
 
   const submit = (kind: "save" | "correction", reason: string | null) => {
-    setSlow(false);
+    // A new attempt: the last one's refusal no longer describes it.
+    setState(null);
     const commandId = newId();
     const payload = JSON.stringify({
       commandId,
@@ -1188,6 +1192,21 @@ export function TeachAttend({
         : editing === "change"
           ? tx(p("Save changes", "बदलाव सेव करें"))
           : tx(p("Save attendance", "हाज़िरी सेव करें"));
+  // The save sheet's one saving line (U01), in the register's own words. It never says saved: a
+  // confirmed save closes the sheet onto the saved card. A refusal or a lost answer stays here
+  // with what to do next; Try again sends the same taps, reason and WhatsApp choice.
+  const retrySave = () => submit(editing === "change" ? "correction" : "save", editing === "change" ? changeReason : null);
+  const sheetSave: SaveState = pending
+    ? { kind: "saving", slow: showSlow }
+    : state && state.status !== "idle" && state.status !== "saved"
+      ? {
+          kind: "failed",
+          message: state.message,
+          next: state.status === "error"
+            ? p("Your taps are still here. Try again sends this register again; it will not be saved twice.", "आपकी लगाई हाज़िरी यहीं है। फिर कोशिश करने पर यही हाज़िरी दोबारा भेजी जाएगी; दो बार सेव नहीं होगी।")
+            : p("Close this and press Reload to see what the office has now.", "इसे बंद करके “फिर खोलें” दबाएँ और देखें कि ऑफ़िस के पास अभी क्या है।"),
+        }
+      : SAVE_IDLE;
   const absentLabel = isToday ? p("Absent today", "आज अनुपस्थित") : p(`Absent on ${dayShortP(data.day).en}`, `${dayShortP(data.day).hi} को अनुपस्थित`);
   const alertSwitch = absentKids.length ? (
     <>
@@ -1316,7 +1335,20 @@ export function TeachAttend({
         open={sheet === "save"}
         onClose={() => setSheet(null)}
         title={sheetTitle}
-        sub={`${D(data.day)} · ${parts}`}
+        // The saving line takes the day line's place under the title, so the sheet does not move.
+        // It is always mounted (empty when idle), so the change to "Saving…" is announced.
+        sub={
+          <>
+            <SaveStatus
+              state={sheetSave}
+              words={REGISTER_SAVE}
+              test={isTestSessionLabel(data.sessionLabel)}
+              onRetry={state?.status === "error" && editing && !needReason && !nothingChanged ? retrySave : undefined}
+              reserve={false}
+            />
+            {sheetSave.kind === "idle" ? `${D(data.day)} · ${parts}` : null}
+          </>
+        }
         footer={
           <>
             <button type="button" className="tap btn sec tc-abb" style={{ flex: 1 }} onClick={() => setSheet(null)}>{tx(p("Check again", "फिर देखें"))}</button>
@@ -1328,12 +1360,6 @@ export function TeachAttend({
         }
       >
         <div className="tc-sb">
-          {showSlow ? (
-            <div className="tc-note" role="status" style={{ background: "var(--infos)", color: "var(--info)" }}>
-              <Ic n="clock" style={{ marginTop: 2 }} />
-              <span style={{ fontWeight: 600 }}>{tx(p("Still saving — please wait. Pressing again will not save it twice.", "अभी सेव हो रही है — थोड़ा रुकें। दोबारा दबाने से दो बार सेव नहीं होगी।"))}</span>
-            </div>
-          ) : null}
           {tiles(26, marks)}
           {([[absentLabel, absentKids, V("bads"), V("bad")], [p("Half-day", "आधा दिन"), halfKids, V("warns"), V("warnfg")]] as const)
             .filter(([, list]) => list.length)

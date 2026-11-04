@@ -165,6 +165,7 @@ export function TeachNotes(props: NotesProps) {
     // The mic starts in the reader's language: an English reader got हिंदी (smoke 20 Oct).
     lang: language === "en" ? "en-IN" : "hi-IN",
     today: props.today,
+    testSession: props.testSession,
     ownerFor: (child: ChildChoice | null) => (!child || props.viewer.heldClassIds.includes(child.classId) ? "me" : "class_teacher"),
   });
   const { undo, pending: undoing } = useUndo();
