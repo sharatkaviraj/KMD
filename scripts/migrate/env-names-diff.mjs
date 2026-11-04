@@ -146,6 +146,7 @@ export const ANNOTATIONS = {
   NEXT_PUBLIC_SITE_URL: [OWNER, "set — `https://one.vpps.co.in`"],
   VERCEL_ENV: [SYSTEM, "automatic — `production` is what makes a deployment unconfined (D-346)"],
   VERCEL_URL: [SYSTEM, "automatic"],
+  VERCEL_BRANCH_URL: [SYSTEM, "automatic — a Preview's branch alias; the AI connection's issuer on a confined deployment only (production uses the verified origin)"],
   VERCEL_PROJECT_PRODUCTION_URL: [SYSTEM, "automatic"],
   VERCEL_REGION: [SYSTEM, "automatic"],
   VERCEL_GIT_COMMIT_SHA: [SYSTEM, "automatic (Sentry release, archive manifest)"],

@@ -24,14 +24,14 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `ANTHROPIC_API_KEY` | `src/modules/assist/data/settings.ts` | — | yes | — | owner | set — `assist` reading real data needs the owner's yes (MCP-AND-NOTION.md, Q13) |
 | `APP_MODE` | `src/platform/config/school.ts`, `src/platform/env.ts` | `src/modules/one-bridge/data/auth.ts`, `src/platform/config/school.ts` +1 | yes | yes | owner | add at C5: `production` — required together with VPPSONE_ENV=live (`getFeeSchema()` throws otherwise) |
 | `CI` | `src/platform/supabase/target-guard.ts` | `next.config.ts` | — | — | CI runner | CI only — never set on Vercel |
-| `CRON_SECRET` | `src/app/api/fees/admin/repair-discount-drift/route.ts`, `src/app/api/fees/admin/revalidate-after-bulk/route.ts` +6 | `src/app/api/admin/repair-discount-drift/route.ts`, `src/app/api/admin/revalidate-after-bulk/route.ts` +4 | yes | yes | owner | set — Vercel cron bearer; also stored in Vault as VPPS_CRON_SECRET for the pg_cron jobs that call `/api/fees/cron/*` (one-live-cron-jobs.sql) |
+| `CRON_SECRET` | `src/app/api/fees/admin/repair-discount-drift/route.ts`, `src/app/api/fees/admin/revalidate-after-bulk/route.ts` +6 | `src/app/api/admin/repair-discount-drift/route.ts`, `src/app/api/admin/revalidate-after-bulk/route.ts` +6 | yes | yes | owner | set — Vercel cron bearer; also stored in Vault as VPPS_CRON_SECRET for the pg_cron jobs that call `/api/fees/cron/*` (one-live-cron-jobs.sql) |
 | `FAMILY_PAYMENTS_ENABLED` | — | — | — | yes | fees | fees only — not read by either codebase at 8a0cd47c; not needed |
 | `FEES_BRIDGE_CRON_SECRET` | `src/app/api/jobs/fees-bridge-sync/route.ts` | — | yes | — | deployment operator | dedicated One scheduler credential; same value in Vault; production only |
 | `FEES_BRIDGE_ENABLED` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production coexistence switch; configure after schema and identity verification |
 | `FEES_BRIDGE_KEY` | `src/platform/fees-bridge/client.ts` | — | yes | — | deployment operator | new server-only bridge credential; shared with source ONE_BRIDGE_KEY; production only |
+| `FEES_BRIDGE_OFFICE_READS` | `src/platform/fees-bridge/policy.ts` | — | — | — | owner | false until Fees migration 20261103170000_one_bridge_office_reads is applied; then true for Fees totals, refund requests, receipt lookup and the day book |
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
 | `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
-| `FEES_BRIDGE_OFFICE_READS` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until Fees migration `20261103170000_one_bridge_office_reads` is applied; then true for Today's Fees totals, Fees refund requests in Needs you and receipt-number lookup (review plan, 3 Nov) |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
 | `JOBS_SECRET` | `src/app/api/jobs/[job]/route.ts`, `src/vx/screens/settings/data.ts` | — | yes | — | owner | set — per-job tokens (`npm run jobs:tokens`) go into Vault for pg_cron |
 | `LOCALE_SWITCHER_ENABLED` | `src/platform/env.ts` | `src/platform/env.ts` | — | — | owner | leave unset (on); not set on fees either |
@@ -81,19 +81,20 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `SUPABASE_PROJECT_REF` | — | — | yes | — | owner | set on One (not read by One's code; informational) |
 | `SUPABASE_PUBLISHABLE_KEY` | — | — | — | yes | Supabase integration (fees) | fees only (and its MCP worker) |
 | `SUPABASE_SECRET_KEY` | — | — | — | yes | Supabase integration (fees) | fees only |
-| `SUPABASE_SERVICE_ROLE_KEY` | `src/app/(app)/fees/settings/page.tsx`, `src/modules/fees/data/policy.ts` +8 | `src/app/protected/settings/page.tsx`, `src/modules/fees/data/policy.ts` +4 | yes | yes | Supabase wtgx → API keys (owner) | set — wtgx's key; rotate if it was ever shared |
+| `SUPABASE_SERVICE_ROLE_KEY` | `src/app/(app)/fees/settings/page.tsx`, `src/modules/fees/data/policy.ts` +8 | `src/app/protected/settings/page.tsx`, `src/modules/fees/data/policy.ts` +5 | yes | yes | Supabase wtgx → API keys (owner) | set — wtgx's key; rotate if it was ever shared |
 | `SUPABASE_URL` | — | — | yes | yes | Supabase integration | set on One (not read by One's code); fees: integration leftover |
+| `VERCEL_BRANCH_URL` | `src/modules/mcp/domain/origin.ts` | — | — | — | Vercel (automatic) | automatic — a Preview's branch alias; the AI connection's issuer on a confined deployment only (production uses the verified origin) |
 | `VERCEL_ENV` | `src/platform/auth/dayrun-server.ts`, `src/platform/deployment/confinement.ts` +3 | `next.config.ts`, `src/modules/one-bridge/data/auth.ts` +4 | — | — | Vercel (automatic) | automatic — `production` is what makes a deployment unconfined (D-346) |
 | `VERCEL_GIT_COMMIT_SHA` | `src/modules/archives/data/archive-repo.ts`, `src/modules/archives/data/drive-backup-job.ts` +1 | — | — | — | Vercel (automatic) | automatic (Sentry release, archive manifest) |
 | `VERCEL_OIDC_TOKEN` | `src/platform/google/vercel-oidc.ts` | — | — | — | Vercel (automatic) | automatic when OIDC is on — Google workload identity for drive-backup / document-backup (the pool and service account are in the database, not env) |
 | `VERCEL_PROJECT_PRODUCTION_URL` | `src/platform/env.ts` | `src/platform/env.ts` | — | — | Vercel (automatic) | automatic |
 | `VERCEL_REGION` | `src/platform/observability/timing.ts` | `src/platform/observability/timing.ts` | — | — | Vercel (automatic) | automatic |
-| `VERCEL_URL` | `src/platform/env.ts` | `src/platform/env.ts` | — | — | Vercel (automatic) | automatic |
+| `VERCEL_URL` | `src/modules/mcp/domain/origin.ts`, `src/platform/env.ts` | `src/platform/env.ts` | — | — | Vercel (automatic) | automatic |
 | `VITEST` | `src/modules/collection/data/message-provider.ts`, `src/modules/fees/platform/supabase/cache-safe.ts` +3 | `src/platform/supabase/cache-safe.ts` | — | — | test runner | tests only — never set on Vercel |
 | `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +4 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |
 | `VPPSONE_SESSION_LABEL` | `src/modules/academics/data/academics-repo.ts` | — | — | — | owner | leave unset — the active session comes from app_settings (rule 3a) |
 | `VPPS_OBSERVABILITY_VERBOSE` | `src/platform/observability/log.ts` | `src/platform/observability/log.ts` | — | — | owner | leave unset (off) |
-| `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-scheduled-runs/route.ts` | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
+| `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-run-drain/route.ts`, `src/app/api/cron/whatsapp-scheduled-runs/route.ts` +1 | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
 
 ## The fees MCP worker (Cloudflare)
 
