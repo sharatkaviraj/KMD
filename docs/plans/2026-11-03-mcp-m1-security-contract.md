@@ -33,8 +33,9 @@ after the independent review of PR #179 (findings M1, M2, L1–L7).
   before this revision and passing.
 - **SQL, two connections** (`tests/sql/ai-connection-locks.py`, PostgreSQL 17
   in CI, `.github/workflows/ai-connection-sql.yml`): the concurrency
-  guarantees, each schedule forced by an observed lock wait. **Not run on the
-  development machine** (no PostgreSQL or Python there); its first run is CI.
+  guarantees, each schedule forced by an observed lock wait. Not runnable on
+  the development machine (no PostgreSQL or Python there); first run in CI on
+  commit `110f9801` — passed (job `single-use-locks`).
 - **Concurrency (#8, #9, #10) is guaranteed by the SQL row lock and advisory
   lock**, not by the in-process tests: those prove the core's handling of the
   store's answers, and the fake store only *mirrors* the lock by running each
@@ -117,8 +118,7 @@ after the independent review of PR #179 (findings M1, M2, L1–L7).
 ## Known limitations
 
 - **Not applied, not provider-tested.** The migration must be applied by the
-  lead; no Claude/ChatGPT account has connected. The switch ships OFF. The
-  two-connection SQL proof runs first in CI.
+  lead; no Claude/ChatGPT account has connected. The switch ships OFF.
 - **Protocol 2026-07-28** (no `initialize`, per-request metadata) is not
   implemented: such a request gets `400`, which that revision's clients read as
   "fall back to `initialize`". JSON responses only, no SSE.
