@@ -70,6 +70,22 @@ export function geminiParts(context: unknown, media: readonly AiMedia[]): Part[]
   }))];
 }
 
+function geminiJsonSchema(schema: Schema): Record<string, unknown> {
+  const type = schema.type?.toLowerCase();
+  return {
+    type: type && schema.nullable ? [type, "null"] : type,
+    required: schema.required,
+    enum: schema.enum,
+    minimum: schema.minimum,
+    maximum: schema.maximum,
+    items: schema.items && geminiJsonSchema(schema.items),
+    properties: schema.properties && Object.fromEntries(
+      Object.entries(schema.properties).map(([key, property]) => [key, geminiJsonSchema(property)]),
+    ),
+    // Keep row-count limits in Zod. The provider schema stays small for generation.
+  };
+}
+
 export function geminiRequest(opts: {
   config: Pick<GeminiConfig, "thinkingBudget" | "thinkingLevel">;
   model: AiModel;
@@ -86,7 +102,7 @@ export function geminiRequest(opts: {
     config: {
       systemInstruction: instructions,
       responseMimeType: "application/json",
-      responseSchema,
+      responseJsonSchema: geminiJsonSchema(responseSchema),
       maxOutputTokens: 8192,
       thinkingConfig: model === "gemini-2.5-flash" && Date.now() < Date.UTC(2026, 11, 1)
         ? { thinkingBudget: config.thinkingBudget }

@@ -38,7 +38,7 @@ describe("the built-in Gemini boundary", () => {
     expect(generate).toHaveBeenCalledTimes(2);
     for (const [request] of generate.mock.calls) {
       expect(request.config.responseMimeType).toBe("application/json");
-      expect(request.config.responseSchema).toBeDefined();
+      expect(request.config.responseJsonSchema).toBeDefined();
       expect(request.config.tools).toBeUndefined();
       expect(request.config.httpOptions.retryOptions.attempts).toBe(1);
     }
