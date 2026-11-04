@@ -1,5 +1,20 @@
 # VPPS One — progress
 
+## Built-in AI goes live — 4 November 2026
+
+Owner: "check and deploy this plan perfectly in the live one app" (photo marks,
+photo substitutions, Bolo voice; #188 had merged it as a TEST-only pilot that
+refuses production). Branch `feat/builtin-ai-live`, decisions D-399–D-402,
+details in `docs/ai/`. **Database:** `20261104055339_builtin_ai_live` applied
+on wtgx while the feature was off; the stored statement's MD5 equals the file,
+and the three pilot files now carry their recorded versions. **Code:** one
+switch `VPPSONE_BUILTIN_AI` (`test`/`live`), jobs follow the person's session,
+test accounts stay in TEST (code and SQL), real records skip Gemini Free,
+valid cover-photo rows auto-apply with the two-minute Undo, panel wording no
+longer says "test session". **Not changed:** staff WhatsApp transport (cover
+notices queue, held, until the school turns staff notices on). Release and
+live evidence follow in this row once deployed.
+
 ## Review plan finish and AI connection — 4 November 2026
 
 Branch `docs/review-finish-20261104` (this record, docs only); matrix per
