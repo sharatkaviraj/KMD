@@ -53,7 +53,9 @@ async function parseVoice(staff: CurrentStaff, scope: AiScope, config: AiPilotCo
       intent: { ...voiceSpec.responseSchema.properties.intent, enum: [...permitted] },
     },
   };
-  const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions, vocabulary }, responseSchema, validate });
+  const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions, vocabulary }, responseSchema, validate,
+    // One fixed schema for Claude (cached once compiled); this person's allowed actions are checked by `validate`.
+    claudeFormat: voiceSpec.validate });
   if (!parsed.ok) return parsed.response;
   const { transcript } = parsed.value;
   const { result, command } = await resolveVoice(staff, scope.session, parsed.value, parsed.job.created_at);

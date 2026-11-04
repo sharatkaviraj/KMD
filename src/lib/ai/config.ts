@@ -2,7 +2,13 @@ import "server-only";
 
 import { declaresProduction } from "@/platform/deployment/confinement";
 
-const MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"] as const;
+/**
+ * Gemini models the router may use, confirmed against Google's model and
+ * pricing pages on 4 Nov 2026. `gemini-2.5-flash` is deprecated (existing
+ * users only) and routes to 3.5 Flash-Lite from 1 Dec 2026.
+ */
+export const GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash"] as const;
+const MODELS = GEMINI_MODELS;
 export type AiModel = (typeof MODELS)[number];
 export const DEFAULT_MODEL: AiModel = "gemini-3.5-flash-lite";
 export const DEFAULT_FALLBACK: AiModel = "gemini-3.8-flash";
@@ -66,7 +72,9 @@ export function providerConfig(env: Env = process.env): AiPilotConfig {
   const openAiApiKey = env.OPEN_AI_API_KEY?.trim() || env.OPENAI_API_KEY?.trim() || undefined;
   if (!freeApiKey && !anthropicApiKey && !paidApiKey) throw new Error("No extraction provider is configured");
 
-  const paidModel = aiModel(env.GEMINI_MODEL_PAID?.trim() || env.GEMINI_MODEL_FALLBACK?.trim() || DEFAULT_MODEL);
+  // The paid key uses the same model as the free key unless told otherwise, so
+  // an answer reads the same whichever key gave it.
+  const paidModel = aiModel(env.GEMINI_MODEL_PAID?.trim() || env.GEMINI_MODEL?.trim() || env.GEMINI_MODEL_FALLBACK?.trim() || DEFAULT_MODEL);
   const claudeImageModel = env.VPPSONE_CLAUDE_IMAGE_MODEL?.trim() || CLAUDE_IMAGE_MODEL;
   const claudeVoiceModel = env.VPPSONE_CLAUDE_VOICE_MODEL?.trim() || DEFAULT_CLAUDE_VOICE_MODEL;
   const openAiTranscriptionModel = env.VPPSONE_OPENAI_TRANSCRIPTION_MODEL?.trim() || OPENAI_TRANSCRIPTION_MODEL;

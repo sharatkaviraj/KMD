@@ -163,8 +163,9 @@ export const TABLES = {
   sampark_import_rows: { bucket: "C", why: "SamPark import" },
   job_runs: { bucket: "C", why: "job log" },
   assist_log: { bucket: "C", why: "assist log" },
-  ai_jobs: { bucket: "C", why: "service-only TEST-session built-in AI ledger with its own retention" },
-  builtin_ai_settings: { bucket: "C", why: "built-in AI pilot daily quota; no pupil or staff data" },
+  ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
+  builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
+  builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },
   // The AI connection (MCP): service-role-only grants, hashed codes/tokens
   // and a metadata-only call log, like assist_log. Left as they are: grants
   // expire within 90 days and every call re-checks the staff profile.

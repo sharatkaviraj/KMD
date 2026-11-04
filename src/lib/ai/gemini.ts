@@ -43,14 +43,23 @@ export function modelVersion(value: unknown) {
   return typeof value === "string" && /^[a-z0-9._:/-]{1,120}$/i.test(value) ? value : null;
 }
 
+/** USD per 1M tokens on the paid tier, https://aistudio.google.com/docs/pricing (4 Nov 2026). */
+function rates(model: AiModel, audio: boolean, now: number) {
+  const flash2027 = now >= Date.UTC(2027, 0, 1);
+  switch (model) {
+    case "gemini-3.8-flash":
+    case "gemini-3.6-flash": return { input: flash2027 ? 1.5 : 0.75, output: flash2027 ? 7.5 : 3.75 };
+    case "gemini-3.1-flash-lite": return { input: audio ? 0.5 : 0.25, output: 1.5 };
+    // 2.5 Flash is billed as 3.5 Flash-Lite once Google reroutes it on 1 Dec 2026.
+    case "gemini-2.5-flash": return now < Date.UTC(2026, 11, 1) ? { input: audio ? 1 : 0.3, output: 2.5 } : { input: 0.3, output: 2.5 };
+    default: return { input: 0.3, output: 2.5 };
+  }
+}
+
 function estimate(model: AiModel, audio: boolean, input: number, output: number, inrPerUsd: number) {
-  // Standard tier, https://ai.google.dev/gemini-api/docs/pricing (2026-11-04).
-  // Ignore cache discounts; this is an estimate, not the provider bill.
-  const newerRate = Date.now() >= Date.UTC(2027, 0, 1);
-  const inputRate = model === "gemini-3.8-flash" ? (newerRate ? 1.5 : 0.75)
-    : model === "gemini-2.5-flash" && audio && Date.now() < Date.UTC(2026, 11, 1) ? 1 : 0.3;
-  const outputRate = model === "gemini-3.8-flash" ? (newerRate ? 7.5 : 3.75) : 2.5;
-  return (input * inputRate + output * outputRate) / 1_000_000 * inrPerUsd;
+  // Ignore cache discounts; this is an estimate, not the provider bill. The free key's attempts are set to ₹0 by the caller.
+  const rate = rates(model, audio, Date.now());
+  return (input * rate.input + output * rate.output) / 1_000_000 * inrPerUsd;
 }
 
 export function geminiClient(apiKey: string): Generate {
@@ -106,7 +115,8 @@ export function geminiRequest(opts: {
       maxOutputTokens: 8192,
       thinkingConfig: model === "gemini-2.5-flash" && Date.now() < Date.UTC(2026, 11, 1)
         ? { thinkingBudget: config.thinkingBudget }
-        : { thinkingLevel: model === "gemini-3.8-flash" || config.thinkingLevel === "low" ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL },
+        // Gemini 3 Flash models take "low" as their lightest level; Flash-Lite accepts "minimal".
+        : { thinkingLevel: model === "gemini-3.8-flash" || model === "gemini-3.6-flash" || config.thinkingLevel === "low" ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL },
       httpOptions: { timeout, retryOptions: { attempts: 1 } },
       abortSignal: signal,
     },
