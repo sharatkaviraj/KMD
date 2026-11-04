@@ -1,5 +1,20 @@
 # VPPS One — progress
 
+## AI keys checked, Gemini model set, Claude voice fixed — 4 November 2026
+
+Owner: wire the free Gemini key into the router, pick the model, check every
+key against production and deploy. The router and key check shipped in #196
+(`1bc7c9b2`). **Key check, 15:15 IST, production:** Claude Sonnet and Haiku,
+OpenAI `gpt-transcribe` and Gemini Paid answer; the free Gemini key answers no
+model (403, billing; 404 for 2.5 Flash), so it needs replacing with a key from
+an AI Studio project on the free tier. **Set:** `GEMINI_MODEL=gemini-3.5-flash-lite`
+(Production, Preview; D-415). **Surprised:** Claude had never answered a voice
+command. Its output schema's 20 optional fields made Anthropic's grammar
+compile outlast the 18 s stage, so Gemini Paid answered every clip (Maya clip:
+26.6 s). Branch `fix/claude-voice-schema` gives Claude a format with no
+optional fields (D-414). No eval: `tests/ai-fixtures` does not exist.
+Results: `docs/ai/PROGRESS.md`.
+
 ## Bolo cover by voice — 4 November 2026
 
 Owner: "maya test mam is absent today unka substitute laga do in test session

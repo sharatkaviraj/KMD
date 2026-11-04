@@ -59,6 +59,8 @@ export const VERCEL_PRODUCTION = {
     "ANTHROPIC_API_KEY",
     "GEMINI_API_KEY",
     "GEMINI_API_KEY_FREE",
+    // Pinned on 4 Nov 2026 after the production key check (D-415).
+    "GEMINI_MODEL",
     "OPEN_AI_API_KEY",
     // Built-in AI's switch (4 Nov 2026): `test`, then `live` (docs/ai/README.md).
     "VPPSONE_BUILTIN_AI",
@@ -208,7 +210,7 @@ export const ANNOTATIONS = {
   VPPSONE_BUILTIN_AI_COVER_AUTO_TEST: [OWNER, "leave off outside an approved fictional TEST cover rehearsal"],
   VPPSONE_BUILTIN_AI: [OWNER, "set — `live` (all permitted staff, their own session) or `test` (TEST sessions only); unset = off"],
   VPPSONE_BUILTIN_AI_COVER_AUTO: [OWNER, "leave unset (valid cover-photo rows apply with a 2-minute Undo); `0` = review only"],
-  GEMINI_MODEL: [OWNER, "confined Gemini pilot only; defaults to gemini-3.5-flash-lite"],
+  GEMINI_MODEL: [OWNER, "set — gemini-3.5-flash-lite (D-415); the paid key follows it unless GEMINI_MODEL_PAID is set"],
   GEMINI_MODEL_VISION: [OWNER, "confined Gemini pilot only; defaults to GEMINI_MODEL"],
   GEMINI_MODEL_FALLBACK: [OWNER, "confined Gemini pilot only; defaults to gemini-3.8-flash"],
   GEMINI_THINKING_LEVEL: [OWNER, "confined Gemini pilot only; optional minimal or low"],

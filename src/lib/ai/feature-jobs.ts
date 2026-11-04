@@ -11,7 +11,7 @@ import type { AiMedia } from "@/lib/ai/gemini";
 import { type AiJob, inputBucket, ownedAiJob, reserveAiJob, updateAiJob } from "@/lib/ai/jobs";
 import { AI_IMAGE_LONG_EDGE, AI_MAX_FILE_BYTES, AI_MAX_PAGES } from "@/lib/ai/media-limits";
 import { freeKeyBlocked, recordAttempts } from "@/lib/ai/provider-status";
-import { extractWithProviders } from "@/lib/ai/providers";
+import { extractWithProviders, type ClaudeOutput } from "@/lib/ai/providers";
 
 export type AiOperation = "upload" | "parse" | "apply" | "discard";
 export type AiScope = { staffId: string; action: string; session: string; targetId: string; revision: number };
@@ -73,7 +73,7 @@ export async function readAiInput(id: string, path: string, index: number, task:
 
 type Spec<T> = {
   task: "image" | "voice"; instructions: string; context: unknown; responseSchema: Schema;
-  validate: ZodType<T>; stamp?: string; claudeFormat?: ZodType;
+  validate: ZodType<T>; stamp?: string; claude?: ClaudeOutput;
 };
 
 export async function readOrParseAiJob<T>(

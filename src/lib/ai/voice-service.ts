@@ -27,7 +27,7 @@ import { ownedAiJob, updateAiJob } from "./jobs";
 import { marksPhotoContext } from "./marks-context";
 import { loadVoiceTools, primaryVoiceClass, resolveVoice, voiceVocabulary, type VoiceCommand } from "./voice-context";
 import type { VoiceReview } from "./voice-review";
-import { VOICE_ACTION, voiceSpec } from "./voice-schema";
+import { claudeVoiceOutput, VOICE_ACTION, voiceSpec } from "./voice-schema";
 
 const uploadInput = z.strictObject({ mimeType: z.enum(["audio/webm", "audio/mp4", "audio/wav"]) });
 const jobInput = z.strictObject({ jobId: z.uuid() });
@@ -54,8 +54,8 @@ async function parseVoice(staff: CurrentStaff, scope: AiScope, config: AiPilotCo
     },
   };
   const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions, vocabulary }, responseSchema, validate,
-    // One fixed schema for Claude (cached once compiled); this person's allowed actions are checked by `validate`.
-    claudeFormat: voiceSpec.validate });
+    // One fixed format for Claude with no optional fields (D-414); this person's allowed actions are checked by `validate`.
+    claude: claudeVoiceOutput });
   if (!parsed.ok) return parsed.response;
   const { transcript } = parsed.value;
   const { result, command } = await resolveVoice(staff, scope.session, parsed.value, parsed.job.created_at);

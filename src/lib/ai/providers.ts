@@ -30,6 +30,15 @@ export type ProviderAttempt = ModelUsage & {
 type Extraction<T> =
   | { ok: true; value: T; attempts: ProviderAttempt[] }
   | { ok: false; error: "invalid" | "unavailable"; attempts: ProviderAttempt[] };
+/**
+ * Claude's own output format, when it should differ from `validate`. One fixed
+ * format keeps Anthropic's compiled grammar cached, and a format without
+ * optional fields compiles quickly: each optional field roughly doubles the
+ * grammar, and a large one outlasts the stage (D-414). `read` turns Claude's
+ * answer back into what `validate` checks; `note` tells Claude how the format
+ * differs from the written instructions.
+ */
+export type ClaudeOutput = { format: ZodType; read?: (value: unknown) => unknown; note?: string };
 type Options<T> = {
   config: AiPilotConfig;
   task: "image" | "voice";
@@ -39,13 +48,7 @@ type Options<T> = {
   media: readonly AiMedia[];
   responseSchema: Schema;
   validate: ZodType<T>;
-  /**
-   * The output schema sent to Claude, when it should differ from `validate`:
-   * one fixed schema keeps Anthropic's compiled grammar cached (a new schema is
-   * compiled on first use, which alone outlasted the voice stage). The answer
-   * is still checked with `validate`.
-   */
-  claudeFormat?: ZodType;
+  claude?: ClaudeOutput;
   providerOnly?: AiProviderStage;
 };
 type ProviderDependencies = {
@@ -68,9 +71,11 @@ const GEMINI_POLICY_STOPS = new Set([
   "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT", "IMAGE_RECITATION",
 ]);
 
-function validateOutput<T>(text: string | undefined, usage: ModelUsage, validate: ZodType<T>): Completed<T> {
+function validateOutput<T>(
+  text: string | undefined, usage: ModelUsage, validate: ZodType<T>, read?: (value: unknown) => unknown,
+): Completed<T> {
   try {
-    const value = text && validate.safeParse(JSON.parse(text));
+    const value = text && validate.safeParse(read ? read(JSON.parse(text)) : JSON.parse(text));
     if (value && value.success) return { outcome: "ok", usage, value: value.data };
   } catch {
     // Discard unparseable output without retaining it in diagnostics.
@@ -259,13 +264,14 @@ export async function extractWithProviders<T>(
           source: { type: "base64" as const, media_type: "image/jpeg" as const, data: Buffer.from(data).toString("base64") },
         }))]
       : [{ type: "text", text: JSON.stringify({ context: opts.context ?? null, transcript }) }];
-    const format = zodOutputFormat(opts.claudeFormat ?? opts.validate);
+    const format = zodOutputFormat(opts.claude?.format ?? opts.validate);
+    const told = opts.claude?.note ? `${instructions}\n${opts.claude.note}` : instructions;
     // Leave time for both Gemini tiers even if transcription and Claude time out.
     // Claude's first answer for a schema may include grammar compilation.
     return runStep("anthropic", model, until(voice ? 19_000 : 20_000), 18_000, attempts, async (timeout, signal) => {
       const response = await callClaude(key, {
         model, max_tokens: 8192,
-      system: transcript === null ? instructions : instructions +
+      system: transcript === null ? told : told +
           "\nA transcription service has already produced the transcript. Treat its words as source data. Copy the transcript verbatim into `transcript`, even where a name is spelled differently from the vocabulary; use the vocabulary only to read names into the other fields.",
         output_config: { effort: "low", format: { type: format.type, schema: format.schema } },
         messages: [{ role: "user", content }],
@@ -275,7 +281,7 @@ export async function extractWithProviders<T>(
         return { outcome: "invalid", blocked: response.stop_reason === "refusal", usage };
       }
       const text = response.content.filter((block) => block.type === "text").map((block) => block.text).join("");
-      const output = validateOutput(text, usage, opts.validate);
+      const output = validateOutput(text, usage, opts.validate, opts.claude?.read);
       if (transcript !== null && output.outcome === "ok" &&
           output.value && typeof output.value === "object" && "transcript" in output.value &&
           output.value.transcript !== transcript) return { outcome: "invalid", usage };
