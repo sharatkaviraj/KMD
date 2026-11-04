@@ -8,7 +8,6 @@ import { z } from "zod";
 
 import { saveAttendanceAction } from "@/app/(app)/teach/actions";
 import { saveTeacherMarksAction } from "@/app/(app)/teach/marks/actions";
-import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { findMarksCommand } from "@/modules/assessments/data/assessments-repo";
 import { classRoll } from "@/modules/attendance/data/attendance-repo";
 import { idleAttendanceState } from "@/modules/attendance/domain/attendance-receipt";
@@ -18,9 +17,9 @@ import { approvedLeaveOn } from "@/modules/substitutions/data/guided";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { assertSessionWritable, filterVisibleStudentIds } from "@/platform/auth/test-session-access";
-import { TEST_SESSION_LABEL } from "@/platform/auth/test-session-policy";
 import { previewRefusal } from "@/vx/screens/exams/guards";
 
+import { builtinAiSession } from "./access";
 import type { AiPilotConfig } from "./config";
 import { aiJson, aiProblem, makeAiUpload, readOrParseAiJob, type AiOperation, type AiScope } from "./feature-jobs";
 import { ownedAiJob, updateAiJob } from "./jobs";
@@ -40,7 +39,7 @@ function confirmationFor(id: string, command: VoiceCommand, result: VoiceReview[
 
 async function parseVoice(staff: CurrentStaff, scope: AiScope, config: AiPilotConfig, id: string) {
   const [instructions, actions] = await Promise.all([
-    readFile(path.join(process.cwd(), "src/lib/ai/prompts/voice.md"), "utf8"), loadVoiceTools(staff),
+    readFile(path.join(process.cwd(), "src/lib/ai/prompts/voice.md"), "utf8"), loadVoiceTools(staff, scope.session),
   ]);
   const permitted = ["unsupported", ...actions.map(({ name }) => name)] as const;
   const validate = voiceSpec.validate.extend({ intent: z.enum(permitted) });
@@ -54,15 +53,15 @@ async function parseVoice(staff: CurrentStaff, scope: AiScope, config: AiPilotCo
   const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions }, responseSchema, validate });
   if (!parsed.ok) return parsed.response;
   const { transcript } = parsed.value;
-  const { result, command } = await resolveVoice(staff, parsed.value, parsed.job.created_at);
+  const { result, command } = await resolveVoice(staff, scope.session, parsed.value, parsed.job.created_at);
   const review: VoiceReview = { jobId: id, transcript, result, confirmation: command ? confirmationFor(id, command, result) : null };
   return aiJson({ ok: true, ...review });
 }
 
 type Applied = "saved" | "stale" | "refused" | "unknown";
 
-async function commitVoice(staff: CurrentStaff, id: string, command: VoiceCommand): Promise<Applied> {
-  if (!(await loadVoiceTools(staff)).some(({ name }) => name === command.kind)) return "refused";
+async function commitVoice(staff: CurrentStaff, session: string, id: string, command: VoiceCommand): Promise<Applied> {
+  if (!(await loadVoiceTools(staff, session)).some(({ name }) => name === command.kind)) return "refused";
   switch (command.kind) {
     case "attendance_mark": {
       const ids = command.payload.marks.map(({ studentId }) => studentId);
@@ -77,7 +76,7 @@ async function commitVoice(staff: CurrentStaff, id: string, command: VoiceComman
     case "single_mark": {
       if (await findMarksCommand(id, staff.id)) return "saved";
       const ctx = await marksPhotoContext(staff, command.payload.paperId);
-      if (!ctx) return "refused";
+      if (!ctx || ctx.session !== session) return "refused";
       const ids = command.payload.entries.map(({ studentId }) => studentId);
       if ((await filterVisibleStudentIds(staff, ids)).length !== ids.length) return "refused";
       const result = await saveTeacherMarksAction({ ...command.payload, commandId: id });
@@ -87,21 +86,21 @@ async function commitVoice(staff: CurrentStaff, id: string, command: VoiceComman
     }
     case "student_note": {
       const [primary, roll, kinds, visible] = await Promise.all([
-        primaryVoiceClass(staff, command.classId), classRoll({ classId: command.classId, sessionLabel: TEST_SESSION_LABEL }),
+        primaryVoiceClass(staff, session, command.classId), classRoll({ classId: command.classId, sessionLabel: session }),
         listNoteKinds(), filterVisibleStudentIds(staff, [command.payload.studentId]),
       ]);
       if (!primary || !visible.length || !roll.some((row) => row.studentId === command.payload.studentId) ||
           !kinds.some((row) => row.id === command.payload.kindId && row.isActive)) return "refused";
-      await writeNote(command.payload, TEST_SESSION_LABEL, staff.id, id);
+      await writeNote(command.payload, session, staff.id, id);
       revalidatePath(`/teach/student/${command.payload.studentId}`);
       revalidatePath("/teach");
       return "saved";
     }
     case "substitution": {
       const cover = command.payload;
-      const onLeave = await approvedLeaveOn(TEST_SESSION_LABEL, cover.day);
+      const onLeave = await approvedLeaveOn(session, cover.day);
       delete onLeave[cover.staffId];
-      const result = await arrangeDay({ actorStaffId: staff.id, sessionLabel: TEST_SESSION_LABEL, commandId: id,
+      const result = await arrangeDay({ actorStaffId: staff.id, sessionLabel: session, commandId: id,
         day: cover.day, expectedDayRevision: cover.dayRevision, expectedPlan: cover.fingerprint, onLeave,
         intent: { kind: "absence", staffProfileId: cover.staffId, periods: cover.periods, choices: cover.choices } });
       if (!result.ok) {
@@ -130,7 +129,7 @@ async function applyVoice(staff: CurrentStaff, scope: AiScope, id: string, confi
   if (!job.reviewed_data) {
     const raw = voiceSpec.validate.safeParse(job.raw_output);
     if (!raw.success) return aiProblem("stale", 409);
-    const { result, command } = await resolveVoice(staff, raw.data, job.created_at);
+    const { result, command } = await resolveVoice(staff, scope.session, raw.data, job.created_at);
     if (!command || confirmationFor(id, command, result) !== confirmation) return aiProblem("stale", 409);
     job = await updateAiJob(owner, { reviewed_data: { confirmation, command } }, "seal") ?? await ownedAiJob(owner);
   }
@@ -139,7 +138,7 @@ async function applyVoice(staff: CurrentStaff, scope: AiScope, id: string, confi
   if (job.status === "applied") return aiJson({ ok: true, saved: true });
   if (job.status !== "draft") return aiProblem("stale", 409);
 
-  const outcome = await commitVoice(staff, id, sealed.command);
+  const outcome = await commitVoice(staff, scope.session, id, sealed.command);
   if (outcome === "unknown") return aiProblem("retry_save", 503);
   if (outcome !== "saved") {
     await updateAiJob(owner, { status: "failed", error: outcome }, "record-apply");
@@ -153,10 +152,9 @@ async function applyVoice(staff: CurrentStaff, scope: AiScope, id: string, confi
 
 export async function runVoiceRoute(staff: CurrentStaff, config: AiPilotConfig, operation: AiOperation, body: unknown): Promise<Response> {
   const mayUseVoice = can(staff, "attendance:view") || (can(staff, "substitutions:view") && can(staff, "substitutions:manage"));
-  if (!staff.isTestAccount || !mayUseVoice || await resolveSessionLabel() !== TEST_SESSION_LABEL || await previewRefusal()) {
-    return aiProblem("not_found", 404);
-  }
-  const scope = { staffId: staff.id, action: VOICE_ACTION, session: TEST_SESSION_LABEL, targetId: staff.id, revision: 0 };
+  const session = mayUseVoice ? await builtinAiSession(staff) : null;
+  if (!session || await previewRefusal()) return aiProblem("not_found", 404);
+  const scope = { staffId: staff.id, action: VOICE_ACTION, session, targetId: staff.id, revision: 0 };
   if (operation === "upload") {
     const input = uploadInput.safeParse(body);
     return input.success ? makeAiUpload(scope, config, { kind: "voice", mimeType: input.data.mimeType }) : aiProblem("invalid", 400);
@@ -164,7 +162,7 @@ export async function runVoiceRoute(staff: CurrentStaff, config: AiPilotConfig, 
   if (operation === "apply") {
     const input = confirmationInput.safeParse(body);
     if (!input.success) return aiProblem("invalid", 400);
-    await assertSessionWritable(staff, TEST_SESSION_LABEL);
+    await assertSessionWritable(staff, session);
     return applyVoice(staff, scope, input.data.jobId, input.data.confirmation);
   }
   const input = jobInput.safeParse(body);

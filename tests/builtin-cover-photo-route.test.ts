@@ -41,6 +41,10 @@ const result = { jobId, review: { rows: [] }, applied: [0], undoUntil: "2026-11-
 beforeEach(() => {
   vi.resetAllMocks();
   vi.unstubAllEnvs();
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("VPPSONE_ENV", "");
+  vi.stubEnv("VPPSONE_BUILTIN_AI", "");
+  vi.stubEnv("VPPSONE_BUILTIN_AI_TEST", "1");
   vi.stubEnv("VPPSONE_BUILTIN_AI_COVER_AUTO_TEST", "1");
   mocks.session.mockResolvedValue("TEST-2026-27");
   mocks.job.mockResolvedValue({ status: "draft", target_revision: 1 });
@@ -87,5 +91,30 @@ describe("substitution photo route", () => {
     mocks.rpc.mockResolvedValueOnce({ data: { ok: true, result: { ...result, undone: true } } });
     expect(await (await runCoverPhotoRoute(actor, config, "apply", { day, jobId, mode: "undo" })).json()).toMatchObject({ undone: true });
     expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("undo_ai_cover_photo", { p_job: jobId, p_actor: actor.id, p_day: day });
+  });
+
+  it("goes live for a real coordinator in the real session and keeps test accounts in TEST", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VPPSONE_BUILTIN_AI_TEST", "");
+    vi.stubEnv("VPPSONE_BUILTIN_AI_COVER_AUTO_TEST", "");
+    const real = { ...actor, isTestAccount: false };
+    mocks.session.mockResolvedValue("2026-27");
+    // Production without the switch: nothing, for anybody.
+    expect((await runCoverPhotoRoute(real, config, "parse", { day, jobId })).status).toBe(404);
+    vi.stubEnv("VPPSONE_BUILTIN_AI", "test");
+    expect((await runCoverPhotoRoute(real, config, "parse", { day, jobId })).status).toBe(404);
+    vi.stubEnv("VPPSONE_BUILTIN_AI", "live");
+    expect((await runCoverPhotoRoute(actor, config, "parse", { day, jobId })).status).toBe(404);
+    expect(mocks.job).not.toHaveBeenCalled();
+
+    expect(await (await runCoverPhotoRoute(real, config, "parse", { day, jobId })).json()).toEqual({ ok: true, ...result });
+    expect(mocks.cover).toHaveBeenCalledWith("2026-27", day);
+    expect(mocks.parse).toHaveBeenCalledWith(expect.objectContaining({ session: "2026-27" }), config, jobId, expect.anything());
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+
+    mocks.rpc.mockClear();
+    vi.stubEnv("VPPSONE_BUILTIN_AI_COVER_AUTO", "0");
+    expect(await (await runCoverPhotoRoute(real, config, "parse", { day, jobId })).json()).toMatchObject({ applyBlocked: "review_only" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,20 @@ import "server-only";
 
 import { z } from "zod";
 
+import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
+
+import { builtinAiMode } from "@/lib/ai/config";
+
+/**
+ * The daily limit is one number for the whole school. When built-in AI is live
+ * only a real admin may change it; a test account may change it only while
+ * built-in AI is limited to TEST sessions.
+ */
+export function mayChangeBuiltinAiLimit(staff: Pick<CurrentStaff, "role" | "isTestAccount">) {
+  const mode = builtinAiMode();
+  return staff.role === "admin" && mode !== "off" && (mode === "test" || staff.isTestAccount !== true);
+}
 
 const report = z.object({
   actions: z.number(), handled: z.number(), applied: z.number(), edited: z.number(), costInr: z.number(),

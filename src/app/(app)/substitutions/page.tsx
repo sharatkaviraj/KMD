@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
-import { coverPhotoEnabled, recentCoverPhoto } from "@/lib/ai/cover-photo-service";
+import { coverPhotoEnabled } from "@/lib/ai/access";
+import { recentCoverPhoto } from "@/lib/ai/cover-photo-service";
 import { CoverPhotoPanel } from "@/lib/ai/ui/cover-photo-panel";
 import { LazyBoloPanel } from "@/lib/ai/ui/lazy-bolo-panel";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -86,7 +87,7 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
   const [notices, profiles, photoResult] = await Promise.all([
     noticesOn(sessionLabel, day),
     mayManage ? profilesFor(coverDay) : Promise.resolve(null),
-    photoEnabled ? recentCoverPhoto(staff, day) : Promise.resolve(null),
+    photoEnabled ? recentCoverPhoto(staff, sessionLabel, day) : Promise.resolve(null),
   ]);
 
   // Two profiles with one name are told apart; office logins are never offered as cover (D-213).

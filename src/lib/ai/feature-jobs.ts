@@ -6,7 +6,7 @@ import type { Schema } from "@google/genai";
 import sharp from "sharp";
 import type { ZodType } from "zod";
 
-import type { AiPilotConfig } from "@/lib/ai/config";
+import { configForSession, type AiPilotConfig } from "@/lib/ai/config";
 import type { AiMedia } from "@/lib/ai/gemini";
 import { type AiJob, inputBucket, ownedAiJob, reserveAiJob, updateAiJob } from "@/lib/ai/jobs";
 import { AI_IMAGE_LONG_EDGE, AI_MAX_FILE_BYTES, AI_MAX_PAGES } from "@/lib/ai/media-limits";
@@ -98,7 +98,7 @@ export async function readOrParseAiJob<T>(
     await updateAiJob(owner, { status: "failed", error: "bad_media" }, "complete-parse");
     return refuse("upload", 400);
   }
-  const result = await extractWithProviders({ ...spec, config, media });
+  const result = await extractWithProviders({ ...spec, config: configForSession(config, scope.session), media });
   const attempts = result.attempts;
   const last = attempts.at(-1);
   const usage = {

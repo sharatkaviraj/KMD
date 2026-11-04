@@ -81,11 +81,46 @@ export function providerConfig(env: Env = process.env): AiPilotConfig {
   };
 }
 
+/**
+ * Who may use built-in AI on this deployment (owner direction, 4 Nov 2026).
+ *
+ *  - `live`: every member of staff whose permissions allow the action, in the
+ *    session they are working in. Only a production deployment can be live.
+ *  - `test`: TEST sessions only (test accounts, or a real admin who has
+ *    switched to TEST). A confined deployment is never more than this: every
+ *    user there is a test account anyway.
+ *  - `off`: nothing appears and every AI route answers 404.
+ *
+ * Production reads `VPPSONE_BUILTIN_AI` (`live` or `test`). A confined
+ * deployment also honours the pilot's `VPPSONE_BUILTIN_AI_TEST=1`.
+ */
+export type BuiltinAiMode = "off" | "test" | "live";
+
+export function builtinAiMode(env: Env = process.env): BuiltinAiMode {
+  const flag = env.VPPSONE_BUILTIN_AI?.trim().toLowerCase();
+  if (!declaresProduction(env)) {
+    return env.VPPSONE_BUILTIN_AI_TEST === "1" || flag === "test" || flag === "live" ? "test" : "off";
+  }
+  return flag === "live" ? "live" : flag === "test" ? "test" : "off";
+}
+
 export function builtinAiPilot(env: Env = process.env): AiPilotConfig | null {
-  if (env.VPPSONE_BUILTIN_AI_TEST !== "1" || declaresProduction(env)) return null;
+  if (builtinAiMode(env) === "off") return null;
   try {
     return providerConfig(env);
   } catch {
     return null;
   }
+}
+
+const TEST_SESSION = /^(?:TEST|UAT|DEMO)-\d{4}-\d{2}$/u;
+
+/**
+ * Providers for one job's session. Real school records never go to Gemini's
+ * unpaid tier: Google's unpaid-service terms forbid personal information and
+ * allow the content to be used to improve its products. Only fictional TEST
+ * material may use the free key; real sessions start at Claude, then Gemini Paid.
+ */
+export function configForSession(config: AiPilotConfig, session: string): AiPilotConfig {
+  return TEST_SESSION.test(session) ? config : { ...config, freeApiKey: undefined };
 }

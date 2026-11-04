@@ -1,5 +1,16 @@
 # Decisions
 
+## Built-in AI goes live — 4 November 2026
+
+The owner asked for the built-in AI plan (photo marks, photo substitutions, Bolo voice) to be checked and deployed to the live app. Details: `docs/ai/DECISIONS.md`.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-399 | **Built-in AI has one production switch, `VPPSONE_BUILTIN_AI` (`live` or `test`); unset is off.** A confined deployment is never more than `test` | The pilot refused production outright. The switch lets it go live in two steps (fictional TEST check, then everyone) and off again with one env change. A daily limit of 0 pauses it without a deploy |
+| D-400 | **An AI job works in the person's own session, and a test account works only in TEST, in code and in SQL** | `builtinAiSession` uses `resolveSessionLabel` and `canAccessSession`. Migration `20261104055339` drops the TEST-only check on `ai_jobs`, gives `reserve_ai_job` a session, and has cover apply/Undo take the session from the job; each refuses a test account outside TEST. Proved on wtgx with a rolled-back probe |
+| D-401 | **Real school records never go to Gemini's free tier** | Google's unpaid terms forbid personal information. Real-session jobs start at Claude, then Gemini Paid; the free key serves TEST material only |
+| D-402 | **Valid cover-photo rows auto-apply in real sessions with the two-minute Undo; WhatsApp to staff stays off until the school turns on staff notices** | The plan asks for auto-apply. Only server-validated, dated, clear rows apply; `VPPSONE_BUILTIN_AI_COVER_AUTO=0` makes it review-only. Notices queue held like every cover notice; `STAFF_NOTICE_TRANSPORT` is unchanged (rule 8 spirit: a real WhatsApp is the school's switch) |
+
 ## Review plan finish and AI connection — 4 November 2026
 
 On 3 November the owner asked for two things: finish the review plan, and

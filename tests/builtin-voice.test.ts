@@ -69,6 +69,11 @@ let job: Job;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.unstubAllEnvs();
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("VPPSONE_ENV", "");
+  vi.stubEnv("VPPSONE_BUILTIN_AI", "");
+  vi.stubEnv("VPPSONE_BUILTIN_AI_TEST", "1");
   job = { created_at: "2026-11-04T03:00:00Z", parsed_at: new Date().toISOString(), status: "draft", raw_output: attendance, reviewed_data: null };
   scene.session.mockResolvedValue(session);
   scene.hold.mockResolvedValue(["class-1"]);
@@ -128,6 +133,20 @@ describe("Bolo", () => {
     scene.roll.mockResolvedValue([...roster, { studentId: "id-3", fullName: "Sample Three", rollNo: "3" }]);
     expect((await runVoiceRoute(person, config, "apply", { jobId, confirmation: draft.confirmation })).status).toBe(409);
     expect(scene.attendance).not.toHaveBeenCalled();
+  });
+
+  it("works in the real session for real staff once live, and never puts a test account there", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VPPSONE_BUILTIN_AI_TEST", "");
+    vi.stubEnv("VPPSONE_BUILTIN_AI", "live");
+    scene.session.mockResolvedValue("2026-27");
+    expect((await runVoiceRoute(person, config, "parse", { jobId })).status).toBe(404);
+    const teacher = { ...person, isTestAccount: false } as CurrentStaff;
+    const draft = await review(attendance, teacher);
+    expect(scene.parse).toHaveBeenCalledWith(expect.objectContaining({ session: "2026-27" }), config, jobId, expect.anything());
+    expect(scene.roll).toHaveBeenCalledWith(expect.objectContaining({ sessionLabel: "2026-27" }));
+    expect((await runVoiceRoute(teacher, config, "apply", { jobId, confirmation: draft.confirmation })).status).toBe(200);
+    expect(scene.attendance).toHaveBeenCalledOnce();
   });
 
   it("uses the same command after an uncertain save and refuses a different confirmation", async () => {
@@ -205,7 +224,7 @@ describe("Bolo", () => {
     scene.assignments.mockResolvedValue([{ classId: "class-1", subjectId: "science" }]);
     scene.exams.mockResolvedValue([{ id: "exam", status: "open", labelEn: "Term 1", labelHi: "सत्र 1", code: "TERM1" }]);
     scene.papers.mockResolvedValue([{ id: "paper", class_id: "class-1", subject_id: "science" }]);
-    scene.photoContext.mockResolvedValue({ paper: { id: "paper", entry_revision: 7 }, rule: { max: 40, step: 0.5 } });
+    scene.photoContext.mockResolvedValue({ paper: { id: "paper", entry_revision: 7 }, rule: { max: 40, step: 0.5 }, session });
     scene.photoRoster.mockResolvedValue({ students: [{ id: "id-2", name: "Sample Two", roll: "2" }] });
     scene.findMarks.mockResolvedValue(null);
     scene.saveMarks.mockResolvedValue({ ok: true });

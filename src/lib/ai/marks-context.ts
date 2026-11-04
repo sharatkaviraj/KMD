@@ -2,11 +2,9 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { isAssignedTo } from "@/modules/assessments/data/assessments-repo";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { TEST_SESSION_LABEL } from "@/platform/auth/test-session-policy";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -14,12 +12,13 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { paperById } from "@/vx/screens/exams/data";
 import { previewRefusal } from "@/vx/screens/exams/guards";
 
+import { builtinAiSession } from "@/lib/ai/access";
 import type { PhotoStudent } from "@/lib/ai/marks-review";
 
 export async function marksPhotoContext(staff: CurrentStaff, paperId: string) {
-  if (!staff.isTestAccount || !can(staff, "marks:write") || await previewRefusal()) return null;
-  const session = await resolveSessionLabel();
-  if (session !== TEST_SESSION_LABEL) return null;
+  if (!can(staff, "marks:write") || await previewRefusal()) return null;
+  const session = await builtinAiSession(staff);
+  if (!session) return null;
   const paper = await paperById(paperId);
   if (!paper) return null;
   const db = createAdminClient();
@@ -51,8 +50,8 @@ export async function loadPhotoRoster({ paper, session, rule }: MarksPhotoContex
   const ids = (roster.data as string[]).filter(Boolean);
   if (!ids.length || ids.length > 120) return null;
   const rollOf = new Map(rolls.data.map((s) => [s.student_id, s.roll_no]));
-  // Check the student's own current class too: a mistaken TEST enrolment
-  // must not put a real-session name into the pilot's provider request.
+  // Check the student's own current class too: a stale enrolment must not put
+  // another session's name into the provider request.
   const names = await fetchInChunks<{ id: string; full_name: string }>(
     ids, IN_FILTER_CHUNK_SIZE, (chunk) => db.schema(FEE_SCHEMA).from("students")
       .select("id, full_name, class:classes!students_class_id_fkey!inner(session_label)")

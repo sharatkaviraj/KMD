@@ -7,3 +7,16 @@
 - **Mobile runtime.** The microphone panel is loaded only for eligible pilot views, keeping provider and Storage client code off the normal teacher route’s eager bundle. The recorded microphone stops at 60 seconds; captured media is limited to 2 MiB per upload, with audio container checks. Real iPhone and Android device acceptance remains separate.
 - **Source identifiers.** Send opaque request-local roster references, not school database IDs. Keep raw strings; server code independently matches names/rolls, validates marks and assigns actual IDs. The cover parser must return the date written in the source; an undated or mismatched photo cannot automatically apply.
 - **Working tree.** The existing main checkout contains unrelated uncommitted work. Use the separate D: worktree and deliver a fast-forward to the remote main branch only after checks, preserving that checkout and the step commits.
+
+## Live release — 4 November 2026
+
+The owner asked for the plan to be checked and deployed to the live One app. The pilot above was built to refuse production, so these decisions replace its release limits.
+
+- **One production switch.** `VPPSONE_BUILTIN_AI=live|test` on Vercel production (`builtinAiMode`). A Preview or local server shares the one database, so it is never more than `test`. Release order: migration while the feature was still off → code → `test` (verify with fictional TEST material) → `live`. The Settings daily limit of 0 pauses new requests without a deploy.
+- **The session follows the person** (`builtinAiSession`): the same `resolveSessionLabel` every screen uses, checked with `canAccessSession`. Real staff work in `2026-27`; test accounts stay in `TEST-2026-27`; a real admin may use either. Migration `20261104055339` lets `ai_jobs` hold any session label and keeps the D-340 fence in SQL: a test account cannot reserve, apply or undo a real-session job.
+- **Real records never reach Gemini Free** (`configForSession`). Google's unpaid-service terms forbid personal information and let Google use the content. Real-session jobs start at Claude, then Gemini Paid; the free key stays first for TEST material. This trades some cost for compliance; the Settings page shows the cost.
+- **Cover photos auto-apply in real sessions, as the plan says.** Only rows the server validates against the published timetable, leave, policies and existing duties, with the source date written on the sheet and `unclear=false`; everything else is held with suggestions. `VPPSONE_BUILTIN_AI_COVER_AUTO=0` makes it review-only. TEST rehearsals keep their explicit `VPPSONE_BUILTIN_AI_COVER_AUTO_TEST` opt-in.
+- **WhatsApp for staff stays the school's separate switch.** Photo-applied duties queue `cover_assigned` notices held for the two-minute Undo, exactly like other cover notices. Sending needs `STAFF_NOTICE_TRANSPORT=aisensy` and the `staff_notice_dispatch` flag, which also start every other staff notice; this release does not turn them on.
+- **The daily limit is the school's.** While live, only a real admin may change it.
+- **Migration files carry the versions the database recorded.** The three pilot migrations were applied by version `20261104054116`, `…054119`, `…054126`; the files were renamed to match, as was done for `20261104022925`. Each file's MD5 equals the statement the database stored.
+

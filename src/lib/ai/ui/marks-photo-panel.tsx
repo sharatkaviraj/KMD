@@ -135,7 +135,7 @@ export function MarksPhotoPanel({ paperId, backHref, max, step }: {
       <p role="status" className="mb-3">{tx(p("Marks saved as a draft. Open the paper to check or submit it.", "अंकों का मसौदा सहेजा गया। जाँचने या भेजने के लिए पेपर खोलें।"))}</p>
       <Btn variant="pri" href={backHref}>{tx(p("Back to marks", "अंकों पर वापस"))}</Btn>
     </Card> : !draft ? <Card>
-      <p className="mb-3">{tx(p("Use sample sheets only in this test session. Gemini reads the photo; you check and save the marks.", "इस परीक्षण सत्र में केवल नमूना शीट लें। Gemini फ़ोटो पढ़ता है; अंक आप जाँचकर सहेजते हैं।"))}</p>
+      <p className="mb-3">{tx(p("Photograph the marks list. The app reads it; you check the marks and save.", "अंकों की सूची की फ़ोटो लें। ऐप उसे पढ़ता है; अंक आप जाँचकर सहेजते हैं।"))}</p>
       <CameraCapture files={photos} onChange={(next) => { setPhotos(next); setUploaded(null); setError(null); }} disabled={busy !== null} />
       <div className="mt-3">
         <Btn variant="pri" disabled={!photos.length || busy !== null} onClick={() => void read()}>

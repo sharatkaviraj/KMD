@@ -138,8 +138,8 @@ export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverP
       {error && <p role="alert" className="break-words">{tx(problems[error])}</p>}
       {!result ? <>
         <p className="text-sm">{tx(p(
-          "Use a sample register and keep the written date visible. VPPS One checks each row against the test timetable.",
-          "नमूना रजिस्टर लें और लिखी तारीख़ फ़ोटो में रखें। VPPS One हर पंक्ति को परीक्षण समय-सारणी से मिलाता है।",
+          "Keep the written date visible in the photo. VPPS One checks each row against the timetable before it assigns anyone.",
+          "लिखी तारीख़ फ़ोटो में दिखती रहे। VPPS One किसी को लगाने से पहले हर पंक्ति को समय-सारणी से मिलाता है।",
         ))}</p>
         <CameraCapture files={photos} disabled={Boolean(busy)} onChange={(next) => { setPhotos(next); setJob(null); setError(null); }} />
         <Btn variant="pri" disabled={!photos.length || Boolean(busy)} onClick={() => void read()}>
@@ -153,7 +153,7 @@ export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverP
               result.applied.length + " assignments saved. WhatsApp notices wait at least two minutes.",
               result.applied.length + " व्यवस्थाएँ सहेजी गईं। WhatsApp सूचनाएँ कम से कम दो मिनट रुकेंगी।",
             ))}</p> : <p>{tx(p("No assignments saved.", "कोई व्यवस्था सहेजी नहीं गई।"))}</p>}
-          {result.applyBlocked === "review_only" && <p>{tx(p("Automatic assignment is off for this trial.", "इस परीक्षण में अपने आप व्यवस्था करना बंद है।"))}</p>}
+          {result.applyBlocked === "review_only" && <p>{tx(p("Automatic assignment is off. Arrange these rows yourself.", "अपने आप व्यवस्था करना बंद है। ये पंक्तियाँ स्वयं व्यवस्थित करें।"))}</p>}
           {result.applyBlocked === "stale" && <p>{tx(p("Check the current cover plan before using these rows.", "इन पंक्तियों का उपयोग करने से पहले वर्तमान व्यवस्था जाँचें।"))}</p>}
           {!result.review.rows.length && <p>{tx(p("No rows were read for this date.", "इस तारीख़ की कोई पंक्ति पढ़ी नहीं गई।"))}</p>}
         </div>
