@@ -100,7 +100,9 @@ export function geminiRequest(opts: {
   model: AiModel;
   instructions: string;
   parts: Part[];
-  responseSchema: Schema;
+  responseSchema?: Schema;
+  responseJsonSchema?: Record<string, unknown>;
+  maxOutputTokens?: number;
   timeout: number;
   signal: AbortSignal;
 }): GenerateContentParameters {
@@ -111,8 +113,8 @@ export function geminiRequest(opts: {
     config: {
       systemInstruction: instructions,
       responseMimeType: "application/json",
-      responseJsonSchema: geminiJsonSchema(responseSchema),
-      maxOutputTokens: 8192,
+      responseJsonSchema: opts.responseJsonSchema ?? (responseSchema && geminiJsonSchema(responseSchema)),
+      maxOutputTokens: opts.maxOutputTokens ?? 8192,
       thinkingConfig: model === "gemini-2.5-flash" && Date.now() < Date.UTC(2026, 11, 1)
         ? { thinkingBudget: config.thinkingBudget }
         // Gemini 3 Flash models take "low" as their lightest level; Flash-Lite accepts "minimal".

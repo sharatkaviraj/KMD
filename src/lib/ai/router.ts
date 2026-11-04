@@ -4,12 +4,12 @@
  * `provider-status.ts` remembers what each key last did.
  *
  *   Image tasks (marks sheets, substitution slips):
- *     1. Gemini FREE   2. Claude Sonnet (Anthropic credits)   3. Gemini PAID
+ *     1. Claude Sonnet (Anthropic credits)   2. Gemini FREE   3. Gemini PAID
  *   Voice tasks:
- *     1. Gemini FREE (audio in)   2. OpenAI transcription, then Claude to understand   3. Gemini PAID
+ *     1. OpenAI transcription, then Claude to understand   2. Gemini FREE (audio in)   3. Gemini PAID
  *
  * Real-session records never use the free key (D-401): Google's unpaid tier
- * uses submitted content to improve its products. TEST material starts free.
+ * uses submitted content to improve its products. Only fictional TEST jobs qualify.
  *
  * A stage is left at once on a quota, rate, billing, permission or credential
  * error; a timeout or an answer that fails the schema is retried once, then

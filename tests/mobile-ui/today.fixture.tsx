@@ -4,6 +4,7 @@ import { scheduleNow, type ScheduleSlot } from "@/vx/screens/admin/schedule";
 import { TodayScreen } from "@/vx/screens/admin/today";
 import { ToastProvider } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
+import { QUICK_ACTIONS } from "@/vx/nav";
 import "../../src/vx/vx.css";
 
 /* Test data only: classes, subjects and teachers are invented. */
@@ -47,6 +48,9 @@ export function TodayFixture({ language }: { language: Language }) {
   // T03 states: `missing=refunds,submissions` (Needs you sources unread), `unread=board` (Today's own reads).
   const inboxMissing = (params.get("missing") ?? "").split(",").filter(Boolean);
   const todayMissing = (params.get("unread") ?? "").split(",").filter(Boolean);
+  const role = params.get("desk");
+  const actions = role === "admin" ? QUICK_ACTIONS.filter((action) => ["mark", "cover", "note", "certificate"].includes(action.key))
+    : role === "office" ? QUICK_ACTIONS.filter((action) => action.key === "mark") : [];
   const [h, m] = at.split(":").map(Number);
   const schedule = scheduleNow({
     bells: BELLS,
@@ -72,7 +76,11 @@ export function TodayFixture({ language }: { language: Language }) {
             dayLine="Monday, 12 October"
             status={{ en: "Period 4 running", hi: "पीरियड 4 चल रहा है" }}
             today="2026-10-12"
-            money={null}
+            money={role === "admin" ? {
+              today: 12800, receiptsToday: 7, days: [{ date: "2026-10-12", amount: 12800 }],
+              modes: [{ mode: "upi", amount: 9800, receipts: 5 }, { mode: "cash", amount: 3000, receipts: 2 }],
+              matrix: [], installments: [], expected: 180000, collected: 131000, dueSoFar: 150000, followUps: 6,
+            } : null}
             moneyFailed={false}
             attendance={{ marked: 18, total: 22, percent: 91, schoolOpen: true }}
             staffAway={2}
@@ -90,7 +98,7 @@ export function TodayFixture({ language }: { language: Language }) {
             scheduleFailed={false}
             exceptions={todayMissing.includes("board") ? { notMarked: null, cover: null } : { notMarked: ["9A", "9B", "10A", "12 Arts"], cover: [] }}
             support={{ needsAction: 1, due: 1 }}
-            actions={[]}
+            actions={actions}
             links={{ collect: false, attendance: true, substitutions: true, review: inboxMissing.includes("submissions"), timetable: true }}
             unavailable={false}
           />

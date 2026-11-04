@@ -44,12 +44,37 @@ describe("built-in AI provider routing", () => {
     vi.unstubAllGlobals();
   });
 
+  it("tries Claude first, then Gemini Free, then Gemini Paid after key failures", async () => {
+    const anthropic = vi.fn().mockRejectedValue({ status: 401 });
+    const gemini = vi.fn().mockRejectedValueOnce({ status: 429 }).mockResolvedValueOnce(geminiResponse());
+    const result = await extractWithProviders(options, { gemini, anthropic });
+    expect(result.ok).toBe(true);
+    expect(result.attempts.map((a) => a.provider)).toEqual(["anthropic", "gemini-free", "gemini-paid"]);
+  });
+
+  it("sends school and app vocabulary to both the voice transcriber and the intent model", async () => {
+    const transcript = "7B ki haziri";
+    const fetch = vi.fn().mockResolvedValue(Response.json({ text: transcript }));
+    const anthropic = vi.fn().mockResolvedValue(claudeResponse(JSON.stringify({
+      transcript, intent: "attendance_query", unclear: false, classLabel: "7B",
+    })));
+    const result = await extractWithProviders({
+      ...options, ...voiceSpec, task: "voice", media: [mp4],
+      context: { vocabulary: { classes: ["7B"], teachers: ["Test teacher"] } },
+    }, { fetch, anthropic });
+    expect(result.ok).toBe(true);
+    expect(fetch.mock.calls[0][1].body.get("prompt")).toMatch(/VPPS One.*haziri.*7B.*Test teacher/u);
+    expect(anthropic.mock.calls[0][1].system).toContain("Shri Veer Patta Senior Secondary School");
+  });
+
   it("uses distinct TEST-only Gemini slots and preserves the legacy paid key", () => {
     expect(config).toMatchObject({
       freeApiKey: "test-free", paidApiKey: "test-paid", paidModel: "gemini-3.5-flash-lite",
     });
     expect(builtinAiPilot({ ...env, GEMINI_API_KEY_PAID: "test-explicit-paid" })?.paidApiKey).toBe("test-explicit-paid");
-    expect(builtinAiPilot({ ...env, GEMINI_API_KEY_FREE: env.GEMINI_API_KEY })?.freeApiKey).toBeUndefined();
+    const shared = builtinAiPilot({ ...env, GEMINI_API_KEY_FREE: env.GEMINI_API_KEY })!;
+    expect(shared.freeApiKey).toBe(env.GEMINI_API_KEY);
+    expect(configForSession(shared, "2026-27")).toMatchObject({ freeApiKey: undefined, paidApiKey: undefined });
     expect(builtinAiPilot({ ...env, GEMINI_API_KEY_FREE: "" })).toMatchObject({ paidApiKey: "test-paid" });
     expect(builtinAiPilot({ ...env, VERCEL_ENV: "production" })).toBeNull();
     expect(builtinAiPilot({ ...env, VPPSONE_ENV: "live" })).toBeNull();
@@ -110,7 +135,7 @@ describe("built-in AI provider routing", () => {
   it("returns structured free Gemini output with zero estimated provider spend", async () => {
     const gemini = vi.fn().mockResolvedValue(geminiResponse());
     const anthropic = vi.fn();
-    const result = await extractWithProviders(options, { gemini, anthropic });
+    const result = await extractWithProviders({ ...options, providerOnly: "gemini-free" }, { gemini, anthropic });
     expect(result).toMatchObject({
       ok: true, value: { rows: [] }, attempts: [{
         provider: "gemini-free", model: "gemini-3.5-flash-lite", modelVersion: "gemini-test-pinned",
@@ -128,11 +153,11 @@ describe("built-in AI provider routing", () => {
     expect(anthropic).not.toHaveBeenCalled();
   });
 
-  it.each([403, 429])("moves directly from free Gemini HTTP %d to Claude Sonnet vision", async (status) => {
-    const gemini = vi.fn().mockRejectedValue({ status });
+  it("uses Claude Sonnet vision and never spends a fallback call when the first answer is usable", async () => {
+    const gemini = vi.fn();
     const anthropic = vi.fn().mockResolvedValue(claudeResponse());
     const result = await extractWithProviders(options, { gemini, anthropic });
-    expect(gemini).toHaveBeenCalledOnce();
+    expect(gemini).not.toHaveBeenCalled();
     expect(anthropic).toHaveBeenCalledOnce();
     expect(anthropic.mock.calls[0][0]).toBe("test-claude");
     expect(anthropic.mock.calls[0][1]).toMatchObject({
@@ -145,23 +170,24 @@ describe("built-in AI provider routing", () => {
     expect(anthropic.mock.calls[0][1].tools).toBeUndefined();
     expect(result.ok).toBe(true);
     expect(result.attempts).toMatchObject([
-      { provider: "gemini-free", outcome: "unavailable", usageReported: false },
       { provider: "anthropic", outcome: "ok", input: 100, output: 12, thinking: 8, usageReported: true },
     ]);
-    expect(result.attempts[1].costInr).toBeCloseTo((100 * 2 + 20 * 10) / 1_000_000 * 90);
+    expect(result.attempts[0].costInr).toBeCloseTo((100 * 2 + 20 * 10) / 1_000_000 * 90);
   });
 
   it("uses the installed SDKs against fixed provider URLs and passes quota failures through to the next provider", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>()
       .mockResolvedValueOnce(Response.json({
-        error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "Synthetic quota" },
+        error: { type: "rate_limit_error", message: "Synthetic quota" },
       }, { status: 429 }))
-      .mockResolvedValueOnce(Response.json(claudeResponse()));
+      .mockResolvedValueOnce(Response.json({
+        candidates: [{ finishReason: "STOP", content: { role: "model", parts: [{ text: validOutput }] } }],
+      }));
     vi.stubGlobal("fetch", fetch);
     const result = await extractWithProviders(options);
     expect(result.ok).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(2);
-    const [[googleUrl, google], [claudeUrl, claude]] = fetch.mock.calls;
+    const [[claudeUrl, claude], [googleUrl, google]] = fetch.mock.calls;
     expect(String(googleUrl)).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
     expect(new Headers(google?.headers).get("x-goog-api-key")).toBe("test-free");
     const generation = JSON.parse(String(google?.body)).generationConfig;
@@ -181,7 +207,7 @@ describe("built-in AI provider routing", () => {
     expect(result.ok).toBe(true);
     expect(gemini.mock.calls.map(([key]) => key)).toEqual(["test-free", "test-paid", "test-paid"]);
     expect(result.attempts.map(({ provider, outcome }) => [provider, outcome])).toEqual([
-      ["gemini-free", "unavailable"], ["anthropic", "invalid"], ["anthropic", "invalid"],
+      ["anthropic", "invalid"], ["anthropic", "invalid"], ["gemini-free", "unavailable"],
       ["gemini-paid", "invalid"], ["gemini-paid", "ok"],
     ]);
     expect(result.attempts[3].costInr).toBeCloseTo((100 * 0.3 + 50 * 2.5) / 1_000_000 * 90);
@@ -189,20 +215,21 @@ describe("built-in AI provider routing", () => {
 
   it("aborts timed out attempts and leaves time for the next provider", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
-    const gemini = vi.fn<(key: string, request: GenerateContentParameters) => Promise<GenerateContentResponse>>(
+    const gemini = vi.fn<(key: string, request: GenerateContentParameters) => Promise<GenerateContentResponse>>()
+      .mockResolvedValue(geminiResponse());
+    const anthropic = vi.fn<(key: string, request: Anthropic.MessageCreateParamsNonStreaming, timeout: number, signal: AbortSignal) => Promise<Anthropic.Message>>(
       () => new Promise(() => {}),
     );
-    const anthropic = vi.fn().mockResolvedValue(claudeResponse());
     const extracting = extractWithProviders(options, { gemini, anthropic });
-    await vi.advanceTimersByTimeAsync(16_000);
+    await vi.advanceTimersByTimeAsync(21_000);
     const result = await extracting;
-    expect(gemini).toHaveBeenCalledTimes(2);
-    expect(gemini.mock.calls.every(([, request]) => request.config?.abortSignal?.aborted)).toBe(true);
-    expect(anthropic).toHaveBeenCalledOnce();
+    expect(anthropic).toHaveBeenCalledTimes(2);
+    expect(anthropic.mock.calls.every(([, , , signal]) => signal.aborted)).toBe(true);
+    expect(gemini).toHaveBeenCalledOnce();
     expect(result.ok).toBe(true);
   });
 
-  it("sends recorded voice to Gemini as M4A, then sends only the OpenAI transcript to Claude Haiku", async () => {
+  it("sends audio to OpenAI and only its transcript to Claude Haiku", async () => {
     const transcript = "Sample voice fixture.";
     const gemini = vi.fn().mockRejectedValue({ status: 429 });
     const fetch = vi.fn().mockResolvedValue(Response.json({
@@ -210,23 +237,23 @@ describe("built-in AI provider routing", () => {
     }));
     const anthropic = vi.fn().mockResolvedValueOnce(claudeResponse("broken")).mockResolvedValueOnce(claudeResponse());
     const result = await extractWithProviders({ ...options, task: "voice", media: [mp4] }, { gemini, fetch, anthropic });
-    expect(gemini.mock.calls[0][1].contents[0].parts[1]).toEqual({ inlineData: { mimeType: "audio/m4a", data: "AQID" } });
+    expect(gemini).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledOnce();
     const [url, request] = fetch.mock.calls[0];
     expect(url).toBe("https://api.openai.com/v1/audio/transcriptions");
     expect(request.body.get("model")).toBe("gpt-transcribe");
     expect(request.body.get("file")).toMatchObject({ type: "audio/mp4", name: "recording.m4a" });
-    expect(request.body.get("prompt")).toBeNull();
+    expect(request.body.get("prompt")).toContain("Hinglish");
     expect(anthropic.mock.calls[0][1]).toMatchObject({
       model: "claude-haiku-5-5",
       messages: [{ role: "user", content: [{ type: "text", text: JSON.stringify({ context: options.context, transcript }) }] }],
     });
     expect(result.ok).toBe(true);
     expect(result.attempts.map((a) => [a.provider, a.outcome])).toEqual([
-      ["gemini-free", "unavailable"], ["openai", "ok"], ["anthropic", "invalid"], ["anthropic", "ok"],
+      ["openai", "ok"], ["anthropic", "invalid"], ["anthropic", "ok"],
     ]);
-    expect(result.attempts[1].usageReported).toBe(true);
-    expect(result.attempts[1].costInr).toBeCloseTo(20 / 60 * 0.0045 * 90);
+    expect(result.attempts[0].usageReported).toBe(true);
+    expect(result.attempts[0].costInr).toBeCloseTo(20 / 60 * 0.0045 * 90);
   });
 
   it("moves from an OpenAI quota error to paid Gemini audio without calling Claude", async () => {
@@ -238,7 +265,8 @@ describe("built-in AI provider routing", () => {
     expect(anthropic).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledOnce();
     expect(gemini.mock.calls.map(([key]) => key)).toEqual(["test-free", "test-paid"]);
-    expect(result.attempts.map((a) => a.provider)).toEqual(["gemini-free", "openai", "gemini-paid"]);
+    expect(result.attempts.map((a) => a.provider)).toEqual(["openai", "gemini-free", "gemini-paid"]);
+    expect(gemini.mock.calls[1][1].contents[0].parts[1]).toEqual({ inlineData: { mimeType: "audio/m4a", data: "AQID" } });
   });
 
   it("keeps missing duration and provider-only attempts visible in evaluation output", async () => {
@@ -274,7 +302,7 @@ describe("built-in AI provider routing", () => {
   it("stops after a Gemini safety block", async () => {
     const gemini = vi.fn().mockResolvedValue(geminiResponse(validOutput, FinishReason.SAFETY));
     const anthropic = vi.fn();
-    const result = await extractWithProviders(options, { gemini, anthropic });
+    const result = await extractWithProviders({ ...options, providerOnly: "gemini-free" }, { gemini, anthropic });
     expect(result).toMatchObject({ ok: false, error: "invalid" });
     expect(gemini).toHaveBeenCalledOnce();
     expect(anthropic).not.toHaveBeenCalled();

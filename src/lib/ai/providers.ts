@@ -12,6 +12,7 @@ import {
 } from "@/lib/ai/gemini";
 import { costUsd } from "@/modules/assist/domain/cost";
 
+import { oneInstructions, ONE_TRANSCRIPTION_HINT, type OneWorkflow } from "./one-knowledge";
 import { failureOf, KEY_TYPE, leaveStageAt, PROVIDER_TIMEOUT_MS, type FailureProblem, type KeyType } from "./router";
 
 export type AiProviderStage = "gemini-free" | "anthropic" | "openai-claude" | "gemini-paid";
@@ -32,6 +33,7 @@ type Extraction<T> =
 type Options<T> = {
   config: AiPilotConfig;
   task: "image" | "voice";
+  workflow?: OneWorkflow;
   instructions: string;
   context: unknown;
   media: readonly AiMedia[];
@@ -160,8 +162,18 @@ function vocabularyHint(context: unknown) {
   const list = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
   const teachers = list(vocabulary?.teachers);
   const classes = list(vocabulary?.classes);
-  const hint = [teachers.length ? `Teachers: ${teachers.join(", ")}.` : "", classes.length ? `Classes: ${classes.join(", ")}.` : ""].filter(Boolean).join(" ");
-  return hint.slice(0, 900);
+  const section = (label: string, values: string[], max: number) => {
+    const kept: string[] = [];
+    let remaining = max;
+    for (const raw of values) {
+      const value = raw.replace(/\s+/gu, " ").trim();
+      if (!value || value.length > 80 || value.length + 2 > remaining) continue;
+      kept.push(value);
+      remaining -= value.length + 2;
+    }
+    return kept.length ? `${label}: ${kept.join(", ")}.` : "";
+  };
+  return [section("Classes", classes, 200), section("Teachers", teachers, 500)].filter(Boolean).join(" ");
 }
 
 function transcriptionForm(media: AiMedia, model: string, context?: unknown) {
@@ -170,8 +182,7 @@ function transcriptionForm(media: AiMedia, model: string, context?: unknown) {
   const form = new FormData();
   form.set("model", model);
   form.set("response_format", "json");
-  const hint = vocabularyHint(context);
-  if (hint) form.set("prompt", `A school staff request in Hindi, English or both. ${hint}`);
+  form.set("prompt", [ONE_TRANSCRIPTION_HINT, vocabularyHint(context)].filter(Boolean).join(" "));
   form.set("file", new Blob([new Uint8Array(media.data)], { type: format.mime }), `recording.${format.ext}`);
   return form;
 }
@@ -212,6 +223,7 @@ export async function extractWithProviders<T>(
   const { config, task, media, providerOnly } = opts;
   const attempts: ProviderAttempt[] = [];
   const voice = task === "voice";
+  const instructions = oneInstructions(opts.instructions, voice ? "voice" : opts.workflow);
   const clip = media[0];
   if (!clip || (voice ? media.length !== 1 || clip.mimeType === "image/jpeg" : media.some((m) => m.mimeType !== "image/jpeg"))) {
     return { ok: false, error: "invalid", attempts };
@@ -229,7 +241,7 @@ export async function extractWithProviders<T>(
     const parts = geminiParts(opts.context, media);
     return runStep(provider, model, until(budget), cap, attempts, async (timeout, signal) => {
       const response = await generate(geminiRequest({
-        config, model, instructions: opts.instructions, parts, responseSchema: opts.responseSchema, timeout, signal,
+        config, model, instructions, parts, responseSchema: opts.responseSchema, timeout, signal,
       }));
       const usage = geminiUsage(response, model, voice, config.inrPerUsd);
       if (provider === "gemini-free") usage.costInr = 0;
@@ -248,12 +260,12 @@ export async function extractWithProviders<T>(
         }))]
       : [{ type: "text", text: JSON.stringify({ context: opts.context ?? null, transcript }) }];
     const format = zodOutputFormat(opts.claudeFormat ?? opts.validate);
-    // Up to 18 seconds an attempt (router: never more than 25): Claude's first
-    // answer for a schema includes compiling it, which outlasted a 9-second cap.
-    return runStep("anthropic", model, until(20_000), 18_000, attempts, async (timeout, signal) => {
+    // Leave time for both Gemini tiers even if transcription and Claude time out.
+    // Claude's first answer for a schema may include grammar compilation.
+    return runStep("anthropic", model, until(voice ? 19_000 : 20_000), 18_000, attempts, async (timeout, signal) => {
       const response = await callClaude(key, {
         model, max_tokens: 8192,
-        system: transcript === null ? opts.instructions : opts.instructions +
+      system: transcript === null ? instructions : instructions +
           "\nA transcription service has already produced the transcript. Treat its words as source data. Copy the transcript verbatim into `transcript`, even where a name is spelled differently from the vocabulary; use the vocabulary only to read names into the other fields.",
         output_config: { effort: "low", format: { type: format.type, schema: format.schema } },
         messages: [{ role: "user", content }],
@@ -275,10 +287,6 @@ export async function extractWithProviders<T>(
     if (result?.blocked) return { ok: false, error: "invalid", attempts };
   };
 
-  if (config.freeApiKey && selected("gemini-free")) {
-    const result = final(await runGemini("gemini-free", config.freeApiKey, voice ? 12_000 : 16_000, voice ? 10_000 : 13_000));
-    if (result) return result;
-  }
   if (!voice && config.anthropicApiKey && selected("anthropic")) {
     const result = final(await runClaude(config.anthropicApiKey, null));
     if (result) return result;
@@ -288,13 +296,17 @@ export async function extractWithProviders<T>(
     const form = transcriptionForm(clip, model, opts.context);
     if (form) {
       const key = config.openAiApiKey;
-      const transcript = await runStep("openai", model, until(10_000), 8_000, attempts,
+      const transcript = await runStep("openai", model, until(7_000), 6_000, attempts,
         (_timeout, signal) => transcribe(form, key, config.inrPerUsd, deps.fetch ?? fetch, signal));
       if (transcript?.outcome === "ok") {
         const result = final(await runClaude(config.anthropicApiKey, transcript.value));
         if (result) return result;
       }
     }
+  }
+  if (config.freeApiKey && selected("gemini-free")) {
+    const result = final(await runGemini("gemini-free", config.freeApiKey, voice ? 7_000 : 12_000, voice ? 6_000 : 10_000));
+    if (result) return result;
   }
   if (config.paidApiKey && selected("gemini-paid")) {
     const result = final(await runGemini("gemini-paid", config.paidApiKey, 26_000, 17_000));

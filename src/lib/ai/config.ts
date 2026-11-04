@@ -64,17 +64,32 @@ export type AiPilotConfig = ReturnType<typeof modelConfig> & {
   openAiTranscriptionModel: typeof OPENAI_TRANSCRIPTION_MODEL;
 };
 
+/** An explicitly free credential must never be used through the legacy paid slot. */
+export function paidGeminiKey(env: Env = process.env): string | undefined {
+  const key = env.GEMINI_API_KEY_PAID?.trim() || env.GEMINI_API_KEY?.trim();
+  return key && key !== env.GEMINI_API_KEY_FREE?.trim() ? key : undefined;
+}
+
+function paidGeminiModel(env: Env) {
+  return aiModel(env.GEMINI_MODEL_PAID?.trim() || env.GEMINI_MODEL?.trim() || env.GEMINI_MODEL_FALLBACK?.trim() || DEFAULT_MODEL);
+}
+
+export function paidGeminiConfig(env: Env = process.env) {
+  const apiKey = paidGeminiKey(env);
+  if (!apiKey) return null;
+  return { ...modelConfig(env), apiKey, model: paidGeminiModel(env) };
+}
+
 export function providerConfig(env: Env = process.env): AiPilotConfig {
-  const paidApiKey = env.GEMINI_API_KEY_PAID?.trim() || env.GEMINI_API_KEY?.trim() || undefined;
-  const freeKey = env.GEMINI_API_KEY_FREE?.trim();
-  const freeApiKey = freeKey && freeKey !== paidApiKey ? freeKey : undefined;
+  const paidApiKey = paidGeminiKey(env);
+  const freeApiKey = env.GEMINI_API_KEY_FREE?.trim() || undefined;
   const anthropicApiKey = env.ANTHROPIC_API_KEY?.trim() || undefined;
   const openAiApiKey = env.OPEN_AI_API_KEY?.trim() || env.OPENAI_API_KEY?.trim() || undefined;
   if (!freeApiKey && !anthropicApiKey && !paidApiKey) throw new Error("No extraction provider is configured");
 
   // The paid key uses the same model as the free key unless told otherwise, so
   // an answer reads the same whichever key gave it.
-  const paidModel = aiModel(env.GEMINI_MODEL_PAID?.trim() || env.GEMINI_MODEL?.trim() || env.GEMINI_MODEL_FALLBACK?.trim() || DEFAULT_MODEL);
+  const paidModel = paidGeminiModel(env);
   const claudeImageModel = env.VPPSONE_CLAUDE_IMAGE_MODEL?.trim() || CLAUDE_IMAGE_MODEL;
   const claudeVoiceModel = env.VPPSONE_CLAUDE_VOICE_MODEL?.trim() || DEFAULT_CLAUDE_VOICE_MODEL;
   const openAiTranscriptionModel = env.VPPSONE_OPENAI_TRANSCRIPTION_MODEL?.trim() || OPENAI_TRANSCRIPTION_MODEL;

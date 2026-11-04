@@ -369,8 +369,8 @@ describe("Bolo", () => {
 
     it("recovers the teacher and the day a model left out (production, 4 Nov)", async () => {
       // What Gemini returned for the clip: the intent, but no teacher and no day.
-      const raw = { transcript: "Maya test madam will be absent tomorrow. Please arrange her substitute.", intent: "teacher_absence",
-        unclear: false, span: "whole", attendanceStatus: "absent", exceptions: [] } as const;
+      const raw: VoiceExtraction = { transcript: "Maya test madam will be absent tomorrow. Please arrange her substitute.", intent: "teacher_absence",
+        unclear: false, span: "whole", attendanceStatus: "absent", exceptions: [] };
       expect((await review(raw, coordinator)).result).toMatchObject({ kind: "teacher_absence", teacher: "Test teacher Maya", day: "2026-11-05", span: "whole" });
       const two = { ...raw, transcript: "Maya test madam and Verma will be absent tomorrow" };
       expect((await review(two, coordinator)).result).toEqual({ kind: "clarify", reason: "teacher" });

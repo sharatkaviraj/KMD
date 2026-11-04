@@ -102,7 +102,8 @@ export async function readOrParseAiJob<T>(
   let route = configForSession(config, scope.session);
   // A free key that hit its daily quota (or was refused) is skipped until it can answer again.
   if (route.freeApiKey && await freeKeyBlocked()) route = { ...route, freeApiKey: undefined };
-  const result = await extractWithProviders({ ...spec, config: route, media });
+  const workflow = scope.action === "marks-photo" || scope.action === "substitution-photo" ? scope.action : undefined;
+  const result = await extractWithProviders({ ...spec, config: route, media, workflow });
   const attempts = result.attempts;
   await recordAttempts(attempts);
   const last = attempts.at(-1);
