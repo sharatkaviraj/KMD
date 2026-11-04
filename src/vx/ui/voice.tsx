@@ -52,6 +52,37 @@ function recognitionCtor(): (new () => Recognition) | null {
 
 const noSubscribe = () => () => {};
 
+/**
+ * The words being heard right now, outside React state. Chrome reports a
+ * partial result several times a second; kept in component state, every one
+ * re-rendered the whole note composer, which lagged behind speech on a
+ * budget phone. Only the boxes that show the words subscribe (`useHeardText`).
+ */
+export type HeardStore = { get: () => string; subscribe: (listener: () => void) => () => void };
+function heardStore() {
+  let value = "";
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    set: (next: string) => {
+      if (next === value) return;
+      value = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+/** The words being heard, for the one small component that shows them. */
+export function useHeardText(store: HeardStore) {
+  return useSyncExternalStore(store.subscribe, store.get, () => "");
+}
+
 /** Chrome ends a session after a silence even in continuous mode; keep going this long without speech. */
 const IDLE_LIMIT_MS = 45_000;
 /** Recognizer errors that mean "nothing heard yet", not a failure. */
@@ -71,7 +102,7 @@ export function useSpeech(onText: (finalText: string) => void) {
     () => false,
   );
   const [listening, setListening] = useState(false);
-  const [interim, setInterim] = useState("");
+  const [heard] = useState(heardStore);
   const [errorP, setError] = useState<Pair | null>(null);
   /** The English line, for callers that still wrap it in `p()`; prefer `errorP`. */
   const error = errorP?.en ?? null;
@@ -96,21 +127,21 @@ export function useSpeech(onText: (finalText: string) => void) {
     }
     rec.current?.abort();
     setError(null);
-    setInterim("");
+    heard.set("");
     wanted.current = true;
     let lastHeard = Date.now();
 
     const session = () => {
       const r = new Ctor();
       // The text of this session, rebuilt from every result on every event.
-      let heard = { final: "", interim: "" };
+      let spoken = { final: "", interim: "" };
       let committed = false;
       const commit = () => {
         if (committed) return;
         committed = true;
         // A stretch Chrome never marked final is still what the person said.
-        const text = [heard.final, heard.interim].filter(Boolean).join(" ").trim();
-        setInterim("");
+        const text = [spoken.final, spoken.interim].filter(Boolean).join(" ").trim();
+        heard.set("");
         if (text) cb.current(text);
       };
       r.lang = lang;
@@ -125,9 +156,9 @@ export function useSpeech(onText: (finalText: string) => void) {
           text: e.results[i][0]?.transcript ?? "",
           isFinal: e.results[i].isFinal,
         }));
-        heard = speechSessionText(segments);
+        spoken = speechSessionText(segments);
         lastHeard = Date.now();
-        setInterim([heard.final, heard.interim].filter(Boolean).join(" "));
+        heard.set([spoken.final, spoken.interim].filter(Boolean).join(" "));
       };
       r.onerror = (e) => {
         if (QUIET.has(e.error)) return;
@@ -175,7 +206,8 @@ export function useSpeech(onText: (finalText: string) => void) {
     setListening(false);
   };
 
-  return { supported, listening, interim, error, errorP, start, stop };
+  /** `heard`: the stretch being heard now (subscribe with `useHeardText`, or read `heard.get()` in a handler before `stop()`). */
+  return { supported, listening, heard: heard as HeardStore, error, errorP, start, stop };
 }
 
 /** Animated bars while listening (xWave). */
@@ -231,6 +263,7 @@ export function VoiceNote({
     valueRef.current = next;
     onChange(next);
   });
+  const interim = useHeardText(speech.heard);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -239,7 +272,7 @@ export function VoiceNote({
           className="inp"
           name={name}
           rows={rows}
-          value={speech.listening && speech.interim ? appendSpoken(value, speech.interim) : value}
+          value={speech.listening && interim ? appendSpoken(value, interim) : value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder ?? tx(SAY.placeholder)}
           aria-label={tx(SAY.note)}

@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { appendSpoken, speechSessionText } from "@/vx/ui/speech-text";
-import { useSpeech } from "@/vx/ui/voice";
+import { useHeardText, useSpeech } from "@/vx/ui/voice";
 
 const final = (text: string) => ({ text, isFinal: true });
 const interim = (text: string) => ({ text, isFinal: false });
@@ -79,7 +79,7 @@ function Probe() {
   useEffect(() => {
     api = speech;
   });
-  return <output>{speech.interim}</output>;
+  return <output>{useHeardText(speech.heard)}</output>;
 }
 
 beforeEach(() => {
@@ -138,5 +138,29 @@ describe("useSpeech", () => {
     expect(api.listening).toBe(false);
     expect(api.error).toMatch(/microphone/i);
     expect(FakeRecognition.count).toBe(1);
+  });
+
+  it("shows each partial result at once without re-rendering the screen that owns the microphone", () => {
+    let screenRenders = 0;
+    function Live({ store }: { store: ReturnType<typeof useSpeech>["heard"] }) {
+      return <p id="live">{useHeardText(store)}</p>;
+    }
+    function Screen() {
+      screenRenders += 1;
+      const speech = useSpeech(() => {});
+      useEffect(() => {
+        api = speech;
+      });
+      return <Live store={speech.heard} />;
+    }
+    act(() => root.render(<Screen />));
+    act(() => api.start("hi-IN"));
+    const before = screenRenders;
+    const r = FakeRecognition.last!;
+    for (const words of ["aaj", "aaj Riya", "aaj Riya ne homework", "aaj Riya ne homework nahi kiya"]) {
+      act(() => r.emit([[words, false]]));
+      expect(host.querySelector("#live")?.textContent).toBe(words);
+    }
+    expect(screenRenders).toBe(before);
   });
 });
