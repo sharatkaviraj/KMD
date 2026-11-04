@@ -17,6 +17,8 @@ export type ProviderAttempt = ModelUsage & {
   provider: Exclude<AiProviderStage, "openai-claude"> | "openai";
   model: string;
   outcome: "ok" | "invalid" | "unavailable";
+  httpStatus?: number;
+  requestProblem?: "credential" | "schema";
 };
 
 type Extraction<T> =
@@ -93,8 +95,13 @@ async function runStep<T>(
       if (result.outcome === "ok" || result.blocked) return result;
     } catch (error) {
       const outcome = error instanceof SyntaxError ? "invalid" : "unavailable";
-      attempts.push({ ...EMPTY_USAGE, provider, model, outcome });
       const status = (error as { status?: number } | null)?.status;
+      const httpStatus = typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599 ? status : undefined;
+      const message = error instanceof Error ? error.message : "";
+      const requestProblem = httpStatus === 401 || /API_KEY_INVALID|ACCESS_TOKEN_TYPE_UNSUPPORTED/.test(message)
+        ? "credential" : httpStatus === 400 && /schema/i.test(message) ? "schema" : undefined;
+      // Store fixed diagnostic categories only. An upstream message can contain input or secrets.
+      attempts.push({ ...EMPTY_USAGE, provider, model, outcome, httpStatus, requestProblem });
       // Permission and quota errors should move immediately to the next stage.
       if (status && status !== 408 && status < 500) break;
     }
