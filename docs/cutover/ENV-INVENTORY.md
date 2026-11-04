@@ -29,7 +29,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `FEES_BRIDGE_CRON_SECRET` | `src/app/api/jobs/fees-bridge-sync/route.ts` | — | yes | — | deployment operator | dedicated One scheduler credential; same value in Vault; production only |
 | `FEES_BRIDGE_ENABLED` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production coexistence switch; configure after schema and identity verification |
 | `FEES_BRIDGE_KEY` | `src/platform/fees-bridge/client.ts` | — | yes | — | deployment operator | new server-only bridge credential; shared with source ONE_BRIDGE_KEY; production only |
-| `FEES_BRIDGE_OFFICE_READS` | `src/platform/fees-bridge/policy.ts` | — | — | — | owner | false until Fees migration 20261103170000_one_bridge_office_reads is applied; then true for Fees totals, refund requests, receipt lookup and the day book |
+| `FEES_BRIDGE_OFFICE_READS` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | set true on 3 Nov 2026 once Fees migration 20261103170000_one_bridge_office_reads was applied: Fees totals, refund requests, receipt lookup and the day book |
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
 | `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
