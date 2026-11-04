@@ -146,9 +146,10 @@ describe("useSpeech", () => {
       return <p id="live">{useHeardText(store)}</p>;
     }
     function Screen() {
-      screenRenders += 1;
       const speech = useSpeech(() => {});
+      // An effect with no deps runs once per commit of this screen, so it counts its renders.
       useEffect(() => {
+        screenRenders += 1;
         api = speech;
       });
       return <Live store={speech.heard} />;
