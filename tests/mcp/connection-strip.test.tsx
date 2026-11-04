@@ -18,7 +18,8 @@ const row: ConnectionListRow = {
   lastUsedAt: "2026-11-04T05:12:00.000Z",
   calls30d: 3,
 };
-const draw = (state: CardState, canManage = false) => renderToStaticMarkup(<AiConnectionStrip state={state} language="en" canManage={canManage} />);
+const ADDRESS = "https://one.vpps.co.in/api/mcp";
+const draw = (state: CardState, canManage = false, address: string | null = ADDRESS) => renderToStaticMarkup(<AiConnectionStrip state={state} language="en" canManage={canManage} address={address} />);
 const hrefOf = (html: string) => html.match(/href="([^"]+)"/)?.[1];
 
 describe("AiConnectionStrip", () => {
@@ -26,11 +27,14 @@ describe("AiConnectionStrip", () => {
     expect(draw({ kind: "unavailable" })).toBe("");
   });
 
-  it("invites a person who has not connected to the card with the address and steps", () => {
+  it("puts the Connect Claude button on Today for a person who has not connected", () => {
     const html = draw({ kind: "not_connected" });
     expect(html).toContain("Connect Claude to VPPS One");
-    expect(html).toContain("Connect");
-    expect(hrefOf(html)).toBe("/preferences#ai-connection");
+    expect(html).toMatch(/<button[^>]*>Connect Claude<\/button>/);
+    // Without the address it still sends them to the card rather than offering a button that cannot copy.
+    const fallback = draw({ kind: "not_connected" }, false, null);
+    expect(fallback).not.toContain("<button");
+    expect(hrefOf(fallback)).toBe("/preferences#ai-connection");
   });
 
   it("says allowed and when it was last used, never 'connected and working'", () => {
@@ -52,7 +56,9 @@ describe("AiConnectionStrip", () => {
   });
 
   it("asks to reconnect after expiry or a security stop, and to connect after a disconnect", () => {
-    expect(draw({ kind: "reconnect_required", last: { ...row, revokedAt: "2026-11-04T06:00:00.000Z", revokeReason: "expired" } })).toContain("Reconnect");
+    const again = draw({ kind: "reconnect_required", last: { ...row, revokedAt: "2026-11-04T06:00:00.000Z", revokeReason: "expired" } });
+    expect(again).toContain("Reconnect required");
+    expect(again).toContain("Connect Claude");
     expect(draw({ kind: "disconnected", last: { ...row, revokedAt: "2026-11-04T06:00:00.000Z", revokeReason: "disconnected_by_self" } })).toContain("Disconnected");
   });
 });

@@ -5,6 +5,8 @@ import { Button } from "@/ui/primitives/button";
 import type { CardState, ConnectionListRow } from "@/modules/mcp/domain/card";
 import { istDate, istDateTime, providerName, statusOf } from "@/modules/mcp/ui/format";
 import { CopyAddress } from "@/modules/mcp/ui/copy-address";
+import { ConnectClaude } from "@/modules/mcp/ui/connect-claude";
+import { CONNECT_STATES, connectClaudeWords } from "@/modules/mcp/ui/connection-strip";
 
 /**
  * A member of staff's own AI-connection card (plan §8.1), on Preferences.
@@ -110,6 +112,8 @@ export function AiConnectionCard({
           <Text text={a.reconnectHelp} language={language} small />
         </>
       ) : null}
+
+      {address && CONNECT_STATES.has(state.kind) ? <ConnectClaude address={address} words={connectClaudeWords(language)} /> : null}
 
       {state.kind !== "unavailable" && address ? (
         <div className="flex flex-col gap-2 border-t border-border pt-3">

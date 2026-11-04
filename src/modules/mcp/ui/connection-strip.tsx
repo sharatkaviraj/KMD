@@ -3,11 +3,28 @@ import Link from "next/link";
 import { aiConnectionMessages as a } from "@/messages/ai-connection";
 import type { CardState } from "@/modules/mcp/domain/card";
 import { istDateTime } from "@/modules/mcp/ui/format";
+import { ConnectClaude, type ConnectClaudeWords } from "@/modules/mcp/ui/connect-claude";
 import { flat, type Language, type Localized } from "@/platform/i18n/language";
 import { Ic } from "@/vx/icons";
 
 /** Where the address and the steps are: the person's own card on Preferences. */
 export const AI_CONNECTION_CARD_HREF = "/preferences#ai-connection";
+
+/** The Connect Claude button's words, said on the server (rule 9). */
+export function connectClaudeWords(language: Language): ConnectClaudeWords {
+  const say = (text: Localized) => flat(text, language);
+  return {
+    button: say(a.connectClaude),
+    opened: say(a.claudeOpened),
+    openedNoCopy: say(a.claudeOpenedNoCopy),
+    steps: [say(a.claudeStep1), say(a.claudeStep2), say(a.claudeStep3)],
+    openAgain: say(a.claudeOpenAgain),
+    once: say(a.claudeOnce),
+  };
+}
+
+/** States in which the next thing to do is connect (again). */
+export const CONNECT_STATES: ReadonlySet<CardState["kind"]> = new Set(["not_connected", "disconnected", "reconnect_required"]);
 
 /**
  * Today's one line about the AI connection (owner, 4 Nov): whether this person
@@ -16,7 +33,7 @@ export const AI_CONNECTION_CARD_HREF = "/preferences#ai-connection";
  * "allowed", never "connected and working", because One cannot see inside
  * Claude or ChatGPT.
  */
-export function AiConnectionStrip({ state, language, canManage }: { state: CardState; language: Language; canManage: boolean }) {
+export function AiConnectionStrip({ state, language, canManage, address }: { state: CardState; language: Language; canManage: boolean; address: string | null }) {
   if (state.kind === "unavailable") return null;
   const say = (text: Localized) => flat(text, language);
   let tone: "todo" | "ok" | "off" = "todo";
@@ -50,6 +67,22 @@ export function AiConnectionStrip({ state, language, canManage }: { state: CardS
       status = say(a.reconnect);
       action = a.stripReconnect;
       break;
+  }
+
+  // Not connected yet (or again): the button itself, so nobody has to find the card first.
+  if (address && CONNECT_STATES.has(state.kind)) {
+    return (
+      <div className="vx-ai-strip-wrap">
+        <div className={`vx-ai-strip vx-ai-strip-${tone}`}>
+          <Ic n="sparkle" size={16} />
+          <span className="vx-ai-strip-text">
+            <strong>{say(a.stripTitle)}</strong>
+            <span>{status}</span>
+          </span>
+        </div>
+        <ConnectClaude address={address} words={connectClaudeWords(language)} className="vx-ai-strip-wrap" />
+      </div>
+    );
   }
 
   return (

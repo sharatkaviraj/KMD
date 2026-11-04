@@ -136,7 +136,7 @@ export default async function TodayPage() {
     <VxPage label={lead(T.today, language)}>
       <TodayScreen
         notice={seesMoney && canonicalMoney ? <LedgerNotice language={language} /> : null}
-        aiStrip={ai ? <AiConnectionStrip state={ai.state} language={language} canManage={can(staff, "settings:manage")} /> : null}
+        aiStrip={ai ? <AiConnectionStrip state={ai.state} language={language} canManage={can(staff, "settings:manage")} address={ai.address} /> : null}
         officeWork={<Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>}
         firstName={staff.displayName.split(/\s+/)[0] ?? staff.displayName}
         greeting={greeting}
