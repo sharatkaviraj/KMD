@@ -27,3 +27,9 @@ The owner asked for the plan to be checked and deployed to the live One app. The
 - **Phone layout.** Hold-to-speak is a full-width 76 px button that turns red, shows the elapsed time and vibrates on start and stop; photo pickers are two large buttons with page thumbnails (made while compressing, so no object URLs to manage); sheet footers stack full-width buttons below 640 px; marks review inputs are 16 px so iPhone Safari does not zoom. The review heading says "Check what the app read": Claude or Gemini may be the reader.
 - **Notes voice typing (D-404)** is fixed in `useSpeech`, which the note composer, note replies and `VoiceNote` share.
 
+## Bolo cover by voice — 4 November 2026
+
+- **`teacher_absence` (D-405).** "Maya test mam is absent today, unka substitute laga do", "Aaj Maya mam absent hai, unki jagah kya kya laga sakte hain", "Sharma sir lunch ke baad chhutti par hain, Verma ji le lenge". The card lists every lesson with its proposed teacher or "needs a teacher"; begun lessons are left alone; Save commits the reviewed plan by fingerprint, and a changed day returns stale. A plan that would change any other duty is refused (use Arrange cover).
+- **Spelling hints (D-406)** come from `voiceVocabulary`; `who_is_free`, `substitution` and `teacher_absence` users get teacher names, everyone gets class labels.
+- **Prompt.** Hinglish cover phrases, halves, period ranges, worked examples including the owner's sentence, and an explicit rule never to invent a period, class, teacher, substitute, date or mark. A spoken "aaj"/"today" no longer fails the "must appear in the transcript" check.
+
