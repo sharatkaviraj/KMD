@@ -175,7 +175,7 @@ export const QUICK_ACTIONS: readonly { key: string; label: Pair; sub: Pair; icon
   { key: "mark", label: L("Mark attendance", "हाज़िरी"), sub: L("Any class, today", "कोई भी कक्षा, आज"), icon: "calCheck", tone: "acc", href: "/attendance", permission: "attendance:mark_on_behalf" },
   { key: "notice", label: L("Send notice", "सूचना भेजें"), sub: L("WhatsApp to parents or staff", "अभिभावकों या स्टाफ़ को"), icon: "megaphone", tone: "info", href: "/messages?compose=1", permission: "messages:send" },
   { key: "admit", label: L("Add student", "नया विद्यार्थी"), sub: L("New admission", "नया प्रवेश"), icon: "userPlus", tone: "ok", href: "/admissions/new", permission: "fees:manage" },
-  { key: "cover", label: L("Assign substitute", "सब्स्टिट्यूट"), sub: L("Cover an absent teacher", "अनुपस्थित शिक्षक की जगह"), icon: "swap", tone: "warn", href: "/timetable?view=subs", permission: "substitutions:manage" },
+  { key: "cover", label: L("Assign substitute", "सब्स्टिट्यूट"), sub: L("Cover an absent teacher", "अनुपस्थित शिक्षक की जगह"), icon: "swap", tone: "warn", href: "/substitutions/arrange", permission: "substitutions:manage" },
   { key: "note", label: L("Add a note", "नोट लिखें"), sub: L("About a child", "किसी बच्चे के बारे में"), icon: "edit", tone: "plain", href: "/notes?add=1", permission: "notes:view" },
 ];
 

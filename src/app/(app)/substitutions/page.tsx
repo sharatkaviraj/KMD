@@ -35,6 +35,8 @@ import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { Button, buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/page-header-localized";
+import { G } from "@/vx/screens/timetable/guided-text";
+import type { Pair } from "@/vx/text";
 
 export const runtime = "nodejs";
 
@@ -130,6 +132,9 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
         action={
           mayManage ? (
             <div className="flex flex-wrap gap-2">
+              <Link href={`/substitutions/arrange?day=${day}`} className={buttonClasses({ size: "sm" })}>
+                {primary(localized(G.title), language)}
+              </Link>
               <Link href="/substitutions/rules" className={buttonClasses({ variant: "outline", size: "sm" })}>
                 {primary(m.subsRulesTitle, language)}
               </Link>
@@ -149,6 +154,11 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
           {primary(dayLabel(addDays(day, 1)), language)} →
         </Link>
       </div>
+
+      {mayManage ? (
+        // Which cover page is for what (C01): one line, the same words as the Cover tab.
+        <p className="mb-4 text-[13px] text-subtle-foreground">{primary(localized(G.whichPage), language)}</p>
+      ) : null}
 
       <CoverResultBanner />
 
@@ -474,6 +484,11 @@ function NoticeBadge({
     default:
       return <Badge tone="neutral">{primary(m.coverNoticeNone, language)}</Badge>;
   }
+}
+
+/** A vx pair (English first) as this page's Hindi/English pair. */
+function localized(pair: Pair): Localized {
+  return t(pair.hi ?? pair.en, pair.en);
 }
 
 function labelOf(labels: Record<string, Localized>, key: string): Localized {

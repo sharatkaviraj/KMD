@@ -18,6 +18,8 @@ export default defineConfig({
     "@/vx/screens/notes/actions": path.resolve(__dirname, "student-actions.ts"),
     // Needs you decides leave in place (21 Oct smoke fixes); the fixture never does.
     "@/app/(app)/timetable/vx-actions": path.resolve(__dirname, "student-actions.ts"),
+    // The guided cover flow (review C01): synthetic preview/confirm/check, nothing saved or sent.
+    "@/app/(app)/substitutions/guided-actions": path.resolve(__dirname, "guided-cover-actions.ts"),
     "@": path.resolve(__dirname, "../../src"),
     "next/navigation": path.resolve(__dirname, "navigation.ts"),
     "next/link": path.resolve(__dirname, "link.tsx"),

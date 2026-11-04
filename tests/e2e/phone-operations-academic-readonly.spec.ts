@@ -54,8 +54,8 @@ for (const [width, height] of [[360, 800], [390, 844], [412, 915], [844, 390]]) 
       await expect(phoneTitle(page, 'Substitutions')).toBeVisible();
       await expect(page.getByText('No one is marked away yet.', { exact: true })).toBeVisible();
       await expect(page.getByText('Now', { exact: true })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'Save & arrange', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Save & arrange', exact: true })).toBeDisabled();
+      await expect(page.getByRole('button', { name: 'Review & arrange', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Review & arrange', exact: true })).toBeDisabled();
       const phone = await page.evaluate(() => ({ coarse: matchMedia('(pointer: coarse)').matches, width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
       expect(phone.coarse).toBe(true);
       expect(phone.scrollWidth).toBeLessThanOrEqual(width + 1);
@@ -84,7 +84,7 @@ for (const [width, height] of [[360, 800], [390, 844], [412, 915], [844, 390]]) 
       await expect(phoneTitle(teacherPage, 'Substitutions')).toBeVisible();
       await expect(teacherPage.getByText('No one is marked away yet.', { exact: true })).toBeVisible();
       await expect(teacherPage.getByText('Now', { exact: true })).toHaveCount(0);
-      await expect(teacherPage.getByRole('button', { name: /Mark away|Save absence|Save & arrange/i })).toHaveCount(0);
+      await expect(teacherPage.getByRole('button', { name: /Mark away|Save absence|Save & arrange|Review & arrange/i })).toHaveCount(0);
       await teacherPage.goto('/timetable/import');
       await expect(teacherPage).toHaveURL(/\/access-denied(?:\?|$)/);
       await page.goto('/payments');

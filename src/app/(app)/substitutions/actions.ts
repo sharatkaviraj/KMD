@@ -16,6 +16,7 @@ import {
 import {
   idleCoverState,
   refusalMessages,
+  toCoverReceipt,
   type CoverReceipt,
   type CoverState,
 } from "@/modules/substitutions/domain/cover-state";
@@ -55,23 +56,7 @@ function refused(reason: string): CoverState {
 }
 
 function toReceipt(receipt: CommandReceipt): CoverReceipt {
-  return {
-    commandId: receipt.command_id,
-    dayRevision: receipt.day_revision,
-    assigned: receipt.assigned,
-    needsHelp: receipt.needs_help,
-    added: receipt.new,
-    changed: receipt.changed,
-    cancelled: receipt.cancelled,
-    unchanged: receipt.unchanged,
-    pinned: receipt.pinned ?? 0,
-    skippedStarted: receipt.skipped_started,
-    noticesQueued: receipt.notices_queued,
-    noticesWithdrawn: receipt.notices_withdrawn,
-    noticeRecipients: receipt.notice_recipients,
-    recipientsWithoutPhone: receipt.recipients_without_phone,
-    replayed: receipt.replayed,
-  };
+  return toCoverReceipt(receipt);
 }
 
 function intentFrom(formData: FormData): CoverIntent | null {
