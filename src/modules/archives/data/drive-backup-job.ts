@@ -14,6 +14,7 @@ import {
   uploadLargeFile,
   type DriveDeps,
 } from "@/platform/google/drive";
+import { AI_INPUT_BUCKET } from "@/lib/ai/media-limits";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 
@@ -86,7 +87,7 @@ const listObjects = (db: Db) =>
   fetchAllRows<{ bucket: string; name: string; size: number; updated_at: string }>(
     (from, to) => db.rpc("backup_object_listing").range(from, to),
     "the stored files",
-  );
+  ).then((objects) => objects.filter((object) => object.bucket !== AI_INPUT_BUCKET));
 
 const listCopies = (db: Db) =>
   fetchAllRows<{

@@ -33,6 +33,13 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
 | `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
+| `GEMINI_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | server-only key for the confined Gemini pilot; leave unset on production |
+| `GEMINI_INR_PER_USD` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; required accounting conversion |
+| `GEMINI_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to gemini-3.5-flash-lite |
+| `GEMINI_MODEL_FALLBACK` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to gemini-3.8-flash |
+| `GEMINI_MODEL_VISION` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to GEMINI_MODEL |
+| `GEMINI_THINKING_BUDGET` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; optional Gemini 2.5 budget |
+| `GEMINI_THINKING_LEVEL` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; optional minimal or low |
 | `JOBS_SECRET` | `src/app/api/jobs/[job]/route.ts`, `src/vx/screens/settings/data.ts` | — | yes | — | owner | set — per-job tokens (`npm run jobs:tokens`) go into Vault for pg_cron |
 | `LOCALE_SWITCHER_ENABLED` | `src/platform/env.ts` | `src/platform/env.ts` | — | — | owner | leave unset (on); not set on fees either |
 | `MESSAGE_PROVIDER` | `src/modules/collection/data/message-provider.ts` | — | — | — | owner | add at C9 — `aisensy`; `mock` is refused on live |
@@ -91,6 +98,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `VERCEL_REGION` | `src/platform/observability/timing.ts` | `src/platform/observability/timing.ts` | — | — | Vercel (automatic) | automatic |
 | `VERCEL_URL` | `src/modules/mcp/domain/origin.ts`, `src/platform/env.ts` | `src/platform/env.ts` | — | — | Vercel (automatic) | automatic |
 | `VITEST` | `src/modules/collection/data/message-provider.ts`, `src/modules/fees/platform/supabase/cache-safe.ts` +3 | `src/platform/supabase/cache-safe.ts` | — | — | test runner | tests only — never set on Vercel |
+| `VPPSONE_BUILTIN_AI_TEST` | `src/lib/ai/config.ts` | — | — | — | owner | leave unset on production; opt-in for approved TEST-session fixtures only |
 | `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +4 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |
 | `VPPSONE_SESSION_LABEL` | `src/modules/academics/data/academics-repo.ts` | — | — | — | owner | leave unset — the active session comes from app_settings (rule 3a) |
 | `VPPS_OBSERVABILITY_VERBOSE` | `src/platform/observability/log.ts` | `src/platform/observability/log.ts` | — | — | owner | leave unset (off) |

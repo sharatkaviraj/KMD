@@ -21,6 +21,7 @@ import { feesBridgeEnabled } from "@/platform/fees-bridge/policy";
 import { readFeesBridgeState } from "@/platform/fees-bridge/state";
 import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
 import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
+import { purgeBuiltinAiInputs } from "@/lib/ai/jobs";
 import { purgeAssistLog } from "@/modules/assist/data/log";
 import { ASSIST_LOG_RETENTION_DAYS } from "@/modules/assist/domain/retention";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
@@ -970,5 +971,6 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "drive-backup": driveBackup,
   health: healthCheck,
   "assist-log-purge": assistLogPurge,
+  "builtin-ai-purge": () => purgeBuiltinAiInputs(),
   "ai-connection-purge": aiConnectionPurge,
 };

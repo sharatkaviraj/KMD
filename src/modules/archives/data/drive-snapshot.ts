@@ -124,6 +124,8 @@ export async function exportAllTables(db: SnapshotDb) {
     const exported = await exportSchema(db, schema);
     consistent[schema] = exported.consistent;
     for (const row of exported.rows) {
+      // The short-lived AI ledger holds temporary transcriptions, not school records.
+      if (schema === "vppsone" && row.table_name === "ai_jobs") continue;
       const count = Number(row.row_count);
       lines.push(JSON.stringify({ schema, table: row.table_name, count, md5: row.md5, rows: row.rows }));
       tables.push({

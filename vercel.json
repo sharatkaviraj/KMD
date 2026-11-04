@@ -47,6 +47,10 @@
       "schedule": "0 21 * * *"
     },
     {
+      "path": "/api/jobs/builtin-ai-purge",
+      "schedule": "25 21 * * *"
+    },
+    {
       "path": "/api/jobs/ai-connection-purge",
       "schedule": "15 22 * * *"
     }

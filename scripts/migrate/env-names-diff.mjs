@@ -191,6 +191,14 @@ export const ANNOTATIONS = {
   STAFF_NOTICE_TRANSPORT: [OWNER, "add when staff WhatsApp starts (T+7) — `aisensy`; unset on live = disabled (STAFF-WHATSAPP.md §4)"],
   // AI
   ANTHROPIC_API_KEY: [OWNER, "set — `assist` reading real data needs the owner's yes (MCP-AND-NOTION.md, Q13)"],
+  GEMINI_API_KEY: [OWNER, "server-only key for the confined Gemini pilot; leave unset on production"],
+  GEMINI_MODEL: [OWNER, "confined Gemini pilot only; defaults to gemini-3.5-flash-lite"],
+  GEMINI_MODEL_VISION: [OWNER, "confined Gemini pilot only; defaults to GEMINI_MODEL"],
+  GEMINI_MODEL_FALLBACK: [OWNER, "confined Gemini pilot only; defaults to gemini-3.8-flash"],
+  GEMINI_THINKING_LEVEL: [OWNER, "confined Gemini pilot only; optional minimal or low"],
+  GEMINI_THINKING_BUDGET: [OWNER, "confined Gemini pilot only; optional Gemini 2.5 budget"],
+  GEMINI_INR_PER_USD: [OWNER, "confined Gemini pilot only; required accounting conversion"],
+  VPPSONE_BUILTIN_AI_TEST: [OWNER, "leave unset on production; opt-in for approved TEST-session fixtures only"],
   OPENAI_MODEL: ["fees", "fees only; not read by One"],
   OAUTH_PROVIDER: ["fees MCP worker", "fees only"],
   // Monitoring

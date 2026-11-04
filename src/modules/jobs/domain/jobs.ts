@@ -29,6 +29,7 @@ export const jobNames = [
   "health",
   "assist-log-purge",
   "ai-connection-purge",
+  "builtin-ai-purge",
 ] as const;
 
 export type JobName = (typeof jobNames)[number];
@@ -203,6 +204,14 @@ export const JOBS: Record<JobName, JobDefinition> = {
     when: t("हर रात 2:30 बजे", "Every night at 2:30"),
     // Running it again only deletes what is still past 180 days, and is how a
     // backlog larger than one night's batches is finished by hand.
+    oncePerDay: false,
+  },
+  "builtin-ai-purge": {
+    name: "builtin-ai-purge",
+    label: t("पुरानी AI फ़ोटो हटाएँ", "Clear old AI photos"),
+    what: t("90 दिन पुरानी फ़ोटो और पढ़े गए विवरण हटाता है।", "Deletes AI photos and transcription details older than 90 days."),
+    schedule: "25 21 * * *",
+    when: t("हर रात 2:55 बजे", "Every night at 2:55"),
     oncePerDay: false,
   },
   "ai-connection-purge": {
