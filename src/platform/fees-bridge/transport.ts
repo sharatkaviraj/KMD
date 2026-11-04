@@ -89,27 +89,52 @@ export async function bridgeRequest<T>(options: {
   const command = body !== undefined && /^\/(?:payments|reversals|refunds\/[0-9a-f-]+\/(?:decision|process))$/i.test(path);
   const origin = feesBridgeOrigin({FEES_BRIDGE_ORIGIN:options.origin});
   if (!token || !key) throw new FeesBridgeError("not_configured", "The live Fees connection is not configured.");
-  let response: Response;
+  const started = Date.now();
+  let status = 0;
   try {
-    response = await (options.fetcher ?? globalThis.fetch)(`${origin}/api/one/v1${path}`, {
-      method:body === undefined ? "GET" : "POST",
-      headers:{Authorization:`Bearer ${token}`,"X-One-Bridge-Key":key,"Content-Type":"application/json"},
-      body:body === undefined ? undefined : JSON.stringify(body),
-      cache:"no-store",redirect:"error",signal:AbortSignal.timeout(body === undefined ? 15_000 : 45_000),
-    });
-  } catch {
-    throw new FeesBridgeError("unavailable", "The Fees connection could not confirm the result.", command);
+    return await exchange();
+  } finally {
+    logBridgeTiming(body === undefined ? "GET" : "POST", path, status, Date.now() - started);
   }
-  let envelope: unknown;
-  try { envelope = await response.json(); } catch {
-    throw new FeesBridgeError("invalid_response", "The Fees connection returned an unreadable result.", command);
+
+  async function exchange(): Promise<T> {
+    let response: Response;
+    try {
+      response = await (options.fetcher ?? globalThis.fetch)(`${origin}/api/one/v1${path}`, {
+        method:body === undefined ? "GET" : "POST",
+        headers:{Authorization:`Bearer ${token}`,"X-One-Bridge-Key":key,"Content-Type":"application/json"},
+        body:body === undefined ? undefined : JSON.stringify(body),
+        cache:"no-store",redirect:"error",signal:AbortSignal.timeout(body === undefined ? 15_000 : 45_000),
+      });
+    } catch {
+      throw new FeesBridgeError("unavailable", "The Fees connection could not confirm the result.", command);
+    }
+    status = response.status;
+    let envelope: unknown;
+    try { envelope = await response.json(); } catch {
+      throw new FeesBridgeError("invalid_response", "The Fees connection returned an unreadable result.", command);
+    }
+    const parsed = z.object({version:z.literal(1),data:z.unknown().optional(),error:z.object({code:z.string(),message:z.string()}).optional()}).safeParse(envelope);
+    if (!parsed.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned an unexpected result.", command);
+    if (!response.ok || parsed.data.error) {
+      throw new FeesBridgeError(parsed.data.error?.code ?? "unavailable", parsed.data.error?.message ?? "The Fees connection is unavailable.", command && (response.status >= 500 || parsed.data.error?.code === "idempotency_conflict"));
+    }
+    const data = schema.safeParse(parsed.data.data);
+    if (!data.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned incomplete information.", command);
+    return data.data;
   }
-  const parsed = z.object({version:z.literal(1),data:z.unknown().optional(),error:z.object({code:z.string(),message:z.string()}).optional()}).safeParse(envelope);
-  if (!parsed.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned an unexpected result.", command);
-  if (!response.ok || parsed.data.error) {
-    throw new FeesBridgeError(parsed.data.error?.code ?? "unavailable", parsed.data.error?.message ?? "The Fees connection is unavailable.", command && (response.status >= 500 || parsed.data.error?.code === "idempotency_conflict"));
-  }
-  const data = schema.safeParse(parsed.data.data);
-  if (!data.success) throw new FeesBridgeError("invalid_response", "The Fees connection returned incomplete information.", command);
-  return data.data;
+}
+
+/**
+ * One line per Fees call, to find which read a slow screen waits on (S01/S02,
+ * P02). The route's shape only: ids become `:id` and the query string — search
+ * words, dates — is dropped, so no child's name or number reaches the logs.
+ */
+export function bridgeTimingLine(method: string, path: string, status: number, ms: number): string {
+  const shape = path.split("?")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ":id");
+  return `[fees-bridge] ${method} ${shape} ${status || "no-answer"} ${ms}ms`;
+}
+function logBridgeTiming(method: string, path: string, status: number, ms: number) {
+  if (process.env.NODE_ENV === "test") return;
+  console.info(bridgeTimingLine(method, path, status, ms));
 }
