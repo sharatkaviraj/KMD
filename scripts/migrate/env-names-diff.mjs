@@ -57,6 +57,9 @@ export const VERCEL_PRODUCTION = {
     // Set to true on 3 Nov 2026 after Fees 20261103170000 was applied (vercel env add).
     "FEES_BRIDGE_OFFICE_READS",
     "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GEMINI_API_KEY_FREE",
+    "OPEN_AI_API_KEY",
     "CRON_SECRET",
     "JOBS_SECRET",
     "NEXT_PUBLIC_SCHOOL_NAME",
@@ -206,7 +209,7 @@ export const ANNOTATIONS = {
   GEMINI_MODEL_FALLBACK: [OWNER, "confined Gemini pilot only; defaults to gemini-3.8-flash"],
   GEMINI_THINKING_LEVEL: [OWNER, "confined Gemini pilot only; optional minimal or low"],
   GEMINI_THINKING_BUDGET: [OWNER, "confined Gemini pilot only; optional Gemini 2.5 budget"],
-  GEMINI_INR_PER_USD: [OWNER, "confined Gemini pilot only; required accounting conversion"],
+  GEMINI_INR_PER_USD: [OWNER, "confined Gemini pilot only; accounting conversion (default 90)"],
   VPPSONE_BUILTIN_AI_TEST: [OWNER, "leave unset on production; opt-in for approved TEST-session fixtures only"],
   OPENAI_MODEL: ["fees", "fees only; not read by One"],
   OAUTH_PROVIDER: ["fees MCP worker", "fees only"],

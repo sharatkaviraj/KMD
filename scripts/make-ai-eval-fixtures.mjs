@@ -67,10 +67,12 @@ function marksCase(i) {
     if (language >= 2 && j % 2 === 0) mark = dev(mark);
     const mismatch = i % 4 === 0 && j === 4;
     const writtenRoll = j < 9 && i % 5 === 0 ? entry.roll.padStart(2, "0") : entry.roll;
+    const numeric = mark.replace(/[०-९]/gu, (digit) => String(digit.charCodeAt(0) - 0x966)).replace("½", ".5");
     return {
       roll: language >= 2 && j % 2 === 1 ? dev(writtenRoll) : writtenRoll,
       name: mismatch ? roster[j + 1].name : entry.name,
       marks: mark,
+      parsedMarks: /^\d+(\.\d+)?$/.test(numeric) ? Number(numeric) : null,
       rosterRef: mismatch ? "" : entry.ref,
       unclear: i % 4 === 3 && j === 2,
     };
@@ -129,6 +131,7 @@ function coverCase(i) {
   }
   const asWritten = (iso) => iso.slice(8) + "/" + iso.slice(5, 7) + "/" + iso.slice(2, 4);
   const day = new Intl.DateTimeFormat("en", { weekday: "long", timeZone: "UTC" }).format(new Date(date));
+  const datedRows = rows.map((row) => ({ ...row, sourceDate: register ? asWritten(date) : date }));
   const facing = [12, 15, 18].includes(i) ? {
     date: asWritten(new Date(Date.parse(date) - 86_400_000).toISOString().slice(0, 10)),
   } : undefined;
@@ -136,9 +139,9 @@ function coverCase(i) {
     sample: {
       id, action: "substitution-photo", files: ["substitutions/" + id + "-p1.jpg"],
       context: { date, periods: [1, 2, 3, 4, 5, 6, 7, 8], teachers: teachers.map(([initials, hindi], j) => ({ ref: "T" + (j + 1), initials, hindi })) },
-      expected: { rows },
+      expected: { rows: datedRows },
     },
-    pages: [rows],
+    pages: [datedRows],
     presentation: register ? {
       title: "Teacher Arrangement",
       sub: "Date: " + asWritten(date) + "      Day: " + day,
@@ -277,7 +280,7 @@ async function main() {
   const manifest = { provenance: "synthetic", cases: cases.map(({ sample }) => sample) };
   await writeFile(path.join(root, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   await writeFile(path.join(root, "README.md"), [
-    "# VPPS One Gemini fixtures · synthetic v2",
+    "# VPPS One built-in AI photo fixtures",
     "",
     "20 marks lists and 20 substitution slips (44 JPEG pages), with exact written values, prompts' context, and answer keys in manifest.json. All names, rolls, marks and assignments were generated offline. The JPEGs simulate photographed pages; the Hindi lettering is rendered from a font, and none of the writing came from teachers. No One record or staff document is included.",
     "",

@@ -30,7 +30,7 @@ function modelConfig(env: Env) {
   const fallback = aiModel(env.GEMINI_MODEL_FALLBACK?.trim() || DEFAULT_FALLBACK);
   const thinkingBudget = Number(env.GEMINI_THINKING_BUDGET ?? "0");
   const thinkingLevel = env.GEMINI_THINKING_LEVEL?.trim() || "minimal";
-  const inrPerUsd = Number(env.GEMINI_INR_PER_USD);
+  const inrPerUsd = Number(env.GEMINI_INR_PER_USD?.trim() || "90");
   if (!Number.isInteger(thinkingBudget) || thinkingBudget < 0 || thinkingBudget > 2048 ||
       !["minimal", "low"].includes(thinkingLevel) ||
       !Number.isFinite(inrPerUsd) || inrPerUsd <= 0 || inrPerUsd > 1_000) {

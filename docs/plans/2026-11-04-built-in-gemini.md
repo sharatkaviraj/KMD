@@ -50,14 +50,14 @@ Write a `manifest.json` with this shape. The example is marked synthetic; only a
       "action": "marks-photo",
       "files": ["marks-01.jpg"],
       "context": {"classLabel": "7B", "maxMarks": 40, "roster": [{"ref": "R1", "roll": "1", "name": "Sample Student"}]},
-      "expected": {"rows": [{"roll": "1", "name": "Sample Student", "marks": "21.5", "rosterRef": "R1", "unclear": false}]}
+      "expected": {"rows": [{"roll": "1", "name": "Sample Student", "marks": "21.5", "parsedMarks": 21.5, "rosterRef": "R1", "unclear": false}]}
     },
     {
       "id": "cover-01",
       "action": "substitution-photo",
       "files": ["cover-01.jpg"],
       "context": {"date": "2026-11-04", "periods": [1, 2, 3], "teachers": [{"initials": "SK"}, {"initials": "RP"}]},
-      "expected": {"rows": [{"absentTeacher": "SK", "period": "2", "classLabel": "7B", "substitute": "RP", "unclear": false}]}
+      "expected": {"rows": [{"absentTeacher": "SK", "period": "2", "classLabel": "7B", "substitute": "RP", "sourceDate": "04/11/26", "unclear": false}]}
     }
   ]
 }

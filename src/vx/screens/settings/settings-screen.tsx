@@ -118,7 +118,7 @@ const T = {
   signOut: p("Sign out", "साइन आउट"),
 };
 
-type NavItem = { s: SettingsState | "about" | "users" | "ai-connection"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
+type NavItem = { s: SettingsState | "about" | "users" | "ai-connection" | "builtin-ai"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
 
 export function SettingsScreen({ data, state, ai = null }: { data: SettingsData; state: SettingsState; ai?: AssistPanelData | null }) {
   const { tx, language } = useVx();
@@ -179,6 +179,7 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
         { s: "integrations", icon: "link", tone: "warn", title: T.integrations, sub: status.integrations.sub, subTone: status.integrations.tone },
         { s: "ai", icon: "sparkle", tone: "acc", title: T.ai, sub: tx(T.aiSub) },
         // The AI connection (Claude / ChatGPT through MCP) has its own page: the switch and every connection.
+        { s: "builtin-ai", icon: "sparkle", tone: "info", title: p("Built-in AI", "ऐप का AI"), sub: tx(p("Photo and voice usage, costs and limits", "फ़ोटो और आवाज़ का उपयोग, खर्च और सीमा")), href: "/settings/builtin-ai" },
         { s: "ai-connection", icon: "shield", tone: "info", title: aiConnectionLink.title, sub: tx(aiConnectionLink.sub), href: "/settings/ai-connection" },
       ],
     },

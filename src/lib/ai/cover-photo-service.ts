@@ -123,7 +123,7 @@ export async function runCoverPhotoRoute(staff: CurrentStaff, config: AiPilotCon
     task: "image", instructions: await loadPhotoPrompt(COVER_PHOTO_ACTION),
     // The provider transcribes a synthetic register. Match staff and slots
     // against the real app locally, without sending names, rosters or IDs.
-    context: { date: day },
+    context: { date: day, periods: [...new Set(cover.slots.map((slot) => slot.period + 1))].sort((a, b) => a - b) },
     responseSchema: substitutionPhoto.responseSchema, validate: substitutionPhoto.validate,
     stamp: cover.versionId + ":" + cover.bells.revision,
   });

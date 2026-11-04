@@ -33,10 +33,10 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
 | `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
-| `GEMINI_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | existing server-only Gemini paid-fallback slot; no production AI activation |
-| `GEMINI_API_KEY_FREE` | `src/lib/ai/config.ts` | — | — | — | owner | existing free Gemini key; confined fictional TEST media only |
+| `GEMINI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | existing server-only Gemini paid-fallback slot; no production AI activation |
+| `GEMINI_API_KEY_FREE` | `src/lib/ai/config.ts` | — | yes | — | owner | existing free Gemini key; confined fictional TEST media only |
 | `GEMINI_API_KEY_PAID` | `src/lib/ai/config.ts` | — | — | — | owner | optional override for the existing GEMINI_API_KEY fallback slot |
-| `GEMINI_INR_PER_USD` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; required accounting conversion |
+| `GEMINI_INR_PER_USD` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; accounting conversion (default 90) |
 | `GEMINI_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to gemini-3.5-flash-lite |
 | `GEMINI_MODEL_FALLBACK` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to gemini-3.8-flash |
 | `GEMINI_MODEL_PAID` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini paid fallback; pinned model |
@@ -64,7 +64,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `ONE_BRIDGE_KEY` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production; new server-only credential matching One; no preview copy |
 | `ONE_BRIDGE_SYNC_SECRET` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production; separate synchronization credential |
 | `ONLINE_PAYMENTS_CRON_SECRET` | `src/app/api/fees/cron/online-payments/route.ts` | `src/app/api/cron/online-payments/route.ts` | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_ONLINE_PAYMENTS_CRON_SECRET, checked in the database (RAZORPAY.md §5) |
-| `OPEN_AI_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | existing server-only OpenAI transcription key for the confined AI pilot |
+| `OPEN_AI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | existing server-only OpenAI transcription key for the confined AI pilot |
 | `OPENAI_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | optional compatibility alias if OPEN_AI_API_KEY is absent |
 | `OPENAI_MODEL` | — | `src/platform/config/openai.ts` | — | — | fees | fees only; not read by One |
 | `PERF_TIMING` | `src/platform/observability/timing.ts` | `src/platform/observability/timing.ts` | — | — | owner | leave unset (off) |

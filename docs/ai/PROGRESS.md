@@ -7,6 +7,6 @@
 | 2 · Marks photo | Implemented | Existing English/Hindi phone-width review, provider-router integration, deterministic range/identity checks, and native marks command replay tests. |
 | 3 · Substitution photo | Implemented; local checks passed | Date and lesson validation, native cover suggestions, opt-in auto-apply, two-minute notice hold/Undo; isolated PostgreSQL covered replay, conflict rollback and delayed claim. |
 | 4 · Voice | Implemented; local checks passed | Role-filtered commands, scoped absence and availability answers, native writes after confirmation, mocked WebM/MP4 capture and 60-second cutoff. Physical-device/provider verification remains open. |
-| 5 · Admin AI | In progress | Provider/usage summary and daily limit. |
+| 5 · Admin AI | Implemented | Monthly rupee estimates and provider share, edit rate, recent failures, and adjustable per-staff daily quota. The usage RPC was verified in isolated PostgreSQL. |
 
-No hosted schema, credential, real school data or outbound provider state has changed.
+A 390 px Chrome fixture exercised all three interfaces with mocked Storage, capture and API responses: marks review and save, cover result and Undo, Bolo transcript and explicit Save. The offline evaluator includes 20 marks lists, 20 substitution slips and six synthetic voice clips. No hosted schema, credential, real school data or outbound provider state has changed. Hosted phone acceptance and real handwriting/voice scores remain open because no separate development Supabase or nonproduction provider keys were available.

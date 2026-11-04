@@ -12,6 +12,7 @@
     "test": "vitest run",
     "ai:eval": "node --conditions=react-server --import ./scripts/alias-hook.mjs scripts/ai-eval.mjs",
     "ai:fixtures": "node scripts/make-ai-eval-fixtures.mjs",
+    "ai:voice-fixtures": "node scripts/make-ai-voice-fixtures.mjs",
     "test:watch": "vitest",
     "check:bundles": "node scripts/performance-bundles.mjs --baseline docs/evidence/smoothness-redesign.json",
     "check": "npm run typecheck && npm run lint && npm run check:theme && npm run check:port && npm run test && npm run build && npm run check:bundles",
