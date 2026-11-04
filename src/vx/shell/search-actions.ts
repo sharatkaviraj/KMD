@@ -207,9 +207,9 @@ async function localSearch(ask: Ask, sessionLabel: string, seesStudents: boolean
 
 /**
  * The first child's latest receipts, which the phone lists under a name search
- * (F04). Asked for after the names are on screen, so the slow Fees workspace
- * read never holds them up; `recentReceiptsFor` checks `fees:view` and the
- * session itself.
+ * (F04). Asked for after the names are on screen, so the Fees read never
+ * holds them up; `recentReceiptsFor` checks `fees:view` and the session
+ * itself, and asks Fees for just these two receipts (review P02).
  */
 export async function searchChildReceiptsAction(studentId: string): Promise<{ receipts: ReceiptHit[]; failed: boolean }> {
   const staff = await assertStaff();

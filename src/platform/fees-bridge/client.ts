@@ -5,6 +5,11 @@ import { assertPermission, assertStaff, type CurrentStaff } from "@/platform/aut
 import { createClient } from "@/platform/supabase/server";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { bridgeDirectoryLookupSchema, bridgeDirectorySchema, bridgeReceiptDetailSchema, bridgeWorkspaceSchema } from "./student-read-contracts";
+import {
+  bridgeStudentFeesSchema, bridgeStudentFinanceHistorySchema, bridgeStudentHistorySchema, bridgeStudentHouseholdSchema,
+  bridgeStudentLedgerSchema, bridgeStudentReceiptsSchema, type BridgeWorkspace,
+} from "./student-read-contracts";
+import { composeStudentView } from "./student-view";
 import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import {
   officeCommandStatusSchema, refundDecisionInputSchema, refundDecisionResultSchema, refundProcessInputSchema, refundProcessResultSchema,
@@ -91,6 +96,71 @@ export async function getBridgeWorkspace(studentId:string,sessionLabel:string,pa
     throw new FeesBridgeError("invalid_response","The Fees record did not match this student and session.");
   }
   try{return restrictStudentWorkspace(result,capabilities);}catch{throw new FeesBridgeError("invalid_response","The Fees record did not match this account's read permissions.");}
+}
+
+// ── Single-purpose student reads (review P02) ─────────────────────────────
+// Fees serves each section of the student record on its own, under the
+// workspace's grant. One asks only for what a screen shows: the palette two
+// receipts, Student 360 the sections this reader may see. Never cached.
+
+type StudentSection="fees"|"receipts"|"ledger"|"finance-history"|"household"|"history";
+async function readStudentSection<T extends {studentId:string;sessionLabel:string}>(auth:Awaited<ReturnType<typeof credentials>>,studentId:string,sessionLabel:string,section:StudentSection,query:Record<string,string|undefined>,schema:z.ZodType<T>):Promise<T> {
+  const params=new URLSearchParams({session:sessionLabel});
+  for(const [key,value] of Object.entries(query))if(value!==undefined)params.set(key,value);
+  const result=await bridgeRequest({...auth,path:`/students/${studentId}/${section}?${params}`,schema});
+  if(result.studentId!==studentId||result.sessionLabel!==sessionLabel)throw new FeesBridgeError("invalid_response","The Fees record did not match this student and session.");
+  return result;
+}
+const positive=(value:number|undefined)=>value===undefined?undefined:String(z.number().int().min(1).max(10_000).parse(value));
+
+/** One page of a child's receipts for this session, newest first (the palette asks for two). */
+export async function getBridgeStudentReceipts(studentId:string,sessionLabel:string,options:{page?:number;pageSize?:number}={}) {
+  const staff=await assertPermission("fees:view");
+  if(!oneStudentReadPermissions(staff).receipts)throw new FeesBridgeError("forbidden","Your account cannot view receipts.");
+  z.uuid().parse(studentId);
+  const pageSize=z.number().int().min(1).max(100).parse(options.pageSize??40);
+  const result=await readStudentSection(await credentials(staff,sessionLabel),studentId,sessionLabel,"receipts",{page:positive(options.page),pageSize:String(pageSize)},bridgeStudentReceiptsSchema);
+  if((result.receipts?.length??0)>pageSize)throw new FeesBridgeError("invalid_response","The Fees receipts did not match this request.");
+  // Fees' own refusal stands: no receipts without its receipt and fee permissions.
+  return result.permissions.receipts&&result.permissions.fees?result:{...result,receipts:null,pagination:null};
+}
+
+export type StudentViewSection="receipts"|"ledger"|"financeHistory"|"household"|"history";
+const EVERY_SECTION:readonly StudentViewSection[]=["receipts","ledger","financeHistory","household","history"];
+/**
+ * Student 360's record from the single-purpose reads, in parallel, in the
+ * workspace's shape. Only sections `want` names and One's own permissions
+ * allow are asked for; the rest are null, as `restrictStudentWorkspace` would
+ * have made them. The money band is always read.
+ */
+export async function getBridgeStudentView(studentId:string,sessionLabel:string,pages:WorkspacePages={},want:readonly StudentViewSection[]=EVERY_SECTION):Promise<BridgeWorkspace> {
+  const staff=await assertPermission("students:view");
+  const one=oneStudentReadPermissions(staff);
+  z.uuid().parse(studentId);
+  for(const value of Object.values(pages))if(value!==undefined)z.number().int().positive().parse(value);
+  const kinds=permittedFinanceKinds(one);
+  const historySections=[...(one.contacts?["contacts"]:[]),...(one.communications?["attempts","reminders","notices"]:[]),...(one.documents?["documents"]:[])];
+  const auth=await credentials(staff,sessionLabel);
+  const read=<T extends {studentId:string;sessionLabel:string}>(asked:boolean,section:StudentSection,query:Record<string,string|undefined>,schema:z.ZodType<T>)=>
+    asked?readStudentSection(auth,studentId,sessionLabel,section,query,schema):Promise.resolve(null);
+  const [fees,receipts,ledger,financeHistory,household,history]=await Promise.all([
+    readStudentSection(auth,studentId,sessionLabel,"fees",{},bridgeStudentFeesSchema),
+    read(one.receipts&&want.includes("receipts"),"receipts",{page:positive(pages.receiptsPage)},bridgeStudentReceiptsSchema),
+    read(one.ledger&&want.includes("ledger"),"ledger",{page:positive(pages.ledgerPage)},bridgeStudentLedgerSchema),
+    read(one.fees&&kinds.length>0&&want.includes("financeHistory"),"finance-history",{kinds:kinds.join(","),page:positive(pages.financePage)},bridgeStudentFinanceHistorySchema),
+    read(one.household&&want.includes("household"),"household",{},bridgeStudentHouseholdSchema),
+    read(historySections.length>0&&want.includes("history"),"history",{sections:historySections.join(","),contactsPage:positive(pages.contactsPage),attemptsPage:positive(pages.attemptsPage),
+      remindersPage:positive(pages.remindersPage),noticesPage:positive(pages.noticesPage),documentsPage:positive(pages.documentsPage)},bridgeStudentHistorySchema),
+  ]);
+  let view:BridgeWorkspace;
+  try{view=composeStudentView({fees,receipts,ledger,financeHistory,household,history});}
+  catch{throw new FeesBridgeError("read_changed","Fees changed while this record was loading. Refresh to load a consistent record.");}
+  if(view.student.id!==studentId||view.student.classSessionLabel!==sessionLabel||
+    view.installmentBalances?.some(row=>row.studentId!==studentId||(row.sessionLabel!==sessionLabel&&!(row.isCarryForward&&row.targetSessionLabel===sessionLabel)))||
+    (view.financialSummary&&(view.financialSummary.studentId!==studentId||view.financialSummary.sessionLabel!==sessionLabel))) {
+    throw new FeesBridgeError("invalid_response","The Fees record did not match this student and session.");
+  }
+  try{return restrictStudentWorkspace(view,one);}catch{throw new FeesBridgeError("invalid_response","The Fees record did not match this account's read permissions.");}
 }
 
 export async function getBridgeReceiptDetail(receiptId:string,sessionLabel:string) {

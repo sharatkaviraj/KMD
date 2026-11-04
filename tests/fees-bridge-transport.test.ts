@@ -42,6 +42,20 @@ describe("canonical Fees transport",()=>{
       await expect(bridgeRequest({...base,path,fetcher:ok()})).rejects.toMatchObject({code:"invalid_route"});
     }
   });
+  it("permits the six single-purpose student reads (review P02), and only those shapes",async()=>{
+    const ok=()=>vi.fn().mockResolvedValue(Response.json({version:1,data:{ok:true}}));
+    const id="00000000-0000-4000-8000-000000000001";
+    for(const section of ["fees","receipts","ledger","finance-history","household","history","workspace"]){
+      const path=`/students/${id}/${section}?session=2026-27&page=1&pageSize=2`;const fetcher=ok();
+      expect(await bridgeRequest({...base,path,fetcher})).toEqual({ok:true});
+      expect(fetcher.mock.calls[0][0]).toBe(`https://fees.vpps.co.in/api/one/v1${path}`);
+      expect(fetcher.mock.calls[0][1]).toMatchObject({method:"GET",cache:"no-store"});
+    }
+    for(const path of [`/students/${id}/finance_history`,`/students/${id}/notes`,`/students/${id}/fees/extra`,`/students/${id}/receipts/${id}`,
+      `/students/${id}/history/../payments`,`/students/fees`,`/students//fees`,`/students/${id}/feesx`,`/students/${id}/Fees/../../sync`]){
+      await expect(bridgeRequest({...base,path,fetcher:ok()}),path).rejects.toMatchObject({code:"invalid_route"});
+    }
+  });
   it("treats a lost answer to a reversal or refund command as uncertain, never to a read",async()=>{
     const lost=()=>vi.fn().mockRejectedValue(new TypeError("network"));
     for(const path of ["/reversals","/refunds/00000000-0000-4000-8000-000000000001/process"]){
