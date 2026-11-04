@@ -129,6 +129,8 @@ export default async function PreferencesPage() {
       </Section>
 
       {aiCard ? (
+        // Today's AI line links here (/preferences#ai-connection).
+        <div id="ai-connection" className="scroll-mt-20">
         <Section className="mt-7" title={aiConnectionMessages.cardTitle} language={staff.language}>
           <AiConnectionCard
             state={aiCard.state}
@@ -138,6 +140,7 @@ export default async function PreferencesPage() {
             disconnect={disconnectMyAiConnectionAction}
           />
         </Section>
+        </div>
       ) : null}
 
       <Section

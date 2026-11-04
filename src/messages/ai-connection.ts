@@ -57,6 +57,16 @@ export const aiConnectionMessages = {
   notSaved: t("अनुमति दर्ज नहीं हो सकी। फिर से कोशिश करें।", "The approval could not be saved. Try again."),
   // The card
   cardTitle: t("AI सहायक (Claude / ChatGPT)", "AI assistant (Claude / ChatGPT)"),
+  // Today's one-line status (owner, 4 Nov: "highlight it on the home page")
+  stripTitle: t("AI सहायक", "AI assistant"),
+  stripNotConnected: t("Claude को VPPS One से जोड़ें — दो मिनट लगते हैं", "Connect Claude to VPPS One — it takes two minutes"),
+  stripSwitchedOffAdmin: t("स्कूल का AI स्विच बंद है", "The school's AI switch is off"),
+  stripConnect: t("जोड़ें", "Connect"),
+  stripReconnect: t("फिर जोड़ें", "Reconnect"),
+  stripTurnOn: t("चालू करें", "Turn on"),
+  stripManage: t("देखें", "View"),
+  copyAddress: t("पता कॉपी करें", "Copy address"),
+  copied: t("कॉपी हो गया", "Copied"),
   notConnected: t("जुड़ा नहीं है", "Not connected"),
   allowed: t("अनुमति है", "Allowed"),
   lastUsed: (when: string) => t(`आख़िरी उपयोग ${when}`, `last used ${when}`),

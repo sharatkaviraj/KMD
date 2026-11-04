@@ -4,6 +4,7 @@ import { Badge, Card } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 import type { CardState, ConnectionListRow } from "@/modules/mcp/domain/card";
 import { istDate, istDateTime, providerName, statusOf } from "@/modules/mcp/ui/format";
+import { CopyAddress } from "@/modules/mcp/ui/copy-address";
 
 /**
  * A member of staff's own AI-connection card (plan §8.1), on Preferences.
@@ -114,6 +115,7 @@ export function AiConnectionCard({
         <div className="flex flex-col gap-2 border-t border-border pt-3">
           <p className="text-[13px] font-semibold">{primary(a.addressLabel, language)}</p>
           <code className="block select-all break-all rounded-lg bg-surface-2 px-3 py-2 text-[14px]">{address}</code>
+          <CopyAddress address={address} label={primary(a.copyAddress, language)} done={primary(a.copied, language)} />
           <Text text={a.howClaude} language={language} small />
           <Text text={a.howChatGpt} language={language} small />
           <Text text={a.honesty} language={language} small />

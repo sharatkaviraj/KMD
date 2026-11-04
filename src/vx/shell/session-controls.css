@@ -45,6 +45,16 @@
 .vx-ledger-notice nav{display:flex;flex-wrap:wrap;gap:4px 12px}
 .vx-ledger-notice .vx-lnk{padding:0;min-height:44px;font-size:13px}
 .vx-today-notice{padding:14px 18px 0}
+.vx-ai-strip{display:flex;align-items:center;gap:10px;min-width:0;min-height:44px;padding:8px 12px;border:1px solid var(--bd);border-radius:14px;background:var(--s2);color:var(--fg);font-size:13px;line-height:1.45;text-decoration:none}
+.vx-ai-strip>svg:first-child{flex:none;color:var(--acc)}
+.vx-ai-strip-text{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:0 8px}
+.vx-ai-strip-text strong{font-weight:600}
+.vx-ai-strip-text span{color:var(--mut);overflow-wrap:anywhere}
+.vx-ai-strip-act{flex:none;display:inline-flex;align-items:center;gap:2px;font-weight:600;color:var(--acc)}
+.vx-ai-strip-todo{border-color:var(--acc);background:var(--accs)}
+.vx-ai-strip-ok>svg:first-child{color:var(--ok)}
+.vx-ai-strip-off>svg:first-child{color:var(--mut)}
+@media(hover:hover) and (pointer:fine){.vx-ai-strip:hover{background:var(--s3)}.vx-ai-strip-todo:hover{background:var(--accs);border-color:var(--accfg)}}
 @media(hover:hover) and (pointer:fine){.vxt .vx-session-trigger:hover{background:var(--s3);border-color:var(--bds)}.vx-session-options .vx-session-row:not(:disabled):hover{background:var(--s2)}}
 @media(max-width:899px){
   .vx-workspace-bar{padding:4px 16px;background:var(--nav);color:var(--navm);border-color:var(--navb)}

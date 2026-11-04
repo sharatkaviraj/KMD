@@ -45,6 +45,8 @@ export type LedgerToday = { total: number; count: number; byMode: { label: strin
 
 export type TodayProps = {
   notice?: ReactNode;
+  /** The AI connection's one line (owner, 4 Nov); apart from `notice`, which also decides the money note. */
+  aiStrip?: ReactNode;
   officeWork?: ReactNode;
   /** Morning: a part-day's money is not set against a whole average day (verification N7, as accountant B16). */
   beforeNoon?: boolean;
@@ -316,6 +318,7 @@ export function TodayScreen(props: TodayProps) {
         <div className="only-m" style={{ lineHeight: 1.4 }}>
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
           {props.notice ? <div className="vx-today-notice">{props.notice}</div> : null}
+          {props.aiStrip ? <div className="vx-today-notice">{props.aiStrip}</div> : null}
           <PhoneNeeds inbox={inbox} incomplete={inboxIncomplete} />
           {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
@@ -334,6 +337,7 @@ export function TodayScreen(props: TodayProps) {
           <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
             <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
               {props.notice}
+              {props.aiStrip}
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--mut)" }}>
