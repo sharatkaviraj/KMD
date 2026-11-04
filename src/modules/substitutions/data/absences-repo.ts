@@ -2,6 +2,7 @@ import "server-only";
 
 import { assertStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
+import { assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import type {
@@ -37,8 +38,28 @@ export async function absencesOn(
   day: string,
 ): Promise<TeacherAbsence[]> {
   const reader = await assertStaff();
-  const showReason = can(reader, "substitutions:manage");
+  return readAbsences(sessionLabel, day, can(reader, "substitutions:manage"));
+}
 
+/**
+ * The same read for a member of staff verified by the AI connection rather
+ * than this request's cookie (`src/platform/auth/verified-actor.ts`): the
+ * same gate, any active staff, plus the test-session fence the service role
+ * would otherwise skip. The reason comes back only when asked for AND
+ * the actor manages cover; the AI connection never asks (plan §4.1,
+ * `who_is_away`).
+ */
+export async function absencesOnAs(
+  actor: VerifiedActor,
+  sessionLabel: string,
+  day: string,
+  options: { withReason: boolean },
+): Promise<TeacherAbsence[]> {
+  const reader = assertActorSession(actor, sessionLabel);
+  return readAbsences(sessionLabel, day, options.withReason && can(reader, "substitutions:manage"));
+}
+
+async function readAbsences(sessionLabel: string, day: string, showReason: boolean): Promise<TeacherAbsence[]> {
   const { data, error } = await createAdminClient()
     .from("teacher_absences")
     .select(COLUMNS)

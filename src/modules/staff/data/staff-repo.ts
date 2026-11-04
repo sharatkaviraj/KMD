@@ -2,6 +2,8 @@ import "server-only";
 
 import { assertStaff } from "@/platform/auth/current-staff";
 import { can, resolveStaffRole, type StaffRole } from "@/platform/auth/permissions";
+import { assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
+import { revokeStaffAiConnections } from "@/modules/mcp/data/connections";
 import { resolveLanguage } from "@/platform/i18n/language";
 import { createAdminClient } from "@/platform/supabase/admin";
 import type {
@@ -67,7 +69,20 @@ async function readerSeesContact(): Promise<boolean> {
 }
 
 export async function listStaff(): Promise<StaffProfile[]> {
-  const showContact = await readerSeesContact();
+  return readStaffList(await readerSeesContact());
+}
+
+/**
+ * `listStaff` for a member of staff verified by the AI connection: names to
+ * any active staff, phone numbers withheld always — the AI connection's
+ * projections never carry one, so it never reads one (plan §4.3).
+ */
+export async function listStaffAs(actor: VerifiedActor): Promise<StaffProfile[]> {
+  assertActorStaff(actor);
+  return readStaffList(false);
+}
+
+async function readStaffList(showContact: boolean): Promise<StaffProfile[]> {
   const { data, error } = await createAdminClient()
     .from("staff_profiles")
     .select(COLUMNS)
@@ -233,7 +248,14 @@ export async function changeStaffAuthority(input: {
   if (error) throw error;
 
   const result = data as { ok: boolean; changed?: boolean; reason?: AuthorityRefusal };
-  return result.ok
-    ? { ok: true, changed: Boolean(result.changed) }
-    : { ok: false, reason: result.reason ?? "not_admin" };
+  if (!result.ok) return { ok: false, reason: result.reason ?? "not_admin" };
+
+  // Disabling a login ends their AI connections too (plan §5.4). The call
+  // pipeline refuses an inactive account on its next call whatever happens
+  // here, so a failure is not the action's failure — the check that counts
+  // is the per-call one.
+  if (!input.isActive) {
+    await revokeStaffAiConnections(input.targetStaffId, "staff_disabled", input.actorStaffId).catch(() => 0);
+  }
+  return { ok: true, changed: Boolean(result.changed) };
 }

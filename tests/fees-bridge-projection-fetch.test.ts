@@ -7,6 +7,8 @@ vi.mock("@/modules/fees/platform/session-context/cookie",()=>({getViewSessionCoo
 vi.mock("@/platform/fees-bridge/state",()=>({readFeesBridgeState:mocks.state}));
 vi.mock("@/platform/env",()=>({getServerSupabaseUrl:()=>"https://one.supabase.co"}));
 import {createProjectionFetch} from "@/platform/fees-bridge/projection-fetch";
+import {mintVerifiedActor} from "@/platform/auth/verified-actor";
+import {withVerifiedActor} from "@/platform/auth/verified-actor-context";
 
 describe("One public read containment",()=>{
   beforeEach(()=>{
@@ -67,6 +69,22 @@ describe("One public read containment",()=>{
     expect((await createProjectionFetch(underlying)("https://one.supabase.co/rest/v1/students",init)).status).toBe(409);
     expect((await createProjectionFetch(underlying,{privileged:true})("https://evil.test/rest/v1/students",init)).status).toBe(409);
     expect(underlying).not.toHaveBeenCalled();
+  });
+  it("inside an AI-connection read uses the verified actor and ignores cookies entirely",async()=>{
+    // The token holder controls the Cookie header on /api/mcp: a cookie for a
+    // TEST account and a TEST session pill must not steer the actor's read.
+    mocks.staff.mockResolvedValue({isActive:true,role:"teacher",isTestAccount:true,confined:false});
+    mocks.session.mockResolvedValue("TEST-2026-27");
+    const actor=mintVerifiedActor({id:"s",userId:"u",email:null,displayName:"Synthetic Admin",shortName:"SA",role:"admin",isTeaching:false,isActive:true,language:"en",preferredStart:null,permissions:[],isTestAccount:false,confined:false});
+    const underlying=vi.fn().mockResolvedValue(Response.json([]));
+    await withVerifiedActor(actor,()=>createProjectionFetch(underlying,{privileged:true})("https://one.supabase.co/rest/v1/students?id=eq.synthetic",{headers:{"Accept-Profile":"public"}}));
+    expect(mocks.staff).not.toHaveBeenCalled();
+    expect(mocks.session).not.toHaveBeenCalled();
+    expect(new URL((underlying.mock.calls[0][0] as Request).url).pathname).toBe("/rest/v1/fees_bridge_students");
+  });
+  it("does not take a look-alike actor object as verified",async()=>{
+    const fake={id:"s",userId:"u",email:null,displayName:"Fake",shortName:"F",role:"admin",isTeaching:false,isActive:true,language:"en",preferredStart:null,permissions:[]};
+    expect(()=>withVerifiedActor(fake as never,async()=>null)).toThrow(/verified/);
   });
   it("does not let a real non-admin select local TEST identities by forging a cookie",async()=>{
     mocks.staff.mockResolvedValue({isActive:true,role:"teacher",isTestAccount:false,confined:false});

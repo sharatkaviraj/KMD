@@ -85,6 +85,18 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
         ],
       },
+      // The AI connection's consent page: never framed (an "Allow" a hidden
+      // frame could be clicked through), never cached, and the request
+      // (client, state, challenge) never sent on as a referrer.
+      {
+        source: "/mcp/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
     ];
   },
 

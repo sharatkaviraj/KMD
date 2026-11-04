@@ -938,6 +938,26 @@ export async function healthCheck(day: string): Promise<Summary> {
     : { ...summary, queued };
 }
 
+/* ------------------------------------------------- AI connection purge */
+
+/**
+ * Retention for the AI connection (owner decision D8): call rows past 180
+ * days, codes and tokens a day past expiry or revocation, connections ended
+ * more than 180 days ago, registered clients nobody connected with. One SQL
+ * function (`vppsone.ai_purge`), counts only.
+ */
+async function aiConnectionPurge(): Promise<Summary> {
+  const result = await must(createAdminClient().rpc("ai_purge", { p_keep_days: 180 }), "the AI connection purge");
+  const counts = (result ?? {}) as Record<string, unknown>;
+  return {
+    calls: Number(counts.calls ?? 0),
+    codes: Number(counts.codes ?? 0),
+    tokens: Number(counts.tokens ?? 0),
+    connections: Number(counts.connections ?? 0),
+    clients: Number(counts.clients ?? 0),
+  };
+}
+
 export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "open-registers": openRegisters,
   "attendance-reminder": attendanceReminder,
@@ -950,4 +970,5 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "drive-backup": driveBackup,
   health: healthCheck,
   "assist-log-purge": assistLogPurge,
+  "ai-connection-purge": aiConnectionPurge,
 };

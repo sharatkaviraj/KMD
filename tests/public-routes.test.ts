@@ -119,10 +119,21 @@ describe("routes that authenticate by a secret, signature or token", () => {
  * forgot its secret, or a page under `/pay` that skipped the pay-code check,
  * fails here instead of being quietly public.
  */
+// The AI connection (plan 2026-11-03-mcp-feasibility §5.3): `handleMcp` checks
+// the One-issued bearer token (401 + WWW-Authenticate otherwise), and
+// `handleToken` / `handleRevoke` the code, refresh token or token in the body.
 const PUBLIC_TOKEN =
-  /isPayCodeShaped|loadCheckoutSend|resolveToken|resolveStaffToken|resolveTaskToken|limitByToken|resolvePass/;
+  /isPayCodeShaped|loadCheckoutSend|resolveToken|resolveStaffToken|resolveTaskToken|limitByToken|resolvePass|handleMcp\(request|handleToken\(request|handleRevoke\(request/;
 
 const OPEN_BY_DESIGN: Record<string, string> = {
+  "src/app/.well-known/oauth-protected-resource/route.ts":
+    "RFC 9728 metadata for the AI connection: names the MCP resource, its authorization server and scope, nothing else.",
+  "src/app/.well-known/oauth-protected-resource/api/mcp/route.ts":
+    "The same RFC 9728 document at its path-suffixed location, where the 401 challenge points.",
+  "src/app/.well-known/oauth-authorization-server/route.ts":
+    "RFC 8414 metadata for One's own AI-connection authorization server: endpoint URLs and supported methods only.",
+  "src/app/api/mcp/oauth/register/route.ts":
+    "RFC 7591 dynamic registration, unauthenticated by design (Claude registers a client on every fresh connection). It grants nothing: redirect URIs must match an exact allowlist, registrations are capped per hour, and no data opens until a signed-in eligible member of staff approves on /mcp/authorize.",
   "src/app/rv/[code]/page.tsx":
     "The parent's receipt check (the fees app's /r/{number}): shows a receipt number, date, amount and reversal state for the number in the URL, nothing about the child.",
   "src/app/cv/[code]/page.tsx":
@@ -203,6 +214,14 @@ describe("a cold request with no cookie", () => {
     "/api/jobs/staff-notices",
     "/rv/SVP20261213-5001",
     "/cv/0123456789abcdef",
+    // The AI connection: each answers its own 401 (Claude needs the challenge to start sign-in).
+    "/api/mcp",
+    "/api/mcp/oauth/token",
+    "/api/mcp/oauth/register",
+    "/api/mcp/oauth/revoke",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/api/mcp",
+    "/.well-known/oauth-authorization-server",
   ];
 
   it.each(COLD)("%s is answered by its route, not redirected to /login", async (url) => {
@@ -223,12 +242,19 @@ describe("a cold request with no cookie", () => {
     },
   );
 
-  it("still sends the fee screens to /login", async () => {
+  it("still sends the fee screens — and the AI consent page — to /login", async () => {
     // The opening is the prefixes above, not the fee area: /fees/payments/online
-    // is staff-only.
-    for (const url of ["/fees/payments/online", "/payments", "/paying", "/api/fees/admin/revalidate-after-bulk"]) {
+    // is staff-only. The AI connection's consent page stays behind sign-in,
+    // and the login round trip keeps its whole query.
+    for (const url of ["/fees/payments/online", "/payments", "/paying", "/api/fees/admin/revalidate-after-bulk", "/mcp/authorize", "/api/mcpx", "/.well-known/oauth-protected-resourcex", "/settings/ai-connection"]) {
       const response = await updateSession(new NextRequest(new URL(url, "https://one.vpps.co.in")));
       expect(response.status, url).toBe(307);
     }
+    const consent = "/mcp/authorize?response_type=code&client_id=abc&redirect_uri=https%3A%2F%2Fclaude.ai%2Fapi%2Fmcp%2Fauth_callback&state=s%26t&code_challenge=x&code_challenge_method=S256";
+    const response = await updateSession(new NextRequest(new URL(consent, "https://one.vpps.co.in")));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("next")).toBe(consent);
   });
 });

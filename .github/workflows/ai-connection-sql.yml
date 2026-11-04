@@ -1,0 +1,44 @@
+name: AI connection SQL
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+# Only obsolete PR test runs may be cancelled; main/manual runs stay independent.
+concurrency:
+  group: ai-connection-sql-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  functions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install disposable in-memory PostgreSQL runtime
+        run: npm install --prefix "$RUNNER_TEMP/ai-sql" --no-package-lock @electric-sql/pglite@0.5.10
+      - name: Run the AI connection migration against a synthetic schema and exercise every function and grant
+        run: node tests/sql/ai-connection.mjs "$RUNNER_TEMP/ai-sql/node_modules/@electric-sql/pglite"
+  single-use-locks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ai_connection_ci
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ai_connection_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'psycopg[binary]>=3.2,<4'
+      - name: Prove single-use codes, refresh rotation and one live connection with two real connections
+        run: python tests/sql/ai-connection-locks.py

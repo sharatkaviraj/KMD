@@ -75,6 +75,17 @@ function isPublicPath(pathname: string) {
  *  - `/api/fees/cron/*`   pg_cron and Vercel cron — `CRON_SECRET` or the
  *                         route's own secret, refused without one.
  *
+ *  - `/api/mcp/*`        the AI connection (plan 2026-11-03-mcp-feasibility
+ *                         §5.3): the MCP endpoint checks a One-issued bearer
+ *                         token and answers its own 401 with a
+ *                         `WWW-Authenticate` challenge, which Claude needs to
+ *                         start sign-in; the OAuth token, registration and
+ *                         revocation endpoints take their credential in the
+ *                         body. The consent page `/mcp/authorize` is NOT here:
+ *                         it stays behind the normal sign-in;
+ *  - `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`
+ *                         public metadata documents (RFC 9728, RFC 8414).
+ *
  * Without these a Razorpay delivery is a 307 to /login, which Razorpay counts
  * as a failure and eventually disables the webhook; a cron "succeeds" while
  * doing nothing; a parent tapping Pay now lands on the staff sign-in page.
@@ -93,6 +104,9 @@ export const PUBLIC_PREFIXES = [
   "/api/webhooks",
   "/api/fees/webhooks",
   "/api/fees/cron",
+  "/api/mcp",
+  "/.well-known/oauth-protected-resource",
+  "/.well-known/oauth-authorization-server",
 ] as const;
 
 export { isPublicPath };

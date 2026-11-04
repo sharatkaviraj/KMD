@@ -5,6 +5,7 @@ import { cache } from "react";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { assertActorEveryClass, assertActorPermission, assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { addDays, dayLabel, weekdayLabel, weekdayName } from "@/platform/dates";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -14,17 +15,21 @@ import { pendingCanonicalMoneyRequests, pendingMoneyRequests, pendingOneMoneyReq
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
-import { classLabelMap } from "@/modules/academics/data/academics-repo";
+import { classLabelMap, classLabelMapAs } from "@/modules/academics/data/academics-repo";
 import { isSchoolOpen, timetableRuns } from "@/modules/academics/domain/calendar";
 import { rankOf } from "@/modules/academics/domain/class-order";
 import { termSummaries, type TermSummary } from "@/modules/assessments/data/reports-repo";
 import {
   attendanceCalendar,
+  attendanceCalendarAs,
   attendanceRules,
+  attendanceRulesAs,
   findRegister,
   latestReceipt,
   listMarks,
+  markStatusesAs,
   registersForDay,
+  registersForDayAs,
   rosterOn,
   schoolCalendar,
   studentAttendance,
@@ -35,11 +40,11 @@ import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { documentsForStudent, historyForStudent, type RecordChange } from "@/modules/collection/data/documents-repo";
 import { listSubmissions } from "@/modules/collection/data/submissions-repo";
 import { splitByChange, type StudentDocument } from "@/modules/collection/domain/review";
-import { listEnrolments } from "@/modules/enrolments/data/enrolments-repo";
+import { listEnrolments, listEnrolmentsAs } from "@/modules/enrolments/data/enrolments-repo";
 import { jobsBoard } from "@/modules/jobs/data/jobs-repo";
 import { enrolmentForStudent, getStudentCard, type StudentCard } from "@/modules/students/data/student-repo";
-import { listStaff } from "@/modules/staff/data/staff-repo";
-import { absencesOn } from "@/modules/substitutions/data/absences-repo";
+import { listStaff, listStaffAs } from "@/modules/staff/data/staff-repo";
+import { absencesOn, absencesOnAs } from "@/modules/substitutions/data/absences-repo";
 import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitutions/data/arrange-day";
 import { currentBells, dutiesOn, liveOnly } from "@/modules/substitutions/data/cover-repo";
 import { coverEligibleIds, distinctNames } from "@/modules/substitutions/domain/cover-view";
@@ -100,6 +105,18 @@ const askedLeave = cache(async (sessionLabel: string): Promise<AskedLeave[]> => 
   const name = new Map((people ?? []).map((s) => [s.id, s.display_name]));
   return data.map((r) => ({ id: r.id, staffName: name.get(r.staff_profile_id) ?? "—", fromDay: r.from_day, toDay: r.to_day, span: r.span, note: r.note, askedAt: r.created_at }));
 });
+
+/**
+ * Leave asked and not decided, for a member of staff verified by the AI
+ * connection (`pending_leave`). Needs you loads it only for
+ * `substitutions:manage`; the same check, against the actor. The note stays
+ * behind: the tool's projection never names it.
+ */
+export async function askedLeaveForActor(actor: VerifiedActor, sessionLabel: string): Promise<AskedLeave[]> {
+  assertActorPermission(actor, "substitutions:manage");
+  assertActorSession(actor, sessionLabel);
+  return askedLeave(sessionLabel);
+}
 
 const LEAVE_SPAN: Record<string, Pair> = { full: p("Full day", "पूरा दिन"), first_half: p("First half", "पहली पाली"), second_half: p("Second half", "दूसरी पाली") };
 // The school's own words for the days, never a bare "2026-10-16" (B13).
@@ -187,18 +204,82 @@ type Board = BoardData & { unavailable: string[]; timetableRuns: boolean };
 /** The day's class board, once per request however many parts of the page ask (perf fix 1). */
 export const loadBoard: (sessionLabel: string, day: string) => Promise<Board> = cache(readBoard);
 
+/**
+ * Where the board's rows come from. The screen's source is the signed-in
+ * readers (cookie, RLS, each with its own check); `actorBoardSource` is the
+ * same readers' verified-actor twins, for the AI connection. The board itself
+ * — the tally, the rows, the order — is one function over either.
+ */
+type BoardSource = {
+  labels: (sessionLabel: string) => Promise<Map<string, string>>;
+  registers: (sessionLabel: string, day: string) => Promise<Awaited<ReturnType<typeof registersForDay>>>;
+  enrolments: (sessionLabel: string) => Promise<Awaited<ReturnType<typeof listEnrolments>>>;
+  staff: () => Promise<{ id: string; displayName: string }[]>;
+  absences: (sessionLabel: string, day: string) => Promise<{ staffProfileId: string }[]>;
+  calendar: (sessionLabel: string) => Promise<Map<string, CalendarDayKind>>;
+  rules: (sessionLabel: string) => Promise<Awaited<ReturnType<typeof attendanceRules>>>;
+  marks: (sessionLabel: string, registerIds: string[]) => Promise<{ data: { register_id: string; status: AttendanceStatus }[] | null; error: unknown }>;
+};
+
+// Wrappers, not references: the readers are looked up when the board is read,
+// as they were before this seam existed, never at module load.
+const screenBoardSource: BoardSource = {
+  labels: (sessionLabel) => classLabelMap(sessionLabel),
+  registers: (sessionLabel, day) => registersForDay(sessionLabel, day),
+  enrolments: (sessionLabel) => listEnrolments(sessionLabel),
+  staff: () => staffList(),
+  absences: (sessionLabel, day) => absencesFor(sessionLabel, day),
+  calendar: (sessionLabel) => attendanceCalendar(sessionLabel),
+  rules: (sessionLabel) => attendanceRules(sessionLabel),
+  marks: async (_sessionLabel, registerIds) => {
+    const supabase = await createClient();
+    return fetchInChunks<{ register_id: string; status: AttendanceStatus }>(registerIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+      supabase.from("attendance_marks").select("register_id, status").in("register_id", chunk),
+    );
+  },
+};
+
+function actorBoardSource(actor: VerifiedActor): BoardSource {
+  return {
+    labels: (sessionLabel) => classLabelMapAs(actor, sessionLabel),
+    registers: (sessionLabel, day) => registersForDayAs(actor, sessionLabel, day),
+    enrolments: (sessionLabel) => listEnrolmentsAs(actor, sessionLabel),
+    staff: () => listStaffAs(actor),
+    absences: (sessionLabel, day) => absencesOnAs(actor, sessionLabel, day, { withReason: false }),
+    calendar: (sessionLabel) => attendanceCalendarAs(actor, sessionLabel),
+    rules: (sessionLabel) => attendanceRulesAs(actor, sessionLabel),
+    marks: (sessionLabel, registerIds) => markStatusesAs(actor, sessionLabel, registerIds),
+  };
+}
+
+/**
+ * The day's class board for a member of staff verified by the AI connection
+ * (`school_day_summary`). The admin Today's own guard — `dashboard:view` —
+ * and its scope, every class (`readsEveryClass`), checked against the actor;
+ * every reader inside repeats its own check.
+ */
+export async function boardForActor(actor: VerifiedActor, sessionLabel: string, day: string): Promise<Board> {
+  assertActorEveryClass(actor, "dashboard:view");
+  assertActorSession(actor, sessionLabel);
+  return readBoardFrom(actorBoardSource(actor), sessionLabel, day);
+}
+
 async function readBoard(sessionLabel: string, day: string): Promise<Board> {
+  return readBoardFrom(screenBoardSource, sessionLabel, day);
+}
+
+async function readBoardFrom(source: BoardSource, sessionLabel: string, day: string): Promise<Board> {
   const missing: string[] = [];
   const [labels, registers, enrolments, responsible, staff, absences, reminders, calendar, rules, bells] = await Promise.all([
-    classLabelMap(sessionLabel),
-    registersForDay(sessionLabel, day),
-    listEnrolments(sessionLabel),
+    source.labels(sessionLabel),
+    source.registers(sessionLabel, day),
+    source.enrolments(sessionLabel),
     guard(missing, "teachers", () => responsibleFor(sessionLabel, day)),
-    guard(missing, "staff", () => staffList()),
-    guard(missing, "absences", () => absencesFor(sessionLabel, day)),
+    guard(missing, "staff", () => source.staff()),
+    guard(missing, "absences", () => source.absences(sessionLabel, day)),
     guard(missing, "reminders", () => remindersOn(day)),
-    guard<Map<string, CalendarDayKind>>(missing, "calendar", () => attendanceCalendar(sessionLabel)),
-    guard(missing, "rules", () => attendanceRules(sessionLabel)),
+    guard<Map<string, CalendarDayKind>>(missing, "calendar", () => source.calendar(sessionLabel)),
+    guard(missing, "rules", () => source.rules(sessionLabel)),
     guard(missing, "bells", () => currentBells(sessionLabel)),
   ]);
 
@@ -209,10 +290,7 @@ async function readBoard(sessionLabel: string, day: string): Promise<Board> {
 
   const tally = new Map<string, { present: number; absent: number; halfDay: number; other: number }>();
   if (recordedIds.length > 0) {
-    const supabase = await createClient();
-    const { data, error } = await fetchInChunks<{ register_id: string; status: AttendanceStatus }>(recordedIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
-      supabase.from("attendance_marks").select("register_id, status").in("register_id", chunk),
-    );
+    const { data, error } = await source.marks(sessionLabel, recordedIds);
     if (error) missing.push("marks");
     for (const row of data ?? []) {
       const t = tally.get(row.register_id) ?? { present: 0, absent: 0, halfDay: 0, other: 0 };

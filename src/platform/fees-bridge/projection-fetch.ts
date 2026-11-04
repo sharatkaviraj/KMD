@@ -1,5 +1,6 @@
 import "server-only";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { verifiedActorInContext } from "@/platform/auth/verified-actor-context";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { canAccessSession, isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { feesBridgeEnabled, usesCanonicalFees } from "./policy";
@@ -26,11 +27,18 @@ export function createProjectionFetch(underlying?: typeof fetch, options:{privil
     if (schema !== "public" || !url.pathname.startsWith("/rest/v1/")) return send(input,init);
     if(url.origin!==new URL(getServerSupabaseUrl()).origin)return refusal("The roster request origin is not permitted.");
 
-    const staff = await getCurrentStaff();
+    // Inside an AI-connection read (`withVerifiedActor`,
+    // src/modules/mcp/data/runtime.ts, after its whole per-call check) the
+    // reader is that actor and NOTHING from cookies counts: on /api/mcp the
+    // token holder writes the Cookie header, so neither the cookie's staff
+    // member nor its session pill may steer this read. Otherwise the
+    // cookie's staff member, as before. The rules below apply to either.
+    const contextActor = verifiedActorInContext();
+    const staff = contextActor ?? (await getCurrentStaff());
     if (!staff) return refusal("A verified staff account is required to read the school roster.");
     const explicitSession = explicitSessionOf(url);
     if (explicitSession && !canAccessSession(staff,explicitSession)) return refusal("That academic session is not available to this account.");
-    const requested = explicitSession ?? await getViewSessionCookie();
+    const requested = explicitSession ?? (contextActor ? null : await getViewSessionCookie());
     // A stale TEST cookie after promotion, or a forged cookie on a real
     // non-admin, does not select the local TEST database path.
     const session = requested && canAccessSession(staff,requested) ? requested : null;

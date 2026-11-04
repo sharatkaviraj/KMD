@@ -1,6 +1,7 @@
 import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertActorEveryClass, assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
@@ -102,8 +103,25 @@ type EnrolmentRow = {
  * thousandth as missing from VPPS One.
  */
 export async function listEnrolments(sessionLabel: string): Promise<Enrolment[]> {
-  const supabase = await createClient();
+  return readEnrolments(await createClient(), sessionLabel);
+}
 
+/**
+ * `listEnrolments` for a member of staff verified by the AI connection. RLS
+ * on `enrolments` gives a school-wide reader every class and anyone else
+ * their own; this service-role twin serves only a school-wide reader with
+ * `attendance:view` (the board's need), so it asks for both.
+ */
+export async function listEnrolmentsAs(actor: VerifiedActor, sessionLabel: string): Promise<Enrolment[]> {
+  assertActorEveryClass(actor, "attendance:view");
+  assertActorSession(actor, sessionLabel);
+  return readEnrolments(createAdminClient(), sessionLabel);
+}
+
+async function readEnrolments(
+  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
+  sessionLabel: string,
+): Promise<Enrolment[]> {
   const data = await fetchAllRows<EnrolmentRow>(
     (from, to) =>
       supabase
