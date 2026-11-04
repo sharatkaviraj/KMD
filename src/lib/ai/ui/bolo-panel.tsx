@@ -206,7 +206,7 @@ export function BoloSheet({ open, onClose, cover = false }: { open: boolean; onC
     setSaved(false);
   }
   return <Sheet open={open} onClose={close} title={title} icon="mic" backCloses dismissable={!busy && problem !== "retry_save"}
-      footer={<div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+      footer={<div className="grid w-full grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         {canSave && <Btn variant="pri" big disabled={busy !== null} onClick={() => void confirm()}>{busy === "apply"
           ? tx(p("Saving…", "सहेज रहे हैं…")) : tx(p("Save", "सहेजें"))}</Btn>}
         {again && <Btn variant="sec" big icon="mic" onClick={retry}>{tx(p("Speak again", "फिर से बोलें"))}</Btn>}

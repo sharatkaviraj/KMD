@@ -9,8 +9,19 @@ sheet gains Quick substitute (Photo · Speak · Arrange) for people who may
 arrange cover while built-in AI is on; hold-to-speak, photo pickers, sheet
 footers and marks inputs are sized for phones. Voice typing rebuilds each
 listening session from all of Chrome's results, merges Android's restated
-phrases, and ignores results after Stop. Release and live checks follow in
-this row.
+phrases, and ignores results after Stop. **Released:** #192 merged as
+`16925a7d` (all checks green after the Quick substitute row moved to a lazy
+chunk: /students 243.6 KB against its 243.7 KB ceiling, main 243.4), production
+`dpl_GrtddLVS9f7GCCfAKjv1zTMv4TNu`. **Verified live** in a 386 px frame on
+one.vpps.co.in (admin, TEST session, fictional data): "+" shows Quick
+substitute (Photo · Speak · Arrange) in place of "Assign substitute"; a slip
+handed to the camera input opened "Substitute from a photo" and read at once
+(no rows: slip dated 5 Oct, the date guard); Speak opened "Substitute by voice"
+with the example and a 76 px hold button; a stand-in recognizer replaying
+Android's restated finals, a silence restart and a late final after Done left
+the note "Aarav did not bring his homework today again" (cleared, not saved).
+Follow-up #193 widens the Bolo sheet footer, which shrink-wrapped to 73 px.
+**Not verified:** a real phone microphone and camera, iPhone Safari.
 
 ## Built-in AI goes live — 4 November 2026
 
