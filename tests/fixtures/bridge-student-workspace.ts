@@ -27,3 +27,17 @@ export function bridgeWorkspaceFixture():BridgeWorkspace {
     history:{contacts:{rows:[{id,contactedAt:time,channel:"call",outcome:"promised",note:"Synthetic contact note",snoozeUntil:null,contactedPhone:"0000000000",phoneLabel:"Guardian",broadcast:false,hasVoiceNote:false}],pagination:{...page}},collectionFlags:{noCall:false,reason:null,whatsappCadence:"weekly",whatsappSnoozedUntil:null,whatsappLanguage:"hi",whatsappProfile:"regular",profileSetAt:time,updatedAt:time},recovery:{stage:"follow_up",promiseOutcome:"kept",promiseResolvedAt:time,keptCount:1,brokenCount:0,updatedAt:time},attempts:{rows:[{id,sendId:id,createdAt:time,result:"sent",destination:"0000000000",destinationRole:"guardian",source:"receipt",note:"Synthetic delivery note",cause:null}],pagination:{...page}},reminders:{rows:[],pagination:{...page,totalCount:0}},notices:{rows:[],pagination:{...page,totalCount:0}},documents:{rows:[{sendId:id,kind:"receipt",receiptId:sourceReceiptId,createdAt:time,updatedAt:time,available:true}],pagination:{...page}}},
   };
 }
+
+/** The same record as Fees' single-purpose reads serve it (review P02), keyed by route section. */
+export function bridgeSectionsFixture(source:BridgeWorkspace=bridgeWorkspaceFixture()) {
+  const base={studentId:source.studentId,sessionLabel:source.sessionLabel,asOf:source.asOf,asOfDate:source.asOfDate,permissions:{...source.permissions}};
+  return {
+    fees:{...base,student:source.student,feeProfile:source.feeProfile,financialSummary:source.financialSummary,financialSnapshot:source.financialSnapshot,installmentBalances:source.installmentBalances,
+      repaymentPlan:source.repaymentPlan,repaymentPlanHistory:source.repaymentPlanHistory,documents:source.documents},
+    receipts:{...base,receipts:source.receipts,pagination:source.pagination.receipts},
+    ledger:{...base,ledger:source.ledger,pagination:{payments:source.pagination.ledgerPayments,adjustments:source.pagination.ledgerAdjustments}},
+    "finance-history":{...base,financeHistory:source.financeHistory,pagination:source.pagination.financeHistory},
+    household:{...base,family:source.family,household:source.household},
+    history:{...base,history:source.history},
+  };
+}

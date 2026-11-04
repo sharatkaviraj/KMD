@@ -22,7 +22,8 @@ import { getStudentFinancialSnapshot } from "@/modules/fees/data/policy";
 import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules/prev-year-dues/domain/display";
 import { STUDENT_LIST_FEE_SEGMENTS } from "@/platform/fees-bridge/student-directory";
 import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
-import { getBridgeDirectory, getBridgeWorkspace } from "@/platform/fees-bridge/client";
+import { getBridgeDirectory, getBridgeStudentReceipts, getBridgeStudentView } from "@/platform/fees-bridge/client";
+import { oneStudentReadPermissions } from "@/platform/fees-bridge/read-permissions";
 import { feesFromBridge, moneyListFromBridge } from "./canonical-students";
 
 /**
@@ -180,7 +181,9 @@ export async function recentReceiptsFor(
   const staff=await assertPermission("fees:view");
   const view=await resolveViewSession({cookieSession:await getViewSessionCookie()});
   if(usesCanonicalFees(staff,view.sessionLabel)) {
-    const source=await getBridgeWorkspace(studentId,view.sessionLabel);
+    // Just the receipts it shows (review P02): it used to read the child's whole Fees record.
+    if(!oneStudentReadPermissions(staff).receipts)return [];
+    const source=await getBridgeStudentReceipts(studentId,view.sessionLabel,{pageSize:Math.min(Math.max(1,limit),100)});
     return (source.receipts??[]).slice(0,limit).map(row=>({id:row.id,number:row.receiptNumber,amount:row.totalAmount,date:row.paymentDate,mode:row.paymentMode,reversed:row.isReversed,session:view.sessionLabel}));
   }
   const result = await createAdminClient()
@@ -278,7 +281,8 @@ export async function studentFees(studentId: string): Promise<StudentFees> {
   const staff=await assertPermission("fees:view");
   const view=await resolveViewSession({cookieSession:await getViewSessionCookie()});
   if(usesCanonicalFees(staff,view.sessionLabel)) {
-    const result=feesFromBridge(await getBridgeWorkspace(studentId,view.sessionLabel));
+    // The money band, the first page of receipts and the family: what `StudentFees` carries.
+    const result=feesFromBridge(await getBridgeStudentView(studentId,view.sessionLabel,{},["receipts","household"]));
     if(!result)throw new Error("The Fees record is not available to this account.");
     return result;
   }

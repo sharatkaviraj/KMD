@@ -90,25 +90,50 @@ const planSummary = z.object({planId:uuid,studentId:uuid,sessionLabel:text,scope
   remainingBalance:amount,paidToDate:amount,expectedToDate:amount,catchUpAmount:amount,missedInstallmentCount:count,paidInstallmentCount:count,
   nextDueSequenceNo:count.nullable(),nextDueDate:nullableText,nextDueAmount:nullableAmount,reason:text,activatedAt:text,activatedByLabel:nullableText,
   cancelledAt:nullableText,cancellationReason:nullableText,supersedesPlanId:nullableText,supersededByPlanId:nullableText,planReviewNeeded:z.boolean()});
-export const bridgeWorkspaceSchema = z.object({...pins,studentId:uuid,
-  permissions:z.object({fees:z.boolean(),receipts:z.boolean(),ledger:z.boolean(),finance:z.boolean(),household:z.boolean(),contacts:z.boolean(),communications:z.boolean(),documents:z.boolean()}),
+// Sections of the student record. Fees serves each on its own (review P02) and
+// the workspace as all of them; both schemas are built from these pieces.
+const studentRead = {...pins,studentId:uuid,
+  permissions:z.object({fees:z.boolean(),receipts:z.boolean(),ledger:z.boolean(),finance:z.boolean(),household:z.boolean(),contacts:z.boolean(),communications:z.boolean(),documents:z.boolean()})};
+const receiptRow = z.object({id:uuid,receiptNumber:text,paymentDate:text,totalAmount:amount,paymentMode:text,paymentModeLabel:text,referenceNumber:nullableText,receivedBy:nullableText,
+  createdAt:text,isReversed:z.boolean(),appliedTo:nullableText,appliedToInstallments:z.array(z.object({label:text,dueDate:nullableText,amount}))});
+const ledger = z.object({id:uuid,fullName:text,admissionNo:text,classLabel:text,payments:z.array(ledgerPayment),adjustments:z.array(ledgerAdjustment),totalPayments:amount,totalAdjustmentNet:amount,totalCreditAdjustments:amount,totalDebitAdjustments:amount});
+const financeRow = z.object({id:uuid,kind:z.enum(["receipt_adjustment","receipt_finance_adjustment","refund","waiver"]),receiptId:uuid.nullable(),createdAt:text,status:nullableText,amount:nullableAmount,reason:nullableText,notes:nullableText,details:z.record(text,z.union([text,amount,z.null()]))});
+const family = z.object({familyGroupId:nullableText,members:z.array(z.object({id:uuid,fullName:text,admissionNo:text,classLabel:text,statusLabel:text,isSelf:z.boolean(),
+  financials:z.object({totalDue:amount,totalPaid:amount,outstanding:amount,discountCloseouts:amount,lateFeeWaiver:amount}).nullable().optional()}))}).nullable();
+const household = z.object({familyGroupId:nullableText,familyLabel:nullableText,contacts:z.array(z.object({destination:text,labels:z.array(text),telephoneEligible:z.boolean(),whatsappEligible:z.boolean(),unavailableCause:nullableText})),noContact:z.boolean(),pausedUntil:nullableText,reviewRequired:z.boolean()}).nullable();
+/** The money band: profile, fee profile, canonical totals, installments and EMI. */
+const feesSection = {
   student:profile,feeProfile:feeProfile.nullable(),financialSummary:financialSummary.nullable(),financialSnapshot:financialSnapshot.nullable(),installmentBalances:z.array(installment).nullable(),
-  ledger:z.object({id:uuid,fullName:text,admissionNo:text,classLabel:text,payments:z.array(ledgerPayment),adjustments:z.array(ledgerAdjustment),totalPayments:amount,totalAdjustmentNet:amount,totalCreditAdjustments:amount,totalDebitAdjustments:amount}).nullable(),
-  receipts:z.array(z.object({id:uuid,receiptNumber:text,paymentDate:text,totalAmount:amount,paymentMode:text,paymentModeLabel:text,referenceNumber:nullableText,receivedBy:nullableText,
-    createdAt:text,isReversed:z.boolean(),appliedTo:nullableText,appliedToInstallments:z.array(z.object({label:text,dueDate:nullableText,amount}))})).nullable(),
-  family:z.object({familyGroupId:nullableText,members:z.array(z.object({id:uuid,fullName:text,admissionNo:text,classLabel:text,statusLabel:text,isSelf:z.boolean(),
-    financials:z.object({totalDue:amount,totalPaid:amount,outstanding:amount,discountCloseouts:amount,lateFeeWaiver:amount}).nullable().optional()}))}).nullable(),
-  household:z.object({familyGroupId:nullableText,familyLabel:nullableText,contacts:z.array(z.object({destination:text,labels:z.array(text),telephoneEligible:z.boolean(),whatsappEligible:z.boolean(),unavailableCause:nullableText})),noContact:z.boolean(),pausedUntil:nullableText,reviewRequired:z.boolean()}).nullable(),
   repaymentPlan:z.object({summary:planSummary,schedule:z.array(z.object({sequenceNo:count,dueDate:text,amount,paidAmount:amount,status:text,
     lateFee:z.object({installmentId:uuid,amount,waivedAmount:amount,paidAmount:amount,outstandingAmount:amount}).nullable()})),
     items:z.array(z.object({installmentId:uuid,installmentNo:z.number().nullable(),installmentLabel:nullableText,dueDate:text,isCarryForward:z.boolean(),snapshotBaseCharge:amount,includedBaseBalance:amount,waivedLateFee:amount}))}).nullable(),
   repaymentPlanHistory:z.array(planSummary).nullable(),
-  financeHistory:z.array(z.object({id:uuid,kind:z.enum(["receipt_adjustment","receipt_finance_adjustment","refund","waiver"]),receiptId:uuid.nullable(),createdAt:text,status:nullableText,amount:nullableAmount,reason:nullableText,notes:nullableText,details:z.record(text,z.union([text,amount,z.null()]))})).nullable(),
-  pagination:z.object({receipts:page.nullable(),ledgerPayments:page.nullable(),ledgerAdjustments:page.nullable(),financeHistory:page.nullable()}),
   documents:z.object({photo:z.boolean(),receiptDetails:z.boolean(),storedStudentAttachments:z.literal(false)}),
+};
+export const bridgeWorkspaceSchema = z.object({...studentRead,...feesSection,
+  ledger:ledger.nullable(),receipts:z.array(receiptRow).nullable(),family,household,financeHistory:z.array(financeRow).nullable(),
+  pagination:z.object({receipts:page.nullable(),ledgerPayments:page.nullable(),ledgerAdjustments:page.nullable(),financeHistory:page.nullable()}),
   history,
 });
 export type BridgeWorkspace = z.infer<typeof bridgeWorkspaceSchema>;
+/** GET /students/:id/fees */
+export const bridgeStudentFeesSchema = z.object({...studentRead,...feesSection});
+/** GET /students/:id/receipts — one page, at most 100. */
+export const bridgeStudentReceiptsSchema = z.object({...studentRead,receipts:z.array(receiptRow).max(100).nullable(),pagination:page.nullable()});
+/** GET /students/:id/ledger */
+export const bridgeStudentLedgerSchema = z.object({...studentRead,ledger:ledger.nullable(),pagination:z.object({payments:page.nullable(),adjustments:page.nullable()})});
+/** GET /students/:id/finance-history — null when no asked-for kind is permitted. */
+export const bridgeStudentFinanceHistorySchema = z.object({...studentRead,financeHistory:z.array(financeRow).max(100).nullable(),pagination:page.nullable()});
+/** GET /students/:id/household */
+export const bridgeStudentHouseholdSchema = z.object({...studentRead,family,household});
+/** GET /students/:id/history */
+export const bridgeStudentHistorySchema = z.object({...studentRead,history});
+export type BridgeStudentFees = z.infer<typeof bridgeStudentFeesSchema>;
+export type BridgeStudentReceipts = z.infer<typeof bridgeStudentReceiptsSchema>;
+export type BridgeStudentLedger = z.infer<typeof bridgeStudentLedgerSchema>;
+export type BridgeStudentFinanceHistory = z.infer<typeof bridgeStudentFinanceHistorySchema>;
+export type BridgeStudentHousehold = z.infer<typeof bridgeStudentHouseholdSchema>;
+export type BridgeStudentHistory = z.infer<typeof bridgeStudentHistorySchema>;
 
 export const bridgeReceiptDetailSchema = z.object({...pins,receiptId:uuid,studentId:uuid,detail:z.object({
   id:uuid,studentId:uuid,receiptNumber:text,paymentDate:text,paymentMode:text,onlineMethod:nullableText.optional(),totalAmount:amount,referenceNumber:nullableText,notes:nullableText,receivedBy:nullableText,

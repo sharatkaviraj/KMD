@@ -27,7 +27,7 @@ import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { usesCanonicalFees, FEES_ORIGIN } from "@/platform/fees-bridge/policy";
-import { getBridgeWorkspace } from "@/platform/fees-bridge/client";
+import { getBridgeStudentView } from "@/platform/fees-bridge/client";
 import { bridgeStudentPhotoHref } from "@/platform/fees-bridge/student-photo";
 import { feesFromBridge } from "@/modules/students-fees/vx/canonical-students";
 import { shownTransportLabel } from "@/modules/fees/domain/transport-route-key";
@@ -57,7 +57,8 @@ export async function Student360Content({ id, search }: { id: string; search: Re
   const seesMoney = can(staff, "fees:view");
   const canonical=valid&&usesCanonicalFees(staff,sessionLabel);
   const page=(key:string)=>resolvePage(typeof search[key]==="string"?search[key]:undefined);
-  const sourcePromise=canonical&&sessionLabel?getBridgeWorkspace(id,sessionLabel,{receiptsPage:page("receiptsPage"),ledgerPage:page("ledgerPage"),financePage:page("financePage"),contactsPage:page("contactsPage"),attemptsPage:page("attemptsPage"),remindersPage:page("remindersPage"),noticesPage:page("noticesPage"),documentsPage:page("documentsPage")}).catch(()=>"unavailable" as const):Promise.resolve(null);
+  // Fees' single-purpose reads in parallel (review P02), only the sections this reader may see.
+  const sourcePromise=canonical&&sessionLabel?getBridgeStudentView(id,sessionLabel,{receiptsPage:page("receiptsPage"),ledgerPage:page("ledgerPage"),financePage:page("financePage"),contactsPage:page("contactsPage"),attemptsPage:page("attemptsPage"),remindersPage:page("remindersPage"),noticesPage:page("noticesPage"),documentsPage:page("documentsPage")}).catch(()=>"unavailable" as const):Promise.resolve(null);
 
   // Everything this card shows is independent of everything else, so it all
   // starts at once: the fee side (the fee app's own reads) and the notes no
