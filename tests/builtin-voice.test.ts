@@ -308,6 +308,9 @@ describe("Bolo", () => {
     expect(supportedSpeech({ ...base, transcript: "Aaj Maya mam absent hai, substitute laga do", day: "today" })).toBe(true);
     expect(supportedSpeech({ ...base, transcript: "Maya mam absent hai", day: "aaj" })).toBe(true);
     expect(supportedSpeech({ ...base, transcript: "Mr. Sharma is absent today", teacher: "Maya mam" })).toBe(false);
+    expect(supportedSpeech({ ...base, transcript: "Maya mam kal chhutti par rahengi", day: "tomorrow" })).toBe(true);
+    expect(supportedSpeech({ ...base, transcript: "Maya mam absent rahengi", day: "tomorrow" })).toBe(false);
+    expect(supportedSpeech({ ...base, transcript: "Maya mam kal absent rahengi" })).toBe(false);
   });
 
   describe("teacher absence by voice", () => {
@@ -346,6 +349,13 @@ describe("Bolo", () => {
       expect((await runVoiceRoute(coordinator, config, "apply", { jobId, confirmation })).status).toBe(200);
       expect(scene.arrange).toHaveBeenCalledWith(expect.objectContaining({ day: "2026-11-04", expectedDayRevision: 6, expectedPlan: "plan-01234567-0",
         intent: { kind: "absence", staffProfileId: "maya", periods: [0, 1, 2, 3, 4, 5, 6, 7], choices: [] } }));
+    });
+
+    it("plans tomorrow from a future-tense \"kal\"", async () => {
+      const raw = { transcript: "Maya mam kal chhutti par rahengi, unka arrangement kar do", intent: "teacher_absence", unclear: false,
+        teacher: "Maya mam", day: "tomorrow" } as const;
+      expect((await review(raw, coordinator)).result).toMatchObject({ kind: "teacher_absence", day: "2026-11-05", teacher: "Test teacher Maya" });
+      expect(scene.cover).toHaveBeenLastCalledWith(session, "2026-11-05");
     });
 
     it("uses a named substitute for a spoken half day", async () => {

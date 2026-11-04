@@ -106,13 +106,22 @@ export function hasSpokenText(transcript: string, value: string) {
   return Boolean(needle) && haystack.includes(` ${needle} `);
 }
 
+/** Relative days the extractor may return, and the spoken words each must come from. */
+const SPOKEN_DAY: Record<string, string[]> = {
+  today: [], aaj: [], "आज": [],
+  tomorrow: ["tomorrow", "kal", "कल"],
+  yesterday: ["yesterday", "kal", "कल"], "बीता कल": ["बीता कल"],
+};
+
 export function supportedSpeech(extraction: VoiceExtraction) {
   if (!extraction.transcript || extraction.unclear || extraction.intent === "unsupported") return false;
-  if (!extraction.day && ["yesterday", "tomorrow", "कल", "परसों"].some((day) => hasSpokenText(extraction.transcript, day))) return false;
-  // "today" needs no spoken word: it is also what an unspoken day means. Hindi says "aaj".
-  const today = extraction.day !== undefined && ["today", "aaj", "आज"].includes(key(extraction.day));
+  if (!extraction.day && ["yesterday", "tomorrow", "kal", "कल", "parso", "परसों"].some((day) => hasSpokenText(extraction.transcript, day))) return false;
+  // A relative day is checked against the words that say it: "today" needs none (it is
+  // also what an unspoken day means); "tomorrow" and "yesterday" need "kal" or the word.
+  const relative = extraction.day ? SPOKEN_DAY[key(extraction.day)] : undefined;
+  if (relative?.length && !relative.some((word) => hasSpokenText(extraction.transcript, word))) return false;
   const fields = [extraction.classLabel, extraction.studentName, extraction.roll, extraction.exam, extraction.subject,
-    extraction.noteKind, extraction.teacher, extraction.substitute, extraction.note, extraction.reason, today ? undefined : extraction.day,
+    extraction.noteKind, extraction.teacher, extraction.substitute, extraction.note, extraction.reason, relative ? undefined : extraction.day,
     extraction.period?.toString(), ...extraction.exceptions?.flatMap(({ studentName, roll }) => [studentName, roll]) ?? []];
   if (extraction.mark && /^\d+(?:\.\d+)?$/u.test(key(extraction.mark))) fields.push(extraction.mark);
   return fields.every((value) => !value || hasSpokenText(extraction.transcript, value));
@@ -123,6 +132,7 @@ export function voiceDay(spoken: string | undefined, today: string) {
   const value = key(spoken);
   if (value === "today" || value === "आज" || value === "aaj") return today;
   if (value === "yesterday" || value === "बीता कल") return addDays(today, -1);
+  if (value === "tomorrow") return addDays(today, 1);
   return isIsoDay(value) ? value : null;
 }
 
