@@ -8,7 +8,10 @@ vi.mock("next/link", () => ({
     <a href={href} onClick={(e) => { e.preventDefault(); onClick?.(); }} {...rest}>{children}</a>,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ prefetch: vi.fn(), refresh: vi.fn() }) }));
-vi.mock("@/lib/ai/ui/lazy-quick-cover", () => ({ LazyQuickCover: () => null }));
+vi.mock("@/lib/ai/ui/lazy-quick-cover", async () => ({
+  LazyQuickCover: () => null,
+  LazyQuickCoverRow: (await import("@/lib/ai/ui/quick-cover-row")).QuickCoverRow,
+}));
 
 import { QuickActions } from "@/vx/shell/bottom-bar";
 
