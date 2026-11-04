@@ -20,7 +20,11 @@ vi.mock("@/app/(app)/teach/tasks/actions",()=>({
 let root:Root;let host:HTMLDivElement;
 beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.clearAllMocks();host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
-async function click(label:string){const button=[...host.querySelectorAll("button")].find(b=>b.textContent?.startsWith(label));expect(button,label).toBeDefined();await act(async()=>button!.click());}
+async function click(label:string){
+  const button=[...host.querySelectorAll("button")].find(b=>b.textContent?.startsWith(label));
+  expect(button,label).toBeDefined();
+  await act(async()=>{button!.click();await vi.dynamicImportSettled();});
+}
 it("links a refused create to the existing task and provides explicit list delegation",async()=>{
   calls.create.mockResolvedValue({ok:false,reason:"scope_changed",taskId:"existing-task"});
   await act(async()=>root.render(<AssignmentLauncher language="en" selectedIds={["child"]}/>));
