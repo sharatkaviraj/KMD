@@ -50,6 +50,8 @@ One has one database, `wtgxcptmucjerhufzjcf`, and it is production (D-346). The 
 
 To switch it on or off: `vercel env add VPPSONE_BUILTIN_AI production` (value `live` or `test`), or `vercel env rm`, then redeploy. To pause new requests without a deploy, set the daily limit to 0 under Settings → Built-in AI.
 
+The protected `codex/ai-test-preview` Vercel branch uses the same database and confines the pilot to `TEST-2026-27`. Keep its credentials scoped to the branch. For a cover auto-apply rehearsal, use a fictional substitute without contact information or consent, check that the pending notice is held, and use Undo. Check the transcript, student and roll number before confirming a voice update.
+
 Cover notices queue in the ordinary staff outbox with the two-minute hold. They reach WhatsApp only when the school turns on staff notices (`STAFF_NOTICE_TRANSPORT=aisensy` and the `staff_notice_dispatch` flag); that switch is separate and covers every staff notice.
 
 See [PROGRESS.md](PROGRESS.md) and [DECISIONS.md](DECISIONS.md) for verification and release limits.
