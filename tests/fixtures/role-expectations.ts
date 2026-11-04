@@ -217,6 +217,12 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
       "The coordinator plans it, a teacher needs to know she is covering, the office answers the phone about it.",
   },
   {
+    route: "/substitutions/arrange",
+    allow: ["admin", "academic_coordinator"],
+    because:
+      "Arranging cover — who is away, who takes each lesson, and the WhatsApp each substitute is sent — is the job of whoever manages cover (C01).",
+  },
+  {
     route: "/substitutions/policies",
     allow: ["admin", "academic_coordinator"],
     because: "Who is on site and how much cover they take is a planning setting.",

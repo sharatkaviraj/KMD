@@ -33,7 +33,7 @@ export const G = {
   alreadyAway: (periods: readonly number[]): Pair =>
     p(
       `Already marked away ${list(periods)}. Those periods are picked below; confirming keeps exactly what you pick.`,
-      `पहले से ${list(periods)} में अनुपस्थित दर्ज। वही पीरियड नीचे चुने हैं; पुष्टि करने पर जो चुना है वही रहेगा।`,
+      `पहले से ${list(periods)} में अनुपस्थित दर्ज। वही पीरियड नीचे चुने हैं; पक्का करने पर जो चुना है वही रहेगा।`,
     ),
   howLong: p("Away for", "कब तक अनुपस्थित"),
   wholeDay: p("Whole day", "पूरा दिन"),
@@ -68,7 +68,7 @@ export const G = {
       `${name} अब ${period === null ? "वह पीरियड" : pn(period)} नहीं ले सकते (${why.hi ?? why.en})। उसकी जगह सबसे उपयुक्त शिक्षक सुझाए गए हैं।`,
     ),
   noLessons: p("No lessons to cover in the chosen periods", "चुने हुए पीरियड में कोई पाठ नहीं"),
-  noLessonsBody: p("The absence is still recorded when you confirm.", "पुष्टि करने पर अनुपस्थिति फिर भी दर्ज होगी।"),
+  noLessonsBody: p("The absence is still recorded when you confirm.", "पक्का करने पर अनुपस्थिति फिर भी दर्ज होगी।"),
   proposed: (name: string): Pair => p(`Proposed: ${name}`, `सुझाव: ${name}`),
   yourChoice: (name: string): Pair => p(`Your choice: ${name}`, `आपकी पसंद: ${name}`),
   nobodyChosen: p("Your choice: nobody yet — a person decides later", "आपकी पसंद: अभी कोई नहीं — बाद में तय होगा"),
@@ -103,7 +103,7 @@ export const G = {
 
   /* --------------------------------------------------------- step 3 */
   reviewTitle: p("Check before saving", "सहेजने से पहले जाँचें"),
-  reviewLead: p("Nothing is saved until you press Confirm.", "पुष्टि करें दबाने तक कुछ सहेजा नहीं जाता।"),
+  reviewLead: p("Nothing is saved until you press Confirm.", "पक्का करें दबाने तक कुछ सहेजा नहीं जाता।"),
   absenceLine: (name: string, span: Pair, day: string): Pair =>
     p(`${name} is away ${span.en} on ${day}.`, `${name} ${day} को ${span.hi ?? span.en} अनुपस्थित हैं।`),
   tally: (assigned: number, total: number, waiting: number): Pair =>
@@ -125,7 +125,7 @@ export const G = {
       ? p("Nobody will be messaged: no teacher gets a new or changed cover.", "किसी को संदेश नहीं जाएगा: किसी शिक्षक की व्यवस्था नई या बदली नहीं है।")
       : p(
           `Confirming queues ${n} WhatsApp ${n === 1 ? "message" : "messages"} to ${people} ${people === 1 ? "teacher" : "teachers"} — one per lesson, about ₹0.88 each, sent from the staff outbox:`,
-          `पुष्टि करने पर ${people} शिक्षकों को ${n} WhatsApp संदेश कतार में जाएँगे — हर पीरियड का एक, लगभग ₹0.88 प्रति संदेश, स्टाफ़ आउटबॉक्स से:`,
+          `पक्का करने पर ${people} शिक्षकों को ${n} WhatsApp संदेश कतार में जाएँगे — हर पीरियड का एक, लगभग ₹0.88 प्रति संदेश, स्टाफ़ आउटबॉक्स से:`,
         ),
   noPhone: p("no WhatsApp number — assigned, but not messaged; tell them yourself", "WhatsApp नंबर नहीं — व्यवस्था होगी, संदेश नहीं जाएगा; स्वयं बताएँ"),
   updatedTag: p("correction", "सुधार"),
@@ -133,7 +133,7 @@ export const G = {
     "Covers taken from these teachers: they are messaged that it is cancelled only if they had already been told.",
     "इन शिक्षकों से व्यवस्था हटेगी: उन्हें रद्द होने का संदेश तभी जाएगा जब पहले बताया जा चुका हो।",
   ),
-  confirm: p("Confirm and save", "पुष्टि करें और सहेजें"),
+  confirm: p("Confirm and save", "पक्का करें और सहेजें"),
   saving: p("Saving…", "सहेजा जा रहा है…"),
   checking: p("No answer came back. Checking whether it saved…", "जवाब नहीं आया। जाँच रहे हैं कि सहेजा गया या नहीं…"),
   notSaved: p("Not saved. Try again sends the same request — it can never be saved twice.", "सहेजा नहीं गया। \"फिर आज़माएँ\" वही अनुरोध भेजता है — यह दो बार कभी नहीं सहेजा जाता।"),
@@ -141,11 +141,11 @@ export const G = {
   checkAgain: p("Check again", "फिर जाँचें"),
   stale: p(
     "Somebody else changed cover for this day after you looked. Nothing was saved. The plan below is the latest — check it and confirm again.",
-    "आपके देखने के बाद किसी और ने इस दिन की व्यवस्था बदली। कुछ सहेजा नहीं गया। नीचे नई व्यवस्था है — जाँचकर फिर पुष्टि करें।",
+    "आपके देखने के बाद किसी और ने इस दिन की व्यवस्था बदली। कुछ सहेजा नहीं गया। नीचे नई व्यवस्था है — जाँचकर फिर पक्का करें।",
   ),
   planChanged: p(
     "The plan changed after you reviewed it (a period may have begun). Nothing was saved. The plan below is the latest — check it and confirm again.",
-    "आपके जाँचने के बाद व्यवस्था बदल गई (कोई पीरियड शुरू हुआ हो सकता है)। कुछ सहेजा नहीं गया। नीचे नई व्यवस्था है — जाँचकर फिर पुष्टि करें।",
+    "आपके जाँचने के बाद व्यवस्था बदल गई (कोई पीरियड शुरू हुआ हो सकता है)। कुछ सहेजा नहीं गया। नीचे नई व्यवस्था है — जाँचकर फिर पक्का करें।",
   ),
   reloading: p("Reading the latest plan…", "नई व्यवस्था पढ़ी जा रही है…"),
   refusedReason: {
@@ -180,6 +180,6 @@ export const G = {
   another: p("Arrange another absence", "दूसरी अनुपस्थिति दर्ज करें"),
 
   /* --------------------------------------------------------- drafts */
-  draftMissing: p("That draft could not be opened. Arrange the cover below.", "वह ड्राफ़्ट नहीं खुल सका। नीचे व्यवस्था करें।"),
-  fromDraft: p("Opened from a draft. Nothing is saved until you confirm.", "ड्राफ़्ट से खोला गया। पुष्टि करने तक कुछ सहेजा नहीं जाता।"),
+  draftMissing: p("That draft could not be opened. Arrange the cover below.", "वह मसौदा नहीं खुल सका। नीचे व्यवस्था करें।"),
+  fromDraft: p("Opened from a draft. Nothing is saved until you confirm.", "मसौदे से खोला गया। पक्का करने तक कुछ सहेजा नहीं जाता।"),
 };
