@@ -37,14 +37,23 @@ async function main() {
   const args = process.argv.slice(2);
   const mode = args.shift();
   const location = args.shift();
-  if (!["--validate-only", "--run"].includes(mode) || !location || (mode === "--validate-only" && args.length)) {
-    throw new Error("Usage: npm run ai:eval -- --validate-only <private-folder> OR --run <private-folder> [model ...]");
+  if (!["--validate-only", "--run", "--run-synthetic"].includes(mode) || !location || (mode === "--validate-only" && args.length)) {
+    throw new Error("Usage: npm run ai:eval -- --validate-only <folder> OR (--run | --run-synthetic) <folder> [model ...]");
   }
   const root = await realpath(location);
   if (!outside(await realpath(process.cwd()), root)) throw new Error("Use a private fixture folder outside this checkout.");
   const manifestFile = await realpath(path.join(root, "manifest.json"));
   if (outside(root, manifestFile) || (await stat(manifestFile)).size > 3_000_000) throw new Error("Invalid manifest path or size.");
-  const manifest = z.strictObject({ cases: z.array(CASE).min(1).max(200) }).parse(JSON.parse(await readFile(manifestFile, "utf8")));
+  const manifest = z.strictObject({
+    provenance: z.enum(["synthetic", "school-approved-deidentified"]).optional(),
+    cases: z.array(CASE).min(1).max(200),
+  }).parse(JSON.parse(await readFile(manifestFile, "utf8")));
+  if (mode === "--run" && manifest.provenance !== "school-approved-deidentified") {
+    throw new Error("Acceptance scoring requires a school-approved, de-identified handwriting set. Use --run-synthetic for generated images.");
+  }
+  if (mode === "--run-synthetic" && manifest.provenance !== "synthetic") {
+    throw new Error("Synthetic scoring requires a manifest marked synthetic.");
+  }
   const ids = new Set();
   const inputs = [];
   for (const sample of manifest.cases) {
@@ -66,10 +75,10 @@ async function main() {
     inputs.push({ ...sample, expected, files });
   }
   const amounts = Object.fromEntries(PHOTO_ACTIONS.map((action) => [action, inputs.filter((x) => x.action === action).length]));
-  console.log("Validated fixtures:", amounts);
+  console.log("Validated fixtures:", { provenance: manifest.provenance ?? "unspecified", ...amounts });
   if (mode === "--validate-only") return;
   if (Object.values(amounts).some((n) => n < 20)) throw new Error("A scored run requires at least 20 examples of each action.");
-  if (process.env.GEMINI_EVAL_APPROVED !== "1") throw new Error("Set GEMINI_EVAL_APPROVED=1 for the approved, de-identified evaluation set.");
+  if (process.env.GEMINI_EVAL_APPROVED !== "1") throw new Error("Set GEMINI_EVAL_APPROVED=1 only when this provider evaluation is approved.");
   const config = geminiConfig();
   const models = args.length ? [...new Set(args.map(aiModel))] : [config.vision];
   let passed = true;
@@ -99,11 +108,12 @@ async function main() {
       durations.sort((a, b) => a - b);
       console.log(JSON.stringify({
         model, action, failed, transcriptionPct: percent(sum),
+        eligibility: mode === "--run-synthetic" ? "synthetic-only" : "handwriting-benchmark",
         fields: Object.fromEntries(Object.entries(tally).map(([field, n]) => [field, { ...n, pct: percent(n) }])),
         providerP50Ms: Math.round(durations[Math.floor((durations.length - 1) / 2)]),
         providerP95Ms: Math.round(durations[Math.ceil(durations.length * 0.95) - 1]),
       }));
-      if (failed || (action === "marks-photo" && sum.matched / sum.total < 0.95)) passed = false;
+      if (failed || (mode === "--run" && action === "marks-photo" && sum.matched / sum.total < 0.95)) passed = false;
     }
   }
   if (!passed) process.exitCode = 2;
@@ -119,7 +129,9 @@ main().catch((error) => {
       "Use a unique ID for each case.", "Each example needs at least one typed row.",
       "A fixture JPEG is out of scope or too large.", "Invalid JPEG.",
       "A scored run requires at least 20 examples of each action.",
-      "Set GEMINI_EVAL_APPROVED=1 for the approved, de-identified evaluation set.",
+      "Acceptance scoring requires a school-approved, de-identified handwriting set. Use --run-synthetic for generated images.",
+      "Synthetic scoring requires a manifest marked synthetic.",
+      "Set GEMINI_EVAL_APPROVED=1 only when this provider evaluation is approved.",
       "Gemini is not configured", "Invalid Gemini configuration", "Unsupported Gemini model",
     ].includes(error?.message) ? error.message : "Evaluation could not complete.");
   process.exitCode = 1;

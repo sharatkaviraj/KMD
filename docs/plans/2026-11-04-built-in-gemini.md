@@ -6,7 +6,7 @@ Gemini reads a photo or an audio clip and returns a structured draft. VPPS One a
 
 1. **Foundation:** server-only Google GenAI, bounded structured extraction, private signed uploads, job audit/usage, a 50-job per-person limit per school day, 90-day cleanup, and an evaluation runner. This is separate from Assist and external AI connectors.
 2. **Marks photo:** open the teacher's assigned paper, photograph up to four pages, check the editable transcription, resolve or explicitly skip every flagged row and save through the marks draft command. Match written roll and name independently against the roster. Respect the paper's existing max and increment, distinguish absence from blank, show missing students, and never save duplicates. Sending the paper to the exam office remains the existing separate action.
-3. **Substitution photo:** verify the timetable and short names in the active session before enabling. Reuse VPPS One's existing substitution engine. Match the absent teacher, class and period; validate availability and double bookings again at commit. Auto-apply only valid rows after the accuracy/operational gate; suggest free teachers for other rows. The two-minute Undo window needs a cancellable outbox entry and an atomic dispatch claim, plus synthetic tests that prove Undo wins before the window expires. Test with outbound delivery disabled. Live WhatsApp delivery is a separate rollout decision.
+3. **Substitution photo:** verify the timetable and short names in the active session before enabling. Reuse VPPS One's existing substitution engine. Match the absent teacher, class and period; check the source date before automatic apply and send undated or ambiguous pages to review. Validate availability and double bookings again at commit. Auto-apply only valid rows after the accuracy/operational gate; suggest free teachers for other rows. The two-minute Undo window needs a cancellable outbox entry and an atomic dispatch claim, plus synthetic tests that prove Undo wins before the window expires. Test with outbound delivery disabled. Live WhatsApp delivery is a separate rollout decision.
 4. **Bolo:** staff-only voice attendance first, then single marks, then substitutions. Expose only supported intents for the staff role. Show the transcript and require confirmation for each write; answer scoped read-only questions from checked school facts. WebM/Opus is documented by Gemini. Safari's MP4 container is different from raw AAC; verify the actual device clip and transcode if necessary before enabling. Capture stops at 60 seconds.
 5. **Polish:** device-local offline queue with clear/remove and per-account isolation, admin usage and failures, edit rate (a proxy for accuracy), Hindi labels, and a newer vision model only if the private evaluation improves.
 
@@ -35,12 +35,15 @@ References: [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing), [sp
 
 ## Private evaluation
 
+For development, create an offline synthetic pack with `npm run ai:fixtures -- "<new folder outside the checkout>"`. It generates 20 cases per action, varied handwriting-style rendering, and matching answer keys. Cover cases include the school's register layout: an absent teacher grouped across periods, Roman numerals, class cells with subject labels, and rotated photos with another day partly visible. Only the layout is reproduced; the school photograph and identifiers are excluded. Use `--validate-only` offline or `--run-synthetic` for an approved model comparison. A `synthetic` manifest cannot be used with `--run` or count toward the 95% handwriting gate.
+
 Use a restricted folder on D: outside the repository. Collect at least 20 genuine handwriting examples of each form, with school-reviewed de-identification before provider use. Have a reviewer type the true row values in the same page/row order. Keep filenames and IDs anonymous. Store JPEGs at up to 1600 px on the long side and 2 MiB each, up to four pages per case. Do not put private sheets or transcripts in Git.
 
-Write a `manifest.json` with this shape (example content is synthetic):
+Write a `manifest.json` with this shape. The example is marked synthetic; only a reviewed real handwriting set should declare `school-approved-deidentified`.
 
 ```json
 {
+  "provenance": "synthetic",
   "cases": [
     {
       "id": "marks-01",
