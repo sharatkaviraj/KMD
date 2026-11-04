@@ -12,8 +12,18 @@ switch `VPPSONE_BUILTIN_AI` (`test`/`live`), jobs follow the person's session,
 test accounts stay in TEST (code and SQL), real records skip Gemini Free,
 valid cover-photo rows auto-apply with the two-minute Undo, panel wording no
 longer says "test session". **Not changed:** staff WhatsApp transport (cover
-notices queue, held, until the school turns staff notices on). Release and
-live evidence follow in this row once deployed.
+notices queue, held, until the school turns staff notices on). **Released:**
+#189 merged as `39c4526a` (27/27 checks green); production with the switch at
+`test` (`dpl_AXF382EU9jcGRXe7P5bVdPhjXHq4`), then **`live`**
+(`dpl_A4kQZT45891zv2SePLpJCaFkTrzv`, one.vpps.co.in). **Verified live**
+(admin, fictional fixtures): TEST cover photo read 5/5 rows via Claude Sonnet
+5.5 in 4.5 s and wrote nothing; the date guard returned no rows for a
+wrong-date slip; Bolo answered "who is free in P5" read-only in TEST and in
+2026-27 (Gemini Free skipped, 3.6 s, ₹0.03). **Surprised:** Gemini Free and
+OpenAI transcription fail in production (each falls through; voice works via
+Gemini Paid); a parallel session is fixing the Gemini request schema and
+adding failure status codes. **Not verified:** marks photo end to end on
+production, phone microphones, Hindi speech, real handwriting accuracy.
 
 ## Review plan finish and AI connection — 4 November 2026
 
