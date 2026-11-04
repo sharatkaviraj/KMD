@@ -6,7 +6,7 @@ Go-live Phase G (plan §9.3; critique1 B7). **Generated** by
 No value appears here or in the script.
 Coexistence supersedes the historical C5 provider-copy notes below: Fees retains Razorpay, fee messaging and financial jobs. Do not copy those secrets or activate competing One financial jobs for coexistence.
 
-- Code: static scan of each repo's app code (`src`, `next.config.ts`, `next.config.mjs`, `proxy.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) — One at this commit, the fees app at `unknown` (read-only).
+- Code: static scan of each repo's app code (`src`, `next.config.ts`, `next.config.mjs`, `proxy.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) — One at this commit, the fees app at `fa87cae9` (read-only).
   A name built at run time cannot be seen by the scan.
 - Vercel Production: name inventory refreshed on 1 Nov 2026 for the `vppsone` and `schoolfees` projects (names only).
 - Status: **set** = on One Production now; **add at C5/C6/C9** = the owner sets it on One Production at that cutover step (CUTOVER-RUNBOOK-2026-27.md);
@@ -21,10 +21,10 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `AISENSY_TASK_CONTRACT` | `src/modules/collection/data/message-provider.ts` | — | — | — | owner | leave unset unless the teacher-task link goes by AiSensy (then `v1`) |
 | `AISENSY_WEBHOOK_SECRET` | `src/app/api/fees/webhooks/aisensy/route.ts` | `src/app/api/webhooks/aisensy/route.ts` | — | — | owner | leave unset — delivery webhooks are an AiSensy Pro feature; Basic plan (route answers 404) |
 | `ANALYZE` | — | `next.config.ts` | — | — | fees build flag | fees only (bundle analyzer); not needed |
-| `ANTHROPIC_API_KEY` | `src/modules/assist/data/settings.ts` | — | yes | — | owner | set — `assist` reading real data needs the owner's yes (MCP-AND-NOTION.md, Q13) |
+| `ANTHROPIC_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` +2 | — | yes | — | owner | set — `assist` reading real data needs the owner's yes (MCP-AND-NOTION.md, Q13) |
 | `APP_MODE` | `src/platform/config/school.ts`, `src/platform/env.ts` | `src/modules/one-bridge/data/auth.ts`, `src/platform/config/school.ts` +1 | yes | yes | owner | add at C5: `production` — required together with VPPSONE_ENV=live (`getFeeSchema()` throws otherwise) |
 | `CI` | `src/platform/supabase/target-guard.ts` | `next.config.ts` | — | — | CI runner | CI only — never set on Vercel |
-| `CRON_SECRET` | `src/app/api/fees/admin/repair-discount-drift/route.ts`, `src/app/api/fees/admin/revalidate-after-bulk/route.ts` +6 | `src/app/api/admin/repair-discount-drift/route.ts`, `src/app/api/admin/revalidate-after-bulk/route.ts` +6 | yes | yes | owner | set — Vercel cron bearer; also stored in Vault as VPPS_CRON_SECRET for the pg_cron jobs that call `/api/fees/cron/*` (one-live-cron-jobs.sql) |
+| `CRON_SECRET` | `src/app/api/fees/admin/repair-discount-drift/route.ts`, `src/app/api/fees/admin/revalidate-after-bulk/route.ts` +6 | `src/app/api/admin/repair-discount-drift/route.ts`, `src/app/api/admin/revalidate-after-bulk/route.ts` +4 | yes | yes | owner | set — Vercel cron bearer; also stored in Vault as VPPS_CRON_SECRET for the pg_cron jobs that call `/api/fees/cron/*` (one-live-cron-jobs.sql) |
 | `FAMILY_PAYMENTS_ENABLED` | — | — | — | yes | fees | fees only — not read by either codebase at 8a0cd47c; not needed |
 | `FEES_BRIDGE_CRON_SECRET` | `src/app/api/jobs/fees-bridge-sync/route.ts` | — | yes | — | deployment operator | dedicated One scheduler credential; same value in Vault; production only |
 | `FEES_BRIDGE_ENABLED` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production coexistence switch; configure after schema and identity verification |
@@ -33,13 +33,13 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
 | `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
-| `GEMINI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | set — server-only Gemini paid-fallback slot for built-in AI |
-| `GEMINI_API_KEY_FREE` | `src/lib/ai/config.ts` | — | yes | — | owner | set — free Gemini key; used only for TEST-session (fictional) media, never real records |
-| `GEMINI_API_KEY_PAID` | `src/lib/ai/config.ts` | — | — | — | owner | optional override for the existing GEMINI_API_KEY fallback slot |
+| `GEMINI_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — server-only Gemini paid-fallback slot for built-in AI |
+| `GEMINI_API_KEY_FREE` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — free Gemini key; used only for TEST-session (fictional) media, never real records |
+| `GEMINI_API_KEY_PAID` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | optional override for the existing GEMINI_API_KEY fallback slot |
 | `GEMINI_INR_PER_USD` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; accounting conversion (default 90) |
-| `GEMINI_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to gemini-3.5-flash-lite |
+| `GEMINI_MODEL` | `src/app/(app)/settings/builtin-ai/page.tsx`, `src/lib/ai/config.ts` +1 | — | yes | — | owner | set — gemini-3.5-flash-lite (D-415); the paid key follows it unless GEMINI_MODEL_PAID is set |
 | `GEMINI_MODEL_FALLBACK` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to gemini-3.8-flash |
-| `GEMINI_MODEL_PAID` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini paid fallback; pinned model |
+| `GEMINI_MODEL_PAID` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | confined Gemini paid fallback; pinned model |
 | `GEMINI_MODEL_VISION` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to GEMINI_MODEL |
 | `GEMINI_THINKING_BUDGET` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; optional Gemini 2.5 budget |
 | `GEMINI_THINKING_LEVEL` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; optional minimal or low |
@@ -57,16 +57,16 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `NEXT_PUBLIC_SUPABASE_URL` | `src/modules/fees/platform/supabase/client.ts`, `src/platform/auth/dayrun-server.ts` +4 | `src/modules/one-bridge/data/auth.ts`, `src/platform/env.ts` +5 | yes | yes | Supabase wtgx → Settings → API (owner) | set — keep wtgx (D-338); never the fees URL |
 | `NEXT_PUBLIC_VERCEL_ENV` | — | `src/platform/observability/sentry-browser.ts` | — | — | Vercel (automatic) | fees only (its Sentry client); not read by One |
 | `NEXT_RUNTIME` | — | `src/instrumentation.ts` | — | — | Next.js (automatic) | automatic |
-| `NODE_ENV` | `src/app/(app)/fees/admin-tools/activity/error.tsx`, `src/app/(app)/fees/admin-tools/error.tsx` +16 | `src/app/protected/admin-tools/activity/error.tsx`, `src/app/protected/admin-tools/error.tsx` +14 | — | — | Next.js (automatic) | automatic |
+| `NODE_ENV` | `src/app/(app)/fees/admin-tools/activity/error.tsx`, `src/app/(app)/fees/admin-tools/error.tsx` +17 | `src/app/protected/admin-tools/activity/error.tsx`, `src/app/protected/admin-tools/error.tsx` +14 | — | — | Next.js (automatic) | automatic |
 | `ONE_BRIDGE_AUTH_ANON_KEY` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | One publishable API key | set on Fees production only to verify One access tokens; never a One service-role key |
 | `ONE_BRIDGE_AUTH_URL` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production; pinned One Auth project URL |
 | `ONE_BRIDGE_ENABLED` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production for coexistence; database read/command/sync gates remain independent |
 | `ONE_BRIDGE_KEY` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production; new server-only credential matching One; no preview copy |
 | `ONE_BRIDGE_SYNC_SECRET` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production; separate synchronization credential |
 | `ONLINE_PAYMENTS_CRON_SECRET` | `src/app/api/fees/cron/online-payments/route.ts` | `src/app/api/cron/online-payments/route.ts` | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_ONLINE_PAYMENTS_CRON_SECRET, checked in the database (RAZORPAY.md §5) |
-| `OPEN_AI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | set — server-only OpenAI transcription key for built-in AI voice |
-| `OPENAI_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | optional compatibility alias if OPEN_AI_API_KEY is absent |
+| `OPENAI_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | optional compatibility alias if OPEN_AI_API_KEY is absent |
 | `OPENAI_MODEL` | — | `src/platform/config/openai.ts` | — | — | fees | fees only; not read by One |
+| `OPEN_AI_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — server-only OpenAI transcription key for built-in AI voice |
 | `PERF_TIMING` | `src/platform/observability/timing.ts` | `src/platform/observability/timing.ts` | — | — | owner | leave unset (off) |
 | `PLAYWRIGHT_TEST_BASE_URL` | `src/platform/supabase/target-guard.ts` | — | — | — | test runner | tests only — never set on Vercel |
 | `POSTGRES_DATABASE` | — | — | — | yes | Supabase integration (fees) | fees only |
@@ -106,14 +106,14 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `VPPSONE_BUILTIN_AI` | `src/lib/ai/config.ts` | — | yes | — | owner | set — `live` (all permitted staff, their own session) or `test` (TEST sessions only); unset = off |
 | `VPPSONE_BUILTIN_AI_COVER_AUTO` | `src/lib/ai/cover-photo-service.ts` | — | — | — | owner | leave unset (valid cover-photo rows apply with a 2-minute Undo); `0` = review only |
 | `VPPSONE_BUILTIN_AI_COVER_AUTO_TEST` | `src/lib/ai/cover-photo-service.ts` | — | — | — | owner | leave off outside an approved fictional TEST cover rehearsal |
-| `VPPSONE_CLAUDE_IMAGE_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | pinned image extraction model; defaults to Claude Sonnet 5.5 |
-| `VPPSONE_CLAUDE_VOICE_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | pinned voice understanding model; defaults to Claude Haiku 5.5 |
-| `VPPSONE_OPENAI_TRANSCRIPTION_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | pinned voice transcription model; defaults to gpt-transcribe |
 | `VPPSONE_BUILTIN_AI_TEST` | `src/lib/ai/config.ts` | — | — | — | owner | leave unset; Preview/local pilot switch only, production ignores it |
+| `VPPSONE_CLAUDE_IMAGE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned image extraction model; defaults to Claude Sonnet 5.5 |
+| `VPPSONE_CLAUDE_VOICE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned voice understanding model; defaults to Claude Haiku 5.5 |
 | `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +4 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |
+| `VPPSONE_OPENAI_TRANSCRIPTION_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | pinned voice transcription model; defaults to gpt-transcribe |
 | `VPPSONE_SESSION_LABEL` | `src/modules/academics/data/academics-repo.ts` | — | — | — | owner | leave unset — the active session comes from app_settings (rule 3a) |
 | `VPPS_OBSERVABILITY_VERBOSE` | `src/platform/observability/log.ts` | `src/platform/observability/log.ts` | — | — | owner | leave unset (off) |
-| `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-run-drain/route.ts`, `src/app/api/cron/whatsapp-scheduled-runs/route.ts` +1 | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
+| `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-scheduled-runs/route.ts` | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
 
 ## The fees MCP worker (Cloudflare)
 

@@ -37,3 +37,25 @@ During the initial production rollout, the provider router recovered from the fo
 - Gemini Paid answered audio and a cover photo. The hosted marks rehearsal originally received HTTP 400. It passed after moving the request to `responseJsonSchema`. Real-session marks photos start at Claude.
 
 **Not verified on production:** marks photo end to end (the admin account is not assigned to a paper; the parallel session exercised it with a QA teacher), physical Android/iPhone microphone capture, Hindi/Hinglish speech, and a real (non-fictional) handwriting accuracy set. Staff WhatsApp delivery stays off until the school turns on staff notices.
+
+## Production key check — 4 November 2026, 15:15 IST
+
+Settings → Built-in AI → Check keys now on one.vpps.co.in: the same probes as `npm run ai:smoke`, run on the server with the production environment values (the report is stored in `builtin_ai_settings.last_smoke`; no key left the server).
+
+| Key | Model | Text | Image or audio |
+| --- | --- | --- | --- |
+| Gemini Free | gemini-3.8-flash | 403, billing | 403, billing |
+| Gemini Free | gemini-3.6-flash | 403, billing | 403, billing |
+| Gemini Free | gemini-3.5-flash-lite | 403, billing | 403, billing |
+| Gemini Free | gemini-3.1-flash-lite | 403, billing | 403, billing |
+| Gemini Free | gemini-2.5-flash | 404, model | 404, model |
+| Gemini Paid | gemini-3.5-flash-lite | ok, 1.5 s | ok, 1.6 s, counted 3 of 3 |
+| Claude | claude-sonnet-5-5 | ok, 3.5 s | — |
+| Claude | claude-haiku-5-5 | ok, 2.1 s | — |
+| OpenAI | gpt-transcribe | — | ok, 1.5 s (audio) |
+
+- **Free key: no model works.** Google refuses every current Flash model with 403 and a billing reason, and 2.5 Flash with 404 (closed to new users). The key has to come from an AI Studio project that is on the free tier; until it does, the router skips it for 10 minutes after each failure. Real records never use it (D-401).
+- **Model:** `GEMINI_MODEL=gemini-3.5-flash-lite` (D-415).
+- **Eval:** there is no `tests/ai-fixtures` directory, so `npm run ai:eval` was not run and there are no eval scores. The live checks used the fictional fixtures from `npm run ai:fixtures` and `ai:voice-fixtures`.
+- **Bolo, before the fix** (TEST-2026-27, admin account, saved clip "Maya test madam will be absent tomorrow"): exact transcript, `teacher_absence`, Test teacher Maya, 5 Nov. The round trip took 26.6 s: OpenAI transcribed the clip, Claude Haiku timed out at 18 s, and Gemini Paid answered. Cause and fix: D-414.
+

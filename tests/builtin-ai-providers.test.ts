@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { FinishReason, type GenerateContentParameters, type GenerateContentResponse } from "@google/genai";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 vi.mock("server-only", () => ({}));
 
@@ -254,6 +255,22 @@ describe("built-in AI provider routing", () => {
     ]);
     expect(result.attempts[0].usageReported).toBe(true);
     expect(result.attempts[0].costInr).toBeCloseTo(20 / 60 * 0.0045 * 90);
+  });
+
+  it("asks Claude in its own format and reads the answer back before checking it", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ text: "Sample voice fixture." }));
+    const anthropic = vi.fn().mockResolvedValue(claudeResponse('{"rows":[],"extra":""}'));
+    const read = vi.fn((value: unknown) => ({ rows: (value as { rows: unknown }).rows }));
+    const format = z.strictObject({ rows: z.array(z.string()), extra: z.string() });
+    const result = await extractWithProviders(
+      { ...options, task: "voice", media: [mp4], claude: { format, read, note: "Fill every field." } },
+      { gemini: vi.fn(), fetch, anthropic },
+    );
+    expect(result.ok).toBe(true);
+    expect(read).toHaveBeenCalledWith({ rows: [], extra: "" });
+    const request = anthropic.mock.calls[0][1] as Anthropic.MessageCreateParamsNonStreaming;
+    expect(request.system).toContain("Fill every field.");
+    expect(request.output_config?.format).toMatchObject({ schema: { required: ["rows", "extra"] } });
   });
 
   it("moves from an OpenAI quota error to paid Gemini audio without calling Claude", async () => {

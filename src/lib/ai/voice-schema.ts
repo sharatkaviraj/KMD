@@ -49,4 +49,45 @@ export const voiceSpec = {
 };
 
 export type VoiceExtraction = z.infer<typeof voiceSpec.validate>;
+
+const said = z.string().max(1_000);
+const ALWAYS = new Set(["transcript", "intent", "unclear"]);
+const spokenAt = (field: unknown) => !(typeof field === "string" ? !field.trim() : Array.isArray(field) && !field.length);
+
+/** Claude's answer with every "not said" value removed, ready for `voiceSpec.validate`. */
+export function fromClaudeVoice(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, field] of Object.entries(value)) {
+    const keep = ALWAYS.has(key) || (key === "period" ? field !== 0 : key === "allPresent" ? field !== false : spokenAt(field));
+    if (!keep) continue;
+    out[key] = key === "exceptions" && Array.isArray(field)
+      ? field.map((row: unknown) => row && typeof row === "object"
+        ? Object.fromEntries(Object.entries(row).filter(([, part]) => spokenAt(part))) : row)
+      : field;
+  }
+  return out;
+}
+
+/**
+ * How Claude answers a voice command (D-414). Anthropic compiles each output
+ * schema into a grammar, and every optional field roughly doubles it:
+ * `voiceSpec.validate` has 20, and compiling it outlasted Claude's 18 seconds
+ * on every request, so Gemini answered every voice command. Here every field
+ * is required and an empty value means "not said"; `read` drops those before
+ * `voiceSpec.validate` checks the answer, so nothing downstream changes.
+ */
+export const claudeVoiceOutput = {
+  format: z.strictObject({
+    transcript: z.string().max(4_000), intent: z.enum(intents), unclear: z.boolean(),
+    day: said, classLabel: said, studentName: said, roll: said, exam: said, subject: said,
+    mark: said, noteKind: said, note: said, teacher: said, substitute: said, reason: said,
+    period: z.number().int(), attendanceStatus: z.enum([...attendanceStatuses, ""] as const),
+    periods: z.array(z.number().int()), span: z.enum([...absenceSpans, ""] as const),
+    allPresent: z.boolean(),
+    exceptions: z.array(z.strictObject({ studentName: said, roll: said, status: z.enum(attendanceStatuses) })),
+  }),
+  read: fromClaudeVoice,
+  note: "The output format lists every field. Where these instructions say to omit a field or leave it unset, give an empty string, 0, false or an empty list instead.",
+};
 export type VoiceIntent = Exclude<VoiceExtraction["intent"], "unsupported">;
