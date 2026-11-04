@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { assertPermission } from "@/platform/auth/current-staff";
+import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { assertNotTestAccount } from "@/platform/auth/test-session-access";
 import { aiConnectionOwner, revokeAiConnection, setAiConnectionSwitch } from "@/modules/mcp/data/connections";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -17,8 +17,8 @@ import { assertNotPreviewing } from "@/vx/view-as";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function assertSchoolAdmin() {
-  const actor = await assertPermission("settings:manage");
+/** The rest of the gate, after each action's own `assertPermission("settings:manage")`. */
+async function assertSchoolAdmin(actor: CurrentStaff) {
   await assertNotPreviewing();
   if (actor.role !== "admin") throw new Error("Permission denied: admin");
   await assertNotTestAccount(actor);
@@ -26,7 +26,7 @@ async function assertSchoolAdmin() {
 }
 
 export async function setAiConnectionSwitchAction(formData: FormData): Promise<void> {
-  const actor = await assertSchoolAdmin();
+  const actor = await assertSchoolAdmin(await assertPermission("settings:manage"));
   const value = String(formData.get("enabled") ?? "");
   if (value !== "true" && value !== "false") return;
   await setAiConnectionSwitch(value === "true", actor.id);
@@ -34,7 +34,7 @@ export async function setAiConnectionSwitchAction(formData: FormData): Promise<v
 }
 
 export async function disconnectAiConnectionAction(formData: FormData): Promise<void> {
-  const actor = await assertSchoolAdmin();
+  const actor = await assertSchoolAdmin(await assertPermission("settings:manage"));
   const connectionId = String(formData.get("connectionId") ?? "");
   if (!UUID.test(connectionId)) return;
   const owner = await aiConnectionOwner(connectionId);
