@@ -1,6 +1,6 @@
 import { describe,it,expect,vi } from "vitest";
 import { z } from "zod";
-import { bridgeRequest } from "@/platform/fees-bridge/transport";
+import { bridgeRequest, bridgeTimingLine } from "@/platform/fees-bridge/transport";
 
 const base={token:"synthetic-token",key:"synthetic-key",schema:z.object({ok:z.boolean()})};
 describe("canonical Fees transport",()=>{
@@ -52,5 +52,10 @@ describe("canonical Fees transport",()=>{
   it("does not claim a source quote refusal committed",async()=>{
     const fetcher=vi.fn().mockResolvedValue(Response.json({version:1,error:{code:"quote_changed",message:"Review again"}},{status:409}));
     await expect(bridgeRequest({...base,path:"/payments",body:{},fetcher})).rejects.toMatchObject({code:"quote_changed",uncertain:false});
+  });
+  it("logs a call as its route shape only: no ids, no search words",()=>{
+    const line=bridgeTimingLine("GET","/students/00000000-0000-4000-8000-000000000001/workspace?session=2026-27&query=Synthetic%20Child",200,812);
+    expect(line).toBe("[fees-bridge] GET /students/:id/workspace 200 812ms");
+    expect(bridgeTimingLine("POST","/reversals",0,15000)).toBe("[fees-bridge] POST /reversals no-answer 15000ms");
   });
 });
