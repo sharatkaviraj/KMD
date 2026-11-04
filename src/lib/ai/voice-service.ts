@@ -17,6 +17,7 @@ import { approvedLeaveOn } from "@/modules/substitutions/data/guided";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { assertSessionWritable, filterVisibleStudentIds } from "@/platform/auth/test-session-access";
+import { schoolToday } from "@/platform/dates";
 import { previewRefusal } from "@/vx/screens/exams/guards";
 
 import { builtinAiSession } from "./access";
@@ -24,7 +25,7 @@ import type { AiPilotConfig } from "./config";
 import { aiJson, aiProblem, makeAiUpload, readOrParseAiJob, type AiOperation, type AiScope } from "./feature-jobs";
 import { ownedAiJob, updateAiJob } from "./jobs";
 import { marksPhotoContext } from "./marks-context";
-import { loadVoiceTools, primaryVoiceClass, resolveVoice, type VoiceCommand } from "./voice-context";
+import { loadVoiceTools, primaryVoiceClass, resolveVoice, voiceVocabulary, type VoiceCommand } from "./voice-context";
 import type { VoiceReview } from "./voice-review";
 import { VOICE_ACTION, voiceSpec } from "./voice-schema";
 
@@ -38,8 +39,10 @@ function confirmationFor(id: string, command: VoiceCommand, result: VoiceReview[
 }
 
 async function parseVoice(staff: CurrentStaff, scope: AiScope, config: AiPilotConfig, id: string) {
-  const [instructions, actions] = await Promise.all([
+  const [instructions, actions, vocabulary] = await Promise.all([
     readFile(path.join(process.cwd(), "src/lib/ai/prompts/voice.md"), "utf8"), loadVoiceTools(staff, scope.session),
+    // Spelling help for the listener; a failed read only costs accuracy.
+    voiceVocabulary(staff, scope.session, schoolToday()).catch(() => ({ classes: [] })),
   ]);
   const permitted = ["unsupported", ...actions.map(({ name }) => name)] as const;
   const validate = voiceSpec.validate.extend({ intent: z.enum(permitted) });
@@ -50,7 +53,7 @@ async function parseVoice(staff: CurrentStaff, scope: AiScope, config: AiPilotCo
       intent: { ...voiceSpec.responseSchema.properties.intent, enum: [...permitted] },
     },
   };
-  const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions }, responseSchema, validate });
+  const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions, vocabulary }, responseSchema, validate });
   if (!parsed.ok) return parsed.response;
   const { transcript } = parsed.value;
   const { result, command } = await resolveVoice(staff, scope.session, parsed.value, parsed.job.created_at);
@@ -96,7 +99,8 @@ async function commitVoice(staff: CurrentStaff, session: string, id: string, com
       revalidatePath("/teach");
       return "saved";
     }
-    case "substitution": {
+    case "substitution":
+    case "teacher_absence": {
       const cover = command.payload;
       const onLeave = await approvedLeaveOn(session, cover.day);
       delete onLeave[cover.staffId];

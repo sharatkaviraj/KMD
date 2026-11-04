@@ -8,7 +8,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { appendSpoken, useSpeech } from "@/vx/ui/voice";
+import { appendSpoken, useHeardText, useSpeech } from "@/vx/ui/voice";
 
 import { editNoteAction, replyToNoteAction, setFollowUpAction, setNoteStatusAction, tellParentsAboutNoteAction } from "../actions";
 import type { NoteReply, NotesPeople, SupportPlan } from "../data";
@@ -54,10 +54,12 @@ function useReply(note: BoardNote) {
   const [spoken, setSpoken] = useState(false);
   const [pending, start] = useTransition();
   const speech = useSpeech((t) => setHeard((cur) => appendSpoken(cur, t)));
-  const live = appendSpoken(heard, speech.interim).trim();
+  /** Everything heard so far, read at the moment of a tap; read it before stop(). */
+  const liveNow = () => appendSpoken(heard, speech.heard.get()).trim();
   const listening = speech.listening;
   const mic = (lang: "hi-IN" | "en-IN") => {
     if (listening) {
+      const live = liveNow();
       speech.stop();
       if (live) {
         setText((cur) => appendSpoken(cur, live));
@@ -74,6 +76,7 @@ function useReply(note: BoardNote) {
     setHeard("");
   };
   const done = () => {
+    const live = liveNow();
     speech.stop();
     if (live) {
       setText((cur) => appendSpoken(cur, live));
@@ -83,7 +86,8 @@ function useReply(note: BoardNote) {
   };
   const send = () =>
     start(async () => {
-      const body = (listening && live ? appendSpoken(text, live) : text).trim();
+      const live = listening ? liveNow() : "";
+      const body = (live ? appendSpoken(text, live) : text).trim();
       if (listening) speech.stop();
       if (!body) {
         toast.show({ text: tx(p("Write or speak the reply first", "पहले जवाब लिखें या बोलें")) });
@@ -98,7 +102,23 @@ function useReply(note: BoardNote) {
         router.refresh();
       } else toast.show({ text: tx(res.error), tone: "bad" });
     });
-  return { text, setText, live, listening, mic, cancel, done, send, pending, error: speech.errorP };
+  return { text, setText, heard, store: speech.heard, listening, mic, cancel, done, send, pending, error: speech.errorP };
+}
+
+type Reply = ReturnType<typeof useReply>;
+
+/** The reply heard so far; only this subscribes to each partial result. */
+function useReplyLive(reply: Reply) {
+  return appendSpoken(reply.heard, useHeardText(reply.store)).trim();
+}
+
+function ReplyLiveWords({ reply }: { reply: Reply }) {
+  return <>{useReplyLive(reply)}</>;
+}
+
+function ReplyLiveInput({ reply, placeholder }: { reply: Reply; placeholder: string }) {
+  const live = useReplyLive(reply);
+  return <input type="text" style={{ minWidth: 0, width: "100%" }} value={reply.listening ? appendSpoken(reply.text, live) : reply.text} maxLength={1000} onChange={(e) => reply.setText(e.target.value)} placeholder={placeholder} />;
 }
 
 function Bubble({ who, when, text, mine, teacher }: { who: string; when: string; text: string; mine: boolean; teacher?: boolean }) {
@@ -477,7 +497,7 @@ export function BoardNoteAside({
               <span className="num nx-m" style={{ color: "var(--bad)", fontWeight: 700 }}>{tx(p("Listening…", "सुन रहे हैं…"))}</span>
             </div>
             <span style={{ fontSize: 14, lineHeight: 1.5 }}>
-              {reply.live}
+              <ReplyLiveWords reply={reply} />
               <span className="nx-caret" />
             </span>
             <div className="nx-f" style={{ gap: 6, justifyContent: "flex-end" }}>
@@ -701,7 +721,7 @@ export function TeachNoteDetail({
               {/* minWidth 0 lets the box shrink, so Send stays inside a 390px card (ST-18). */}
               <label className="nt-srch" style={{ flex: 1, minWidth: 0, height: 52, borderRadius: 26 }}>
                 <span className="sr">{tx(p("Your reply", "आपका जवाब"))}</span>
-                <input type="text" style={{ minWidth: 0, width: "100%" }} value={reply.listening ? `${reply.text}${reply.text && reply.live ? " " : ""}${reply.live}` : reply.text} maxLength={1000} onChange={(e) => reply.setText(e.target.value)} placeholder={both(p("Write a reply", "जवाब लिखें"))} />
+                <ReplyLiveInput reply={reply} placeholder={both(p("Write a reply", "जवाब लिखें"))} />
               </label>
               <button type="button" className="tap" aria-label={reply.listening ? "Stop listening" : "Speak a reply"} onClick={() => reply.mic(language === "en" ? "en-IN" : "hi-IN")} style={{ width: 52, height: 52, borderRadius: 26, border: 0, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", background: reply.listening ? "var(--bad)" : "var(--accs)", color: reply.listening ? "var(--onsolid)" : "var(--accfg)" }}>
                 <Ic n={reply.listening ? "x" : "mic"} size={22} />

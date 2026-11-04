@@ -46,7 +46,7 @@ vi.mock("@/lib/ai/feature-jobs", () => ({
 }));
 
 import type { AiPilotConfig } from "@/lib/ai/config";
-import { voiceStudent } from "@/lib/ai/voice-intents";
+import { supportedSpeech, voiceStudent, voiceTeacher } from "@/lib/ai/voice-intents";
 import type { VoiceReview } from "@/lib/ai/voice-review";
 import { voiceSpec, type VoiceExtraction } from "@/lib/ai/voice-schema";
 import { runVoiceRoute } from "@/lib/ai/voice-service";
@@ -287,6 +287,91 @@ describe("Bolo", () => {
     expect(scene.arrange).toHaveBeenCalledWith({ actorStaffId: person.id, sessionLabel: session, commandId: jobId,
       day: "2026-11-04", expectedDayRevision: 4, expectedPlan: "plan", onLeave: {},
       intent: { kind: "absence", staffProfileId: "absent-id", periods: [2], choices: [{ needKey: "need", coveringStaffId: "cover-id" }] },
+    });
+  });
+
+  it("matches a teacher the way staff say the name, and refuses a name that fits two people", () => {
+    const staff = [{ name: "Test teacher Maya", short: "T-Maya" }, { name: "Verma", short: "VR" }, { name: "Maya", short: "MY" }, { name: "Maya Sharma", short: "MS" }];
+    const labels = (row: (typeof staff)[number]) => [row.name, row.short];
+    expect(voiceTeacher(staff, "Maya test mam", labels)?.name).toBe("Test teacher Maya");
+    expect(voiceTeacher(staff, "Maya mam", labels)?.name).toBe("Maya");
+    expect(voiceTeacher(staff, "Verma ji", labels)?.name).toBe("Verma");
+    expect(voiceTeacher(staff, "Sharma ma'am", labels)?.name).toBe("Maya Sharma");
+    expect(voiceTeacher(staff, "VR sir", labels)?.name).toBe("Verma");
+    expect(voiceTeacher(staff, "mam", labels)).toBeNull();
+    expect(voiceTeacher(staff, "Meena madam", labels)).toBeNull();
+    expect(voiceTeacher([{ name: "Asha Rao", short: "AR" }, { name: "Asha Jain", short: "AJ" }], "Asha mam", (row) => [row.name, row.short])).toBeNull();
+  });
+
+  it("accepts a spoken \"aaj\" as today and still rejects values the speaker did not say", () => {
+    const base = { intent: "teacher_absence", unclear: false, teacher: "Maya mam" } as const;
+    expect(supportedSpeech({ ...base, transcript: "Aaj Maya mam absent hai, substitute laga do", day: "today" })).toBe(true);
+    expect(supportedSpeech({ ...base, transcript: "Maya mam absent hai", day: "aaj" })).toBe(true);
+    expect(supportedSpeech({ ...base, transcript: "Mr. Sharma is absent today", teacher: "Maya mam" })).toBe(false);
+    expect(supportedSpeech({ ...base, transcript: "Maya mam kal chhutti par rahengi", day: "tomorrow" })).toBe(true);
+    expect(supportedSpeech({ ...base, transcript: "Maya mam absent rahengi", day: "tomorrow" })).toBe(false);
+    expect(supportedSpeech({ ...base, transcript: "Maya mam kal absent rahengi" })).toBe(false);
+  });
+
+  describe("teacher absence by voice", () => {
+    const coordinator = { ...person, role: "academic_coordinator" } as CurrentStaff;
+    const slot = (period: number, classId: string, classLabel: string, staffProfileId = "maya") => ({ day: "Wednesday", period, classId, classLabel, staffProfileId });
+    beforeEach(() => {
+      scene.cover.mockResolvedValue({ header: "Wednesday", versionId: "tt", dayRevision: 6, openPeriods: new Set([1, 2, 3, 4, 5, 6, 7]), absences: [], live: [],
+        slots: [slot(2, "c7", "7B"), slot(5, "c8", "8A"), slot(0, "c9", "9A", "verma")],
+        staff: [{ id: "maya", displayName: "Test teacher Maya", shortName: "T-Maya", isTeaching: true },
+          { id: "verma", displayName: "Verma", shortName: "VR", isTeaching: true }],
+      });
+      const lessons = [
+        { needKey: "n1", period: 2, classLabels: ["7B"], subjectCode: "SCI", engine: "verma" },
+        { needKey: "n2", period: 5, classLabels: ["8A"], subjectCode: "MAT", engine: null },
+      ];
+      scene.guide.mockImplementation(async ({ periods, choices }: { periods: number[]; choices: { needKey: string; coveringStaffId: string }[] }) => ({
+        ok: true, preview: { dayRevision: 6, fingerprint: `plan-${periods.join("")}-${choices.length}`, others: [], refused: [], begun: [],
+          lessons: lessons.filter((lesson) => periods.includes(lesson.period)).map(({ engine, ...lesson }) => {
+            const covering = choices.find((choice) => choice.needKey === lesson.needKey)?.coveringStaffId ?? engine;
+            return { ...lesson, status: covering ? "assigned" : "needs_help", coveringStaffId: covering, options: [{ id: "verma", conflict: null }] };
+          }) } }));
+      scene.leave.mockResolvedValue({});
+      scene.arrange.mockResolvedValue({ ok: true });
+    });
+
+    it("plans the whole day from \"Maya test mam is absent today, unka substitute laga do\" and saves it on Save", async () => {
+      const raw = { transcript: "Maya test mam is absent today, unka substitute laga do", intent: "teacher_absence", unclear: false,
+        teacher: "Maya test mam", day: "today" } as const;
+      const { confirmation, result } = await review(raw, coordinator);
+      expect(result).toEqual({ kind: "teacher_absence", teacher: "Test teacher Maya", day: "2026-11-04", span: "whole", begun: 0, lessons: [
+        { period: 3, classLabel: "7B", subject: "SCI", substitute: "Verma" },
+        { period: 6, classLabel: "8A", subject: "MAT", substitute: null },
+      ] });
+      expect(confirmation).toMatch(/^[a-f\d]{64}$/u);
+      expect(scene.arrange).not.toHaveBeenCalled();
+      expect((await runVoiceRoute(coordinator, config, "apply", { jobId, confirmation })).status).toBe(200);
+      expect(scene.arrange).toHaveBeenCalledWith(expect.objectContaining({ day: "2026-11-04", expectedDayRevision: 6, expectedPlan: "plan-01234567-0",
+        intent: { kind: "absence", staffProfileId: "maya", periods: [0, 1, 2, 3, 4, 5, 6, 7], choices: [] } }));
+    });
+
+    it("plans tomorrow from a future-tense \"kal\"", async () => {
+      const raw = { transcript: "Maya mam kal chhutti par rahengi, unka arrangement kar do", intent: "teacher_absence", unclear: false,
+        teacher: "Maya mam", day: "tomorrow" } as const;
+      expect((await review(raw, coordinator)).result).toMatchObject({ kind: "teacher_absence", day: "2026-11-05", teacher: "Test teacher Maya" });
+      expect(scene.cover).toHaveBeenLastCalledWith(session, "2026-11-05");
+    });
+
+    it("uses a named substitute for a spoken half day", async () => {
+      const raw = { transcript: "Aaj Maya mam lunch ke baad chhutti par hain, Verma ji unke periods le lenge", intent: "teacher_absence", unclear: false,
+        teacher: "Maya mam", substitute: "Verma ji", span: "second_half", day: "today" } as const;
+      const { result } = await review(raw, coordinator);
+      expect(result).toMatchObject({ kind: "teacher_absence", span: "second_half", lessons: [{ period: 6, classLabel: "8A", substitute: "Verma" }] });
+      expect(scene.guide).toHaveBeenLastCalledWith(expect.objectContaining({ periods: [4, 5, 6, 7], choices: [{ needKey: "n2", coveringStaffId: "verma" }] }));
+    });
+
+    it("covers one spoken period without a spoken class or substitute, and says so when the name matches nobody", async () => {
+      const single = { transcript: "Period 3 mein Maya mam ki jagah kisi ko laga do", intent: "substitution", unclear: false, period: 3, teacher: "Maya mam" } as const;
+      expect((await review(single, coordinator)).result).toMatchObject({ kind: "substitution", classLabel: "7B", period: 3, teacher: "Test teacher Maya", substitute: "Verma" });
+      const unknown = { transcript: "Meena mam absent hai, substitute laga do", intent: "teacher_absence", unclear: false, teacher: "Meena mam" } as const;
+      expect((await review(unknown, coordinator)).result).toEqual({ kind: "clarify", reason: "teacher" });
+      expect((await review({ ...unknown, intent: "teacher_absence" }, person)).result).toEqual({ kind: "clarify", reason: "unsupported" });
     });
   });
 });

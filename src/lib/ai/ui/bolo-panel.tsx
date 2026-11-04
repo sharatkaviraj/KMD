@@ -31,6 +31,15 @@ const clarification = {
   mark: p("The spoken mark doesn’t fit this paper’s marking rules.", "बोला गया अंक इस पेपर के अंक नियमों के अनुसार नहीं है।"),
   schedule: p("Bolo couldn’t verify a timetable or date for this request.", "बोलो इस अनुरोध की समय-सारणी या तारीख़ जाँच नहीं पाया।"),
   cover: p("Bolo couldn’t verify this cover. Check the period and the two teachers in Substitutions.", "बोलो इस बदली की पुष्टि नहीं कर पाया। बदली में पीरियड और दोनों शिक्षकों को जाँचें।"),
+  teacher: p("Bolo couldn’t tell which teacher you meant. Say the name as it appears in the app, for example “Maya mam” or “Sharma sir”.", "बोलो समझ नहीं पाया कि कौन से शिक्षक। ऐप में जैसा नाम है वैसा बोलें, जैसे “माया मैम” या “शर्मा सर”।"),
+  no_lessons: p("That teacher has no lessons left to cover then.", "उस समय उन शिक्षक का कोई पीरियड बाकी नहीं है।"),
+};
+
+const spans = {
+  whole: p("Whole day", "पूरा दिन"),
+  first_half: p("First half", "पहला आधा दिन"),
+  second_half: p("Second half", "दूसरा आधा दिन"),
+  periods: p("Named periods", "बताए गए पीरियड"),
 };
 
 async function post<T>(operation: "upload" | "parse" | "apply" | "discard", body: object): Promise<T> {
@@ -105,6 +114,23 @@ function Result({ result }: { result: VoiceResult }) {
       <p>{tx(result.category)}</p>
       <p dir="auto" className="whitespace-pre-wrap break-words">{result.note}</p>
     </div>;
+    case "teacher_absence": {
+      const open = result.lessons.filter((lesson) => !lesson.substitute).length;
+      return <div className="space-y-2">
+        <p className="font-semibold">{result.teacher} · {tx(p("Away", "अनुपस्थित"))} · {result.day}</p>
+        <p>{tx(spans[result.span])} · {tx(p(`${result.lessons.length} lessons to cover`, `${result.lessons.length} पीरियड की बदली`))}</p>
+        <ul className="space-y-1">{result.lessons.map((lesson, index) => <li key={index} className="flex flex-wrap items-baseline gap-x-2 rounded-lg border p-2"
+          style={{ borderColor: lesson.substitute ? "var(--bd)" : "var(--warn)" }}>
+          <span className="font-medium">{tx(p(`P${lesson.period}`, `पी${lesson.period}`))} · {lesson.classLabel}</span>
+          <span style={{ color: "var(--mut)" }}>{lesson.subject}</span>
+          <span>→ {lesson.substitute ?? tx(p("needs a teacher", "शिक्षक चाहिए"))}</span>
+        </li>)}</ul>
+        {result.begun > 0 && <p className="text-sm">{tx(p(`${result.begun} lessons have already started and are left as they are.`, `${result.begun} पीरियड शुरू हो चुके हैं, वे जैसे हैं वैसे रहेंगे।`))}</p>}
+        <p className="text-sm">{open
+          ? tx(p("Save marks the absence and assigns the teachers shown; open Arrange cover for the lessons still needing a teacher.", "सहेजने पर अनुपस्थिति दर्ज होगी और दिखाए गए शिक्षक लगेंगे; जिन पीरियड में शिक्षक चाहिए, उन्हें व्यवस्था में खोलें।"))
+          : tx(p("Save marks the absence and assigns the teachers shown.", "सहेजने पर अनुपस्थिति दर्ज होगी और दिखाए गए शिक्षक लगेंगे।"))}</p>
+      </div>;
+    }
     case "substitution": return <div className="space-y-2">
       <p className="font-semibold">{result.classLabel} · {result.day} · {tx(p(`Period ${result.period}`, `पीरियड ${result.period}`))}</p>
       <p>{result.subject} · {result.teacher} → {result.substitute}</p>

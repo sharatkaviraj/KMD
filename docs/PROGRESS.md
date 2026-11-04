@@ -1,5 +1,22 @@
 # VPPS One — progress
 
+## Bolo cover by voice — 4 November 2026
+
+Owner: "maya test mam is absent today unka substitute laga do in test session
+… didn't complete the task; train and optimise it". Branch
+`feat/bolo-teacher-absence`, D-405–D-406. The ledger showed why: the clip was
+transcribed "Mr. Sharma is absent today…", the model invented "period 1" for
+the only cover intent (one period, class and substitute required), and a
+second phrasing was refused as unsupported. Now: a `teacher_absence` intent
+with planner-proposed cover per lesson, single-period cover without class or
+substitute, honorific-tolerant teacher matching, teacher/class spelling hints
+for the listener, and a Hinglish prompt with examples. **Provider keys:** the
+OpenAI transcription key and the Gemini free key both answer HTTP 403 in
+production, so Gemini Paid hears every clip; fixing those is an account
+change for the owner. Also (D-407): voice-typed words in notes now show
+instantly — partial results no longer re-render the whole composer, and the
+per-word fade is gone. Release and live checks follow in this row.
+
 ## Phone quick substitute and voice typing — 4 November 2026
 
 Owner: add photo and Bolo to the phone's "+" quick substitute, optimise the AI

@@ -9,7 +9,7 @@ import { agoP, dayMonth, dayMonthHi, shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { SAVE_IDLE, SaveStatus, useSlowSave, type SaveState } from "@/vx/ui/save-status";
-import { appendSpoken, useSpeech } from "@/vx/ui/voice";
+import { appendSpoken, useHeardText, useSpeech } from "@/vx/ui/voice";
 import { NoteAssist } from "@/vx/assist/note-assist";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
 
@@ -221,13 +221,15 @@ export function useComposer(init: ComposerInit) {
     speech.start(lang);
   }, [child, init.initialStep, lang, speech]);
 
-  const live = appendSpoken(heard, speech.interim).trim();
+  /** Everything heard so far, read at the moment of a tap (the live words never re-render the composer). */
+  const liveNow = () => appendSpoken(heard, speech.heard.get()).trim();
   const seconds = startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : 0;
   const timer = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
   const doneListening = (back: AddStep) => {
+    // Read the words before stop() hands them over and clears the live store.
+    const words = liveNow();
     if (speech.listening) speech.stop();
-    const words = live;
     if (!words) {
       setStep(back === "review" ? "add" : back);
       toast.show({ text: tx(p("Did not catch anything — tap the mic and try again", "कुछ सुनाई नहीं दिया — माइक दबाकर फिर बोलें")) });
@@ -373,7 +375,7 @@ export function useComposer(init: ComposerInit) {
   return {
     step, setStep, child, studentId, pickChild, tags, toggleTag, setTags, body, setBody, voice, mode, setMode, lang, switchLang,
     follow, setFollow, when, setWhen, followOn, setFollowOn, followOnDate, owner: ownerKey, setOwner, visibility, pickVisibility, tellParents, toggleTell,
-    errField, setErrField, error, saveUncertain, pending, draftAt, listen, doneListening, cancelListening, live, timer,
+    errField, setErrField, error, saveUncertain, pending, draftAt, listen, doneListening, cancelListening, heard, timer,
     speech, addPhrase, reset, save, openAction, setError, restoreDraft,
     saveLine, saveWords, refused, testSession: init.testSession ?? false,
   };
@@ -618,6 +620,15 @@ function Bars({ heights, delays }: { heights: number[]; delays: number[] }) {
 const BAR_H = [18, 30, 24, 34, 22, 28, 16];
 const BAR_D = [0, 0.12, 0.24, 0.36, 0.18, 0.06, 0.3];
 
+/** Words heard so far, re-rendered on their own as each partial result arrives. */
+function useLiveWords(c: Composer) {
+  return appendSpoken(c.heard, useHeardText(c.speech.heard)).trim();
+}
+
+function ComposerLiveWords({ c }: { c: Composer }) {
+  return <LiveWords text={useLiveWords(c)} />;
+}
+
 /** The live words, with a caret. */
 function LiveWords({ text, empty }: { text: string; empty?: string }) {
   return (
@@ -760,7 +771,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
             {on ? (
               <>
                 <div className="nx-tr" aria-live="polite">
-                  <LiveWords text={c.live} />
+                  <ComposerLiveWords c={c} />
                 </div>
                 <div className="nx-f" style={{ gap: 8, width: "100%" }}>
                   <button type="button" className="tap btn sec" onClick={() => c.cancelListening("add")} style={{ flex: 1, height: 52 }}>{tx(p("Cancel", "रद्द करें"))}</button>
@@ -1190,7 +1201,8 @@ export function TeachListening({ c }: { c: Composer }) {
   const { tx } = useVx();
   const both = useBoth();
   const kid = c.child?.name ?? "";
-  const got = !c.speech.listening && Boolean(c.live);
+  const live = useLiveWords(c);
+  const got = !c.speech.listening && Boolean(live);
   return (
     <div className="nx-c nt-full" style={{ alignItems: "center", justifyContent: "center", padding: "24px 20px 32px", gap: 18, textAlign: "center", animation: "xPush .36s var(--ease) both" }}>
       <span className="pill" style={{ height: 32, padding: "0 12px 0 4px", fontSize: 13, background: "var(--card)", color: "var(--fg)", border: "1px solid var(--bd)" }}>
@@ -1224,7 +1236,8 @@ export function TeachListening({ c }: { c: Composer }) {
         ))}
       </div>
       <div className="card" aria-live="polite" style={{ width: "100%", maxWidth: 640, minHeight: 132, padding: "20px 22px", textAlign: "left", fontSize: 20, lineHeight: 1.6 }}>
-        {c.live ? c.live.split(" ").map((w, i) => <span key={i} className="nt-wd">{w} </span>) : <span style={{ color: "var(--mut)" }}>{both(p("Start speaking…", "बोलना शुरू करें…"))}</span>}
+        {/* Words appear as they are heard: no per-word fade, which read as lag. */}
+        {live ? live : <span style={{ color: "var(--mut)" }}>{both(p("Start speaking…", "बोलना शुरू करें…"))}</span>}
         <span className="nt-caret" />
       </div>
       <div className="nx-f" style={{ gap: 10, width: "100%", maxWidth: 640 }}>
