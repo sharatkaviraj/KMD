@@ -30,6 +30,7 @@ import { Banner, VxPage } from "@/vx/ui/page";
 import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
 
 import type { CoverDutyView, LeaveView, TimetableData } from "./data";
+import { G } from "./guided-text";
 import { browserCoverStorage, clearCoverRecord, coverRecoveryKey, decodeCoverRecord, notifyCoverRecovery, persistCoverRecord, readCoverSnapshot, subscribeCoverRecovery, takeAutoCheck, type CoverScope } from './cover-recovery';
 import {
   addDay,
@@ -698,7 +699,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
       </>
     );
   } else if (state.view === "subs") {
-    body = <Subs data={data} pending={coverBlocked} subjectName={subjectName} clock={hhmm} onCover={cover} onAssign={(needKey) => go({ view: "subs", duty: needKey })} />;
+    body = <Subs data={data} pending={coverBlocked} subjectName={subjectName} clock={hhmm} onCover={cover} onAssign={(needKey, pick) => go({ view: "subs", duty: needKey, pick: pick ?? null })} />;
   } else if (state.view === "leave") {
     body = <Leave data={data} pending={pending || previewing} onDecide={(id, approve) => start(async () => {
       const result = await decideLeaveAction({ id, approve });
@@ -783,6 +784,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
       ) : null}
       <AssignSheet
         duty={duty}
+        initialPick={state.duty ? state.pick : null}
         data={data}
         pending={coverBlocked}
         subjectName={subjectName}
@@ -1183,11 +1185,15 @@ function Subs({
   subjectName: (code: string) => string;
   clock: string | null;
   onCover: (input: Omit<CoverInput, "commandId" | "sessionLabel" | "day" | "dayRevision">, after?: () => void) => void;
-  onAssign: (needKey: string) => void;
+  /** Open the assign sheet — the review before an assignment is saved — optionally with a teacher picked. */
+  onAssign: (needKey: string, pick?: string) => void;
 }) {
   const { tx } = useVx();
   const say = (en: string, hi: string) => tx({ en, hi });
   const c = data.cover;
+  // Marking a teacher away goes through the guided flow's review and Confirm (C01).
+  const arrangeHref = (staffId?: string, periods?: number[]) =>
+    `/substitutions/arrange?day=${c?.day ?? data.today}${staffId ? `&staff=${staffId}` : ""}${periods?.length ? `&periods=${periods.join(",")}` : ""}`;
   const [awayId, setAwayId] = useState("");
   const [awaySpanChoice, setAwaySpanChoice] = useState<LeaveSpan>("full");
   const [choice, setChoice] = useState<Record<string, string>>({});
@@ -1237,6 +1243,12 @@ function Subs({
   return (
     <>
       {!c.hasTimetable ? <Banner tone="warn">{say(`No published timetable covers ${dayShort(c.day)}, so there is nothing to arrange.`, `${dayShort(c.day)} के लिए कोई प्रकाशित समय सारणी नहीं, इसलिए व्यवस्था नहीं।`)}</Banner> : null}
+      {c.canCommand ? (
+        <Card style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ flex: "1 1 220px", minWidth: 0, fontSize: 13, color: "var(--mut)" }}>{tx(G.whichPage)}</span>
+          <Btn variant="pri" icon="swap" href={arrangeHref()}>{tx(G.title)}</Btn>
+        </Card>
+      ) : null}
       <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)", gap: 14 }}>
         <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
@@ -1251,7 +1263,7 @@ function Subs({
           {away.length === 0 ? (
             <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, padding: "8px 0" }}>
               <span style={MUTED}>{say("No one is marked away yet.", "अभी कोई अनुपस्थित दर्ज नहीं।")}</span>
-              {c.canCommand && !editing ? <Btn variant="pri" icon="user" onClick={() => setEditing(true)}>{say("Mark a teacher away", "शिक्षक को अनुपस्थित दर्ज करें")}</Btn> : null}
+              {c.canCommand && !editing ? <Btn variant="pri" icon="user" href={arrangeHref()}>{say("Mark a teacher away", "शिक्षक को अनुपस्थित दर्ज करें")}</Btn> : null}
             </span>
           ) : null}
           {away.map((a, i) => {
@@ -1282,8 +1294,9 @@ function Subs({
                 <option value="first_half">{say(`First half · P1–P${BREAK_AFTER + 1}`, `पहली पाली · P1–P${BREAK_AFTER + 1}`)}</option>
                 <option value="second_half">{say(`Second half · P${BREAK_AFTER + 2}–P${PERIODS.length}`, `दूसरी पाली · P${BREAK_AFTER + 2}–P${PERIODS.length}`)}</option>
               </Select>
-              {/* Periods already marked away (an approved leave, say) are kept: the new ones are added, never swapped in silently. */}
-              <Btn variant="pri" icon="check" disabled={pending || !awayId} onClick={() => onCover({ intent: "absence", staffProfileId: awayId, periods: [...new Set([...(absenceOf(awayId)?.periods ?? []), ...spanPeriods(awaySpanChoice)])].sort((x, y) => x - y) }, () => setAwayId(""))}>{say("Save & arrange", "सहेजें और व्यवस्था करें")}</Btn>
+              {/* Periods already marked away (an approved leave, say) are kept: the new ones are added, never swapped in silently.
+                  Nothing is saved here: the guided flow shows the lessons, who covers and who is messaged, and saves on its Confirm (C01). */}
+              <Btn variant="pri" icon="arrowRight" disabled={pending || !awayId} href={awayId ? arrangeHref(awayId, [...new Set([...(absenceOf(awayId)?.periods ?? []), ...spanPeriods(awaySpanChoice)])].sort((x, y) => x - y)) : undefined}>{say("Review & arrange", "जाँचें और व्यवस्था करें")}</Btn>
               {awayId && absenceOf(awayId) ? (
                 <span role="status" style={{ flexBasis: "100%", fontSize: 13, color: "var(--warnfg)" }}>
                   {(() => {
@@ -1428,9 +1441,10 @@ function Subs({
                       {free.length === 0 ? <span style={{ ...MUTED, padding: "10px 0" }}>{say(`Nobody is free in ${pn}. Merge with another section or take it yourself.`, `${pn} में कोई खाली नहीं। दूसरे सेक्शन के साथ मिलाएँ या स्वयं लें।`)}</span> : null}
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 }}>
-                      <button type="button" className="tap btn pri mfull" disabled={pending || !picked} onClick={() => onCover({ intent: "assign", needKey: d.needKey, coveringStaffId: picked })}>
+                      {/* Opens the assign sheet: who, the WhatsApp message they will get, then an explicit Assign (C01). */}
+                      <button type="button" className="tap btn pri mfull" disabled={pending || !picked} onClick={() => onAssign(d.needKey, picked)}>
                         <Ic n="send" />
-                        {pickedName ? say(`Assign ${pickedName}`, `${pickedName} को दें`) : say("Nobody is free", "कोई खाली नहीं")}
+                        {pickedName ? say(`Review: assign ${pickedName}`, `जाँचें: ${pickedName} को दें`) : say("Nobody is free", "कोई खाली नहीं")}
                       </button>
                       <button type="button" className="tap btn ghost mfull" onClick={() => onAssign(d.needKey)}>{say(`See all ${free.length} free teachers`, `सभी ${free.length} खाली शिक्षक देखें`)}</button>
                       <span style={MUTED}>1 WhatsApp · {rupees(0.88)}</span>
@@ -1480,14 +1494,16 @@ function candidateWhy(tx: (pair: Pair) => string, pn: string, x: CoverDutyView["
   });
 }
 
-function AssignSheet({ duty, data, pending, subjectName, onClose, onAssign }: { duty: CoverDutyView | null; data: TimetableData; pending: boolean; subjectName: (code: string) => string; onClose: () => void; onAssign: (needKey: string, staffId: string) => void }) {
+function AssignSheet({ duty, initialPick, data, pending, subjectName, onClose, onAssign }: { duty: CoverDutyView | null; initialPick?: string | null; data: TimetableData; pending: boolean; subjectName: (code: string) => string; onClose: () => void; onAssign: (needKey: string, staffId: string) => void }) {
   const { tx } = useVx();
   const say = (en: string, hi: string) => tx({ en, hi });
   const [pick, setPick] = useState<string | null>(null);
   const [seen, setSeen] = useState<string | null>(null);
   if ((duty?.needKey ?? null) !== seen) {
     setSeen(duty?.needKey ?? null);
-    setPick(duty?.coveringStaffId ?? duty?.candidates.find((c) => !c.blocked)?.id ?? null);
+    // The teacher picked on the card, when it is one who is free; else the holder, else the best match.
+    const carried = initialPick && duty?.candidates.some((c) => c.id === initialPick && !c.blocked) ? initialPick : null;
+    setPick(carried ?? duty?.coveringStaffId ?? duty?.candidates.find((c) => !c.blocked)?.id ?? null);
   }
   const name = duty?.candidates.find((c) => c.id === pick)?.name;
   const bell = duty ? data.bells.find((b) => b.index === duty.period) : undefined;

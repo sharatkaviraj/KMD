@@ -44,6 +44,43 @@ export type CoverState = {
 
 export const idleCoverState: CoverState = { status: "idle", message: null, receipt: null };
 
+/** `commit_cover_command`'s receipt as the screens read it. */
+export function toCoverReceipt(receipt: {
+  command_id: string;
+  day_revision: number;
+  assigned: number;
+  needs_help: number;
+  new: number;
+  changed: number;
+  cancelled: number;
+  unchanged: number;
+  pinned?: number;
+  skipped_started: number;
+  notices_queued: number;
+  notices_withdrawn: number;
+  notice_recipients: number;
+  recipients_without_phone: number;
+  replayed: boolean;
+}): CoverReceipt {
+  return {
+    commandId: receipt.command_id,
+    dayRevision: receipt.day_revision,
+    assigned: receipt.assigned,
+    needsHelp: receipt.needs_help,
+    added: receipt.new,
+    changed: receipt.changed,
+    cancelled: receipt.cancelled,
+    unchanged: receipt.unchanged,
+    pinned: receipt.pinned ?? 0,
+    skippedStarted: receipt.skipped_started,
+    noticesQueued: receipt.notices_queued,
+    noticesWithdrawn: receipt.notices_withdrawn,
+    noticeRecipients: receipt.notice_recipients,
+    recipientsWithoutPhone: receipt.recipients_without_phone,
+    replayed: receipt.replayed,
+  };
+}
+
 /** The receipt in one sentence — what the coordinator reads first. */
 export function receiptSentence(receipt: CoverReceipt): Localized {
   // Nothing live left on the day: say that, not "0 duties assigned" — a

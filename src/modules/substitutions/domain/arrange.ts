@@ -92,6 +92,14 @@ export type ArrangeInput = {
   coverHistory?: Record<string, number>;
   maxConsecutive?: number;
   override?: DutyOverride | null;
+  /**
+   * Several deliberate choices at once — the guided flow's review, where a
+   * coordinator settles every period of one absence before confirming. Applied
+   * in order, each judged against the ones before it, so two choices that put
+   * one teacher in two rooms refuse the second. `override`, when also given,
+   * comes last.
+   */
+  overrides?: readonly DutyOverride[];
   /** People who have said they cannot cover a need — never asked again for it. */
   excluded?: ReadonlyMap<string, ReadonlySet<string>>;
 };
@@ -100,6 +108,8 @@ export type ArrangeResult = {
   duties: DesiredDuty[];
   /** An override the facts refuse — reported to the coordinator, not committed. */
   refusedOverride: { needKey: string; blocked: string[] } | null;
+  /** Every refused override, in slot order; `refusedOverride` is the first of them. */
+  refusedOverrides: { needKey: string; blocked: string[] }[];
 };
 
 const MAX_ROUNDS = 6;
@@ -140,7 +150,7 @@ export function arrangeCover(input: ArrangeInput): ArrangeResult {
   /** Who holds which slot so far: the allocation being built. */
   const held = new Map<string, { teacher: string; source: "auto" | "manual"; pinned: boolean }>();
   const released = new Map<string, NeedsHelpReason>();
-  let refusedOverride: ArrangeResult["refusedOverride"] = null;
+  const refusedOverrides: ArrangeResult["refusedOverrides"] = [];
 
   const assignmentsExcept = (key: string): AssignmentLike[] =>
     [...held.entries()]
@@ -165,16 +175,21 @@ export function arrangeCover(input: ArrangeInput): ArrangeResult {
 
   /* --------------------------------------------- 1. the coordinator's word */
 
-  const override = input.override ?? null;
+  // One choice per slot; a later one for the same slot replaces an earlier one.
+  const overrideFor = new Map<string, DutyOverride>();
+  for (const entry of [...(input.overrides ?? []), ...(input.override ? [input.override] : [])]) {
+    overrideFor.set(entry.needKey, entry);
+  }
   for (const slot of slots) {
-    if (override?.needKey !== slot.key) continue;
+    const override = overrideFor.get(slot.key);
+    if (!override) continue;
     if (override.coveringStaffId === null) {
       released.set(slot.key, "released");
       continue;
     }
     const verdict = judge(slot, override.coveringStaffId);
     if (!verdict || verdict.blocked.length > 0) {
-      refusedOverride = { needKey: slot.key, blocked: verdict?.blocked ?? ["unknown_teacher"] };
+      refusedOverrides.push({ needKey: slot.key, blocked: verdict?.blocked ?? ["unknown_teacher"] });
       continue;
     }
     // A person chose this, knowing the warnings; only a hard block refuses it.
@@ -318,5 +333,5 @@ export function arrangeCover(input: ArrangeInput): ArrangeResult {
     };
   });
 
-  return { duties, refusedOverride };
+  return { duties, refusedOverride: refusedOverrides[0] ?? null, refusedOverrides };
 }

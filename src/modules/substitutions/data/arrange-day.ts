@@ -23,7 +23,8 @@ import {
   type LateCoverOutcome,
 } from "@/modules/substitutions/data/cover-repo";
 import { listCoverPolicies } from "@/modules/substitutions/data/policies-repo";
-import { arrangeCover, type DutyOverride } from "@/modules/substitutions/domain/arrange";
+import { arrangeCover, type DesiredDuty, type DutyOverride } from "@/modules/substitutions/domain/arrange";
+import { planFingerprint, type GuidedChoice } from "@/modules/substitutions/domain/guided";
 import {
   buildTeacherProfiles,
   rankCandidates,
@@ -197,7 +198,17 @@ export function candidatesFor(
 
 /** What the operator asked for — the part a repeated submission must match. */
 export type CoverIntent =
-  | { kind: "absence"; staffProfileId: string; periods: number[] }
+  | {
+      kind: "absence";
+      staffProfileId: string;
+      periods: number[];
+      /**
+       * The guided flow's decisions for the lessons this absence leaves, each
+       * a person's choice (or "nobody yet"), applied before the arranger fills
+       * the rest. Absent for the one-button absence form.
+       */
+      choices?: GuidedChoice[];
+    }
   | { kind: "clear_absence"; staffProfileId: string }
   | { kind: "assign"; needKey: string; coveringStaffId: string }
   | { kind: "release"; needKey: string }
@@ -206,7 +217,13 @@ export type CoverIntent =
 function payloadHash(day: string, intent: CoverIntent): string {
   const normalized =
     intent.kind === "absence"
-      ? { ...intent, periods: [...new Set(intent.periods)].sort((a, b) => a - b) }
+      ? {
+          ...intent,
+          periods: [...new Set(intent.periods)].sort((a, b) => a - b),
+          // Left out entirely when there are none, so the one-button form's
+          // hash is what it always was.
+          ...(intent.choices ? { choices: [...intent.choices].sort((a, b) => a.needKey.localeCompare(b.needKey)) } : {}),
+        }
       : intent;
   return createHash("sha256").update(JSON.stringify({ day, intent: normalized })).digest("hex");
 }
@@ -214,30 +231,44 @@ function payloadHash(day: string, intent: CoverIntent): string {
 export type ArrangeOutcome =
   | CommandOutcome
   | { ok: false; reason: "refused_override"; blocked: string[] }
-  | { ok: false; reason: "no_timetable_day" };
+  | { ok: false; reason: "no_timetable_day" }
+  | { ok: false; reason: "plan_changed"; current: { day_revision: number } };
+
+/** The day as one cover command would leave it — worked out, not yet written. */
+export type CoverPlan = {
+  day: CoverDay & { header: string; versionId: string };
+  /** Who is away once the command commits. */
+  absenceIndex: AbsenceIndex;
+  absenceChanges: { staff_profile_id: string; periods: number[] | null }[];
+  needs: CoverNeed[];
+  /** Every duty the day should hold, for `commit_cover_command`. */
+  duties: DesiredDuty[];
+  /** Choices the facts refused (a teacher in two rooms, away, teaching). */
+  refused: { needKey: string; blocked: string[] }[];
+  profiles: { teacherProfiles: TeacherProfiles; everyone: TeacherProfiles; history: Record<string, number> };
+  /** Who may not take which need: "I cannot cover", plus approved leave the day does not mark. */
+  excluded: Map<string, Set<string>>;
+};
 
 /**
- * Save an operator's cover decision for one day, atomically.
+ * The compute half of a cover command: read the day, apply the intent in
+ * memory, work out the whole day. Writes nothing.
  *
- * In order: a submission already committed returns its receipt (the
- * lost-response case); the day is read; the operator's intent is applied in
- * memory; the arranger works out the whole day; the database commits it or
- * refuses it as one transaction. Nothing is written before the last step.
+ * The guided flow's review shows exactly this; its Confirm runs it again
+ * inside `arrangeDay` and commits only if it comes out the same.
+ *
+ * `onLeave` names staff on approved leave in some periods who the day does not
+ * mark away (leave further ahead than the approval arranged, say). They are
+ * kept off the lessons the intent's absence leaves; anything else on the day
+ * is planned as it always was.
  */
-export async function arrangeDay(input: {
-  actorStaffId: string;
+export async function planCoverDay(input: {
   sessionLabel: string;
   day: string;
-  commandId: string;
   intent: CoverIntent;
-  expectedDayRevision: number;
-  /** Test-only: raise inside the transaction at a named point. Honoured only on dev with the flag on. */
-  fault?: string | null;
+  onLeave?: Readonly<Record<string, readonly number[]>>;
   now?: Date;
-}): Promise<ArrangeOutcome> {
-  const replay = await findCommand(input.commandId, input.actorStaffId);
-  if (replay) return replay;
-
+}): Promise<{ ok: true; plan: CoverPlan } | { ok: false; reason: "no_timetable" | "no_timetable_day" }> {
   const now = input.now ?? new Date();
   const day = await readCoverDay(input.sessionLabel, input.day, now);
   if (!day.versionId) return { ok: false, reason: "no_timetable" };
@@ -254,32 +285,47 @@ export async function arrangeDay(input: {
     absenceChanges.push({ staff_profile_id: input.intent.staffProfileId, periods: null });
   }
 
-  const [{ teacherProfiles, everyone, history }, rules] = await Promise.all([
-    profilesFor(day),
-    teamRules(input.sessionLabel),
-  ]);
+  const [profiles, rules] = await Promise.all([profilesFor(day), teamRules(input.sessionLabel)]);
+  const { teacherProfiles, everyone, history } = profiles;
 
   const { events } = teachingEventsFor(day.slots, day.header);
   const needs = coverNeedsFor(events, absenceIndex, rules);
 
-  const override: DutyOverride | null =
+  const overrides: DutyOverride[] =
     input.intent.kind === "assign"
-      ? { needKey: input.intent.needKey, coveringStaffId: input.intent.coveringStaffId }
+      ? [{ needKey: input.intent.needKey, coveringStaffId: input.intent.coveringStaffId }]
       : input.intent.kind === "release"
-        ? { needKey: input.intent.needKey, coveringStaffId: null }
-        : null;
+        ? [{ needKey: input.intent.needKey, coveringStaffId: null }]
+        : input.intent.kind === "absence"
+          ? (input.intent.choices ?? []).map((choice) => ({ needKey: choice.needKey, coveringStaffId: choice.coveringStaffId }))
+          : [];
 
   // A coordinator may choose anybody active — including staff the app would
   // never volunteer — so a manual assignment is judged against every profile.
-  const judgedProfiles =
-    override?.coveringStaffId && !teacherProfiles[override.coveringStaffId]
-      ? { ...teacherProfiles, [override.coveringStaffId]: everyone[override.coveringStaffId] }
-      : teacherProfiles;
+  const judgedProfiles = { ...teacherProfiles };
+  for (const override of overrides) {
+    if (override.coveringStaffId && !judgedProfiles[override.coveringStaffId] && everyone[override.coveringStaffId]) {
+      judgedProfiles[override.coveringStaffId] = everyone[override.coveringStaffId];
+    }
+  }
 
   // A teacher who said "I cannot cover" is never asked again for that duty.
   // Their duty is not freed by saying so (§5: responsibility moves only when a
   // new plan commits); it is re-arranged by the next command, this one.
-  const excluded = exclusionsFrom(day.duties);
+  const declined = exclusionsFrom(day.duties);
+  const excluded = new Map([...declined].map(([key, set]) => [key, new Set(set)]));
+  if (input.intent.kind === "absence" && input.onLeave) {
+    const away = input.intent.staffProfileId;
+    for (const need of needs) {
+      if (!need.absentStaffIds.includes(away)) continue;
+      for (const [staffId, periods] of Object.entries(input.onLeave)) {
+        if (!periods.includes(need.event.period)) continue;
+        const set = excluded.get(need.key) ?? new Set<string>();
+        set.add(staffId);
+        excluded.set(need.key, set);
+      }
+    }
+  }
 
   const arranged = arrangeCover({
     needs,
@@ -297,20 +343,90 @@ export async function arrangeDay(input: {
     teacherProfiles: judgedProfiles,
     absenceIndex,
     coverHistory: history,
-    override,
+    overrides,
     excluded,
   });
 
-  if (arranged.refusedOverride) {
-    return { ok: false, reason: "refused_override", blocked: arranged.refusedOverride.blocked };
-  }
-
   // Left without anybody after a refusal, the reason a person sees is the refusal.
   const duties = arranged.duties.map((duty) =>
-    duty.status === "needs_help" && excluded.has(duty.need_key)
+    duty.status === "needs_help" && declined.has(duty.need_key)
       ? { ...duty, reason: "cannot_cover" as const }
       : duty,
   );
+
+  return {
+    ok: true,
+    plan: {
+      day: day as CoverPlan["day"],
+      absenceIndex,
+      absenceChanges,
+      needs,
+      duties,
+      refused: arranged.refusedOverrides,
+      profiles,
+      excluded,
+    },
+  };
+}
+
+/**
+ * Save an operator's cover decision for one day, atomically.
+ *
+ * In order: a submission already committed returns its receipt (the
+ * lost-response case); the day is read; the operator's intent is applied in
+ * memory; the arranger works out the whole day; the database commits it or
+ * refuses it as one transaction. Nothing is written before the last step.
+ *
+ * `expectedPlan` is the guided flow's: the fingerprint of the plan the
+ * coordinator reviewed. When the day has moved since, the command is refused
+ * as stale; when the same day now plans differently (a period began, a
+ * policy changed), as `plan_changed` — never committed as something else.
+ */
+export async function arrangeDay(input: {
+  actorStaffId: string;
+  sessionLabel: string;
+  day: string;
+  commandId: string;
+  intent: CoverIntent;
+  expectedDayRevision: number;
+  expectedPlan?: string | null;
+  onLeave?: Readonly<Record<string, readonly number[]>>;
+  /** Test-only: raise inside the transaction at a named point. Honoured only on dev with the flag on. */
+  fault?: string | null;
+  now?: Date;
+}): Promise<ArrangeOutcome> {
+  const replay = await findCommand(input.commandId, input.actorStaffId);
+  if (replay) return replay;
+
+  const planned = await planCoverDay({
+    sessionLabel: input.sessionLabel,
+    day: input.day,
+    intent: input.intent,
+    onLeave: input.onLeave,
+    now: input.now,
+  });
+  if (!planned.ok) return planned;
+  const { plan } = planned;
+  const { day } = plan;
+
+  if (plan.refused.length > 0) {
+    return { ok: false, reason: "refused_override", blocked: plan.refused[0].blocked };
+  }
+
+  if (input.expectedPlan) {
+    // Said as stale first: "somebody changed this day" is the truer reason
+    // when the revision moved, and it is what the database would say.
+    if (day.dayRevision !== input.expectedDayRevision) {
+      return {
+        ok: false,
+        reason: "stale",
+        current: { day_revision: day.dayRevision, timetable_version_id: day.versionId, bells_revision: day.bells.revision },
+      };
+    }
+    if (planFingerprint(plan.duties) !== input.expectedPlan) {
+      return { ok: false, reason: "plan_changed", current: { day_revision: day.dayRevision } };
+    }
+  }
 
   return commitCoverCommand({
     command_id: input.commandId,
@@ -325,8 +441,8 @@ export async function arrangeDay(input: {
       timetable_version_id: day.versionId,
       bells_revision: day.bells.revision,
     },
-    absences: absenceChanges,
-    duties,
+    absences: plan.absenceChanges,
+    duties: plan.duties,
     fault: input.fault ?? null,
   });
 }
