@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode 
 
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import { rupees, rupeesShort, shortDay } from "@/vx/format";
-import { useVx } from "@/vx/i18n";
+import { Bi, useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
 import { Seg } from "@/vx/ui/controls";
@@ -45,8 +45,6 @@ export type LedgerToday = { total: number; count: number; byMode: { label: strin
 
 export type TodayProps = {
   notice?: ReactNode;
-  /** The AI connection's one line (owner, 4 Nov); apart from `notice`, which also decides the money note. */
-  aiStrip?: ReactNode;
   officeWork?: ReactNode;
   /** Morning: a part-day's money is not set against a whole average day (verification N7, as accountant B16). */
   beforeNoon?: boolean;
@@ -137,8 +135,15 @@ const HERO_INK = "#082F49";
  * sidebar), the chart's hover tips, and the donut and heat cells' hover.
  */
 const CSS = `
-.vx .td-grid{display:grid;grid-template-columns:minmax(0,1fr) 356px;gap:24px;padding:24px 28px 40px;align-items:start}
+.vx .td-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:20px;padding:24px 28px 40px;align-items:start}
+.vx .td-wide{grid-column:1/-1}
+.vx .td-stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.vx .td-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:16px}
 .vx .td-two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.vx .td-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vx .td-shortcut{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px;border:1px solid var(--bd);border-radius:12px;color:var(--fg);font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.vx .td-shortcut:hover{background:var(--s2)}
+.vx .td-shortcut:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
 @container vx (max-width:984px){.vx .td-grid,.vx .td-two{grid-template-columns:minmax(0,1fr)}}
 @container vx (max-width:899px){.vx .td-grid{padding:24px 18px 8px;gap:16px}}
 .vx .td-bar{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center}
@@ -318,7 +323,6 @@ export function TodayScreen(props: TodayProps) {
         <div className="only-m" style={{ lineHeight: 1.4 }}>
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
           {props.notice ? <div className="vx-today-notice">{props.notice}</div> : null}
-          {props.aiStrip ? <div className="vx-today-notice">{props.aiStrip}</div> : null}
           <PhoneNeeds inbox={inbox} incomplete={inboxIncomplete} />
           {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
@@ -332,56 +336,63 @@ export function TodayScreen(props: TodayProps) {
           <PhoneSession money={money} pace={pace} today={props.today} attendance={attendance} week={props.week ?? null} linkAttendance={props.links.attendance} />
         </div>
 
-        {/* Desktop, D08, D09 — greeting, KPI row, money; the rail with Needs you, the day, the year. */}
+        {/* The school day and action queue share the first row. Fee analysis follows both. */}
         <div className="td-grid">
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
-            <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
-              {props.notice}
-              {props.aiStrip}
-              <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--mut)" }}>
-                    <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, background: "var(--acc)", animation: "xPulse 2.2s infinite" }} />
-                    {props.dayLine}
-                    {statusText}
-                  </span>
-                  <h2 className="serif" style={{ margin: 0, fontSize: 34, fontWeight: 600, lineHeight: 1.1 }}>{greeting}</h2>
-                </div>
-                {money ? (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <Link href="/reports" className="tap btn sec"><Ic n="receipt" />{tx(T.dayReport)}</Link>
-                    {props.links.collect ? <Link href="/payments" className="tap btn pri"><Ic n="rupee" />{tx(T.paymentDesk)}</Link> : null}
-                  </div>
-                ) : null}
+          <div className="td-wide td-stack only-d">
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--mut)" }}>
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, background: "var(--acc)", animation: "xPulse 2.2s infinite" }} />
+                  {props.dayLine}
+                  {statusText}
+                </span>
+                <h2 className="serif" style={{ margin: 0, fontSize: 34, fontWeight: 600, lineHeight: 1.1 }}>{greeting}</h2>
               </div>
-              <DeskKpis {...props} avgDelta={avg?.deltaPct ?? null} />
-              <TodayBrief facts={briefFacts} />
               {money ? (
-                <>
-                  <MoneyTaken money={money} today={props.today} />
-                  <div className="td-two">
-                    <PendingHeat money={money} today={props.today} />
-                    <HowTheyPay money={money} />
-                  </div>
-                </>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Link href="/reports" className="tap btn sec"><Ic n="receipt" />{tx(T.dayReport)}</Link>
+                  {props.links.collect ? <Link href="/payments" className="tap btn pri"><Ic n="rupee" />{tx(T.paymentDesk)}</Link> : null}
+                </div>
               ) : null}
             </div>
+            <DeskKpis {...props} avgDelta={avg?.deltaPct ?? null} />
+          </div>
+          <div className="td-stack">
             {scheduleCard}
             {exceptionsCard}
           </div>
-          <aside style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-            <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          <aside className="td-stack">
+            <div className="only-d td-stack">
               {inbox ? <RailNeeds inbox={inbox} awaiting={awaiting} incomplete={inboxIncomplete} /> : null}
+              <DeskQuick actions={props.actions} />
               {props.officeWork}
+            </div>
+            {laterTiles}
+            <div className="only-d td-stack">
               <section className="card" style={{ padding: "14px 18px 8px", animation: "xRise .45s .15s var(--ease) both" }}>
                 <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h3>
                 <Timeline items={props.timeline} closed={attendance !== null && !attendance.schoolOpen} />
               </section>
-              {money && pace ? <PaceCard money={money} pace={pace} today={props.today} /> : null}
+              <TodayBrief facts={briefFacts} />
             </div>
-            {laterTiles}
-            {moneyNote}
           </aside>
+          <div className="td-wide td-stack">
+            {props.notice ? <div className="only-d">{props.notice}</div> : null}
+            {moneyNote}
+            {money ? (
+              <section aria-label={tx(TD.financeToday)} className="only-d td-stack">
+                <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(TD.financeToday)}</h2>
+                <div className="td-two">
+                  <MoneyTaken money={money} today={props.today} />
+                  {pace ? <PaceCard money={money} pace={pace} today={props.today} /> : <HowTheyPay money={money} />}
+                </div>
+                <div className={pace ? "td-two" : undefined}>
+                  <PendingHeat money={money} today={props.today} />
+                  {pace ? <HowTheyPay money={money} /> : null}
+                </div>
+              </section>
+            ) : null}
+          </div>
         </div>
       </div>
     </>
@@ -922,8 +933,9 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
   const big: CSSProperties = { fontSize: 28, fontWeight: 700, lineHeight: 1.15 };
   const up = (props.avgDelta ?? 0) >= 0;
   const promised = props.promisedToday ?? null;
+  if (!money && !attendance && props.staffAway === null) return null;
   return (
-    <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16 }}>
+    <div className="td-kpis">
       {money ? (
         <TileLink href="/receipts" className="card lift" style={{ ...tile, animation: "xRise .45s var(--ease) both" }}>
           <span style={{ ...label, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
@@ -953,7 +965,10 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
           {/* Under the ring, with the tile's full width: beside it, the narrow
               1280px column broke "classes · 95% present" mid-word (smoke 21 Oct). */}
           <span style={{ fontSize: 12, color: "var(--mut)", minWidth: 0, overflowWrap: "normal", wordBreak: "normal" }}>
-            {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
+            {attendance.schoolOpen
+              ? attendance.marked < attendance.total ? tx(TD.classesNotMarked(attendance.total - attendance.marked)) : tx(T.classesMarked)
+              : tx(T.schoolClosed)}
+            {attendance.schoolOpen && attendance.percent !== null ? ` · ${tx(T.presentPct(attendance.percent))}` : null}
           </span>
         </TileLink>
       ) : null}
@@ -1144,6 +1159,25 @@ function HowTheyPay({ money }: { money: TodayMoneyView }) {
   );
 }
 
+function DeskQuick({ actions }: { actions: TodayProps["actions"] }) {
+  const shortcuts = ["mark", "cover", "note", "certificate", "collect", "admit", "notice"]
+    .flatMap((key) => actions.filter((action) => action.key === key)).slice(0, 4);
+  if (!shortcuts.length) return null;
+  return (
+    <section className="card" style={{ padding: 16 }}>
+      <h3 style={{ margin: "0 0 10px", fontSize: 16 }}><Bi {...T.quickActions} /></h3>
+      <div className="td-shortcuts">
+        {shortcuts.map((action) => (
+          <Link key={action.key} href={action.href} className="tap td-shortcut">
+            <Ic n={action.icon} size={17} style={{ flex: "none", color: "var(--accfg)" }} />
+            <Bi {...action.label} />
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RailNeeds({ inbox, awaiting, incomplete }: { inbox: InboxItem[]; awaiting: number; incomplete: boolean }) {
   const { tx } = useVx();
   return (
@@ -1165,6 +1199,11 @@ function RailNeeds({ inbox, awaiting, incomplete }: { inbox: InboxItem[]; awaiti
           <Link href={`/inbox?item=${encodeURIComponent(item.id)}`} className="tap btn soft" style={{ flex: "none", height: 32, padding: "0 12px", fontSize: 13 }}>{tx(ACTION_OF[item.kind] ?? T.open)}</Link>
         </div>
       ))}
+      {awaiting > 4 ? (
+        <Link href="/inbox" className="tap btn ghost" style={{ justifyContent: "flex-start", paddingInline: 18, color: "var(--accfg)" }}>
+          {tx(TD.moreInInbox(awaiting - 4))}
+        </Link>
+      ) : null}
       {incomplete ? (
         <div style={{ padding: "12px 18px 16px", borderTop: "1px solid var(--bd)" }}><CouldNotRead partial={awaiting > 0} /></div>
       ) : awaiting === 0 ? <div style={{ padding: "14px 18px 18px", fontSize: 13, color: "var(--mut)", borderTop: "1px solid var(--bd)" }}>{tx(TD.allClearRail)}</div> : null}

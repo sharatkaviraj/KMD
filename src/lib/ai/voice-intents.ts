@@ -82,6 +82,21 @@ export function voiceTeacher<T>(rows: readonly T[], spoken: string | undefined, 
   return contained.length === 1 ? contained[0] : null;
 }
 
+/**
+ * The one listed teacher named in a transcript, for when the extractor left
+ * `teacher` out. Every word of a name (honorifics dropped) must be spoken;
+ * names made only of one- or two-letter initials are ignored, and two
+ * teachers named in one sentence is no answer.
+ */
+export function teacherInTranscript<T>(rows: readonly T[], transcript: string, labels: (row: T) => readonly string[], except?: T | null) {
+  const spoken = new Set(nameTokens(transcript));
+  const named = rows.filter((row) => row !== except && labels(row).some((label) => {
+    const tokens = nameTokens(label);
+    return tokens.some((token) => token.length > 2) && tokens.every((token) => spoken.has(token));
+  }));
+  return named.length === 1 ? named[0] : null;
+}
+
 /** Only case, digit script and whitespace are normalized; never fuzzy match a target. */
 export function voiceMatch<T>(rows: readonly T[], spoken: string | undefined, labels: (row: T) => readonly string[]) {
   if (!spoken) return null;
@@ -112,6 +127,18 @@ const SPOKEN_DAY: Record<string, string[]> = {
   tomorrow: ["tomorrow", "kal", "कल"],
   yesterday: ["yesterday", "kal", "कल"], "बीता कल": ["बीता कल"],
 };
+
+/**
+ * Fill in a day the extractor left out when the transcript says it without
+ * doubt: "today"/"aaj", "tomorrow" or "yesterday". "kal" stays unresolved.
+ */
+export function withSpokenDay(extraction: VoiceExtraction): VoiceExtraction {
+  if (extraction.day || !extraction.transcript) return extraction;
+  if (["kal", "कल", "parso", "परसों"].some((word) => hasSpokenText(extraction.transcript, word))) return extraction;
+  const said = (["today", "tomorrow", "yesterday"] as const).filter((word) => hasSpokenText(extraction.transcript, word) ||
+    (word === "today" && ["aaj", "आज"].some((hindi) => hasSpokenText(extraction.transcript, hindi))));
+  return said.length === 1 ? { ...extraction, day: said[0] } : extraction;
+}
 
 export function supportedSpeech(extraction: VoiceExtraction) {
   if (!extraction.transcript || extraction.unclear || extraction.intent === "unsupported") return false;

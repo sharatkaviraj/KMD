@@ -119,7 +119,7 @@ export async function VxShell({
     prefersLargeText(staff.id).catch(() => false),
   ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
-  // The AI helper's features for this person (D-324); none at all without the school's Claude key.
+  // The AI helper's features for this person (D-324), when a provider is configured.
   const assist = await assistFeaturesFor(staff, previewPerms ? allowed : undefined).catch(() => []);
 
   const groups = groupsFor(menu, allowed);

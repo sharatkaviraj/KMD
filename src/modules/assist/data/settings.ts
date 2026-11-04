@@ -1,5 +1,6 @@
 import "server-only";
 
+import { paidGeminiKey } from "@/lib/ai/config";
 import { canAny, type PermissionSubject, type StaffPermission } from "@/platform/auth/permissions";
 import { CACHE_TAGS, expireTag, sharedCache } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -30,12 +31,10 @@ type SettingsRow = {
 };
 
 /**
- * The helper exists only where the school has put its Claude Console key in
- * the deployment (`ANTHROPIC_API_KEY`). Without it every AI button is absent,
- * not broken: the screens are exactly what they were.
+ * Assist needs Claude or a paid Gemini key; its drafts may contain private material.
  */
 export function isAssistConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+  return Boolean(process.env.ANTHROPIC_API_KEY?.trim() || paidGeminiKey());
 }
 
 /**

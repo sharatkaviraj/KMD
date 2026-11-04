@@ -10,6 +10,7 @@ import { configForSession, type AiPilotConfig } from "@/lib/ai/config";
 import type { AiMedia } from "@/lib/ai/gemini";
 import { type AiJob, inputBucket, ownedAiJob, reserveAiJob, updateAiJob } from "@/lib/ai/jobs";
 import { AI_IMAGE_LONG_EDGE, AI_MAX_FILE_BYTES, AI_MAX_PAGES } from "@/lib/ai/media-limits";
+import { freeKeyBlocked, recordAttempts } from "@/lib/ai/provider-status";
 import { extractWithProviders } from "@/lib/ai/providers";
 
 export type AiOperation = "upload" | "parse" | "apply" | "discard";
@@ -72,7 +73,7 @@ export async function readAiInput(id: string, path: string, index: number, task:
 
 type Spec<T> = {
   task: "image" | "voice"; instructions: string; context: unknown; responseSchema: Schema;
-  validate: ZodType<T>; stamp?: string;
+  validate: ZodType<T>; stamp?: string; claudeFormat?: ZodType;
 };
 
 export async function readOrParseAiJob<T>(
@@ -98,11 +99,17 @@ export async function readOrParseAiJob<T>(
     await updateAiJob(owner, { status: "failed", error: "bad_media" }, "complete-parse");
     return refuse("upload", 400);
   }
-  const result = await extractWithProviders({ ...spec, config: configForSession(config, scope.session), media });
+  let route = configForSession(config, scope.session);
+  // A free key that hit its daily quota (or was refused) is skipped until it can answer again.
+  if (route.freeApiKey && await freeKeyBlocked()) route = { ...route, freeApiKey: undefined };
+  const workflow = scope.action === "marks-photo" || scope.action === "substitution-photo" ? scope.action : undefined;
+  const result = await extractWithProviders({ ...spec, config: route, media, workflow });
   const attempts = result.attempts;
+  await recordAttempts(attempts);
   const last = attempts.at(-1);
   const usage = {
     model: last?.model ?? job.model, provider: last?.provider ?? null, model_version: last?.modelVersion ?? null,
+    key_type: result.ok ? last?.keyType ?? null : null,
     input_tokens: attempts.reduce((n, a) => n + a.input, 0),
     output_tokens: attempts.reduce((n, a) => n + a.output, 0),
     thinking_tokens: attempts.reduce((n, a) => n + a.thinking, 0),

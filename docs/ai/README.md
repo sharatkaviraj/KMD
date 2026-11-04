@@ -14,8 +14,8 @@ Every action has one private `vppsone.ai_jobs` row. It records provider/model, r
 | `VPPSONE_BUILTIN_AI_COVER_AUTO` | Leave unset: valid cover-photo rows in a real session apply with a two-minute Undo. `0` makes every session review-only. |
 | `VPPSONE_BUILTIN_AI_TEST` | `1` turns on `test` mode on a confined (Preview/local) deployment. Production ignores it. |
 | `VPPSONE_BUILTIN_AI_COVER_AUTO_TEST` | `1` lets a TEST-session cover photo auto-apply; otherwise TEST cover photos produce review drafts. |
-| `GEMINI_API_KEY_FREE` | First provider for TEST-session (fictional) photo and voice inputs only. Real-session jobs never use it: Google's unpaid terms forbid personal information. |
-| `GEMINI_API_KEY` | Existing Gemini paid-fallback slot. Optional `GEMINI_API_KEY_PAID` overrides it. |
+| `GEMINI_API_KEY_FREE` | First Gemini fallback, for fictional TEST-session photo and voice inputs only. Real-session jobs never use it: Google's unpaid terms forbid personal information. |
+| `GEMINI_API_KEY` | Existing Gemini paid-fallback slot. Optional `GEMINI_API_KEY_PAID` overrides it. Use a project with active billing. A value that matches the free key is rejected as a paid key. |
 | `ANTHROPIC_API_KEY` | Claude image extraction, and Claude understanding after voice transcription. |
 | `OPEN_AI_API_KEY` | Vercel's exact OpenAI transcription key name. `OPENAI_API_KEY` is a compatibility alias. |
 | `GEMINI_MODEL`, `GEMINI_MODEL_VISION`, `GEMINI_MODEL_PAID` | Default `gemini-3.5-flash-lite`. The paid slot also honours legacy `GEMINI_MODEL_FALLBACK`. |
@@ -24,7 +24,11 @@ Every action has one private `vppsone.ai_jobs` row. It records provider/model, r
 | `GEMINI_THINKING_LEVEL`, `GEMINI_THINKING_BUDGET` | Low/minimal reasoning; the legacy Gemini 2.5 budget is capped. |
 | `GEMINI_INR_PER_USD` | Accounting rate for estimated costs, default 90. It is configurable and does not use a live exchange-rate feed. |
 
-Images route Gemini Free → Claude Sonnet → Gemini Paid. Voice routes Gemini Free → OpenAI transcription and Claude → Gemini Paid. Real-session jobs skip Gemini Free, so they start at Claude. Unconfigured stages are skipped. Provider HTTP quota, permission, timeout and bad structured responses can advance the chain; the SDKs do not execute One tools. Android WebM/Opus and Safari audio-only MP4/M4A go through signed uploads, as does fixture WAV. Recording stops after 60 seconds on the phone.
+Images start at Claude. Voice starts with OpenAI transcription followed by Claude to interpret the transcript. If either primary path is unavailable or returns an unusable answer, Gemini Free is tried first for eligible TEST jobs, then Gemini Paid. Real-session jobs skip Free. Missing credentials and exhausted free quota skip their stage. A provider safety refusal stops the request. Android WebM/Opus and Safari audio-only MP4/M4A go through signed uploads, as does fixture WAV. Recording stops after 60 seconds on the phone.
+
+The school and workflow reference is maintained in `src/lib/ai/one-knowledge.ts`. Claude and Gemini get the relevant instructions; OpenAI gets a compact local vocabulary plus authorized class and staff spelling hints for voice. Search answers use server-verified navigation and workflow guidance. Current records still come from One's authorized workflows, never the reference. To update the reference, change the relevant verified workflow and run the AI tests; do not add real names, confidential policies or example records.
+
+The older AI helper (search, Today brief, writing and review drafts) uses Claude and falls back to Gemini Paid. It never uses the free tier because the inputs can contain private material even after masking. Both responses pass through the same validation and cleanup, and reported usage counts toward the existing helper budget.
 
 [Gemini audio formats](https://ai.google.dev/gemini-api/docs/audio) · [Gemini API terms](https://ai.google.dev/gemini-api/terms) · [Claude models](https://platform.claude.com/docs/en/models/overview) · [Claude structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) · [OpenAI transcription formats](https://developers.openai.com/api/docs/guides/speech-to-text)
 

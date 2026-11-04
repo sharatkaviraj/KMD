@@ -30,7 +30,7 @@ import { p } from "@/vx/text";
 
 import { loadPhotoRoster, marksPhotoContext } from "./marks-context";
 import { readPhotoMark } from "./marks-review";
-import { asksForAbsentNames, explicitWholeRegister, spokenAttendanceClass, supportedSpeech, voiceClassLabel, voiceDay, voiceMatch, voiceStudent, voiceTeacher, voiceTools, wholeRegisterStatusAgrees } from "./voice-intents";
+import { asksForAbsentNames, explicitWholeRegister, spokenAttendanceClass, supportedSpeech, teacherInTranscript, voiceClassLabel, voiceDay, voiceMatch, voiceStudent, voiceTeacher, voiceTools, wholeRegisterStatusAgrees, withSpokenDay } from "./voice-intents";
 import type { VoiceResult } from "./voice-review";
 import type { VoiceExtraction } from "./voice-schema";
 
@@ -249,8 +249,9 @@ async function substitution(session: string, spoken: VoiceExtraction, target: Ta
   const cover = await readCoverDay(session, day);
   if (!cover.header || !cover.openPeriods.has(period)) return clarify("cover");
   const staff = coverStaff(cover);
-  const teacher = voiceTeacher(staff, spoken.teacher, staffLabels);
   const named = spoken.substitute ? voiceTeacher(staff, spoken.substitute, staffLabels) : null;
+  // A model sometimes leaves `teacher` out; the one other teacher named in the transcript is then the one away.
+  const teacher = spoken.teacher ? voiceTeacher(staff, spoken.teacher, staffLabels) : teacherInTranscript(staff, spoken.transcript, staffLabels, named);
   if (!teacher || (spoken.substitute && (!named || named.id === teacher.id))) return clarify("teacher");
   // Without a spoken class, the teacher's one lesson in that period is the lesson.
   const own = cover.slots.filter((slot) => slot.day === cover.header && slot.period === period && slot.staffProfileId === teacher.id);
@@ -296,8 +297,9 @@ async function teacherAbsence(session: string, spoken: VoiceExtraction, day: str
   const cover = await readCoverDay(session, day);
   if (!cover.header || !cover.versionId) return clarify("schedule");
   const staff = coverStaff(cover);
-  const teacher = voiceTeacher(staff, spoken.teacher, staffLabels);
   const named = spoken.substitute ? voiceTeacher(staff, spoken.substitute, staffLabels) : null;
+  // A model sometimes leaves `teacher` out; the one other teacher named in the transcript is then the one away.
+  const teacher = spoken.teacher ? voiceTeacher(staff, spoken.teacher, staffLabels) : teacherInTranscript(staff, spoken.transcript, staffLabels, named);
   if (!teacher || (spoken.substitute && (!named || named.id === teacher.id))) return clarify("teacher");
 
   const asked = spoken.periods?.length ? absencePeriods("periods", spoken.periods.map(periodIndex))
@@ -341,7 +343,8 @@ export async function voiceVocabulary(staff: CurrentStaff, session: string, toda
   return { classes, teachers };
 }
 
-export async function resolveVoice(staff: CurrentStaff, session: string, spoken: VoiceExtraction, createdAt: string): Promise<Resolution> {
+export async function resolveVoice(staff: CurrentStaff, session: string, extracted: VoiceExtraction, createdAt: string): Promise<Resolution> {
+  const spoken = withSpokenDay(extracted);
   if (!supportedSpeech(spoken) || !(await loadVoiceTools(staff, session)).some(({ name }) => name === spoken.intent)) return clarify("unsupported");
   const today = schoolToday(new Date(createdAt));
   const day = voiceDay(spoken.day, today);

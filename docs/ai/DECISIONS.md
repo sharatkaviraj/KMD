@@ -14,7 +14,7 @@ The owner asked for the plan to be checked and deployed to the live One app. The
 
 - **One production switch.** `VPPSONE_BUILTIN_AI=live|test` on Vercel production (`builtinAiMode`). A Preview or local server shares the one database, so it is never more than `test`. Release order: migration while the feature was still off → code → `test` (verify with fictional TEST material) → `live`. The Settings daily limit of 0 pauses new requests without a deploy.
 - **The session follows the person** (`builtinAiSession`): the same `resolveSessionLabel` every screen uses, checked with `canAccessSession`. Real staff work in `2026-27`; test accounts stay in `TEST-2026-27`; a real admin may use either. Migration `20261104055339` lets `ai_jobs` hold any session label and keeps the D-340 fence in SQL: a test account cannot reserve, apply or undo a real-session job.
-- **Real records never reach Gemini Free** (`configForSession`). Google's unpaid-service terms forbid personal information and let Google use the content. Real-session jobs start at Claude, then Gemini Paid; the free key stays first for TEST material. This trades some cost for compliance; the Settings page shows the cost.
+- **Real records never reach Gemini Free** (`configForSession`). Google's unpaid-service terms forbid personal information and let Google use the content. Real-session jobs fall back directly to Gemini Paid; only fictional TEST jobs may use the free key.
 - **Cover photos auto-apply in real sessions, as the plan says.** Only rows the server validates against the published timetable, leave, policies and existing duties, with the source date written on the sheet and `unclear=false`; everything else is held with suggestions. `VPPSONE_BUILTIN_AI_COVER_AUTO=0` makes it review-only. TEST rehearsals keep their explicit `VPPSONE_BUILTIN_AI_COVER_AUTO_TEST` opt-in.
 - **WhatsApp for staff stays the school's separate switch.** Photo-applied duties queue `cover_assigned` notices held for the two-minute Undo, exactly like other cover notices. Sending needs `STAFF_NOTICE_TRANSPORT=aisensy` and the `staff_notice_dispatch` flag, which also start every other staff notice; this release does not turn them on.
 - **The daily limit is the school's.** While live, only a real admin may change it.
@@ -32,4 +32,20 @@ The owner asked for the plan to be checked and deployed to the live One app. The
 - **`teacher_absence` (D-405).** "Maya test mam is absent today, unka substitute laga do", "Aaj Maya mam absent hai, unki jagah kya kya laga sakte hain", "Sharma sir lunch ke baad chhutti par hain, Verma ji le lenge". The card lists every lesson with its proposed teacher or "needs a teacher"; begun lessons are left alone; Save commits the reviewed plan by fingerprint, and a changed day returns stale. A plan that would change any other duty is refused (use Arrange cover).
 - **Spelling hints (D-406)** come from `voiceVocabulary`; `who_is_free`, `substitution` and `teacher_absence` users get teacher names, everyone gets class labels.
 - **Prompt.** Hinglish cover phrases, halves, period ranges, worked examples including the owner's sentence, and an explicit rule never to invent a period, class, teacher, substitute, date or mark. A spoken "aaj"/"today" no longer fails the "must appear in the transcript" check.
+
+## Router, free key and key checks — 4 November 2026
+
+- **Router (D-408).** `lib/ai/router.ts` documents the order and classifies errors (`quota_daily`, `quota`, `billing`, `credential`, `permission`, `model`, `timeout`, `schema`, `server`, `network`). `provider-status.ts` keeps each key's last state in `vppsone.builtin_ai_provider_status` (migration `20261104083132`); the free key is skipped while `blocked_until` is ahead (daily quota → next midnight Pacific; rate limit → 1 minute; refused → 10 minutes). `ai_jobs.key_type` records free / paid / credits.
+- **Free key and real records.** Unchanged from D-401: the free key answers TEST material; real-session photos and voice start at Claude. Google's pricing page lists every free-tier Flash model as "Used to improve our products: Yes".
+
+- **"Credits".** Anthropic and OpenAI requests depend on the credits, billing and model access of the configured API projects.
+- **Same model on both Gemini keys.** The paid key now follows `GEMINI_MODEL` unless `GEMINI_MODEL_PAID` is set. Candidate models: `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-2.5-flash` (deprecated; existing users only; routes to 3.5 Flash-Lite from 1 Dec 2026).
+- **Key checks (D-409)** run on the server; `npm run ai:smoke` runs the same probes wherever keys are in the environment.
+- **Bolo resilience (D-410).** Claude: 18 s per attempt and the fixed `voiceSpec` schema; a left-out teacher or day is recovered from the transcript only when unambiguous.
+
+## Shared school reference and subscription fallback — 4 November 2026
+
+- **D-411 supersedes the stage order in D-408.** Use Claude for photos and OpenAI plus Claude for voice first; then Gemini Free for fictional TEST jobs; then Gemini Paid. Reserve time for Gemini when the primary stages time out. Reject a paid credential if it equals the explicit free credential.
+- **D-412.** Maintain one school and workflow reference in Git, with task-specific guidance, authorized context and short transcription hints. Search help uses the viewer's server-derived menu and permissions. The Assist draft route also falls back to Gemini Paid, preserving masking, checks, review and budget.
+- **D-413.** Today no longer loads or shows the MCP connection strip. The desktop layout leads with the school day and role-permitted work, and groups fee analysis below it. The existing Preferences connection controls stay available.
 

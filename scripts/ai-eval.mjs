@@ -159,7 +159,7 @@ async function main() {
         } : SPECS[action];
         const result = await extractWithProviders({
           config: chosen, task: action === "voice" ? "voice" : "image", providerOnly,
-          instructions, context: sample.context, media, ...spec,
+          instructions, workflow: action, context: sample.context, media, ...spec,
         });
         durations.push(performance.now() - started);
         for (const a of result.attempts) models.add(a.provider + ":" + a.model + (a.modelVersion ? "@" + a.modelVersion : ""));

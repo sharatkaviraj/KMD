@@ -3,8 +3,12 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 
+import { paidGeminiConfig } from "@/lib/ai/config";
+import { oneInstructions, type OneWorkflow } from "@/lib/ai/one-knowledge";
+import { failureOf } from "@/lib/ai/router";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
-import { canAny } from "@/platform/auth/permissions";
+import { can, canAny } from "@/platform/auth/permissions";
+import { groupsFor } from "@/vx/nav";
 
 import { costUsd } from "../domain/cost";
 import {
@@ -13,6 +17,7 @@ import {
   FEATURE_PERMISSIONS,
   featureTier,
   type AssistOutcome,
+  type AssistProblem,
 } from "../domain/features";
 import { hasStrayToken, maskPersonal, restoreDeep } from "../domain/redact";
 import {
@@ -23,21 +28,10 @@ import {
   type TaskSpec,
 } from "../domain/tasks";
 import { budgetState, writeLog } from "./log";
+import { geminiDraft } from "./gemini-draft";
 import { getAssistSettings, isAssistConfigured } from "./settings";
 
-let client: Anthropic | null = null;
-
-/**
- * One client per server instance. A minute is long enough for the slowest
- * draft here (a photograph, or twelve remarks on Sonnet) and short enough
- * that a stuck request gives the person their screen back. One retry: the
- * SDK retries 429, 5xx and dropped connections, and a second wait on a busy
- * API is worse than "try again in a minute".
- */
-function claude(): Anthropic {
-  client ??= new Anthropic({ timeout: 60_000, maxRetries: 1 });
-  return client;
-}
+const GROUNDED_WORKFLOWS = new Set<OneWorkflow>(["brief", "cover", "form", "note", "calls", "message"]);
 
 function strings(value: unknown): string[] {
   if (typeof value === "string") return [value];
@@ -78,77 +72,112 @@ export async function runAssistTask<K extends AssistTaskId>(
 
   const parsed = spec.input.safeParse(rawInput);
   if (!parsed.success) return { ok: false, problem: "invalid" };
-  const input = parsed.data;
+  let input = parsed.data;
+  let permittedHrefs: string[] | undefined;
+  if (taskId === "ask.answer") {
+    try {
+      const { getViewer, previewPermissions, PREVIEW_ROLE } = await import("@/vx/view-as");
+      const viewer = await getViewer();
+      if (viewer.staff.id !== staff.id) return { ok: false, problem: "denied" };
+      const preview = viewer.previewing ? await previewPermissions(viewer.previewing) : null;
+      const pages = groupsFor(viewer.menu, (permission) => can(staff, permission) && (!preview || preview.has(permission)))
+        .flatMap((group) => group.items.map(({ href, label }) => ({ href, label: [label.en, label.hi].filter(Boolean).join(" / ").slice(0, 80) })));
+      permittedHrefs = pages.map(({ href }) => href);
+      // The browser can supply a question, but it cannot decide which pages or role the assistant sees.
+      input = { ...ASSIST_TASKS["ask.answer"].input.parse(input), role: viewer.previewing ? PREVIEW_ROLE[viewer.previewing] : staff.role, pages };
+    } catch {
+      return { ok: false, problem: "failed" };
+    }
+  }
 
   const masked = maskPersonal(spec.prompt(input), spec.names?.(input) ?? []);
   const image = spec.image?.(input) ?? null;
-  const model = ASSIST_MODELS[featureTier(feature)];
+  const claudeModel = ASSIST_MODELS[featureTier(feature)];
   const careful = featureTier(feature) === "careful";
+  const workflow = feature as OneWorkflow;
+  const instructions = oneInstructions(
+    `${SHARED_RULES}\n\n${spec.instructions}`,
+    GROUNDED_WORKFLOWS.has(workflow) ? workflow : undefined,
+    permittedHrefs,
+  );
 
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
   if (image) content.push({ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } });
   content.push({ type: "text", text: masked.text });
 
-  const log = (outcome: "drafted" | "refused" | "failed", usage?: Anthropic.Beta.BetaUsage | null) =>
+  let model = claudeModel;
+  let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, spend = 0;
+  const log = (outcome: "drafted" | "refused" | "failed") =>
     writeLog({
       staffProfileId: staff.id,
       feature,
       task: taskId,
       model,
       outcome,
-      inputTokens: usage?.input_tokens ?? 0,
-      outputTokens: usage?.output_tokens ?? 0,
-      cacheReadTokens: usage?.cache_read_input_tokens ?? 0,
-      costUsd: usage ? costUsd(model, usage) : 0,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      costUsd: spend,
     });
 
-  let response;
-  try {
-    response = await claude().beta.messages.parse({
-      model,
+  const finish = (candidate: unknown) => {
+    const output = spec.output.safeParse(candidate);
+    if (!output.success) return null;
+    const restored = restoreDeep(output.data, masked.restore);
+    const finished = spec.finish ? spec.finish(restored, input) : restored;
+    return finished && !strings(finished).some(hasStrayToken) ? finished : null;
+  };
+  const reject = async (problem: AssistProblem) => {
+    await log(problem === "refused" ? "refused" : "failed");
+    return { ok: false as const, problem };
+  };
+
+  let primaryProblem: AssistProblem = "failed";
+  const claudeKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (claudeKey) try {
+    const client = new Anthropic({ apiKey: claudeKey, baseURL: "https://api.anthropic.com", timeout: 25_000, maxRetries: 0, logLevel: "off" });
+    const response = await client.beta.messages.parse({
+      model: claudeModel,
       max_tokens: spec.maxTokens,
       // Sonnet 5.5 on the Claude API: a policy decline in a category the
       // fallback covers is re-run server-side rather than returned empty.
       // Haiku 5.5 has no server-side fallback; a decline there is "refused".
       ...(careful ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
       output_config: { effort: spec.effort, format: betaZodOutputFormat(spec.output) },
-      system: [
-        { type: "text", text: SHARED_RULES },
-        { type: "text", text: spec.instructions },
-      ],
+      system: instructions,
       messages: [{ role: "user", content }],
-    });
+    }, { signal: AbortSignal.timeout(25_000) });
+    if (response.usage) {
+      inputTokens += response.usage.input_tokens;
+      outputTokens += response.usage.output_tokens;
+      cacheReadTokens += response.usage.cache_read_input_tokens ?? 0;
+      spend += costUsd(claudeModel, response.usage);
+    }
+    if (response.stop_reason === "refusal") return reject("refused");
+    const finished = response.stop_reason === "end_turn" ? finish(response.parsed_output) : null;
+    if (finished) return { ok: true, value: finished, logId: await log("drafted") };
   } catch (error) {
-    if (error instanceof Anthropic.RateLimitError || error instanceof Anthropic.InternalServerError || error instanceof Anthropic.APIConnectionError) {
-      await log("failed");
-      return { ok: false, problem: "busy" };
-    }
-    if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
-      console.error("[assist] the Claude Console key was refused", error.status);
-      return { ok: false, problem: "off" };
-    }
-    console.error("[assist] request failed", taskId, error instanceof Anthropic.APIError ? error.status : error);
-    await log("failed");
-    return { ok: false, problem: "failed" };
+    const { problem } = failureOf(error);
+    primaryProblem = error instanceof Anthropic.APIConnectionError || ["quota", "quota_daily", "server", "network", "timeout"].includes(problem)
+      ? "busy" : ["credential", "permission", "billing"].includes(problem) ? "off" : "failed";
   }
 
-  if (response.stop_reason === "refusal") {
-    await log("refused", response.usage);
-    return { ok: false, problem: "refused" };
+  // Charge all reported usage to this one draft, and do not start another paid call once at the cap.
+  if (budget.spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
+  try {
+    const fallback = paidGeminiConfig();
+    if (!fallback) return reject(primaryProblem);
+    model = fallback.model;
+    const reply = await geminiDraft(fallback, instructions, masked.text, image, spec.output, spec.maxTokens);
+    inputTokens += reply.input;
+    outputTokens += reply.output;
+    spend += reply.costUsd;
+    if (reply.refused) return reject("refused");
+    const finished = finish(reply.candidate);
+    if (finished) return { ok: true, value: finished, logId: await log("drafted") };
+  } catch (error) {
+    const { problem } = failureOf(error);
+    if (["quota", "quota_daily", "server", "network", "timeout"].includes(problem)) return reject("busy");
   }
-  if (!response.parsed_output || response.stop_reason === "max_tokens") {
-    await log("failed", response.usage);
-    return { ok: false, problem: "failed" };
-  }
-
-  const restored = restoreDeep(response.parsed_output, masked.restore);
-  const finished = spec.finish ? spec.finish(restored, input) : restored;
-  // A placeholder the model invented is never put in front of a parent.
-  if (!finished || strings(finished).some(hasStrayToken)) {
-    await log("failed", response.usage);
-    return { ok: false, problem: "failed" };
-  }
-
-  const logId = await log("drafted", response.usage);
-  return { ok: true, value: finished, logId };
+  return reject("failed");
 }
