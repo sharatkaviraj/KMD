@@ -33,3 +33,12 @@ The owner asked for the plan to be checked and deployed to the live One app. The
 - **Spelling hints (D-406)** come from `voiceVocabulary`; `who_is_free`, `substitution` and `teacher_absence` users get teacher names, everyone gets class labels.
 - **Prompt.** Hinglish cover phrases, halves, period ranges, worked examples including the owner's sentence, and an explicit rule never to invent a period, class, teacher, substitute, date or mark. A spoken "aaj"/"today" no longer fails the "must appear in the transcript" check.
 
+## Router, free key and key checks — 4 November 2026
+
+- **Router (D-408).** `lib/ai/router.ts` documents the order and classifies errors (`quota_daily`, `quota`, `billing`, `credential`, `permission`, `model`, `timeout`, `schema`, `server`, `network`). `provider-status.ts` keeps each key's last state in `vppsone.builtin_ai_provider_status` (migration `20261104083132`); the free key is skipped while `blocked_until` is ahead (daily quota → next midnight Pacific; rate limit → 1 minute; refused → 10 minutes). `ai_jobs.key_type` records free / paid / credits.
+- **Free key and real records.** Unchanged from D-401: the free key answers TEST material; real-session photos and voice start at Claude. Google's pricing page lists every free-tier Flash model as "Used to improve our products: Yes".
+- **"Credits".** Anthropic and OpenAI API keys draw on those companies' API (console) balances; Claude Max and ChatGPT Pro subscriptions do not pay for API calls.
+- **Same model on both Gemini keys.** The paid key now follows `GEMINI_MODEL` unless `GEMINI_MODEL_PAID` is set. Candidate models: `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-2.5-flash` (deprecated; existing users only; routes to 3.5 Flash-Lite from 1 Dec 2026).
+- **Key checks (D-409)** run on the server; `npm run ai:smoke` runs the same probes wherever keys are in the environment.
+- **Bolo resilience (D-410).** Claude: 18 s per attempt and the fixed `voiceSpec` schema; a left-out teacher or day is recovered from the transcript only when unambiguous.
+
