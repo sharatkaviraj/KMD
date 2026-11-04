@@ -3,7 +3,8 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { builtinAiPilot, type AiPilotConfig } from "@/lib/ai/config";
+import { builtinAiSession } from "@/lib/ai/access";
+import type { AiPilotConfig } from "@/lib/ai/config";
 import {
   aiJson, aiProblem, makeAiUpload, readOrParseAiJob, type AiOperation, type AiScope,
 } from "@/lib/ai/feature-jobs";
@@ -13,13 +14,12 @@ import { ownedAiJob, updateAiJob, type AiJob } from "@/lib/ai/jobs";
 import { AI_MAX_PAGES } from "@/lib/ai/media-limits";
 import { substitutionPhoto } from "@/lib/ai/photo-schema";
 import { loadPhotoPrompt } from "@/lib/ai/read-prompt";
-import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { profilesFor, readCoverDay } from "@/modules/substitutions/data/arrange-day";
 import { exclusionsFrom } from "@/modules/substitutions/data/cover-repo";
 import { approvedLeaveOn } from "@/modules/substitutions/data/guided";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { TEST_SESSION_LABEL } from "@/platform/auth/test-session-policy";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -32,22 +32,28 @@ const inputs = {
   discard: z.strictObject(jobInput),
 };
 
-export function coverPhotoEnabled(staff: CurrentStaff, session: string | null) {
-  return Boolean(staff.isTestAccount && can(staff, "substitutions:manage") &&
-    session === TEST_SESSION_LABEL && builtinAiPilot());
+/**
+ * Valid rows are applied at once and their notices held for the two-minute
+ * Undo window (the plan's flow). Fictional TEST rehearsals keep the pilot's
+ * explicit opt-in; `VPPSONE_BUILTIN_AI_COVER_AUTO=0` turns every session to
+ * review-only without a code change.
+ */
+export function coverPhotoAutoApply(session: string, env: Readonly<Record<string, string | undefined>> = process.env) {
+  if (env.VPPSONE_BUILTIN_AI_COVER_AUTO?.trim() === "0") return false;
+  return isTestSessionLabel(session) ? env.VPPSONE_BUILTIN_AI_COVER_AUTO_TEST === "1" : true;
 }
 
 // AI jobs use a UUID target. Date digits alone identify a cover day inside
 // its action/session namespace and allow ownership checks even after changes.
-function scopeFor(staff: CurrentStaff, day: string, revision = 0): AiScope {
+function scopeFor(staff: CurrentStaff, session: string, day: string, revision = 0): AiScope {
   return {
-    staffId: staff.id, action: COVER_PHOTO_ACTION, session: TEST_SESSION_LABEL,
+    staffId: staff.id, action: COVER_PHOTO_ACTION, session,
     targetId: "00000000-0000-4000-8000-0000" + day.replaceAll("-", ""), revision,
   };
 }
 
-export async function recentCoverPhoto(staff: CurrentStaff, day: string): Promise<CoverPhotoResult | null> {
-  const scope = scopeFor(staff, day);
+export async function recentCoverPhoto(staff: CurrentStaff, session: string, day: string): Promise<CoverPhotoResult | null> {
+  const scope = scopeFor(staff, session, day);
   const { data, error } = await createAdminClient().from("ai_jobs").select("id, final_applied_data")
     .eq("staff_profile_id", scope.staffId).eq("action", scope.action).eq("session_label", scope.session)
     .eq("target_id", scope.targetId).eq("status", "applied").is("purged_at", null)
@@ -72,8 +78,8 @@ function replay(job: AiJob | null) {
 }
 
 export async function runCoverPhotoRoute(staff: CurrentStaff, config: AiPilotConfig, operation: AiOperation, body: unknown): Promise<Response> {
-  if (!staff.isTestAccount || !can(staff, "substitutions:manage") ||
-      await resolveSessionLabel() !== TEST_SESSION_LABEL) return aiProblem("not_found", 404);
+  const session = can(staff, "substitutions:manage") ? await builtinAiSession(staff) : null;
+  if (!session) return aiProblem("not_found", 404);
   try {
     await assertNotPreviewing();
   } catch {
@@ -84,15 +90,15 @@ export async function runCoverPhotoRoute(staff: CurrentStaff, config: AiPilotCon
     const input = inputs.upload.safeParse(body);
     if (!input.success) return aiProblem("invalid", 400);
     const { day, pages } = input.data;
-    const cover = await readCoverDay(TEST_SESSION_LABEL, day);
+    const cover = await readCoverDay(session, day);
     if (!cover.versionId || !cover.header || !cover.slots.length) return aiProblem("timetable", 409);
-    return makeAiUpload(scopeFor(staff, day, cover.dayRevision), config, { kind: "photo", pages });
+    return makeAiUpload(scopeFor(staff, session, day, cover.dayRevision), config, { kind: "photo", pages });
   }
 
   const input = inputs[operation].safeParse(body);
   if (!input.success) return aiProblem("invalid", 400);
   const { day, jobId } = input.data;
-  const scope = scopeFor(staff, day);
+  const scope = scopeFor(staff, session, day);
   const owner = { ...scope, id: jobId };
   const job = await ownedAiJob(owner);
   if (!job || job.purged_at) return aiProblem("not_found", 404);
@@ -116,13 +122,13 @@ export async function runCoverPhotoRoute(staff: CurrentStaff, config: AiPilotCon
   const previous = replay(job);
   if (previous) return previous;
 
-  const cover = await readCoverDay(TEST_SESSION_LABEL, day);
+  const cover = await readCoverDay(session, day);
   if (!cover.versionId || !cover.header || !cover.slots.length) return aiProblem("timetable", 409);
   if (cover.dayRevision !== job.target_revision) return replay(await ownedAiJob(owner)) ?? aiProblem("stale", 409);
   const extraction = await readOrParseAiJob({ ...scope, revision: cover.dayRevision }, config, jobId, {
     task: "image", instructions: await loadPhotoPrompt(COVER_PHOTO_ACTION),
-    // The provider transcribes a synthetic register. Match staff and slots
-    // against the real app locally, without sending names, rosters or IDs.
+    // The provider transcribes the register. Match staff and slots against
+    // the app locally, without sending names, rosters or IDs.
     context: { date: day, periods: [...new Set(cover.slots.map((slot) => slot.period + 1))].sort((a, b) => a - b) },
     responseSchema: substitutionPhoto.responseSchema, validate: substitutionPhoto.validate,
     stamp: cover.versionId + ":" + cover.bells.revision,
@@ -132,8 +138,8 @@ export async function runCoverPhotoRoute(staff: CurrentStaff, config: AiPilotCon
   }
 
   const now = new Date();
-  const current = await readCoverDay(TEST_SESSION_LABEL, day, now);
-  const [profiles, leave] = await Promise.all([profilesFor(current), approvedLeaveOn(TEST_SESSION_LABEL, day)]);
+  const current = await readCoverDay(session, day, now);
+  const [profiles, leave] = await Promise.all([profilesFor(current), approvedLeaveOn(session, day)]);
   const { review, assignments } = reviewCoverPhoto({
     photo: extraction.value, day: current, ...profiles, leave, excluded: exclusionsFrom(current.duties), now,
   });
@@ -143,7 +149,7 @@ export async function runCoverPhotoRoute(staff: CurrentStaff, config: AiPilotCon
     return replay(await ownedAiJob(owner)) ?? aiJson({ ok: true, ...draft, applyBlocked: "stale" });
   }
   if (!assignments.length) return aiJson({ ok: true, ...draft });
-  if (process.env.VPPSONE_BUILTIN_AI_COVER_AUTO_TEST !== "1") {
+  if (!coverPhotoAutoApply(session)) {
     return aiJson({ ok: true, ...draft, applyBlocked: "review_only" });
   }
   const { data, error } = await createAdminClient().rpc("apply_ai_cover_photo", {

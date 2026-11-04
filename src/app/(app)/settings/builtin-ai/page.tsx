@@ -1,5 +1,5 @@
-import { getBuiltinAiReport } from "@/lib/ai/admin";
-import { builtinAiPilot } from "@/lib/ai/config";
+import { getBuiltinAiReport, mayChangeBuiltinAiLimit } from "@/lib/ai/admin";
+import { builtinAiMode, builtinAiPilot } from "@/lib/ai/config";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { p, lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -19,7 +19,8 @@ export default async function BuiltinAiSettings({ searchParams }: { searchParams
   const { result } = await searchParams;
   const language = staff.language;
   const tx = (en: string, hi: string) => lead(p(en, hi), language);
-  const pilot = Boolean(builtinAiPilot());
+  const mode = builtinAiPilot() ? builtinAiMode() : "off";
+  const mayChange = mayChangeBuiltinAiLimit(staff) && mode !== "off";
   const report = await getBuiltinAiReport().catch(() => null);
   const asMoney = (value: number) => new Intl.NumberFormat("en-IN", {
     style: "currency", currency: "INR", maximumFractionDigits: 2,
@@ -39,8 +40,8 @@ export default async function BuiltinAiSettings({ searchParams }: { searchParams
     <TopBar title={tx("Built-in AI", "ऐप का AI")} crumb={tx("Settings", "सेटिंग्स")} mBack="/settings" />
     <main><Section>
       <Card>
-        <CardHead title={tx("This month", "इस महीने")} badge={<Pill tone={pilot && report ? "ok" : "warn"}>
-          {pilot && report ? tx("TEST only", "केवल परीक्षण") : tx("Pilot off", "परीक्षण बंद")}
+        <CardHead title={tx("This month", "इस महीने")} badge={<Pill tone={mode !== "off" && report ? "ok" : "warn"}>
+          {!report || mode === "off" ? tx("Off", "बंद") : mode === "live" ? tx("On for staff", "स्टाफ़ के लिए चालू") : tx("TEST only", "केवल परीक्षण")}
         </Pill>} />
         {!report ? <p>{tx("Usage is not available on this deployment.", "इस डिप्लॉयमेंट पर उपयोग की जानकारी उपलब्ध नहीं है।")}</p> : <>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -65,9 +66,9 @@ export default async function BuiltinAiSettings({ searchParams }: { searchParams
         <form action={changeBuiltinAiLimit} className="flex flex-wrap items-end gap-3">
           <label className="grid gap-1">{tx("Actions per day (0 pauses new requests)", "दैनिक कार्रवाइयाँ (0 से नए अनुरोध रुकते हैं)")}
             <input className="w-24 rounded border p-2" name="limit" type="number" min={0} max={200}
-              defaultValue={report.dailyLimit} required disabled={!pilot || !staff.isTestAccount} />
+              defaultValue={report.dailyLimit} required disabled={!mayChange} />
           </label>
-          <Btn variant="pri" type="submit" disabled={!pilot || !staff.isTestAccount}>{tx("Save limit", "सीमा सहेजें")}</Btn>
+          <Btn variant="pri" type="submit" disabled={!mayChange}>{tx("Save limit", "सीमा सहेजें")}</Btn>
         </form>
       </Card>}
       {report && <Card>

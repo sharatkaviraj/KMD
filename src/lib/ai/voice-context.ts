@@ -22,7 +22,6 @@ import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { filterVisibleStudentIds } from "@/platform/auth/test-session-access";
-import { TEST_SESSION_LABEL } from "@/platform/auth/test-session-policy";
 import { schoolToday } from "@/platform/dates";
 import { assignmentsFor, listExams, marksOf, papersOf, toCell } from "@/vx/screens/exams/data";
 import { classTeacherOf } from "@/vx/screens/exams/guards";
@@ -35,7 +34,6 @@ import { asksForAbsentNames, explicitWholeRegister, supportedSpeech, voiceClassL
 import type { VoiceResult } from "./voice-review";
 import type { VoiceExtraction } from "./voice-schema";
 
-const session = TEST_SESSION_LABEL;
 type CoverCommand = { day: string; staffId: string; substituteId: string; classId: string; periods: number[]; choices: GuidedChoice[]; dayRevision: number; fingerprint: string };
 export type VoiceCommand =
   | { kind: "attendance_mark"; payload: Omit<SaveRegisterInput, "commandId"> }
@@ -49,7 +47,7 @@ const clarify = (reason: Clarify): Resolution => ({ result: { kind: "clarify", r
 const identify = (row: RollStudent) => ({ name: row.fullName, roll: row.rollNo });
 const byId = (a: RollStudent, b: RollStudent) => a.studentId.localeCompare(b.studentId);
 
-export async function loadVoiceTools(staff: CurrentStaff) {
+export async function loadVoiceTools(staff: CurrentStaff, session: string) {
   const held = await heldClassIds(staff.id, session);
   const tools = voiceTools(staff, held.length > 0);
   if (!tools.some(({ name }) => name === "student_note")) return tools;
@@ -57,7 +55,7 @@ export async function loadVoiceTools(staff: CurrentStaff) {
   return primary.some((classId) => held.includes(classId)) ? tools : tools.filter(({ name }) => name !== "student_note");
 }
 
-export async function primaryVoiceClass(staff: CurrentStaff, classId: string) {
+export async function primaryVoiceClass(staff: CurrentStaff, session: string, classId: string) {
   const [held, primary] = await Promise.all([heldClassIds(staff.id, session), classTeacherOf(staff.id, session)]);
   return held.includes(classId) && primary.includes(classId);
 }
@@ -69,7 +67,7 @@ async function testRoll(staff: CurrentStaff, roll: RollStudent[]) {
 
 type TargetClass = { id: string; label: string };
 
-async function attendance(staff: CurrentStaff, spoken: VoiceExtraction, target: TargetClass, day: string, today: string): Promise<Resolution> {
+async function attendance(staff: CurrentStaff, session: string, spoken: VoiceExtraction, target: TargetClass, day: string, today: string): Promise<Resolution> {
   const { id: classId, label: classLabel } = target;
   const query = spoken.intent === "attendance_query";
   if (day > today) return clarify("register");
@@ -136,7 +134,7 @@ async function attendance(staff: CurrentStaff, spoken: VoiceExtraction, target: 
   };
 }
 
-async function freePeriods(staff: CurrentStaff, spoken: VoiceExtraction, day: string): Promise<Resolution> {
+async function freePeriods(staff: CurrentStaff, session: string, spoken: VoiceExtraction, day: string): Promise<Resolution> {
   if (spoken.teacher || spoken.classLabel || spoken.studentName || spoken.roll) return clarify("target");
   const [calendar, published] = await Promise.all([attendanceCalendar(session), getPublishedVersion(session)]);
   if (!published || !timetableRuns(day, calendar)) return clarify("schedule");
@@ -155,15 +153,15 @@ async function freePeriods(staff: CurrentStaff, spoken: VoiceExtraction, day: st
     periods: bells.periods.filter(({ index }) => !busy.has(index)).map(({ index }) => periodNumber(index)).sort((a, b) => a - b) } };
 }
 
-async function availableTeachers(spoken: VoiceExtraction, day: string): Promise<Resolution> {
+async function availableTeachers(session: string, spoken: VoiceExtraction, day: string): Promise<Resolution> {
   if (!spoken.period || spoken.teacher || spoken.classLabel || spoken.studentName || spoken.roll) return clarify("target");
   if (!timetableRuns(day, await attendanceCalendar(session))) return clarify("schedule");
   const period = periodIndex(spoken.period);
   const [cover, policies, leave] = await Promise.all([readCoverDay(session, day), listCoverPolicies(session), approvedLeaveOn(session, day)]);
   if (!cover.versionId || !cover.header || !cover.bells.periods.some(({ index }) => index === period)) return clarify("schedule");
 
-  // The staff directory is shared. Only active teaching staff linked by the
-  // published TEST timetable may appear in this answer.
+  // The staff directory is shared. Only active teaching staff linked by this
+  // session's published timetable may appear in this answer.
   const scheduled = new Set(cover.slots.map(({ staffProfileId }) => staffProfileId));
   const staff = cover.staff.filter((row) => row.isTeaching && scheduled.has(row.id));
   const names = distinctNames(staff);
@@ -177,7 +175,7 @@ async function availableTeachers(spoken: VoiceExtraction, day: string): Promise<
   return { result: { kind: "available_teachers", day, period: spoken.period, teachers } };
 }
 
-async function singleMark(staff: CurrentStaff, spoken: VoiceExtraction, target: TargetClass): Promise<Resolution> {
+async function singleMark(staff: CurrentStaff, session: string, spoken: VoiceExtraction, target: TargetClass): Promise<Resolution> {
   if (!spoken.exam || !spoken.subject || !spoken.mark) return clarify("target");
   const [exams, subjects, assignments] = await Promise.all([listExams(session), listSubjects(), assignmentsFor(session, staff.id)]);
   const subjectIds = new Set(assignments.filter((row) => row.classId === target.id).map(({ subjectId }) => subjectId));
@@ -187,7 +185,7 @@ async function singleMark(staff: CurrentStaff, spoken: VoiceExtraction, target: 
   const papers = (await papersOf([exam.id])).filter((paper) => paper.class_id === target.id && paper.subject_id === subject.id);
   if (papers.length !== 1) return clarify("target");
   const ctx = await marksPhotoContext(staff, papers[0].id);
-  if (!ctx) return clarify("target");
+  if (!ctx || ctx.session !== session) return clarify("target");
   const roster = await loadPhotoRoster(ctx);
   const student = voiceStudent(roster?.students ?? [], spoken, (row) => row);
   if (!student) return clarify("target");
@@ -203,8 +201,8 @@ async function singleMark(staff: CurrentStaff, spoken: VoiceExtraction, target: 
   };
 }
 
-async function studentNote(staff: CurrentStaff, spoken: VoiceExtraction, target: TargetClass): Promise<Resolution> {
-  if (!spoken.note || !await primaryVoiceClass(staff, target.id)) return clarify("target");
+async function studentNote(staff: CurrentStaff, session: string, spoken: VoiceExtraction, target: TargetClass): Promise<Resolution> {
+  if (!spoken.note || !await primaryVoiceClass(staff, session, target.id)) return clarify("target");
   const [roll, kinds] = await Promise.all([classRoll({ classId: target.id, sessionLabel: session }), listNoteKinds()]);
   const student = voiceStudent(roll, spoken, identify);
   const category = voiceMatch(kinds.filter((row) => row.isActive), spoken.noteKind ?? "other", (row) => [row.code, row.labelEn, row.labelHi]);
@@ -215,7 +213,7 @@ async function studentNote(staff: CurrentStaff, spoken: VoiceExtraction, target:
     category: p(category.labelEn, category.labelHi), note: payload.body }, command: { kind: "student_note", payload, classId: target.id } };
 }
 
-async function substitution(spoken: VoiceExtraction, target: TargetClass, day: string, today: string): Promise<Resolution> {
+async function substitution(session: string, spoken: VoiceExtraction, target: TargetClass, day: string, today: string): Promise<Resolution> {
   if (!spoken.period || day < today) return clarify("cover");
   const period = periodIndex(spoken.period);
   if (!timetableRuns(day, await attendanceCalendar(session))) return clarify("schedule");
@@ -253,31 +251,31 @@ async function substitution(spoken: VoiceExtraction, target: TargetClass, day: s
     periods, choices, dayRevision: reviewed.preview.dayRevision, fingerprint: reviewed.preview.fingerprint } } };
 }
 
-export async function resolveVoice(staff: CurrentStaff, spoken: VoiceExtraction, createdAt: string): Promise<Resolution> {
-  if (!supportedSpeech(spoken) || !(await loadVoiceTools(staff)).some(({ name }) => name === spoken.intent)) return clarify("unsupported");
+export async function resolveVoice(staff: CurrentStaff, session: string, spoken: VoiceExtraction, createdAt: string): Promise<Resolution> {
+  if (!supportedSpeech(spoken) || !(await loadVoiceTools(staff, session)).some(({ name }) => name === spoken.intent)) return clarify("unsupported");
   const today = schoolToday(new Date(createdAt));
   const day = voiceDay(spoken.day, today);
   if (!day) return clarify("schedule");
-  if (spoken.intent === "free_periods") return freePeriods(staff, spoken, day);
-  if (spoken.intent === "who_is_free") return availableTeachers(spoken, day);
+  if (spoken.intent === "free_periods") return freePeriods(staff, session, spoken, day);
+  if (spoken.intent === "who_is_free") return availableTeachers(session, spoken, day);
   if (!spoken.classLabel && !asksForAbsentNames(spoken)) return clarify("target");
   const labels = await classLabelMap(session);
   const match = spoken.classLabel
     ? voiceMatch([...labels], voiceClassLabel(spoken.classLabel), ([, label]) => [voiceClassLabel(label)])
-    : await soleHeldVoiceClass(staff, labels);
+    : await soleHeldVoiceClass(staff, session, labels);
   if (!match) return clarify("target");
   const target = { id: match[0], label: match[1] };
   switch (spoken.intent) {
     case "attendance_query":
-    case "attendance_mark": return attendance(staff, spoken, target, day, today);
-    case "single_mark": return singleMark(staff, spoken, target);
-    case "student_note": return studentNote(staff, spoken, target);
-    case "substitution": return substitution(spoken, target, day, today);
+    case "attendance_mark": return attendance(staff, session, spoken, target, day, today);
+    case "single_mark": return singleMark(staff, session, spoken, target);
+    case "student_note": return studentNote(staff, session, spoken, target);
+    case "substitution": return substitution(session, spoken, target, day, today);
     default: return clarify("unsupported");
   }
 }
 
-async function soleHeldVoiceClass(staff: CurrentStaff, labels: Map<string, string>): Promise<[string, string] | null> {
+async function soleHeldVoiceClass(staff: CurrentStaff, session: string, labels: Map<string, string>): Promise<[string, string] | null> {
   const ids = await heldClassIds(staff.id, session);
   if (ids.length !== 1) return null;
   const label = labels.get(ids[0]);

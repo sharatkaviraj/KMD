@@ -1,11 +1,10 @@
 import { requirePermission } from "@/platform/auth/current-staff";
-import { TEST_SESSION_LABEL } from "@/platform/auth/test-session-policy";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { isIsoDay, schoolToday } from "@/platform/dates";
 import { listSubjects, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { loadCoverDraft, loadGuidedSetup } from "@/modules/substitutions/data/guided";
 import { absencePeriods, normalizeChoices } from "@/modules/substitutions/domain/guided";
-import { builtinAiPilot } from "@/lib/ai/config";
+import { coverPhotoEnabled } from "@/lib/ai/access";
 import { GuidedCoverScreen } from "@/vx/screens/timetable/guided-cover";
 import { getViewer } from "@/vx/view-as";
 
@@ -54,8 +53,7 @@ export default async function ArrangeCoverPage(props: PageProps<"/substitutions/
 
   const staffProfileId = draft?.staffProfileId ?? askedStaff;
   const photoTeacher = setup?.teachers.find((teacher) => teacher.id === askedStaff);
-  const photoChoices = !draft && !previewing && staff.isTestAccount && sessionLabel === TEST_SESSION_LABEL &&
-    builtinAiPilot() && photoTeacher && askedPeriods?.length === 1 &&
+  const photoChoices = !draft && !previewing && coverPhotoEnabled(staff, sessionLabel) && photoTeacher && askedPeriods?.length === 1 &&
     photoTeacher.lessons.some((lesson) => lesson.period === askedPeriods[0]) &&
     typeof params.photoCover === "string" && setup?.teachers.some((teacher) => teacher.id === params.photoCover)
     ? normalizeChoices([{ needKey: params.photoNeed, coveringStaffId: params.photoCover }]) : null;

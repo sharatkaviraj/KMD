@@ -186,8 +186,8 @@ export function BoloPanel() {
         <Btn disabled={busy !== null || problem === "retry_save"} onClick={close}>{cancel ? tx(p("Cancel", "रद्द करें")) : tx(p("Close", "बंद करें"))}</Btn>
       </div>}>
       {open && <div className="space-y-4">
-        {!review && <p>{tx(p("Speak in Hindi, English, or a mix. Hold the microphone button and release when you finish. Use sample information in this test session.",
-          "हिंदी, अंग्रेज़ी या दोनों में बोलें। माइक बटन दबाकर रखें और बोलने के बाद छोड़ दें। इस परीक्षण सत्र में नमूना जानकारी बोलें।"))}</p>}
+        {!review && <p>{tx(p("Speak in Hindi, English, or a mix. Hold the microphone button and release when you finish. Nothing is saved until you tap Save.",
+          "हिंदी, अंग्रेज़ी या दोनों में बोलें। माइक बटन दबाकर रखें और बोलने के बाद छोड़ दें। सहेजें दबाने तक कुछ भी सहेजा नहीं जाता।"))}</p>}
         {!review && !busy && <VoiceButton onClip={(clip) => void read(clip)} />}
         {busy === "read" && <p role="status">{tx(p("Reading your recording…", "रिकॉर्डिंग पढ़ रहे हैं…"))}</p>}
         {review && <>

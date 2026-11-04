@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { builtinAiPilot, providerConfig } from "@/lib/ai/config";
+import { builtinAiMode, builtinAiPilot, configForSession, providerConfig } from "@/lib/ai/config";
 import type { AiMedia } from "@/lib/ai/gemini";
 import { marksPhoto } from "@/lib/ai/photo-schema";
 import { extractWithProviders } from "@/lib/ai/providers";
@@ -53,6 +53,34 @@ describe("built-in AI provider routing", () => {
     expect(builtinAiPilot({ ...env, GEMINI_API_KEY_FREE: "" })).toMatchObject({ paidApiKey: "test-paid" });
     expect(builtinAiPilot({ ...env, VERCEL_ENV: "production" })).toBeNull();
     expect(builtinAiPilot({ ...env, VPPSONE_ENV: "live" })).toBeNull();
+  });
+
+  it("is off on production until VPPSONE_BUILTIN_AI says test or live, and never live when confined", () => {
+    const production = { ...env, VPPSONE_BUILTIN_AI_TEST: "", VERCEL_ENV: "production" };
+    expect(builtinAiMode(production)).toBe("off");
+    expect(builtinAiMode({ ...production, VPPSONE_BUILTIN_AI_TEST: "1" })).toBe("off");
+    expect(builtinAiMode({ ...production, VPPSONE_BUILTIN_AI: "yes" })).toBe("off");
+    expect(builtinAiMode({ ...production, VPPSONE_BUILTIN_AI: "test" })).toBe("test");
+    expect(builtinAiMode({ ...production, VPPSONE_BUILTIN_AI: " Live " })).toBe("live");
+    expect(builtinAiPilot({ ...production, VPPSONE_BUILTIN_AI: "live" })).toMatchObject({ anthropicApiKey: "test-claude" });
+    expect(builtinAiMode({ ...env, VPPSONE_ENV: "live", VPPSONE_BUILTIN_AI: "live" })).toBe("live");
+    // A Preview or local server shares the one database: TEST at most.
+    expect(builtinAiMode({ VPPSONE_BUILTIN_AI: "live" })).toBe("test");
+    expect(builtinAiMode({ VERCEL_ENV: "preview", VPPSONE_BUILTIN_AI_TEST: "1" })).toBe("test");
+    expect(builtinAiMode({})).toBe("off");
+  });
+
+  it("never sends a real session's records to the Gemini free tier", async () => {
+    expect(configForSession(config, "TEST-2026-27").freeApiKey).toBe("test-free");
+    const real = configForSession(config, "2026-27");
+    expect(real.freeApiKey).toBeUndefined();
+    expect(real).toMatchObject({ paidApiKey: "test-paid", anthropicApiKey: "test-claude" });
+    const gemini = vi.fn().mockResolvedValue(geminiResponse());
+    const anthropic = vi.fn().mockResolvedValue(claudeResponse());
+    const result = await extractWithProviders({ ...options, config: real }, { gemini, anthropic });
+    expect(result.ok).toBe(true);
+    expect(gemini).not.toHaveBeenCalled();
+    expect(result.attempts.map((a) => a.provider)).toEqual(["anthropic"]);
   });
 
   it("validates model overrides against maintained compatible model IDs", async () => {
