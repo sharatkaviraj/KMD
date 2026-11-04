@@ -6,6 +6,10 @@ import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
 
+import { appendSpoken, speechSessionText } from "./speech-text";
+
+export { appendSpoken } from "./speech-text";
+
 const SAY = {
   unsupported: p("Speaking is not available in this browser. Use the mic on your keyboard.", "इस ब्राउज़र में बोलकर लिखना नहीं चलता। कीबोर्ड का माइक दबाएँ।"),
   allowMic: p("Allow the microphone to speak a note.", "बोलकर लिखने के लिए माइक की अनुमति दें।"),
@@ -31,6 +35,7 @@ type Recognition = {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
+  maxAlternatives: number;
   start: () => void;
   stop: () => void;
   abort: () => void;
@@ -47,6 +52,18 @@ function recognitionCtor(): (new () => Recognition) | null {
 
 const noSubscribe = () => () => {};
 
+/** Chrome ends a session after a silence even in continuous mode; keep going this long without speech. */
+const IDLE_LIMIT_MS = 45_000;
+/** Recognizer errors that mean "nothing heard yet", not a failure. */
+const QUIET = new Set(["no-speech", "aborted"]);
+
+/**
+ * Speak into a text box. `onText` receives each finished stretch of speech
+ * exactly once, with Android's repeated phrases merged away
+ * (`speechSessionText`); `interim` is the stretch still being heard, for a
+ * live preview. Listening continues across Chrome's silence cut-offs until
+ * the person taps stop, or nothing is said for 45 seconds.
+ */
 export function useSpeech(onText: (finalText: string) => void) {
   const supported = useSyncExternalStore(
     noSubscribe,
@@ -59,12 +76,17 @@ export function useSpeech(onText: (finalText: string) => void) {
   /** The English line, for callers that still wrap it in `p()`; prefer `errorP`. */
   const error = errorP?.en ?? null;
   const rec = useRef<Recognition | null>(null);
+  const wanted = useRef(false);
+  const commitNow = useRef<(() => void) | null>(null);
   const cb = useRef(onText);
   useEffect(() => {
     cb.current = onText;
   });
 
-  useEffect(() => () => rec.current?.abort(), []);
+  useEffect(() => () => {
+    wanted.current = false;
+    rec.current?.abort();
+  }, []);
 
   const start = (lang: "hi-IN" | "en-IN") => {
     const Ctor = recognitionCtor();
@@ -72,34 +94,83 @@ export function useSpeech(onText: (finalText: string) => void) {
       setError(SAY.unsupported);
       return;
     }
+    rec.current?.abort();
     setError(null);
-    const r = new Ctor();
-    r.lang = lang;
-    r.continuous = true;
-    r.interimResults = true;
-    r.onresult = (e) => {
-      let live = "";
-      for (let i = e.resultIndex; i < e.results.length; i += 1) {
-        const res = e.results[i];
-        if (res.isFinal) cb.current(res[0].transcript.trim());
-        else live += res[0].transcript;
-      }
-      setInterim(live);
+    setInterim("");
+    wanted.current = true;
+    let lastHeard = Date.now();
+
+    const session = () => {
+      const r = new Ctor();
+      // The text of this session, rebuilt from every result on every event.
+      let heard = { final: "", interim: "" };
+      let committed = false;
+      const commit = () => {
+        if (committed) return;
+        committed = true;
+        // A stretch Chrome never marked final is still what the person said.
+        const text = [heard.final, heard.interim].filter(Boolean).join(" ").trim();
+        setInterim("");
+        if (text) cb.current(text);
+      };
+      r.lang = lang;
+      r.continuous = true;
+      r.interimResults = true;
+      r.maxAlternatives = 1;
+      commitNow.current = commit;
+      r.onresult = (e) => {
+        // After stop() handed this session's text over, late results would repeat it.
+        if (committed) return;
+        const segments = Array.from({ length: e.results.length }, (_, i) => ({
+          text: e.results[i][0]?.transcript ?? "",
+          isFinal: e.results[i].isFinal,
+        }));
+        heard = speechSessionText(segments);
+        lastHeard = Date.now();
+        setInterim([heard.final, heard.interim].filter(Boolean).join(" "));
+      };
+      r.onerror = (e) => {
+        if (QUIET.has(e.error)) return;
+        wanted.current = false;
+        setError(e.error === "not-allowed" || e.error === "service-not-allowed" ? SAY.allowMic : SAY.notHeard);
+      };
+      r.onend = () => {
+        commit();
+        if (rec.current !== r) return;
+        if (wanted.current && Date.now() - lastHeard < IDLE_LIMIT_MS) {
+          try {
+            session();
+            return;
+          } catch {
+            // Fall through: the browser refused a new session.
+          }
+        }
+        wanted.current = false;
+        rec.current = null;
+        setListening(false);
+      };
+      rec.current = r;
+      r.start();
     };
-    r.onerror = (e) => {
-      setError(e.error === "not-allowed" ? SAY.allowMic : SAY.notHeard);
-      setListening(false);
-    };
-    r.onend = () => {
-      setListening(false);
-      setInterim("");
-    };
-    rec.current = r;
-    r.start();
-    setListening(true);
+
+    try {
+      session();
+      setListening(true);
+    } catch {
+      wanted.current = false;
+      setError(SAY.notHeard);
+    }
   };
 
+  /**
+   * Stop and hand over what was heard, now. Screens read `interim` and clear
+   * their own copy right after calling this; results Chrome sends after the
+   * stop are ignored, so they cannot come back as a repeat next time.
+   */
   const stop = () => {
+    wanted.current = false;
+    commitNow.current?.();
+    commitNow.current = null;
     rec.current?.stop();
     setListening(false);
   };
@@ -156,8 +227,9 @@ export function VoiceNote({
     valueRef.current = value;
   });
   const speech = useSpeech((text) => {
-    const cur = valueRef.current;
-    onChange(cur ? `${cur.replace(/\s+$/, "")} ${text}` : text);
+    const next = appendSpoken(valueRef.current, text);
+    valueRef.current = next;
+    onChange(next);
   });
 
   return (
@@ -167,7 +239,7 @@ export function VoiceNote({
           className="inp"
           name={name}
           rows={rows}
-          value={speech.listening && speech.interim ? `${value}${value ? " " : ""}${speech.interim}` : value}
+          value={speech.listening && speech.interim ? appendSpoken(value, speech.interim) : value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder ?? tx(SAY.placeholder)}
           aria-label={tx(SAY.note)}
