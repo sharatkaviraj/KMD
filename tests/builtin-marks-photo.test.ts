@@ -47,6 +47,7 @@ describe("photo marks decisions", () => {
     expect(readPhotoMark("21.5", { max: 40, step: 1 })).toBeNull();
     expect(readPhotoMark("", rule)).toBeNull();
     expect(readPhotoMark("40.5", rule)).toBeNull();
+    expect(reviewMarksPhoto({ rows: [{ ...fixture.rows[0], parsedMarks: 7 }] }, students, rule).rows[0].issues).toContain("mark");
     expect(readPhotoMark("-0.5", rule)).toBeNull();
   });
 

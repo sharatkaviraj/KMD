@@ -61,7 +61,8 @@ export function reviewMarksPhoto(photo: MarksPhoto, students: PhotoStudent[], ru
     const issues: Issue[] = [];
     if (!match || (row.rosterRef && row.rosterRef !== expectedRef)) issues.push("identity");
     if (row.unclear) issues.push("unclear");
-    if (!readPhotoMark(row.marks, rule)) issues.push("mark");
+    const cell = readPhotoMark(row.marks, rule);
+    if (!cell || (row.parsedMarks !== undefined && row.parsedMarks !== cell.value)) issues.push("mark");
     return { index, roll: row.roll, name: row.name, marks: row.marks, studentId: match?.id ?? null, issues };
   });
   const counts = new Map<string, number>();
