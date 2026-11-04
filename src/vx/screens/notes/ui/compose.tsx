@@ -95,7 +95,7 @@ export type ComposerInit = {
 
 /** A lost answer is not a failure we can retry: the note may be saved already (U01). */
 const NOTE_UNCERTAIN = p("We could not tell whether the note was saved. Your note is still here. Check your connection and the notes list before starting another note.", "पता नहीं चल सका कि नोट सहेजा गया या नहीं। आपका नोट यहीं है। नया नोट शुरू करने से पहले इंटरनेट और नोटों की सूची देखें।");
-const NOTE_SAVE_UNSURE = { failed: p("Not confirmed", "पुष्टि नहीं हुई") };
+const NOTE_SAVE_UNSURE = { failed: p("Not confirmed", "पक्का पता नहीं चला") };
 const NOTE_KEPT = p("Your note, child and choices are still here.", "आपका नोट, बच्चा और चुनी गई बातें यहीं हैं।");
 
 /** A follow-up choice: one of the three ready days, or a date picked by hand. */
