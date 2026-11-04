@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { ms } from "@/messages/setup";
 import { flat, type Language } from "@/platform/i18n/language";
-import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { FEES_ORIGIN, feesBridgeOfficeReads } from "@/platform/fees-bridge/policy";
 
-/** The accountant stays in One; each current financial tool names its destination. */
-export function LiveFinanceHub({language}:{language:Language}) {
+/**
+ * The accountant stays in One; each current financial tool names its
+ * destination. Receipts and the day book are One's own page once Fees' office
+ * reads are on (review F01); the rest still open in Fees.
+ */
+export function LiveFinanceHub({language,receiptsHere=feesBridgeOfficeReads()}:{language:Language;receiptsHere?:boolean}) {
   const links=[
     {label:ms.bridgeTitle,href:"/payments"},
-    {label:ms.bridgeReceipts,href:`${FEES_ORIGIN}/protected/receipts`},
+    {label:ms.bridgeReceipts,href:receiptsHere?"/receipts":`${FEES_ORIGIN}/protected/receipts`},
     {label:ms.bridgeReports,href:`${FEES_ORIGIN}/protected/reports`},
     {label:ms.bridgeDues,href:`${FEES_ORIGIN}/protected/defaulters`},
     {label:ms.bridgeBooks,href:`${FEES_ORIGIN}/protected/finance-controls`},

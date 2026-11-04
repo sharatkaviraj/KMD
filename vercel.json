@@ -41,6 +41,10 @@
     {
       "path": "/api/jobs/health",
       "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/jobs/assist-log-purge",
+      "schedule": "0 21 * * *"
     }
   ]
 }

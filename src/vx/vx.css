@@ -260,8 +260,11 @@
 :where(.vx,.vxt) .vx-lang{grid-template-columns:repeat(3,minmax(0,1fr));width:156px;flex:none}
 :where(.vx,.vxt) .vx-lang>button{height:32px;padding:0 4px;font-size:12.5px}
 :where(.vx,.vxt) .vx-langb{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;height:44px;padding:0 10px;border-radius:22px;border:1px solid var(--bd);background:var(--s2);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap}
-/* Review F03: the Fees receipt leads; every receipt fact is one fold below it. */
-.vx .vx-receipt-paper{min-width:0;overflow-x:auto}
+/* Review F03: the Fees receipt leads; every receipt fact is one fold below it.
+   The paper inherits what it does in Fees — the document's 16px and Tailwind's
+   1.5 line height — not .vx's 14–15px and 1.45: the template's text-[11px]
+   rows set no leading of their own, so they took One's. */
+.vx .vx-receipt-paper{min-width:0;overflow-x:auto;font-size:1rem;line-height:1.5}
 .vx .vx-receipt-more{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:6px 16px 12px}
 .vx .vx-receipt-more>summary{min-height:44px;display:flex;align-items:center;font-weight:650;cursor:pointer}
 /* Review N01/N02: several decisions at once, each confirmed by the server before it shows a tick. */

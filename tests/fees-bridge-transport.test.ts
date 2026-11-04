@@ -28,7 +28,8 @@ describe("canonical Fees transport",()=>{
     const ok=()=>vi.fn().mockResolvedValue(Response.json({version:1,data:{ok:true}}));
     const id="00000000-0000-4000-8000-000000000001";
     for(const path of ["/summary/today?session=2026-27","/requests/pending?session=2026-27","/receipts/lookup?session=2026-27&number=SVP-1",
-      "/receipts?session=2026-27&from=2026-11-01&to=2026-11-03&page=1&pageSize=40",`/receipts/${id}/detail?session=2026-27`]){
+      "/receipts?session=2026-27&from=2026-11-01&to=2026-11-03&page=1&pageSize=40",`/receipts/${id}/detail?session=2026-27`,
+      "/directory/lookup?session=2026-27&query=ab&status=active&pageSize=5"]){
       const fetcher=ok();
       expect(await bridgeRequest({...base,path,fetcher})).toEqual({ok:true});
       expect(fetcher.mock.calls[0][0]).toBe(`https://fees.vpps.co.in/api/one/v1${path}`);
@@ -37,7 +38,7 @@ describe("canonical Fees transport",()=>{
       const fetcher=ok();
       expect(await bridgeRequest({...base,path,body:{commandId:id},fetcher})).toEqual({ok:true});
     }
-    for(const path of ["/summary","/requests","/refunds","/refunds/x/approve",`/refunds/${id}`,"/receipts/lookup/../sync"]){
+    for(const path of ["/summary","/requests","/refunds","/refunds/x/approve",`/refunds/${id}`,"/receipts/lookup/../sync","/directory/lookup/all","/directory/export"]){
       await expect(bridgeRequest({...base,path,fetcher:ok()})).rejects.toMatchObject({code:"invalid_route"});
     }
   });

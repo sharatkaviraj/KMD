@@ -19,10 +19,12 @@ const state = vi.hoisted(() => ({
   roster: vi.fn(),
   lookup: vi.fn(),
   detail: vi.fn(),
+  visible: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/platform/auth/current-staff", () => ({ assertStaff: vi.fn(async () => ({ id: "qa-staff", role: "admin" })) }));
 vi.mock("@/platform/auth/permissions", () => ({ can: (_staff: unknown, p: string) => state.perms.has(p) }));
+vi.mock("@/platform/auth/test-session-access", () => ({ assertStudentVisible: state.visible }));
 vi.mock("@/modules/fees/platform/session-context/cookie", () => ({ getViewSessionCookie: vi.fn(async () => null) }));
 vi.mock("@/modules/fees/platform/session-context/resolver", () => ({ resolveViewSession: vi.fn(async () => ({ sessionLabel: "QA-2026-27" })) }));
 vi.mock("@/modules/students-fees/data/queries", () => ({ getStudents: state.students, getStudentMasterFieldsByIds: state.master }));
@@ -33,7 +35,7 @@ vi.mock("@/modules/academics/data/academics-repo", () => ({
   classLabelMap: vi.fn(async () => new Map([["qa-class-7", "Class 7"]])),
 }));
 vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: () => state.canonical, feesBridgeOfficeReads: () => state.officeReads }));
-vi.mock("@/platform/fees-bridge/client", () => ({ getBridgeDirectory: state.directory, lookupBridgeReceipt: state.lookup, getBridgeReceiptDetail: state.detail }));
+vi.mock("@/platform/fees-bridge/client", () => ({ lookupBridgeDirectory: state.directory, lookupBridgeReceipt: state.lookup, getBridgeReceiptDetail: state.detail }));
 vi.mock("@/modules/students/data/directory-repo", () => ({ searchStudents: state.roster }));
 vi.mock("@/modules/staff/data/staff-repo", () => ({
   listStaff: vi.fn(async () => [
@@ -42,7 +44,7 @@ vi.mock("@/modules/staff/data/staff-repo", () => ({
   ]),
 }));
 
-import { searchEverythingAction } from "@/vx/shell/search-actions";
+import { searchChildReceiptsAction, searchEverythingAction } from "@/vx/shell/search-actions";
 
 const child = {
   id: "qa-child",
@@ -96,13 +98,35 @@ describe("searchEverythingAction", () => {
     expect(state.recent).not.toHaveBeenCalled();
   });
 
-  it("gives the fee desk pending today without the late fee, Collect, and the child's latest receipts marked reversed", async () => {
+  it("gives the fee desk pending today without the late fee and Collect, and names the child whose receipts the phone may ask for", async () => {
     state.perms = new Set(["students:view", "fees:view", "fees:collect"]);
     const r = await searchEverythingAction("aarav");
     expect(r.students[0].money).toEqual({ kind: "pending", amount: 4200 });
     expect(r.actions[0]).toEqual({ kind: "collect", href: "/payments?student=qa-child", student: "Aarav Test", pending: 4200 });
     expect(r.actions[1]).toEqual(expect.objectContaining({ kind: "call", tel: "9000000001", who: "Synthetic Father", relation: "father" }));
+    // The child's receipts are not read before the names come back (S01).
+    expect(state.recent).not.toHaveBeenCalled();
+    expect(r.receipts).toEqual([]);
+    expect(r.childReceiptsFor).toBe("qa-child");
+  });
+
+  it("lists the child's latest receipts on request, marked reversed, only for the fee desk", async () => {
+    const id = "00000000-0000-4000-8000-0000000000c1";
+    state.perms = new Set(["students:view"]);
+    expect(await searchChildReceiptsAction(id)).toEqual({ receipts: [], failed: false });
+    expect(state.recent).not.toHaveBeenCalled();
+    state.perms = new Set(["fees:view"]);
+    expect(await searchChildReceiptsAction("not-an-id")).toEqual({ receipts: [], failed: false });
+    const r = await searchChildReceiptsAction(id);
+    expect(state.recent).toHaveBeenCalledWith(id);
     expect(r.receipts).toEqual([expect.objectContaining({ number: "QA-0001", reversed: true, byChild: true })]);
+    state.recent.mockRejectedValueOnce(new Error("source down"));
+    expect(await searchChildReceiptsAction(id)).toEqual({ receipts: [], failed: true });
+    // A child in a session this account may not see: refused before Fees is asked.
+    state.recent.mockClear();
+    state.visible.mockRejectedValueOnce(new Error("session refused"));
+    expect(await searchChildReceiptsAction(id)).toEqual({ receipts: [], failed: false });
+    expect(state.recent).not.toHaveBeenCalled();
   });
 
   it("does not search for one letter", async () => {
@@ -164,8 +188,25 @@ describe("searchEverythingAction under the live Fees connection (S01)", () => {
 
   it("links a child's receipt with its source id and session, so the receipt page can open it", async () => {
     state.perms = new Set(["students:view", "fees:view"]);
-    const r = await searchEverythingAction("aarav");
+    const r = await searchChildReceiptsAction("00000000-0000-4000-8000-0000000000c1");
     expect(r.receipts[0].href).toBe("/receipts/SVP-1?receiptId=00000000-0000-4000-8000-000000000001&session=2026-27");
+  });
+
+  it("looks a typed receipt number up while the directory is still being read", async () => {
+    state.perms = new Set(["fees:view"]);
+    state.officeReads = true;
+    let release!: (value: unknown) => void;
+    state.directory.mockReturnValue(new Promise((resolve) => { release = resolve; }));
+    state.lookup.mockResolvedValue({ receiptId: "00000000-0000-4000-8000-000000000009", receiptNumber: "SVP20261103-0001", studentId: "qa-child" });
+    state.detail.mockResolvedValue({ detail: { totalAmount: 2400, studentFullName: "Aarav Test", paymentDate: "2026-11-03", paymentMode: "cash", isVoided: false, reversedAmount: 0 } });
+    const pending = searchEverythingAction("SVP20261103-0001");
+    await vi.waitFor(() => expect(state.lookup).toHaveBeenCalled());
+    expect(state.directory).toHaveBeenCalledTimes(1);
+    release(page([]));
+    state.directory.mockResolvedValue(page([]));
+    const r = await pending;
+    expect(r.receipts).toHaveLength(1);
+    expect(r.childReceiptsFor).toBeUndefined();
   });
 
   it("finds a child who has left when nobody on the roll matches", async () => {
