@@ -1,7 +1,7 @@
 import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
-import { assertActorPermission, type VerifiedActor } from "@/platform/auth/verified-actor";
+import { assertActorPermission, assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 /**
@@ -118,9 +118,10 @@ export async function dutiesOn(sessionLabel: string, day: string): Promise<Cover
   return readDutiesOn(sessionLabel, day);
 }
 
-/** `dutiesOn` for a member of staff verified by the AI connection: the same `substitutions:view` check, against that actor. */
+/** `dutiesOn` for a member of staff verified by the AI connection: the same `substitutions:view` check, and the test-session fence, against that actor. */
 export async function dutiesOnAs(actor: VerifiedActor, sessionLabel: string, day: string): Promise<CoverDuty[]> {
   assertActorPermission(actor, "substitutions:view");
+  assertActorSession(actor, sessionLabel);
   return readDutiesOn(sessionLabel, day);
 }
 

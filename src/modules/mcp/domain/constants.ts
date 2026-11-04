@@ -57,8 +57,16 @@ export const DEFAULT_PROTOCOL_VERSION = "2025-03-26";
 
 /** Per staff member (§5.5): AI traffic must never compete with the desk. */
 export const RATE_LIMITS = { perHour: 60, perDay: 400 } as const;
-/** Dynamic registrations accepted per hour, across all callers. */
-export const REGISTRATIONS_PER_HOUR = 30;
+/**
+ * Dynamic registration limits, counted separately for production and for
+ * Previews (they share the database): new clients per source (hashed client
+ * IP) an hour, under a ceiling per hour for the environment. The same source
+ * asking for the same redirect set within the reuse window gets its existing
+ * client back instead of a new one.
+ */
+export const REGISTRATIONS_PER_SOURCE_HOUR = 5;
+export const REGISTRATIONS_PER_HOUR = 100;
+export const REGISTRATION_REUSE_SECONDS = 10 * 60;
 
 /** Request bodies larger than this are refused before parsing. */
 export const MAX_BODY_BYTES = 64 * 1024;

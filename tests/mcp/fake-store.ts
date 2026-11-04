@@ -23,6 +23,7 @@ type Connection = {
   provider: Provider;
   scopes: string[];
   createdAt: number;
+  activatedAt: number | null;
   expiresAt: number;
   revokedAt: number | null;
   revokeReason: string | null;
@@ -54,7 +55,7 @@ type Token = {
 
 export type FakeStore = McpStore & {
   now: number;
-  clients: Map<string, { clientId: string; clientName: string | null; redirectUris: string[]; createdAt: number }>;
+  clients: Map<string, { clientId: string; clientName: string | null; redirectUris: string[]; createdAt: number; environment: string; sourceHash: string }>;
   connections: Map<string, Connection>;
   codes: Map<string, Code>;
   tokens: Map<string, Token>;
@@ -83,12 +84,26 @@ export function createFakeStore(start = Date.UTC(2026, 10, 3, 4, 30)): FakeStore
       store.now += ms;
     },
 
-    async registerClient({ clientId, clientName, redirectUris, maxPerHour }) {
-      // ai_register_client: count and insert under one advisory lock.
-      const recent = [...store.clients.values()].filter((client) => client.createdAt > store.now - 3_600_000).length;
-      if (recent >= maxPerHour) return { ok: false, reason: "rate_limited" };
-      store.clients.set(clientId, { clientId, clientName, redirectUris: [...redirectUris], createdAt: store.now });
-      return { ok: true };
+    async registerClient(input) {
+      // ai_register_client: reuse, per-source and per-environment counts and the insert under one advisory lock.
+      const same = (client: { environment: string }) => client.environment === input.environment;
+      const reuse = [...store.clients.values()]
+        .filter((client) => same(client) && client.sourceHash === input.sourceHash && client.createdAt > store.now - input.reuseSeconds * 1000)
+        .filter((client) => client.redirectUris.join("\n") === input.redirectUris.join("\n"))
+        .sort((a, b) => b.createdAt - a.createdAt)[0];
+      const asResult = (client: NonNullable<typeof reuse>, reused: boolean) => ({
+        ok: true as const,
+        reused,
+        client: { clientId: client.clientId, clientName: client.clientName, redirectUris: client.redirectUris, createdAt: iso(client.createdAt) },
+      });
+      if (reuse) return asResult(reuse, true);
+      const recent = [...store.clients.values()].filter((client) => same(client) && client.createdAt > store.now - 3_600_000);
+      if (recent.filter((client) => client.sourceHash === input.sourceHash).length >= input.maxPerSourceHour || recent.length >= input.maxPerHour) {
+        return { ok: false, reason: "rate_limited" };
+      }
+      const created = { clientId: input.clientId, clientName: input.clientName, redirectUris: [...input.redirectUris], createdAt: store.now, environment: input.environment, sourceHash: input.sourceHash };
+      store.clients.set(input.clientId, created);
+      return asResult(created, false);
     },
 
     async getClient(clientId) {
@@ -103,11 +118,7 @@ export function createFakeStore(start = Date.UTC(2026, 10, 3, 4, 30)): FakeStore
       if (!staff || !staff.isActive || staff.authUserId !== input.authUserId) return { ok: false, reason: "staff" };
       const client = store.clients.get(input.clientId);
       if (!client || !client.redirectUris.includes(input.redirectUri)) return { ok: false, reason: "client" };
-      for (const connection of store.connections.values()) {
-        if (connection.staffProfileId === input.staffProfileId && connection.provider === input.provider && connection.revokedAt === null) {
-          revoke(connection.id, "replaced", input.staffProfileId);
-        }
-      }
+      // Pending: no token, nothing replaced, until the code is redeemed.
       const connectionId = id("conn");
       store.connections.set(connectionId, {
         id: connectionId,
@@ -117,6 +128,7 @@ export function createFakeStore(start = Date.UTC(2026, 10, 3, 4, 30)): FakeStore
         provider: input.provider,
         scopes: [...input.scopes],
         createdAt: store.now,
+        activatedAt: null,
         expiresAt: store.now + input.grantDays * 86_400_000,
         revokedAt: null,
         revokeReason: null,
@@ -157,8 +169,15 @@ export function createFakeStore(start = Date.UTC(2026, 10, 3, 4, 30)): FakeStore
         revoke(code.connectionId, "code_mismatch", null);
         return { status: "invalid" };
       }
+      // The advisory lock per staff member and provider, then the re-read.
       const connection = store.connections.get(code.connectionId)!;
       if (connection.revokedAt !== null || connection.expiresAt <= store.now) return { status: "invalid" };
+      for (const other of store.connections.values()) {
+        if (other.id !== connection.id && other.staffProfileId === connection.staffProfileId && other.provider === connection.provider && other.revokedAt === null) {
+          revoke(other.id, "replaced", connection.staffProfileId);
+        }
+      }
+      connection.activatedAt = store.now;
       return issue(connection, code.resource, code.scopes, input.accessHash, input.refreshHash, input.accessTtlSeconds);
     },
 
@@ -229,10 +248,14 @@ export function createFakeStore(start = Date.UTC(2026, 10, 3, 4, 30)): FakeStore
     },
 
     async callCounts(staffProfileId) {
-      const rows = store.calls.filter(
-        (call) => call.staffProfileId === staffProfileId && call.createdAt > store.now - 86_400_000 && call.outcome !== "refused:rate_limited",
-      );
-      return { hour: rows.filter((call) => call.createdAt > store.now - 3_600_000).length, day: rows.length };
+      const day = store.calls.filter((call) => call.staffProfileId === staffProfileId && call.createdAt > store.now - 86_400_000);
+      const hour = day.filter((call) => call.createdAt > store.now - 3_600_000);
+      const counted = (call: ToolCallRow) => call.outcome !== "refused:rate_limited";
+      return {
+        hour: hour.filter(counted).length,
+        day: day.filter(counted).length,
+        limitedHour: hour.filter((call) => !counted(call)).length,
+      };
     },
 
     async logToolCall(row) {

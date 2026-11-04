@@ -23,12 +23,9 @@ export const PROVIDER_REDIRECTS: readonly ProviderRedirect[] = [
     evidence:
       "Confirmed 3 Nov 2026: claude.com/docs/connectors/building/authentication.md — the one callback for claude.ai web, Desktop, mobile and Cowork.",
   },
-  {
-    uri: "https://claude.com/api/mcp/auth_callback",
-    provider: "claude",
-    evidence:
-      "Not in Anthropic's documentation on 3 Nov 2026 (it names only the claude.ai callback). Kept at the lead's instruction for Claude surfaces served from claude.com; confirm or remove in the M0 provider test.",
-  },
+  // `https://claude.com/api/mcp/auth_callback` is deliberately absent: it is
+  // not in Anthropic's documentation (3 Nov 2026). Add it only if the M0
+  // provider test shows Claude sending it.
   {
     uri: "https://chatgpt.com/connector_platform_oauth_redirect",
     provider: "chatgpt",

@@ -18,6 +18,7 @@ type ListRow = {
   staff_name: string;
   provider: Provider;
   created_at: string;
+  activated_at: string | null;
   expires_at: string;
   revoked_at: string | null;
   revoke_reason: string | null;
@@ -37,6 +38,7 @@ export async function listAiConnections(staffProfileId?: string): Promise<Connec
     staffName: row.staff_name,
     provider: row.provider,
     createdAt: row.created_at,
+    activatedAt: row.activated_at,
     expiresAt: row.expires_at,
     revokedAt: row.revoked_at,
     revokeReason: row.revoke_reason,

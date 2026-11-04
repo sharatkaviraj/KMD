@@ -1,7 +1,7 @@
 import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
-import { assertActorEveryClass, type VerifiedActor } from "@/platform/auth/verified-actor";
+import { assertActorEveryClass, assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
@@ -114,6 +114,7 @@ export async function listEnrolments(sessionLabel: string): Promise<Enrolment[]>
  */
 export async function listEnrolmentsAs(actor: VerifiedActor, sessionLabel: string): Promise<Enrolment[]> {
   assertActorEveryClass(actor, "attendance:view");
+  assertActorSession(actor, sessionLabel);
   return readEnrolments(createAdminClient(), sessionLabel);
 }
 

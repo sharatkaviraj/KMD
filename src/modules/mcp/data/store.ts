@@ -61,15 +61,25 @@ export function createSupabaseMcpStore(): McpStore {
   const db = () => createAdminClient();
 
   return {
-    async registerClient({ clientId, clientName, redirectUris, maxPerHour }) {
+    async registerClient(input) {
       const { data, error } = await db().rpc("ai_register_client", {
-        p_client_id: clientId,
-        p_client_name: clientName,
-        p_redirect_uris: [...redirectUris],
-        p_max_per_hour: maxPerHour,
+        p_client_id: input.clientId,
+        p_client_name: input.clientName,
+        p_redirect_uris: [...input.redirectUris],
+        p_source_hash: input.sourceHash,
+        p_environment: input.environment,
+        p_max_per_source: input.maxPerSourceHour,
+        p_max_per_hour: input.maxPerHour,
+        p_reuse_seconds: input.reuseSeconds,
       });
       if (error) fail("register the client");
-      return (data as { ok?: boolean } | null)?.ok === true ? { ok: true } : { ok: false, reason: "rate_limited" };
+      const row = (data ?? {}) as { ok?: boolean; reused?: boolean; client_id?: string; client_name?: string | null; created_at?: string };
+      if (row.ok !== true || !row.client_id || !row.created_at) return { ok: false, reason: "rate_limited" };
+      return {
+        ok: true,
+        reused: row.reused === true,
+        client: { clientId: row.client_id, clientName: row.client_name ?? null, redirectUris: input.redirectUris, createdAt: row.created_at },
+      };
     },
 
     async getClient(clientId) {
@@ -193,8 +203,8 @@ export function createSupabaseMcpStore(): McpStore {
     async callCounts(staffProfileId) {
       const { data, error } = await db().rpc("ai_call_counts", { p_staff_profile_id: staffProfileId });
       if (error) fail("count the calls");
-      const row = (data ?? {}) as { hour?: unknown; day?: unknown };
-      return { hour: Number(row.hour ?? 0), day: Number(row.day ?? 0) };
+      const row = (data ?? {}) as { hour?: unknown; day?: unknown; limited_hour?: unknown };
+      return { hour: Number(row.hour ?? 0), day: Number(row.day ?? 0), limitedHour: Number(row.limited_hour ?? 0) };
     },
 
     async logToolCall(row) {

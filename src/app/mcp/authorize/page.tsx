@@ -140,6 +140,10 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
               </ul>
               <Line text={a.cannot} language={language} muted />
               <Line text={a.lasts} language={language} muted />
+              {/* A forwarded link made in someone else's AI account would connect THEIR account to this admin's One. */}
+              <div role="note" style={{ padding: "10px 12px", borderRadius: 10, background: "var(--warns)", color: "var(--warnfg)" }}>
+                <Line text={a.ownAccountOnly} language={language} />
+              </div>
             </>
           )}
         </div>

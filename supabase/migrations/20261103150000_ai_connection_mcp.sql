@@ -37,7 +37,8 @@
 --     vppsone.ai_resolve_access(text), vppsone.ai_rotate_refresh(text, text, text, text, text, integer),
 --     vppsone.ai_exchange_code(text, text, text, text, text, text, text, integer),
 --     vppsone.ai_create_grant(uuid, uuid, text, text, text[], text, text, text, text, integer, integer),
---     vppsone.ai_revoke_connection(uuid, text, uuid), vppsone.ai_register_client(text, text, text[], integer);
+--     vppsone.ai_revoke_connection(uuid, text, uuid),
+--     vppsone.ai_register_client(text, text, text[], text, text, integer, integer, integer);
 --   drop table vppsone.ai_tool_calls, vppsone.ai_tokens, vppsone.ai_oauth_codes,
 --     vppsone.ai_connections, vppsone.ai_oauth_clients;
 --   delete from vppsone.runtime_flags where key = 'ai_connection';
@@ -77,13 +78,20 @@ create table vppsone.ai_oauth_clients (
   -- the redirect host, not from this.
   client_name text check (client_name is null or char_length(client_name) <= 80),
   redirect_uris text[] not null check (cardinality(redirect_uris) between 1 and 5),
+  -- Which deployment registered it: production and every Preview share this
+  -- database, so they count registrations separately.
+  environment text not null check (environment in ('production', 'preview')),
+  -- SHA-256 of the platform-set client IP (x-real-ip), never the address
+  -- itself; nulled by the purge after a day. Only for the per-source limit.
+  source_hash text check (source_hash is null or source_hash ~ '^[0-9a-f]{64}$'),
   created_at timestamptz not null default now()
 );
 
 comment on table vppsone.ai_oauth_clients is
   'AI connection: public OAuth clients from dynamic registration. Every redirect URI matched an allowlist in code (src/modules/mcp/domain/redirects.ts).';
 
-create index ai_oauth_clients_created on vppsone.ai_oauth_clients (created_at);
+create index ai_oauth_clients_created on vppsone.ai_oauth_clients (environment, created_at);
+create index ai_oauth_clients_source on vppsone.ai_oauth_clients (environment, source_hash, created_at);
 
 create table vppsone.ai_connections (
   id uuid primary key default gen_random_uuid(),
@@ -93,6 +101,9 @@ create table vppsone.ai_connections (
   provider text not null check (provider in ('claude', 'chatgpt', 'local')),
   scopes text[] not null check (cardinality(scopes) between 1 and 4),
   created_at timestamptz not null default now(),
+  -- Null until the code is redeemed: consent alone makes a pending grant that
+  -- holds no token, replaces nothing and is never shown as allowed.
+  activated_at timestamptz,
   expires_at timestamptz not null,
   revoked_at timestamptz,
   revoked_by uuid references vppsone.staff_profiles (id) on delete set null,
@@ -180,31 +191,66 @@ grant all on vppsone.ai_oauth_clients, vppsone.ai_connections, vppsone.ai_oauth_
 
 /* ------------------------------------------------------------ functions */
 
--- Register a public client. The count and the insert happen under one lock,
--- so the hourly cap holds however many registrations arrive at once.
+-- Register a public client, under one lock per environment so the counts
+-- hold however many registrations arrive at once:
+--  * the same source asking for the same redirect set within
+--    p_reuse_seconds gets the client it already has (a provider re-registering
+--    on every fresh connection does not use up the allowance);
+--  * otherwise at most p_max_per_source new clients an hour per source
+--    (hashed client IP), under a ceiling of p_max_per_hour per environment,
+--    so one unauthenticated script cannot block everybody's onboarding and a
+--    Preview cannot use up production's.
 create function vppsone.ai_register_client(
   p_client_id text,
   p_client_name text,
   p_redirect_uris text[],
-  p_max_per_hour integer
+  p_source_hash text,
+  p_environment text,
+  p_max_per_source integer,
+  p_max_per_hour integer,
+  p_reuse_seconds integer
 )
 returns jsonb
 language plpgsql
 set search_path = ''
 as $$
 declare
+  v_existing vppsone.ai_oauth_clients%rowtype;
+  v_source integer;
   v_recent integer;
 begin
-  perform pg_advisory_xact_lock(hashtext('vppsone:ai-register'));
-  select count(*) into v_recent
+  perform pg_advisory_xact_lock(hashtext('vppsone:ai-register:' || p_environment));
+
+  select * into v_existing
   from vppsone.ai_oauth_clients
-  where created_at > now() - interval '1 hour';
-  if v_recent >= p_max_per_hour then
+  where environment = p_environment
+    and source_hash = p_source_hash
+    and redirect_uris = p_redirect_uris
+    and created_at > now() - make_interval(secs => p_reuse_seconds)
+  order by created_at desc
+  limit 1;
+  if found then
+    return jsonb_build_object(
+      'ok', true, 'reused', true, 'client_id', v_existing.client_id,
+      'client_name', v_existing.client_name, 'created_at', v_existing.created_at
+    );
+  end if;
+
+  select count(*) filter (where source_hash = p_source_hash), count(*)
+  into v_source, v_recent
+  from vppsone.ai_oauth_clients
+  where environment = p_environment and created_at > now() - interval '1 hour';
+  if v_source >= p_max_per_source or v_recent >= p_max_per_hour then
     return jsonb_build_object('ok', false, 'reason', 'rate_limited');
   end if;
-  insert into vppsone.ai_oauth_clients (client_id, client_name, redirect_uris)
-  values (p_client_id, nullif(btrim(p_client_name), ''), p_redirect_uris);
-  return jsonb_build_object('ok', true);
+
+  insert into vppsone.ai_oauth_clients (client_id, client_name, redirect_uris, environment, source_hash)
+  values (p_client_id, nullif(btrim(p_client_name), ''), p_redirect_uris, p_environment, p_source_hash)
+  returning * into v_existing;
+  return jsonb_build_object(
+    'ok', true, 'reused', false, 'client_id', v_existing.client_id,
+    'client_name', v_existing.client_name, 'created_at', v_existing.created_at
+  );
 end;
 $$;
 
@@ -233,10 +279,10 @@ begin
 end;
 $$;
 
--- The consent, in one transaction: the staff member's earlier live
--- connection to the same provider ends ('replaced'), the new connection is
--- created for 90 days at most, and its single-use code for 60 seconds. The
--- staff row must be active and belong to the signed-in auth user, and the
+-- The consent, in one transaction: a PENDING connection (no token, nothing
+-- replaced, `activated_at` null) for 90 days at most, and its single-use
+-- code for 60 seconds. Only redeeming the code activates it (ai_exchange_code).
+-- The staff row must be active and belong to the signed-in auth user, and the
 -- redirect URI must be one the client registered; eligibility (admins first,
 -- D7) is checked by the app before this is called.
 create function vppsone.ai_create_grant(
@@ -275,10 +321,6 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'client');
   end if;
 
-  perform vppsone.ai_revoke_connection(c.id, 'replaced', p_staff_profile_id)
-  from vppsone.ai_connections c
-  where c.staff_profile_id = p_staff_profile_id and c.provider = p_provider and c.revoked_at is null;
-
   insert into vppsone.ai_connections (staff_profile_id, auth_user_id, client_id, provider, scopes, expires_at)
   values (p_staff_profile_id, p_auth_user_id, p_client_id, p_provider, p_scopes, now() + make_interval(days => p_grant_days))
   returning id into v_conn;
@@ -297,6 +339,12 @@ $$;
 -- presented with the wrong client, redirect URI, PKCE verifier or resource is
 -- consumed and its connection revoked; an expired one is consumed and its
 -- connection, which never had a token, ended.
+--
+-- A good code activates its connection. Under an advisory lock per staff
+-- member and provider, every other unrevoked connection of theirs to that
+-- provider — live or still pending — ends as 'replaced', and the connection
+-- is re-read after the lock: two approvals redeemed at once leave exactly one
+-- live, and a connection revoked while this waited is not activated.
 create function vppsone.ai_exchange_code(
   p_code_hash text,
   p_verifier_challenge text,
@@ -342,9 +390,19 @@ begin
   end if;
 
   select * into v_conn from vppsone.ai_connections where id = v_code.connection_id;
+  perform pg_advisory_xact_lock(hashtext('vppsone:ai-connection:' || v_conn.staff_profile_id::text || ':' || v_conn.provider));
+  select * into v_conn from vppsone.ai_connections where id = v_code.connection_id;
   if v_conn.revoked_at is not null or v_conn.expires_at <= now() then
     return jsonb_build_object('status', 'invalid');
   end if;
+
+  perform vppsone.ai_revoke_connection(c.id, 'replaced', v_conn.staff_profile_id)
+  from vppsone.ai_connections c
+  where c.staff_profile_id = v_conn.staff_profile_id
+    and c.provider = v_conn.provider
+    and c.id <> v_conn.id
+    and c.revoked_at is null;
+  update vppsone.ai_connections set activated_at = now() where id = v_conn.id;
 
   v_access_expires := least(now() + make_interval(secs => p_access_ttl_seconds), v_conn.expires_at);
   insert into vppsone.ai_tokens (token_hash, kind, connection_id, resource, scopes, expires_at)
@@ -515,9 +573,12 @@ begin
 end;
 $$;
 
--- Per-staff limits (§5.5): calls in the last hour and the last 24 hours,
--- counted from the log. A call already refused for the limit does not count
--- again, so a client that keeps knocking is not locked out for longer.
+-- Per-staff limits (§5.5), checked before anything else a call does: calls
+-- in the last hour and the last 24 hours, counted from the log, refused ones
+-- included. A call already refused for the limit does not count again, so a
+-- client that keeps knocking is not locked out for longer; `limited_hour`
+-- lets the app write at most one such refusal an hour, so a token cannot
+-- flood the log either.
 create function vppsone.ai_call_counts(p_staff_profile_id uuid)
 returns jsonb
 language sql
@@ -525,13 +586,13 @@ stable
 set search_path = ''
 as $$
   select jsonb_build_object(
-    'hour', count(*) filter (where created_at > now() - interval '1 hour'),
-    'day', count(*)
+    'hour', count(*) filter (where created_at > now() - interval '1 hour' and outcome <> 'refused:rate_limited'),
+    'day', count(*) filter (where outcome <> 'refused:rate_limited'),
+    'limited_hour', count(*) filter (where created_at > now() - interval '1 hour' and outcome = 'refused:rate_limited')
   )
   from vppsone.ai_tool_calls
   where staff_profile_id = p_staff_profile_id
     and created_at > now() - interval '24 hours'
-    and outcome <> 'refused:rate_limited'
 $$;
 
 -- Step 4 of every call: the staff profile for a verified auth user, and its
@@ -563,8 +624,10 @@ as $$
   where s.user_id = p_user_id
 $$;
 
--- The connections list (admin page) and one person's card. Last used and the
--- 30-day count come from the log; no argument or result is stored anywhere.
+-- The connections list (admin page) and one person's card: activated
+-- connections only — a pending grant whose code was never redeemed holds no
+-- token and is never shown as allowed. Last used and the 30-day count come
+-- from the log; no argument or result is stored anywhere.
 create function vppsone.ai_connection_list(p_staff_profile_id uuid default null, p_limit integer default 200)
 returns table (
   id uuid,
@@ -572,6 +635,7 @@ returns table (
   staff_name text,
   provider text,
   created_at timestamptz,
+  activated_at timestamptz,
   expires_at timestamptz,
   revoked_at timestamptz,
   revoke_reason text,
@@ -588,6 +652,7 @@ as $$
     s.display_name,
     c.provider,
     c.created_at,
+    c.activated_at,
     c.expires_at,
     c.revoked_at,
     c.revoke_reason,
@@ -596,7 +661,8 @@ as $$
       where l.connection_id = c.id and l.created_at > now() - interval '30 days')
   from vppsone.ai_connections c
   join vppsone.staff_profiles s on s.id = c.staff_profile_id
-  where p_staff_profile_id is null or c.staff_profile_id = p_staff_profile_id
+  where c.activated_at is not null
+    and (p_staff_profile_id is null or c.staff_profile_id = p_staff_profile_id)
   order by c.created_at desc
   limit least(greatest(coalesce(p_limit, 200), 1), 500)
 $$;
@@ -605,8 +671,9 @@ $$;
 -- the retention (180 days, D8); codes a day past expiry; tokens a day past
 -- expiry or revocation (a used refresh token lives until its connection
 -- expires, so replay is still recognised while the grant could be used);
--- connections ended longer ago than the retention; and registered clients
--- nobody connected with within a day.
+-- connections ended longer ago than the retention or never activated;
+-- registered clients nobody connected with within a day; and hashed source
+-- addresses older than a day.
 create function vppsone.ai_purge(p_keep_days integer default 180)
 returns jsonb
 language plpgsql
@@ -634,14 +701,21 @@ begin
      or (revoked_at is not null and revoked_at < now() - interval '1 day');
   get diagnostics v_tokens = row_count;
 
+  -- Ended long ago, or consented to and never redeemed (pending past a day).
   delete from vppsone.ai_connections
-  where coalesce(revoked_at, expires_at) < now() - make_interval(days => p_keep_days);
+  where coalesce(revoked_at, expires_at) < now() - make_interval(days => p_keep_days)
+     or (activated_at is null and created_at < now() - interval '1 day');
   get diagnostics v_connections = row_count;
 
   delete from vppsone.ai_oauth_clients c
   where c.created_at < now() - interval '1 day'
     and not exists (select 1 from vppsone.ai_connections x where x.client_id = c.client_id);
   get diagnostics v_clients = row_count;
+
+  -- The per-source limit looks back an hour; the hashed address need not
+  -- outlive a day on the clients that stay.
+  update vppsone.ai_oauth_clients set source_hash = null
+  where source_hash is not null and created_at < now() - interval '1 day';
 
   return jsonb_build_object(
     'calls', v_calls,
@@ -653,7 +727,7 @@ begin
 end;
 $$;
 
-revoke all on function vppsone.ai_register_client(text, text, text[], integer) from public, anon, authenticated;
+revoke all on function vppsone.ai_register_client(text, text, text[], text, text, integer, integer, integer) from public, anon, authenticated;
 revoke all on function vppsone.ai_revoke_connection(uuid, text, uuid) from public, anon, authenticated;
 revoke all on function vppsone.ai_create_grant(uuid, uuid, text, text, text[], text, text, text, text, integer, integer) from public, anon, authenticated;
 revoke all on function vppsone.ai_exchange_code(text, text, text, text, text, text, text, integer) from public, anon, authenticated;
@@ -666,7 +740,7 @@ revoke all on function vppsone.ai_staff_for_user(uuid) from public, anon, authen
 revoke all on function vppsone.ai_connection_list(uuid, integer) from public, anon, authenticated;
 revoke all on function vppsone.ai_purge(integer) from public, anon, authenticated;
 
-grant execute on function vppsone.ai_register_client(text, text, text[], integer) to service_role;
+grant execute on function vppsone.ai_register_client(text, text, text[], text, text, integer, integer, integer) to service_role;
 grant execute on function vppsone.ai_revoke_connection(uuid, text, uuid) to service_role;
 grant execute on function vppsone.ai_create_grant(uuid, uuid, text, text, text[], text, text, text, text, integer, integer) to service_role;
 grant execute on function vppsone.ai_exchange_code(text, text, text, text, text, text, text, integer) to service_role;

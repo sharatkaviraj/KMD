@@ -12,6 +12,7 @@ function row(overrides: Partial<ConnectionListRow> = {}): ConnectionListRow {
     staffName: "Test Admin",
     provider: "claude",
     createdAt: new Date(NOW - 2 * DAY).toISOString(),
+    activatedAt: new Date(NOW - 2 * DAY + 30_000).toISOString(),
     expiresAt: new Date(NOW + 88 * DAY).toISOString(),
     revokedAt: null,
     revokeReason: null,
@@ -32,6 +33,13 @@ describe("the connection card", () => {
       const state = connectionCardState({ eligible: true, switchOn, rows: [row()], now: NOW });
       expect(state).toMatchObject({ kind: "switched_off", live: [{ id: "c1" }] });
     }
+  });
+
+  it("never shows a consented-but-unredeemed grant as allowed (L5)", () => {
+    const pending = row({ activatedAt: null });
+    expect(connectionStatus(pending, NOW)).not.toBe("allowed");
+    expect(connectionCardState({ eligible: true, switchOn: true, rows: [pending], now: NOW }).kind).toBe("not_connected");
+    expect(connectionCardState({ eligible: true, switchOn: false, rows: [pending], now: NOW })).toEqual({ kind: "switched_off", live: [] });
   });
 
   it("is not connected with no rows", () => {

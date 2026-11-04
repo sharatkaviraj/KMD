@@ -5,9 +5,13 @@ import {
   AUTHORIZATION_SCOPES,
   CLIENT_ID_BYTES,
   LIMITS,
+  REGISTRATION_REUSE_SECONDS,
   REGISTRATIONS_PER_HOUR,
+  REGISTRATIONS_PER_SOURCE_HOUR,
   RESOURCE_SCOPES,
 } from "@/modules/mcp/domain/constants";
+import { aiConnectionEligibility } from "@/modules/mcp/domain/eligibility";
+import type { McpActor } from "@/modules/mcp/domain/tools";
 import { isValidCodeVerifier, isValidS256Challenge, randomToken, s256, sha256Hex } from "@/modules/mcp/domain/crypto";
 import { json, methodNotAllowed, NO_STORE, oauthError, readBody, readForm, mediaType, singleParams } from "@/modules/mcp/domain/http";
 import {
@@ -34,7 +38,24 @@ export type OAuthDeps = {
   env: DeploymentEnv;
   /** Server time; injectable for tests. */
   now?: () => number;
+  /**
+   * The platform-set client address, for the per-source registration limit.
+   * Default: `x-real-ip`, which Vercel sets (a Worker would pass
+   * `cf-connecting-ip`). It is hashed before it reaches the store.
+   */
+  clientAddress?: (request: Request) => string | null;
+  /**
+   * The staff member behind a grant, read now — refresh rotation refuses an
+   * inactive or no-longer-eligible one, as the tool path does. Without it,
+   * refresh fails closed.
+   */
+  resolveStaff?: (authUserId: string) => Promise<McpActor | null>;
 };
+
+function defaultClientAddress(request: Request): string | null {
+  const value = request.headers.get("x-real-ip")?.trim();
+  return value && value.length <= 64 ? value : null;
+}
 
 const CORS_PUBLIC = { "Access-Control-Allow-Origin": "*" } as const;
 
@@ -85,9 +106,16 @@ export function cleanClientName(value: unknown): string | null {
 
 /**
  * RFC 7591 dynamic registration, public clients only. Every redirect URI
- * must be on the allowlist (`redirects.ts`): the three provider callbacks
+ * must be on the allowlist (`redirects.ts`): the provider callbacks
  * everywhere, loopback only on a confined deployment. Unknown metadata is
- * ignored, as the RFC asks; registrations are capped per hour in the store.
+ * ignored, as the RFC asks.
+ *
+ * Unauthenticated by design, so it is limited per source: the client address
+ * is hashed (SHA-256; the address is never stored), at most
+ * `REGISTRATIONS_PER_SOURCE_HOUR` new clients a source an hour under a
+ * ceiling for the environment — production and Previews counted apart — and
+ * the same source asking for the same redirect set within the reuse window
+ * gets its existing client back. One script cannot block everybody else.
  */
 export async function handleRegister(request: Request, deps: OAuthDeps): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed("POST");
@@ -119,24 +147,32 @@ export async function handleRegister(request: Request, deps: OAuthDeps): Promise
     return oauthError("invalid_client_metadata", "Unknown scope.");
   }
 
-  const allowLoopback = isConfinedDeployment(deps.env);
-  const unique = [...new Set(meta.redirect_uris)];
-  if (unique.some((uri) => redirectProvider(uri, { allowLoopback }) === null)) {
+  const confined = isConfinedDeployment(deps.env);
+  const unique = [...new Set(meta.redirect_uris)].sort();
+  if (unique.some((uri) => redirectProvider(uri, { allowLoopback: confined }) === null)) {
     return oauthError("invalid_redirect_uri", "A redirect URI is not one this server accepts.");
   }
 
-  const clientId = randomToken(CLIENT_ID_BYTES);
-  const clientName = cleanClientName(meta.client_name);
-  const stored = await deps.store.registerClient({ clientId, clientName, redirectUris: unique, maxPerHour: REGISTRATIONS_PER_HOUR });
+  const address = (deps.clientAddress ?? defaultClientAddress)(request) ?? "unknown";
+  const stored = await deps.store.registerClient({
+    clientId: randomToken(CLIENT_ID_BYTES),
+    clientName: cleanClientName(meta.client_name),
+    redirectUris: unique,
+    sourceHash: await sha256Hex(`ai-register:${address}`),
+    environment: confined ? "preview" : "production",
+    maxPerSourceHour: REGISTRATIONS_PER_SOURCE_HOUR,
+    maxPerHour: REGISTRATIONS_PER_HOUR,
+    reuseSeconds: REGISTRATION_REUSE_SECONDS,
+  });
   if (!stored.ok) return json({ error: "temporarily_unavailable", error_description: "Too many registrations; try again later." }, 429, { "Retry-After": "600" });
 
-  const issuedAt = Math.floor((deps.now?.() ?? Date.now()) / 1000);
+  const { client } = stored;
   return json(
     {
-      client_id: clientId,
-      client_id_issued_at: issuedAt,
-      ...(clientName ? { client_name: clientName } : {}),
-      redirect_uris: unique,
+      client_id: client.clientId,
+      client_id_issued_at: Math.floor(Date.parse(client.createdAt) / 1000),
+      ...(client.clientName ? { client_name: client.clientName } : {}),
+      redirect_uris: [...client.redirectUris],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
@@ -317,8 +353,11 @@ export async function handleToken(request: Request, deps: OAuthDeps): Promise<Re
     if (!presented || presented.length > LIMITS.token) return oauthError("invalid_request", "refresh_token is required.");
     const scope = form.get("scope");
     if (scope !== undefined && parseScopes(scope) === null) return oauthError("invalid_scope", "Unknown scope requested.");
+    const presentedHash = await sha256Hex(presented);
+    const refused = await refreshRefusal(presentedHash, clientId, deps);
+    if (refused) return refused;
     const result = await deps.store.rotateRefresh({
-      presentedHash: await sha256Hex(presented),
+      presentedHash,
       clientId,
       resource,
       accessHash,
@@ -329,6 +368,42 @@ export async function handleToken(request: Request, deps: OAuthDeps): Promise<Re
   }
 
   return oauthError("unsupported_grant_type", "Use authorization_code or refresh_token.");
+}
+
+/**
+ * Before a refresh token is rotated, the grant's staff member is read again,
+ * as on every tool call: missing, inactive, moved to another profile or no
+ * longer eligible (admins first, D7; TEST for admins only, D11) → the
+ * connection is revoked and the answer is `invalid_grant`. With the school's
+ * switch off, rotation is refused with 503 and nothing is consumed or revoked,
+ * so the grant resumes when the switch comes back on. A token that is not a
+ * live refresh token for this client is left to `rotateRefresh` (invalid or
+ * replay).
+ */
+async function refreshRefusal(presentedHash: string, clientId: string, deps: OAuthDeps): Promise<Response | null> {
+  const row = await deps.store.resolveToken(presentedHash);
+  if (!row || row.kind !== "refresh" || row.connection.clientId !== clientId || row.connection.revokedAt) return null;
+  if (!deps.resolveStaff) return oauthError("temporarily_unavailable", "VPPS One is unavailable just now. Try again in a minute.", 503, { "Retry-After": "60" });
+
+  const connection = row.connection;
+  const actor = await deps.resolveStaff(connection.authUserId);
+  const reason =
+    !actor || !actor.isActive
+      ? "inactive"
+      : actor.id !== connection.staffProfileId
+        ? "staff_mismatch"
+        : (() => {
+            const eligibility = aiConnectionEligibility(actor);
+            return eligibility.ok ? null : eligibility.reason;
+          })();
+  if (reason) {
+    await deps.store.revokeConnection(connection.id, reason, null);
+    return oauthError("invalid_grant", "This VPPS One account may no longer use the AI connection. The connection has been ended.");
+  }
+  if (!(await deps.store.killSwitchOn())) {
+    return oauthError("temporarily_unavailable", "The school has switched the AI connection off for now.", 503, { "Retry-After": "3600" });
+  }
+  return null;
 }
 
 /* ----------------------------------------------------------- revocation */

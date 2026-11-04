@@ -115,7 +115,7 @@ export function setup(options: { env?: DeploymentEnv; actors?: McpActor[]; sessi
     env,
     staff,
     runtimeCalls,
-    oauth: { store, env, now: () => store.now },
+    oauth: { store, env, now: () => store.now, resolveStaff: async (userId) => staff.get(userId) ?? null },
     mcp: {
       store,
       env,
@@ -131,15 +131,19 @@ export function originFor(env: DeploymentEnv): string {
   return env === PROD_ENV ? ORIGIN : `https://${env.VERCEL_URL}`;
 }
 
-export async function register(h: Harness, redirectUris: string[] = [CLAUDE_REDIRECT]): Promise<string> {
-  const response = await handleRegister(
-    new Request(`${originFor(h.env)}/api/mcp/oauth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_name: "Claude", redirect_uris: redirectUris, token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"] }),
-    }),
-    h.oauth,
-  );
+let source = 0;
+
+/** A registration request from `ip` (Vercel's `x-real-ip`); a fresh documentation-range address unless pinned. */
+export function registerRequest(h: Harness, redirectUris: string[] = [CLAUDE_REDIRECT], ip: string | null = `198.51.100.${(source = (source % 250) + 1)}`): Request {
+  return new Request(`${originFor(h.env)}/api/mcp/oauth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(ip ? { "x-real-ip": ip } : {}) },
+    body: JSON.stringify({ client_name: "Claude", redirect_uris: redirectUris, token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"] }),
+  });
+}
+
+export async function register(h: Harness, redirectUris: string[] = [CLAUDE_REDIRECT], ip?: string | null): Promise<string> {
+  const response = await handleRegister(ip === undefined ? registerRequest(h, redirectUris) : registerRequest(h, redirectUris, ip), h.oauth);
   if (response.status !== 201) throw new Error(`registration failed: ${response.status} ${await response.text()}`);
   return ((await response.json()) as { client_id: string }).client_id;
 }

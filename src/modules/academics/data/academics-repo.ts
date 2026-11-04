@@ -4,7 +4,7 @@ import { cache } from "react";
 import { assertPermission, assertStaff, getCurrentStaff } from "@/platform/auth/current-staff";
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
 import { can } from "@/platform/auth/permissions";
-import { assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
+import { assertActorSession, assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { canAccessSession, canSwitchSessions, defaultSessionFor } from "@/platform/auth/test-session-policy";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -160,12 +160,12 @@ export async function classLabelMap(
   return new Map(await cachedClassLabels(sessionLabel));
 }
 
-/** `classLabelMap` for a member of staff verified by the AI connection: the same gate, any active staff. */
+/** `classLabelMap` for a member of staff verified by the AI connection: the same gate, any active staff, and the test-session fence. */
 export async function classLabelMapAs(
   actor: VerifiedActor,
   sessionLabel: string,
 ): Promise<Map<string, string>> {
-  assertActorStaff(actor);
+  assertActorSession(actor, sessionLabel);
   return new Map(await cachedClassLabels(sessionLabel));
 }
 

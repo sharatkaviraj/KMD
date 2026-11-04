@@ -228,6 +228,29 @@ describe("every tool call runs the whole pipeline", () => {
     expect((await call(day, t.access_token, "get_context")).result?.isError).toBe(true);
   });
 
+  it("checks the limit before any refusal, so refused calls count and cannot flood the log (L4)", async () => {
+    const h = setup();
+    const tokens = await connect(h);
+    h.store.killSwitch = false; // every call is refused…
+    for (let i = 0; i < 60; i += 1) await call(h, tokens.access_token, i % 2 ? "get_context" : "no_such_tool", i % 3 ? undefined : { junk: "x" });
+    expect(h.store.calls).toHaveLength(60); // …and each refusal counted
+    // From here on the token is limited: 200 more knocks write ONE more row, and reach nothing else.
+    let switchReads = 0;
+    const original = h.store.killSwitchOn.bind(h.store);
+    h.store.killSwitchOn = async () => {
+      switchReads += 1;
+      return original();
+    };
+    for (let i = 0; i < 200; i += 1) {
+      const result = await call(h, tokens.access_token, "no_such_tool");
+      expect(result.result?.content[0].text).toMatch(/limit/);
+    }
+    expect(h.store.calls).toHaveLength(61);
+    expect(h.store.calls.at(-1)?.outcome).toBe("refused:rate_limited");
+    expect(switchReads).toBe(0);
+    expect(h.runtimeCalls).toEqual([]);
+  });
+
   it("re-reads everything on every call: nothing carries over", async () => {
     const h = setup();
     const tokens = await connect(h);

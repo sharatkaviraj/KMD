@@ -13,6 +13,8 @@ export type ConnectionListRow = {
   staffName: string;
   provider: Provider;
   createdAt: string;
+  /** When its code was redeemed; null = consented to but never redeemed (holds no token). */
+  activatedAt: string | null;
   expiresAt: string;
   revokedAt: string | null;
   revokeReason: string | null;
@@ -27,8 +29,9 @@ export const IDLE_DAYS = 30;
 
 const DISCONNECT_REASONS = new Set(["disconnected_by_self", "disconnected_by_admin", "revoked_by_client", "replaced"]);
 
-export function isLive(row: Pick<ConnectionListRow, "revokedAt" | "expiresAt">, now: number): boolean {
-  return !row.revokedAt && Date.parse(row.expiresAt) > now;
+/** Activated (its code redeemed), not revoked, inside its 90 days. A pending grant is never live. */
+export function isLive(row: Pick<ConnectionListRow, "revokedAt" | "expiresAt" | "activatedAt">, now: number): boolean {
+  return Boolean(row.activatedAt) && !row.revokedAt && Date.parse(row.expiresAt) > now;
 }
 
 export function connectionStatus(row: ConnectionListRow, now: number): ConnectionStatus {
@@ -60,11 +63,13 @@ export function connectionCardState(input: {
   rows: readonly ConnectionListRow[];
   now: number;
 }): CardState {
-  const live = input.rows.filter((row) => isLive(row, input.now));
+  // A pending grant (consented, code never redeemed) is not a connection yet.
+  const rows = input.rows.filter((row) => row.activatedAt);
+  const live = rows.filter((row) => isLive(row, input.now));
   if (!input.eligible) return { kind: "unavailable" };
   if (input.switchOn !== true) return { kind: "switched_off", live };
   if (live.length > 0) return { kind: "allowed", live };
-  const latest = [...input.rows].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+  const latest = [...rows].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
   if (!latest) return { kind: "not_connected" };
   return connectionStatus(latest, input.now) === "disconnected" ? { kind: "disconnected", last: latest } : { kind: "reconnect_required", last: latest };
 }

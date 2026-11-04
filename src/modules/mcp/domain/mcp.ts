@@ -47,7 +47,7 @@ export type McpDeps = {
 };
 
 /** Provider web origins a browser-borne request may carry. Anything else is refused (DNS rebinding, spec "Security Warning"). */
-export const ALLOWED_REQUEST_ORIGINS = ["https://claude.ai", "https://claude.com", "https://chatgpt.com"] as const;
+export const ALLOWED_REQUEST_ORIGINS = ["https://claude.ai", "https://chatgpt.com"] as const;
 
 export function allowedRequestOrigin(value: string, ownOrigin: string, env: DeploymentEnv): boolean {
   if (value === ownOrigin || (ALLOWED_REQUEST_ORIGINS as readonly string[]).includes(value)) return true;
@@ -262,10 +262,15 @@ const REFUSAL_TEXT: Record<string, string> = {
 };
 
 /**
- * One tool call, plan §5.3, in order and with nothing carried over from an
- * earlier call: 1 token → 2 connection → 3 kill switch → 4 staff → 5
+ * One tool call, plan §5.3, with nothing carried over from an earlier call:
+ * 1 token → 2 connection → rate limit → 3 kill switch → 4 staff → 5
  * eligibility → 6 TEST rule and session → 7 permission, scope, arguments →
- * 8 rate limit → 9 run and project → 10 one metadata-only log row.
+ * 9 run and project → 10 one metadata-only log row.
+ *
+ * The limit (plan step 8) runs straight after the token, before any refusal
+ * can write a row: every call a token makes — refused ones included — counts,
+ * and a limited token writes at most one `refused:rate_limited` row an hour,
+ * so it can neither run past the limit nor flood the log.
  */
 async function callTool(name: unknown, rawArgs: unknown, { deps, endpoints, tokenHash }: MessageContext): Promise<CallOutcome> {
   const started = deps.now?.() ?? Date.now();
@@ -300,6 +305,13 @@ async function callTool(name: unknown, rawArgs: unknown, { deps, endpoints, toke
     await log(`refused:${reason}`);
     return toolError(REFUSAL_TEXT[reason] ?? "Refused.");
   };
+
+  // 8, first. Per-staff limits, counted from the log, refusals included.
+  const counts = await deps.store.callCounts(connection.staffProfileId);
+  if (counts.hour >= RATE_LIMITS.perHour || counts.day >= RATE_LIMITS.perDay) {
+    if (counts.limitedHour === 0) await log("refused:rate_limited");
+    return toolError(REFUSAL_TEXT.rate_limited);
+  }
 
   if (!tool) {
     await log("refused:unknown_tool");
@@ -337,10 +349,6 @@ async function callTool(name: unknown, rawArgs: unknown, { deps, endpoints, toke
     const takes = Object.keys((toolDescriptor(tool).inputSchema as { properties?: Record<string, unknown> }).properties ?? {});
     return toolError(`Invalid arguments (${fields.join(", ")}). This tool takes: ${takes.join(", ") || "no arguments"}.`);
   }
-
-  // 8. Per-staff limits, counted from the log.
-  const counts = await deps.store.callCounts(actor.id);
-  if (counts.hour >= RATE_LIMITS.perHour || counts.day >= RATE_LIMITS.perDay) return refuse("rate_limited");
 
   // 9. Run the screen's reader, then keep only the projection.
   const permitted = TOOLS.filter((candidate) => toolAllowed(candidate, actor) === "ok").map((candidate) => candidate.name);

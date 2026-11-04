@@ -72,12 +72,32 @@ export type RevokeReason =
   | "staff_mismatch"
   | "revoked_by_client";
 
+export type RegisterInput = {
+  clientId: string;
+  clientName: string | null;
+  /** Sorted, unique. */
+  redirectUris: readonly string[];
+  /** SHA-256 hex of the platform-set client address; never the address. */
+  sourceHash: string;
+  environment: "production" | "preview";
+  maxPerSourceHour: number;
+  maxPerHour: number;
+  reuseSeconds: number;
+};
+
+export type RegisterResult =
+  | { ok: true; reused: boolean; client: OAuthClient & { createdAt: string } }
+  | { ok: false; reason: "rate_limited" };
+
 export interface McpStore {
-  /** RFC 7591 registration, rate-limited inside the store. */
-  registerClient(input: { clientId: string; clientName: string | null; redirectUris: readonly string[]; maxPerHour: number }): Promise<{ ok: true } | { ok: false; reason: "rate_limited" }>;
+  /** RFC 7591 registration: reuse, per-source and per-environment limits, all inside one store call. */
+  registerClient(input: RegisterInput): Promise<RegisterResult>;
   getClient(clientId: string): Promise<OAuthClient | null>;
 
-  /** Consent: connection (≤ `grantDays`) and its single-use code (`codeTtlSeconds`), atomically. */
+  /**
+   * Consent: a PENDING connection (≤ `grantDays`, no token, replaces nothing)
+   * and its single-use code (`codeTtlSeconds`), atomically.
+   */
   createGrant(input: {
     staffProfileId: string;
     authUserId: string;
@@ -96,6 +116,8 @@ export interface McpStore {
    * Consume a code and issue the first pair, atomically. The store compares
    * the code's bound client, redirect URI, S256 challenge and resource with
    * what is presented (`verifierChallenge` is S256 of the presented verifier).
+   * A good code activates its connection and, serialised per staff member and
+   * provider, ends every other unrevoked connection of theirs to that provider.
    */
   exchangeCode(input: {
     codeHash: string;
@@ -130,7 +152,10 @@ export interface McpStore {
 
   /** The `ai_connection` runtime flag. Absent, unreadable or failing is `false`. */
   killSwitchOn(): Promise<boolean>;
-  /** Calls in the last hour and 24 hours, from the log. */
-  callCounts(staffProfileId: string): Promise<{ hour: number; day: number }>;
+  /**
+   * From the log: calls in the last hour and 24 hours (refusals included,
+   * rate-limit refusals not), and rate-limit refusals in the last hour.
+   */
+  callCounts(staffProfileId: string): Promise<{ hour: number; day: number; limitedHour: number }>;
   logToolCall(row: ToolCallRow): Promise<void>;
 }

@@ -26,7 +26,9 @@ import {
   ORIGIN,
   PROD_ENV,
   register,
+  registerRequest,
   setup,
+  TEACHER,
   tokenRequest,
   type Tokens,
 } from "./harness";
@@ -86,6 +88,8 @@ describe("redirect URIs match exactly", () => {
     "https://chatgpt.com/connector_platform_oauth_redirect/../evil",
     "https://chatgpt.com/connector/oauth/abc123",
     "https://chatgpt.com.evil.com/connector_platform_oauth_redirect",
+    // Not in Anthropic's documentation: off the list until the provider test confirms it (L7).
+    "https://claude.com/api/mcp/auth_callback",
   ])("refuses the near miss %s", (uri) => {
     expect(redirectProvider(uri, { allowLoopback: true })).toBeNull();
   });
@@ -121,6 +125,60 @@ describe("redirect URIs match exactly", () => {
     await expect(register(confined, ["http://localhost:3118/callback"])).resolves.toMatch(/^[A-Za-z0-9_-]{32}$/);
   });
 
+  it("registration limits each source, not everybody (M1)", async () => {
+    const h = setup();
+    const attacker = "203.0.113.66";
+    // Eleven minutes apart, each request is past the reuse window, so each is a new client: five in the hour, then 429.
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      h.store.advance(11 * 60_000);
+      ids.push(await register(h, [CLAUDE_REDIRECT], attacker));
+    }
+    expect(new Set(ids).size).toBe(5);
+    h.store.advance(11 * 60_000); // the first is 55 minutes old: still counted
+    expect((await handleRegister(registerRequest(h, [CLAUDE_REDIRECT], attacker), h.oauth)).status).toBe(429);
+    // Somebody else, from another address, is not blocked.
+    expect((await handleRegister(registerRequest(h, [CLAUDE_REDIRECT], "198.51.100.200"), h.oauth)).status).toBe(201);
+    // An hour later the attacker's allowance is back.
+    h.store.advance(61 * 60_000);
+    expect((await handleRegister(registerRequest(h, [CLAUDE_REDIRECT], attacker), h.oauth)).status).toBe(201);
+  });
+
+  it("returns the existing client for the same source and redirect set within minutes", async () => {
+    const h = setup();
+    const first = await register(h, [CLAUDE_REDIRECT], "192.0.2.10");
+    const again = await register(h, [CLAUDE_REDIRECT], "192.0.2.10");
+    expect(again).toBe(first);
+    expect(await register(h, [CLAUDE_REDIRECT], "192.0.2.11")).not.toBe(first);
+    h.store.advance(11 * 60_000);
+    expect(await register(h, [CLAUDE_REDIRECT], "192.0.2.10")).not.toBe(first);
+  });
+
+  it("never stores the client address, only its hash", async () => {
+    const h = setup();
+    await register(h, [CLAUDE_REDIRECT], "192.0.2.77");
+    const stored = [...h.store.clients.values()][0];
+    expect(stored.sourceHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(stored)).not.toContain("192.0.2.77");
+    expect(stored.sourceHash).toBe(await sha256Hex("ai-register:192.0.2.77"));
+  });
+
+  it("counts production and Previews apart (they share the database), and never reuses across them", async () => {
+    const h = setup({ env: PROD_ENV });
+    const prodIds: string[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      h.store.advance(11 * 60_000);
+      prodIds.push(await register(h, [CLAUDE_REDIRECT], "192.0.2.5"));
+    }
+    h.store.advance(11 * 60_000); // past the reuse window, still inside the hour
+    expect((await handleRegister(registerRequest(h, [CLAUDE_REDIRECT], "192.0.2.5"), h.oauth)).status).toBe(429);
+    // The same address on a Preview has its own allowance, and is not handed a production client.
+    const preview = await handleRegister(registerRequest({ ...h, env: CONFINED_ENV }, [CLAUDE_REDIRECT], "192.0.2.5"), { ...h.oauth, env: CONFINED_ENV });
+    expect(preview.status).toBe(201);
+    expect(prodIds).not.toContain(((await preview.json()) as { client_id: string }).client_id);
+    expect(new Set([...h.store.clients.values()].map((client) => client.environment))).toEqual(new Set(["production", "preview"]));
+  });
+
   it("registration is public-client only, caps names and rate-limits", async () => {
     const h = setup();
     const confidential = await handleRegister(
@@ -138,9 +196,10 @@ describe("redirect URIs match exactly", () => {
     expect(body.client_name).not.toContain("‮");
     expect(body.token_endpoint_auth_method).toBe("none");
 
-    for (let i = 0; i < 40; i += 1) await register(h).catch(() => undefined);
-    expect(h.store.clients.size).toBe(30);
-    await expect(register(h)).rejects.toThrow(/429/);
+    // The ceiling for the environment: 100 new clients an hour across sources.
+    for (let i = 0; i < 120; i += 1) await register(h, [CLAUDE_REDIRECT], `10.0.${Math.floor(i / 200)}.${i}`).catch(() => undefined);
+    expect(h.store.clients.size).toBe(100);
+    await expect(register(h, [CLAUDE_REDIRECT], "10.9.9.9")).rejects.toThrow(/429/);
   });
 });
 
@@ -394,6 +453,113 @@ describe("the token endpoint", () => {
     expect((await json(asJson)).error).toBe("invalid_request");
     const twice = await handleToken(new Request(`${ORIGIN}/api/mcp/oauth/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `grant_type=refresh_token&client_id=${clientId}&client_id=x` }), h.oauth);
     expect((await json(twice)).error).toBe("invalid_request");
+  });
+});
+
+/* ------------------------------------------------------ pending grants */
+
+describe("consent makes a pending grant; only redeeming the code makes it live (L5)", () => {
+  it("does not activate or replace anything at consent", async () => {
+    const h = setup();
+    const live = await connect(h);
+    const clientId = await register(h);
+    await consent(h, ADMIN, clientId); // approved, never redeemed
+    const rows = [...h.store.connections.values()];
+    expect(rows).toHaveLength(2);
+    expect(rows[0].revokedAt).toBeNull(); // the live one was not ended by a consent alone
+    expect(rows[1].activatedAt).toBeNull();
+    expect((await handleMcp(mcpRequest(h, live.access_token, { jsonrpc: "2.0", id: 1, method: "ping" }), h.mcp)).status).toBe(200);
+  });
+
+  it("ends the earlier connection to the same provider when the new code is redeemed", async () => {
+    const h = setup();
+    const first = await connect(h);
+    const second = await connect(h);
+    const rows = [...h.store.connections.values()];
+    expect(rows[0].revokeReason).toBe("replaced");
+    expect(rows[1].activatedAt).not.toBeNull();
+    expect((await handleMcp(mcpRequest(h, first.access_token, { jsonrpc: "2.0", id: 1, method: "ping" }), h.mcp)).status).toBe(401);
+    expect((await handleMcp(mcpRequest(h, second.access_token, { jsonrpc: "2.0", id: 1, method: "ping" }), h.mcp)).status).toBe(200);
+  });
+
+  it("leaves exactly one live connection when two approvals are redeemed at once", async () => {
+    const h = setup();
+    const clientId = await register(h);
+    const a = await consent(h, ADMIN, clientId);
+    const b = await consent(h, ADMIN, clientId);
+    const responses = await Promise.all([exchange(h, { ...a, clientId }), exchange(h, { ...b, clientId })]);
+    const live = [...h.store.connections.values()].filter((row) => row.activatedAt !== null && row.revokedAt === null);
+    expect(live).toHaveLength(1);
+    // The other was ended: redeemed first and replaced, or still pending and ended by the first — never both live.
+    expect(responses.filter((response) => response.status === 200).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not treat a never-redeemed grant as a connection anywhere", async () => {
+    const h = setup();
+    const clientId = await register(h);
+    await consent(h, ADMIN, clientId);
+    const row = [...h.store.connections.values()][0];
+    expect(row.activatedAt).toBeNull();
+    expect([...h.store.tokens.values()]).toHaveLength(0);
+  });
+});
+
+/* ---------------------------------------------- refresh re-checks staff */
+
+describe("refresh rotation re-reads the staff member (L6)", () => {
+  async function refresh(h: ReturnType<typeof setup>, tokens: Tokens & { clientId: string }) {
+    return handleToken(tokenRequest(h, { grant_type: "refresh_token", refresh_token: tokens.refresh_token, client_id: tokens.clientId }), h.oauth);
+  }
+
+  it("refuses and revokes for an inactive staff member", async () => {
+    const h = setup();
+    const tokens = await connect(h);
+    h.staff.set(ADMIN.userId, { ...ADMIN, isActive: false });
+    const response = await refresh(h, tokens);
+    expect(response.status).toBe(400);
+    expect((await json(response)).error).toBe("invalid_grant");
+    expect([...h.store.connections.values()][0].revokeReason).toBe("inactive");
+    expect(h.store.tokens.get(await sha256Hex(tokens.refresh_token))!.usedAt).toBeNull(); // nothing rotated
+  });
+
+  it("refuses and revokes for a role no longer eligible, or a profile that moved", async () => {
+    const demoted = setup();
+    const t1 = await connect(demoted);
+    demoted.staff.set(ADMIN.userId, { ...ADMIN, role: "office" });
+    expect((await json(await refresh(demoted, t1))).error).toBe("invalid_grant");
+    expect([...demoted.store.connections.values()][0].revokeReason).toBe("not_eligible");
+
+    const moved = setup();
+    const t2 = await connect(moved);
+    moved.staff.set(ADMIN.userId, { ...ADMIN, id: TEACHER.id });
+    expect((await json(await refresh(moved, t2))).error).toBe("invalid_grant");
+    expect([...moved.store.connections.values()][0].revokeReason).toBe("staff_mismatch");
+  });
+
+  it("refuses a non-admin TEST account on a confined deployment", async () => {
+    const h = setup({ env: CONFINED_ENV });
+    const tokens = await connect(h, TEACHER);
+    expect((await json(await refresh(h, tokens))).error).toBe("invalid_grant");
+    expect([...h.store.connections.values()][0].revokeReason).toBe("test_not_admin");
+  });
+
+  it("refuses with 503 while the switch is off, consuming and revoking nothing", async () => {
+    const h = setup();
+    const tokens = await connect(h);
+    h.store.killSwitch = false;
+    const off = await refresh(h, tokens);
+    expect(off.status).toBe(503);
+    expect((await json(off)).error).toBe("temporarily_unavailable");
+    expect([...h.store.connections.values()][0].revokedAt).toBeNull();
+    h.store.killSwitch = true;
+    expect((await refresh(h, tokens)).status).toBe(200);
+  });
+
+  it("fails closed without a staff resolver", async () => {
+    const h = setup();
+    const tokens = await connect(h);
+    const response = await handleToken(tokenRequest(h, { grant_type: "refresh_token", refresh_token: tokens.refresh_token, client_id: tokens.clientId }), { ...h.oauth, resolveStaff: undefined });
+    expect(response.status).toBe(503);
   });
 });
 

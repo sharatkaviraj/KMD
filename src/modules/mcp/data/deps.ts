@@ -13,7 +13,8 @@ import { createSupabaseMcpStore } from "@/modules/mcp/data/store";
  * do nothing else.
  */
 export function oauthDeps(): OAuthDeps {
-  return { store: createSupabaseMcpStore(), env: process.env };
+  // Refresh rotation re-reads the staff member, as every tool call does.
+  return { store: createSupabaseMcpStore(), env: process.env, resolveStaff: resolveStaffForUser };
 }
 
 export function mcpDeps(): McpDeps {

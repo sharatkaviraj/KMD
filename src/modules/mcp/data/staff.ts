@@ -3,7 +3,7 @@ import "server-only";
 import { testAccountFlags } from "@/platform/auth/current-staff";
 import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
 import { resolveStaffRole } from "@/platform/auth/permissions";
-import type { VerifiedActor } from "@/platform/auth/verified-actor";
+import { mintVerifiedActor, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { resolveLanguage } from "@/platform/i18n/language";
 import { createAdminClient } from "@/platform/supabase/admin";
 
@@ -47,7 +47,7 @@ export async function resolveStaffForUser(userId: string): Promise<VerifiedActor
     throw new Error("Could not verify staff permissions.");
   }
 
-  return {
+  return mintVerifiedActor({
     id: row.id,
     userId,
     email: null,
@@ -61,6 +61,5 @@ export async function resolveStaffForUser(userId: string): Promise<VerifiedActor
     permissions: permissions as string[],
     ...testAccountFlags(row.is_test_account === true),
     qaAccount: DAYRUN.aliases.some((alias) => accountForAlias(alias)?.userId === userId),
-    verifiedBy: "ai_connection",
-  };
+  });
 }

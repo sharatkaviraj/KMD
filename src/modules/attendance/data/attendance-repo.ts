@@ -3,7 +3,7 @@ import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/pol
 import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
-import { assertActorEveryClass, assertActorPermission, assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
+import { assertActorEveryClass, assertActorPermission, assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -448,7 +448,7 @@ export async function attendanceRules(sessionLabel: string): Promise<AttendanceR
  * through the service role after the same check against the actor.
  */
 export async function attendanceRulesAs(actor: VerifiedActor, sessionLabel: string): Promise<AttendanceRules> {
-  assertActorStaff(actor);
+  assertActorSession(actor, sessionLabel);
   const { data, error } = await createAdminClient()
     .from("attendance_rules")
     .select("half_day_credit")
@@ -588,6 +588,7 @@ export async function attendanceCalendarAs(
   sessionLabel: string,
 ): Promise<Map<string, CalendarDayKind>> {
   assertActorPermission(actor, "attendance:view");
+  assertActorSession(actor, sessionLabel);
   return new Map(await cachedCalendarDays(sessionLabel));
 }
 
@@ -679,6 +680,7 @@ export async function registersForDay(
  */
 export async function registersForDayAs(actor: VerifiedActor, sessionLabel: string, day: string): Promise<Register[]> {
   assertActorEveryClass(actor, "attendance:view");
+  assertActorSession(actor, sessionLabel);
   const { data, error } = await createAdminClient()
     .from("attendance_registers")
     .select(REGISTER_COLUMNS)
@@ -692,16 +694,24 @@ export async function registersForDayAs(actor: VerifiedActor, sessionLabel: stri
 
 /**
  * The status of every mark on these registers, for the board's counts — the
- * twin of the board's cookie read. Every class, as `registersForDayAs`.
+ * twin of the board's cookie read. Every class, as `registersForDayAs`, and
+ * only registers of the fenced session: the ids are re-checked against
+ * `attendance_registers` for that session label before any mark is read.
  * Chunked: the ids go in the URL (rule 3b).
  */
 export async function markStatusesAs(
   actor: VerifiedActor,
+  sessionLabel: string,
   registerIds: readonly string[],
 ): Promise<{ data: { register_id: string; status: AttendanceStatus }[] | null; error: unknown }> {
   assertActorEveryClass(actor, "attendance:view");
+  assertActorSession(actor, sessionLabel);
   const admin = createAdminClient();
-  return fetchInChunks<{ register_id: string; status: AttendanceStatus }>([...registerIds], IN_FILTER_CHUNK_SIZE, (chunk) =>
+  const owned = await fetchInChunks<{ id: string }>([...registerIds], IN_FILTER_CHUNK_SIZE, (chunk) =>
+    admin.from("attendance_registers").select("id").eq("session_label", sessionLabel).in("id", chunk),
+  );
+  if (owned.error) return { data: null, error: owned.error };
+  return fetchInChunks<{ register_id: string; status: AttendanceStatus }>(owned.data.map((row) => row.id), IN_FILTER_CHUNK_SIZE, (chunk) =>
     admin.from("attendance_marks").select("register_id, status").in("register_id", chunk),
   );
 }

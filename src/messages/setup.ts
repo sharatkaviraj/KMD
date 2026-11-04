@@ -595,6 +595,10 @@ export const aiConnectionMessages = {
   wantsToRead: (provider: { hi: string; en: string }) =>
     t(`${provider.hi} आपके नाम से VPPS One पढ़ना चाहता है`, `${provider.en} wants to read VPPS One as you`),
   returnsTo: (host: string) => t(`अनुमति के बाद आप ${host} पर लौटेंगे।`, `After you answer you go back to ${host}.`),
+  ownAccountOnly: t(
+    "अनुमति तभी दें जब आपने अभी-अभी अपने ख़ुद के Claude/ChatGPT में Connect दबाया हो। किसी और का भेजा लिंक हो तो अनुमति न दें।",
+    "Approve only if you pressed Connect in your own Claude/ChatGPT just now. If someone sent you this link, don't allow it.",
+  ),
   localBadge: t("स्थानीय टेस्ट", "Local test"),
   localWarning: t(
     "यह अनुमति इसी कंप्यूटर पर चल रहे किसी प्रोग्राम को मिलेगी। तभी दें जब वह प्रोग्राम आपने ख़ुद चलाया हो।",

@@ -161,6 +161,16 @@ describe("projections drop whatever the readers add", () => {
   });
 });
 
+describe("the consent page warns against a link made in someone else's account (M2)", () => {
+  it("shows the own-account line beside Allow, as a rule-9 pair", async () => {
+    const page = readFileSync(path.resolve(__dirname, "../../src/app/mcp/authorize/page.tsx"), "utf8");
+    expect(page).toContain("a.ownAccountOnly");
+    const { aiConnectionMessages } = await import("@/messages/setup");
+    expect(aiConnectionMessages.ownAccountOnly.en).toMatch(/^Approve only if you pressed Connect in your own Claude\/ChatGPT just now\./);
+    expect(aiConnectionMessages.ownAccountOnly.hi).toMatch(/Connect/);
+  });
+});
+
 describe("the consent page cannot be framed", () => {
   it("sends frame-ancestors 'none', DENY, no-referrer and no-store for /mcp/*", () => {
     const config = readFileSync(path.resolve(__dirname, "../../next.config.ts"), "utf8");

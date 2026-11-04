@@ -75,6 +75,45 @@ describe("the AI connection migration", () => {
     expect(rotate).toMatch(/v_conn\.expires_at\)\s+returning id into v_new/);
   });
 
+  it("makes consent a pending grant and activates it only on redemption, serialised per staff member and provider (L5)", () => {
+    const grant = body("ai_create_grant");
+    expect(grant).not.toMatch(/ai_revoke_connection|'replaced'/);
+    expect(grant).not.toMatch(/activated_at/);
+    const exchange = body("ai_exchange_code");
+    const lock = exchange.indexOf("pg_advisory_xact_lock(hashtext('vppsone:ai-connection:'");
+    expect(lock).toBeGreaterThan(-1);
+    // Re-read after the lock, then end the others, then activate, then issue.
+    const reread = exchange.indexOf("select * into v_conn", lock);
+    const replaced = exchange.indexOf("'replaced'", lock);
+    const activate = exchange.indexOf("set activated_at = now()", lock);
+    const issue = exchange.indexOf("insert into vppsone.ai_tokens", lock);
+    expect(reread).toBeGreaterThan(lock);
+    expect(replaced).toBeGreaterThan(reread);
+    expect(activate).toBeGreaterThan(replaced);
+    expect(issue).toBeGreaterThan(activate);
+    expect(body("ai_connection_list")).toMatch(/where c\.activated_at is not null/);
+    expect(body("ai_purge")).toMatch(/activated_at is null and created_at < now\(\) - interval '1 day'/);
+  });
+
+  it("limits registration per hashed source and per environment, reusing recent identical clients (M1)", () => {
+    const register = body("ai_register_client");
+    expect(register).toContain("pg_advisory_xact_lock(hashtext('vppsone:ai-register:' || p_environment))");
+    expect(register).toMatch(/and source_hash = p_source_hash\s+and redirect_uris = p_redirect_uris\s+and created_at > now\(\) - make_interval\(secs => p_reuse_seconds\)/);
+    expect(register).toMatch(/v_source >= p_max_per_source or v_recent >= p_max_per_hour/);
+    expect(register).toMatch(/where environment = p_environment and created_at > now\(\) - interval '1 hour'/);
+    expect(statements).toContain("source_hash text check (source_hash is null or source_hash ~ '^[0-9a-f]{64}$')");
+    expect(statements).toContain("environment text not null check (environment in ('production', 'preview'))");
+    expect(body("ai_purge")).toMatch(/update vppsone\.ai_oauth_clients set source_hash = null/);
+  });
+
+  it("counts refused calls toward the limit and reports rate-limit refusals separately (L4)", () => {
+    const counts = body("ai_call_counts");
+    expect(counts).toContain("'hour', count(*) filter (where created_at > now() - interval '1 hour' and outcome <> 'refused:rate_limited')");
+    expect(counts).toContain("'limited_hour', count(*) filter (where created_at > now() - interval '1 hour' and outcome = 'refused:rate_limited')");
+    // Refusals of every other kind are rows like any other call: they count.
+    expect(counts).not.toMatch(/outcome = 'ok'|like 'refused:%'/);
+  });
+
   it("caps every grant at 90 days and every code at 5 minutes in the table itself", () => {
     expect(statements).toContain("expires_at <= created_at + interval '90 days'");
     expect(statements).toContain("expires_at <= created_at + interval '5 minutes'");

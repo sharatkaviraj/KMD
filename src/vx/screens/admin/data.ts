@@ -5,7 +5,7 @@ import { cache } from "react";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
-import { assertActorEveryClass, assertActorPermission, type VerifiedActor } from "@/platform/auth/verified-actor";
+import { assertActorEveryClass, assertActorPermission, assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { addDays, dayLabel, weekdayLabel, weekdayName } from "@/platform/dates";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -114,6 +114,7 @@ const askedLeave = cache(async (sessionLabel: string): Promise<AskedLeave[]> => 
  */
 export async function askedLeaveForActor(actor: VerifiedActor, sessionLabel: string): Promise<AskedLeave[]> {
   assertActorPermission(actor, "substitutions:manage");
+  assertActorSession(actor, sessionLabel);
   return askedLeave(sessionLabel);
 }
 
@@ -217,7 +218,7 @@ type BoardSource = {
   absences: (sessionLabel: string, day: string) => Promise<{ staffProfileId: string }[]>;
   calendar: (sessionLabel: string) => Promise<Map<string, CalendarDayKind>>;
   rules: (sessionLabel: string) => Promise<Awaited<ReturnType<typeof attendanceRules>>>;
-  marks: (registerIds: string[]) => Promise<{ data: { register_id: string; status: AttendanceStatus }[] | null; error: unknown }>;
+  marks: (sessionLabel: string, registerIds: string[]) => Promise<{ data: { register_id: string; status: AttendanceStatus }[] | null; error: unknown }>;
 };
 
 // Wrappers, not references: the readers are looked up when the board is read,
@@ -230,7 +231,7 @@ const screenBoardSource: BoardSource = {
   absences: (sessionLabel, day) => absencesFor(sessionLabel, day),
   calendar: (sessionLabel) => attendanceCalendar(sessionLabel),
   rules: (sessionLabel) => attendanceRules(sessionLabel),
-  marks: async (registerIds) => {
+  marks: async (_sessionLabel, registerIds) => {
     const supabase = await createClient();
     return fetchInChunks<{ register_id: string; status: AttendanceStatus }>(registerIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
       supabase.from("attendance_marks").select("register_id, status").in("register_id", chunk),
@@ -247,7 +248,7 @@ function actorBoardSource(actor: VerifiedActor): BoardSource {
     absences: (sessionLabel, day) => absencesOnAs(actor, sessionLabel, day, { withReason: false }),
     calendar: (sessionLabel) => attendanceCalendarAs(actor, sessionLabel),
     rules: (sessionLabel) => attendanceRulesAs(actor, sessionLabel),
-    marks: (registerIds) => markStatusesAs(actor, registerIds),
+    marks: (sessionLabel, registerIds) => markStatusesAs(actor, sessionLabel, registerIds),
   };
 }
 
@@ -259,6 +260,7 @@ function actorBoardSource(actor: VerifiedActor): BoardSource {
  */
 export async function boardForActor(actor: VerifiedActor, sessionLabel: string, day: string): Promise<Board> {
   assertActorEveryClass(actor, "dashboard:view");
+  assertActorSession(actor, sessionLabel);
   return readBoardFrom(actorBoardSource(actor), sessionLabel, day);
 }
 
@@ -288,7 +290,7 @@ async function readBoardFrom(source: BoardSource, sessionLabel: string, day: str
 
   const tally = new Map<string, { present: number; absent: number; halfDay: number; other: number }>();
   if (recordedIds.length > 0) {
-    const { data, error } = await source.marks(recordedIds);
+    const { data, error } = await source.marks(sessionLabel, recordedIds);
     if (error) missing.push("marks");
     for (const row of data ?? []) {
       const t = tally.get(row.register_id) ?? { present: 0, absent: 0, halfDay: 0, other: 0 };
