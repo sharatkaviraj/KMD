@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, use, useEffect, useState, useSyncExternalStore } from "react";
+import { Suspense, use, useEffect, useRef, useState, useSyncExternalStore } from "react";
+
+import { LazyQuickCover, type QuickCoverTool } from "@/lib/ai/ui/lazy-quick-cover";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -72,10 +74,16 @@ function useRegisterWarmup(tabs: readonly BottomTab[], pathname: string) {
  * Tabs are intent links (perf fix 9): a finger landing on one starts the full
  * server render, so most of the next screen is ready when the tap completes.
  */
-export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promise<Badges> }) {
+export function VxBottomBar({ tabs, badges, coverAi = false }: {
+  tabs: BottomTab[];
+  badges: Promise<Badges>;
+  /** Built-in AI may arrange cover for this person in this session (`coverPhotoEnabled`). */
+  coverAi?: boolean;
+}) {
   const pathname = (usePathname() ?? "/").split(/[?#]/)[0] || "/";
   const { tx } = useVx();
   const [quick, setQuick] = useState(false);
+  const [tool, setTool] = useState<QuickCoverTool | null>(null);
   const active = activeTab(tabs, pathname);
   useRegisterWarmup(tabs, pathname);
   // The classic receipt detail supplies its own fixed phone action bar and
@@ -118,7 +126,9 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
           ),
         )}
       </nav>
-      <QuickActions open={quick} onClose={() => setQuick(false)} keys={tabs.find((t) => t.center)?.quick ?? []} />
+      <QuickActions open={quick} onClose={() => setQuick(false)} keys={tabs.find((t) => t.center)?.quick ?? []}
+        onCover={coverAi ? setTool : undefined} />
+      {tool ? <LazyQuickCover key={tool.key} tool={tool} onClose={() => setTool(null)} /> : null}
     </>
   );
 }
@@ -177,7 +187,56 @@ const QW = {
   some: { en: "The things you do most", hi: "काम जो आप सबसे ज़्यादा करते हैं" },
   close: { en: "Close", hi: "बंद करें" },
   repeat: { en: "Repeat last", hi: "पिछला दोहराएँ" },
+  cover: { en: "Quick substitute", hi: "जल्दी बदली" },
+  coverSub: { en: "Photograph the register or say who covers", hi: "रजिस्टर की फ़ोटो लें या बोलकर बताएँ" },
+  photo: { en: "Photo", hi: "फ़ोटो" },
+  speak: { en: "Speak", hi: "बोलें" },
+  arrange: { en: "Arrange", hi: "व्यवस्था" },
 };
+
+let toolSeq = 0;
+
+/**
+ * Quick substitute (the "+" sheet's first row, for people who may arrange
+ * cover while built-in AI is on). Photo opens the phone camera on the same
+ * tap — a file input must be clicked inside the tap to be allowed to open —
+ * and the picture goes straight to the register reader. Speak opens Bolo.
+ */
+function QuickCoverRow({ onPick, onClose }: { onPick: (tool: QuickCoverTool) => void; onClose: () => void }) {
+  const { tx } = useVx();
+  const camera = useRef<HTMLInputElement>(null);
+  const tile = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 84, padding: "10px 6px", borderRadius: 18, border: 0, fontSize: 14, fontWeight: 700, textAlign: "center" } as const;
+  return (
+    <section aria-label={tx(QW.cover)} style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, borderRadius: 22, background: "var(--accs)", animation: "xRise .42s var(--ease) both" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(QW.cover)}</span>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(QW.coverSub)}</span>
+      </div>
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden
+        onChange={(e) => {
+          const files = Array.from(e.currentTarget.files ?? []);
+          e.currentTarget.value = "";
+          if (!files.length) return;
+          onClose();
+          onPick({ kind: "photo", files, key: ++toolSeq });
+        }} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+        <button type="button" className="tap" onClick={() => camera.current?.click()} style={{ ...tile, background: "var(--pri)", color: "var(--prifg)" }}>
+          <Ic n="camera" size={26} />
+          {tx(QW.photo)}
+        </button>
+        <button type="button" className="tap" onClick={() => { onClose(); onPick({ kind: "voice", key: ++toolSeq }); }} style={{ ...tile, background: "var(--card)", color: "var(--fg)", border: "1px solid var(--bd)" }}>
+          <Ic n="mic" size={26} />
+          {tx(QW.speak)}
+        </button>
+        <Link href="/substitutions/arrange" onClick={onClose} className="tap" style={{ ...tile, background: "var(--card)", color: "var(--fg)", border: "1px solid var(--bd)" }}>
+          <Ic n="swap" size={26} />
+          {tx(QW.arrange)}
+        </Link>
+      </div>
+    </section>
+  );
+}
 
 /**
  * The admin's centre "+" sheet (F03): the six things done most, each shown
@@ -185,9 +244,17 @@ const QW = {
  * the action last tapped on this phone. The design's line also names the
  * child; the app does not keep that, so the row names the action alone.
  */
-export function QuickActions({ open, onClose, keys }: { open: boolean; onClose: () => void; keys: readonly string[] }) {
+export function QuickActions({ open, onClose, keys, onCover }: {
+  open: boolean;
+  onClose: () => void;
+  keys: readonly string[];
+  /** Set when this person may arrange cover with built-in AI: shows Quick substitute. */
+  onCover?: (tool: QuickCoverTool) => void;
+}) {
   const { tx } = useVx();
-  const actions = QUICK_ACTIONS.filter((a) => keys.includes(a.key));
+  const quickCover = Boolean(onCover && keys.includes("cover"));
+  // Quick substitute replaces the plain "Assign substitute" tile, which it links to as Arrange.
+  const actions = QUICK_ACTIONS.filter((a) => keys.includes(a.key) && !(quickCover && a.key === "cover"));
   const lastKey = useSyncExternalStore(subscribeLast, readLast, () => null);
   const last = actions.find((a) => a.key === lastKey) ?? null;
   const pick = (key: string) => {
@@ -206,6 +273,7 @@ export function QuickActions({ open, onClose, keys }: { open: boolean; onClose: 
             <Ic n="x" />
           </button>
         </div>
+        {quickCover && onCover ? <QuickCoverRow onPick={onCover} onClose={onClose} /> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
           {actions.map((a, i) => (
             <Link

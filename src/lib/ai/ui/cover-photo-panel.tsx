@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { COVER_PHOTO_ACTION, type CoverPhotoIssue, type CoverPhotoResult } from "@/lib/ai/cover-photo-types";
 import { AI_INPUT_BUCKET } from "@/lib/ai/media-limits";
-import { CameraCapture } from "@/lib/ai/ui/camera-capture";
+import { CameraCapture, compressAiPhoto } from "@/lib/ai/ui/camera-capture";
 import { createClient } from "@/platform/supabase/client";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
@@ -54,10 +54,21 @@ function errorCode(error: unknown) {
   return Object.hasOwn(problems, code) ? code as keyof typeof problems : "unavailable";
 }
 
-export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverPhotoResult | null }) {
+/**
+ * Photograph the substitution register and apply the rows VPPS One can check.
+ * On the Cover page it is a card that opens on demand; from the "+" quick
+ * substitute (`embedded`) it is the whole sheet, and a photo already taken
+ * there (`initialPhotos`) is read at once.
+ */
+export function CoverPhotoPanel({ day, initial, embedded = false, initialPhotos }: {
+  day: string;
+  initial: CoverPhotoResult | null;
+  embedded?: boolean;
+  initialPhotos?: readonly File[];
+}) {
   const { tx } = useVx();
   const router = useRouter();
-  const [open, setOpen] = useState(Boolean(initial));
+  const [open, setOpen] = useState(embedded || Boolean(initial));
   const [photos, setPhotos] = useState<Blob[]>([]);
   const [job, setJob] = useState<string | null>(null);
   const [result, setResult] = useState(initial);
@@ -75,17 +86,38 @@ export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverP
     return () => { window.clearTimeout(first); window.clearInterval(timer); };
   }, [deadline]);
 
-  async function read() {
-    if (!photos.length || busy) return;
+  // A photo taken from the "+" sheet: prepare it and read it straight away.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !initialPhotos?.length) return;
+    started.current = true;
+    void (async () => {
+      let prepared: Blob[];
+      try {
+        prepared = [];
+        for (const file of initialPhotos) prepared.push(await compressAiPhoto(file));
+      } catch {
+        setError("upload");
+        return;
+      }
+      setPhotos(prepared);
+      await read(prepared);
+    })();
+    // read() is this render's function; the photo is read once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPhotos]);
+
+  async function read(pages: Blob[] = photos) {
+    if (!pages.length || busy) return;
     setError(null);
     let id = job;
     try {
       if (!id) {
         setBusy("upload");
-        const batch = await post<{ jobId: string; uploads: { path: string; token: string }[] }>("upload", { day, pages: photos.length });
+        const batch = await post<{ jobId: string; uploads: { path: string; token: string }[] }>("upload", { day, pages: pages.length });
         const bucket = createClient().storage.from(AI_INPUT_BUCKET);
         const uploads = await Promise.all(batch.uploads.map(({ path, token }, i) =>
-          bucket.uploadToSignedUrl(path, token, photos[i], { contentType: "image/jpeg", upsert: false }),
+          bucket.uploadToSignedUrl(path, token, pages[i], { contentType: "image/jpeg", upsert: false }),
         ));
         if (uploads.some((entry) => entry.error)) throw new Error("upload");
         id = batch.jobId;
@@ -127,14 +159,11 @@ export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverP
     }
   }
 
-  return <Card as="section" aria-label={tx(p("Substitution photo", "व्यवस्था रजिस्टर की फ़ोटो"))} className="mt-4 space-y-3">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="font-semibold">{tx(p("Substitution photo", "व्यवस्था रजिस्टर की फ़ोटो"))}</h2>
-      <Btn variant="sec" disabled={Boolean(busy) || canUndo} onClick={() => setOpen(!open)}>
-        {open ? tx(p("Hide photo tools", "फ़ोटो के विकल्प छिपाएँ")) : tx(p("Open photo tools", "फ़ोटो के विकल्प खोलें"))}
-      </Btn>
-    </div>
-    {open && <>
+  const body = <>
+      {busy === "parse" && <div role="status" className="flex items-center gap-3 rounded-xl p-3" style={{ background: "var(--s2)" }}>
+        <span aria-hidden="true" className="animate-spin" style={{ flex: "none", width: 22, height: 22, borderRadius: 11, border: "3px solid var(--bd)", borderTopColor: "var(--pri)" }} />
+        <span>{tx(p("Reading the register… this takes a few seconds.", "रजिस्टर पढ़ा जा रहा है… कुछ सेकंड लगेंगे।"))}</span>
+      </div>}
       {error && <p role="alert" className="break-words">{tx(problems[error])}</p>}
       {!result ? <>
         <p className="text-sm">{tx(p(
@@ -142,7 +171,7 @@ export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverP
           "लिखी तारीख़ फ़ोटो में दिखती रहे। VPPS One किसी को लगाने से पहले हर पंक्ति को समय-सारणी से मिलाता है।",
         ))}</p>
         <CameraCapture files={photos} disabled={Boolean(busy)} onChange={(next) => { setPhotos(next); setJob(null); setError(null); }} />
-        <Btn variant="pri" disabled={!photos.length || Boolean(busy)} onClick={() => void read()}>
+        <Btn variant="pri" big full disabled={!photos.length || Boolean(busy)} onClick={() => void read()}>
           {busy === "upload" ? tx(p("Uploading…", "अपलोड हो रहा है…")) :
             busy === "parse" ? tx(p("Reading register…", "रजिस्टर पढ़ा जा रहा है…")) : tx(p("Read register", "रजिस्टर पढ़ें"))}
         </Btn>
@@ -157,7 +186,7 @@ export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverP
           {result.applyBlocked === "stale" && <p>{tx(p("Check the current cover plan before using these rows.", "इन पंक्तियों का उपयोग करने से पहले वर्तमान व्यवस्था जाँचें।"))}</p>}
           {!result.review.rows.length && <p>{tx(p("No rows were read for this date.", "इस तारीख़ की कोई पंक्ति पढ़ी नहीं गई।"))}</p>}
         </div>
-        {canUndo && <Btn variant="danger" disabled={Boolean(busy)} onClick={() => void finish("apply")}>
+        {canUndo && <Btn variant="danger" big full disabled={Boolean(busy)} onClick={() => void finish("apply")}>
           {tx(p("Undo photo assignments", "फ़ोटो की व्यवस्थाएँ वापस लें"))}
           {seconds !== null && <span aria-hidden="true">{seconds}s</span>}
         </Btn>}
@@ -179,13 +208,23 @@ export function CoverPhotoPanel({ day, initial }: { day: string; initial: CoverP
             </div>}
           </li>)}
         </ol>}
-        <div className="flex flex-wrap gap-2">
-          <Btn variant="sec" href={`/substitutions/arrange?day=${day}`}>{tx(p("Open cover planner", "व्यवस्था योजना खोलें"))}</Btn>
-          {!canUndo && <Btn variant="ghost" disabled={Boolean(busy)} onClick={() => void finish("discard")}>
-            {tx(p("Clear photo result", "फ़ोटो का नतीजा हटाएँ"))}
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+          <Btn variant="sec" big href={`/substitutions/arrange?day=${day}`}>{tx(p("Open cover planner", "व्यवस्था योजना खोलें"))}</Btn>
+          {!canUndo && <Btn variant="ghost" big disabled={Boolean(busy)} onClick={() => void finish("discard")}>
+            {embedded ? tx(p("Take another photo", "दूसरी फ़ोटो लें")) : tx(p("Clear photo result", "फ़ोटो का नतीजा हटाएँ"))}
           </Btn>}
         </div>
       </>}
-    </>}
+  </>;
+
+  if (embedded) return <section aria-label={tx(p("Substitution photo", "व्यवस्था रजिस्टर की फ़ोटो"))} className="space-y-3">{body}</section>;
+  return <Card as="section" aria-label={tx(p("Substitution photo", "व्यवस्था रजिस्टर की फ़ोटो"))} className="mt-4 space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h2 className="font-semibold">{tx(p("Substitution photo", "व्यवस्था रजिस्टर की फ़ोटो"))}</h2>
+      <Btn variant="sec" disabled={Boolean(busy) || canUndo} onClick={() => setOpen(!open)}>
+        {open ? tx(p("Hide photo tools", "फ़ोटो के विकल्प छिपाएँ")) : tx(p("Open photo tools", "फ़ोटो के विकल्प खोलें"))}
+      </Btn>
+    </div>
+    {open && body}
   </Card>;
 }

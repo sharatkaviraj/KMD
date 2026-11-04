@@ -70,8 +70,15 @@ function button(text: string) {
   return found;
 }
 
+/** The hold-to-speak button; its label shows the elapsed time while recording. */
+function recordButton() {
+  const found = document.querySelector<HTMLButtonElement>("button[aria-pressed]");
+  if (!found) throw new Error("Missing the record button");
+  return found;
+}
+
 async function press(key: "keydown" | "keyup") {
-  await act(async () => button("Hold to speak").dispatchEvent(new KeyboardEvent(key, { key: " ", bubbles: true, cancelable: true })));
+  await act(async () => recordButton().dispatchEvent(new KeyboardEvent(key, { key: " ", bubbles: true, cancelable: true })));
 }
 
 describe("Bolo microphone and review", () => {
@@ -80,7 +87,8 @@ describe("Bolo microphone and review", () => {
     const onClip = vi.fn();
     act(() => root.render(<VoiceButton onClip={onClip} />));
     await press("keydown");
-    expect(button("Hold to speak").getAttribute("aria-pressed")).toBe("true");
+    expect(recordButton().getAttribute("aria-pressed")).toBe("true");
+    expect(recordButton().textContent).toContain("Release to send");
     act(() => vi.advanceTimersByTime(59_999));
     expect(onClip).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1));
