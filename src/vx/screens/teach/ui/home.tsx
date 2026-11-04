@@ -120,6 +120,7 @@ export function TeachHome({
   initialSheet,
   school,
   officePhone,
+  bolo,
   allowed = { attendance: true, marks: true, notes: true },
 }: {
   data: HomeData;
@@ -130,6 +131,7 @@ export function TeachHome({
   school: string;
   /** The school office's number, for help's "Call the office"; none hides it. */
   officePhone?: string;
+  bolo?: ReactNode;
   /** Office and coordinators can open this page too; their quick actions stop at what they may open. */
   allowed?: { attendance: boolean; marks: boolean; notes: boolean };
 }) {
@@ -1009,6 +1011,7 @@ export function TeachHome({
               {kids}
             </div>
             <div className="tc-col">
+              {bolo}
               {tasksCard}
               {office}
               {quick}

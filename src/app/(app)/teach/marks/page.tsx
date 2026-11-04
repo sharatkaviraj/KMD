@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
 
+import { builtinAiPilot } from "@/lib/ai/config";
+import { marksPhotoContext } from "@/lib/ai/marks-context";
+import { MarksPhotoView } from "@/lib/ai/marks-photo-view";
 import { byClassLabel } from "@/modules/academics/domain/class-order";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -41,7 +44,7 @@ import { saveRemarkAction, saveTeacherMarksAction, withdrawTeacherMarksAction } 
 
 export const runtime = "nodejs";
 
-const VIEWS = ["pick", "entry", "keypad", "check", "submitted", "remarks"] as const;
+const VIEWS = ["pick", "entry", "keypad", "check", "submitted", "remarks", "photo"] as const;
 type View = (typeof VIEWS)[number];
 
 /**
@@ -57,6 +60,8 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   const sp = await props.searchParams;
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const view: View = (VIEWS as readonly string[]).includes(one("view") ?? "") ? (one("view") as View) : one("paper") ? "entry" : "pick";
+
+  if (view === "photo") return <MarksPhotoView staff={staff} paperId={one("paper")} />;
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) {
@@ -95,6 +100,8 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     const next = rows.sort((a, b) => byClassLabel(a.class_label, b.class_label))[0] ?? null;
 
     const phase: SheetPhase = view === "check" ? "check" : view === "submitted" ? "sent" : "entry";
+    const photoHref = phase === "entry" && builtinAiPilot() && await marksPhotoContext(staff, paperId)
+      ? "/teach/marks?paper=" + paperId + "&view=photo" : undefined;
     return (
       <MarksSheet
         key={`${staff.id}/${sessionLabel}/${sheet.paper.id}`}
@@ -104,6 +111,7 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
         students={sheet.students}
         saved={sheet.saved}
         coordinatorName={sheet.coordinatorName}
+        photoHref={photoHref}
         onSave={saveTeacherMarksAction}
         onWithdraw={withdrawTeacherMarksAction}
         canCorrect={isManager(staff)}

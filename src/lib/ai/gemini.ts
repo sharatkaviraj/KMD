@@ -1,0 +1,166 @@
+import "server-only";
+
+import {
+  GoogleGenAI,
+  ThinkingLevel,
+  type GenerateContentParameters,
+  type GenerateContentResponse,
+  type Part,
+  type Schema,
+} from "@google/genai";
+import type { ZodType } from "zod";
+
+import type { AiModel, GeminiConfig } from "@/lib/ai/config";
+
+export type AiMedia = {
+  mimeType: "image/jpeg" | "audio/webm" | "audio/aac" | "audio/wav" | "audio/mp4" | "audio/m4a";
+  data: Uint8Array;
+};
+
+export type ModelUsage = {
+  modelVersion: string | null;
+  input: number;
+  output: number;
+  thinking: number;
+  costInr: number;
+  usageReported: boolean;
+};
+type Usage = ModelUsage & { model: AiModel; outcome: "ok" | "invalid" | "unavailable" };
+type Result<T> =
+  | { ok: true; value: T; attempts: Usage[] }
+  | { ok: false; error: "invalid" | "unavailable"; attempts: Usage[] };
+export type Generate = (request: GenerateContentParameters) => Promise<GenerateContentResponse>;
+
+export function validTokenCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 10_000_000;
+}
+
+export function tokens(value: unknown) {
+  return validTokenCount(value) ? value : 0;
+}
+
+export function modelVersion(value: unknown) {
+  return typeof value === "string" && /^[a-z0-9._:/-]{1,120}$/i.test(value) ? value : null;
+}
+
+function estimate(model: AiModel, audio: boolean, input: number, output: number, inrPerUsd: number) {
+  // Standard tier, https://ai.google.dev/gemini-api/docs/pricing (2026-11-04).
+  // Ignore cache discounts; this is an estimate, not the provider bill.
+  const newerRate = Date.now() >= Date.UTC(2027, 0, 1);
+  const inputRate = model === "gemini-3.8-flash" ? (newerRate ? 1.5 : 0.75)
+    : model === "gemini-2.5-flash" && audio && Date.now() < Date.UTC(2026, 11, 1) ? 1 : 0.3;
+  const outputRate = model === "gemini-3.8-flash" ? (newerRate ? 7.5 : 3.75) : 2.5;
+  return (input * inputRate + output * outputRate) / 1_000_000 * inrPerUsd;
+}
+
+export function geminiClient(apiKey: string): Generate {
+  const client = new GoogleGenAI({
+    apiKey, vertexai: false, httpOptions: { baseUrl: "https://generativelanguage.googleapis.com" },
+  });
+  return (request) => client.models.generateContent(request);
+}
+
+export function geminiParts(context: unknown, media: readonly AiMedia[]): Part[] {
+  return [{ text: JSON.stringify(context ?? null) }, ...media.map(({ mimeType, data }) => ({
+    inlineData: {
+      // Safari records AAC in an audio-only MP4 container. Gemini names that format M4A.
+      mimeType: mimeType === "audio/mp4" ? "audio/m4a" : mimeType,
+      data: Buffer.from(data).toString("base64"),
+    },
+  }))];
+}
+
+export function geminiRequest(opts: {
+  config: Pick<GeminiConfig, "thinkingBudget" | "thinkingLevel">;
+  model: AiModel;
+  instructions: string;
+  parts: Part[];
+  responseSchema: Schema;
+  timeout: number;
+  signal: AbortSignal;
+}): GenerateContentParameters {
+  const { config, model, instructions, parts, responseSchema, timeout, signal } = opts;
+  return {
+    model,
+    contents: [{ role: "user", parts }],
+    config: {
+      systemInstruction: instructions,
+      responseMimeType: "application/json",
+      responseSchema,
+      maxOutputTokens: 8192,
+      thinkingConfig: model === "gemini-2.5-flash" && Date.now() < Date.UTC(2026, 11, 1)
+        ? { thinkingBudget: config.thinkingBudget }
+        : { thinkingLevel: model === "gemini-3.8-flash" || config.thinkingLevel === "low" ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL },
+      httpOptions: { timeout, retryOptions: { attempts: 1 } },
+      abortSignal: signal,
+    },
+  };
+}
+
+export function geminiUsage(
+  response: GenerateContentResponse, model: AiModel, audio: boolean, inrPerUsd: number,
+): ModelUsage {
+  const usage = response.usageMetadata;
+  const input = tokens(usage?.promptTokenCount);
+  const output = tokens(usage?.candidatesTokenCount);
+  const thinking = tokens(usage?.thoughtsTokenCount);
+  return {
+    modelVersion: modelVersion(response.modelVersion),
+    input, output, thinking,
+    costInr: estimate(model, audio, input, output + thinking, inrPerUsd),
+    usageReported: validTokenCount(usage?.promptTokenCount),
+  };
+}
+
+/** This gateway has no DB client, tools, URL inputs or side effects beyond its model request. */
+export async function extractWithGemini<T>(opts: {
+  config: GeminiConfig;
+  primary: AiModel;
+  useFallback: boolean;
+  instructions: string;
+  context: unknown;
+  media: readonly AiMedia[];
+  responseSchema: Schema;
+  validate: ZodType<T>;
+}, generate?: Generate): Promise<Result<T>> {
+  const { config } = opts;
+  const invoke = generate ?? geminiClient(config.apiKey);
+  const models = opts.useFallback && opts.primary !== config.fallback ? [opts.primary, config.fallback] : [opts.primary];
+  const attempts: Usage[] = [];
+  const parts = geminiParts(opts.context, opts.media);
+  for (const model of models) {
+    const audio = opts.media.some((m) => m.mimeType.startsWith("audio/"));
+    let retryable = true;
+    const usage: Usage = {
+      model, modelVersion: null, input: 0, output: 0, thinking: 0, costInr: 0,
+      usageReported: false, outcome: "unavailable",
+    };
+    attempts.push(usage);
+    const attemptTimeout = models.length === 1 ? 37_000 : 18_000;
+    try {
+      const response = await invoke(geminiRequest({
+        config, model, instructions: opts.instructions, parts, responseSchema: opts.responseSchema,
+        timeout: attemptTimeout, signal: AbortSignal.timeout(attemptTimeout),
+      }));
+      Object.assign(usage, geminiUsage(response, model, audio, config.inrPerUsd));
+      usage.outcome = "invalid";
+      const finish = response.candidates?.[0]?.finishReason;
+      if (response.promptFeedback?.blockReason || (finish && finish !== "STOP" && finish !== "MAX_TOKENS")) {
+        return { ok: false, error: "invalid", attempts };
+      }
+      if (finish !== "MAX_TOKENS" && response.text) {
+        const value = opts.validate.safeParse(JSON.parse(response.text));
+        if (value.success) {
+          usage.outcome = "ok";
+          return { ok: true, value: value.data, attempts };
+        }
+      }
+    } catch (error) {
+      // No upstream error body, text, API key or prompt is written to logs.
+      const status = (error as { status?: number } | null)?.status;
+      retryable = !status || [404, 408, 429].includes(status) || status >= 500;
+    }
+    if (!retryable) break;
+  }
+  return { ok: false, error: attempts.at(-1)?.outcome === "invalid" ? "invalid" : "unavailable", attempts };
+}

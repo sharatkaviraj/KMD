@@ -34,6 +34,7 @@ const nextConfig: NextConfig = {
    * left out (the first fix still failed, on that chunk).
    */
   outputFileTracingIncludes: {
+    "/api/ai/**": ["./src/lib/ai/prompts/*.md"],
     "/**": [
       "./node_modules/pdfkit/js/standard-fonts/**/*.cjs",
       // document-kit.tsx reads these off disk with process.cwd(). On Vercel

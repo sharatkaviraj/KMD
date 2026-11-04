@@ -86,6 +86,7 @@ export function MarksSheet({
   coordinatorName,
   onSave,
   onWithdraw,
+  photoHref,
   canCorrect = false,
   canReopen = false,
   initialPhase = "entry",
@@ -109,6 +110,7 @@ export function MarksSheet({
   coordinatorName: string | null;
   onSave: (payload: SavePayload) => Promise<SaveOutcome>;
   onWithdraw?: (paperId: string, revision: number) => Promise<SaveOutcome>;
+  photoHref?: string;
   canCorrect?: boolean;
   canReopen?: boolean;
   initialPhase?: SheetPhase;
@@ -1342,6 +1344,9 @@ export function MarksSheet({
               </div>
             </Card>
             {padMode ? null : banner}
+            {photoHref && ready && online && !busy && !pendingCommand && !oldDraft && !correcting && editable && entryStatus === "open" && !local.length && !held.length && !padText && (
+              <div><Btn href={photoHref} prefetch={false}>{tx(p("Read marks from photo", "फ़ोटो से अंक पढ़ें"))}</Btn></div>
+            )}
             {correcting ? (
               <Card style={{ borderColor: "var(--warn)" }}>
                 <strong>{tx(p("Correcting a sent paper", "भेजे पेपर में सुधार"))}</strong>

@@ -2,6 +2,9 @@ import Link from "next/link";
 
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
+import { coverPhotoEnabled, recentCoverPhoto } from "@/lib/ai/cover-photo-service";
+import { CoverPhotoPanel } from "@/lib/ai/ui/cover-photo-panel";
+import { LazyBoloPanel } from "@/lib/ai/ui/lazy-bolo-panel";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { addDays, dayLabel, isIsoDay, schoolToday, weekdayLabel } from "@/platform/dates";
@@ -37,6 +40,7 @@ import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/page-header-localized";
 import { G } from "@/vx/screens/timetable/guided-text";
 import type { Pair } from "@/vx/text";
+import { getViewer } from "@/vx/view-as";
 
 export const runtime = "nodejs";
 
@@ -77,9 +81,12 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
   const day = requestedDay && isIsoDay(requestedDay) ? requestedDay : schoolToday();
 
   const coverDay = await readCoverDay(sessionLabel, day);
-  const [notices, profiles] = await Promise.all([
+  const photoEnabled = Boolean(coverDay.versionId && coverDay.header && coverDay.slots.length &&
+    coverPhotoEnabled(staff, sessionLabel) && !(await getViewer()).previewing);
+  const [notices, profiles, photoResult] = await Promise.all([
     noticesOn(sessionLabel, day),
     mayManage ? profilesFor(coverDay) : Promise.resolve(null),
+    photoEnabled ? recentCoverPhoto(staff, day) : Promise.resolve(null),
   ]);
 
   // Two profiles with one name are told apart; office logins are never offered as cover (D-213).
@@ -161,6 +168,9 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
       ) : null}
 
       <CoverResultBanner />
+
+      {photoEnabled && <div className="mb-4"><CoverPhotoPanel key={day} day={day} initial={photoResult} /></div>}
+      {photoEnabled && <div className="mb-4"><LazyBoloPanel /></div>}
 
       {!coverDay.versionId ? (
         <Notice className="mb-4" tone="warning" text={m.subsNoTimetable} language={language} />
