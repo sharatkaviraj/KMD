@@ -45,7 +45,8 @@ async function main() {
   const cases = rows.map(([intent, transcript, fields], i) => ({
     id: "voice-" + String(i + 1).padStart(2, "0"), action: "voice",
     files: ["voice/voice-" + String(i + 1).padStart(2, "0") + ".wav"],
-    context: { language: "en", tools: [{ intent }], date: "2026-11-04" },
+    context: { actions: [{ name: intent, mode: ["attendance_query", "who_is_free"].includes(intent) ? "read" : "review",
+      description: "Extract this named request; never act on it." }] },
     expected: { intent, transcript, unclear: false, ...fields },
   }));
   const plan = cases.map((c) => ({ file: path.join(root, c.files[0]), text: c.expected.transcript }));

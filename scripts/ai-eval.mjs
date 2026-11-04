@@ -20,6 +20,10 @@ const SPECS = { "marks-photo": marksPhoto, "substitution-photo": substitutionPho
 const CORE = { "marks-photo": ["roll", "name", "marks"], "substitution-photo": ["absentTeacher", "period", "classLabel", "substitute"] };
 const STAGES = ["gemini-free", "anthropic", "openai-claude", "gemini-paid"];
 const AUDIO = { ".mp4": "audio/mp4", ".m4a": "audio/mp4", ".wav": "audio/wav", ".webm": "audio/webm" };
+const ACTION_CONTEXT = z.array(z.strictObject({
+  name: z.enum(voiceSpec.validate.shape.intent.options.filter((name) => name !== "unsupported")),
+  mode: z.enum(["read", "review"]), description: z.string().min(1).max(300),
+})).min(1).max(8);
 const outside = (root, target) => {
   const rel = path.relative(root, target);
   return path.isAbsolute(rel) || rel === ".." || rel.startsWith(".." + path.sep);
@@ -65,6 +69,10 @@ async function loadManifest(root, mode) {
     ids.add(sample.id);
     const expected = SPECS[sample.action].validate.parse(sample.expected);
     const voice = sample.action === "voice";
+    const actions = voice ? ACTION_CONTEXT.parse(sample.context.actions) : [];
+    if (voice && expected.intent !== "unsupported" && !actions.some((a) => a.name === expected.intent)) {
+      throw new InputError("A voice fixture must declare its expected intent in context.actions.");
+    }
     if (voice ? sample.files.length !== 1 : !expected.rows.length) {
       throw new InputError("Use one clip per voice case and at least one row per photo case.");
     }
@@ -84,7 +92,7 @@ async function loadManifest(root, mode) {
       if (!valid) throw new InputError("A fixture has an invalid media header.");
       files.push({ file, mimeType });
     }
-    inputs.push({ ...sample, expected, files });
+    inputs.push({ ...sample, expected, files, actions });
   }
   return { provenance: manifest.provenance ?? "unspecified", inputs };
 }
@@ -141,9 +149,17 @@ async function main() {
       for (const sample of inputs.filter((x) => x.action === action)) {
         const media = await Promise.all(sample.files.map(async ({ file, mimeType }) => ({ mimeType, data: await readFile(file) })));
         const started = performance.now();
+        const names = ["unsupported", ...sample.actions.map((a) => a.name)];
+        const spec = action === "voice" ? {
+          validate: voiceSpec.validate.extend({ intent: z.enum(names) }),
+          responseSchema: { ...voiceSpec.responseSchema, properties: {
+            ...voiceSpec.responseSchema.properties,
+            intent: { ...voiceSpec.responseSchema.properties.intent, enum: names },
+          } },
+        } : SPECS[action];
         const result = await extractWithProviders({
           config: chosen, task: action === "voice" ? "voice" : "image", providerOnly,
-          instructions, context: sample.context, media, ...SPECS[action],
+          instructions, context: sample.context, media, ...spec,
         });
         durations.push(performance.now() - started);
         for (const a of result.attempts) models.add(a.provider + ":" + a.model + (a.modelVersion ? "@" + a.modelVersion : ""));

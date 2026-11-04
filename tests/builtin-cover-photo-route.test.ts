@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.stubEnv("VPPSONE_BUILTIN_AI_COVER_AUTO_TEST", "1");
   mocks.session.mockResolvedValue("TEST-2026-27");
   mocks.job.mockResolvedValue({ status: "draft", target_revision: 1 });
-  mocks.cover.mockResolvedValue({ versionId: "tt", header: "Wednesday", dayRevision: 1, slots: [{}], bells: { revision: 2 } });
+  mocks.cover.mockResolvedValue({ versionId: "tt", header: "Wednesday", dayRevision: 1, slots: [{ period: 2 }], bells: { revision: 2 } });
   mocks.parse.mockResolvedValue({ ok: true, value: { rows: [] } });
   mocks.review.mockReturnValue({ review: { rows: [] }, assignments: [assignment] });
   mocks.rpc.mockResolvedValue({ data: { ok: true, result } });
@@ -65,7 +65,7 @@ describe("substitution photo route", () => {
     expect(await response.json()).toEqual({ ok: true, ...result });
     expect(mocks.parse).toHaveBeenCalledWith(
       expect.objectContaining({ session: "TEST-2026-27", targetId: "00000000-0000-4000-8000-000020261104" }),
-      config, jobId, expect.objectContaining({ context: { date: day }, stamp: "tt:2" }),
+      config, jobId, expect.objectContaining({ context: { date: day, periods: [3] }, stamp: "tt:2" }),
     );
     expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("apply_ai_cover_photo", expect.objectContaining({
       p_job: jobId, p_day: day, p_assignments: [assignment],

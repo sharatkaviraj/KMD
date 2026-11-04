@@ -42,14 +42,16 @@ async function parseVoice(staff: CurrentStaff, scope: AiScope, config: AiPilotCo
   const [instructions, actions] = await Promise.all([
     readFile(path.join(process.cwd(), "src/lib/ai/prompts/voice.md"), "utf8"), loadVoiceTools(staff),
   ]);
+  const permitted = ["unsupported", ...actions.map(({ name }) => name)] as const;
+  const validate = voiceSpec.validate.extend({ intent: z.enum(permitted) });
   const responseSchema = {
     ...voiceSpec.responseSchema,
     properties: {
       ...voiceSpec.responseSchema.properties,
-      intent: { ...voiceSpec.responseSchema.properties.intent, enum: ["unsupported", ...actions.map(({ name }) => name)] },
+      intent: { ...voiceSpec.responseSchema.properties.intent, enum: [...permitted] },
     },
   };
-  const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions }, responseSchema, validate: voiceSpec.validate });
+  const parsed = await readOrParseAiJob(scope, config, id, { task: "voice", instructions, context: { actions }, responseSchema, validate });
   if (!parsed.ok) return parsed.response;
   const { transcript } = parsed.value;
   const { result, command } = await resolveVoice(staff, parsed.value, parsed.job.created_at);
@@ -150,7 +152,8 @@ async function applyVoice(staff: CurrentStaff, scope: AiScope, id: string, confi
 }
 
 export async function runVoiceRoute(staff: CurrentStaff, config: AiPilotConfig, operation: AiOperation, body: unknown): Promise<Response> {
-  if (!staff.isTestAccount || !can(staff, "attendance:view") || await resolveSessionLabel() !== TEST_SESSION_LABEL || await previewRefusal()) {
+  const mayUseVoice = can(staff, "attendance:view") || (can(staff, "substitutions:view") && can(staff, "substitutions:manage"));
+  if (!staff.isTestAccount || !mayUseVoice || await resolveSessionLabel() !== TEST_SESSION_LABEL || await previewRefusal()) {
     return aiProblem("not_found", 404);
   }
   const scope = { staffId: staff.id, action: VOICE_ACTION, session: TEST_SESSION_LABEL, targetId: staff.id, revision: 0 };
