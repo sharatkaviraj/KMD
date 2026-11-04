@@ -1,6 +1,6 @@
 """Two-connection proof of the AI connection's single-use guarantees on PG17.
 
-The real migration (supabase/migrations/20261103150000_ai_connection_mcp.sql)
+The real migration (supabase/migrations/20261104022925_ai_connection_mcp.sql)
 over the synthetic fixture. Each schedule is forced by an observed lock wait,
 never by assuming a thread ran first:
 
@@ -98,7 +98,7 @@ with connect() as a, connect() as b:
     # The database must be pristine. Never drop or overwrite an existing schema.
     assert scalar(a, "SELECT to_regnamespace('vppsone')") is None
     a.execute((ROOT / "tests/sql/ai-connection-fixture.sql").read_text(encoding="utf-8"))
-    a.execute((ROOT / "supabase/migrations/20261103150000_ai_connection_mcp.sql").read_text(encoding="utf-8"))
+    a.execute((ROOT / "supabase/migrations/20261104022925_ai_connection_mcp.sql").read_text(encoding="utf-8"))
     a.execute("INSERT INTO auth.users VALUES (%s)", (ADMIN_USER,))
     a.execute("INSERT INTO vppsone.staff_profiles(id,user_id,display_name,short_name,role) VALUES (%s,%s,'Synthetic Admin','SA','admin')",
               (ADMIN, ADMIN_USER))

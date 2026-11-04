@@ -4,7 +4,7 @@ import type { AccessRow, McpStore, RedeemResult, RevokeReason, ToolCallRow } fro
 /**
  * An in-memory twin of One's Postgres store with the same single-use
  * semantics as the SQL functions in
- * `supabase/migrations/20261103150000_ai_connection_mcp.sql`.
+ * `supabase/migrations/20261104022925_ai_connection_mcp.sql`.
  *
  * The SQL serialises a redemption with `select … for update` on the code or
  * refresh-token row; a concurrent second redemption blocks, then sees

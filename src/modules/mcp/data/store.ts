@@ -7,7 +7,7 @@ import type { AccessRow, McpStore, OAuthClient, RedeemResult } from "@/modules/m
 /**
  * The store in One's Postgres. Every decision about single use, replay and
  * revocation is one SQL function, so it is one transaction
- * (`supabase/migrations/20261103150000_ai_connection_mcp.sql`). The service
+ * (`supabase/migrations/20261104022925_ai_connection_mcp.sql`). The service
  * role is the only caller; RLS has no policy for any browser role.
  */
 

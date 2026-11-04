@@ -3,7 +3,7 @@ import type { Provider } from "@/modules/mcp/domain/redirects";
 /**
  * What the core needs from durable storage. The production implementation is
  * One's Postgres (`src/modules/mcp/data/store.ts`, SQL functions in
- * `supabase/migrations/20261103150000_ai_connection_mcp.sql`); the tests use an
+ * `supabase/migrations/20261104022925_ai_connection_mcp.sql`); the tests use an
  * in-memory twin with the same single-use semantics
  * (`tests/mcp/fake-store.ts`).
  *

@@ -1,4 +1,4 @@
--- Synthetic stand-ins for what 20261103150000_ai_connection_mcp.sql touches
+-- Synthetic stand-ins for what 20261104022925_ai_connection_mcp.sql touches
 -- outside itself. No real data; disposable databases only.
 create schema vppsone; create schema auth;
 -- As on Supabase: the service role bypasses RLS; the browser roles do not.

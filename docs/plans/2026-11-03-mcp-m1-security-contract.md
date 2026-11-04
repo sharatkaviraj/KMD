@@ -18,7 +18,7 @@ after the independent review of PR #179 (findings M1, M2, L1–L7).
   readers), thin route files under `src/app/.well-known/`, `src/app/api/mcp/`,
   the consent page `src/app/mcp/authorize/`, admin page
   `src/app/(app)/settings/ai-connection/`, card on `/preferences`.
-- **Authority** — `supabase/migrations/20261103150000_ai_connection_mcp.sql`
+- **Authority** — `supabase/migrations/20261104022925_ai_connection_mcp.sql`
   (vppsone only, service role only).
 
 ## How the guarantees are tested

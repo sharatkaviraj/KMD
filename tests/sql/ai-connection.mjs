@@ -1,5 +1,5 @@
 /** In-memory PostgreSQL proof of the AI connection's SQL functions
- * (supabase/migrations/20261103150000_ai_connection_mcp.sql) against a
+ * (supabase/migrations/20261104022925_ai_connection_mcp.sql) against a
  * synthetic schema. No URL, credentials or hosted database accepted: pass a
  * local installed @electric-sql/pglite directory (CI installs it in a
  * disposable folder). One connection, so this proves behaviour and grants;
@@ -14,7 +14,7 @@ const require = createRequire(import.meta.url);
 const { PGlite } = require(process.argv[2] ?? "../../../sql-test-runtime/node_modules/@electric-sql/pglite");
 const db = new PGlite();
 await db.exec(await readFile(new URL("./ai-connection-fixture.sql", import.meta.url), "utf8"));
-await db.exec(await readFile(new URL("../../supabase/migrations/20261103150000_ai_connection_mcp.sql", import.meta.url), "utf8"));
+await db.exec(await readFile(new URL("../../supabase/migrations/20261104022925_ai_connection_mcp.sql", import.meta.url), "utf8"));
 
 const id = (n) => `20000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const hex = () => createHash("sha256").update(randomBytes(32)).digest("hex");

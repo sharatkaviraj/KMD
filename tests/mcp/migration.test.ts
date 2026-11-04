@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
  * in-memory store in `fake-store.ts` mirrors these functions; this pins that
  * the real ones keep the properties the fake assumes.
  */
-const sql = readFileSync(path.resolve(__dirname, "../../supabase/migrations/20261103150000_ai_connection_mcp.sql"), "utf8").replace(/\r\n/g, "\n");
+const sql = readFileSync(path.resolve(__dirname, "../../supabase/migrations/20261104022925_ai_connection_mcp.sql"), "utf8").replace(/\r\n/g, "\n");
 const statements = sql.replace(/--[^\n]*/g, "");
 
 function body(name: string): string {
