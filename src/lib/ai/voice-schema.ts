@@ -4,7 +4,7 @@ import { z } from "zod";
 import { attendanceStatuses } from "@/modules/attendance/domain/attendance";
 
 export const VOICE_ACTION = "voice";
-const intents = ["unsupported", "attendance_query", "free_periods", "attendance_mark", "single_mark", "student_note", "substitution"] as const;
+const intents = ["unsupported", "attendance_query", "free_periods", "who_is_free", "attendance_mark", "single_mark", "student_note", "substitution"] as const;
 const spoken = z.string().trim().min(1).max(160);
 const fields = {
   day: spoken, classLabel: spoken, studentName: spoken, roll: spoken, exam: spoken, subject: spoken,

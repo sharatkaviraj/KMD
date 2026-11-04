@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import { AI_MAX_FILE_BYTES, AI_MAX_VOICE_SECONDS } from "@/lib/ai/media-limits";
+import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
 
-const formats = ["audio/webm;codecs=opus", "audio/mp4;codecs=mp4a.40.2", "audio/mp4"];
+const formats = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4;codecs=mp4a.40.2", "audio/mp4"];
 
 export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
   const { tx } = useVx();
@@ -14,6 +15,7 @@ export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
   const held = useRef(false);
   const alive = useRef(false);
   const request = useRef(0);
+  const cancelled = useRef(false);
   const capture = useRef<{ recorder: MediaRecorder; stream: MediaStream; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   useEffect(() => {
@@ -38,9 +40,15 @@ export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
     if (capture.current?.recorder.state === "recording") capture.current.recorder.stop();
   }
 
+  function cancel() {
+    cancelled.current = true;
+    stop();
+  }
+
   async function start() {
     if (held.current || capture.current) return;
     held.current = true;
+    cancelled.current = false;
     const thisRequest = ++request.current;
     setState("starting");
     let stream: MediaStream | undefined;
@@ -67,7 +75,8 @@ export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
         audio.getTracks().forEach((track) => track.stop());
         held.current = false;
         if (!alive.current) return;
-        const clip = new Blob(chunks, { type: recorder.mimeType.split(";")[0] });
+        if (cancelled.current) { setState("idle"); return; }
+        const clip = new Blob(chunks, { type: (recorder.mimeType || mimeType).split(";")[0] });
         if (!failed && clip.size > 0 && clip.size <= AI_MAX_FILE_BYTES) {
           setState("idle");
           onClip(clip);
@@ -85,15 +94,17 @@ export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
     }
   }
 
-  return <div>
-    <button type="button" className="tap btn pri" style={{ touchAction: "none", userSelect: "none" }}
+  return <div className="space-y-2">
+    <button type="button" className="tap btn pri big" style={{ touchAction: "none", userSelect: "none", WebkitTouchCallout: "none" }}
       aria-pressed={state === "recording"}
       onPointerDown={(e) => { if (e.isPrimary && e.button === 0) { e.currentTarget.setPointerCapture(e.pointerId); void start(); } }}
-      onPointerUp={stop} onPointerCancel={stop} onLostPointerCapture={stop}
+      onPointerUp={stop} onPointerCancel={cancel} onLostPointerCapture={() => { if (held.current) cancel(); }}
       onKeyDown={(e) => { if ([" ", "Enter"].includes(e.key)) { e.preventDefault(); if (!e.repeat) void start(); } }}
       onKeyUp={(e) => { if ([" ", "Enter"].includes(e.key)) { e.preventDefault(); stop(); } }}
-      onBlur={stop}
+      onBlur={() => { if (held.current) cancel(); }}
+      onContextMenu={(e) => e.preventDefault()}
       onClick={(e) => { if (e.detail === 0) { if (held.current) stop(); else void start(); } }}>
+      <Ic n="mic" />
       {tx(p("Hold to speak", "बोलने के लिए दबाएँ"))}
     </button>
     <p role="status">{state === "starting" ? tx(p("Opening microphone…", "माइक खुल रहा है…")) :

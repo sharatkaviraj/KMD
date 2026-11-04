@@ -126,17 +126,32 @@ export async function writeNote(
   input: WriteNoteInput,
   sessionLabel: string,
   writtenByStaffId: string,
+  commandId?: string,
 ): Promise<void> {
-  const { error } = await createAdminClient().from("notes").insert({
+  const row = {
     session_label: sessionLabel,
     student_id: input.studentId,
     class_id: input.classId,
     kind_id: input.kindId,
     body: input.body,
     written_by: writtenByStaffId,
-  });
+  };
+  const notes = () => createAdminClient().from("notes");
+  if (!commandId) {
+    const { error } = await notes().insert(row);
+    if (error) throw error;
+    return;
+  }
 
+  const { error } = await notes().upsert({ id: commandId, ...row }, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw error;
+
+  // A retry must find the same note, never claim an unrelated row as saved.
+  const saved = await notes().select("session_label, student_id, class_id, kind_id, body, written_by")
+    .eq("id", commandId).maybeSingle<typeof row>();
+  if (saved.error || !saved.data || Object.entries(row).some(([key, value]) => saved.data![key as keyof typeof row] !== value)) {
+    throw new Error("Could not verify saved note");
+  }
 }
 
 /** A note's own session, for the test-session fence. Null when there is no such note. */

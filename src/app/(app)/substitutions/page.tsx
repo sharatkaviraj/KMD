@@ -4,6 +4,7 @@ import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { coverPhotoEnabled, recentCoverPhoto } from "@/lib/ai/cover-photo-service";
 import { CoverPhotoPanel } from "@/lib/ai/ui/cover-photo-panel";
+import { LazyBoloPanel } from "@/lib/ai/ui/lazy-bolo-panel";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { addDays, dayLabel, isIsoDay, schoolToday, weekdayLabel } from "@/platform/dates";
@@ -169,6 +170,7 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
       <CoverResultBanner />
 
       {photoEnabled && <div className="mb-4"><CoverPhotoPanel key={day} day={day} initial={photoResult} /></div>}
+      {photoEnabled && <div className="mb-4"><LazyBoloPanel /></div>}
 
       {!coverDay.versionId ? (
         <Notice className="mb-4" tone="warning" text={m.subsNoTimetable} language={language} />
