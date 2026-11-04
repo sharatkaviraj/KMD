@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, use, useEffect, useState, useSyncExternalStore } from "react";
 
+import { LazyQuickCover, LazyQuickCoverRow, type QuickCoverTool } from "@/lib/ai/ui/lazy-quick-cover";
+
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { QUICK_ACTIONS, type BottomTab } from "@/vx/nav";
@@ -72,10 +74,16 @@ function useRegisterWarmup(tabs: readonly BottomTab[], pathname: string) {
  * Tabs are intent links (perf fix 9): a finger landing on one starts the full
  * server render, so most of the next screen is ready when the tap completes.
  */
-export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promise<Badges> }) {
+export function VxBottomBar({ tabs, badges, coverAi = false }: {
+  tabs: BottomTab[];
+  badges: Promise<Badges>;
+  /** Built-in AI may arrange cover for this person in this session (`coverPhotoEnabled`). */
+  coverAi?: boolean;
+}) {
   const pathname = (usePathname() ?? "/").split(/[?#]/)[0] || "/";
   const { tx } = useVx();
   const [quick, setQuick] = useState(false);
+  const [tool, setTool] = useState<QuickCoverTool | null>(null);
   const active = activeTab(tabs, pathname);
   useRegisterWarmup(tabs, pathname);
   // The classic receipt detail supplies its own fixed phone action bar and
@@ -118,7 +126,9 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
           ),
         )}
       </nav>
-      <QuickActions open={quick} onClose={() => setQuick(false)} keys={tabs.find((t) => t.center)?.quick ?? []} />
+      <QuickActions open={quick} onClose={() => setQuick(false)} keys={tabs.find((t) => t.center)?.quick ?? []}
+        onCover={coverAi ? setTool : undefined} />
+      {tool ? <LazyQuickCover key={tool.key} tool={tool} onClose={() => setTool(null)} /> : null}
     </>
   );
 }
@@ -185,9 +195,17 @@ const QW = {
  * the action last tapped on this phone. The design's line also names the
  * child; the app does not keep that, so the row names the action alone.
  */
-export function QuickActions({ open, onClose, keys }: { open: boolean; onClose: () => void; keys: readonly string[] }) {
+export function QuickActions({ open, onClose, keys, onCover }: {
+  open: boolean;
+  onClose: () => void;
+  keys: readonly string[];
+  /** Set when this person may arrange cover with built-in AI: shows Quick substitute. */
+  onCover?: (tool: QuickCoverTool) => void;
+}) {
   const { tx } = useVx();
-  const actions = QUICK_ACTIONS.filter((a) => keys.includes(a.key));
+  const quickCover = Boolean(onCover && keys.includes("cover"));
+  // Quick substitute replaces the plain "Assign substitute" tile, which it links to as Arrange.
+  const actions = QUICK_ACTIONS.filter((a) => keys.includes(a.key) && !(quickCover && a.key === "cover"));
   const lastKey = useSyncExternalStore(subscribeLast, readLast, () => null);
   const last = actions.find((a) => a.key === lastKey) ?? null;
   const pick = (key: string) => {
@@ -206,6 +224,7 @@ export function QuickActions({ open, onClose, keys }: { open: boolean; onClose: 
             <Ic n="x" />
           </button>
         </div>
+        {quickCover && onCover ? <LazyQuickCoverRow onPick={onCover} onClose={onClose} /> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
           {actions.map((a, i) => (
             <Link

@@ -112,10 +112,33 @@ function Result({ result }: { result: VoiceResult }) {
   }
 }
 
+/** What Bolo can be asked from the quick-substitute shortcut. */
+const COVER_HINT = p(
+  "Say the period, class, who is away and who covers. For example: “Period 3, class 7B, Sharma ji is absent, Verma ji will take it.” Or ask: “Who is free in period 5?”",
+  "पीरियड, कक्षा, कौन अनुपस्थित है और कौन लेगा, यह बोलें। जैसे: “पीरियड 3, कक्षा 7B, शर्मा जी अनुपस्थित हैं, वर्मा जी लेंगे।” या पूछें: “पीरियड 5 में कौन खाली है?”",
+);
+
 export function BoloPanel() {
   const { tx } = useVx();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const title = tx(p("Bolo", "बोलो"));
+  return <>
+    <Card>
+      <CardHead title={title} sub={tx(p("Ask about your school day or prepare an update by voice.", "अपने स्कूल के दिन के बारे में पूछें या बोलकर बदलाव तैयार करें।"))}
+        action={<Btn icon="mic" variant="soft" onClick={() => setOpen(true)}>{tx(p("Open Bolo", "बोलो खोलें"))}</Btn>} />
+    </Card>
+    <BoloSheet open={open} onClose={() => setOpen(false)} />
+  </>;
+}
+
+/**
+ * Bolo in a sheet: hold to speak, see the transcript and the checked result,
+ * Save for a write. `cover` opens it from the quick-substitute shortcut with
+ * an example of a cover request.
+ */
+export function BoloSheet({ open, onClose, cover = false }: { open: boolean; onClose: () => void; cover?: boolean }) {
+  const { tx } = useVx();
+  const router = useRouter();
   const [busy, setBusy] = useState<"read" | "apply" | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [review, setReview] = useState<VoiceReview | null>(null);
@@ -164,30 +187,35 @@ export function BoloPanel() {
   function close() {
     if (busy || problem === "retry_save") return;
     if (jobId && !saved) void post("discard", { jobId }).catch(() => undefined);
-    setOpen(false);
+    onClose();
     setJobId(null);
     setReview(null);
     setProblem(null);
     setSaved(false);
   }
 
-  const title = tx(p("Bolo", "बोलो"));
+  const title = cover ? tx(p("Substitute by voice", "बोलकर बदली")) : tx(p("Bolo", "बोलो"));
   const canSave = review?.confirmation && !saved && problem !== "stale" && problem !== "save";
   const cancel = Boolean(review?.confirmation) && !saved;
-  return <>
-    <Card>
-      <CardHead title={title} sub={tx(p("Ask about your school day or prepare an update by voice.", "अपने स्कूल के दिन के बारे में पूछें या बोलकर बदलाव तैयार करें।"))}
-        action={<Btn icon="mic" variant="soft" onClick={() => setOpen(true)}>{tx(p("Open Bolo", "बोलो खोलें"))}</Btn>} />
-    </Card>
-    <Sheet open={open} onClose={close} title={title} icon="mic" dismissable={!busy && problem !== "retry_save"}
-      footer={<div className="flex flex-wrap gap-2">
-        {canSave && <Btn variant="pri" disabled={busy !== null} onClick={() => void confirm()}>{busy === "apply"
+  const again = review && !busy && (saved || !review.confirmation || problem === "stale" || problem === "save");
+  function retry() {
+    if (jobId && !saved) void post("discard", { jobId }).catch(() => undefined);
+    setJobId(null);
+    setReview(null);
+    setProblem(null);
+    setSaved(false);
+  }
+  return <Sheet open={open} onClose={close} title={title} icon="mic" backCloses dismissable={!busy && problem !== "retry_save"}
+      footer={<div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+        {canSave && <Btn variant="pri" big disabled={busy !== null} onClick={() => void confirm()}>{busy === "apply"
           ? tx(p("Saving…", "सहेज रहे हैं…")) : tx(p("Save", "सहेजें"))}</Btn>}
-        <Btn disabled={busy !== null || problem === "retry_save"} onClick={close}>{cancel ? tx(p("Cancel", "रद्द करें")) : tx(p("Close", "बंद करें"))}</Btn>
+        {again && <Btn variant="sec" big icon="mic" onClick={retry}>{tx(p("Speak again", "फिर से बोलें"))}</Btn>}
+        <Btn big disabled={busy !== null || problem === "retry_save"} onClick={close}>{cancel ? tx(p("Cancel", "रद्द करें")) : tx(p("Close", "बंद करें"))}</Btn>
       </div>}>
       {open && <div className="space-y-4">
         {!review && <p>{tx(p("Speak in Hindi, English, or a mix. Hold the microphone button and release when you finish. Nothing is saved until you tap Save.",
           "हिंदी, अंग्रेज़ी या दोनों में बोलें। माइक बटन दबाकर रखें और बोलने के बाद छोड़ दें। सहेजें दबाने तक कुछ भी सहेजा नहीं जाता।"))}</p>}
+        {!review && cover && <p className="text-sm" style={{ color: "var(--mut)" }}>{tx(COVER_HINT)}</p>}
         {!review && !busy && <VoiceButton onClip={(clip) => void read(clip)} />}
         {busy === "read" && <p role="status">{tx(p("Reading your recording…", "रिकॉर्डिंग पढ़ रहे हैं…"))}</p>}
         {review && <>
@@ -200,6 +228,5 @@ export function BoloPanel() {
         </>}
         {problem && <p role="alert">{tx(problems[problem])}</p>}
       </div>}
-    </Sheet>
-  </>;
+    </Sheet>;
 }

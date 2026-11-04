@@ -1,5 +1,17 @@
 # VPPS One — progress
 
+## Phone quick substitute and voice typing — 4 November 2026
+
+Owner: add photo and Bolo to the phone's "+" quick substitute, optimise the AI
+screens for phones, and fix voice typing in notes ("repeated words, very
+poor"). Branch `feat/quick-cover-ai-mobile`, decisions D-403–D-404. The "+"
+sheet gains Quick substitute (Photo · Speak · Arrange) for people who may
+arrange cover while built-in AI is on; hold-to-speak, photo pickers, sheet
+footers and marks inputs are sized for phones. Voice typing rebuilds each
+listening session from all of Chrome's results, merges Android's restated
+phrases, and ignores results after Stop. Release and live checks follow in
+this row.
+
 ## Built-in AI goes live — 4 November 2026
 
 Owner: "check and deploy this plan perfectly in the live one app" (photo marks,

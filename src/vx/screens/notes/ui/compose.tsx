@@ -9,7 +9,7 @@ import { agoP, dayMonth, dayMonthHi, shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { SAVE_IDLE, SaveStatus, useSlowSave, type SaveState } from "@/vx/ui/save-status";
-import { useSpeech } from "@/vx/ui/voice";
+import { appendSpoken, useSpeech } from "@/vx/ui/voice";
 import { NoteAssist } from "@/vx/assist/note-assist";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
 
@@ -138,7 +138,7 @@ export function useComposer(init: ComposerInit) {
   /** The follow-up day this note would get, or null for a picked date that is not one yet. */
   const followOnDate = when === "pick" ? pickedFollowOn(followOn, init.today) : followUpDate(when, init.today);
 
-  const speech = useSpeech((text) => setHeard((cur) => (cur ? `${cur} ${text}` : text)));
+  const speech = useSpeech((text) => setHeard((cur) => appendSpoken(cur, text)));
 
   // A draft from this reader's last visit comes back, so a dropped connection
   // or a closed tab does not lose what was written (RULES G).
@@ -221,7 +221,7 @@ export function useComposer(init: ComposerInit) {
     speech.start(lang);
   }, [child, init.initialStep, lang, speech]);
 
-  const live = `${heard}${heard && speech.interim ? " " : ""}${speech.interim}`.trim();
+  const live = appendSpoken(heard, speech.interim).trim();
   const seconds = startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : 0;
   const timer = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
@@ -233,7 +233,7 @@ export function useComposer(init: ComposerInit) {
       toast.show({ text: tx(p("Did not catch anything — tap the mic and try again", "कुछ सुनाई नहीं दिया — माइक दबाकर फिर बोलें")) });
       return;
     }
-    const text = append && body.trim() ? `${body.trim()} ${words}` : words;
+    const text = append && body.trim() ? appendSpoken(body.trim(), words) : words;
     setBody(text);
     setVoice(true);
     setMode("voice");

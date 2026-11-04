@@ -28,6 +28,7 @@ import { testSessionMessages } from "@/messages/setup";
 import { flat } from "@/platform/i18n/language";
 
 import { AssistProvider } from "@/vx/assist/context";
+import { coverPhotoEnabled } from "@/lib/ai/access";
 
 import { VxBottomBar } from "./bottom-bar";
 import { LazySearchPalette } from "./lazy";
@@ -123,6 +124,8 @@ export async function VxShell({
 
   const groups = groupsFor(menu, allowed);
   const tabs = bottomFor(menu, allowed);
+  // The "+" sheet's Quick substitute (photo and Bolo): never while previewing another role.
+  const coverAi = !previewing && coverPhotoEnabled(staff, sessionLabel || null);
   const badges = loadBadges(viewer, sessionLabel);
   const fees = can(staff, "fees:view");
 
@@ -187,7 +190,7 @@ export async function VxShell({
               {children}
             </main>
           </div>
-          <VxBottomBar tabs={tabs} badges={badges} />
+          <VxBottomBar tabs={tabs} badges={badges} coverAi={coverAi} />
         </div>
         <LazySearchPalette items={palette} />
         <UpdateBanner />

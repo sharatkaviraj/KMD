@@ -8,7 +8,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { useSpeech } from "@/vx/ui/voice";
+import { appendSpoken, useSpeech } from "@/vx/ui/voice";
 
 import { editNoteAction, replyToNoteAction, setFollowUpAction, setNoteStatusAction, tellParentsAboutNoteAction } from "../actions";
 import type { NoteReply, NotesPeople, SupportPlan } from "../data";
@@ -53,14 +53,14 @@ function useReply(note: BoardNote) {
   const [heard, setHeard] = useState("");
   const [spoken, setSpoken] = useState(false);
   const [pending, start] = useTransition();
-  const speech = useSpeech((t) => setHeard((cur) => (cur ? `${cur} ${t}` : t)));
-  const live = `${heard}${heard && speech.interim ? " " : ""}${speech.interim}`.trim();
+  const speech = useSpeech((t) => setHeard((cur) => appendSpoken(cur, t)));
+  const live = appendSpoken(heard, speech.interim).trim();
   const listening = speech.listening;
   const mic = (lang: "hi-IN" | "en-IN") => {
     if (listening) {
       speech.stop();
       if (live) {
-        setText((cur) => (cur ? `${cur} ${live}` : live));
+        setText((cur) => appendSpoken(cur, live));
         setSpoken(true);
       }
       setHeard("");
@@ -76,14 +76,14 @@ function useReply(note: BoardNote) {
   const done = () => {
     speech.stop();
     if (live) {
-      setText((cur) => (cur ? `${cur} ${live}` : live));
+      setText((cur) => appendSpoken(cur, live));
       setSpoken(true);
     }
     setHeard("");
   };
   const send = () =>
     start(async () => {
-      const body = (listening && live ? `${text} ${live}` : text).trim();
+      const body = (listening && live ? appendSpoken(text, live) : text).trim();
       if (listening) speech.stop();
       if (!body) {
         toast.show({ text: tx(p("Write or speak the reply first", "पहले जवाब लिखें या बोलें")) });

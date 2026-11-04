@@ -138,7 +138,7 @@ export function MarksPhotoPanel({ paperId, backHref, max, step }: {
       <p className="mb-3">{tx(p("Photograph the marks list. The app reads it; you check the marks and save.", "अंकों की सूची की फ़ोटो लें। ऐप उसे पढ़ता है; अंक आप जाँचकर सहेजते हैं।"))}</p>
       <CameraCapture files={photos} onChange={(next) => { setPhotos(next); setUploaded(null); setError(null); }} disabled={busy !== null} />
       <div className="mt-3">
-        <Btn variant="pri" disabled={!photos.length || busy !== null} onClick={() => void read()}>
+        <Btn variant="pri" big full disabled={!photos.length || busy !== null} onClick={() => void read()}>
           {busy === "upload" ? tx(p("Uploading…", "अपलोड हो रहा है…")) :
            busy === "parse" ? tx(p("Reading marks…", "अंक पढ़े जा रहे हैं…")) : tx(p("Read marks", "अंक पढ़ें"))}
         </Btn>
@@ -167,7 +167,7 @@ export function MarksPhotoPanel({ paperId, backHref, max, step }: {
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label className="grid min-w-0 gap-1">
                   <span>{tx(p("Student", "विद्यार्थी"))}</span>
-                  <select value={choice.studentId ?? ""} disabled={choice.skip} style={{ background: "var(--card)", borderColor: "var(--bd)" }}
+                  <select value={choice.studentId ?? ""} disabled={choice.skip} style={{ background: "var(--card)", borderColor: "var(--bd)", fontSize: 16, minHeight: 44 }}
                     className="min-w-0 rounded-md border p-2" onChange={(e) => change(i, { studentId: e.target.value || null, confirmed: false })}>
                     <option value="">{tx(p("Choose from the class", "कक्षा से चुनें"))}</option>
                     {draft.review.students.map((s) => <option key={s.id} value={s.id}>{s.roll ? s.roll + " · " : ""}{s.name}</option>)}
@@ -176,7 +176,8 @@ export function MarksPhotoPanel({ paperId, backHref, max, step }: {
                 <label className="grid min-w-0 gap-1">
                   <span>{tx(p("Mark / " + max + " or AB", "अंक / " + max + " या AB"))}</span>
                   <input value={choice.marks} maxLength={160} disabled={choice.skip} aria-invalid={!choice.skip && badMark}
-                    style={{ background: "var(--card)", borderColor: "var(--bd)" }} className="min-w-0 rounded-md border p-2"
+                    autoComplete="off" enterKeyHint="next"
+                    style={{ background: "var(--card)", borderColor: "var(--bd)", fontSize: 16, minHeight: 44 }} className="min-w-0 rounded-md border p-2"
                     onChange={(e) => change(i, { marks: e.target.value, confirmed: false })} />
                 </label>
               </div>
