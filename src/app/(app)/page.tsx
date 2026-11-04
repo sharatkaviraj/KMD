@@ -26,6 +26,8 @@ import { getBridgeTodaySummary } from "@/platform/fees-bridge/client";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { LedgerNotice } from "@/vx/shell/ledger-notice";
+import { loadAiConnectionCard } from "@/modules/mcp/data/card";
+import { AiConnectionStrip } from "@/modules/mcp/ui/connection-strip";
 
 export const runtime = "nodejs";
 
@@ -79,6 +81,8 @@ export default async function TodayPage() {
         (error: unknown) => (error instanceof FeesBridgeError && error.code === "forbidden" ? null : ("failed" as const)),
       )
     : Promise.resolve(null);
+  // The AI connection's line (owner, 4 Nov): the signed-in person's own record, never a previewed role's; a failed read hides it.
+  const aiCard = previewing ? Promise.resolve(null) : loadAiConnectionCard(staff).catch(() => null);
   const [facts, fees, inbox, week, ledgerToday] = await Promise.all([
     loadToday(staff, sessionLabel, today, minutes),
     seesMoney && !canonicalMoney
@@ -95,6 +99,7 @@ export default async function TodayPage() {
   ]);
   const money = fees?.figures ?? null;
   const promised = fees?.promised ?? null;
+  const ai = await aiCard;
 
   const board = facts.board;
   const summary = board ? boardSummary(board.rows, board.halfDayCredit) : null;
@@ -131,6 +136,7 @@ export default async function TodayPage() {
     <VxPage label={lead(T.today, language)}>
       <TodayScreen
         notice={seesMoney && canonicalMoney ? <LedgerNotice language={language} /> : null}
+        aiStrip={ai ? <AiConnectionStrip state={ai.state} language={language} canManage={can(staff, "settings:manage")} address={ai.address} /> : null}
         officeWork={<Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>}
         firstName={staff.displayName.split(/\s+/)[0] ?? staff.displayName}
         greeting={greeting}

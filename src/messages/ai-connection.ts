@@ -57,6 +57,16 @@ export const aiConnectionMessages = {
   notSaved: t("अनुमति दर्ज नहीं हो सकी। फिर से कोशिश करें।", "The approval could not be saved. Try again."),
   // The card
   cardTitle: t("AI सहायक (Claude / ChatGPT)", "AI assistant (Claude / ChatGPT)"),
+  // Today's one-line status (owner, 4 Nov: "highlight it on the home page")
+  stripTitle: t("AI सहायक", "AI assistant"),
+  stripNotConnected: t("Claude को VPPS One से जोड़ें — दो मिनट लगते हैं", "Connect Claude to VPPS One — it takes two minutes"),
+  stripSwitchedOffAdmin: t("स्कूल का AI स्विच बंद है", "The school's AI switch is off"),
+  stripConnect: t("जोड़ें", "Connect"),
+  stripReconnect: t("फिर जोड़ें", "Reconnect"),
+  stripTurnOn: t("चालू करें", "Turn on"),
+  stripManage: t("देखें", "View"),
+  copyAddress: t("पता कॉपी करें", "Copy address"),
+  copied: t("कॉपी हो गया", "Copied"),
   notConnected: t("जुड़ा नहीं है", "Not connected"),
   allowed: t("अनुमति है", "Allowed"),
   lastUsed: (when: string) => t(`आख़िरी उपयोग ${when}`, `last used ${when}`),
@@ -73,8 +83,21 @@ export const aiConnectionMessages = {
   disconnect: t("बंद करें", "Disconnect"),
   addressLabel: t("कनेक्शन का पता", "Connection address"),
   howClaude: t(
-    "Claude में: Settings → Connectors → Add custom connector → यह पता चिपकाएँ, फिर VPPS One में अनुमति दें।",
-    "In Claude: Settings → Connectors → Add custom connector → paste this address, then approve in VPPS One.",
+    "Claude में: Customize → Connectors → Add custom connector → यह पता चिपकाएँ, फिर VPPS One में अनुमति दें।",
+    "In Claude: Customize → Connectors → Add custom connector → paste this address, then approve in VPPS One.",
+  ),
+  // "Connect Claude": copies the address and opens Claude's Connectors page (owner, 4 Nov).
+  // Claude documents no link that pre-fills the address, so the last steps are said, not skipped.
+  connectClaude: t("Claude से जोड़ें", "Connect Claude"),
+  claudeOpened: t("Claude नए टैब में खुला और पता कॉपी हो गया। वहाँ:", "Claude opened in a new tab and the address is copied. There:"),
+  claudeOpenedNoCopy: t("Claude नए टैब में खुला। पता अपने-आप कॉपी नहीं हुआ — नीचे दिया पता कॉपी करें। वहाँ:", "Claude opened in a new tab. The address could not be copied for you — copy it below. There:"),
+  claudeStep1: t("“Add custom connector” दबाएँ।", "Tap “Add custom connector”."),
+  claudeStep2: t("नाम में “VPPS One” लिखें और पता चिपकाएँ (Ctrl+V, या दबाकर रखें → Paste)।", "Name it “VPPS One” and paste the address (Ctrl+V, or press and hold → Paste)."),
+  claudeStep3: t("“Add”, फिर “Connect” दबाएँ, और VPPS One में “अनुमति दें” दबाएँ।", "Tap “Add”, then “Connect”, then tap “Allow” in VPPS One."),
+  claudeOpenAgain: t("Claude फिर खोलें", "Open Claude again"),
+  claudeOnce: t(
+    "यह एक बार कंप्यूटर या फ़ोन के ब्राउज़र में करें; उसके बाद Claude ऐप में भी चलता है।",
+    "Do this once on a computer or in your phone's browser; after that it works in the Claude app too.",
   ),
   howChatGpt: t(
     "ChatGPT: ऐसा workspace चाहिए जिसमें custom connectors की अनुमति हो। इसकी जाँच अभी चल रही है।",
