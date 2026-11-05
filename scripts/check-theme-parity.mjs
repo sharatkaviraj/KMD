@@ -8,30 +8,65 @@
  * obvious on a phone. This is the alarm.
  *
  * It needs the sibling repo on disk, so it SKIPS rather than fails when the
- * checkout is absent (CI has no sibling). That is deliberate: a gate nobody
- * can run locally gets deleted, and a gate that fails in CI for being unable
- * to find a second repository teaches people to ignore it.
+ * checkout is absent. CI never has the sibling: `veerpatta/schoolfees` is
+ * private and the workflow token cannot read it. A skip is reported as a skip
+ * — a GitHub warning annotation and a step-summary line saying NOT RUN — so a
+ * green job never reads as "theme parity passed". Pass `--require` (or set
+ * THEME_PARITY_REQUIRED=1) to make an absent checkout a failure.
  *
  *   node scripts/check-theme-parity.mjs
+ *   SCHOOLFEES_REPO=../schoolfees node scripts/check-theme-parity.mjs --require
  */
-import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { appendFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import resolveConfig from "tailwindcss/resolveConfig.js";
 
+const REQUIRED = process.argv.includes("--require") || process.env.THEME_PARITY_REQUIRED === "1";
+
+/** An explicit SCHOOLFEES_REPO is authoritative; otherwise the sibling layouts in use on developer machines. */
+const CANDIDATES = process.env.SCHOOLFEES_REPO?.trim()
+  ? [path.resolve(process.env.SCHOOLFEES_REPO.trim())]
+  : [
+      path.resolve(process.cwd(), "..", "schoolfees"),
+      path.resolve(process.cwd(), "..", "..", "schoolfees"),
+      path.resolve(process.cwd(), "..", "..", "Projects", "schoolfees"),
+    ];
+
 const FEE_REPO =
-  process.env.SCHOOLFEES_REPO ??
-  path.resolve(process.cwd(), "..", "..", "Projects", "schoolfees");
+  CANDIDATES.find((dir) => existsSync(path.join(dir, "tailwind.config.ts"))) ?? CANDIDATES[0];
 
 const FEE_CONFIG = path.join(FEE_REPO, "tailwind.config.ts");
 
 if (!existsSync(FEE_CONFIG)) {
-  console.log(
-    `theme parity: skipped — no School Fees checkout at ${FEE_REPO}\n` +
-      "            set SCHOOLFEES_REPO to run it.",
-  );
-  process.exit(0);
+  const message =
+    `theme parity: NOT RUN — no School Fees checkout found (looked in: ${CANDIDATES.join(", ")}). ` +
+    "Set SCHOOLFEES_REPO to a schoolfees checkout to run it.";
+  console.log(message);
+  if (process.env.GITHUB_ACTIONS === "true") {
+    console.log(`::warning title=Theme parity NOT RUN::${message}`);
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        "- **Theme parity: NOT RUN** (no School Fees checkout on this runner). " +
+          "Reproduce locally: `SCHOOLFEES_REPO=../schoolfees npm run check:theme -- --require`\n",
+      );
+    }
+  }
+  process.exit(REQUIRED ? 1 : 0);
+}
+
+/** Which Fees revision was compared, so a result can be reproduced. */
+let feeRevision = "unknown revision";
+try {
+  feeRevision = execFileSync("git", ["-C", FEE_REPO, "rev-parse", "--short=12", "HEAD"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
+} catch {
+  // Not a git checkout: the comparison still runs, it just cannot name a commit.
 }
 
 /**
@@ -98,7 +133,7 @@ for (const section of COMPARED) {
 
 if (problems.length > 0) {
   console.error(
-    `theme parity: ${problems.length} token(s) differ from the fee app\n\n` +
+    `theme parity: ${problems.length} token(s) differ from the fee app (${FEE_REPO} @ ${feeRevision})\n\n` +
       problems.join("\n") +
       "\n\nEither copy the fee app's value, or record the difference in\n" +
       "docs/DECISIONS.md and add the key to EXEMPT_PREFIXES here.\n",
@@ -110,4 +145,4 @@ const counted = COMPARED.reduce(
   (n, section) => n + flatten(mine[section] ?? {}).size,
   0,
 );
-console.log(`theme parity: ${counted} tokens match the fee app.`);
+console.log(`theme parity: ${counted} tokens match the fee app (${FEE_REPO} @ ${feeRevision}).`);

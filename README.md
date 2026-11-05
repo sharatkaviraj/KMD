@@ -3,36 +3,43 @@
 One school platform for Shri Veer Patta Senior Secondary School — staff,
 academics, timetable, attendance, collection, assessments, notes and reports.
 
-The active work is **PLAN revision 2**: restore access to the existing SamPark
-and School Fees apps, complete SamPark workflow parity, and improve each role's
-home screen, daily workflows and speed. Start at **R0.1**. These improvements
-are planned, not already delivered; original Phases 1–7 remain in the history.
-
-The original apps stay in their own repositories and deployments. Under the
-plan's stated working interpretation, fee operations remain in School Fees;
-VPPS One reads fee data and offers verified handoffs without a second ledger.
+**Current arrangement (1 November 2026 coexistence):** School Fees keeps running
+as its own app and remains the financial authority. One owns academics and
+reaches fees only through the Fees `/api/one/v1` bridge — one ledger, no second
+receipt counter. See
+[docs/plans/2026-11-01-fees-one-coexistence-plan.md](docs/plans/2026-11-01-fees-one-coexistence-plan.md)
+and [docs/cutover/COEXISTENCE-2026-11-01.md](docs/cutover/COEXISTENCE-2026-11-01.md).
+Older text about retiring Fees or a live cutover is historical.
 
 ## Start here
 
 | File | What |
 |---|---|
+| `AGENTS.md` | entry guide for agents and new developers: where things live, safe vs external commands, boundaries |
 | `CLAUDE.md` | the rules for anyone, human or agent, working in this repo |
-| `docs/PLAN.md` | the whole plan: architecture, data model, phases, cutover |
-| `docs/PROGRESS.md` | active R0–R8 queue and preserved original implementation history |
+| `docs/maps/repo-map.md` | generated map of routes, modules, ownership and test harnesses |
+| `docs/maps/collect-flow.md` | Collect (payments) traced from route to ledger |
+| `docs/PLAN.md` | the whole plan: architecture, data model, phases |
+| `docs/PROGRESS.md` | active work queue and preserved implementation history |
 | `docs/PARITY.md` | SamPark and School Fees source-to-destination workflow inventory |
 | `docs/QA.md` | deep workflow, role, mobile, recovery and performance acceptance |
 | `docs/QA-BASELINE-2026-09-17.md` | executed baseline checks, confirmed gaps and unverified work |
-| `docs/prompts/kickoff.md` | current coding-agent kickoff; replaces original Phase 1.1 prompt |
+| `docs/prompts/kickoff.md` | coding-agent kickoff (read with the coexistence direction above) |
 | `docs/SOURCES.md` | proven code in the sibling repos, and what to take from each |
 | `docs/DECISIONS.md` | settings already decided |
 
 ## Running it
 
 ```bash
-npm install
-npm run dev          # http://localhost:3000
+npm ci
+cp .env.example .env.local   # names only; values come from the owner
+npm run dev                  # http://localhost:3000
 ```
 
-`.env.local` points at the Supabase project `schoolfees-dev`
-(`wtgxcptmucjerhufzjcf`), which holds the production schema with test rows.
-See `.env.example`. The live fee database is not a target until the cutover.
+One has one Supabase project, `wtgxcptmucjerhufzjcf`, and **it is production**
+(D-338). Local `next dev` and Preview deployments are confined to test accounts
+and TEST-session data (`src/platform/deployment/confinement.ts`). The Fees live
+database `vgqyilgstjvgohrsiwkb` is never a target from this repo. The full
+environment inventory is `docs/cutover/ENV-INVENTORY.md` (names only).
+
+`npm run check` runs the same gates as CI without touching any database.

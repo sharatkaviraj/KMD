@@ -19,7 +19,9 @@ Deployment authorization is not permission to invent real collections, send
 parent test messages, promote ambiguous staff, or purchase a plan. Publish
 real academic identity only after classification/quarantine is verified.
 
-Read `docs/PLAN.md` first, then `docs/PROGRESS.md` to find the next task.
+Start at [AGENTS.md](AGENTS.md) (where things live, safe commands, boundaries)
+and the generated [docs/maps/repo-map.md](docs/maps/repo-map.md). Then
+`docs/PLAN.md` and `docs/PROGRESS.md` to find the next task.
 
 **Active work is the 4 October plan pack: P0–P12 in `docs/PROGRESS.md`, sourced
 from `docs/plan-pack/`.** Take the first P row that is not done; the residual
@@ -27,14 +29,17 @@ R rows (R3.4 onward) follow it and stay open. Do not restart original Phase 1.1
 or stop at deferred live-cutover task 7.3. Read `docs/PARITY.md`, `docs/QA.md`
 and the latest baseline.
 
-**The School Fees app has been ported into this repo** (D-178, Janmejay's
-explicit call): 709 files, 48 screens, 20 modules, and fee data is writable
-from here. The earlier interpretation — "fee writes remain in School Fees" — is
-superseded, and PLAN §9's native fee module is now selected. SamPark is
-unaffected and its parity work continues.
+### Historical: the port and the planned retirement (superseded 1 Nov 2026)
 
-The fee app still runs at its own deployment and is to be retired once this one
-is complete, so for now two applications can write one fee database.
+Kept because the code still carries its shape; **not current direction**.
+The School Fees app was ported into this repo (D-178): its screens and modules
+live under `PORTED_TREES`, and against One's own database they write fee data
+for TEST-session students (local adapter, confined deployments). The plan then
+was to retire the Fees deployment and make One the ledger (PLAN §9). The
+coexistence direction above replaces that: **Fees stays the financial
+authority and keeps running**, and real collections from One go to Fees
+through `/api/one/v1`. Do not treat "Fees will be retired" or "two apps write
+one fee database" as instructions.
 
 ### The overlap
 
@@ -59,14 +64,14 @@ One mobile-friendly school platform for Shri Veer Patta Senior Secondary School:
 staff, academics, timetable, attendance, collection, assessments, notes, reports.
 Single school, single repo, single database, no parent login.
 
-**It used to be a separate application from the fee app, and is not any more.**
-School Fees is ported in and will be retired. `veerpatta/schoolfees` is still
-the reference to port *from*, and is still never committed to.
+Fees code is ported in (above) but **Fees remains its own live application and
+the financial authority** (coexistence, 1 Nov 2026). Bridge-side changes belong
+in `veerpatta/schoolfees` as narrowly scoped `/api/one/v1` work, reviewed there;
+nothing in this repo writes to the Fees database.
 
-The separation that remains is of *databases*, and it still replaces every
-feature flag, canary user and release gate the previous attempt needed: this app
-is built against `schoolfees-dev` and nothing here points at the live fee
-database until the cutover phase.
+The separation that remains is of *databases*: One's code runs against One's
+database (`wtgxcptmucjerhufzjcf`, production — rule 3), and the Fees live
+database `vgqyilgstjvgohrsiwkb` is never a target from here.
 
 ## The rules
 
@@ -186,14 +191,18 @@ because the React Compiler runs as a Babel pass and Turbopack skips it.
 
 ## Layout
 
+The full, generated layout is [docs/maps/repo-map.md](docs/maps/repo-map.md)
+(`npm run docs:map`; CI fails when it is stale). In short:
+
 ```
 src/app/(app)/       this app's signed-in routes
 src/app/(app)/fees/  the ported School Fees screens
+src/vx/screens/      the current screen design most routes render
 src/modules/<x>/     feature-first: domain/ (pure logic), data/ (db), ui/
-src/platform/        auth, supabase clients, config, shared server helpers
+src/platform/        auth, supabase clients, deployment confinement, fees-bridge client
 src/ui/              design system and shell — School Fees' kit
 supabase/migrations/ numbered SQL, additive, never edited once applied
-docs/                PLAN, PROGRESS, DECISIONS, SOURCES
+docs/                PLAN, PROGRESS, DECISIONS, SOURCES, maps/
 ```
 
 **Two apps share this tree, and which one a file belongs to matters.**
