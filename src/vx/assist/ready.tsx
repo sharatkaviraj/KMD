@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
 import type { ReadyDraftView } from "@/modules/assist/domain/drafts";
-import type { AssistDecision } from "@/modules/assist/domain/features";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
 
-import { reportDecision } from "./client";
-import { useAssistOffers } from "./context";
+import { CoverPlanBody, coverPlanText } from "./cover-plan";
 import { AssistSuggestion } from "./parts";
+import { decideReadyDraft, useReadyDrafts } from "./ready-store";
 
 const SAY = {
   title: p("Ready for you", "आपके लिए तैयार"),
@@ -27,85 +26,7 @@ const SAY = {
   fromNotes: (n: number) => p(`From ${n} notes this week`, `इस हफ़्ते के ${n} नोट्स से`),
 };
 
-/* ---------------------------------------------------------- one shared list */
-
-type Store = { drafts: ReadyDraftView[]; loaded: boolean };
-let store: Store = { drafts: [], loaded: false };
-let loading: Promise<void> | null = null;
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
-const subscribe = (l: () => void) => {
-  listeners.add(l);
-  return () => listeners.delete(l);
-};
-const SERVER: Store = { drafts: [], loaded: false };
-
-/** Read once per page load and shared by every card that shows a prepared draft. */
-function load() {
-  loading ??= fetch("/api/assist/drafts", { cache: "no-store" })
-    .then((r) => (r.ok ? r.json() : { drafts: [] }))
-    .then((body: { drafts?: ReadyDraftView[] }) => {
-      store = { drafts: Array.isArray(body.drafts) ? body.drafts : [], loaded: true };
-      emit();
-    })
-    .catch(() => {
-      store = { drafts: [], loaded: true };
-      emit();
-    });
-}
-
-/** Used, changed or put aside: off the list at once, recorded in the background. */
-export function decideReadyDraft(draft: ReadyDraftView, decision: AssistDecision) {
-  store = { ...store, drafts: store.drafts.filter((d) => d.id !== draft.id) };
-  emit();
-  void fetch("/api/assist/drafts", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id: draft.id, decision }),
-    keepalive: true,
-  }).catch(() => (draft.logId ? reportDecision(draft.logId, decision) : undefined));
-}
-
-/**
- * The drafts the app prepared for this person (D-418). Nothing is fetched for
- * someone who is offered neither cover plans nor summaries.
- */
-export function useReadyDrafts(): Store {
-  const cover = useAssistOffers("cover");
-  const summary = useAssistOffers("summary");
-  const wanted = cover || summary;
-  useEffect(() => {
-    if (wanted) load();
-  }, [wanted]);
-  return useSyncExternalStore(subscribe, () => store, () => SERVER);
-}
-
 /* ------------------------------------------------------------- the views */
-
-export function CoverPlanBody({ plan }: { plan: Extract<ReadyDraftView, { kind: "cover_plan" }>["payload"] }) {
-  const { tx } = useVx();
-  return (
-    <>
-      {plan.title ? <b>{plan.title}</b> : null}
-      <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
-        {plan.steps.map((s, i) => (
-          <li key={i}>
-            <span className="num" style={{ fontWeight: 700 }}>{s.minutes} min</span> · {s.text}
-          </li>
-        ))}
-      </ol>
-      {plan.tip ? (
-        <span style={{ fontSize: "0.93em", color: "var(--mut)" }}>
-          <b>{tx(SAY.tip)}:</b> {plan.tip}
-        </span>
-      ) : null}
-    </>
-  );
-}
-
-export function coverPlanText(plan: Extract<ReadyDraftView, { kind: "cover_plan" }>["payload"], tipWord: string): string {
-  return [plan.title, ...plan.steps.map((s, i) => `${i + 1}. ${s.minutes} min · ${s.text}`), plan.tip ? `${tipWord}: ${plan.tip}` : ""].filter(Boolean).join("\n");
-}
 
 function DigestBody({ draft }: { draft: Extract<ReadyDraftView, { kind: "class_digest" }> }) {
   const { tx } = useVx();

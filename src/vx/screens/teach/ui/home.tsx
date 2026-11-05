@@ -19,9 +19,8 @@ import { birthdayWish, periodPhases, type AttentionReason, type PeriodPhase } fr
 import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, teacherKind, type TeacherKind } from "../domain/today";
 import { ampm, andList, callName, dLongP, dShort, dShortP, greetingPair, hm12, shortClass, whenSent } from "./fmt";
-import { CoverAssist } from "@/vx/assist/cover-assist";
-import { ReadyForYou } from "@/vx/assist/ready";
-import { AwayReportsCard, CoverReportForm } from "./cover-report";
+import { LazyCoverAssist, ReadyForYou } from "@/vx/assist/lazy-ready";
+import { LazyAwayReports, LazyCoverReportForm } from "./lazy-cover-report";
 import "./today.css";
 import { CardTitle, DrawnTick, HelpIcon, HelpPic, HelpSheet, LangSeg, LeaveSheet, LinkRing, TchTop, useUrlState, type HelpStep } from "./shared";
 
@@ -1012,7 +1011,7 @@ export function TeachHome({
             <div className="tc-col">
               {welcome}
               <ReadyForYou />
-              <AwayReportsCard reports={data.awayReports} today={data.today} />
+              <LazyAwayReports reports={data.awayReports} today={data.today} />
               {unsavedCard}
               {leaveCard}
               {coverAsk}
@@ -1164,9 +1163,9 @@ export function TeachHome({
               </div>
             ) : null}
             {!cantOpen && cover.acknowledged && coverOver(cover) ? (
-              <CoverReportForm key={`r${cover.id}`} dutyId={cover.id} forName={cover.forName} existing={data.coverReports[cover.id] ?? null} />
+              <LazyCoverReportForm key={`r${cover.id}`} dutyId={cover.id} forName={cover.forName} existing={data.coverReports[cover.id] ?? null} />
             ) : null}
-            {!cantOpen && !(cover.acknowledged && coverOver(cover)) ? <CoverAssist key={cover.id} coverId={cover.id} classLabels={cover.classLabels} subject={cover.subjectName || null} starts={cover.starts} ends={cover.ends} /> : null}
+            {!cantOpen && !(cover.acknowledged && coverOver(cover)) ? <LazyCoverAssist key={cover.id} coverId={cover.id} classLabels={cover.classLabels} subject={cover.subjectName || null} starts={cover.starts} ends={cover.ends} /> : null}
           </div>
         ) : (
           <span className="tc-p" style={{ color: "var(--mut)" }}>{tx(p("No cover duty today.", "आज कोई सब्स्टिट्यूशन नहीं।"))}</span>

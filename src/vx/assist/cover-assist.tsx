@@ -6,7 +6,8 @@ import { p } from "@/vx/text";
 import { useAssistTask } from "./client";
 import { useAssistOffers } from "./context";
 import { AssistButton, AssistProblemLine, AssistSuggestion } from "./parts";
-import { CoverPlanBody, coverPlanText, decideReadyDraft, useReadyDrafts } from "./ready";
+import { CoverPlanBody, coverPlanText } from "./cover-plan";
+import { decideReadyDraft, useReadyDrafts } from "./ready-store";
 
 const SAY = {
   plan: p("Suggest what to do in this period", "इस पीरियड में क्या कराएँ — सुझाव"),

@@ -20,7 +20,7 @@ import { TD } from "@/vx/screens/admin/today-text";
 import { catchUp, dueColumns, kfmt, moneyChart, weekBars } from "@/vx/screens/admin/today-logic";
 import type { InboxItem, TimelineItem } from "@/vx/screens/admin/types";
 import { TodayBrief, type BriefFact } from "@/vx/assist/brief-assist";
-import { ReadyForYou } from "@/vx/assist/ready";
+import { ReadyForYou } from "@/vx/assist/lazy-ready";
 
 export type TodayMoneyView = {
   today: number;
