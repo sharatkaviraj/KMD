@@ -310,9 +310,9 @@ function CollectApp(props: CollectProps) {
   const prepKeyOf = (id: string, share: number) => `${share}|${date}|${waives(members.find((m) => m.student.id === id) as CollectDues) ? "w" : "c"}`;
   const jobs = members.map((d, i) => ({ id: d.student.id, share: shares[i] ?? 0 })).filter((j) => j.share > 0).map((j) => ({ ...j, key: prepKeyOf(j.id, j.share) }));
   const jobsKey = jobs.map((j) => `${j.id}:${j.key}`).join(",");
-  const onMoneyCards = card === "pay" || card === "check";
+  const moneyCardShown = card === "pay" || card === "check";
   useEffect(() => {
-    if (!onMoneyCards) return;
+    if (!moneyCardShown) return;
     const missing = jobs.filter((j) => prepared[j.id]?.key !== j.key);
     if (!missing.length) return;
     let live = true;
@@ -331,7 +331,7 @@ function CollectApp(props: CollectProps) {
       window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onMoneyCards, jobsKey, port]);
+  }, [moneyCardShown, jobsKey, port]);
 
   const preps = jobs.map((j) => (prepared[j.id]?.key === j.key ? prepared[j.id].result : null));
   const prepLoading = preps.some((x) => x === null);
@@ -1097,7 +1097,7 @@ function CollectApp(props: CollectProps) {
   } else if (!primary) {
     const state = primaryId ? dues[primaryId] : undefined;
     body = (
-      <CardShell eyebrow={mc.stepDues} title={mc.duesTitle} foot={<button type="button" className="cx-btn sec" style={{ flex: 1 }} onClick={resetAll}>{p(mc.back)}</button>}>
+      <CardShell eyebrow={mc.stepDues} title={mc.duesTitle} foot={<button type="button" className="cx-btn sec" style={{ flex: 1 }} onClick={resetAll}>{p(mc.goBack)}</button>}>
         {state && state.status === "error" ? (
           <div className="cx-error">
             <Icon name="alert" size={28} />
@@ -1105,7 +1105,7 @@ function CollectApp(props: CollectProps) {
             <button type="button" className="cx-btn sec sm" onClick={() => primaryId && loadDues(primaryId)}>{p(mc.retry)}</button>
           </div>
         ) : (
-          <div className="cx-empty">{p(mc.loading)}</div>
+          <div className="cx-empty">{p(mc.loadingNow)}</div>
         )}
       </CardShell>
     );
@@ -1297,7 +1297,7 @@ function CollectApp(props: CollectProps) {
         </section>
         {ticketOpen ? (
           <div className="cx-ovl">
-            <button type="button" className="scr" aria-label={f(mc.back)} onClick={() => setTicketOpen(false)} />
+            <button type="button" className="scr" aria-label={f(mc.goBack)} onClick={() => setTicketOpen(false)} />
             <div className="panel">{railItems}</div>
           </div>
         ) : null}

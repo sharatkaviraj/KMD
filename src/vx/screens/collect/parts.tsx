@@ -58,7 +58,7 @@ export function tail(phone: string | null): string {
 export function BackButton({ onClick }: { onClick: () => void }) {
   const { f } = useCx();
   return (
-    <button type="button" className="cx-btn sec icon" onClick={onClick} aria-label={f(mc.back)}>
+    <button type="button" className="cx-btn sec icon" onClick={onClick} aria-label={f(mc.goBack)}>
       <Icon name="back" size={20} />
     </button>
   );

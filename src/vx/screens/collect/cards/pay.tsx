@@ -97,7 +97,7 @@ export function PayCard(props: {
     const counted = notesTotal(props.notes ?? {});
     const ch = changeDue(counted, tot);
     return (
-      <CardShell eyebrow={mc.notesTitle} title={mc.notesTitle} foot={<button type="button" className="cx-btn pri" onClick={() => props.onSub(null)}><Bi text={mc.doneCounting} /></button>}>
+      <CardShell eyebrow={mc.countNotesTitle} title={mc.countNotesTitle} foot={<button type="button" className="cx-btn pri" onClick={() => props.onSub(null)}><Bi text={mc.doneCounting} /></button>}>
         <div className="cx-notes">
           {NOTE_DENOMINATIONS.map((d) => (
             <div className="cx-note" key={d}>
@@ -120,7 +120,7 @@ export function PayCard(props: {
   if (props.sub === "qr") {
     const upi = props.mode === "split" ? tot - (props.splitCash ?? 0) : tot;
     return (
-      <CardShell eyebrow={mc.modeUpi} title={fill(mc.qrTitle, { a: money(upi) })} foot={<button type="button" className="cx-btn pri" onClick={() => props.onSub(null)}><Bi text={mc.done} /></button>}>
+      <CardShell eyebrow={mc.modeUpi} title={fill(mc.qrTitle, { a: money(upi) })} foot={<button type="button" className="cx-btn pri" onClick={() => props.onSub(null)}><Bi text={mc.qrDone} /></button>}>
         <div className="cx-upi big">
           <UpiQr amount={upi} sr={props.sr} big show={props.showRealQr} />
           <p><Bi text={mc.qrNote} /></p>

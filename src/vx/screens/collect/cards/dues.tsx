@@ -119,7 +119,7 @@ export function DuesCard(props: {
               <span className="fs">{p(s.ticked ? mc.siblingIn : owes ? mc.siblingTick : mc.siblingClear)}</span>
             </span>
             <b>
-              {t ? money(t.fees) : s.loading ? p(mc.loading) : s.outstanding !== null ? money(s.outstanding) : ""}
+              {t ? money(t.fees) : s.loading ? p(mc.loadingNow) : s.outstanding !== null ? money(s.outstanding) : ""}
               {t && t.late ? <small>{p(mc.lateShort)} {money(t.late)}</small> : null}
             </b>
           </button>
