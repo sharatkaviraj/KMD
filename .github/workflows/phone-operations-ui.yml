@@ -7,19 +7,32 @@ on:
 concurrency:
   group: phone-operations-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
+  # Every config still runs on every revision, grouped into three balanced
+  # shards (median test seconds, 20 runs, 5 Nov 2026: 185 / 221 / 229) instead
+  # of eight jobs that each paid ~75s of container + npm ci setup.
+  # None of these checks is required by the ruleset (`check` in ci.yml is).
   phone:
     runs-on: ubuntu-latest
-    # Keep all matrix check identities; reuse the version-matched browsers/OS.
+    # Reuse the version-matched browsers/OS.
     container: mcr.microsoft.com/playwright:v1.64.1-noble
     defaults:
       run:
         shell: bash
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        config: [student360-mobile.playwright.config.ts, student-profile.playwright.config.ts, academic-ui.playwright.config.ts, operations-admin.playwright.config.ts, accountant-mobile.playwright.config.ts, marks-mobile.playwright.config.ts, operations-fee-collector.playwright.config.ts, one-polish.playwright.config.ts]
+        include:
+          - shard: a
+            configs: operations-fee-collector.playwright.config.ts marks-mobile.playwright.config.ts
+          - shard: b
+            configs: student-profile.playwright.config.ts one-polish.playwright.config.ts student360-mobile.playwright.config.ts
+          - shard: c
+            configs: academic-ui.playwright.config.ts accountant-mobile.playwright.config.ts operations-admin.playwright.config.ts
+    name: phone (${{ matrix.shard }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,15 +43,32 @@ jobs:
       - name: Verify preinstalled browser version matches lockfile
         run: node -e "const v=require('@playwright/test/package.json').version; if(v !== '1.64.1') throw new Error('Update the Playwright container to match '+v)"
       - name: Synthetic phone acceptance (no DB credentials)
-        run: npx playwright test --config tests/playwright/${{ matrix.config }}
+        run: bash scripts/ci/playwright-shard.sh ${{ matrix.configs }}
+      # Failure: everything a reviewer needs to debug, kept 14 days.
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
-          name: phone-${{ matrix.config }}
+          name: phone-${{ matrix.shard }}-failure-${{ github.run_attempt }}
+          retention-days: 14
+          include-hidden-files: true
+          if-no-files-found: ignore
+          path: |
+            .shard-failures/
+            .playwright/
+            test-results/
+            .test-artifacts/operations-fee-collector/
+      # Success on main or a manual run: the acceptance screenshots
+      # (.playwright/phone-evidence, .test-artifacts/operations-fee-collector),
+      # as before. Success on a PR: the job summary table only — run the
+      # workflow manually on the branch when a PR needs the screenshots.
+      - uses: actions/upload-artifact@v4
+        if: success() && github.event_name != 'pull_request'
+        with:
+          name: phone-${{ matrix.shard }}-evidence
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: ignore
           path: |
             .playwright/
             test-results/
             .test-artifacts/operations-fee-collector/
-          if-no-files-found: ignore
-          include-hidden-files: true
-          retention-days: 7
