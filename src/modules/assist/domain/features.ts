@@ -56,17 +56,28 @@ export const FEATURE_PERMISSIONS: Record<AssistFeature, readonly StaffPermission
 };
 
 /**
- * Two tiers, chosen by the task and never by the person (nobody at a school
- * desk should be asked to pick a model). Quick is Claude Haiku 5.5: short
- * rewrites, translation, matching and questions, at a few hundredths of a
- * cent each. Careful is Claude Sonnet 5.5: reading a photograph and writing
- * remarks or a results summary that a parent or the principal will read.
+ * Three tiers, chosen by the task and never by the person (nobody at a school
+ * desk should be asked to pick a model). D-416:
+ *
+ *  - quick: short internal help a staff member corrects at a glance (tidy a
+ *    note, translate, match columns, answer "how do I", a cover activity).
+ *    Claude Haiku 5.5.
+ *  - writing: words a parent or the principal reads (notices, replies, call
+ *    scripts, summaries, the Today brief). Claude Sonnet 5.5.
+ *  - careful: official records and photographs (report-card remarks, a
+ *    class's results, reading a handwritten admission form). Claude Opus 5.5.
+ *
+ * The Claude model is each tier's first choice; `routes.ts` holds the rest of
+ * the chain (OpenAI, then Gemini) for when Claude is busy or unavailable.
  */
-export type AssistTier = "quick" | "careful";
+export type AssistTier = "quick" | "writing" | "careful";
+
+export const assistTiers = ["quick", "writing", "careful"] as const satisfies readonly AssistTier[];
 
 export const ASSIST_MODELS: Record<AssistTier, string> = {
   quick: "claude-haiku-5-5",
-  careful: "claude-sonnet-5-5",
+  writing: "claude-sonnet-5-5",
+  careful: "claude-opus-5-5",
 };
 
 /** The words the admin's settings page and usage table use. */
@@ -133,8 +144,24 @@ export const FEATURE_LABELS: Record<AssistFeature, { en: string; hi: string; sub
   },
 };
 
+const FEATURE_TIER: Record<AssistFeature, AssistTier> = {
+  note: "quick",
+  translate: "quick",
+  ask: "quick",
+  columns: "quick",
+  cover: "quick",
+  message: "writing",
+  summary: "writing",
+  calls: "writing",
+  brief: "writing",
+  remarks: "careful",
+  results: "careful",
+  form: "careful",
+};
+
+/** The tier the settings page shows for a feature: its main task's tier (`TASK_TIER` in routes.ts decides per task). */
 export function featureTier(feature: AssistFeature): AssistTier {
-  return feature === "remarks" || feature === "form" || feature === "results" || feature === "brief" ? "careful" : "quick";
+  return FEATURE_TIER[feature];
 }
 
 /**

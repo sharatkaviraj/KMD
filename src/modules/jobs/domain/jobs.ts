@@ -28,6 +28,7 @@ export const jobNames = [
   "drive-backup",
   "health",
   "assist-log-purge",
+  "assist-prepare",
   "ai-connection-purge",
   "builtin-ai-purge",
 ] as const;
@@ -189,6 +190,18 @@ export const JOBS: Record<JobName, JobDefinition> = {
     // 16:00; the same problems on the same day are one alert.
     schedule: "30 2 * * *",
     when: t("हर सुबह 8:00 बजे", "Every morning at 8:00"),
+    oncePerDay: false,
+  },
+  "assist-prepare": {
+    name: "assist-prepare",
+    label: t("AI के तैयार मसौदे", "Prepare AI drafts"),
+    what: t(
+      "आज की हर सब्स्टिट्यूट ड्यूटी के लिए पीरियड की योजना बनाकर लेने वाले अध्यापक के ‘आज’ पर रख देता है; शनिवार को हर कक्षाध्यापक के लिए हफ़्ते के नोट्स का सार। कुछ भेजता या सहेजता नहीं — अध्यापक ख़ुद देखकर तय करते हैं।",
+      "Leaves a plan for each of today's cover duties on the covering teacher's Today, and on Saturdays a digest of the week's notes for each class teacher. Sends and saves nothing: staff read it and decide.",
+    ),
+    schedule: "5 2 * * *",
+    when: t("हर सुबह 7:35 बजे", "Every morning at 7:35"),
+    // Rerunning only fills drafts that are missing.
     oncePerDay: false,
   },
   "assist-log-purge": {

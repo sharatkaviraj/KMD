@@ -29,6 +29,7 @@ import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { lessonsToday } from "@/modules/attendance/domain/today";
 import { getStudentCard, enrolmentForStudent } from "@/modules/students/data/student-repo";
 import { myDutiesOn } from "@/modules/substitutions/data/duty-repo";
+import { reportsForAbsent, reportsOnDuties } from "@/modules/substitutions/data/cover-reports";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { schoolClock, type BellSchedule } from "@/modules/timetable/domain/bells";
 import { periodNumber } from "@/modules/timetable/domain/periods";
@@ -562,6 +563,14 @@ export async function loadHome(staff: CurrentStaff) {
   });
   const coverRows = covers.map((c) => toRow(c, today));
   const upcomingRows = upcoming.map((c) => toRow(c, c.day));
+  // What she told the teachers she covered for, and what her own substitutes told her (D-419).
+  const [toldMap, awayRaw] = await Promise.all([
+    reportsOnDuties(coverRows.map((c) => c.id)).catch((): Awaited<ReturnType<typeof reportsOnDuties>> => new Map()),
+    reportsForAbsent(staff.id, sessionLabel, today).catch((): Awaited<ReturnType<typeof reportsForAbsent>> => []),
+  ]);
+  const byNames = awayRaw.length ? await staffNames([...new Set(awayRaw.map((r) => r.byId))]) : new Map<string, string>();
+  const coverReports = Object.fromEntries([...toldMap].map(([id, r]) => [id, r]));
+  const awayReports = awayRaw.map((r) => ({ ...r, by: byNames.get(r.byId) ?? "—", number: periodNumber(r.period) }));
 
   const first = lessonsToday(nextSlots)[0];
   const tomorrow: { day: string; first: { number: number; starts: string; classLabel: string; subjectName: string; subjectHi?: string } | null } | null = runsNext
@@ -671,6 +680,10 @@ export async function loadHome(staff: CurrentStaff) {
     covers: coverRows,
     /** Cover duties on the next three school days (BUG-06). */
     upcomingCovers: upcomingRows,
+    /** Her report on each of today's covers, by duty id, once she has said how it went (D-419). */
+    coverReports,
+    /** Reports from the teachers who covered her periods in the last ten days, not yet read (D-419). */
+    awayReports,
     tomorrow,
     notices,
     kids,

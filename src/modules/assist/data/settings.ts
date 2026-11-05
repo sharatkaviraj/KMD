@@ -1,6 +1,6 @@
 import "server-only";
 
-import { paidGeminiKey } from "@/lib/ai/config";
+import { openAiKey, paidGeminiKey } from "@/lib/ai/config";
 import { canAny, type PermissionSubject, type StaffPermission } from "@/platform/auth/permissions";
 import { CACHE_TAGS, expireTag, sharedCache } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -34,7 +34,7 @@ type SettingsRow = {
  * Assist needs Claude or a paid Gemini key; its drafts may contain private material.
  */
 export function isAssistConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY?.trim() || paidGeminiKey());
+  return Boolean(process.env.ANTHROPIC_API_KEY?.trim() || openAiKey() || paidGeminiKey());
 }
 
 /**

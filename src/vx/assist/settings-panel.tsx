@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { dollars } from "@/modules/assist/domain/cost";
-import { assistFeatures, FEATURE_LABELS, featureTier, isAssistFeature, type AssistFeature } from "@/modules/assist/domain/features";
+import { assistFeatures, assistTiers, FEATURE_LABELS, featureTier, isAssistFeature, type AssistFeature } from "@/modules/assist/domain/features";
+import type { AssistProvider } from "@/modules/assist/domain/routes";
 import type { AssistPanelData } from "@/modules/assist/data/panel";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -23,8 +24,15 @@ const SAY = {
   budgetHint: p("New AI drafts stop for the month when the estimate reaches this.", "अनुमान यहाँ तक पहुँचते ही इस महीने नए AI मसौदे रुक जाते हैं।"),
   cap: p("AI drafts per person per day", "हर व्यक्ति के रोज़ के AI मसौदे"),
   features: p("Features", "सुविधाएँ"),
-  quick: p("Quick draft", "तेज़ मसौदा"),
-  careful: p("Detailed draft", "विस्तृत मसौदा"),
+  quick: p("Quick help", "तेज़ मदद"),
+  writing: p("For parents", "अभिभावकों के लिए"),
+  careful: p("Careful", "सावधानी से"),
+  who: p("Which AI writes what", "कौन-सा AI क्या लिखता है"),
+  whoSub: p("The first one writes; if it is busy or out of credit, the next takes over. Nobody has to choose.", "पहला लिखता है; वह व्यस्त हो या क्रेडिट ख़त्म हो तो अगला लिखता है। किसी को चुनना नहीं पड़ता।"),
+  quickSub: p("Tidy a note, translate, match columns, how-to, a cover activity", "नोट साफ़ करना, अनुवाद, कॉलम मिलान, कैसे करें, सब्स्टिट्यूट गतिविधि"),
+  writingSub: p("Notices, replies, call scripts, summaries, the Today brief", "सूचनाएँ, जवाब, कॉल स्क्रिप्ट, सारांश, आज का सार"),
+  carefulSub: p("Report-card remarks, results, reading an admission form", "रिपोर्ट कार्ड टिप्पणी, परिणाम, दाख़िला फ़ॉर्म पढ़ना"),
+  none: p("No provider", "कोई सेवा नहीं"),
   save: p("Save", "सहेजें"),
   month: p("This month", "इस महीने"),
   spent: (spent: string, budget: string) => p(`${spent} of ${budget} used (estimate)`, `${budget} में से ${spent} खर्च (अनुमान)`),
@@ -35,6 +43,13 @@ const SAY = {
   invoice: p("This estimate uses the usage reported by the AI providers. Check their billing pages for exact charges.", "यह अनुमान AI सेवाओं के बताए उपयोग पर आधारित है। सटीक शुल्क उनकी बिलिंग में देखें।"),
   privacy: p("Only metadata is logged here (who, which feature, tokens, cost). What staff write is never stored by the helper.", "यहाँ केवल जानकारी दर्ज होती है (किसने, कौन-सी सुविधा, टोकन, लागत)। स्टाफ़ का लिखा सहायक कभी नहीं रखता।"),
   unreadable: p("The AI helper’s settings could not be read. Is the database update applied?", "AI सहायक की सेटिंग्स नहीं पढ़ी जा सकीं। क्या डेटाबेस अपडेट लगा है?"),
+};
+
+const PROVIDER_NAME: Record<AssistProvider, string> = {
+  anthropic: "Claude",
+  openai: "OpenAI",
+  "gemini-paid": "Gemini",
+  "gemini-free": "Gemini Free",
 };
 
 /**
@@ -110,7 +125,7 @@ export function AssistSettingsPanel({
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                     <span style={{ fontSize: 14, fontWeight: 600 }}>
                       {tx(label)}{" "}
-                      <span className="pill" style={{ height: 20, padding: "0 7px", fontSize: 10, background: "var(--s3)", color: "var(--mut)", verticalAlign: "middle" }}>{tx(featureTier(f) === "careful" ? SAY.careful : SAY.quick)}</span>
+                      <span className="pill" style={{ height: 20, padding: "0 7px", fontSize: 10, background: "var(--s3)", color: "var(--mut)", verticalAlign: "middle" }}>{tx(SAY[featureTier(f)])}</span>
                     </span>
                     <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(label.sub)}</span>
                     {u ? (
@@ -160,7 +175,27 @@ export function AssistSettingsPanel({
             )}
             <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.invoice)}</span>
             <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.privacy)}</span>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{`${data.models.quick} · ${data.models.careful}`}</span>
+          </div>
+
+          <div className="card" style={card}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(SAY.who)}</span>
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.whoSub)}</span>
+            {assistTiers.map((tier) => (
+              <div key={tier} style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(SAY[tier])}</span>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY[`${tier}Sub`])}</span>
+                <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                  {data.chains[tier].length ? data.chains[tier].map((stage, i) => (
+                    <span key={`${stage.provider}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {i ? <Ic n="chevRight" size={14} style={{ color: "var(--mut)" }} /> : null}
+                      <span className="pill num" style={{ height: 24, padding: "0 9px", fontSize: 12, background: i ? "var(--s3)" : "var(--accs)", color: i ? "var(--fg)" : "var(--accfg)" }}>
+                        {PROVIDER_NAME[stage.provider]} · {stage.model}
+                      </span>
+                    </span>
+                  )) : <span style={{ fontSize: 12, color: "var(--warnfg)" }}>{tx(SAY.none)}</span>}
+                </span>
+              </div>
+            ))}
           </div>
         </>
       )}

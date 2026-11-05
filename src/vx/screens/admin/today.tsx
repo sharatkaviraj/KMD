@@ -20,6 +20,7 @@ import { TD } from "@/vx/screens/admin/today-text";
 import { catchUp, dueColumns, kfmt, moneyChart, weekBars } from "@/vx/screens/admin/today-logic";
 import type { InboxItem, TimelineItem } from "@/vx/screens/admin/types";
 import { TodayBrief, type BriefFact } from "@/vx/assist/brief-assist";
+import { ReadyForYou } from "@/vx/assist/ready";
 
 export type TodayMoneyView = {
   today: number;
@@ -326,6 +327,7 @@ export function TodayScreen(props: TodayProps) {
           <PhoneNeeds inbox={inbox} incomplete={inboxIncomplete} />
           {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
+          <ReadyForYou wrap={{ padding: "18px 18px 0" }} />
           <TodayBrief facts={briefFacts} style={{ padding: "18px 18px 0" }} />
           <section style={{ padding: "26px 18px 0", display: "flex", flexDirection: "column", gap: 12 }}>
             <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h2>
@@ -373,6 +375,7 @@ export function TodayScreen(props: TodayProps) {
                 <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h3>
                 <Timeline items={props.timeline} closed={attendance !== null && !attendance.schoolOpen} />
               </section>
+              <ReadyForYou />
               <TodayBrief facts={briefFacts} />
             </div>
           </aside>

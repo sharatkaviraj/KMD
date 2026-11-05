@@ -3,33 +3,30 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 
-import { paidGeminiConfig } from "@/lib/ai/config";
+import { freeGeminiConfig, openAiKey, paidGeminiConfig } from "@/lib/ai/config";
 import { oneInstructions, type OneWorkflow } from "@/lib/ai/one-knowledge";
-import { failureOf } from "@/lib/ai/router";
+import { freeKeyBlocked, saveStatuses, statusRow } from "@/lib/ai/provider-status";
+import { failureOf, type FailureProblem } from "@/lib/ai/router";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can, canAny } from "@/platform/auth/permissions";
 import { groupsFor } from "@/vx/nav";
 
 import { costUsd } from "../domain/cost";
-import {
-  ASSIST_MODELS,
-  dailyCapFor,
-  FEATURE_PERMISSIONS,
-  featureTier,
-  type AssistOutcome,
-  type AssistProblem,
-} from "../domain/features";
+import { dailyCapFor, FEATURE_PERMISSIONS, type AssistOutcome, type AssistProblem } from "../domain/features";
 import { hasStrayToken, maskPersonal, restoreDeep } from "../domain/redact";
+import { assistChain, CHAIN_DEADLINE_MS, type AssistStage, type AvailableKeys } from "../domain/routes";
 import {
   ASSIST_TASKS,
   SHARED_RULES,
+  type AssistImage,
   type AssistTaskId,
   type TaskOutput,
   type TaskSpec,
 } from "../domain/tasks";
-import { budgetState, writeLog } from "./log";
 import { geminiDraft } from "./gemini-draft";
-import { getAssistSettings, isAssistConfigured } from "./settings";
+import { budgetState, writeLog } from "./log";
+import { openaiDraft, type StageReply } from "./openai-draft";
+import { getAssistSettings, isAssistConfigured, type AssistSettings } from "./settings";
 
 const GROUNDED_WORKFLOWS = new Set<OneWorkflow>(["brief", "cover", "form", "note", "calls", "message"]);
 
@@ -38,6 +35,16 @@ function strings(value: unknown): string[] {
   if (Array.isArray(value)) return value.flatMap(strings);
   if (value && typeof value === "object") return Object.values(value).flatMap(strings);
   return [];
+}
+
+/** Which keys this deployment has. Values are read here and handed only to the provider they belong to. */
+export function availableKeys(env: Readonly<Record<string, string | undefined>> = process.env): AvailableKeys {
+  return {
+    anthropic: Boolean(env.ANTHROPIC_API_KEY?.trim()),
+    openai: Boolean(openAiKey(env)),
+    geminiPaidModel: paidGeminiConfig(env)?.model ?? null,
+    geminiFreeModel: freeGeminiConfig(env)?.model ?? null,
+  };
 }
 
 /**
@@ -90,35 +97,118 @@ export async function runAssistTask<K extends AssistTaskId>(
     }
   }
 
-  const masked = maskPersonal(spec.prompt(input), spec.names?.(input) ?? []);
-  const image = spec.image?.(input) ?? null;
-  const claudeModel = ASSIST_MODELS[featureTier(feature)];
-  const careful = featureTier(feature) === "careful";
-  const workflow = feature as OneWorkflow;
-  const instructions = oneInstructions(
-    `${SHARED_RULES}\n\n${spec.instructions}`,
-    GROUNDED_WORKFLOWS.has(workflow) ? workflow : undefined,
-    permittedHrefs,
-  );
+  return draftThroughChain(staff.id, taskId, spec, input, settings, budget.spentUsd, permittedHrefs);
+}
 
+/**
+ * A draft the app prepares for someone before they ask (D-418): a cover plan
+ * for a duty, a class's week of notes. The caller has already decided who it
+ * is for and that they may see it; this keeps the admin's switches and the
+ * month's budget, but not the person's daily cap — they did not press a button.
+ */
+export async function prepareAssistDraft<K extends AssistTaskId>(
+  staffProfileId: string,
+  taskId: K,
+  rawInput: unknown,
+): Promise<AssistOutcome<TaskOutput<K>>> {
+  const spec = ASSIST_TASKS[taskId] as unknown as TaskSpec<unknown, TaskOutput<K>>;
+  if (!isAssistConfigured()) return { ok: false, problem: "off" };
+  const settings = await getAssistSettings().catch(() => null);
+  if (!settings?.enabled || settings.disabledFeatures.includes(spec.feature)) return { ok: false, problem: "off" };
+  const budget = await budgetState(staffProfileId).catch(() => null);
+  if (!budget) return { ok: false, problem: "failed" };
+  if (budget.spentUsd >= settings.monthlyBudgetUsd) return { ok: false, problem: "budget" };
+  const parsed = spec.input.safeParse(rawInput);
+  if (!parsed.success) return { ok: false, problem: "invalid" };
+  return draftThroughChain(staffProfileId, taskId, spec, parsed.data, settings, budget.spentUsd);
+}
+
+type Ask = {
+  instructions: string;
+  text: string;
+  image: AssistImage | null;
+  spec: TaskSpec<unknown, unknown>;
+};
+
+/** Claude, with structured outputs; Sonnet and Opus keep Anthropic's server-side fallback for a false-positive decline. */
+async function claudeStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promise<StageReply> {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim() ?? "";
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
-  if (image) content.push({ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } });
-  content.push({ type: "text", text: masked.text });
+  if (ask.image) content.push({ type: "image", source: { type: "base64", media_type: ask.image.mediaType, data: ask.image.data } });
+  content.push({ type: "text", text: ask.text });
+  const client = new Anthropic({ apiKey, baseURL: "https://api.anthropic.com", timeout: timeoutMs, maxRetries: 0, logLevel: "off" });
+  const fallback = stage.model.startsWith("claude-sonnet") || stage.model.startsWith("claude-opus");
+  const response = await client.beta.messages.parse({
+    model: stage.model,
+    max_tokens: ask.spec.maxTokens,
+    ...(fallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
+    // Opus 5.5 defaults to "medium" and Haiku 5.5 too; the task sets it every time.
+    output_config: { effort: ask.spec.effort, format: betaZodOutputFormat(ask.spec.output) },
+    system: ask.instructions,
+    messages: [{ role: "user", content }],
+  }, { signal: AbortSignal.timeout(timeoutMs) });
+  const usage = response.usage;
+  return {
+    candidate: response.stop_reason === "end_turn" ? response.parsed_output : undefined,
+    refused: response.stop_reason === "refusal",
+    input: usage?.input_tokens ?? 0,
+    output: usage?.output_tokens ?? 0,
+    cacheRead: usage?.cache_read_input_tokens ?? 0,
+    costUsd: usage ? costUsd(stage.model, usage) : 0,
+  };
+}
 
-  let model = claudeModel;
+async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promise<StageReply> {
+  switch (stage.provider) {
+    case "anthropic":
+      return claudeStage(stage, ask, timeoutMs);
+    case "openai":
+      return openaiDraft({
+        apiKey: openAiKey() ?? "", model: stage.model, instructions: ask.instructions, text: ask.text,
+        image: ask.image, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
+      });
+    case "gemini-paid":
+    case "gemini-free": {
+      const free = stage.provider === "gemini-free";
+      const config = free ? freeGeminiConfig() : paidGeminiConfig();
+      if (!config) throw Object.assign(new Error("Gemini key missing"), { status: 401 });
+      return geminiDraft(config, ask.instructions, ask.text, ask.image, ask.spec.output, ask.spec.maxTokens, { timeoutMs, free });
+    }
+  }
+}
+
+const BUSY: readonly FailureProblem[] = ["quota", "quota_daily", "server", "network", "timeout"];
+
+/**
+ * Walk the task's chain (`routes.ts`) until one model gives a draft that passes
+ * the task's schema, `finish()` and the placeholder check. One log row per
+ * draft, naming the model that wrote it and carrying every stage's tokens and
+ * cost, so the budget counts what was really spent.
+ */
+async function draftThroughChain<K extends AssistTaskId>(
+  staffProfileId: string,
+  taskId: K,
+  spec: TaskSpec<unknown, TaskOutput<K>>,
+  input: unknown,
+  settings: AssistSettings,
+  spentUsd: number,
+  permittedHrefs?: string[],
+): Promise<AssistOutcome<TaskOutput<K>>> {
+  const feature = spec.feature;
+  const masked = maskPersonal(spec.prompt(input), spec.names?.(input) ?? []);
+  const workflow = feature as OneWorkflow;
+  const ask: Ask = {
+    instructions: oneInstructions(`${SHARED_RULES}\n\n${spec.instructions}`, GROUNDED_WORKFLOWS.has(workflow) ? workflow : undefined, permittedHrefs),
+    text: masked.text,
+    image: spec.image?.(input) ?? null,
+    spec: spec as TaskSpec<unknown, unknown>,
+  };
+  const stages = assistChain(taskId, availableKeys(), process.env);
+
+  let model = stages[0]?.model ?? "none";
   let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, spend = 0;
   const log = (outcome: "drafted" | "refused" | "failed") =>
-    writeLog({
-      staffProfileId: staff.id,
-      feature,
-      task: taskId,
-      model,
-      outcome,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      costUsd: spend,
-    });
+    writeLog({ staffProfileId, feature, task: taskId, model, outcome, inputTokens, outputTokens, cacheReadTokens, costUsd: Math.round(spend * 1_000_000) / 1_000_000 });
 
   const finish = (candidate: unknown) => {
     const output = spec.output.safeParse(candidate);
@@ -128,56 +218,37 @@ export async function runAssistTask<K extends AssistTaskId>(
     return finished && !strings(finished).some(hasStrayToken) ? finished : null;
   };
   const reject = async (problem: AssistProblem) => {
-    await log(problem === "refused" ? "refused" : "failed");
+    if (stages.length) await log(problem === "refused" ? "refused" : "failed");
     return { ok: false as const, problem };
   };
 
-  let primaryProblem: AssistProblem = "failed";
-  const claudeKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (claudeKey) try {
-    const client = new Anthropic({ apiKey: claudeKey, baseURL: "https://api.anthropic.com", timeout: 25_000, maxRetries: 0, logLevel: "off" });
-    const response = await client.beta.messages.parse({
-      model: claudeModel,
-      max_tokens: spec.maxTokens,
-      // Sonnet 5.5 on the Claude API: a policy decline in a category the
-      // fallback covers is re-run server-side rather than returned empty.
-      // Haiku 5.5 has no server-side fallback; a decline there is "refused".
-      ...(careful ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
-      output_config: { effort: spec.effort, format: betaZodOutputFormat(spec.output) },
-      system: instructions,
-      messages: [{ role: "user", content }],
-    }, { signal: AbortSignal.timeout(25_000) });
-    if (response.usage) {
-      inputTokens += response.usage.input_tokens;
-      outputTokens += response.usage.output_tokens;
-      cacheReadTokens += response.usage.cache_read_input_tokens ?? 0;
-      spend += costUsd(claudeModel, response.usage);
+  if (!stages.length) return { ok: false, problem: "off" };
+  const started = Date.now();
+  let busy = false;
+  for (const stage of stages) {
+    const left = CHAIN_DEADLINE_MS - (Date.now() - started);
+    if (left < 6_000) break;
+    const free = stage.provider === "gemini-free";
+    // Charge everything already spent to this draft, and start no further paid call once at the cap.
+    if (!free && spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
+    if (free && (await freeKeyBlocked())) continue;
+    try {
+      const reply = await runStage(stage, ask, Math.min(stage.timeoutMs, left - 2_000));
+      model = stage.model;
+      inputTokens += reply.input;
+      outputTokens += reply.output;
+      cacheReadTokens += reply.cacheRead;
+      spend += reply.costUsd;
+      if (free) void saveStatuses([statusRow("gemini-free", { outcome: "ok", model: stage.model }, new Date())]);
+      if (reply.refused) return reject("refused");
+      const finished = finish(reply.candidate);
+      if (finished) return { ok: true, value: finished, logId: await log("drafted") };
+      // An answer that does not fit the task: the next model may do better.
+    } catch (error) {
+      const failure = failureOf(error);
+      if (BUSY.includes(failure.problem) || error instanceof Anthropic.APIConnectionError) busy = true;
+      if (free) void saveStatuses([statusRow("gemini-free", { outcome: "unavailable", model: stage.model, ...failure }, new Date())]);
     }
-    if (response.stop_reason === "refusal") return reject("refused");
-    const finished = response.stop_reason === "end_turn" ? finish(response.parsed_output) : null;
-    if (finished) return { ok: true, value: finished, logId: await log("drafted") };
-  } catch (error) {
-    const { problem } = failureOf(error);
-    primaryProblem = error instanceof Anthropic.APIConnectionError || ["quota", "quota_daily", "server", "network", "timeout"].includes(problem)
-      ? "busy" : ["credential", "permission", "billing"].includes(problem) ? "off" : "failed";
   }
-
-  // Charge all reported usage to this one draft, and do not start another paid call once at the cap.
-  if (budget.spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
-  try {
-    const fallback = paidGeminiConfig();
-    if (!fallback) return reject(primaryProblem);
-    model = fallback.model;
-    const reply = await geminiDraft(fallback, instructions, masked.text, image, spec.output, spec.maxTokens);
-    inputTokens += reply.input;
-    outputTokens += reply.output;
-    spend += reply.costUsd;
-    if (reply.refused) return reject("refused");
-    const finished = finish(reply.candidate);
-    if (finished) return { ok: true, value: finished, logId: await log("drafted") };
-  } catch (error) {
-    const { problem } = failureOf(error);
-    if (["quota", "quota_daily", "server", "network", "timeout"].includes(problem)) return reject("busy");
-  }
-  return reject("failed");
+  return reject(busy ? "busy" : "failed");
 }

@@ -20,6 +20,8 @@ import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, teacherKind, type TeacherKind } from "../domain/today";
 import { ampm, andList, callName, dLongP, dShort, dShortP, greetingPair, hm12, shortClass, whenSent } from "./fmt";
 import { CoverAssist } from "@/vx/assist/cover-assist";
+import { ReadyForYou } from "@/vx/assist/ready";
+import { AwayReportsCard, CoverReportForm } from "./cover-report";
 import "./today.css";
 import { CardTitle, DrawnTick, HelpIcon, HelpPic, HelpSheet, LangSeg, LeaveSheet, LinkRing, TchTop, useUrlState, type HelpStep } from "./shared";
 
@@ -949,6 +951,13 @@ export function TeachHome({
   const cur = data.notices.find((n) => n.id === newsId) ?? pinned;
   const curOther = cur ? (sub({ en: cur.bodyEn ?? "", hi: cur.bodyHi ?? undefined }) ?? null) : null;
   const cover = allCovers.find((c) => c.id === coverId) ?? null;
+  // A covered period is over once its bell has rung, or on any earlier day (D-419).
+  const coverOver = (c: { day: string; ends: string }) => {
+    if (c.day < data.today) return true;
+    if (c.day > data.today) return false;
+    const m = /^(\d{1,2}):(\d{2})/.exec(c.ends);
+    return m ? data.nowMinutes >= Number(m[1]) * 60 + Number(m[2]) : false;
+  };
   const link = data.links.find((l) => l.paperId === linkId) ?? firstLink ?? null;
   const lk = link ? look(link.entered, link.total) : null;
   const leftCount = link ? Math.max(0, link.total - link.entered) : 0;
@@ -1002,6 +1011,8 @@ export function TeachHome({
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
             <div className="tc-col">
               {welcome}
+              <ReadyForYou />
+              <AwayReportsCard reports={data.awayReports} today={data.today} />
               {unsavedCard}
               {leaveCard}
               {coverAsk}
@@ -1152,7 +1163,10 @@ export function TeachHome({
                 <span style={{ fontWeight: 600 }}>{tx(p(`You’re covering P${cover.number} · ${classesWord(cover.classLabels).en}`, `आप P${cover.number} ले रहे हैं · ${classesWord(cover.classLabels).hi}`))}</span>
               </div>
             ) : null}
-            {!cantOpen ? <CoverAssist key={cover.id} classLabels={cover.classLabels} subject={cover.subjectName || null} starts={cover.starts} ends={cover.ends} /> : null}
+            {!cantOpen && cover.acknowledged && coverOver(cover) ? (
+              <CoverReportForm key={`r${cover.id}`} dutyId={cover.id} forName={cover.forName} existing={data.coverReports[cover.id] ?? null} />
+            ) : null}
+            {!cantOpen && !(cover.acknowledged && coverOver(cover)) ? <CoverAssist key={cover.id} coverId={cover.id} classLabels={cover.classLabels} subject={cover.subjectName || null} starts={cover.starts} ends={cover.ends} /> : null}
           </div>
         ) : (
           <span className="tc-p" style={{ color: "var(--mut)" }}>{tx(p("No cover duty today.", "आज कोई सब्स्टिट्यूशन नहीं।"))}</span>

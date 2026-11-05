@@ -7,7 +7,9 @@
  * billed as output and is already inside `output_tokens`.
  *
  * The figure is an estimate for the admin's usage page and the monthly budget
- * check. The invoice in the Claude Console is the authority.
+ * check. The invoices in the Claude Console and the OpenAI Platform are the
+ * authority. OpenAI's reasoning tokens are inside `output_tokens` too. Gemini
+ * drafts are priced by `lib/ai/gemini.ts`, which knows Google's dated rises.
  */
 
 type Card = { input: number; output: number; cacheRead: number; cacheWrite: number };
@@ -19,6 +21,19 @@ const PRICES: Record<string, { base: Card; long?: { above: number; card: Card } 
   },
   "claude-sonnet-5-5": {
     base: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+  },
+  "claude-opus-5-5": {
+    base: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+  },
+  // OpenAI API platform, developers.openai.com/api/docs/models (5 Nov 2026).
+  "gpt-6-luna": {
+    base: { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.1 },
+  },
+  "gpt-6.1-terra": {
+    base: { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1 },
+  },
+  "gpt-6.1-sol": {
+    base: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2 },
   },
 };
 

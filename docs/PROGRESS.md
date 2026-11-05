@@ -1,5 +1,23 @@
 # VPPS One — progress
 
+## AI helper: best model per task, drafts that wait for staff — 5 November 2026
+
+Owner: Gemini free first, then the Claude Max / ChatGPT Pro API credits, Gemini
+Paid last, best model where it matters, and AI that feels part of substitution,
+notes and the automations; implement, migrate, deploy. Branch
+`feat/ai-tiers-ambient`. D-416 to D-419 (`docs/ai/DECISIONS.md`). **Done:**
+three tiers (Haiku / Sonnet / Opus 5.5) with OpenAI then Gemini Paid behind;
+free key for open tasks only (D-401 kept, D-417); Settings shows the chains;
+Check keys probes Opus and the OpenAI drafting models; `assist_drafts` and
+`cover_reports` applied on wtgx as `20261105063256` (no grant to anon or
+authenticated, checked); cover plans prepared on save and by the new
+`assist-prepare` job (07:35 IST), Saturday class digests, a "Ready for you"
+card on teacher and admin Today, the plan inside the duty, voice notes tidied
+by themselves, "How did the period go?" and "While you were away". **Not yet
+verified:** that the OpenAI key's project can use `gpt-6-luna` / `gpt-6.1-sol`
+and that the Claude key can use Opus 5.5: run Settings → Built-in AI → Check
+keys after the deploy. The free Gemini key still fails (403 billing, below).
+
 ## AI keys checked, Gemini model set, Claude voice fixed — 4 November 2026
 
 Owner: wire the free Gemini key into the router, pick the model, check every
