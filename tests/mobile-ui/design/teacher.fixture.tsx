@@ -70,6 +70,8 @@ function home(state: "home" | "later"): HomeData {
       { id: id(701), day: TODAY, period: 4, number: 5, starts: "11:10", ends: "11:50", classLabels: "Class 9", subjectCode: "PHY", subjectName: "Physics", forName: "Mr. Meena", acknowledged: later, askedAt: at("08:20"), reason: "Motion — numericals 4 to 8 on page 112. Please collect the homework copies." },
     ],
     upcomingCovers: [],
+    coverReports: {},
+    awayReports: [],
     unassigned: false,
     tomorrow: { day: "2026-10-09", first: { number: 1, starts: "08:10", classLabel: "Class 6", subjectName: "Science" } },
     notices: [

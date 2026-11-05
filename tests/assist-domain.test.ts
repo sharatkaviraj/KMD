@@ -78,8 +78,9 @@ describe("features", () => {
     }
   });
 
-  it("uses Sonnet only where a parent or the principal reads the result, or a photo is read", () => {
-    expect(assistFeatures.filter((f) => featureTier(f) === "careful").sort()).toEqual(["brief", "form", "remarks", "results"]);
+  it("keeps Opus for official records and photos, and Sonnet for what parents and the principal read (D-416)", () => {
+    expect(assistFeatures.filter((f) => featureTier(f) === "careful").sort()).toEqual(["form", "remarks", "results"]);
+    expect(assistFeatures.filter((f) => featureTier(f) === "writing").sort()).toEqual(["brief", "calls", "message", "summary"]);
   });
 
   it("every task belongs to a known feature", () => {

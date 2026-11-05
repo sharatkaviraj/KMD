@@ -80,6 +80,26 @@ export function paidGeminiConfig(env: Env = process.env) {
   return { ...modelConfig(env), apiKey, model: paidGeminiModel(env) };
 }
 
+/**
+ * The free AI Studio key, for material that names nobody (Assist's open tasks,
+ * D-417; fictional TEST jobs, D-401). `null` when unset or invalid.
+ */
+export function freeGeminiConfig(env: Env = process.env) {
+  const apiKey = env.GEMINI_API_KEY_FREE?.trim();
+  if (!apiKey) return null;
+  try {
+    const models = modelConfig(env);
+    return { ...models, apiKey, model: models.model };
+  } catch {
+    return null;
+  }
+}
+
+/** The OpenAI API Platform key (the plan's monthly credits). Vercel's name first, then the usual alias. */
+export function openAiKey(env: Env = process.env): string | undefined {
+  return env.OPEN_AI_API_KEY?.trim() || env.OPENAI_API_KEY?.trim() || undefined;
+}
+
 export function providerConfig(env: Env = process.env): AiPilotConfig {
   const paidApiKey = paidGeminiKey(env);
   const freeApiKey = env.GEMINI_API_KEY_FREE?.trim() || undefined;

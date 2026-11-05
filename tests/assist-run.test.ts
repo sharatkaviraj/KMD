@@ -65,6 +65,8 @@ beforeEach(() => {
   vi.stubEnv("GEMINI_API_KEY", "");
   vi.stubEnv("GEMINI_API_KEY_PAID", "");
   vi.stubEnv("GEMINI_API_KEY_FREE", "");
+  vi.stubEnv("OPEN_AI_API_KEY", "");
+  vi.stubEnv("OPENAI_API_KEY", "");
   state.settings.mockResolvedValue(settings);
   state.budget.mockResolvedValue({ spentUsd: 1, staffToday: 0 });
   state.log.mockResolvedValue("22222222-2222-4222-8222-222222222222");
@@ -174,14 +176,56 @@ describe("runAssistTask asks Claude carefully", () => {
     expect(state.log).toHaveBeenCalledWith(expect.objectContaining({ feature: "note", task: "note.polish", outcome: "drafted", inputTokens: 1500, outputTokens: 300 }));
   });
 
-  it("uses Sonnet with the server-side fallback for remarks", async () => {
+  it("uses Opus with the server-side fallback for remarks (D-416)", async () => {
     state.parse.mockResolvedValue({ stop_reason: "end_turn", usage, parsed_output: { remarks: [{ ref: "C1", en: "Steady work.", hi: "नियमित काम।" }] } });
     const result = await runAssistTask({ ...teacher }, "remarks.class", { exam: "Term 1", classLabel: "6 A", children: [{ ref: "C1", percent: 70, attendance: 90, strongest: "Maths", weakest: null }] });
     expect(result.ok).toBe(true);
     const params = state.parse.mock.calls[0][0];
-    expect(params.model).toBe("claude-sonnet-5-5");
+    expect(params.model).toBe("claude-opus-5-5");
     expect(params.fallbacks).toBe("default");
     expect(params.betas).toEqual(["server-side-fallback-2026-07-01"]);
+  });
+
+  it("writes a parent reply with Sonnet", async () => {
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", usage, parsed_output: { hi: "धन्यवाद।", en: "Thank you." } });
+    const result = await runAssistTask({ ...teacher, permissions: ["messages:send"] }, "message.reply", { incoming: "Kal school aayega?", regarding: null, notice: null, names: [] });
+    expect(result.ok).toBe(true);
+    expect(state.parse.mock.calls[0][0].model).toBe("claude-sonnet-5-5");
+  });
+
+  it("falls back to OpenAI (plan credits) before Gemini, with the same masked text (D-416)", async () => {
+    vi.stubEnv("OPEN_AI_API_KEY", "qa-openai-test-key");
+    vi.stubEnv("GEMINI_API_KEY_PAID", "qa-paid-test-key");
+    state.parse.mockRejectedValue(Object.assign(new Error("rate limit"), { status: 429 }));
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json({
+      status: "completed",
+      output: [{ type: "message", content: [{ type: "output_text", text: "{\"text\":\"[[N1]] को भिन्न में दिक्कत है।\",\"tags\":[\"studies\"]}" }] }],
+      usage: { input_tokens: 900, output_tokens: 60 },
+    }));
+    vi.stubGlobal("fetch", fetch);
+    const result = await runAssistTask(teacher, "note.polish", note);
+    expect(result).toMatchObject({ ok: true, value: { text: "Qatest को भिन्न में दिक्कत है।" } });
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, request] = fetch.mock.calls[0];
+    expect(String(url)).toBe("https://api.openai.com/v1/responses");
+    expect(new Headers(request?.headers).get("authorization")).toBe("Bearer qa-openai-test-key");
+    const body = JSON.parse(String(request?.body));
+    expect(body.model).toBe("gpt-6-luna");
+    expect(body.store).toBe(false);
+    expect(JSON.stringify(body)).not.toMatch(/Qatest|98765/);
+    expect(state.log).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-6-luna", outcome: "drafted" }));
+  });
+
+  it("stops at an OpenAI refusal instead of trying Gemini", async () => {
+    vi.stubEnv("OPEN_AI_API_KEY", "qa-openai-test-key");
+    vi.stubEnv("GEMINI_API_KEY_PAID", "qa-paid-test-key");
+    state.parse.mockRejectedValue(Object.assign(new Error("overloaded"), { status: 529 }));
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json({
+      status: "completed", output: [{ type: "message", content: [{ type: "refusal", refusal: "no" }] }], usage: { input_tokens: 10, output_tokens: 2 },
+    }));
+    vi.stubGlobal("fetch", fetch);
+    expect(await runAssistTask(teacher, "note.polish", note)).toEqual({ ok: false, problem: "refused" });
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("reports a refusal and logs it", async () => {

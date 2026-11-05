@@ -23,6 +23,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/jobs/assist-prepare",
+      "schedule": "5 2 * * *"
+    },
+    {
       "path": "/api/jobs/fee-day-summary",
       "schedule": "30 13 * * *"
     },

@@ -604,3 +604,12 @@ const cachedSessionFacts = sharedCache(
   ["vx-session-facts"],
   { tags: [CACHE_TAGS.appSettings], revalidate: 60 },
 );
+
+/**
+ * Class labels for a scheduled job, which has no signed-in member of staff
+ * (the AI helper's prepared drafts, D-418). Server code only; the same shared
+ * read as `classLabelMap`.
+ */
+export async function classLabelsForJob(sessionLabel: string): Promise<Map<string, string>> {
+  return new Map(await cachedClassLabels(sessionLabel));
+}

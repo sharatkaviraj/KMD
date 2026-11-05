@@ -163,6 +163,8 @@ export const TABLES = {
   sampark_import_rows: { bucket: "C", why: "SamPark import" },
   job_runs: { bucket: "C", why: "job log" },
   assist_log: { bucket: "C", why: "assist log" },
+  assist_drafts: { bucket: "K", why: "post go-live service-only prepared AI drafts (cover plans, class digests) that expire within days" },
+  cover_reports: { bucket: "K", why: "post go-live service-only report on a covered period, for the absent teacher", staffArrays: ["seen_by"] },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

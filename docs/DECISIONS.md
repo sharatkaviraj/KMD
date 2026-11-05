@@ -6,6 +6,8 @@ The owner asked for the built-in AI plan (photo marks, photo substitutions, Bolo
 
 D-411 to D-413 update the AI routing, shared reference and Today layout; see [AI decisions](ai/DECISIONS.md#shared-school-reference-and-subscription-fallback--4-november-2026).
 
+D-416 to D-419 (5 Nov): the AI helper's three model tiers and provider chain, the free key kept to open tasks, drafts that wait for staff, and cover-period reports; see [AI decisions](ai/DECISIONS.md#ai-helper-best-model-per-task-and-drafts-that-wait-for-staff--5-november-2026).
+
 | Decision | Outcome | Evidence and reason |
 |---|---|---|
 | D-399 | **Built-in AI has one production switch, `VPPSONE_BUILTIN_AI` (`live` or `test`); unset is off.** A confined deployment is never more than `test` | The pilot refused production outright. The switch lets it go live in two steps (fictional TEST check, then everyone) and off again with one env change. A daily limit of 0 pauses it without a deploy |

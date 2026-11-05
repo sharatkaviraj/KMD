@@ -6,10 +6,13 @@ import { p } from "@/vx/text";
 import { useAssistTask } from "./client";
 import { useAssistOffers } from "./context";
 import { AssistButton, AssistProblemLine, AssistSuggestion } from "./parts";
+import { CoverPlanBody, coverPlanText } from "./cover-plan";
+import { decideReadyDraft, useReadyDrafts } from "./ready-store";
 
 const SAY = {
   plan: p("Suggest what to do in this period", "इस पीरियड में क्या कराएँ — सुझाव"),
   title: p("A plan for the period", "पीरियड की योजना"),
+  ready: p("Ready for you: a plan for the period", "आपके लिए तैयार: पीरियड की योजना"),
   tip: p("Tip", "सुझाव"),
 };
 
@@ -20,15 +23,34 @@ function minutesOf(hhmm: string): number | null {
 }
 
 /**
- * On a cover duty (D-324): a calm, ready activity for a class the teacher
- * did not prepare for, using only the board and notebooks. Nothing is
- * saved; it is something to read on the way to the classroom.
+ * On a cover duty (D-324, D-418): a calm, ready activity for a class the
+ * teacher did not prepare for, using only the board and notebooks. When the
+ * app has already written it (`assist-prepare`, or the moment the cover was
+ * saved), it is simply there; otherwise one tap asks for it. Nothing is saved;
+ * it is something to read on the way to the classroom.
  */
-export function CoverAssist({ classLabels, subject, starts, ends }: { classLabels: string; subject: string | null; starts: string; ends: string }) {
+export function CoverAssist({ coverId, classLabels, subject, starts, ends }: { coverId?: string; classLabels: string; subject: string | null; starts: string; ends: string }) {
   const { tx, language } = useVx();
   const offer = useAssistOffers("cover");
   const plan = useAssistTask("cover.plan");
+  const { drafts } = useReadyDrafts();
   if (!offer) return null;
+
+  const prepared = coverId ? drafts.find((d) => d.kind === "cover_plan" && d.ref === coverId) : undefined;
+  if (prepared && prepared.kind === "cover_plan" && plan.state.kind === "idle") {
+    return (
+      <AssistSuggestion
+        title={SAY.ready}
+        privacy={false}
+        readOnly
+        takeaway={{ text: coverPlanText(prepared.payload, tx(SAY.tip)), title: classLabels, onTaken: () => undefined }}
+        onUse={() => decideReadyDraft(prepared, "kept")}
+        onDiscard={() => decideReadyDraft(prepared, "discarded")}
+      >
+        <CoverPlanBody plan={prepared.payload} />
+      </AssistSuggestion>
+    );
+  }
 
   const from = minutesOf(starts);
   const to = minutesOf(ends);
@@ -46,28 +68,12 @@ export function CoverAssist({ classLabels, subject, starts, ends }: { classLabel
           busy={plan.state.kind === "working"}
           privacy={false}
           readOnly
-          takeaway={{
-            text: [ready.title, ...ready.steps.map((s, i) => `${i + 1}. ${s.minutes} min · ${s.text}`), ready.tip ? `${tx(SAY.tip)}: ${ready.tip}` : ""].filter(Boolean).join("\n"),
-            title: classLabels,
-            onTaken: plan.keep,
-          }}
+          takeaway={{ text: coverPlanText(ready, tx(SAY.tip)), title: classLabels, onTaken: plan.keep }}
           onUse={() => plan.decide("kept")}
           onAgain={run}
           onDiscard={() => plan.decide("discarded")}
         >
-          {ready.title ? <b>{ready.title}</b> : null}
-          <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
-            {ready.steps.map((s, i) => (
-              <li key={i}>
-                <span className="num" style={{ fontWeight: 700 }}>{s.minutes} min</span> · {s.text}
-              </li>
-            ))}
-          </ol>
-          {ready.tip ? (
-            <span style={{ fontSize: "0.93em", color: "var(--mut)" }}>
-              <b>{tx(SAY.tip)}:</b> {ready.tip}
-            </span>
-          ) : null}
+          <CoverPlanBody plan={ready} />
         </AssistSuggestion>
       ) : null}
     </div>

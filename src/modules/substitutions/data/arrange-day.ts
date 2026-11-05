@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
+import { after } from "next/server";
+
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { isArrangeable, periodTiming, type BellSchedule } from "@/modules/timetable/domain/bells";
@@ -41,7 +43,8 @@ import {
 } from "@/modules/substitutions/domain/events";
 import { teacherDetailsFrom, type PlanSlot } from "@/modules/substitutions/domain/plan";
 import { isFullDay, splitByRole, type TeacherAbsence } from "@/modules/substitutions/domain/policies";
-import { addDays } from "@/platform/dates";
+import { addDays, schoolToday } from "@/platform/dates";
+import { isConfinedDeployment } from "@/platform/deployment/confinement";
 
 /**
  * Everything a cover decision for one day is made from, read once (P3).
@@ -428,7 +431,7 @@ export async function arrangeDay(input: {
     }
   }
 
-  return commitCoverCommand({
+  const outcome = await commitCoverCommand({
     command_id: input.commandId,
     kind: input.intent.kind,
     actor_staff_id: input.actorStaffId,
@@ -445,6 +448,26 @@ export async function arrangeDay(input: {
     duties: plan.duties,
     fault: input.fault ?? null,
   });
+  if (outcome.ok) prepareCoverPlansSoon(input.day);
+  return outcome;
+}
+
+/**
+ * Once a day's cover is saved, the covering teachers' period plans are
+ * written in the background (D-418), so the plan is already there when they
+ * open the duty. After the response, never in its way; outside a request
+ * (scripts, tests) the morning job prepares them instead.
+ */
+function prepareCoverPlansSoon(day: string) {
+  if (day < schoolToday()) return;
+  try {
+    after(async () => {
+      const { prepareCoverPlans } = await import("@/modules/assist/data/prepare");
+      await prepareCoverPlans({ day, testOnly: isConfinedDeployment() }).catch(() => undefined);
+    });
+  } catch {
+    // Not inside a request.
+  }
 }
 
 /**
@@ -492,7 +515,7 @@ export async function arrangeLateCover(input: {
   const verdict = candidatesFor(day, everyone, history, pseudo).find((candidate) => candidate.teacher === input.coveringStaffId);
   if (!verdict || verdict.blocked.length > 0) return { ok: false, reason: "refused_override" };
 
-  return commitLateCover({
+  const late = await commitLateCover({
     command_id: input.commandId,
     actor_staff_id: input.actorStaffId,
     session_label: input.sessionLabel,
@@ -511,4 +534,6 @@ export async function arrangeLateCover(input: {
       absent_staff_ids: [...need.absentStaffIds].sort(),
     },
   });
+  if (late.ok) prepareCoverPlansSoon(input.day);
+  return late;
 }

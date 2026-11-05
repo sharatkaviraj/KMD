@@ -23,6 +23,8 @@ import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
 import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
 import { purgeBuiltinAiInputs } from "@/lib/ai/jobs";
 import { purgeAssistLog } from "@/modules/assist/data/log";
+import { purgeDrafts } from "@/modules/assist/data/drafts";
+import { prepareClassDigests, prepareCoverPlans } from "@/modules/assist/data/prepare";
 import { ASSIST_LOG_RETENTION_DAYS } from "@/modules/assist/domain/retention";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
@@ -871,6 +873,35 @@ export async function assistLogPurge(): Promise<Summary> {
   };
 }
 
+/* ------------------------------------------------- AI prepared drafts */
+
+/**
+ * The AI helper's drafts that wait for staff instead of a button (D-418):
+ * today's cover plans every morning, the class digests on Saturday. A
+ * confined deployment shares the one database, so it prepares only for TEST
+ * sessions. Counts only in the summary.
+ */
+async function assistPrepare(day: string): Promise<Summary> {
+  const confined = isConfinedDeployment();
+  const cover = await prepareCoverPlans({ day, testOnly: confined });
+  const saturday = new Date(`${day}T12:00:00Z`).getUTCDay() === 6;
+  let digests = { prepared: 0, skipped: 0, failed: 0 };
+  if (saturday) {
+    const session = confined ? null : await currentSession();
+    if (session && !isTestSessionLabel(session)) digests = await prepareClassDigests({ sessionLabel: session, day });
+  }
+  const purged = await purgeDrafts();
+  return {
+    cover_prepared: cover.prepared,
+    cover_skipped: cover.skipped,
+    cover_failed: cover.failed,
+    digests_prepared: digests.prepared,
+    digests_skipped: digests.skipped,
+    digests_failed: digests.failed,
+    drafts_purged: purged,
+  };
+}
+
 /* ---------------------------------------------------------------- health */
 
 /**
@@ -971,6 +1002,7 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "drive-backup": driveBackup,
   health: healthCheck,
   "assist-log-purge": assistLogPurge,
+  "assist-prepare": assistPrepare,
   "builtin-ai-purge": () => purgeBuiltinAiInputs(),
   "ai-connection-purge": aiConnectionPurge,
 };

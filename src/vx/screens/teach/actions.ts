@@ -21,6 +21,7 @@ import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attendance/domain/attendance-receipt";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
+import { coverOutcomes, markReportsSeen, saveCoverReport, type CoverOutcome } from "@/modules/substitutions/data/cover-reports";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
 import { m } from "@/messages";
 import { schoolToday } from "@/vx/format";
@@ -183,6 +184,42 @@ export async function answerCoverVx(dutyId: string, answer: "acknowledge" | "can
   const result = answer === "acknowledge" ? await acknowledgeDutyAction(idleSubsState, form) : await cannotCoverAction(idleSubsState, form);
   if (result.status === "saved") return { ok: true };
   return { ok: false, error: result.message ?? p("Not saved. Try again.", "सहेजा नहीं गया।") };
+}
+
+const coverReportSchema = z.object({
+  dutyId: z.uuid(),
+  outcome: z.enum(coverOutcomes),
+  body: z.string().max(600),
+});
+
+/**
+ * "How did the period go?" (D-419): one tap and an optional sentence from the
+ * teacher who covered, for the teacher who was away. Only the duty's holder,
+ * only once its day has come; changing it later replaces it.
+ */
+export async function reportCoverVx(input: { dutyId: string; outcome: CoverOutcome; body: string }): Promise<VxResult> {
+  const staff = await assertPermission("substitutions:view");
+  await assertNotPreviewing();
+  const parsed = coverReportSchema.safeParse(input);
+  if (!parsed.success) return fail("Choose how the period went.", "चुनें कि पीरियड कैसा रहा।");
+  const result = await saveCoverReport({ ...parsed.data, staffId: staff.id, today: schoolToday() });
+  if (result.ok) {
+    revalidatePath("/teach");
+    return { ok: true };
+  }
+  if (result.reason === "not_yours") return fail("This duty is no longer yours.", "यह ड्यूटी अब आपकी नहीं है।");
+  if (result.reason === "not_yet") return fail("You can tell after the period.", "पीरियड के बाद बता सकते हैं।");
+  return fail("Not saved. Try again.", "सहेजा नहीं गया। फिर कोशिश करें।");
+}
+
+/** The teacher who was away has read what their substitutes said. */
+export async function coverReportsSeenVx(dutyIds: string[]): Promise<VxResult> {
+  const staff = await assertPermission("attendance:view");
+  await assertNotPreviewing();
+  const ids = (Array.isArray(dutyIds) ? dutyIds : []).filter((id) => z.uuid().safeParse(id).success).slice(0, 50);
+  if (!(await markReportsSeen(staff.id, ids))) return fail("Not saved. Try again.", "सहेजा नहीं गया। फिर कोशिश करें।");
+  revalidatePath("/teach");
+  return { ok: true };
 }
 
 /* -------------------------------------------------------------- notices */

@@ -3,14 +3,17 @@ import "server-only";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 import { monthStartIst } from "../domain/cost";
-import { ASSIST_MODELS } from "../domain/features";
+import type { AssistTier } from "../domain/features";
+import { describeChains, type AssistStage } from "../domain/routes";
 import { usageSince, type FeatureUsage } from "./log";
+import { availableKeys } from "./run";
 import { getAssistSettings, isAssistConfigured, type AssistSettings } from "./settings";
 
 export type AssistPanelData = {
   /** The Claude Console key is in this deployment's environment. Its value is never read here. */
   configured: boolean;
-  models: { quick: string; careful: string };
+  /** Which model writes each tier's drafts, in order, on this deployment (D-416). */
+  chains: Record<AssistTier, AssistStage[]>;
   settings: AssistSettings | null;
   month: {
     spentUsd: number;
@@ -24,7 +27,7 @@ export type AssistPanelData = {
 /** Settings → AI helper: the switch, the limits and this month's use, for the admin. */
 export async function loadAssistPanel(now = new Date()): Promise<AssistPanelData> {
   const configured = isAssistConfigured();
-  const models = { quick: ASSIST_MODELS.quick, careful: ASSIST_MODELS.careful };
+  const chains = describeChains(availableKeys(), process.env);
   try {
     const [settings, usage] = await Promise.all([getAssistSettings(), usageSince(monthStartIst(now))]);
     const ids = usage.staff.map((s) => s.staffProfileId);
@@ -35,7 +38,7 @@ export async function loadAssistPanel(now = new Date()): Promise<AssistPanelData
     }
     return {
       configured,
-      models,
+      chains,
       settings,
       month: {
         spentUsd: usage.features.reduce((sum, f) => sum + f.costUsd, 0),
@@ -45,6 +48,6 @@ export async function loadAssistPanel(now = new Date()): Promise<AssistPanelData
       error: null,
     };
   } catch (error) {
-    return { configured, models, settings: null, month: null, error: error instanceof Error ? error.message : "unknown" };
+    return { configured, chains, settings: null, month: null, error: error instanceof Error ? error.message : "unknown" };
   }
 }

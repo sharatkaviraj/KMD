@@ -9,6 +9,7 @@ import { z } from "zod";
 import { aiModel, CLAUDE_IMAGE_MODEL, DEFAULT_CLAUDE_VOICE_MODEL, DEFAULT_MODEL, GEMINI_MODELS, OPENAI_TRANSCRIPTION_MODEL, type AiModel } from "@/lib/ai/config";
 import { geminiClient, geminiRequest } from "@/lib/ai/gemini";
 import { failureOf, KEY_TYPE, PROVIDER_TIMEOUT_MS, type AiKey, type FailureProblem, type KeyType } from "@/lib/ai/router";
+import { tierModels } from "@/modules/assist/domain/routes";
 
 /**
  * One tiny request per key and model, to show which keys and models answer
@@ -110,7 +111,8 @@ function claudeProbe(apiKey: string, model: string) {
     const client = new Anthropic({ apiKey, baseURL: "https://api.anthropic.com", maxRetries: 0, logLevel: "off" });
     const format = zodOutputFormat(z.object({ ok: z.boolean() }));
     const response = await client.messages.create({
-      model, max_tokens: 64,
+      // Opus 5.5 always thinks; leave room for it before the one-line answer.
+      model, max_tokens: 512,
       output_config: { effort: "low", format: { type: format.type, schema: format.schema } },
       messages: [{ role: "user", content: 'Return {"ok": true}.' }],
     }, { timeout: PROVIDER_TIMEOUT_MS, signal });
@@ -138,6 +140,31 @@ function openAiProbe(apiKey: string) {
   });
 }
 
+/** The AI helper's OpenAI drafting models (D-416): one JSON answer through the Responses API. */
+function openAiTextProbe(apiKey: string, model: string) {
+  return timed("openai", model, "text", async (signal) => {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model, store: false, max_output_tokens: 256,
+        input: 'Return {"ok": true}.',
+        text: { format: { type: "json_schema", name: "probe", strict: true, schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false } } },
+      }),
+      signal, redirect: "error",
+    });
+    const body = await response.json().catch(() => null) as { error?: { code?: unknown; type?: unknown }; output?: { type?: string; content?: { type?: string; text?: string }[] }[] } | null;
+    if (!response.ok) {
+      const code = [body?.error?.code, body?.error?.type].find((value) => typeof value === "string" && /^[a-z_]{1,48}$/u.test(value)) ?? "";
+      throw Object.assign(new Error(`Draft unavailable ${code}`.trim()), { status: response.status });
+    }
+    const text = (body?.output ?? []).filter((item) => item.type === "message").flatMap((item) => item.content ?? [])
+      .filter((part) => part.type === "output_text").map((part) => part.text ?? "").join("");
+    if ((JSON.parse(text) as { ok?: unknown }).ok !== true) throw new SyntaxError("Unexpected answer");
+    return undefined;
+  });
+}
+
 /** Run every probe at once (each stops at 25 seconds). Free-key probes cost nothing; the others cost a fraction of a rupee. */
 export async function runAiSmoke(env: Env = process.env): Promise<SmokeReport> {
   const free = env.GEMINI_API_KEY_FREE?.trim();
@@ -159,9 +186,13 @@ export async function runAiSmoke(env: Env = process.env): Promise<SmokeReport> {
   if (anthropic) {
     const image = env.VPPSONE_CLAUDE_IMAGE_MODEL?.trim() || CLAUDE_IMAGE_MODEL;
     const voice = env.VPPSONE_CLAUDE_VOICE_MODEL?.trim() || DEFAULT_CLAUDE_VOICE_MODEL;
-    probes.push(claudeProbe(anthropic, image), ...(voice !== image ? [claudeProbe(anthropic, voice)] : []));
+    // The AI helper's tiers too (D-416): whichever Claude models are not already probed above.
+    const assist = Object.values(tierModels(env)).map((m) => m.claude);
+    const claude = [...new Set([image, voice, ...assist])];
+    probes.push(...claude.map((model) => claudeProbe(anthropic, model)));
   }
-  if (openai) probes.push(openAiProbe(openai));
+  // Transcription first: the key's status on the admin page follows the first OpenAI probe.
+  if (openai) probes.push(openAiProbe(openai), ...[...new Set(Object.values(tierModels(env)).map((m) => m.openai))].map((model) => openAiTextProbe(openai, model)));
   const results = await Promise.all(probes);
   const works = (model: string) => results.filter((r) => r.key === "gemini-free" && r.model === model).every((r) => r.ok) &&
     results.some((r) => r.key === "gemini-free" && r.model === model);
