@@ -1,5 +1,28 @@
 # VPPS One — progress
 
+## Collect: card-by-card payment entry — 5 November 2026
+
+Owner approved the Collect prototype; plan
+`docs/plans/2026-11-05-native-money-and-collect-flow.md` §3 (copied in with the
+prototype). Branch `feat/collect-flow`, not pushed. D-420 to D-426.
+**Done:** `/payments` is Collect — who → dues → amount → payment → (check) →
+sealed, the prototype's motion and shortcuts, same cards on phone and desktop
+(rail ≥900 px, child panel ≥1180 px). One UI on a money port: the bridge
+adapter for real staff (directory lookup, `getBridgeCollectDues`, quote, post,
+`getBridgeCommand`), the local adapter for test accounts (the vx desk's
+actions, attempt store kept). Family = one payment per child with its own
+command id, stored before the first post; lost answers are checked by id;
+partial failures retry only the rest. Cash + UPI sends `tenders` (schoolfees
+#141); UPI/bank carry no reference. Classic desks at `/payments/classic`
+(`?classic=1`). Domain in `src/modules/collect/domain` with Vitest; browser
+fixture `tests/mobile-ui/collect.html` + `collect.spec.ts` (no-scroll at
+360×640, 390×844, 1366×768, 1920×1080 in en/hi/both). **Not done / open:**
+Fees-side "likely today" and a family command (plan §4); One's receipt
+template does not know `split` (split receipts print via Fees' `printUrl`);
+Cash + UPI is off on the TEST ledger; nothing was posted to any ledger —
+checked only on the synthetic fixture. Saving on real staff still needs
+`FEES_BRIDGE_WRITES_ENABLED` and #141 deployed.
+
 ## AI helper: best model per task, drafts that wait for staff — 5 November 2026
 
 Owner: Gemini free first, then the Claude Max / ChatGPT Pro API credits, Gemini
