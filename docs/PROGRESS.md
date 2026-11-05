@@ -13,10 +13,14 @@ Check keys probes Opus and the OpenAI drafting models; `assist_drafts` and
 authenticated, checked); cover plans prepared on save and by the new
 `assist-prepare` job (07:35 IST), Saturday class digests, a "Ready for you"
 card on teacher and admin Today, the plan inside the duty, voice notes tidied
-by themselves, "How did the period go?" and "While you were away". **Not yet
-verified:** that the OpenAI key's project can use `gpt-6-luna` / `gpt-6.1-sol`
-and that the Claude key can use Opus 5.5: run Settings → Built-in AI → Check
-keys after the deploy. The free Gemini key still fails (403 billing, below).
+by themselves, "How did the period go?" and "While you were away". Merged as #199 and live on one.vpps.co.in. **Key check, 12:43 IST,
+production:** every routed model answered: Claude Haiku 5.5 (2.4 s), Sonnet 5.5
+(3.0 s), Opus 5.5 (2.0 s); OpenAI `gpt-6-luna` (3.2 s), `gpt-6.1-sol` (3.9 s),
+`gpt-transcribe`; Gemini Paid 3.5 Flash-Lite (text and image). The free key now
+works: 3.5 Flash-Lite, 3.6 Flash and 3.1 Flash-Lite pass; 3.8 Flash gave 503/504
+(Google busy) and 2.5 Flash 404 (retired). Settings → AI helper shows the three
+chains; `/api/assist/drafts` answers. No cover duty was assigned that day, so
+no prepared draft has been seen in production yet.
 
 ## AI keys checked, Gemini model set, Claude voice fixed — 4 November 2026
 
