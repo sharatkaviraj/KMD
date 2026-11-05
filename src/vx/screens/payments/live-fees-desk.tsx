@@ -38,7 +38,7 @@ export function LiveFeesDesk(props:{
   // The waiver is offered only once a chosen child has a late fee pending (review: it showed, ticked,
   // before any child was picked). null: not known yet; a failed read leaves the box shown, as before.
   const [lateFee,setLateFee]=useState<{studentId:string;pending:number|null}|null>(null);
-  const [mode,setMode]=useState<BridgePostInput["paymentMode"]>("cash");
+  const [mode,setMode]=useState<NonNullable<BridgePostInput["paymentMode"]>>("cash");
   const [reference,setReference]=useState("");
   const [remarks,setRemarks]=useState("");
   const [quote,setQuote]=useState<BridgeQuote|null>(null);
@@ -65,7 +65,8 @@ export function LiveFeesDesk(props:{
           const restored=parsed.data;
           setCommand(restored);setStudentId(restored.studentId);setAmount(String(restored.amount));
           setDate(restored.paymentDate);setDiscount(String(restored.quickDiscountAmount));
-          setWaive(restored.lateFeeWaiverAmount>0);setMode(restored.paymentMode);
+          // This desk only ever stores single-mode commands; a split one is Collect's, under another key.
+          setWaive(restored.lateFeeWaiverAmount>0);setMode(restored.paymentMode??"cash");
           setReference(restored.referenceNumber??"");setRemarks(restored.remarks??"");setUncertain(true);
         }
         else{setRecoveryError(true);setMessage(flat(ms.bridgeUnknown,props.language));}
@@ -153,7 +154,7 @@ export function LiveFeesDesk(props:{
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm">{label(ms.bridgeAmount)}<input className={field} type="number" min="1" max="10000000" step="1" inputMode="numeric" value={amount} onChange={event=>{setAmount(event.target.value);changed();}}/></label>
           <label className="text-sm">{label(ms.bridgeDate)}<input className={field} type="date" value={date} max={props.today} onChange={event=>{setDate(event.target.value);changed();}}/></label>
-          <label className="text-sm">{label(ms.bridgeMode)}<select className={field} value={mode} onChange={event=>{setMode(event.target.value as BridgePostInput["paymentMode"]);}}><option value="cash">{label(ms.bridgeCash)}</option><option value="upi">{label(ms.bridgeUpi)}</option><option value="bank_transfer">{label(ms.bridgeBank)}</option><option value="cheque">{label(ms.bridgeCheque)}</option></select></label>
+          <label className="text-sm">{label(ms.bridgeMode)}<select className={field} value={mode} onChange={event=>{setMode(event.target.value as NonNullable<BridgePostInput["paymentMode"]>);}}><option value="cash">{label(ms.bridgeCash)}</option><option value="upi">{label(ms.bridgeUpi)}</option><option value="bank_transfer">{label(ms.bridgeBank)}</option><option value="cheque">{label(ms.bridgeCheque)}</option></select></label>
           <label className="text-sm">{label(ms.bridgeReference)}<input className={field} maxLength={200} value={reference} onChange={event=>setReference(event.target.value)}/></label>
           {props.canDiscount && <label className="text-sm">{label(ms.bridgeDiscount)}<input className={field} type="number" min="0" step="1" inputMode="numeric" value={discount} onChange={event=>{setDiscount(event.target.value);changed();}}/></label>}
           {offerWaive && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={waive} onChange={event=>{setWaive(event.target.checked);changed();}}/>{label(ms.bridgeWaive)}{lateFeeKnown ? ` · ${money(lateFeeKnown)}` : ""}</label>}

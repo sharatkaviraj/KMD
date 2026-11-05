@@ -1,113 +1,110 @@
+import { redirect } from "next/navigation";
+
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
-import { loadDeskBoot, loadDeskReceipt, loadDeskStudent } from "@/modules/payments/vx/data";
-import type { DeskReceipt, DeskStudentResult } from "@/modules/payments/vx/types";
-import { feeRoleFor, feePermissionsFor } from "@/platform/auth/fee-roles";
+import type { LedgerMode } from "@/modules/collect/domain/cash";
+import type { MoneyPortInfo } from "@/modules/collect/data/money-port";
+import { loadDeskBoot } from "@/modules/payments/vx/data";
+import { sessionStartDate } from "@/modules/payments/vx/domain/desk";
 import { requirePermission } from "@/platform/auth/current-staff";
-import { schoolToday } from "@/vx/format";
-import { PaymentDesk } from "@/vx/screens/payments/desk";
-import { getViewer } from "@/vx/view-as";
+import { feePermissionsFor, feeRoleFor } from "@/platform/auth/fee-roles";
+import { getBridgeSessions } from "@/platform/fees-bridge/client";
 import { feesBridgeWritesEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
-import { getBridgeSessions, getBridgeStudent, listBridgeStudents, getBridgeReceipt } from "@/platform/fees-bridge/client";
-import type { BridgeReceipt } from "@/platform/fees-bridge/contracts";
-import { LiveFeesDesk } from "@/vx/screens/payments/live-fees-desk";
-import { ms } from "@/messages/setup";
-import { flat } from "@/platform/i18n/language";
+import { schoolToday } from "@/vx/format";
+import { CollectBridge } from "@/vx/screens/collect/collect-bridge";
+import { CollectLocal } from "@/vx/screens/collect/collect-local";
+import { getViewer } from "@/vx/view-as";
 
 export const runtime = "nodejs";
 
-/**
- * The posting action's after-work (receipt notice, matview refresh) runs in
- * this route's function; the classic desk declares the same ceiling.
- */
+/** The local adapter posts through the ported fee action, whose after-work runs in this route's function. */
 export const maxDuration = 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const LEDGER_MODES: readonly LedgerMode[] = ["cash", "upi", "bank_transfer", "cheque"];
 
 function one(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : (value ?? "")).trim();
 }
 
 /**
- * Payment Desk (docs/design-handoff PayDesk): one student at a time, any
- * amount, the ledger's own split shown before saving. `?student=<id>`
- * preselects a student and `?receipt=<id>` opens a saved receipt on the desk.
+ * Collect (plan §3, docs/plans/2026-11-05-native-money-and-collect-flow.md):
+ * the card-by-card payment entry, one UI on two ledgers.
  *
- * The desk keeps the whole collect flow in client state and is deliberately
- * not keyed on the URL: a revalidation after a save re-renders this route,
- * and the saved receipt must survive it (the classic desk learned the same).
+ *  - Real staff (`usesCanonicalFees`): the bridge adapter. Fees is the ledger;
+ *    saving needs `FEES_BRIDGE_WRITES_ENABLED` and is otherwise read-only.
+ *  - Test accounts and confined deployments: the local adapter, on the TEST
+ *    session, through the vx Payment Desk's own actions.
+ *
+ * `?classic=1` (and a `?receipt=` link, which only the classic desks open)
+ * goes to the classic desks at `/payments/classic`, a separate route so that
+ * neither desk is in this page's JavaScript. `?student=<id>` opens a child.
  */
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePermission("fees:collect", "/payments");
-  const { staff, previewing } = await getViewer();
   const params = await searchParams;
+  if (one(params.classic) === "1" || one(params.receipt)) {
+    const rest = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) if (key !== "classic" && value !== undefined) rest.set(key, one(value));
+    redirect(`/payments/classic${rest.size ? `?${rest}` : ""}`);
+  }
+  const { staff, previewing } = await getViewer();
   const cookieSession = await getViewSessionCookie();
+  const asked = one(params.student) || one(params.studentId);
+  const initialStudentId = UUID.test(asked) ? asked : null;
+  const feePermissions = feePermissionsFor(staff.role);
+  const today = schoolToday();
+  const base = {
+    today,
+    canWaive: feePermissions.includes("payments:waive_late_fee"),
+    canAdjust: feePermissions.includes("payments:adjust"),
+    staffName: staff.displayName,
+    userId: staff.userId,
+  };
+
   if (usesCanonicalFees(staff, one(params.session) || cookieSession)) {
     let sessionLabel = "";
-    let initialStudents: Awaited<ReturnType<typeof listBridgeStudents>>["students"] = [];
-    let initialCursor:string|null = null;
-    let initialError:string|null = null;
-    let initialReceipt:BridgeReceipt|null=null;
-    const askedStudent = one(params.student) || one(params.studentId);
-    let initialStudentId = UUID.test(askedStudent) ? askedStudent : null;
-    const askedReceipt=one(params.receipt);
     try {
-      const {sessions} = await getBridgeSessions();
-      const asked = one(params.session) || cookieSession;
-      sessionLabel = sessions.find(row=>row.sessionLabel===asked)?.sessionLabel ?? sessions.find(row=>row.isCurrent)?.sessionLabel ?? "";
-      if (!sessionLabel) throw new Error("No current source session.");
-      const [list,selected,receipt] = await Promise.all([
-        listBridgeStudents(sessionLabel),
-        initialStudentId ? getBridgeStudent(initialStudentId,sessionLabel) : Promise.resolve(null),
-        UUID.test(askedReceipt)?getBridgeReceipt(askedReceipt,sessionLabel):Promise.resolve(null),
-      ]);
-      initialStudents = list.students;
-      initialCursor = list.nextCursor;
-      if (selected && !initialStudents.some(student=>student.id===selected.student.id)) initialStudents=[selected.student,...initialStudents];
-      initialReceipt=receipt;
-      if(receipt){initialStudentId=receipt.student.id;if(!initialStudents.some(student=>student.id===receipt.student.id))initialStudents=[receipt.student,...initialStudents];}
+      const { sessions } = await getBridgeSessions();
+      const wanted = one(params.session) || cookieSession;
+      sessionLabel = sessions.find((row) => row.sessionLabel === wanted)?.sessionLabel ?? sessions.find((row) => row.isCurrent)?.sessionLabel ?? "";
     } catch {
-      initialError=flat(ms.bridgeUnavailable,staff.language);
+      sessionLabel = "";
     }
-    return <LiveFeesDesk language={staff.language} sessionLabel={sessionLabel} today={schoolToday()} canPost={feesBridgeWritesEnabled() && !previewing && Boolean(sessionLabel)} canWaive={feePermissionsFor(staff.role).includes("payments:waive_late_fee")} canDiscount={feePermissionsFor(staff.role).includes("payments:adjust")} initialStudents={initialStudents} initialCursor={initialCursor} initialStudentId={initialStudentId} initialReceipt={initialReceipt} initialError={initialError} userId={staff.userId}/>;
+    if (!sessionLabel) redirect("/payments/classic");
+    const info: MoneyPortInfo = {
+      ...base,
+      kind: "bridge",
+      sessionLabel,
+      sessionStart: sessionStartDate(sessionLabel),
+      canPost: feesBridgeWritesEnabled() && !previewing,
+      canSplit: true,
+      showRealQr: true,
+      modes: [...LEDGER_MODES],
+    };
+    return <CollectBridge info={info} initialStudentId={initialStudentId} />;
   }
+
   const view = await resolveViewSession({ searchParamSession: params.session, cookieSession });
-  const today = schoolToday();
-
-  const studentParam = one(params.student) || one(params.studentId);
-  const receiptParam = one(params.receipt);
-  const receiptId = UUID.test(receiptParam) ? receiptParam : null;
-
-  const [boot, receipt] = await Promise.all([
-    loadDeskBoot({
-      sessionLabel: view.sessionLabel,
-      today,
-      isCollectable: view.isCollectable,
-      feeRole: feeRoleFor(staff.role),
-      myName: staff.displayName,
-      myId: staff.id,
-    }),
-    receiptId ? loadDeskReceipt(receiptId).catch((): DeskReceipt | null => null) : Promise.resolve(null),
-  ]);
-
-  const studentId = UUID.test(studentParam) ? studentParam : (receipt?.studentId ?? null);
-  const student: DeskStudentResult | null = studentId
-    ? await loadDeskStudent({ studentId, sessionLabel: view.sessionLabel, today }).catch(
-        (error: unknown): DeskStudentResult => ({
-          ok: false,
-          message: error instanceof Error ? error.message : "This student's dues could not be loaded.",
-          repairable: false,
-        }),
-      )
-    : null;
-
-  return (
-    <PaymentDesk
-      boot={boot}
-      previewing={Boolean(previewing)}
-      initialStudentId={studentId}
-      initialStudent={student}
-      initialReceipt={receipt}
-    />
-  );
+  const boot = await loadDeskBoot({
+    sessionLabel: view.sessionLabel,
+    today,
+    isCollectable: view.isCollectable,
+    feeRole: feeRoleFor(staff.role),
+    myName: staff.displayName,
+    myId: staff.id,
+  });
+  const info: MoneyPortInfo = {
+    ...base,
+    kind: "local",
+    sessionLabel: view.sessionLabel,
+    sessionStart: boot.sessionStart,
+    canPost: boot.canPost && !previewing,
+    canWaive: boot.me.canWaive,
+    // The TEST ledger has no tender lines yet, and its QR would be the school's real one.
+    canSplit: false,
+    showRealQr: false,
+    modes: boot.modes.filter((m): m is LedgerMode => (LEDGER_MODES as readonly string[]).includes(m)),
+  };
+  return <CollectLocal info={info} roll={boot.students} initialStudentId={initialStudentId} testSession={view.isTest} />;
 }

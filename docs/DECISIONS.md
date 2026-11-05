@@ -1,5 +1,19 @@
 # Decisions
 
+## Collect: card-by-card payment entry — 5 November 2026
+
+The owner approved the Collect prototype ("this flow looks perfect") and plan `docs/plans/2026-11-05-native-money-and-collect-flow.md` (D1–D9 there). Branch `feat/collect-flow`.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-420 | **`/payments` is Collect: one UI on a money port with two adapters.** Real staff (`usesCanonicalFees`) get the bridge adapter (Fees ledger through `/api/one/v1`: directory lookup, the single-purpose student reads, quote, post, command status); test accounts and confined deployments get the local adapter (the vx desk's own actions, TEST session). The classic desks moved to `/payments/classic`; `?classic=1` and any `?receipt=` link redirect there | Plan §5: what testers rehearse must be what cashiers use. A separate route keeps both classic desks out of Collect's JavaScript (`/payments` measured 292.1 KB gzip before); `next/dynamic` in one route would still list their chunks in its manifest |
+| D-421 | **Collect's strings are a third pair catalogue, `src/messages/collect.ts` (`mc`), held to the same language test** | D-229's reasoning applied once more: `index.ts` ships with every page and `setup.ts` with every set-up screen; ~250 Collect pairs belong to one route. `{a}`/`{n}`/`{d}`/`{name}` holes are filled by `fill()` so every entry stays a static pair the test can read |
+| D-422 | **A family payment is one ledger payment per child, each with its own command id and quote, posted in order; the whole list is stored in `sessionStorage` before the first post** | The bridge has no family command yet (plan §4). Storing first means a reload or a lost answer checks the same ids (`getBridgeCommand`), a partial failure names who saved and "Retry the rest" resends only the others with the same ids and bodies. A definite refusal stored nothing; when the body must change (a duplicate acknowledgement) it goes with a fresh id, because Fees compares a replayed id with its first body |
+| D-423 | **Cash + UPI on the bridge sends `tenders` (2 lines, distinct modes, adding up) instead of `paymentMode`, mirroring schoolfees PR #141; for a family the cash part is spread over the children in order, so each receipt's lines add up to its own amount.** The local adapter does not offer Cash + UPI | D7. Until #141 is deployed Fees refuses the unknown field with a definite 400 (nothing posted). The TEST ledger has no tender lines. A split receipt prints through Fees' `printUrl`, because One's receipt template (`receiptDetailFromBridge`) does not know the `split` mode yet |
+| D-424 | **UPI and bank transfer carry no reference; a cheque's number is the reference and its bank and date ride in the remarks, as the vx desk writes them** | D9 and D3 (structured cheque fields are a Fees-side change still to make) |
+| D-425 | **The check card appears only for a family, Cash + UPI, cheque, bank, a backdated date, a child who paid today, more than ₹15,000, or a non-default waiver reason; otherwise a 0.6 s hold saves from the payment card.** A daily-duplicate refusal moves to the check card and needs the "new payment" tick; a near duplicate needs `payments:adjust` | D2. The tick sends `acknowledgeDailyDuplicate` / `acknowledgeNearDuplicate` |
+| D-426 | **"Likely today" on the bridge lists only this browser's recent payers and their siblings who owe** | Fees has no "likely today" read yet (plan §4); One does not guess from the replica. The local adapter ranks overdue-with-late-fee children from the TEST roll |
+
 ## Built-in AI goes live — 4 November 2026
 
 The owner asked for the built-in AI plan (photo marks, photo substitutions, Bolo voice) to be checked and deployed to the live app. Details: `docs/ai/DECISIONS.md`.

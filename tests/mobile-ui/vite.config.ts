@@ -10,6 +10,8 @@ export default defineConfig({
     "@/vx/screens/admin/student-document-actions": path.resolve(__dirname, "student-actions.ts"),
     "@/app/(app)/school-office/actions": path.resolve(__dirname, "../shared/school-office-action-adapters.ts"),
     "@/app/(app)/payments/bridge-actions": path.resolve(__dirname, "fees-bridge-actions.ts"),
+    // Collect on a synthetic bridge: invented children, nothing posted (collect.html).
+    "@/app/(app)/payments/collect-actions": path.resolve(__dirname, "collect-actions.ts"),
     "@/app/(app)/receipts/office-command-actions": path.resolve(__dirname, "office-command-actions.ts"),
     "@/app/(app)/teach/tasks/actions": path.resolve(__dirname, "../shared/sampark-action-adapters.ts"),
     "@/app/(app)/collection/photos/profile-actions": path.resolve(__dirname, "../shared/sampark-action-adapters.ts"),

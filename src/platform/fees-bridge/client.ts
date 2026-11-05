@@ -249,10 +249,41 @@ export async function postBridgePayment(input: BridgePostInput) {
   if (!feesBridgeWritesEnabled()) throw new FeesBridgeError("read_only", "Collect in the Fees app while One's payment desk is read-only.");
   const body = postInputSchema.parse(input);
   const receipt = await bridgeRequest({...(await credentials(staff,body.sessionLabel)),path:"/payments",body,schema:postedPaymentSchema});
-  if (receipt.commandId !== body.commandId || receipt.studentId !== body.studentId || receipt.sessionLabel !== body.sessionLabel || receipt.amountReceived !== body.amount) {
+  // A split payment's answer must be a split receipt carrying the same lines, in order.
+  const tendersMatch = body.tenders
+    ? receipt.paymentMode === "split" && receipt.tenders?.length === body.tenders.length && body.tenders.every((line,i)=>receipt.tenders?.[i]?.mode===line.mode && receipt.tenders?.[i]?.amount===line.amount)
+    : receipt.paymentMode !== "split";
+  if (receipt.commandId !== body.commandId || receipt.studentId !== body.studentId || receipt.sessionLabel !== body.sessionLabel || receipt.amountReceived !== body.amount || !tendersMatch) {
     throw new FeesBridgeError("invalid_response", "The Fees response did not match this payment. Check its status.", true);
   }
   return receipt;
+}
+
+/**
+ * Collect's dues card for one child (plan §3.3 card 2): the money band, the
+ * newest receipts and — when this reader may see it — the household, read in
+ * parallel through the single-purpose student reads. Never cached.
+ */
+export async function getBridgeCollectDues(studentId:string,sessionLabel:string,receiptsShown=8) {
+  const staff=await assertPermission("fees:collect");
+  const one=oneStudentReadPermissions(staff);
+  z.uuid().parse(studentId);
+  const pageSize=z.number().int().min(1).max(20).parse(receiptsShown);
+  const auth=await credentials(staff,sessionLabel);
+  const [fees,receipts,household]=await Promise.all([
+    readStudentSection(auth,studentId,sessionLabel,"fees",{},bridgeStudentFeesSchema),
+    one.receipts?readStudentSection(auth,studentId,sessionLabel,"receipts",{pageSize:String(pageSize)},bridgeStudentReceiptsSchema):Promise.resolve(null),
+    one.household?readStudentSection(auth,studentId,sessionLabel,"household",{},bridgeStudentHouseholdSchema):Promise.resolve(null),
+  ]);
+  if(fees.student.id!==studentId||fees.student.classSessionLabel!==sessionLabel)throw new FeesBridgeError("invalid_response","The Fees record did not match this student and session.");
+  if((receipts?.receipts?.length??0)>pageSize)throw new FeesBridgeError("invalid_response","The Fees receipts did not match this request.");
+  // Fees' own refusals stand: no money band, receipts or household without its permissions.
+  if(!fees.permissions.fees)throw new FeesBridgeError("forbidden","Your account cannot view this child's fees.");
+  return {
+    fees,
+    receipts:receipts&&receipts.permissions.receipts&&receipts.permissions.fees?receipts:null,
+    household:household&&household.permissions.household?household:null,
+  };
 }
 
 export async function getBridgeCommand(commandId: string) {

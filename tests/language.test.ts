@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { m } from "@/messages";
+import { mc } from "@/messages/collect";
 import { ms } from "@/messages/setup";
 import {
   countOf,
@@ -214,7 +215,8 @@ describe("encodeMessage() / decodeMessage()", () => {
 describe("the message catalogue", () => {
   // Both catalogues, held to one rule: the set-up catalogue is a split for
   // the size of every page's JavaScript, not a looser place for strings (D-229).
-  const entries = [...Object.entries(m), ...Object.entries(ms)];
+  // Collect's catalogue is the same kind of split, for the payment route alone.
+  const entries = [...Object.entries(m), ...Object.entries(ms), ...Object.entries(mc)];
 
   it("is not empty", () => {
     expect(Object.keys(m).length).toBeGreaterThan(50);
@@ -224,6 +226,7 @@ describe("the message catalogue", () => {
   it("has no key in both catalogues", () => {
     // Two `attendanceRulesTitle`s would be two strings that drift apart.
     expect(Object.keys(ms).filter((key) => key in m)).toEqual([]);
+    expect(Object.keys(mc).filter((key) => key in m || key in ms)).toEqual([]);
   });
 
   it.each(entries)("%s has both halves", (key, value) => {
