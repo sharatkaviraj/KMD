@@ -29,6 +29,11 @@ function one(value: string | string[] | undefined): string {
 }
 
 /**
+ * The classic desks, kept while staff compare them with Collect (plan §5
+ * rollout): `/payments?classic=1` lands here. Real staff get the live Fees
+ * desk and test accounts the vx Payment Desk, exactly as `/payments` was. A
+ * route of its own, so neither desk is in Collect's JavaScript.
+ *
  * Payment Desk (docs/design-handoff PayDesk): one student at a time, any
  * amount, the ledger's own split shown before saving. `?student=<id>`
  * preselects a student and `?receipt=<id>` opens a saved receipt on the desk.
@@ -37,8 +42,8 @@ function one(value: string | string[] | undefined): string {
  * not keyed on the URL: a revalidation after a save re-renders this route,
  * and the saved receipt must survive it (the classic desk learned the same).
  */
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePermission("fees:collect", "/payments");
+export default async function ClassicPaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  await requirePermission("fees:collect", "/payments/classic");
   const { staff, previewing } = await getViewer();
   const params = await searchParams;
   const cookieSession = await getViewSessionCookie();
