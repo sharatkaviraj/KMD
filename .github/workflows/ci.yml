@@ -177,11 +177,19 @@ jobs:
       # https://nextjs.org/docs/app/guides/ci-build-caching — webpack's
       # persistent cache. Next still compiles this commit; it reuses only
       # modules whose inputs hash identically.
+      # Bounded: one Next cache per lockfile+config per UTC day (~95–155 MiB
+      # compressed), not one per commit, so it cannot crowd npm caches out of
+      # the 10 GB repository quota. The day's first trusted run saves it.
+      - name: Next.js cache bucket
+        id: bucket
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Next.js build cache
+        id: next-cache
         uses: actions/cache/restore@v4
         with:
           path: .next/cache
-          key: next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-${{ github.sha }}
+          key: next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-${{ steps.bucket.outputs.day }}
           restore-keys: |
             next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-
 
@@ -198,11 +206,11 @@ jobs:
         run: npm run check:bundles
 
       - name: Save Next.js build cache
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        if: steps.next-cache.outputs.cache-hit != 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
         uses: actions/cache/save@v4
         with:
           path: .next/cache
-          key: next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-${{ github.sha }}
+          key: next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-${{ steps.bucket.outputs.day }}
 
   # The required check. Green only if every child succeeded: a failed,
   # cancelled or skipped child makes this red, so the ruleset cannot be
