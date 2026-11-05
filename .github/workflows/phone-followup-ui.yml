@@ -13,7 +13,7 @@ jobs:
   targeted-phone:
     runs-on: ubuntu-latest
     # Keep all matrix check identities; reuse the version-matched browsers/OS.
-    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    container: mcr.microsoft.com/playwright:v1.64.1-noble
     defaults:
       run:
         shell: bash
@@ -30,7 +30,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Verify preinstalled browser version matches lockfile
-        run: node -e "const v=require('@playwright/test/package.json').version; if(v !== '1.63.0') throw new Error('Update the Playwright container to match '+v)"
+        run: node -e "const v=require('@playwright/test/package.json').version; if(v !== '1.64.1') throw new Error('Update the Playwright container to match '+v)"
       - name: Targeted touch component checks
         run: |
           if [ "${{ matrix.config }}" = "class-followup.playwright.config.ts" ]; then
