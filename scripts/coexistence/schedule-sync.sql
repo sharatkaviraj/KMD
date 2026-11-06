@@ -19,13 +19,10 @@ begin
 end;
 $$;
 
-select cron.schedule('fees-bridge-sync','30 seconds',$cron$
-  select net.http_post(
-    url:='https://one.vpps.co.in/api/jobs/fees-bridge-sync',
-    headers:=jsonb_build_object('Content-Type','application/json','Authorization',
-      'Bearer '||(select decrypted_secret from vault.decrypted_secrets where name='FEES_BRIDGE_CRON_SECRET')),
-    body:='{}'::jsonb,timeout_milliseconds:=110000);
-$cron$);
+-- No frequent `fees-bridge-sync` job. The roster is copied once a night
+-- (owner's decision, 6 Nov 2026, D-457); the every-minute job overlapped
+-- itself and helped saturate the database. Migration 20261106162701 removed it.
+-- The nightly `?verify=1` run below is a complete sync on its own.
 select cron.schedule('fees-bridge-nightly-verify','30 20 * * *',$cron$
   select net.http_post(
     url:='https://one.vpps.co.in/api/jobs/fees-bridge-sync?verify=1',
@@ -38,13 +35,13 @@ $cron$);
 select cron.schedule('fees-bridge-cron-history','45 20 * * *',$cron$
   delete from cron.job_run_details where end_time<now()-interval '14 days'
     and jobid in(select jobid from cron.job where jobname in
-      ('fees-bridge-sync','fees-bridge-nightly-verify','fees-bridge-cron-history'));
+      ('fees-bridge-nightly-verify','fees-bridge-cron-history'));
 $cron$);
 do $$
 declare j record;
 begin
   for j in select jobid from cron.job where jobname in
-    ('fees-bridge-sync','fees-bridge-nightly-verify','fees-bridge-cron-history') loop
+    ('fees-bridge-nightly-verify','fees-bridge-cron-history') loop
     perform cron.alter_job(j.jobid,active:=false);
   end loop;
 end;
