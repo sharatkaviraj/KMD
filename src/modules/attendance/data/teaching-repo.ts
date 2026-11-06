@@ -100,6 +100,21 @@ export async function classScopeFor(
   return ownClasses(await ownClassIds(staff.id, sessionLabel));
 }
 
+/**
+ * Whose attendance this member of staff may read: the office and the
+ * coordinators every class, a teacher only the class she holds as class
+ * teacher. Narrower than `classScopeFor` on purpose — a subject teacher sees
+ * the roll, notes and marks of a class she teaches, but its attendance is the
+ * class teacher's (owner's decision, 6 Nov 2026).
+ */
+export async function attendanceScopeFor(
+  staff: { id: string; role: StaffRole },
+  sessionLabel: string,
+): Promise<ClassScope> {
+  if (readsEveryClass(staff)) return EVERY_CLASS;
+  return ownClasses(await heldClassIds(staff.id, sessionLabel));
+}
+
 export type TodaySlot = {
   period: number;
   classId: string;

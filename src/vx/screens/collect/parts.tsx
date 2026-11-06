@@ -120,6 +120,12 @@ export function YearBar({ rows, pay = 0, takeLate, onDate, slim = false }: { row
   );
 }
 
+/** The late fee this share actually pays, walked the same way as allocText (0 when the late fee is not taken). */
+export function lateTaken(rows: readonly DeskLedgerRow[], amount: number, takeLate: boolean, onDate: string): number {
+  if (!amount || !takeLate) return 0;
+  return walkPayment(rows, amount, { paymentDate: onDate, today: onDate, waiveLate: false, authoritative: true }).lines.reduce((s, l) => s + l.lateFeePaid, 0);
+}
+
 /** "Inst 1 ✓ · Inst 2 ₹1,200 + late · leaves ₹6,400" for one child's share. */
 export function allocText(rows: readonly DeskLedgerRow[], amount: number, takeLate: boolean, onDate: string): Localized {
   if (!amount) return mc.allocNothing;

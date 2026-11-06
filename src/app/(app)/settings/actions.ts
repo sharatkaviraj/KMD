@@ -14,6 +14,7 @@ import { assertNotPreviewing } from "@/vx/view-as";
 import { p, type Pair } from "@/vx/text";
 import { changedFields, cleanProfile, EMPTY_PROFILE, PROFILE_PROBLEMS, profileProblems, type SchoolProfile } from "@/vx/screens/settings/domain/settings";
 import { assertSessionWritable } from "@/platform/auth/test-session-access";
+import { cleanParentSwitches, DEFAULT_PARENT_SWITCHES, PARENT_SWITCHES_KEY, type ParentSwitches } from "@/vx/screens/settings/domain/parent-switches";
 
 /*
  * Settings (design `Settings`). Every action: permission first, then
@@ -45,6 +46,27 @@ export async function saveProfileAction(input: unknown): Promise<SettingsResult>
   await admin.from("school_settings_history").insert({ key: "profile", before: row ? forHistory(before) : null, after: forHistory(after), changed_by: actor.id });
   revalidatePath("/settings");
   return { ok: true, message: p("School profile saved", "स्कूल प्रोफ़ाइल सहेजी गई") };
+}
+
+/**
+ * What One may queue for parents (owner, 6 Nov): the register's absent-child
+ * WhatsApp, "Tell parents" on a note, sharing a support plan and birthday
+ * wishes. Admin only, with a before/after row like the profile.
+ */
+export async function saveParentSwitchesAction(input: ParentSwitches): Promise<SettingsResult> {
+  const actor = await assertPermission("settings:manage");
+  await assertNotPreviewing();
+  const admin = createAdminClient();
+  const { data: row, error: readError } = await admin.from("school_settings").select("value").eq("key", PARENT_SWITCHES_KEY).maybeSingle<{ value: unknown }>();
+  if (readError) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया।") };
+  const before = row ? cleanParentSwitches(row.value) : DEFAULT_PARENT_SWITCHES;
+  const after = cleanParentSwitches(input);
+  const { error } = await admin.from("school_settings").upsert({ key: PARENT_SWITCHES_KEY, value: after, updated_by: actor.id, updated_at: new Date().toISOString() });
+  if (error) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया।") };
+  await admin.from("school_settings_history").insert({ key: PARENT_SWITCHES_KEY, before: row ? before : null, after, changed_by: actor.id });
+  revalidatePath("/settings");
+  revalidatePath("/teach", "layout");
+  return { ok: true, message: p("Parent messages saved", "अभिभावक संदेश सहेजे गए") };
 }
 
 const ALERT_KEYS = ["day_not_closed", "big_payment", "absent_teacher", "parent_reply"] as const;

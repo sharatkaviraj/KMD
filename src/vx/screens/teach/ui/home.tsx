@@ -769,7 +769,7 @@ export function TeachHome({
       why: tx(p(`Turns ${b.turning} today${b.rollNo ? ` · Roll ${b.rollNo}` : ""}`, `आज ${b.turning} साल${b.rollNo ? ` · रोल ${b.rollNo}` : ""}`)),
       done: b.wished || wishedNow.has(b.id) ? tx(p("Wishes sent to the parents", "माता-पिता को शुभकामना भेजी")) : null,
       acts:
-        b.wished || wishedNow.has(b.id)
+        b.wished || wishedNow.has(b.id) || data.birthdayWishes === false
           ? []
           : [
               <button key={`w${b.id}`} type="button" className="tap btn soft" style={{ height: 44 }} onClick={() => { setWishFor(b.id); setSheet("wish"); }}>

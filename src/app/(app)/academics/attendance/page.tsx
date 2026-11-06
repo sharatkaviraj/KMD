@@ -10,6 +10,9 @@ export const metadata: Metadata = { title: "Attendance" };
 
 /** AcadAttendance: today, month, below 75%, change requests, class register. */
 export default async function AttendancePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // School-wide attendance is for the office and the coordinators. A teacher
+  // holds attendance:view for her own class, and sees only that (owner, 6 Nov 2026).
+  await requirePermission("academics:view", "/academics/attendance");
   const staff = await requirePermission("attendance:view", "/academics/attendance");
   const sp = await searchParams;
   return (

@@ -1,4 +1,5 @@
 import "server-only";
+import { readParentSwitches } from "@/vx/screens/settings/parent-switches";
 import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
@@ -23,7 +24,7 @@ import {
   rosterOn,
   studentAttendance,
 } from "@/modules/attendance/data/attendance-repo";
-import { classScopeFor, dayHeaders, heldClassIds, ownClassIds, periodsOn } from "@/modules/attendance/data/teaching-repo";
+import { attendanceScopeFor, classScopeFor, dayHeaders, heldClassIds, ownClassIds, periodsOn } from "@/modules/attendance/data/teaching-repo";
 import { attendancePercent, compareRoll, registerAuthority, type AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { lessonsToday } from "@/modules/attendance/domain/today";
@@ -48,7 +49,7 @@ import { classTeacherOf } from "@/vx/screens/exams/guards";
 import { onRoll } from "@/vx/screens/exams/domain/tracker";
 import { p, type Pair } from "@/vx/text";
 
-import { alertWhen, attentionReasons, average, dayBefore, mergeCombinedSlots, monthEnd, tellApart, upcomingBirthdays, type AttentionReason, type Mark } from "./domain/teach";
+import { alertWhen, attentionReasons, average, dayBefore, mergeCombinedSlots, monthEnd, tellApart, upcomingBirthdays, withoutAttendance, type AttentionReason, type Mark } from "./domain/teach";
 import { closedTag, closedWhy, joinPairs, lastOpenDay, leaveForToday, openNotesP, profileClasses, remarksLeft, type CalendarEntry, type ClosedWhy, type MyCover } from "./domain/today";
 import { childBasics, staffNames } from "./students";
 
@@ -508,7 +509,7 @@ export async function loadHome(staff: CurrentStaff) {
   const recorded = Boolean(reg && reg.revision >= 1);
   const upcomingDays = nextSchoolDays(today, calendar, 3);
 
-  const [slots, nextSlots, upcoming, insights, totals, queue, linkSet, myNotes, leave, lastRegisters] = await Promise.all([
+  const [slots, nextSlots, upcoming, insights, totals, queue, linkSet, myNotes, leave, lastRegisters, parentSwitches] = await Promise.all([
     slotsOn(today, runsToday),
     slotsOn(next, runsNext).catch(() => []),
     Promise.all(upcomingDays.map((day) => myDutiesOn(staff.id, sessionLabel, day).then((list) => list.map((c) => ({ ...c, day })), () => []))).then((lists) => lists.flat()),
@@ -532,6 +533,7 @@ export async function loadHome(staff: CurrentStaff) {
     notesP,
     withCovers(staff.id, sessionLabel, leaveForToday(leaveRows, today)).catch(() => [] as LeaveItem[]),
     lastOpen && held.length ? registersForDay(sessionLabel, lastOpen).catch(() => []) : Promise.resolve([] as Awaited<ReturnType<typeof registersForDay>>),
+    myClassId ? readParentSwitches() : Promise.resolve(null),
   ]);
   const insight = insights[0] ?? null;
 
@@ -695,6 +697,8 @@ export async function loadHome(staff: CurrentStaff) {
     notices,
     kids,
     birthdays,
+    /** Settings → Parent messages: false hides "Send wishes". */
+    birthdayWishes: parentSwitches ? parentSwitches.birthday : false,
     followUpsDue,
     reviews,
     subjects,
@@ -740,7 +744,9 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
   const [labels, held, scope, calendar, now] = await Promise.all([
     classLabelMap(sessionLabel),
     heldClassIds(staff.id, sessionLabel),
-    classScopeFor(staff, sessionLabel),
+    // A class's register is its class teacher's: a subject teacher who teaches
+    // it does not read it (owner, 6 Nov 2026).
+    attendanceScopeFor(staff, sessionLabel),
     attendanceCalendar(sessionLabel),
     // The school clock (the lab clock for a test account), read before "closed" so Today and the register agree.
     schoolNow(staff),
@@ -795,9 +801,10 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
 
   // The month view. An asked-for month that is not "YYYY-MM" falls back to the day's.
   const month = input.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.month) ? input.month : day.slice(0, 7);
-  const [range, basics] = await Promise.all([
+  const [range, basics, parentSwitches] = await Promise.all([
     classAttendanceRange(classId, sessionLabel, `${month}-01`, monthEnd(month)),
     childBasics(roll.map((r) => r.studentId)),
+    readParentSwitches(),
   ]);
   const closedDays = [...calendar.entries()].filter(([d]) => d.startsWith(month)).filter(([d]) => !isSchoolOpen(d, calendar)).map(([d]) => d);
 
@@ -819,6 +826,8 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     correctsAny: can(staff, "attendance:correct"),
     onBehalf: authority.onBehalf,
     reason: authority.reason ?? null,
+    /** Settings → Parent messages: whether the absent-child WhatsApp is offered, and where its switch starts. */
+    parentAlerts: parentSwitches.absentAlert,
     roll: sorted.map((r) => {
       const dob = basics.get(r.studentId)?.dateOfBirth ?? null;
       return {
@@ -922,7 +931,12 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
     runs ? headersP : Promise.resolve([] as string[]),
     runs ? slotsP : Promise.resolve([]),
   ]);
-  const totals = reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
+  // Attendance on this page is the class teacher's (owner, 6 Nov 2026): a
+  // subject teacher opening a class she teaches sees its roll, notes and
+  // marks, not its register or anybody's attendance.
+  const seesAttendance = readsEveryClass(staff) || held.includes(classId);
+  const shown = seesAttendance ? insight : withoutAttendance(insight);
+  const totals = seesAttendance && reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
 
   // The class's own timetable today (every teacher's periods in it), when one is published and runs today.
   let timetable: { period: number; number: number; starts: string; ends: string; subjectName: string; teacher: string; mine: boolean }[] = [];
@@ -943,14 +957,15 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
     classLabel: labels.get(classId) ?? "—",
     isHeld: held.includes(classId),
     heldClasses: held.map((id) => ({ classId: id, classLabel: labels.get(id) ?? "—" })),
-    children: insight.children,
-    subjects: insight.subjects,
-    classAttendance: insight.classAttendance,
+    seesAttendance,
+    children: shown.children,
+    subjects: shown.subjects,
+    classAttendance: shown.classAttendance,
     todayRegister:
-      reg && reg.revision >= 1
+      seesAttendance && reg && reg.revision >= 1
         ? { present: Number(totals?.present ?? 0) + Number(totals?.late ?? 0), absent: Number(totals?.absent ?? 0), halfDay: Number(totals?.half_day ?? 0), total: Number(totals?.total ?? insight.children.length), savedAt: reg.submittedAt }
         : null,
-    birthdays: upcomingBirthdays(insight.children, today, 7).map((c) => ({ id: c.id, name: c.name, inDays: c.inDays, turning: c.turning, rollNo: c.rollNo })),
+    birthdays: upcomingBirthdays(shown.children, today, 7).map((c) => ({ id: c.id, name: c.name, inDays: c.inDays, turning: c.turning, rollNo: c.rollNo })),
     mySubjects: subjectCards,
     links: linkSet.links,
     timetable,
@@ -1002,7 +1017,10 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
     can(staff, "notes:view") ? notesForStudent(studentId).catch(() => [] as BoardNote[]) : Promise.resolve([] as BoardNote[]),
   ]);
   if (!card) return null;
-  const pct = attendancePercent(att.map((a) => a.status), rules);
+  const photoHeld = await heldClassIds(staff.id, sessionLabel);
+  // A child's attendance is for the class teacher and the office (owner, 6 Nov 2026).
+  const seesAttendance = readsEveryClass(staff) || photoHeld.includes(placement.classId);
+  const pct = attendancePercent(seesAttendance ? att.map((a) => a.status) : [], rules);
   const marks = papers.latest.map((paper) => {
     const m = papers.marks.get(`${paper.id}|${studentId}`) as { value: number | null; absent: boolean; exempt: boolean } | undefined;
     return {
@@ -1014,7 +1032,6 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
       pct: m && m.value !== null && paper.maxMarks ? Math.round((m.value / paper.maxMarks) * 100) : null,
     };
   });
-  const photoHeld = await heldClassIds(staff.id, sessionLabel);
   return {
     id: studentId,
     name: card.fullName,
@@ -1028,7 +1045,7 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
     motherName: card.motherName,
     phone: card.guardianPhone ?? card.primaryPhone,
     dateOfBirth: basics.get(studentId)?.dateOfBirth ?? null,
-    attendance: { percent: pct.percent, counted: pct.counted, present: pct.present, days: att.map((a) => ({ day: a.day, status: a.status as Mark })) },
+    attendance: { hidden: !seesAttendance, percent: pct.percent, counted: pct.counted, present: pct.present, days: seesAttendance ? att.map((a) => ({ day: a.day, status: a.status as Mark })) : [] },
     marks: marks.sort((a, b) => a.code.localeCompare(b.code)),
     notes,
   };

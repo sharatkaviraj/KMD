@@ -17,7 +17,7 @@ import {
   classLabelMap,
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
-import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
+import { attendanceScopeFor } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes, withinScope } from "@/modules/attendance/domain/class-scope";
 import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
@@ -88,7 +88,8 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
 
   const [labels, scope] = await Promise.all([
     classLabelMap(sessionLabel),
-    classScopeFor(staff, sessionLabel),
+    // The register is the class teacher's: a subject teacher does not read it (6 Nov 2026).
+    attendanceScopeFor(staff, sessionLabel),
   ]);
 
   /* ------------------------------------------------- nothing chosen */

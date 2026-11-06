@@ -16,6 +16,7 @@ const scene = vi.hoisted(() => ({
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/vx/screens/settings/parent-switches", () => ({ readParentSwitches: async () => ({ absentAlert: "ask_on", note: true, supportPlan: true, birthday: true }) }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: async () => scene.staff }));
 vi.mock("@/platform/auth/permissions", () => ({ can: () => true, readsEveryClass: () => false }));
 vi.mock("@/platform/config/school", () => ({ schoolProfile: { shortName: "QA School" } }));

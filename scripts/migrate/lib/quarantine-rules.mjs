@@ -120,6 +120,7 @@ export const TABLES = {
   team_supervision_rules: { bucket: "A", why: "supervision rules" },
   fee_reminder_rules: { bucket: "A", why: "fee reminder rules" },
   parent_message_policies: { bucket: "A", why: "parent message policy" },
+  parent_message_switches: { bucket: "A", why: "unused: built twice on 6 Nov, PR 227 keeps the switches in school_settings; drop when convenient" },
   staff_scopes: { bucket: "A", why: "staff scopes" },
   staff_profiles: { bucket: "A", why: "real teacher profiles promoted; every other profile is a test account" },
   // ---------------------------------------------------------------- K

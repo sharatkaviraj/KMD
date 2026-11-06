@@ -1,5 +1,7 @@
 "use server";
 
+import { allowsParentKind } from "@/vx/screens/settings/domain/parent-switches";
+import { readParentSwitches } from "@/vx/screens/settings/parent-switches";
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
@@ -102,13 +104,16 @@ async function saveRegisterVxUnsafe(actor: CurrentStaff, payloadJson: string, al
   let queued: number | undefined;
   let queueWarning: Pair | undefined;
   try {
+    // The admin's switch wins over the phone's (Settings → Parent messages).
+    // Off also stops what this register had already queued.
+    const allowed = allowsParentKind(await readParentSwitches(), "absent_alert");
     queued = await syncAbsentAlerts({
       registerId: result.receipt.registerId,
       classId: payload.classId,
       day: payload.day,
       sessionLabel,
       actorId: actor.id,
-      wanted: alerts,
+      wanted: alerts && allowed,
     });
   } catch {
     queueWarning = p("Attendance saved. The parent message queue could not be updated. Ask the office to review it.", "उपस्थिति सहेजी गई। अभिभावक संदेशों की कतार अपडेट नहीं हुई। ऑफ़िस से जाँच करने को कहें।");
@@ -417,6 +422,7 @@ export async function queueBirthdayWishVx(studentId: string): Promise<VxResult> 
   if (!sessionLabel) return fail("Not saved.", "सहेजा नहीं गया।");
   const [held, placement] = await Promise.all([heldClassIds(staff.id, sessionLabel), enrolmentForStudent(studentId, sessionLabel)]);
   if (!placement || !held.includes(placement.classId)) return fail("Only the class teacher sends birthday wishes.", "जन्मदिन की शुभकामना कक्षा अध्यापक भेजते हैं।");
+  if (!allowsParentKind(await readParentSwitches(), "birthday")) return fail("The admin has turned off birthday wishes to parents.", "प्रशासक ने अभिभावकों को जन्मदिन की शुभकामना बंद की है।");
   const today = schoolToday();
   const admin = createAdminClient();
   const { data: already } = await admin

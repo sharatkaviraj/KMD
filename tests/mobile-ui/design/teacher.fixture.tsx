@@ -82,6 +82,7 @@ function home(state: "home" | "later"): HomeData {
     ],
     kids: [{ id: id(114), name: "Om Regar", reasons: ["attendance"], attendancePct: 68, detail: "Absent Mon, Tue and Wed · 68% attendance this session" }],
     birthdays: [{ id: id(111), name: "Jiya Kothari", inDays: 0, turning: 11, rollNo: "11", wished: later }],
+    birthdayWishes: true,
     followUpsDue: 1,
     reviews: [{ id: id(601), studentId: id(119), studentName: "Riya Singh", subject: { en: "Riya Singh" }, body: "finds fractions hard · practice sheets started", followUpOn: "2026-10-12" }],
     subjects: [
@@ -152,6 +153,7 @@ function attend(saved: boolean): AttendData {
     saved: saved ? { [kidId(14)]: "absent", [kidId(19)]: "absent" } : {},
     yesterday: { [kidId(14)]: "absent", [kidId(19)]: "absent" },
     receipt: saved ? { savedAt: at("08:52"), actorName: NAME, revision: 1 } : null,
+    parentAlerts: "ask_on",
     queuedAlerts: saved ? [kidId(14), kidId(19)] : [],
     alertWhen: { en: "at 10 am", hi: "सुबह 10 बजे" },
     month: "2026-10",
@@ -229,6 +231,7 @@ function classData(): ClassData {
     classLabel: "Class 6",
     isHeld: true,
     heldClasses: [{ classId: C6, classLabel: "Class 6" }],
+    seesAttendance: true,
     children,
     subjects: [subj("English", 71, 31, 1), subj("Hindi", 74, 31, 2), subj("Maths", 62, 31, 3), subj("Science", 68, 31, 4), subj("Social Science", 70, 31, 5), subj("Sanskrit", 52, 18, 6)],
     classAttendance: 93,
@@ -271,7 +274,7 @@ function studentData(): StudentData {
     motherName: "Meena Kanwar",
     phone: "9000000327",
     dateOfBirth: "2015-03-14",
-    attendance: { percent: 91, counted: 33, present: 30, days: [...sep, ...days] },
+    attendance: { hidden: false, percent: 91, counted: 33, present: 30, days: [...sep, ...days] },
     marks: [
       { code: "English", label: "Half-yearly", value: 58, max: 80, absent: false, pct: 73 },
       { code: "Hindi", label: "Half-yearly", value: 61, max: 80, absent: false, pct: 76 },

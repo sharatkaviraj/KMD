@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
 
 import { requirePermission } from "@/platform/auth/current-staff";
-import { can } from "@/platform/auth/permissions";
+import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { resolveStart } from "@/platform/config/start";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
@@ -90,7 +90,7 @@ export default async function TodayPage() {
     can(staff, "attendance:correct")
       ? loadInbox(staff, sessionLabel, today, { refunds: moneyRequestsFor(staff, sessionLabel), nowMinutes: minutes })
       : Promise.resolve(null),
-    can(staff, "attendance:view") ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
+    can(staff, "attendance:view") && readsEveryClass(staff) ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
     feesToday,
   ]);
   const money = fees?.figures ?? null;

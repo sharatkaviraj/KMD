@@ -339,10 +339,13 @@ export function classLabelP(label: string): Pair {
  *
  * Whatever the teacher picks in the sheet stays picked (`chosen`).
  */
-export function alertsDefault(input: { mode: "mark" | "change"; isToday: boolean; queued: number; chosen?: boolean | null }): boolean {
+export function alertsDefault(input: { mode: "mark" | "change"; isToday: boolean; queued: number; chosen?: boolean | null; admin?: "off" | "ask_off" | "ask_on" }): boolean {
+  // The admin's Settings → Parent messages: "off" means no message at all,
+  // whatever the phone remembers; "ask_off" starts today's switch off.
+  if (input.admin === "off") return false;
   if (typeof input.chosen === "boolean") return input.chosen;
   if (input.mode === "change") return input.queued > 0;
-  return input.isToday;
+  return input.isToday && input.admin !== "ask_off";
 }
 
 /**
@@ -473,6 +476,19 @@ export function upcomingBirthdays<T extends { dateOfBirth: string | null }>(
 export type AttentionReason = "attendance" | "marks" | "notes";
 
 export const ATTENTION_RULES = { attendanceBelow: 75, minDays: 5, marksBelow: 33, openNotes: 2 } as const;
+
+/**
+ * A class insight with every attendance figure taken out, for a reader who
+ * may see the class but not its attendance — a subject teacher (owner, 6 Nov
+ * 2026: only the class teacher sees her class's attendance).
+ */
+export function withoutAttendance<C extends { attendancePct: number | null; daysCounted: number; presentDays: number; reasons: readonly AttentionReason[] }, T extends { children: readonly C[]; classAttendance: number | null }>(insight: T): T {
+  return {
+    ...insight,
+    classAttendance: null,
+    children: insight.children.map((c) => ({ ...c, attendancePct: null, daysCounted: 0, presentDays: 0, reasons: c.reasons.filter((r) => r !== "attendance") })),
+  };
+}
 
 /** Why a child is on "children who need you" (design TchClass; v_needs_attention). */
 export function attentionReasons(input: {

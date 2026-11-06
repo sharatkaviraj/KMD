@@ -1,5 +1,7 @@
 import "server-only";
 
+import { readParentSwitches } from "./parent-switches";
+import type { ParentSwitches } from "./domain/parent-switches";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { roleLabel, staffRoles } from "@/platform/auth/permissions";
 import { FEE_SCHEMA, getOptionalEnvVar, getSchoolName } from "@/platform/env";
@@ -58,6 +60,8 @@ export type SettingsData = {
   integrations: Integration[];
   /** The reader, for the phone top bar ("Name · Admin"). */
   me: { name: string; role: { en: string; hi: string } };
+  /** What One may queue for parents (Settings → Parent messages). */
+  parentSwitches?: ParentSwitches;
 };
 
 const BACKUP_BUCKET = "nightly-backups";
@@ -230,7 +234,7 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
   const nameByStaff = new Map(staff.map((s) => [s.id, s.displayName]));
   const nameByUser = new Map(staff.filter((s) => s.userId).map((s) => [s.userId as string, s.displayName]));
 
-  const [profileRow, prefsRow, sessions, activity, backups, archives, jobs, master, dispatchOn, templates, links] = await Promise.all([
+  const [profileRow, prefsRow, sessions, activity, backups, archives, jobs, master, dispatchOn, templates, links, parentSwitches] = await Promise.all([
     admin.from("school_settings").select("value, updated_by, updated_at").eq("key", "profile").maybeSingle<{ value: unknown; updated_by: string | null; updated_at: string }>(),
     admin.from("staff_ui_preferences").select("large_text, alerts").eq("staff_profile_id", me.id).maybeSingle<{ large_text: boolean; alerts: Record<string, boolean> | null }>(),
     listSessionLabels().catch(() => [] as string[]),
@@ -242,6 +246,7 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
     parentDispatchSwitch().catch(() => false),
     admin.from("message_templates").select("is_active").returns<{ is_active: boolean }[]>(),
     admin.from("collection_requests").select("id", { count: "exact", head: true }),
+    readParentSwitches(),
   ]);
 
   const fallback: SchoolProfile = {
@@ -314,5 +319,6 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
     master,
     integrations,
     me: { name: me.displayName, role: roleLabel(me.role) },
+    parentSwitches,
   };
 }

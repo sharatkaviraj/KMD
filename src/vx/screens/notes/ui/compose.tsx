@@ -384,7 +384,7 @@ export function useComposer(init: ComposerInit) {
           followOn: follow && when === "pick" ? followOnDate : null,
           followOwner: follow ? ownerKey : null,
           visibility,
-          tellParents: tellParents && visibility === "team",
+          tellParents: tellParents && visibility === "team" && init.viewer.parentNotes !== false,
         });
         if (res.ok && res.id) {
           writeDraft(init.viewer.id, null);
@@ -919,6 +919,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
               { value: "private", label: tx(p("Only me", "सिर्फ़ मैं")) },
             ]}
           />
+          {viewer.parentNotes === false ? null : (<>
           <button type="button" className="tap card nx-sw" role="switch" aria-checked={c.tellParents} onClick={c.toggleTell}>
             <Ic n="message" size={18} />
             <span className="nx-c" style={{ flex: 1 }}>
@@ -928,6 +929,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
             <span className={`sw${c.tellParents ? " on" : ""}`}><span /></span>
           </button>
           {c.tellParents && msg ? <WaBubble hi={msg.hi} en={msg.en} foot={tx(p("queued for the office when you save", "सहेजने पर कार्यालय की कतार में"))} /> : null}
+          </>)}
         </div>
       </div>
       <div className="glass nx-f nx-msave">
@@ -1199,6 +1201,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
             </span>
           </StepCard>
 
+          {viewer.parentNotes === false ? null : (
           <div className="card nx-c nt-cd">
             <button type="button" className="tap nx-f" role="switch" aria-checked={c.tellParents && c.visibility === "team"} onClick={c.toggleTell} style={{ gap: 12, width: "100%", padding: 0, border: 0, background: "transparent", color: "var(--fg)", textAlign: "left", opacity: c.visibility === "private" ? 0.5 : 1, font: "inherit" }}>
               <span className="nt-st">6</span>
@@ -1223,6 +1226,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
               <span className="nx-m" style={{ fontSize: 12 }}>{c.visibility === "private" ? tx(p("Not for “Only me” notes.", "“सिर्फ़ मैं” नोट के लिए नहीं।")) : tx(p("Off · parents are not told. Turn it on and, when you save, the office sends the parents a WhatsApp.", "बंद · माता-पिता को नहीं बताया जाएगा। चालू करेंगे तो सहेजने पर ऑफ़िस माता-पिता को व्हाट्सऐप भेजेगा।"))}</span>
             )}
           </div>
+          )}
         </div>
       </div>
       <div className="glass nt-sbar">
