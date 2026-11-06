@@ -1173,7 +1173,7 @@ function noticeLine(d: CoverDutyView): Pair {
   if (d.notice === "suppressed") return p(`${n} was not messaged (no WhatsApp number) · tell them in person`, `${n} को संदेश नहीं गया (WhatsApp नंबर नहीं) · ख़ुद बताएँ`);
   if (d.notice === "cancelled") return p(`${n} · notice cancelled`, `${n} · संदेश रद्द`);
   if (d.notice === "pending" || d.notice === "dispatching") return p(`${n} · WhatsApp notice queued`, `${n} · WhatsApp संदेश कतार में`);
-  if (d.notice) return p(`${n} · WhatsApp notice not confirmed · check with them`, `${n} · WhatsApp संदेश की पुष्टि नहीं · उनसे पूछ लें`);
+  if (d.notice) return p(`${n} · WhatsApp notice not confirmed · check with them`, `${n} · WhatsApp संदेश पहुँचा या नहीं, पता नहीं · उनसे पूछ लें`);
   return p(`${n} · no notice yet`, `${n} · अभी कोई संदेश नहीं`);
 }
 
