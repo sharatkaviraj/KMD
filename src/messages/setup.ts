@@ -1,5 +1,7 @@
 import { t } from "@/platform/i18n/language";
 
+import { taskAssignMessages } from "./task-assign";
+
 /**
  * The set-up catalogue: pairs for screens a handful of staff open — the
  * report scheme, the parent message policy, the attendance rules, wrong
@@ -10,6 +12,7 @@ import { t } from "@/platform/i18n/language";
  * this is not (D-229).
  */
 export const ms = {
+  ...taskAssignMessages,
   bridgeTitle: t("लाइव भुगतान डेस्क", "Live payment desk"),
   bridgeFinance: t("स्कूल के खाते", "School accounts"),
   bridgeReports: t("शुल्क रिपोर्ट और निर्यात", "Fee reports and exports"),
@@ -68,7 +71,6 @@ export const ms = {
   taskExistingOther: t("यह काम दूसरे शिक्षक को सौंपा गया है। Needs you से उसका आवंटन बदलें।", "This work already belongs to another teacher. Reassign it from Needs you."),
   taskRejected: t("बदलाव चाहिए", "Changes requested"),
   taskAcademicBlocked: t("इस काम के लिए वर्तमान विषय या कक्षा के जिम्मेदार शिक्षक को चुनें।", "Choose the teacher who currently owns this subject or class. Other teachers cannot save this work."),
-  taskAssign: t("काम सौंपें", "Assign work"),
   taskToAssign: t("सौंपना बाकी", "To assign"),
   taskRequest: t("शिक्षक से विवरण माँगें", "Request details from a teacher"),
   taskRequestMarks: t("विषय शिक्षक से अंक माँगें", "Request marks from subject teacher"),
@@ -87,10 +89,6 @@ export const ms = {
   taskRoute: t("बस मार्ग प्रभारी के अनुसार", "By route responsibility"),
   taskSubject: t("विषय शिक्षक के अनुसार", "By subject teacher"),
   taskFields: t("माँगी गई जानकारी", "Requested fields"),
-  taskMissing: t("अधूरी जानकारी छाँटें", "Filter missing details"),
-  taskMissingAny: t("अधूरी जानकारी…", "Missing details…"),
-  taskMissingTitle: t("अधूरी जानकारी", "Missing details"),
-  taskNoPhoto: t("फोटो नहीं", "No photo"),
   taskAll: t("सभी विद्यार्थी", "All students"),
   taskSelectAll: t("सभी मिलते विद्यार्थी चुनें", "Select all matching students"),
   taskSelected: t("चुने गए", "Selected"),
@@ -107,12 +105,6 @@ export const ms = {
   taskCopied: t("लिंक कॉपी हो गया", "Link copied"),
   taskRevoke: t("लिंक बंद करें", "Revoke link"),
   taskReassign: t("फिर सौंपें और पुराना लिंक बंद करें", "Reassign and revoke old link"),
-  taskUnavailable: t("शिक्षकों के काम अभी पढ़ नहीं सके। फिर प्रयास करें।", "Teacher tasks could not be read. Try again."),
-  taskTryAgain: t("फिर प्रयास करें", "Try again"),
-  taskUnmatched: t(
-    "कुछ बच्चे One में इस सत्र में दर्ज हैं पर Fees की मौजूदा सूची में नहीं हैं (छोड़ दिया, कक्षा बदली या रोका गया)। वे इस सूची में नहीं दिखेंगे। संख्या:",
-    "Some children are enrolled in One this session but not on the current Fees roster (left, moved class or held). They are left out of this list. Count:",
-  ),
   messagesProviderCheck: t("प्रदाता का परिणाम जाँचें", "Check provider result"),
   messagesProviderCheckHint: t("संदेश पहुँच सकता है। प्रदाता का डिलीवरी लॉग जाँचे बिना दोबारा न भेजें।", "This message may have arrived. Check the provider delivery log before sending again."),
   messagesProviderChecked: t("मैंने डिलीवरी लॉग जाँचा और संदेश पहुँचना सत्यापित किया।", "I checked the delivery log and verified that it arrived."),

@@ -1,7 +1,7 @@
 "use client";
 import { useImperativeHandle, useState, useTransition, type ReactNode, type Ref } from "react";
 import { taskAssignmentContextAction } from "@/app/(app)/teach/tasks/actions";
-import { ms } from "@/messages/setup";
+import { taskAssignMessages as ms } from "@/messages/task-assign";
 import type { Language } from "@/platform/i18n/language";
 import { lead } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";

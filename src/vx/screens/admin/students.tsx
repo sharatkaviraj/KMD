@@ -46,7 +46,7 @@ import { T } from "@/vx/screens/admin/text";
 
 import "./students.css";
 import { AssignmentLauncher, type AssignmentHandle } from "@/modules/teacher-tasks/ui/assignment-sheet";
-import { ms } from "@/messages/setup";
+import { taskAssignMessages as ms } from "@/messages/task-assign";
 
 /*
  * Students, as the design draws it: D01 on a desk (a sortable table, ticks and
