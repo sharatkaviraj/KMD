@@ -866,6 +866,13 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
   const insightP = classIdP.then((id) => (id ? classInsight(id, sessionLabel, staff, undefined, today) : null));
   const headersP = publishedP.then((pub) => (pub ? dayHeaders(pub.id).catch(() => [] as string[]) : ([] as string[])));
   const slotsP = publishedP.then((pub) => (pub ? listSlots(pub.id).catch(() => []) : []));
+  // These three start now and are awaited after the round below. If that round
+  // throws first, or one of them fails before it is awaited, the rejection has
+  // no handler, and Node ends the whole function instance with every request
+  // on it: a statement timeout in the class insight took /exam-office down with
+  // /teach/class (smoke test, 6 Nov 2026). Marking them handled changes nothing
+  // for the awaits that follow; they still see the error.
+  for (const early of [insightP, headersP, slotsP]) early.catch(() => {});
 
   const [labels, held, registers, subjects, published, assignedRes, linkSet, calendar, bells, classId, dayNames] = await Promise.all([
     labelsP,
