@@ -42,6 +42,15 @@ TEST–2026-27); the desktop TEST tab no longer covers the session pill;
 Session health offers "prepare missing dues" when only fee-less QA classes
 stood in the way. The Who-list "full year, no late fee" figures were TEST-D-
 shells with no installment rows (installments appear on a first payment).
+**PR 246 (night 6 Nov):** Session health's Reconcile for TEST-2026-27 now
+finishes: the fee write guard places `installments.id` (through its student)
+and `session_reconcile_log.id` (through its session), and the generator pages
+its student read, which PostgREST had cut at 1,000 of 1,137 children across
+both sessions. Run live 18:58 UTC: 519 active TEST children, 519 with dues;
+the 4 still missing are in classes with no fee setting (QA fixtures, "7 Z").
+The reconcile log no longer counts other years' children as needing
+attention. The same unpaged student read is in `veerpatta/schoolfees`
+(not changed from here).
 **Open:** QA fixture classes in pickers (needed by the harnesses), the admin's
 15 s of "Reversal asked" (not reproduced), load-only timeouts.
 

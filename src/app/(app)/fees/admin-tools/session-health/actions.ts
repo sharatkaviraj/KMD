@@ -55,7 +55,11 @@ export async function reconcileSessionAction(formData: FormData) {
       useAdminClient: true,
     });
     preparedCount = result.installmentsToInsert;
-    const attentionCount = result.skippedStudents.length + result.errors.length;
+    // The generator reads every session's students and reports the other
+    // years' children as SESSION_MISMATCH. They are not this session's
+    // problem: counting them made a clean TEST run log 517 "needing attention".
+    const attentionCount =
+      result.skippedStudents.filter((student) => student.reasonCode !== "SESSION_MISMATCH").length + result.errors.length;
     const { error: updateError } = await supabase
       .from("session_reconcile_log")
       .update({
