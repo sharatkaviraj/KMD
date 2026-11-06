@@ -254,7 +254,10 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   const pickCrumb = `${lead(p("Marks", "अंक"), lang)} · ${dueExam ? `${lead({ en: dueExam.labelEn, hi: dueExam.labelHi }, lang)} ` : ""}${sessionLabel}`;
 
   // Her no-login links live on More · Marks links, where she can open, share or make them.
-  return <TeacherPick cards={cards} remarks={remarksCards} due={due} crumb={pickCrumb} />;
+  // Exams are open but none of their papers is hers and she holds no class: the
+  // empty page says so instead of "when an exam opens" (smoke 6 Nov, teacher 20).
+  const noSubjects = openExams.length > 0 && mine.size === 0 && myClasses.length === 0;
+  return <TeacherPick cards={cards} remarks={remarksCards} due={due} crumb={pickCrumb} noSubjects={noSubjects} />;
 }
 
 /** "classId|subjectId" for each paper the timetable gives this person in an exam's session. */

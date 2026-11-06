@@ -97,11 +97,14 @@ export function TeacherPick({
   remarks,
   due,
   crumb,
+  noSubjects = false,
 }: {
   cards: PickCard[];
   remarks: RemarksCard[];
   due: { label: string; daysLeft: number | null; results: string | null; resultsPast?: boolean } | null;
   crumb: string;
+  /** Exams are open, but no paper is hers: she has no subjects yet. */
+  noSubjects?: boolean;
 }) {
   const { tx, sub } = useVx();
   const [help, setHelp] = useState(false);
@@ -139,7 +142,7 @@ export function TeacherPick({
             <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
               <span className="tc-av" style={{ width: 64, height: 64, background: "var(--s2)", color: "var(--mut)" }}><Ic n="clipboard" size={28} /></span>
               <span className="tc-h2">{tx(p("Nothing to fill right now", "अभी भरने को कुछ नहीं"))}</span>
-              <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("When an exam is open for marks, your class-subjects appear here.", "जब कोई परीक्षा अंकों के लिए खुलेगी, आपकी कक्षा-विषय यहाँ दिखेंगे।"))}</span>
+              <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(noSubjects ? p("No subjects are in your name yet, so there are no marks to enter. The office adds you to the timetable.", "आपके नाम पर अभी कोई विषय नहीं, इसलिए भरने को अंक नहीं हैं। ऑफ़िस आपको समय-सारणी में जोड़ेगा।") : p("When an exam is open for marks, your class-subjects appear here.", "जब कोई परीक्षा अंकों के लिए खुलेगी, आपकी कक्षा-विषय यहाँ दिखेंगे।"))}</span>
             </div>
           ) : null}
           <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>

@@ -7,6 +7,9 @@ import {
   setKeyboardOffset,
 } from "@/ui/system/keyboard-offset-store";
 
+/** Below this the "keyboard" is a browser toolbar or a zoom remainder, not a keyboard. */
+const KEYBOARD_MIN_PX = 120;
+
 /**
  * Publishes the on-screen keyboard height as `--keyboard-offset` on <html>.
  *
@@ -51,6 +54,8 @@ export function KeyboardOffsetProvider() {
 
       published = next;
       document.documentElement.style.setProperty("--keyboard-offset", `${next}px`);
+      // A real keyboard, not a toolbar or rounding: the tab bar steps aside (vx.css).
+      document.documentElement.toggleAttribute("data-kb", next > KEYBOARD_MIN_PX);
       setKeyboardOffset(next);
     }
 
@@ -72,6 +77,7 @@ export function KeyboardOffsetProvider() {
       viewport.removeEventListener("resize", schedule);
       viewport.removeEventListener("scroll", schedule);
       document.documentElement.style.removeProperty("--keyboard-offset");
+      document.documentElement.removeAttribute("data-kb");
       setKeyboardOffset(0);
     };
   }, []);

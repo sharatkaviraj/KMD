@@ -717,7 +717,7 @@ export function TeachNoteDetail({
           {conversation.map((r) => (
             <Bubble key={r.id} teacher who={r.writtenBy === viewer.id ? `${r.writtenByName} (${tx(p("you", "आप"))})` : r.writtenByName} when={replyWhen(r.createdAt)} text={r.body} mine={r.writtenBy === viewer.id} />
           ))}
-          {conversation.length === 0 ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("No replies yet. The coordinator and class teacher can reply here.", "अभी कोई जवाब नहीं। समन्वयक और कक्षा अध्यापक यहाँ जवाब दे सकते हैं।"))}</span> : null}
+          {conversation.length === 0 ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(isSensitiveNote(note) ? p("No replies yet. The admin and class teacher can reply here.", "अभी कोई जवाब नहीं। प्रशासक और कक्षा अध्यापक यहाँ जवाब दे सकते हैं।") : p("No replies yet. The coordinator and class teacher can reply here.", "अभी कोई जवाब नहीं। समन्वयक और कक्षा अध्यापक यहाँ जवाब दे सकते हैं।"))}</span> : null}
           {reply.listening ? (
             <div className="nx-f nt-ani" style={{ gap: 5, height: 28, padding: "0 4px" }}>
               {[0.5, 0.9, 0.6, 1, 0.7].map((h, i) => <span key={i} className="nt-wv" style={{ height: Math.round(h * 26), animationDelay: `${i * 120}ms` }} />)}

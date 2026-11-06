@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/ui/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
@@ -188,6 +188,13 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   const home = studentId ? `${base}?student=${studentId}` : base;
   const at = (param: string) => (studentId ? `${base}?student=${studentId}&${param}` : `${base}?${param}`);
   const [adding, setAdding] = useState(props.initialSheet === "add");
+  // A tab or link that drops `?sheet=add` closes the form (smoke 6 Nov, teacher 16).
+  const sheetParam = useSearchParams()?.get("sheet") ?? null;
+  const [lastSheet, setLastSheet] = useState(sheetParam);
+  if (lastSheet !== sheetParam) {
+    setLastSheet(sheetParam);
+    if (lastSheet === "add" && sheetParam !== "add" && adding) setAdding(false);
+  }
   const [help, setHelp] = useState(false);
   const [tab, setTabState] = useState<BoardTab>(props.tab);
   const [classId, setClassId] = useState("");

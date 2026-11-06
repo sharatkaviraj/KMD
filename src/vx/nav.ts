@@ -288,6 +288,11 @@ export function activeKey(groups: NavGroup[], pathname: string): string | null {
     const match = h === "/" ? pathname === "/" : pathname === h || pathname.startsWith(`${h}/`);
     if (match && (!best || h.length > best.len)) best = { key: item.key, len: h.length };
   }
+  // A teacher's screen under Today with no item of its own (My tasks) lights
+  // "Notices, links & leave", her catch-all, as the phone bar does (smoke 6 Nov, teacher 20).
+  const items = groups.flatMap((g) => g.items);
+  const home = best ? items.find((i) => i.key === best!.key) : undefined;
+  if (best?.key === "home" && home && pathname !== home.href && items.some((i) => i.key === "more")) return "more";
   return best?.key ?? null;
 }
 

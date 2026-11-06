@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/ui/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
@@ -151,6 +151,18 @@ export function TeachNotes(props: NotesProps) {
   const people = props.people ?? { classTeachers: {}, coordinator: null, admin: null };
   const [adding, setAdding] = useState(props.initialSheet === "add");
   const [savedId, setSavedId] = useState<string | null>(props.initialSheet === "add" && props.initialStep === "saved" ? (props.savedId ?? null) : null);
+  // The Notes tab while the form is open (smoke 6 Nov, teacher 16): the link
+  // drops `?sheet=add` but this component stays mounted, so the form stayed.
+  // When the URL loses the sheet, the form closes; its draft stays kept.
+  const sheetParam = useSearchParams()?.get("sheet") ?? null;
+  const [lastSheet, setLastSheet] = useState(sheetParam);
+  if (lastSheet !== sheetParam) {
+    setLastSheet(sheetParam);
+    if (lastSheet === "add" && sheetParam !== "add" && adding) {
+      setAdding(false);
+      setSavedId(null);
+    }
+  }
   const [help, setHelp] = useState(false);
   const [ftag, setFtag] = useState<NoteTag | "all">("all");
   const [fcls, setFcls] = useState<string>("all");
