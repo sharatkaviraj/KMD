@@ -51,10 +51,17 @@ jobs:
       - name: Ported imports
         run: npm run check:port
 
-      # Skips with a message when the School Fees checkout is absent, which
-      # on a CI runner it always is. Kept in the pipeline anyway so the step
-      # exists the day somebody checks both repos out — a gate people only
-      # run locally is a gate that stops being run.
+      # docs/maps/repo-map.md is generated from the tracked tree so agents can
+      # trust it; this fails when a PR adds or moves a folder without
+      # regenerating it (`npm run docs:map`).
+      - name: Repo map is current
+        run: npm run docs:map:check
+
+      # NOT RUN on CI: the School Fees repo is private and this job's token
+      # cannot check it out. The script says so with a warning annotation and
+      # a step-summary line instead of a silent pass, so a green job is never
+      # read as "parity verified". Reproduce locally with
+      # `SCHOOLFEES_REPO=../schoolfees npm run check:theme -- --require`.
       - name: Theme parity
         run: npm run check:theme
 

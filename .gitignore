@@ -64,3 +64,4 @@ smoke-kit-*.json
 
 # Smoke Lab run working files (kit holds passes)
 .smoke-run/
+!.env.example
