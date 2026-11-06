@@ -14,7 +14,7 @@ import { editNoteAction, replyToNoteAction, setFollowUpAction, setNoteStatusActi
 import type { NoteReply, NotesPeople, SupportPlan } from "../data";
 import { shortDayHi } from "@/vx/format";
 
-import { canEditNote, EDIT_DAYS, followUpDate, knownPair, noteStage, parentNoteMessage, planProgress, STATUS_ORDER, TAG_TEXT, type BoardNote, type FollowOwner, type NoteStatus } from "../domain/notes";
+import { canEditNote, EDIT_DAYS, followUpDate, isSensitiveNote, knownPair, noteStage, parentNoteMessage, planProgress, STATUS_ORDER, TAG_TEXT, type BoardNote, type FollowOwner, type NoteStatus } from "../domain/notes";
 import { COST } from "./compose";
 import { BOARD_TAG, day, nameTone, noteWhen, time, relationText, TEACH_TAG, useBoth, useNoteWords, WaBubble } from "./look";
 import { canWork, type ClientViewer } from "./parts";
@@ -589,7 +589,15 @@ export function TeachNoteDetail({
     note.needsFollowUp && note.followUpOn
       ? { icon: "calendar", t: p(`Follow up ${day(note.followUpOn)}${who ? ` · ${who}` : ""}`, `फिर देखना ${shortDayHi(note.followUpOn)}${who ? ` · ${who}` : ""}`) }
       : { icon: "notePen", t: p("Just noting · no reminder", "सिर्फ़ नोट · कोई याद नहीं") },
-    note.visibility === "private" ? { icon: "eyeOff", t: p("Only you can see this", "सिर्फ़ आप देख सकते हैं") } : { icon: "eye", t: p("Teachers & office can see this", "शिक्षक व कार्यालय देख सकते हैं") },
+    // The same three audiences `canSeeNote` enforces. A health or family note
+    // said "Teachers & office" here while the composer and the saved screen
+    // said "only the admin and the class teacher", which is the rule (D-264;
+    // 6 Nov school day).
+    note.visibility === "private"
+      ? { icon: "eyeOff", t: p("Only you can see this", "सिर्फ़ आप देख सकते हैं") }
+      : isSensitiveNote(note)
+        ? { icon: "eyeOff", t: p("Only the admin and the class teacher can see this", "सिर्फ़ प्रशासक और कक्षा अध्यापक देख सकते हैं") }
+        : { icon: "eye", t: p("The child's teachers, coordinators and the office can see this", "बच्चे के अध्यापक, समन्वयक और कार्यालय देख सकते हैं") },
   ];
   if (note.authorRelation === "subject_teacher" && note.visibility === "team") {
     const held = note.classId !== null && viewer.heldClassIds.includes(note.classId);

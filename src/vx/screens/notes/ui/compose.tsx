@@ -55,7 +55,35 @@ type Lang = "hi-IN" | "en-IN";
 const SPEAK = p("Tap and speak", "बोलकर लिखें");
 const DRAFT_KEY = (viewer: string) => `vx.notes.draft.${viewer}`;
 
-type Draft = { studentId: string; body: string; tags: NoteTag[]; voice: boolean; at: number };
+/**
+ * What a stored draft keeps. `requestId` is the draft's one id, sent with every
+ * save of it, so saving a draft whose first save did land returns that note
+ * instead of filing a twin (20261106123000). The follow-up and audience came
+ * back as "Just noting" / team after a reload before (6 Nov school day); they
+ * are optional so drafts stored before them still restore.
+ */
+type Draft = {
+  studentId: string;
+  body: string;
+  tags: NoteTag[];
+  voice: boolean;
+  at: number;
+  requestId?: string;
+  follow?: boolean;
+  when?: FollowChoice;
+  followOn?: string;
+  owner?: FollowOwner | null;
+  visibility?: Visibility;
+};
+
+/** A fresh id for one draft; empty where the browser has no crypto (the save then runs without one). */
+function newRequestId(): string {
+  try {
+    return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "";
+  } catch {
+    return "";
+  }
+}
 
 function readDraft(viewer: string): Draft | null {
   try {
@@ -127,6 +155,8 @@ export function useComposer(init: ComposerInit) {
   // The server's refusal of the last save, kept apart from "pick a child" and the like (U01).
   const [refused, setRefused] = useState<Pair | null>(null);
   const [draftAt, setDraftAt] = useState<number | null>(null);
+  // One id per draft, kept across every save of it (see Draft).
+  const [requestId, setRequestId] = useState<string>("");
   const [heard, setHeard] = useState("");
   const [append, setAppend] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -155,6 +185,12 @@ export function useComposer(init: ComposerInit) {
     setVoice(d.voice);
     setMode("type");
     setDraftAt(d.at);
+    if (d.requestId) setRequestId(d.requestId);
+    if (typeof d.follow === "boolean") setFollow(d.follow);
+    if (d.when) setWhen(d.when);
+    if (typeof d.followOn === "string") setFollowOn(d.followOn);
+    if (d.owner !== undefined) setOwner(d.owner);
+    if (d.visibility === "team" || d.visibility === "private") setVisibility(d.visibility);
     return true;
   };
   useEffect(() => {
@@ -170,11 +206,13 @@ export function useComposer(init: ComposerInit) {
     const t = window.setTimeout(() => {
       if (!body.trim() || !studentId) return;
       const at = Date.now();
-      writeDraft(init.viewer.id, { studentId, body, tags, voice, at });
+      const id = requestId || newRequestId();
+      if (id !== requestId) setRequestId(id);
+      writeDraft(init.viewer.id, { studentId, body, tags, voice, at, requestId: id || undefined, follow, when, followOn, owner, visibility });
       setDraftAt(at);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [body, studentId, tags, voice, step, init.viewer.id]);
+  }, [body, studentId, tags, voice, step, init.viewer.id, requestId, follow, when, followOn, owner, visibility]);
 
   // The listening clock.
   useEffect(() => {
@@ -303,6 +341,7 @@ export function useComposer(init: ComposerInit) {
     setSaveUncertain(false);
     setRefused(null);
     setDraftAt(null);
+    setRequestId("");
   };
 
   // What is checked here is checked before the transition starts, so "Saving…" only ever
@@ -329,9 +368,13 @@ export function useComposer(init: ComposerInit) {
       setError(p("You are offline. This note has not been saved. Reconnect and tap Save note.", "आप ऑफलाइन हैं। यह नोट सेव नहीं हुआ है। इंटरनेट आने पर नोट सेव करें दबाएँ।"));
       return;
     }
+    // The draft's id, made now if the draft was never stored (a quick save).
+    const id = requestId || newRequestId();
+    if (id !== requestId) setRequestId(id);
     start(async () => {
       try {
         const res = await createNoteAction({
+          requestId: id || null,
           studentId: child.id,
           body,
           tags,

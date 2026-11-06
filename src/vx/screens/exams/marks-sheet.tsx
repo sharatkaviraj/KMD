@@ -1528,6 +1528,13 @@ export function MarksSheet({
           {retry}
           {entryStatus === "submitted" && !correcting ? (
             <Btn variant="sec" onClick={() => setPhase("sent")}>{tx(p("Sent", "भेजा"))} ✓</Btn>
+          ) : !correcting && students.length === 0 ? (
+            // Nothing to check and nothing to send: a paper with no children
+            // offered "Check & send" and its check said "every child has a
+            // mark" (6 Nov school day). Say what is wrong and who can fix it.
+            <span role="note" style={{ flex: "1 1 220px", fontSize: 14, fontWeight: 600, color: "var(--warnfg)" }}>
+              {tx(p("No children are on this paper yet. Tell the exam office.", "इस पेपर पर अभी कोई बच्चा नहीं है। परीक्षा प्रभारी को बताएँ।"))}
+            </span>
           ) : !correcting ? (
             <Btn variant="pri" big icon="checkCircle" disabled={!editable || busy} onClick={() => { void flush(); setPhase("check"); }}>
               {two(p("Check & send", "जाँचें और भेजें"))}

@@ -109,6 +109,8 @@ type Row = {
   sub: string;
   icon: IconName;
   classId: string | null;
+  /** Where tapping the period goes: her subject in that class, or her own class. */
+  href?: string;
   coverId?: string;
   acknowledged?: boolean;
   note?: string;
@@ -221,9 +223,17 @@ export function TeachHome({
     });
 
   /* --------------------------------------------------------- the day */
+  // A subject teacher's period opens her subject in that class (marks, children),
+  // not the class teacher's "My class" page (20-teacher school day, 6 Nov).
+  const periodHref = (per: (typeof data.periods)[number]) => {
+    if (!per.classId) return undefined;
+    if (per.classId === data.myClass?.classId) return `/teach/class?class=${per.classId}`;
+    const s = data.subjects.find((x) => x.classId === per.classId && x.name === per.subjectName);
+    return s ? `/teach/class?subject=${s.classId}.${s.subjectId}` : `/teach/class?class=${per.classId}`;
+  };
   const rows: Row[] = [];
   for (const per of data.periods) {
-    rows.push({ key: `p${per.period}-${per.subjectCode}`, period: per.period, number: per.number, starts: per.starts, ends: per.ends, kind: "cls", title: tx(p(`${per.classLabel} · ${per.subjectName}`, `${per.combined ? (combinedClasses(per.classLabel).hi ?? per.classLabel) : (classWord(per.classLabel).hi ?? per.classLabel)} · ${per.subjectHi}`)), sub: [`${hm12(per.starts)} – ${hm12(per.ends)}`, per.classId && per.classId === data.myClass?.classId ? tx(p("my class", "मेरी कक्षा")) : null, per.combined ? tx(p("combined", "संयुक्त")) : null].filter(Boolean).join(" · "), icon: subjectIcon(per.subjectName), classId: per.classId });
+    rows.push({ key: `p${per.period}-${per.subjectCode}`, period: per.period, number: per.number, starts: per.starts, ends: per.ends, kind: "cls", title: tx(p(`${per.classLabel} · ${per.subjectName}`, `${per.combined ? (combinedClasses(per.classLabel).hi ?? per.classLabel) : (classWord(per.classLabel).hi ?? per.classLabel)} · ${per.subjectHi}`)), sub: [`${hm12(per.starts)} – ${hm12(per.ends)}`, per.classId && per.classId === data.myClass?.classId ? tx(p("my class", "मेरी कक्षा")) : null, per.combined ? tx(p("combined", "संयुक्त")) : null].filter(Boolean).join(" · "), icon: subjectIcon(per.subjectName), classId: per.classId, href: periodHref(per) });
   }
   for (const c of data.covers) {
     rows.push({ key: `c${c.id}`, period: c.period, number: c.number, starts: c.starts, ends: c.ends, kind: "sub", title: tx(coverWhat(c)), sub: tx(p(`Substitution · for ${c.forName}`, `सब्स्टिट्यूशन · ${c.forName} की जगह`)), icon: "swap", classId: null, coverId: c.id, acknowledged: c.acknowledged, note: c.reason ? tx(p(`${c.forName} is away. Note: ${c.reason}`, `${c.forName} आज नहीं हैं। नोट: ${c.reason}`)) : tx(p(`${c.forName} is away today.`, `${c.forName} आज नहीं हैं।`)) });
@@ -317,7 +327,10 @@ export function TeachHome({
     </div>
   ) : null;
   // No class of her own: say why plainly, and who to ask (smoke 20 Oct).
-  const noClassHero = !data.myClass ? (
+  // A subject teacher who has periods gets one line inside "My periods today"
+  // instead of a whole card above it: on a phone that card pushed her periods
+  // below the first screen (20-teacher school day, 6 Nov).
+  const noClassHero = !data.myClass && (data.unassigned || data.closed || !data.periods.length) ? (
     <div className="card rise" style={{ order: 1, padding: 22, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
         <span className="tc-ib" style={{ width: 56, height: 56, borderRadius: 16, background: "var(--s2)", color: "var(--acc)" }}><Ic n="users" size={26} /></span>
@@ -594,12 +607,19 @@ export function TeachHome({
 
   /* -------------------------------------------------------- periods */
   const pillText = allOver ? tx(p(`All ${rows.length} periods over`, `सभी ${rows.length} पीरियड पूरे`)) : [tx(p(`${classCount} ${classCount === 1 ? "class" : "classes"}`, `${classCount} कक्षाएँ`)), coverCount ? tx(p(`${coverCount} cover`, `${coverCount} सब्स्टिट्यूशन`)) : null, freeCount ? tx(p(`${freeCount} free`, `${freeCount} खाली`)) : null].filter(Boolean).join(" · ");
+  const subjectOnly = !data.myClass && !noClassHero;
   const periods = (
-    <div className="card tc-card" style={{ order: 4, animationDelay: "120ms" }}>
+    <div className="card tc-card" style={{ order: subjectOnly ? 1 : 4, animationDelay: "120ms" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <CardTitle t={p("My periods today", "आज मेरे पीरियड")} />
         {rows.length ? <span className="pill num" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s2)", color: "var(--mut)" }}>{pillText}</span> : null}
       </div>
+      {subjectOnly ? (
+        <span className="tc-s" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Ic n="info" size={16} />
+          {tx(p("Class teachers take attendance, not you.", "हाज़िरी कक्षा अध्यापक लेते हैं, आप नहीं।"))}
+        </span>
+      ) : null}
       {!data.published ? (
         <span className="tc-s" style={{ padding: "8px 0" }}>{tx(p("The timetable is not published yet.", "समय-सारणी अभी प्रकाशित नहीं।"))}</span>
       ) : rows.length === 0 ? (
@@ -651,8 +671,8 @@ export function TeachHome({
                   <span style={{ position: "relative", marginTop: 19, width: 12, height: 12, borderRadius: 6, background: dot, boxShadow: "0 0 0 3px var(--card)", animation: now ? "xPulse 2s ease infinite" : "none" }} />
                 </span>
                 <div className="tc-tlc" style={{ background: bg, border: bd, opacity: done && !isSub ? 0.62 : 1 }}>
-                  {r.kind === "cls" && r.classId ? (
-                    <Link href={`/teach/class?class=${r.classId}`} style={{ color: "inherit" }}>{body}</Link>
+                  {r.kind === "cls" && r.href ? (
+                    <Link href={r.href} style={{ color: "inherit" }}>{body}</Link>
                   ) : (
                     body
                   )}
