@@ -41,6 +41,7 @@ import { PreviewBanner } from "./preview-banner";
 import { SessionBar } from "./session-bar";
 import { menuRoleLabel, ROLE_SUB } from "./role-line";
 import { VxSidebar, type Badges } from "./sidebar";
+import { sessionText } from "@/platform/helpers/session-text";
 
 const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", exam: "award" } as const;
 
@@ -167,7 +168,7 @@ export async function VxShell({
 
   // A rehearsal session says so on the role line, which is where the session is named now.
   const testMark = sessionIsTest && !/test/i.test(sessionLabel) ? " · test" : "";
-  const roleLine = `${menuRoleLabel(menu, staff.role, previewing).en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}${testMark}` : ""}`;
+  const roleLine = `${menuRoleLabel(menu, staff.role, previewing).en}${sessionLabel ? ` · ${sessionText(sessionLabel)}${testMark}` : ""}`;
   const settings = can(staff, "settings:manage");
   const me = {
     photo: portrait.get(staff.id) ?? null,

@@ -29,6 +29,7 @@ import "./student360.css";
 import { ChildSummary } from "@/vx/assist/summary-assist";
 import type { BridgeWorkspace } from "@/platform/fees-bridge/student-read-contracts";
 import { SourceFamilyHistory, SourceFeeDetails, SourceHousehold, SourcePages, SourceStudentInfo } from "./student360-source";
+import { sessionText } from "@/platform/helpers/session-text";
 
 const CertificateTools = dynamic(() => import("@/vx/screens/school-office/student-certificates").then((mod) => mod.StudentCertificateTools), { ssr: false });
 
@@ -431,7 +432,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   const names = rowNames(rows, tx);
   const feesCardPhone = !seesMoney || feesUnavailable ? null : feesLoading ? loadingCard : money ? (
     <button type="button" className="tap card s360-card s360-m-only" onClick={pick("fees")}>
-      <span className="s360-card-h"><span>{p.feeSession ? tx(T.feesFor(p.feeSession.replace("-", "–"))) : tx(T.tabFees)}</span><span style={{ fontSize: 13, fontWeight: 600, color: "var(--acc)" }}>{tx(T.ledger)}</span></span>
+      <span className="s360-card-h"><span>{p.feeSession ? tx(T.feesFor(sessionText(p.feeSession))) : tx(T.tabFees)}</span><span style={{ fontSize: 13, fontWeight: 600, color: "var(--acc)" }}>{tx(T.ledger)}</span></span>
       {rows.length ? (
         <span style={{ display: "grid", gridTemplateColumns: `repeat(${rows.length}, minmax(0,1fr))`, gap: 6, width: "100%" }}>
           {rows.map((row, i) => {

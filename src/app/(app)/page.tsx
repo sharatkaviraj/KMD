@@ -26,6 +26,7 @@ import { getBridgeTodaySummary } from "@/platform/fees-bridge/client";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { LedgerNotice } from "@/vx/shell/ledger-notice";
+import { sessionText } from "@/platform/helpers/session-text";
 
 export const runtime = "nodejs";
 
@@ -125,7 +126,7 @@ export default async function TodayPage() {
     tone: q.tone,
   }));
   const credit = board?.halfDayCredit ?? 0.5;
-  const session = sessionLabel.replace("-", "–");
+  const session = sessionText(sessionLabel);
 
   return (
     <VxPage label={lead(T.today, language)}>

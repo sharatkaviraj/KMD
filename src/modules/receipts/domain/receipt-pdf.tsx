@@ -72,9 +72,12 @@ const L = {
   paidFor: { en: "What this receipt paid", hi: "इस रसीद से भुगतान" },
   installment: { en: "Installment", hi: "किस्त" },
   dueDate: { en: "Due date", hi: "देय तिथि" },
-  pendingBefore: { en: "Pending before", hi: "पहले बकाया" },
+  // Owed, not "pending": the posting stores the installment's fees AND its late
+  // fee when one was charged, and "pending" means fees only (glossary).
+  pendingBefore: { en: "Owed before", hi: "पहले देय" },
   paid: { en: "Paid", hi: "जमा" },
-  pendingAfter: { en: "Balance after", hi: "शेष" },
+  pendingAfter: { en: "Owed after", hi: "बाद में देय" },
+  owedNote: { en: "Owed before and after: this installment's fees and its late fee, if one was charged.", hi: "पहले और बाद में देय: इस किस्त का शुल्क और विलंब शुल्क, यदि लगा हो।" },
   total: { en: "Total", hi: "कुल" },
   yearAtGlance: { en: "Year at a glance", hi: "वर्ष का सारांश" },
   totalExpected: { en: "Total expected this year", hi: "इस वर्ष कुल अपेक्षित" },
@@ -479,6 +482,12 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
             {inr(Math.max(receipt.outstandingAfterReceipt, 0))}
           </Text>
         </View>
+
+        {rows.some((row) => row.pendingBefore !== null || row.pendingAfter !== null) ? (
+          <Text style={{ fontSize: 6.5, color: pdfTokens.muted, marginTop: 3 }}>
+            {`${L.owedNote.en} ${L.owedNote.hi}`}
+          </Text>
+        ) : null}
 
         {receipt.discountAmount > 0 || receipt.lateFeeAmount > 0 || receipt.lateFeeWaived > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 6, gap: 10 }}>

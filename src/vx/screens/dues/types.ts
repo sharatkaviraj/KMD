@@ -52,6 +52,8 @@ export type DuesProps = {
   metrics: {
     pendingToday: number;
     students: number;
+    /** Of `students`, those who have left (they are also on the Left owing tab). */
+    leftStudents: number;
     notDueYet: number;
     promisesToday: number;
     promisesKeptToday: number;

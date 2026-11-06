@@ -56,7 +56,7 @@ import { PayCard, type PayEffect, type PaySub } from "./cards/pay";
 import { SealedCard, type SealedView } from "./cards/sealed";
 import { WhoCard, type Found } from "./cards/who";
 import { flyChip, shake, slideIn, slideOut, stamp } from "./motion";
-import { allocText, CardShell, firstName, Icon, lateTaken, useOverflowCheck, YearBar } from "./parts";
+import { allocText, CardShell, firstName, Icon, lateTaken, slipInstallmentName, useOverflowCheck, YearBar } from "./parts";
 import { Seal } from "./seal";
 import { Bi, dayMonth, fill, money, useCx } from "./text";
 
@@ -296,6 +296,10 @@ function CollectApp(props: CollectProps) {
 
   // ── Money, derived ──
   const members = famShown.map((id) => okDues(dues[id])).filter((d): d is CollectDues => d !== null);
+  // A ticked child whose dues are still loading is not in `members` yet, so the
+  // amount and the ticket would count two children and later flip to three
+  // (day run, 6 Nov 2026). Hold the money cards until every ticked child is in.
+  const famLoading = famShown.some((id) => okDues(dues[id]) === null && dues[id]?.status !== "error");
   const family = members.length > 1;
   const choice: "waive" | "collect" = late.choice ?? (info.canWaive ? "waive" : "collect");
   const takesLate = (d: CollectDues) => d.onPlan || !info.canWaive || choice === "collect";
@@ -304,7 +308,7 @@ function CollectApp(props: CollectProps) {
   const total = isManual ? Object.entries(manual).filter(([id]) => famShown.includes(id)).reduce((s, [, v]) => s + v, 0) : Number(amount || 0);
   const shares = family ? splitFamily(children, total, rule, manual) : [total];
   const maxAll = familyMax(children, today);
-  const amountOk = members.length > 0 && (family ? familyAmountOk(children, total, rule, shares, today) : total > 0 && total <= maxAll);
+  const amountOk = !famLoading && members.length > 0 && (family ? familyAmountOk(children, total, rule, shares, today) : total > 0 && total <= maxAll);
   const familyLate = members.reduce((s, d) => s + (d.onPlan ? 0 : childTotals({ id: d.student.id, rows: d.rows, takeLate: true }, today).late), 0);
   const paidTodayOf = (d: CollectDues) => paidToday(d.receipts, today, (iso) => schoolToday(new Date(iso)));
   const paidTodayAny = members.map(paidTodayOf).find(Boolean) ?? null;
@@ -460,6 +464,7 @@ function CollectApp(props: CollectProps) {
       return;
     }
     if (card === "pay" && !payReady) return;
+    if (card === "dues" && famLoading) return;
     if (card === "dues" && !members.some((d) => childTotals({ id: d.student.id, rows: d.rows, takeLate: true }, today).fees > 0)) return;
     const nextDone = new Set(done);
     nextDone.add(card);
@@ -657,7 +662,7 @@ function CollectApp(props: CollectProps) {
       if (left <= 0) break;
       const fee = Math.min(left, row.feesPending);
       left -= fee;
-      if (fee > 0) out.push({ label: row.isCarryForward ? mc.oldBalance : fill(mc.slipInstallment, { n: row.installmentNo }), amount: fee });
+      if (fee > 0) out.push({ label: row.isCarryForward ? mc.oldBalance : slipInstallmentName(row), amount: fee });
       if (takesLate(d) && fee === row.feesPending && row.lateFeePending > 0 && left > 0) {
         const lf = Math.min(left, row.lateFeePending);
         left -= lf;

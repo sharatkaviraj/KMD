@@ -24,6 +24,7 @@ import { classesWord, classSubject, classWord, closedTitle, combinedClasses, cov
 import { ampm, callName, dShort, dShortP, greetingPair, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, LeaveSheet, TchTop, useUrlState, WithdrawConfirm } from "./shared";
 import "./today.css";
+import { sessionText } from "@/platform/helpers/session-text";
 
 /*
  * Teacher · Notices, links & more (design TchMore): the phone's More menu as
@@ -152,7 +153,7 @@ export function TeachMore({
   /* ---------------------------------------------------- top bar */
   const helpFor: Partial<Record<MoreView, HelpTopic>> = { news: "news", links: "link", leave: "leave", timetable: "leave" };
   const T: Record<MoreView, [string, Pair, string]> = {
-    menu: [tx(p(`Teacher · ${data.sessionLabel.replace("-", "–")}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${tx(classWord(held[0].classLabel))}` : ""}`],
+    menu: [tx(p(`Teacher · ${sessionText(data.sessionLabel)}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${tx(classWord(held[0].classLabel))}` : ""}`],
     news: [tx(p("More · Notices", "और · सूचनाएँ")), p("Notices", "सूचनाएँ"), unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं"))],
     links: [tx(p("More · Marks links", "और · अंक लिंक")), p("Marks links", "अंक लिंक"), tx(p("Sampark · no login needed", "संपर्क · लॉगिन नहीं चाहिए"))],
     timetable: [tx(p("More · Timetable", "और · समय-सारणी")), p("My timetable", "मेरी समय-सारणी"), tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`))],

@@ -183,6 +183,8 @@ export const W = {
   backToMenu: p("Back to menu", "मेनू पर वापस"),
   mSub: p("Pending today {amt} · {n} students", "आज तक बकाया {amt} · {n} विद्यार्थी"),
   kpiPendingSub: p("{n} students · {amt} not due yet", "{n} विद्यार्थी · {amt} अभी देय नहीं"),
+  // Left students who still owe are counted here (money scope) and listed again under Left owing; say so.
+  kpiPendingSubLeft: p("{n} students, {left} of them left · {amt} not due yet", "{n} विद्यार्थी, इनमें {left} छोड़ चुके · {amt} अभी देय नहीं"),
   kpiPromSub: p("{amt} · {n} kept so far", "{amt} · {n} अब तक निभाए"),
   of: p("of", "में से"),
   leftToMake: p("{n} left to make", "{n} बाकी"),

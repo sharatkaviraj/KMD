@@ -352,7 +352,7 @@ function dues(over: Partial<DuesProps> = {}): DuesProps {
     tab: "call",
     families: callable,
     lateFeeOnly: { count: 3, amount: 1590 },
-    metrics: { pendingToday: 640000, students: 138, notDueYet: 590000, promisesToday: 9, promisesKeptToday: 2, callsToday: 14, collectedWeek: 120000 },
+    metrics: { pendingToday: 640000, students: 138, leftStudents: 0, notDueYet: 590000, promisesToday: 9, promisesKeptToday: 2, callsToday: 14, collectedWeek: 120000 },
     promises,
     left: LEFT,
     aging: {

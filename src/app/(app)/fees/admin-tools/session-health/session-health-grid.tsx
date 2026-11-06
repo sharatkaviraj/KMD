@@ -16,6 +16,7 @@ import {
 } from "@/modules/system-sync/domain/health-fallback";
 
 import { reconcileSessionAction, refreshSessionFiguresAction } from "./actions";
+import { canPrepareMissingDues } from "@/modules/system-sync/domain/health-fallback";
 
 type AdminToolsTranslator = Awaited<ReturnType<typeof getTranslations<"AdminTools">>>;
 
@@ -234,8 +235,9 @@ export async function SessionHealthGrid({ t }: { t: AdminToolsTranslator }) {
                         {t("sessionHealthOpenFeeSetup")}
                       </Link>
                     </Button>
-                  ) : (
-                    <form action={reconcileSessionAction}>
+                  ) : null}
+                  {card.health.classesWithoutFeeSettings === 0 || canPrepareMissingDues(card.health) ? (
+                    <form action={reconcileSessionAction} className={card.health.classesWithoutFeeSettings > 0 ? "mt-2" : undefined}>
                       <input
                         type="hidden"
                         name="sessionLabel"
@@ -247,7 +249,7 @@ export async function SessionHealthGrid({ t }: { t: AdminToolsTranslator }) {
                         className="w-full"
                       />
                     </form>
-                  )}
+                  ) : null}
                 </div>
               ) : null}
             </SectionCard>

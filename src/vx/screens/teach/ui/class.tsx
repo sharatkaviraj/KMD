@@ -18,6 +18,7 @@ import { closedTitle } from "../domain/today";
 import { dShort, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, TchTop } from "./shared";
 import { ChildSummary } from "@/vx/assist/summary-assist";
+import { sessionText } from "@/platform/helpers/session-text";
 
 /*
  * Teacher · My class & subjects (design TchClass). The class teacher's class
@@ -456,7 +457,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
       ? { crumb: tx(p("My class › Children", "मेरी कक्षा › बच्चे")), title: tx(p(`${classLabel} · all children`, `${classLabel} · सभी बच्चे`)), mTitle: tx(p(`Children · ${classLabel}`, `बच्चे · ${classLabel}`)), mSub: tx(p(`${shown.length} shown`, `${shown.length} दिखाए`)) }
       : view === "subjects"
         ? { crumb: tx(p("Teacher · my subjects", "अध्यापक · मेरे विषय")), title: tx(p("My subjects", "मेरे विषय")), mTitle: tx(p("My subjects", "मेरे विषय")), mSub: subjectsLine(data.mySubjects) }
-        : { crumb: tx(p(`Teacher · session ${data.sessionLabel.replace("-", "–")}`, `अध्यापक · सत्र ${data.sessionLabel}`)), title: tx(p(`My class · ${classLabel}`, `मेरी कक्षा · ${classLabel}`)), mTitle: tx(p("My class", "मेरी कक्षा")), mSub: tx(p(`${classLabel} · ${n} children`, `${classLabel} · ${n} बच्चे`)) };
+        : { crumb: tx(p(`Teacher · session ${sessionText(data.sessionLabel)}`, `अध्यापक · सत्र ${data.sessionLabel}`)), title: tx(p(`My class · ${classLabel}`, `मेरी कक्षा · ${classLabel}`)), mTitle: tx(p("My class", "मेरी कक्षा")), mSub: tx(p(`${classLabel} · ${n} children`, `${classLabel} · ${n} बच्चे`)) };
 
   return (
     <VxPage label="My class" className="tc">

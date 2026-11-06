@@ -7,6 +7,7 @@ import { academicContext, classDetail, classMarks, classPeople, classResults, cl
 import { subjectName, type AttentionReason } from "./domain";
 import { AcadProgressView, type AcadProgressProps } from "./progress-view";
 import { sayer } from "./ui";
+import { sessionText } from "@/platform/helpers/session-text";
 
 /*
  * AcadProgress's server half: it reads the chosen state's records (scoped to
@@ -51,7 +52,7 @@ export async function AcadProgress(props: Props) {
     language,
     today: ctx.today,
     attTill,
-    session: ctx.session.replace("-", "–"),
+    session: sessionText(ctx.session),
     exams: exams.filter((e) => e.startsOn <= ctx.today).map(tab),
     exam: chosen ? tab(chosen) : null,
     previous: previous ? tab(previous) : null,
