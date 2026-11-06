@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { runJobAction } from "@/app/(app)/jobs/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { idleJobState } from "@/modules/jobs/domain/form-state";
 import { primary } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";

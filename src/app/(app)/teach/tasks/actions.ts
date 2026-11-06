@@ -9,7 +9,7 @@ import { resolveAssignedRequest } from "@/modules/collection/data/requests-repo"
 import { submitCollectionPayload } from "@/modules/teacher-tasks/data/collection-save";
 import { saveTaskAcademicWork } from "@/modules/teacher-tasks/data/save";
 import type { LinkState } from "@/modules/collection/domain/link-state";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import type { TaskCreationResult } from "@/modules/teacher-tasks/domain/tasks";
 
 export async function taskAssignmentContextAction() { await assertPermission("collection:manage"); return assignmentContext(); }

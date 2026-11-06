@@ -4,7 +4,7 @@ import {managedTasksForRequests} from "@/modules/teacher-tasks/data/delivery-rou
 import {taskDeliveryMessages} from "@/messages/setup";
 
 import { authoredPlain, authoredTitle } from "@/ui/authored-text";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";

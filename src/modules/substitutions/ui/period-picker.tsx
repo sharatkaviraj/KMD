@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { PERIOD_COUNT } from "@/modules/timetable/domain/parse-timetable";
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import { primary, type Localized } from "@/platform/i18n/language";

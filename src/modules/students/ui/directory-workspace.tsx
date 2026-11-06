@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { DirectoryRow } from "@/modules/students/data/directory-repo";
 import { recordPerformance } from "@/platform/performance/record";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary, type Language } from "@/platform/i18n/language";
 import { DetailList } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";

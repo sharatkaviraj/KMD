@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { decodeMessage, type Localized } from "@/platform/i18n/language";
 import {
   limitByToken,

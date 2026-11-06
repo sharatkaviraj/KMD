@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary, secondary, type Localized } from "@/platform/i18n/language";
 import { isChunkLoadError, reloadOnceForChunk } from "@/vx/shell/chunk-reload";
 

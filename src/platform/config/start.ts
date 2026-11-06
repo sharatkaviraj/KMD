@@ -1,4 +1,4 @@
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { isSafeInternalPath } from "@/platform/env";
 import type { Localized } from "@/platform/i18n/language";
 import type { StaffRole } from "@/platform/auth/permissions";
@@ -56,7 +56,11 @@ export function landingFor(input: {
 }): string {
   const requested = (input.requested ?? "").trim();
   if (isSafeInternalPath(requested)) {
-    if (requested.split(/[?#]/, 1)[0] === "/apps") return homeFor(input.role);
+    const path = requested.split(/[?#]/, 1)[0];
+    if (path === "/apps") return homeFor(input.role);
+    // `/dashboard` only forwards to a home: going there costs one more full
+    // render and ignores the person's chosen start screen (6 Nov 2026).
+    if (path === "/dashboard") return startHref(input.role, input.preferredStart);
     return requested;
   }
   return startHref(input.role, input.preferredStart);

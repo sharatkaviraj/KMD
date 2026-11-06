@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { roleLabel } from "@/platform/auth/permissions";
 import { flat, primary, t } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";

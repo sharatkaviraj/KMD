@@ -1,4 +1,4 @@
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { getVppsOneEnvironment } from "@/platform/env";
 import { primary, type Language } from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";

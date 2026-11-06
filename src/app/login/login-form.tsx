@@ -134,7 +134,7 @@ export function LoginForm({ language, initial = initialLoginState }: { language:
   }, [showPassword]);
   const [forgot, setForgot] = useState(false);
 
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? "";
   const reason = REASONS[searchParams.get("reason") ?? ""];
   const failed = state.status === "error";
   const errorRef = useRef<HTMLDivElement>(null);

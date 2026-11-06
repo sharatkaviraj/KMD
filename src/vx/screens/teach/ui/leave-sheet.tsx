@@ -12,7 +12,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";

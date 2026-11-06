@@ -1,4 +1,4 @@
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { t, type Localized } from "@/platform/i18n/language";
 import type { AudienceKind } from "@/modules/collection/domain/audience";
 

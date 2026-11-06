@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import type { Localized } from "@/platform/i18n/language";
 import {
   can,

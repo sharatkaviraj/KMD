@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { updateStaffAction } from "@/app/(app)/staff/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { t } from "@/platform/i18n/language";

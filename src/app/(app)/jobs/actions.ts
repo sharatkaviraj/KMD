@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { schoolToday } from "@/platform/dates";
 import { jobWork } from "@/modules/jobs/data/job-work";

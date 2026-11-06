@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { saveAttendanceRulesAction } from "@/app/(app)/academics/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { idleAcademicsState } from "@/modules/academics/domain/form-state";
 import { primary } from "@/platform/i18n/language";

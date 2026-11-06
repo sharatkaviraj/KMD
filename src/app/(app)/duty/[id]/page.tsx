@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { dayLabel, weekdayLabel } from "@/platform/dates";

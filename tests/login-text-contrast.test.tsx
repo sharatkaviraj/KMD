@@ -23,7 +23,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/app/login/actions", () => ({ loginAction: vi.fn() }));
 
 import { LOGIN_TEXT, LoginForm } from "@/app/login/login-form";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 
 function expectFullTextStrength(html: string) {
   expect(html).not.toMatch(/\bopacity-(?:75|80|90)\b/);

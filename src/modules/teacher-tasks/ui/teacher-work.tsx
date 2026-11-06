@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms, photoMessages } from "@/messages/setup";
 import { dayLabel } from "@/platform/dates";
 import type { Language } from "@/platform/i18n/language";

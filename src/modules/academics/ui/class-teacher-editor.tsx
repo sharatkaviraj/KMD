@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { Check, History } from "lucide-react";
 
 import { assignClassTeacherAction } from "@/app/(app)/academics/class-teacher-actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { listMessages as lm } from "@/messages/setup";
 import {
   idleAcademicsState,

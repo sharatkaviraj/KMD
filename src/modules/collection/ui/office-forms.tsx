@@ -11,7 +11,7 @@ import {
   saveTemplateAction,
   sendMessageAction,
 } from "@/app/(app)/collection/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { documentMessages } from "@/messages/setup";
 import {
   fieldInputLabels,

@@ -21,3 +21,11 @@ font transformation runs during application installation or deployment.
 The three WOFF2 assets total 567,632 bytes. They include complete language
 coverage instead of separate Google subset requests, and are cached after the
 first visit. The existing family CSS variables and requested weights are retained.
+
+**6 November 2026: Inter and Source Serif 4 are subset.** They keep Latin,
+Latin Extended (A, B and Additional, which carry Indian transliteration),
+punctuation, currency (₹), arrows and common symbols, with every OpenType layout
+feature, and lose Greek, Cyrillic and other scripts the school never sets. The
+first visit drops from 567,632 to 409,216 bytes. Noto Sans Devanagari is
+unchanged. The ranges and new hashes are in `manifest.json`; a character
+outside them falls back to the system font rather than failing.

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   encodeMessage,
   t,

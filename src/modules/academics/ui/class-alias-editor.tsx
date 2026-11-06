@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Check } from "lucide-react";
 
 import { saveClassAliasAction } from "@/app/(app)/academics/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   idleAcademicsState,
   type AcademicsFormState,

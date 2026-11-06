@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Pencil } from "lucide-react";
 
 import { recordWhatsappConsentAction, setStaffActiveAction, setTestAccountAction } from "@/app/(app)/staff/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { staffWhatsappMessages, testSessionMessages } from "@/messages/setup";
 import { readStaffConsent } from "@/modules/staff-notices/data/consent";
 import { isRealAdmin } from "@/platform/auth/test-session-policy";

@@ -7,7 +7,7 @@ import {
   checkAskListAction,
   createFromAskListAction,
 } from "@/app/(app)/collection/rounds/upload/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { idleAskList } from "@/modules/collection/domain/form-state";
 import type { MissReason } from "@/modules/collection/domain/ask-list";
 import { optionalHalf, requiredHalf } from "@/platform/i18n/authored";

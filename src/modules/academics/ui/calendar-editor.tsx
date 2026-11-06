@@ -7,7 +7,7 @@ import {
   deleteCalendarDayAction,
   saveCalendarDayAction,
 } from "@/app/(app)/academics/class-teacher-actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   calendarDayKinds,
   calendarKindLabels,

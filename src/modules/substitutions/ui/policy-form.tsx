@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { saveCoverPolicyAction } from "@/app/(app)/substitutions/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import {
   coverRoleHints,

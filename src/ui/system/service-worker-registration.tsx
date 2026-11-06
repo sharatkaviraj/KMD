@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary } from "@/platform/i18n/language";
 import { useLang } from "@/platform/locale/language-provider";
 import { flushDraftWrites } from "@/platform/drafts/store";

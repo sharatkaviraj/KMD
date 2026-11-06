@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { CalendarDays } from "lucide-react";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { schoolBrand } from "@/platform/config/school-brand";
 import { primary, secondary, type Language, type Localized } from "@/platform/i18n/language";
 import { SchoolBrand } from "./school-brand";

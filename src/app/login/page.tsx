@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/app/login/login-form";
 import { LoginInstallHint } from "@/app/login/install-hint";
 import { LoginScreen } from "@/app/login/login-screen";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
 import { homeForRole as homeFor } from "@/vx/nav";
 import { flat, primary } from "@/platform/i18n/language";

@@ -1,4 +1,4 @@
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { listMessages as lm } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { primary, type Language } from "@/platform/i18n/language";

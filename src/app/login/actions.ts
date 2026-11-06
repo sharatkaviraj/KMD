@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { admitSignedInUser } from "@/platform/auth/admit";
 import { landingFor } from "@/platform/config/start";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import type { Localized } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
 

@@ -1,5 +1,5 @@
 import { schoolToday } from "@/platform/dates";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { pageTitle } from "@/platform/i18n/page-title";

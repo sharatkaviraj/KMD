@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TaskAcademicForm } from "@/modules/teacher-tasks/ui/task-work";
 import type { AcademicWork } from "@/modules/teacher-tasks/data/repo";
 import { flushDraftWrites } from "@/platform/drafts/store";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 
 const mocks = vi.hoisted(() => ({ save: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));

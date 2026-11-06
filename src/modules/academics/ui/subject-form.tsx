@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   idleAcademicsState,
   type AcademicsFormState,

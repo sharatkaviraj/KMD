@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";

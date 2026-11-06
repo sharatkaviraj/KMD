@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { createTeacherTasksAction, previewTeacherTasksAction } from "@/app/(app)/teach/tasks/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import type { Language } from "@/platform/i18n/language";
 import { lead, p } from "@/vx/text";

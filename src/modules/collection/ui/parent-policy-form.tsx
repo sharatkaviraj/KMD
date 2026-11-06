@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { saveParentPolicyAction } from "@/app/(app)/collection/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { idleCollectionState } from "@/modules/collection/domain/form-state";
 import type { ParentPolicy } from "@/modules/collection/domain/parent-policy";

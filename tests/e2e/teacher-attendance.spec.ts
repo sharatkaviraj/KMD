@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { attendanceLabels } from "@/modules/attendance/domain/attendance";
 import { primary } from "@/platform/i18n/language";
 

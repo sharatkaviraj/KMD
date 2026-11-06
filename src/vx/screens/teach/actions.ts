@@ -23,7 +23,7 @@ import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attenda
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import { coverOutcomes, markReportsSeen, saveCoverReport, type CoverOutcome } from "@/modules/substitutions/data/cover-reports";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";

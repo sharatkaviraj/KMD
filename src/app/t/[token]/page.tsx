@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, MessageSquare } from "lucide-react";
 
 import { AuthoredText } from "@/ui/authored-text";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { dayLabel } from "@/platform/dates";
 import { getSchoolName } from "@/platform/env";
 import {

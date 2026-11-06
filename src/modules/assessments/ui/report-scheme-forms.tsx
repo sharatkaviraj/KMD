@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { approveReportSchemeAction, saveReportSchemeAction } from "@/app/(app)/assessments/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { idleAssessmentState } from "@/modules/assessments/domain/form-state";
 import { primary } from "@/platform/i18n/language";

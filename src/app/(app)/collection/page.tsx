@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MessageSquare } from "lucide-react";
 
 import { AuthoredText } from "@/ui/authored-text";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";

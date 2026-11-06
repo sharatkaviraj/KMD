@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createHash } from "node:crypto";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { primary } from "@/platform/i18n/language";

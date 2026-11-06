@@ -2,7 +2,7 @@ import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
 import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import { PwaInstallCard } from "@/ui/pwa-install-card";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { photoMessages } from "@/messages/setup";
 import { initials } from "@/vx/format";
 import { requireStaff } from "@/platform/auth/current-staff";

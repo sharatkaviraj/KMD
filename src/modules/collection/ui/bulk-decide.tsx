@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 
 import { decideSubmissionsAction } from "@/app/(app)/collection/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { idleCollectionState, type CollectionState } from "@/modules/collection/domain/form-state";
 import type { BulkEligibility } from "@/modules/collection/domain/review";

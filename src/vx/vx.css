@@ -295,3 +295,7 @@
 a[data-nav-pending]{opacity:.6;transition:opacity .16s ease .08s}
 /* Phones and tablets: a lighter frosted glass. A 16px blur with saturate is redrawn on every scrolled frame, and low-end Android drops frames under it; 8px without saturate, over a slightly denser tint, reads the same. */
 @media (hover:none) and (pointer:coarse){:where(.vx,.vxt) .glass,.vx-ctop{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}.vx,.vxt{--glass:rgba(244,247,250,.93)}.dark .vx,.dark .vxt,.vx.dark,.vxt.dark{--glass:rgba(14,17,23,.92)}}
+/* Every new screen settles in over 180 ms instead of snapping over the last one, skeleton and page alike, so the skeleton-to-content swap reads as one motion. It starts at 40% rather than 0 so the browser counts the first paint at once (LCP ignores invisible text). Tabs inside a screen do not remount it, so they do not replay this. */
+@keyframes xSettle{from{opacity:.4}to{opacity:1}}
+.vx-page{animation:xSettle .18s var(--ease) both}
+@media (prefers-reduced-motion:reduce){.vx-page{animation:none}}

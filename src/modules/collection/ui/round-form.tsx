@@ -1,7 +1,7 @@
 import { Users } from "lucide-react";
 
 import { createRoundAction } from "@/app/(app)/collection/rounds/new/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { optionalHalf, requiredHalf } from "@/platform/i18n/authored";
 import {
   countOf,

@@ -1,5 +1,5 @@
 import "server-only";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { rollForRequest } from "@/modules/collection/data/requests-repo";
 import { recordAnswers, type IncomingAnswer } from "@/modules/collection/data/submissions-repo";
 import { validateField } from "@/modules/collection/domain/fields";

@@ -2,7 +2,7 @@ import { collectionDraftScope } from "@/modules/teacher-tasks/data/draft-scope";
 import { notFound } from "next/navigation";
 
 import { AuthoredText } from "@/ui/authored-text";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { dayLabel } from "@/platform/dates";
 import { countOf, flat, primary, t } from "@/platform/i18n/language";
 import {

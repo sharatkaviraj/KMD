@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Image as ImageIcon, Plus, Upload, X } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { documentMessages as dm } from "@/messages/setup";
 import {
   MAX_DOCUMENT_BYTES,

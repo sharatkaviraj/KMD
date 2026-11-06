@@ -6,7 +6,7 @@ import { CloudOff } from "lucide-react";
 
 import { checkAttendanceSaveAction, saveAttendanceAction } from "@/app/(app)/teach/actions";
 import { recordPerformance } from "@/platform/performance/record";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   attendanceLabels,
   attendanceStatuses,

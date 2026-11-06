@@ -12,7 +12,7 @@ import {
   idleImportState,
   type ImportState,
 } from "@/modules/timetable/domain/import-state";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   FIX_SCREEN,
   groupByFixScreen,

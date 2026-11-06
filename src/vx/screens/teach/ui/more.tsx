@@ -3,7 +3,7 @@
 import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
 import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { useRouter } from "next/navigation";
 import { useSyncExternalStore, useState, useTransition, type ReactNode } from "react";
 import { useTheme } from "next-themes";

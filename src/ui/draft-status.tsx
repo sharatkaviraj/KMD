@@ -1,6 +1,6 @@
 "use client";
 
-import { m } from '@/messages';
+import * as m from '@/messages/pairs';
 import { primary, type Language } from '@/platform/i18n/language';
 
 export function DraftStatus({ status, online, recovered, changed, onRestore, onDiscard, language }: {

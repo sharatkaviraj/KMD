@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, Wallet } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import type { NavItem } from "@/platform/config/navigation";
 import { primary, secondary, type Language, type Localized } from "@/platform/i18n/language";
 import type { OverviewRound } from "@/modules/home/data/home-repo";

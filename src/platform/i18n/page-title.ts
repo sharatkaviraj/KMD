@@ -1,6 +1,6 @@
 import "server-only";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
 import { primary, SIGNED_OUT_LANGUAGE, type Localized } from "@/platform/i18n/language";
 

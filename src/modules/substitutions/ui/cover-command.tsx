@@ -3,7 +3,7 @@
 import { createContext, Fragment, useContext, useState, useTransition, type ReactNode } from "react";
 
 import { checkCoverCommandAction, coverCommandAction } from "@/app/(app)/substitutions/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   idleCoverState,
   receiptSentence,

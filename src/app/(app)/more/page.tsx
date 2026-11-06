@@ -1,6 +1,6 @@
 import { SlidersHorizontal } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { overflowFor } from "@/platform/config/navigation";
 import { primary, secondary } from "@/platform/i18n/language";

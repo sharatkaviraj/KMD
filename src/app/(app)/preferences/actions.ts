@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { assertStaff } from "@/platform/auth/current-staff";
 import { isLanguage, type Localized } from "@/platform/i18n/language";
 import { writeLanguageCookie } from "@/platform/i18n/language-cookie";

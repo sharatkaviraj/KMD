@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { PrintLandscape } from "@/ui/print-landscape";
 import { requirePermission } from "@/platform/auth/current-staff";
 import {
