@@ -262,7 +262,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
             <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 10 }}>
               {reg ? (
                 <>
-                  <span style={{ fontSize: 14 }}>{tx(p(`${reg.present} present · ${reg.absent} absent${reg.halfDay ? ` · ${reg.halfDay} half-day` : ""}`, `${reg.present} उपस्थित · ${reg.absent} अनुपस्थित`))}{reg.savedAt ? ` · ${tx(p(`saved at ${hm12(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(reg.savedAt)))}`, "सेव हुई"))}` : ""}</span>
+                  <span style={{ fontSize: 14 }}>{tx(p(`${reg.present} present · ${reg.absent} absent${reg.halfDay ? ` · ${reg.halfDay} half-day` : ""}`, `${reg.present} उपस्थित · ${reg.absent} अनुपस्थित${reg.halfDay ? ` · ${reg.halfDay} आधा दिन` : ""}`))}{reg.savedAt ? ` · ${tx(p(`saved at ${hm12(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(reg.savedAt)))}`, "सेव हुई"))}` : ""}</span>
                   <Link href={`/teach/attendance?class=${data.classId}&day=${data.today}`} className="tap btn sec tc-cbig mfull" style={{ alignSelf: "flex-start" }}><Ic n="eye" />{tx(p("See or change", "देखें या बदलें"))}</Link>
                 </>
               ) : data.closed ? (

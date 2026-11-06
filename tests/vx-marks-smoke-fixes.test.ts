@@ -194,3 +194,15 @@ describe("report-card remark suggestions", () => {
     expect(subjects?.text.hi).not.toMatch(/[A-Z]{3,}/);
   });
 });
+
+describe("a paper sent with blanks reads as sent on the list (6 Nov school day)", () => {
+  it("never offers Continue for a paper the sheet opens read-only", () => {
+    const s = pickState({ status: "in_progress", entered: 0, total: 4, sent: true });
+    expect(s.sent).toBe(true);
+    expect(s.action.en).toBe("View");
+    expect(s.pill.en).toBe("Sent · 4 blank");
+  });
+  it("an unsent paper still says Continue", () => {
+    expect(pickState({ status: "in_progress", entered: 2, total: 4 }).action.en).toBe("Continue");
+  });
+});

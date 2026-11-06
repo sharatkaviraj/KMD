@@ -15,6 +15,13 @@ export type PickFacts = {
   /** Saved marks the paper cannot hold (a .5 on a whole-mark paper). */
   invalid?: number;
   submittedToName?: string | null;
+  /**
+   * The paper was sent (`entry_status = submitted`), even with blanks. The
+   * sheet then opens read-only, so the card must not say "Continue": a paper
+   * sent on 30 Sep with nobody on it, whose roster later grew to 4, read
+   * "late · 0 of 4 · Continue" and opened as "Sent" (6 Nov school day, P1).
+   */
+  sent?: boolean;
 };
 
 export type PickTone = "ok" | "warn" | "acc" | "mut";
@@ -24,7 +31,7 @@ export type PickState = { tone: PickTone; pill: Pair; line: Pair; action: Pair; 
 export function pickState(c: PickFacts): PickState {
   const blank = Math.max(0, c.total - c.entered);
   const fix = c.invalid ?? 0;
-  if (c.status === "done") {
+  if (c.status === "done" || c.sent) {
     const view = p("View", "देखें");
     if (c.total === 0) {
       return { tone: "warn", sent: true, action: view, pill: p("Sent · no children", "भेजा · कोई बच्चा नहीं"), line: p("No children are on this paper. Tell the exam office.", "इस पेपर पर कोई बच्चा नहीं है। परीक्षा प्रभारी को बताएँ।") };

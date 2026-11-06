@@ -70,6 +70,8 @@ export type PickCard = {
   /** Saved marks the paper cannot hold, which must be fixed before it can count. */
   invalid?: number;
   submittedToName: string | null;
+  /** Sent to the exam office, even with blanks: the sheet is read-only now. */
+  sent?: boolean;
   /** The exam's marks due date, and whether this unfinished paper is past it. */
   dueOn?: string | null;
   dueLabel?: string | null;

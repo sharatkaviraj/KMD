@@ -11,7 +11,7 @@ health/family note audience line, papers with no children no longer read
 "Sent"/"Done", subject teachers see their periods first and a period opens
 their subject, "You You" on the class timetable. TEST data only: enrolments
 dated from 1 Apr and 14 TEST classes given smoke-seat class teachers so seats
-have registers. **Open:** teachers 11-20 and the re-check; parent WhatsApp ON by
+have registers. Second batch (after teachers 11 and 18 re-checked PR 219 live): sent papers never say "Continue" (D-447), no attendance remark before 10 days (D-448), a subject teacher's periods are really the first card on a phone (order -1), a subject page without a paper is named, half days counted on Today and the class page. **Open:** the rest of teachers 11-20 and the re-check; parent WhatsApp ON by
 default on a register's first save (D-320) left for the owner.
 
 ## Collect: card-by-card payment entry — 5 November 2026

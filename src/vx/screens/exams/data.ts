@@ -685,8 +685,14 @@ export async function attendanceFor(classId: string, sessionLabel: string): Prom
     t.counted += 1;
     tally.set(m.student_id, t);
   }
-  return new Map([...tally].map(([id, t]) => [id, t.counted ? Math.round((t.present / t.counted) * 100) : 0]));
+  // A remark must not judge a term on a day or two: one absence on the only
+  // marked day read "attendance 0%" and the suggestion told the child to come
+  // to school more (6 Nov school day). Below this many days there is no figure.
+  return new Map([...tally].filter(([, t]) => t.counted >= MIN_DAYS_FOR_REMARK).map(([id, t]) => [id, Math.round((t.present / t.counted) * 100)]));
 }
+
+/** Registers a child must have been on before a remark may speak about their attendance. */
+export const MIN_DAYS_FOR_REMARK = 10;
 
 export type TermStanding = { percent: number | null; strongest: string | null; weakest: string | null; perSubject: Map<string, number> };
 
