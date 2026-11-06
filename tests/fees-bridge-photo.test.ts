@@ -30,7 +30,7 @@ afterEach(()=>vi.resetAllMocks());
 describe("One private image proxy",()=>{
   it("requires session and valid identity and never permits a public image cache",async()=>{
     const response=await GET(new Request(`https://one.vpps.co.in/api/fees-bridge/students/${id}/photo?session=2026-27`),{params:Promise.resolve({studentId:id})});
-    expect(response.status).toBe(200);expect(response.headers.get("cache-control")).toContain("private, no-store");expect(response.headers.get("vary")).toBe("Cookie");expect(response.headers.get("cross-origin-resource-policy")).toBe("same-origin");expect(response.headers.has("location")).toBe(false);
+    expect(response.status).toBe(200);expect(response.headers.get("cache-control")).toBe("private, max-age=600");expect(response.headers.get("vary")).toBe("Cookie");expect(response.headers.get("cross-origin-resource-policy")).toBe("same-origin");expect(response.headers.has("location")).toBe(false);
     expect(mocks.read).toHaveBeenCalledWith(id,"2026-27","thumb");
     mocks.read.mockClear();expect((await GET(new Request("https://one.vpps.co.in/api/fees-bridge/students/x/photo?session=TEST-2026-27"),{params:Promise.resolve({studentId:id})})).status).toBe(404);expect(mocks.read).not.toHaveBeenCalled();
   });

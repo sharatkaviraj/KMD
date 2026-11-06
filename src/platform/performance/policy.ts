@@ -1,14 +1,23 @@
 export const performanceNames = ["LCP", "INP", "CLS", "FCP", "TTFB", "form_saved", "directory_selected", "route_ready", "payment_search_completed", "payment_post_confirmed", "fee_summary_ready", "students_filter_completed", "report_generated"] as const;
-export const performanceRoutes = ["teach", "attendance", "marks", "dashboard", "students", "payments", "transactions", "preferences", "other"] as const;
+/**
+ * Fixed screen names, never a path: a path can carry a student id or a token.
+ * "student" is one child's page, "students" the list; "home" is `/`.
+ * Before 6 Nov 2026 most screens logged as "other", which hid which one was slow.
+ */
+const namedSections = ["teach", "dashboard", "students", "preferences", "fees", "dues", "staff", "timetable", "messages", "inbox", "notes", "reports", "receipts", "admissions", "assessments", "calendar", "menu", "more", "school-office", "collection", "academics", "attendance", "payments", "substitutions", "exams", "documents"] as const;
+export const performanceRoutes = ["home", "student", "marks", "transactions", ...namedSections, "other"] as const;
 export type PerformanceEvent = { name: typeof performanceNames[number]; route: typeof performanceRoutes[number]; value: number; installed: boolean; device: "phone" | "tablet" | "desktop" };
 
 export function performanceRoute(path: string): PerformanceEvent["route"] {
-  if (path.startsWith("/teach/attendance")) return "attendance";
-  if (path.startsWith("/assessments/marks/")) return "marks";
-  if (path.startsWith("/fees/payments")) return "payments";
-  if (path.startsWith("/fees/transactions")) return "transactions";
-  const route = path.split("/")[1];
-  return (["teach", "dashboard", "students", "preferences"] as const).find(value => value === route) ?? "other";
+  const clean = path.split(/[?#]/)[0];
+  if (clean === "/" || clean === "") return "home";
+  if (clean.startsWith("/teach/attendance")) return "attendance";
+  if (clean.startsWith("/assessments/marks/")) return "marks";
+  if (clean.startsWith("/fees/payments")) return "payments";
+  if (clean.startsWith("/fees/transactions")) return "transactions";
+  const [, section, next] = clean.split("/");
+  if (section === "students" && next) return "student";
+  return namedSections.find((value) => value === section) ?? "other";
 }
 
 /** Fixed names/routes only: no URLs, identifiers, tokens, money or metadata. */

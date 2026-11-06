@@ -113,14 +113,19 @@ export async function VxShell({
   children: ReactNode;
 }) {
   const { staff, menu, previewing } = viewer;
-  // Both reads at once: every full page load waits on this frame.
-  const [previewPerms, large] = await Promise.all([
-    previewing ? previewPermissions(previewing) : Promise.resolve(null),
+  // Every read at once: every full page load waits on this frame, and these
+  // four used to run as three waves (6 Nov 2026, docs/ui/PERFORMANCE.md).
+  const previewPermsRead = previewing ? previewPermissions(previewing) : Promise.resolve(null);
+  const [previewPerms, large, assist, portrait] = await Promise.all([
+    previewPermsRead,
     prefersLargeText(staff.id).catch(() => false),
+    // The AI helper's features for this person (D-324), when a provider is configured.
+    previewPermsRead
+      .then((perms) => assistFeaturesFor(staff, perms ? (p: StaffPermission) => perms.has(p) : undefined))
+      .catch(() => []),
+    approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
   ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
-  // The AI helper's features for this person (D-324), when a provider is configured.
-  const assist = await assistFeaturesFor(staff, previewPerms ? allowed : undefined).catch(() => []);
 
   const groups = groupsFor(menu, allowed);
   const tabs = bottomFor(menu, allowed);
@@ -133,7 +138,6 @@ export async function VxShell({
   const testMark = sessionIsTest && !/test/i.test(sessionLabel) ? " · test" : "";
   const roleLine = `${menuRoleLabel(menu, staff.role, previewing).en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}${testMark}` : ""}`;
   const settings = can(staff, "settings:manage");
-  const portrait = await approvedStaffPhotos([staff.id]).catch(() => new Map<string,string>());
   const me = {
     photo: portrait.get(staff.id) ?? null,
     initials: initials(staff.displayName),

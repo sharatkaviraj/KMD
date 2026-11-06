@@ -38,26 +38,39 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const viewer = await getViewer();
   const { staff, previewing } = viewer;
   const financeEnabled = can(staff, "fees:view");
-  const resolvedSession = financeEnabled
-    ? await getViewSessionCookie()
-        .then((cookieSession) => resolveViewSession({ cookieSession }))
-        // A fee screen without a session is broken; an attendance register
-        // without one is fine.
-        .catch(() => null)
-    : null;
-  const academicSession = financeEnabled ? null : await resolveSessionLabel().catch(() => null);
+  /*
+   * Nothing below waits on anything it does not need. The shell (and with it
+   * every screen's loading skeleton) cannot reach the phone until this layout
+   * resolves, so each read here that waited for the one before it was a full
+   * round trip added to every first open. The session, the previewed role's
+   * permissions and the production marker are independent reads: they start
+   * together. The marker is cheap (cached per instance, fails closed) and is
+   * only *used* when the pill is shown, exactly as before.
+   */
+  const previewRole = previewing ? PREVIEW_ROLE[previewing] : null;
+  const [resolvedSession, academicSession, previewFeeReader, deploymentEnvironment] = await Promise.all([
+    financeEnabled
+      ? getViewSessionCookie()
+          .then((cookieSession) => resolveViewSession({ cookieSession }))
+          // A fee screen without a session is broken; an attendance register
+          // without one is fine.
+          .catch(() => null)
+      : null,
+    financeEnabled ? null : resolveSessionLabel().catch(() => null),
+    previewing ? previewPermissions(previewing).then((permissions) => permissions.has("fees:view")) : null,
+    isConfinedDeployment() ? null : readDeploymentEnvironment(),
+  ]);
   const sessionLabel = resolvedSession?.sessionLabel ?? academicSession ?? "";
   const showBridgeStatus = usesCanonicalFees(staff, sessionLabel);
 
-  const previewRole = previewing ? PREVIEW_ROLE[previewing] : null;
   const pillViewer = {
     role: previewRole ?? staff.role,
     isTestAccount: staff.isTestAccount === true,
-    feeReader: previewing ? (await previewPermissions(previewing)).has("fees:view") : financeEnabled,
+    feeReader: previewFeeReader ?? financeEnabled,
   };
   const showPill = Boolean(sessionLabel) && canSwitchSessions(pillViewer);
   // "Live ·" only on the production database, outside a confined deployment.
-  const showLive = showPill && !isConfinedDeployment() && (await readDeploymentEnvironment()) === "production";
+  const showLive = showPill && !isConfinedDeployment() && deploymentEnvironment === "production";
 
   return (
     <LanguageProvider language={staff.language}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ComponentProps, type ReactNode } from "react";
 import Link, { useLinkStatus } from "next/link";
 
 /** Broadcast whenever a Link starts or stops navigating. */
@@ -22,6 +22,18 @@ const pendingLinks = new Set<string>();
 function LinkPending({ children }: { children: ReactNode }) {
   const { pending } = useLinkStatus();
   const id = useId();
+  const marker = useRef<HTMLSpanElement>(null);
+
+  // The tapped link itself answers, not only the bar at the top: it carries
+  // `data-nav-pending` while its page is on the way, and the stylesheet dims it
+  // after a short delay so an instant navigation never flickers. Set on the
+  // `<a>` through a hidden marker so no wrapper changes the link's layout.
+  useEffect(() => {
+    const link = marker.current?.closest("a");
+    if (!link) return;
+    link.toggleAttribute("data-nav-pending", pending);
+    return () => link.removeAttribute("data-nav-pending");
+  }, [pending]);
 
   useEffect(() => {
     const notify = () => window.dispatchEvent(
@@ -39,7 +51,7 @@ function LinkPending({ children }: { children: ReactNode }) {
     };
   }, [pending, id]);
 
-  return <>{children}</>;
+  return <>{children}<span ref={marker} hidden /></>;
 }
 
 /**

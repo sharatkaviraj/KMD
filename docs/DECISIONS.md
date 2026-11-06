@@ -1,5 +1,17 @@
 # Decisions
 
+## Faster and smoother, batch 1 — 6 November 2026
+
+Janmejay asked for faster loading and smoother motion, and chose to work through the whole plan in order (`docs/ui/PERFORMANCE.md`, "6 November").
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-427 | **A Fees student photo is kept by the browser for ten minutes (`private, max-age=600`); errors stay `no-store`** | Janmejay approved, 6 Nov. The thumbnail route was `no-store`, so every Students list fetched every photo again through a function and the bridge; real phones logged the list's largest paint at 2.0 to 2.8 s. `private` keeps it out of any CDN or shared cache; ten minutes bounds what a shared office PC keeps after sign-out |
+| D-428 | **The (app) layout and the shell start every independent read together** | The shell, and with it each screen's loading skeleton, cannot reach the phone until the layout resolves. The session, the previewed role's permissions and the production marker were three waves, and the shell's preferences, AI features and own photo were three more; both are now one wave each. Nothing read changes, only when |
+| D-429 | **The tapped link dims itself while its page loads (`a[data-nav-pending]`, 80 ms delay)** | The top bar waits 120 ms and is easy to miss on a phone. NavLink marks its own `<a>` through a hidden marker, so no wrapper changes a link's layout; Students rows now use it |
+| D-430 | **On touch screens the frosted glass is 8 px without saturate, over a denser tint** | A 16 px blur with saturate is repainted every scrolled frame and low-end Android drops frames under it. Desktop is unchanged |
+| D-431 | **Speed logs name about thirty screens instead of nine** | Most real visits logged as "other", which hid which screen was slow and which one shifted its layout (CLS 0.86 once). Names stay fixed strings; a child's page is "student", never its id |
+
 ## Collect: card-by-card payment entry — 5 November 2026
 
 The owner approved the Collect prototype ("this flow looks perfect") and plan `docs/plans/2026-11-05-native-money-and-collect-flow.md` (D1–D9 there). Branch `feat/collect-flow`.

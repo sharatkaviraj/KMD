@@ -1947,3 +1947,13 @@ Independent workflow review found no critical/important issues. GitHub CI and
 full-job timing comparison are pending; merge only after passing checks.
 Local npm installation is blocked by approximately 218 MiB free disk space.
 No application logic, production database or deployment gates changed.
+
+## Faster and smoother — 6 November 2026
+
+Plan and ideas: `docs/ui/PERFORMANCE.md` ("6 November"). Janmejay chose to build all three batches in order, one PR each.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Batch 1: screen names in speed logs, one wave of reads in the layout and the shell, 10-minute photo cache, tapped-link feedback, lighter glass on touch screens, lazy avatars (D-427 to D-431) | done, PR open | `claude/project-thread-r6fmx0` | Measure on live after it deploys. Surprise: the Students list photo route was `no-store` and went through the bridge for every thumbnail on every visit. Animations were checked for layout-animating transitions: the remaining ones are progress-bar widths, which are cheap, so idea C was dropped |
+| Batch 2: warm server, smaller word lists, sign in to Home, lighter fonts, motion rules | not started | | |
+| Batch 3: fee word list, load on intent, instant saves, fewer refreshes, page transitions, gestures, cache components | not started | | |
