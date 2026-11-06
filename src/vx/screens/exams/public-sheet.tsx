@@ -57,6 +57,8 @@ export function PublicPaperList({ token, school, staffName, examLabel, papers }:
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className="tc-h1">{tx(examLabel)}</span>
             <span className="tc-tb" style={{ color: "var(--mut)" }}>{staffName} · {tx(p("Tap a paper. Everything saves by itself.", "पेपर दबाएँ। सब अपने आप सेव होता है।"))}</span>
+            {/* Both ways stay, and they are one set of marks (owner, 6 Nov 2026). */}
+            <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("Same marks as the school app: enter them here or in the app, whichever is easier.", "स्कूल ऐप वाले ही अंक: यहाँ भरें या ऐप में, जो आसान लगे।"))}</span>
           </div>
           {papers.length === 0 ? (
             <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
@@ -67,7 +69,9 @@ export function PublicPaperList({ token, school, staffName, examLabel, papers }:
           <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
             {papers.map((c, i) => {
               const k: [Pair, string, Pair, string, string, string] =
-                c.status === "done"
+                c.status === "done" && c.entered < c.total
+                  ? [p("View", "देखें"), "sec", p(`Sent · ${c.total - c.entered} blank`, `भेजे · ${c.total - c.entered} खाली`), V("warns"), V("warnfg"), V("warn")]
+                  : c.status === "done"
                   ? [p("View", "देखें"), "sec", p("Sent ✓", "भेजे ✓"), V("oks"), V("ok"), V("ok")]
                   : c.status === "in_progress"
                     ? [p("Continue", "जारी रखें"), "pri", p("In progress", "चल रहा है"), V("accs"), V("accfg"), V("acc")]

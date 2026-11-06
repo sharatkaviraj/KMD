@@ -99,12 +99,15 @@ export function ErrorState({
   title = m.somethingWrong,
   language,
   detail,
+  help,
   action,
   className,
 }: {
   title?: Localized;
   language: Language;
   detail?: string | null;
+  /** What to do next, at reading size (the digest stays small and mono). */
+  help?: string | null;
   action?: React.ReactNode;
   className?: string;
 }) {
@@ -125,6 +128,9 @@ export function ErrorState({
         <p className="mt-1 text-[13px] leading-5 text-destructive-soft-foreground/80">
           {under}
         </p>
+      ) : null}
+      {help ? (
+        <p className="mx-auto mt-3 max-w-md text-[15px] leading-6 text-destructive-soft-foreground">{help}</p>
       ) : null}
       {detail ? (
         // The digest, not the stack. It is what makes a report actionable

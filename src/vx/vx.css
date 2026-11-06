@@ -63,7 +63,7 @@
 :where(.vx,.vxt) .sw.on>span{transform:translateX(18px)}
 :where(.vx,.vxt) .seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
 :where(.vx,.vxt) .seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
-:where(.vx,.vxt) .seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+:where(.vx,.vxt) .seg>button{position:relative;height:var(--seg-h,34px);border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
 :where(.vx,.vxt) .seg>button.on{color:var(--fg)}
 :where(.vx,.vxt) .sidei{color:var(--navm)}
 :where(.vx,.vxt) .sidei:hover{background:rgba(255,255,255,.07)}
@@ -149,6 +149,9 @@
 .vx-bottom{position:fixed;left:0;right:0;bottom:var(--keyboard-offset,0px);z-index:40;padding-bottom:env(safe-area-inset-bottom)}
 @media (max-width:899px){.vx-shell>.vx-side{display:none!important}}
 @media (min-width:900px){.vx-bottom{display:none!important}}
+/* Bottom-bar words at 12.5px, not 11px: they are the only signposts many staff read (UX review, 6 Nov 2026). */
+.vx-bottom .vx-tab-label{font-size:12.5px;line-height:1.2}
+.vx-bottom{overflow:visible}
 .vx-page{display:flex;flex-direction:column;min-height:100dvh}
 .vx-page>main,.vx-page>.vx-pmain{flex:1;min-height:0;position:relative;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 @container vx (min-width:900px){.vx-page>main,.vx-page>.vx-pmain{padding-bottom:0}}
@@ -299,3 +302,11 @@ a[data-nav-pending]{opacity:.6;transition:opacity .16s ease .08s}
 @keyframes xSettle{from{opacity:.4}to{opacity:1}}
 .vx-page{animation:xSettle .18s var(--ease) both}
 @media (prefers-reduced-motion:reduce){.vx-page{animation:none}}
+
+/* Segmented tabs a thumb can hit: 34px with a mouse, 42px on a touch screen (UX review, 6 Nov 2026). */
+@media (pointer:coarse){:where(.vx,.vxt) .seg{--seg-h:42px}}
+
+/* The loading screen's "still loading" line: hidden for 8 s, then shown (UX review 6 Nov 2026). */
+.vx-slow-note{opacity:0;animation:vxSlowNote .3s ease 8s forwards}
+@keyframes vxSlowNote{to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.vx-slow-note{animation-duration:0s}}

@@ -565,7 +565,7 @@ export function TeachHome({
 
   /* -------------------------------------------------------- welcome */
   const welcome = !welcomeSeen ? (
-    <div className="card rise" style={{ order: 0, padding: 20, display: "flex", flexDirection: "column", gap: 10, background: "var(--accs)", borderColor: "transparent" }}>
+    <div className="card rise" style={{ order: kind === "new" ? 0 : 3, padding: 20, display: "flex", flexDirection: "column", gap: 10, background: "var(--accs)", borderColor: "transparent" }}>
       <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{tx(p("Welcome to the school app", "स्कूल ऐप में आपका स्वागत है"))}</span>
       <span className="tc-p">
         {tx(
@@ -576,7 +576,7 @@ export function TeachHome({
               : p("Here you take your class’s attendance, enter marks, write notes about children, read the office’s notices and ask for leave.", "यहाँ आप अपनी कक्षा की हाज़िरी लगाते हैं, अंक भरते हैं, बच्चों के नोट्स लिखते हैं, ऑफ़िस की सूचनाएँ पढ़ते हैं और छुट्टी माँगते हैं।"),
         )}
       </span>
-      <span className="tc-s">{tx(p("Stuck? Tap “?” at the top for help, or call the office.", "कहीं अटकें तो ऊपर “?” दबाएँ, या ऑफ़िस को फ़ोन करें।"))}</span>
+      <span className="tc-s">{tx(p("Stuck? Tap “Help” at the top, or call the office.", "कहीं अटकें तो ऊपर “मदद” दबाएँ, या ऑफ़िस को फ़ोन करें।"))}</span>
       <button type="button" className="tap btn pri" onClick={() => dismissWelcome(data.staffId)} style={{ alignSelf: "flex-start", minHeight: 46 }}>
         <Ic n="check" />
         {tx(p("Got it, start", "समझ गए, शुरू करें"))}
@@ -625,7 +625,7 @@ export function TeachHome({
   // needs -1: at 1 her periods were still the fifth card (6 Nov re-check).
   const subjectOnly = !data.myClass && !noClassHero;
   const periods = (
-    <div className="card tc-card" style={{ order: subjectOnly ? -1 : 4, animationDelay: "120ms" }}>
+    <div className="card tc-card" style={{ order: subjectOnly ? -1 : 2, animationDelay: "120ms" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <CardTitle t={p("My periods today", "आज मेरे पीरियड")} />
         {rows.length ? <span className="pill num" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s2)", color: "var(--mut)" }}>{pillText}</span> : null}
@@ -835,7 +835,7 @@ export function TeachHome({
   const state = (id: string): [string, string, string, string] => (seen.has(id) ? [V("bds"), tx(p("Seen ✓", "देखा ✓")), V("oks"), V("ok")] : [V("acc"), tx(p("New", "नया")), V("accs"), V("accfg")]);
   const openNews = (id: string) => { setNewsId(id); setSheet("news"); };
   const office = (
-    <div className="card tc-card" style={{ order: 2, animationDelay: "60ms" }}>
+    <div className="card tc-card" style={{ order: 3, animationDelay: "60ms" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span className="tc-ib" style={{ width: 40, height: 40, borderRadius: 12, background: "var(--infos)", color: "var(--info)" }}><Ic n="megaphone" /></span>
         <CardTitle t={p("From the office", "कार्यालय से")} />
@@ -916,7 +916,7 @@ export function TeachHome({
     );
   };
   const quick = (
-    <div className="card tc-card" style={{ order: 3, animationDelay: "100ms" }}>
+    <div className="card tc-card" style={{ order: 4, animationDelay: "100ms" }}>
       <CardTitle t={p("Quick actions", "जल्दी के काम")} />
       <div className="tc-g2">
         {allowed.attendance && data.myClass && data.schoolOpen ? tile("att", "calCheck", reg ? p("See attendance", "हाज़िरी देखें") : p("Mark attendance", "हाज़िरी लगाएँ"), V("pri"), V("prifg"), reg && later && data.myClass ? `/teach/attendance?class=${data.myClass.classId}&view=history` : attendHref) : null}
@@ -1031,7 +1031,7 @@ export function TeachHome({
             <LangSeg />
             {/* Bigger text one tap away on Today, not deep in My profile (smoke 20 Oct). */}
             <button type="button" className="tap btn ghost tc-x" aria-pressed={large} aria-label={large ? tx(p("Normal text", "सामान्य अक्षर")) : tx(p("Bigger text", "बड़े अक्षर"))} onClick={toggleLarge} disabled={pending} style={{ color: large ? "var(--acc)" : "var(--fg)" }}>
-              <Ic n="type" size={22} />
+              <span aria-hidden="true" style={{ fontWeight: 800, fontSize: 17 }}>{large ? "A" : "A+"}</span>
             </button>
             <HelpIcon onClick={() => setSheet("help")} label={tx(p("Help", "मदद"))} />
           </>
@@ -1041,12 +1041,13 @@ export function TeachHome({
         <div className="pad" style={{ padding: "24px 28px 48px", display: "flex", flexDirection: "column", gap: 18, maxWidth: 1260, margin: "0 auto", width: "100%" }}>
           <div className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span className="serif tc-gr" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.15 }}>{tx(greet)}, {callName(shortName, name)}</span>
-            <span className="tc-p" style={{ color: "var(--mut)" }}>{context}</span>
+            <span className="tc-p hide-m" style={{ color: "var(--mut)" }}>{context}</span>
+            {heldLine ? <span className="tc-p only-m" style={{ color: "var(--mut)" }}>{tx(heldLine)}</span> : null}
           </div>
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
             <div className="tc-col">
               {welcome}
-              <ReadyForYou />
+              <ReadyForYou order={3} />
               <LazyAwayReports reports={data.awayReports} today={data.today} />
               {unsavedCard}
               {leaveCard}
@@ -1057,7 +1058,7 @@ export function TeachHome({
               {kids}
             </div>
             <div className="tc-col">
-              {bolo}
+              {bolo ? <div style={{ order: 6 }}>{bolo}</div> : null}
               {tasksCard}
               {office}
               {quick}

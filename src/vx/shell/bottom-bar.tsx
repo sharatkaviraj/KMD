@@ -96,12 +96,14 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
         {tabs.map((n) =>
           n.center ? (
             n.href === "#quick" ? (
-              <button key={n.key} type="button" className="tap" aria-label={tx(n.label)} onClick={() => setQuick(true)} style={{ border: 0, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <button key={n.key} type="button" className="tap vx-center" aria-label={tx(n.label)} onClick={() => setQuick(true)} style={CENTER_STYLE}>
                 <CenterBlob icon={n.icon} />
+                <span className="clip vx-tab-label" aria-hidden="true" style={{ maxWidth: "100%", color: "var(--pri)", fontWeight: 700 }}>{tx(n.short ?? n.label)}</span>
               </button>
             ) : (
-              <IntentLink feedback key={n.key} href={n.href} className="tap" aria-label={tx(n.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <IntentLink feedback key={n.key} href={n.href} className="tap vx-center" aria-label={tx(n.label)} style={CENTER_STYLE}>
                 <CenterBlob icon={n.icon} />
+                <span className="clip vx-tab-label" aria-hidden="true" style={{ maxWidth: "100%", color: "var(--pri)", fontWeight: 700 }}>{tx(n.short ?? n.label)}</span>
               </IntentLink>
             )
           ) : (
@@ -111,7 +113,7 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
               href={n.href}
               className="tap"
               aria-current={active === n.href ? "page" : undefined}
-              style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, color: active === n.href ? "var(--pri)" : "var(--mut)", fontSize: 11, fontWeight: active === n.href ? 700 : 500 }}
+              style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, color: active === n.href ? "var(--pri)" : "var(--mut)", fontWeight: active === n.href ? 700 : 500 }}
             >
               <span style={{ position: "relative", width: 56, height: 30, borderRadius: 15, display: "flex", alignItems: "center", justifyContent: "center", background: active === n.href ? "var(--accs)" : "transparent", transition: "background-color .2s ease" }}>
                 <Ic n={n.icon} size={22} />
@@ -121,7 +123,7 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
                   </Suspense>
                 ) : null}
               </span>
-              <span className="clip" style={{ maxWidth: "100%" }}>{tx(n.label)}</span>
+              <span className="clip vx-tab-label" style={{ maxWidth: "100%" }}>{tx(n.label)}</span>
             </IntentLink>
           ),
         )}
@@ -133,9 +135,16 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
   );
 }
 
+/**
+ * The centre action lifts above the bar so its word fits under it, like the
+ * other tabs. A label-less "+" meant nothing to staff who judge a screen by
+ * what is written on it (UX review, 6 Nov 2026).
+ */
+const CENTER_STYLE = { border: 0, background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 3 } as const;
+
 function CenterBlob({ icon }: { icon: IconName }) {
   return (
-    <span style={{ width: 50, height: 50, borderRadius: 18, background: "var(--pri)", color: "var(--prifg)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 22px -10px rgba(11,79,121,.75)" }}>
+    <span style={{ marginTop: -22, width: 50, height: 50, borderRadius: 18, background: "var(--pri)", color: "var(--prifg)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 22px -10px rgba(11,79,121,.75)" }}>
       <Ic n={icon} size={26} stroke={2.4} />
     </span>
   );

@@ -23,6 +23,10 @@ export default function Loading() {
             <Ic n="refresh" size={18} className="spin" />
             <span>Loading… · लोड हो रहा है…</span>
           </div>
+          {/* After 8 s, say why (UX review 6 Nov 2026): grey blocks alone looked like a broken app. CSS-only, so this stays a server file. */}
+          <span className="vx-slow-note" style={{ fontSize: 14, color: "var(--mut)" }}>
+            Still loading. The internet or the server is slow; please wait. · अभी लोड हो रहा है। इंटरनेट या सर्वर धीमा है, थोड़ा रुकें।
+          </span>
           <Skel w={300} h={28} style={{ maxWidth: "80%" }} />
           <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12 }}>
             {[0, 1, 2, 3].map((k) => (

@@ -409,7 +409,8 @@ export function ExamHome({
   return (
     <VxPage className="eoh">
       <OfficeTop crumb={crumb} title={tx(titles[view])} mSub={mSub[view]} back={back} logo={view === "home" || view === "menu"} lang help={help} actions={actions} />
-      <main>{officeLinks ? <div style={{ padding: "16px 20px 0" }}>{officeLinks}</div> : null}{body}</main>
+      {/* Board links below the day's work: above it they sat over the greeting (UX review 6 Nov 2026). */}
+      <main>{body}{officeLinks ? <div style={{ padding: "0 20px 24px" }}>{officeLinks}</div> : null}</main>
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} help={help} />
       {results ? (
         <RemindSheet

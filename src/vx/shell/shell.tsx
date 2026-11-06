@@ -92,6 +92,30 @@ const prefersLargeText = sharedCache(
 );
 
 /**
+ * Whether a teacher is class teacher of any class this session. A subject
+ * teacher's big middle button used to open Attendance and say "You do not
+ * take attendance" (UX review 6 Nov 2026); without a class it opens Marks.
+ * Cached per staff id and session; a new assignment shows within 5 minutes.
+ */
+const teachesAClass = sharedCache(
+  async (staffProfileId: string, sessionLabel: string): Promise<boolean> => {
+    const { data, error } = await createAdminClient()
+      .from("class_teachers")
+      .select("class_id")
+      .eq("session_label", sessionLabel)
+      .eq("staff_profile_id", staffProfileId)
+      .eq("role", "class_teacher")
+      .is("effective_to", null)
+      .limit(1)
+      .returns<{ class_id: string }[]>();
+    if (error) throw new Error(error.message);
+    return data.length > 0;
+  },
+  ["vx-teaches-a-class"],
+  { tags: [CACHE_TAGS.classes], revalidate: 300 },
+);
+
+/**
  * The one frame every signed-in screen sits in (PLAN A.5, docs/ui/DECISIONS.md
  * UI-8): sidebar from 900px, bottom bar below it, the search palette, toasts
  * and the overlay layer. Screens draw their own top bar inside `VxPage`.
@@ -116,7 +140,7 @@ export async function VxShell({
   // Every read at once: every full page load waits on this frame, and these
   // four used to run as three waves (6 Nov 2026, docs/ui/PERFORMANCE.md).
   const previewPermsRead = previewing ? previewPermissions(previewing) : Promise.resolve(null);
-  const [previewPerms, large, assist, portrait] = await Promise.all([
+  const [previewPerms, large, assist, portrait, teacherHasClass] = await Promise.all([
     previewPermsRead,
     prefersLargeText(staff.id).catch(() => false),
     // The AI helper's features for this person (D-324), when a provider is configured.
@@ -124,11 +148,13 @@ export async function VxShell({
       .then((perms) => assistFeaturesFor(staff, perms ? (p: StaffPermission) => perms.has(p) : undefined))
       .catch(() => []),
     approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
+    // A failed read keeps the attendance button: the old behaviour, never a missing one.
+    menu === "teacher" && !previewing && sessionLabel ? teachesAClass(staff.id, sessionLabel).catch(() => true) : true,
   ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
 
   const groups = groupsFor(menu, allowed);
-  const tabs = bottomFor(menu, allowed);
+  const tabs = bottomFor(menu, allowed, { teacherHasClass });
   // The "+" sheet's Quick substitute (photo and Bolo): never while previewing another role.
   const coverAi = !previewing && coverPhotoEnabled(staff, sessionLabel || null);
   const badges = loadBadges(viewer, sessionLabel);

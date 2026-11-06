@@ -34,5 +34,5 @@ export default async function SchoolOfficePage({ searchParams }: { searchParams:
     if (desk.status === "fulfilled") counts = desk.value;
     if (pile.status === "fulfilled") tray = pile.value;
   }
-  return <VxPage><TopBar title={lead(O.title, staff.language)} crumb={sessionLabel} /><main><Section><BoardOfficeLinks />{sessionLabel ? <CertificateRegister {...data} sessionLabel={sessionLabel} query={one("q")} status={one("status")} kind={one("kind")} studentId={studentId} canManage={can(staff, "certificates:manage")} canGovernment={can(staff, "government:view")} canIssue={canIssue} unavailable={unavailable} counts={counts} tray={tray} /> : <EmptyState icon="calendar" title={lead(O.source, staff.language)} />}</Section></main></VxPage>;
+  return <VxPage><TopBar title={lead(O.title, staff.language)} crumb={sessionLabel} /><main><Section>{sessionLabel ? <CertificateRegister {...data} sessionLabel={sessionLabel} query={one("q")} status={one("status")} kind={one("kind")} studentId={studentId} canManage={can(staff, "certificates:manage")} canGovernment={can(staff, "government:view")} canIssue={canIssue} unavailable={unavailable} counts={counts} tray={tray} /> : <EmptyState icon="calendar" title={lead(O.source, staff.language)} />}{/* Below the register, not above it (UX review 6 Nov 2026). */}<BoardOfficeLinks /></Section></main></VxPage>;
 }
