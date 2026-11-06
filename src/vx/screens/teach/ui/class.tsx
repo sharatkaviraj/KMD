@@ -243,6 +243,13 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
           </button>
         </div>
 
+        {data.seesAttendance === false ? (
+          // Owner, 6 Nov 2026: a class's attendance is its class teacher's.
+          <div className="card rise" style={{ order: 2, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12, animationDelay: "60ms" }}>
+            <span className="tc-ic" style={{ background: "var(--s3)", color: "var(--mut)" }}><Ic n="calCheck" /></span>
+            <span style={{ fontSize: 14 }}>{tx(p("Attendance for this class is kept by its class teacher.", "इस कक्षा की हाज़िरी उसके कक्षा अध्यापक देखते हैं।"))}</span>
+          </div>
+        ) : (
         <div className="card rise" style={{ order: 2, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14, animationDelay: "60ms" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span className="tc-ic" style={{ background: "var(--s3)", color: "var(--mut)" }}><Ic n="calCheck" /></span>
@@ -292,6 +299,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
             </div>
           </div>
         </div>
+        )}
 
         <div className="card rise" style={{ order: 4, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, animationDelay: "120ms" }}>
           <Title t={p("Latest marks · average per subject", "नवीनतम अंक · विषय औसत")} trail={classAvg !== null ? <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}><span className="num" style={{ fontSize: 24, fontWeight: 700 }}>{classAvg}%</span><span className="tc-s">{tx(p("class average", "कक्षा औसत"))}</span></span> : null} />
@@ -617,7 +625,7 @@ function masked(raw: string | null | undefined): string {
 
 export function TeachStudent({ data, initialTab, back }: { data: StudentData; initialTab: Tab; back: string }) {
   const { tx, sub, language } = useVx();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>(initialTab === "attendance" && data.attendance.hidden ? "about" : initialTab);
   const [help, setHelp] = useState(false);
   const phone = phoneLinks(data.phone);
   const first = data.name.split(" ")[0];
@@ -664,7 +672,8 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
   });
   const monthName = (mm: string) => new Intl.DateTimeFormat("en-GB", { month: "long" }).format(new Date(`${mm}-15T12:00:00Z`));
 
-  const tabs: [Tab, Pair][] = [["about", p("About", "परिचय")], ["attendance", p("Attendance", "हाज़िरी")], ["marks", p("Marks", "अंक")], ["notes", p("Notes", "नोट्स")]];
+  // Owner, 6 Nov 2026: only the class teacher (and the office) sees a child's attendance.
+  const tabs: [Tab, Pair][] = [["about", p("About", "परिचय")], ...(data.attendance.hidden ? [] : [["attendance", p("Attendance", "हाज़िरी")] as [Tab, Pair]]), ["marks", p("Marks", "अंक")], ["notes", p("Notes", "नोट्स")]];
   const tIdx = tabs.findIndex(([k]) => k === tab);
 
   return (
@@ -689,10 +698,10 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
                 <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{data.name}</span>
                 <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{[data.classLabel, data.rollNo ? tx(p(`Roll ${data.rollNo}`, `रोल ${data.rollNo}`)) : null, data.admissionNo].filter(Boolean).join(" · ")}</span>
                 {why.length ? <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{why.map((w) => <span key={w.label} className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: w.t[0], color: w.t[1] }}>{w.label}</span>)}</span> : null}
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {data.attendance.hidden ? null : <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span className="num" style={{ fontSize: 26, fontWeight: 700, color: ringColor(ringPct) }}>{pct === null ? "—" : `${Math.round(pct)}%`}</span>
                   <span className="tc-s" style={{ textAlign: "left" }}>{tx(p("attendance", "हाज़िरी"))}<br />{early ? tx(p(`from ${data.attendance.counted} ${data.attendance.counted === 1 ? "day" : "days"} so far`, `अभी ${data.attendance.counted} दिन से`)) : tx(p("this session", "इस सत्र"))}</span>
-                </span>
+                </span>}
                 {data.canEditPhoto ? <span><ProfilePhotoControl sheet credential={{ kind: "student", id: data.id }} language={language} /></span> : null}
               </span>
             </div>
@@ -756,7 +765,7 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
               </div>
             ) : null}
 
-            {tab === "attendance" ? (
+            {tab === "attendance" && !data.attendance.hidden ? (
               <div className="card tc-in" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
                   <span style={{ flex: 1, fontSize: 16, fontWeight: 700 }}>{tx(p("Attendance by day", "दिन के हिसाब से हाज़िरी"))}</span>

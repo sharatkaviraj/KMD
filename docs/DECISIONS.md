@@ -32,6 +32,13 @@ Janmejay asked for faster loading and smoother motion, and chose to work through
 | D-451 | **The admin decides what reaches parents: Settings → Parent messages** | Owner, 6 Nov 2026: "let admin make the switch on off of all the decisions that needs to send to parent". `school_settings` key `parent_messages` holds the register's absent-child WhatsApp (Off / Starts off / Starts on) and on/off for "Tell parents" on a note, sharing a support plan, and the birthday wish. Off hides the choice on the teacher's screen and the server refuses to queue it; "Starts off/on" replaces D-320's fixed same-day ON, and the teacher can still flip it. Until the admin saves, behaviour is unchanged (Starts on, all on); a failed read closes every switch. The provider gate still decides whether a queued message may reach WhatsApp |
 | D-431 | **Speed logs name about thirty screens instead of nine** | Most real visits logged as "other", which hid which screen was slow and which one shifted its layout (CLS 0.86 once). Names stay fixed strings; a child's page is "student", never its id |
 
+## Owner decisions after the smoke test — 6 November 2026
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-451 | **A reversed receipt's late-fee waiver stays forgiven** | Janmejay, 6 Nov: "No late fees should not come back". Fees keeps the waiver when the receipt it came with is reversed; One's receipt panel and reversal sheet say what was forgiven (PR 224) instead of restoring it |
+| D-452 | **Only a class teacher sees a class's attendance** | Janmejay, 6 Nov: "only class teachers of there class can see there attendance". `attendanceScopeFor` is the held classes, not held + taught; `/academics/attendance` needs `academics:view` first; the class page, child page and home week chart hide attendance from a subject teacher, who keeps the roll, notes and marks. School-wide roles are unchanged. The parent-message switches from the same message shipped separately (PR 227); a second build of them left an unused table, `vppsone.parent_message_switches` (migration `20261106143831`, four seed rows, never read), to drop when convenient |
+
 ## Collect: card-by-card payment entry — 5 November 2026
 
 The owner approved the Collect prototype ("this flow looks perfect") and plan `docs/plans/2026-11-05-native-money-and-collect-flow.md` (D1–D9 there). Branch `feat/collect-flow`.

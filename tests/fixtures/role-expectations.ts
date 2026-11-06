@@ -642,7 +642,7 @@ function redesign(): RouteExpectation[] {
     row("/preferences/password", EVERYONE, "Changing your own password is your own business; every account can do it."),
     row("/preferences/session", EVERYONE, "Which session you are looking at is a per-person view choice, open to every account."),
     row("/academics/progress", COORDINATORS_AND_TEACHERS, "Class progress from marks, for the people who teach and plan."),
-    row("/academics/attendance", COORDINATORS_AND_TEACHERS, "Attendance trends by class, for the people who teach and plan."),
+    row("/academics/attendance", ["admin", "office", "academic_coordinator", "exam_coordinator"], "School-wide attendance is for the office and coordinators; a teacher sees only her own class's attendance (owner, 6 Nov 2026)."),
     row("/academics/setup", ["admin", "office", "academic_coordinator", "exam_coordinator"], "The old Academics hub, kept as set-up: subjects, class labels, class teachers and attendance rules."),
     row("/calendar/days", ["admin", "office", "academic_coordinator", "exam_coordinator"], "The day-by-day calendar editor the redesigned calendar's holidays view links to."),
     row("/exams", COORDINATORS_AND_TEACHERS, "The exam list: who sits what, when."),
