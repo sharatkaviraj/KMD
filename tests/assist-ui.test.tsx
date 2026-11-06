@@ -143,6 +143,10 @@ describe("report-card remarks", () => {
     expect(host.textContent).toContain("Write AI remarks for 1 child without one");
 
     await click("Write AI remarks");
+    // The first tap only asks (teacher replay, 6 Nov 2026).
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("Nothing is saved");
+    await click("Write the drafts");
     const sent = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(sent.task).toBe("remarks.class");
     expect(sent.input.children).toEqual([{ ref: "C1", percent: 72, attendance: 91, strongest: "Maths", weakest: "English" }]);

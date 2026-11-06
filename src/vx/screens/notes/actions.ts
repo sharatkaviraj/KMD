@@ -31,6 +31,7 @@ import {
   planSourceRefusal,
   type FollowOwner,
   type PlanSourceRefusal,
+  followOwnerAllowed,
 } from "./domain/notes";
 
 /*
@@ -160,6 +161,13 @@ async function noteFiledUnder(staffId: string, requestId: string): Promise<strin
  * 6 Nov school day found six). Two saves at once meet `notes_request_once`:
  * the loser reads back what the winner filed.
  */
+/** A health or family note offered to the coordinator, who may not read it (`followOwnerAllowed`). */
+const SENSITIVE_OWNER = () =>
+  fail(
+    "A health or family note can only be followed up by the class teacher or the admin, who are the only ones who can read it.",
+    "स्वास्थ्य या परिवार वाला नोट सिर्फ़ कक्षा अध्यापक या प्रशासक देख सकते हैं, इसलिए वही इसे फिर से देखेंगे।",
+  );
+
 export async function createNoteAction(input: z.input<typeof createSchema>): Promise<NoteResult> {
   const staff = await writer(await assertPermission("notes:view"));
   const parsed = createSchema.safeParse(input);
@@ -189,6 +197,7 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
     return fail(`Pick a follow-up date after today and within ${FOLLOW_ON_MAX_DAYS} days.`, `आज के बाद और ${FOLLOW_ON_MAX_DAYS} दिन के अंदर की तारीख़ चुनें।`);
   }
   const owner = v.needsFollowUp ? (v.followOwner ?? "me") : null;
+  if (owner && !followOwnerAllowed(owner, { tags: v.tags })) return SENSITIVE_OWNER();
   const ownerId = owner ? await followUpStaff(owner, staff, classId, ctx.sessionLabel) : null;
   const relation = classId && ctx.viewer.heldClassIds.has(classId) ? "class_teacher" : classId && ctx.viewer.classIds.has(classId) ? "subject_teacher" : staff.role;
 
@@ -346,6 +355,7 @@ export async function setFollowUpAction(noteId: string, owner: FollowOwner, when
   const found = await workable(staff, noteId);
   if (!found) return fail("That note was not found.", "यह नोट नहीं मिला।");
   if (!canWorkOnNote(found.note, found.viewer)) return fail("You cannot change who follows this up.", "आप नहीं बदल सकते कि इसे फिर से कौन देखेगा।");
+  if (!followOwnerAllowed(owner, found.note)) return SENSITIVE_OWNER();
   const ownerId = await followUpStaff(owner, staff, found.note.classId, found.sessionLabel);
   const on = when ? followUpDate(when, schoolToday()) : (found.note.followUpOn ?? followUpDate("next_monday", schoolToday()));
   const { error } = await createAdminClient()

@@ -22,6 +22,7 @@ import {
   followUpDate,
   followUpLabel,
   followUpWho,
+  followOwnerAllowed,
   isSensitiveNote,
   nextOpenAction,
   noteStage,
@@ -760,7 +761,10 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
       { key: "coordinator", label: tx(p("Coordinator", "समन्वयक")) },
       { key: "admin", label: tx(p("Admin", "प्रशासक")) },
     ] as { key: FollowOwner; label: string }[]
-  ).filter((w) => w.key !== me);
+  )
+    .filter((w) => w.key !== me)
+    // A health or family note is for the admin and the class teacher only.
+    .filter((w) => followOwnerAllowed(w.key, { tags: c.tags }));
   const msg = child ? parentNoteMessage({ childName: child.name, teacher: viewer.name, body: c.body.trim() || "…", school }) : null;
   const sensitive = isSensitiveNote({ tags: c.tags });
 
@@ -851,6 +855,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
               style={{ minHeight: 110, fontSize: 16 }}
             />
           </label>
+          <BodyRoom length={c.body.length} />
           {c.errField === "text" ? <span style={{ fontSize: 13, fontWeight: 600, color: "var(--bad)", marginTop: -8, animation: "xIn .3s var(--ease) both" }}>{tx(p("Speak or type the note first.", "पहले नोट बोलें या लिखें।"))}</span> : null}
           <NoteAssist body={c.body} childName={c.child?.name ?? null} autoTidy={c.voice && !c.speech.listening} onApply={(text, tags) => { c.setBody(text); c.setMode("type"); c.setErrField(null); if (tags?.length) c.setTags(tags); }} />
           <span className="nx-m nx-f" style={{ marginTop: -6, gap: 6 }}>
@@ -1010,12 +1015,12 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
   const ready = Boolean(child) && c.body.trim().length > 0;
   // The class teacher writing about her own class is "Me (class teacher)":
   // one person, one choice (smoke 20 Oct offered both).
-  const whos: { key: FollowOwner; label: string }[] = [
+  const whos: { key: FollowOwner; label: string }[] = ([
     { key: "me", label: mine ? tx(p("Me (class teacher)", "मैं (कक्षा अध्यापक)")) : tx(p("Me", "मैं")) },
     ...(mine ? [] : [{ key: "class_teacher" as const, label: `${tx(p("Class teacher", "कक्षा अध्यापक"))}${ct ? ` · ${ct}` : ""}` }]),
     { key: "coordinator", label: `${tx(p("Coordinator", "समन्वयक"))}${people.coordinator ? ` · ${people.coordinator}` : ""}` },
     { key: "admin", label: tx(p("Admin", "प्रशासक")) },
-  ];
+  ] satisfies { key: FollowOwner; label: string }[]).filter((w) => followOwnerAllowed(w.key, { tags: c.tags }));
   const pick = (id: string) => {
     c.pickChild(id);
     setPicking(false);
@@ -1098,6 +1103,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                     style={{ minHeight: 120, fontSize: 16 }}
                   />
                 </label>
+                <BodyRoom length={c.body.length} />
                 <NoteAssist body={c.body} childName={c.child?.name ?? null} autoTidy={c.voice && !c.speech.listening} onApply={(text, tags) => { c.setBody(text); c.setMode("type"); c.setErrField(null); if (tags?.length) c.setTags(tags); }} />
                 <div className="nx-f" style={{ flexWrap: "wrap", gap: 8 }}>
                   <button type="button" className="tap btn soft" onClick={() => (fromVoice ? (c.setBody(""), c.listen(false)) : c.listen(Boolean(c.body.trim())))}>
@@ -1429,4 +1435,25 @@ export function useUndo() {
       } else toast.show({ text: tx(res.error), tone: "bad" });
     });
   return { undo, pending };
+}
+
+/** The longest note the server keeps (`createSchema.body`). */
+const NOTE_MAX = 2000;
+
+/**
+ * How much room is left, shown only near the end. The box stopped at 2,000
+ * characters with no sign of it, and a long dictated note simply lost its
+ * last words (teacher replay, 6 Nov 2026).
+ */
+function BodyRoom({ length }: { length: number }) {
+  const { tx } = useVx();
+  if (length < NOTE_MAX - 300) return null;
+  const left = Math.max(0, NOTE_MAX - length);
+  return (
+    <span className="nx-m" aria-live="polite" style={{ marginTop: -6, color: left === 0 ? "var(--bad)" : undefined, fontWeight: left === 0 ? 700 : undefined }}>
+      {left === 0
+        ? tx(p("The note is full (2,000 characters). Save it and write the rest as a second note.", "नोट भर गया (2,000 अक्षर)। इसे सहेजें और बाकी दूसरे नोट में लिखें।"))
+        : tx(p(`${left} characters left`, `${left} अक्षर बाकी`))}
+    </span>
+  );
 }

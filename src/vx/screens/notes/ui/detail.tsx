@@ -14,7 +14,7 @@ import { editNoteAction, replyToNoteAction, setFollowUpAction, setNoteStatusActi
 import type { NoteReply, NotesPeople, SupportPlan } from "../data";
 import { shortDayHi } from "@/vx/format";
 
-import { canEditNote, EDIT_DAYS, followUpDate, isSensitiveNote, knownPair, noteStage, parentNoteMessage, planProgress, STATUS_ORDER, TAG_TEXT, type BoardNote, type FollowOwner, type NoteStatus } from "../domain/notes";
+import { canEditNote, EDIT_DAYS, followOwnerAllowed, followUpDate, isSensitiveNote, knownPair, noteStage, parentNoteMessage, planProgress, STATUS_ORDER, TAG_TEXT, type BoardNote, type FollowOwner, type NoteStatus } from "../domain/notes";
 import { COST } from "./compose";
 import { BOARD_TAG, day, nameTone, noteWhen, time, relationText, TEACH_TAG, useBoth, useNoteWords, WaBubble } from "./look";
 import { canWork, type ClientViewer } from "./parts";
@@ -340,11 +340,11 @@ export function BoardNoteAside({
   // follow-up, never the viewer's role: with two admins, the one who did not
   // get the note is not "you" (B09).
   const isYou = (key: FollowOwner, fallbackId: string | null | undefined) => (owner === key && note.followUpStaffId ? note.followUpStaffId === viewer.id : Boolean(fallbackId) && fallbackId === viewer.id);
-  const assign: { key: FollowOwner; label: Pair; sub: string | null; you: boolean }[] = [
+  const assign: { key: FollowOwner; label: Pair; sub: string | null; you: boolean }[] = ([
     { key: "class_teacher", label: p("Class teacher", "कक्षा अध्यापक"), sub: ct, you: note.classId !== null && viewer.heldClassIds.includes(note.classId) },
     { key: "coordinator", label: p("Coordinator", "समन्वयक"), sub: owner === "coordinator" && note.followUpName ? note.followUpName : people.coordinator, you: isYou("coordinator", people.coordinatorId) },
     { key: "admin", label: p("Admin", "प्रशासक"), sub: owner === "admin" && note.followUpName ? note.followUpName : people.admin, you: isYou("admin", people.adminId) },
-  ];
+  ] satisfies { key: FollowOwner; label: Pair; sub: string | null; you: boolean }[]).filter((a) => a.key === owner || followOwnerAllowed(a.key, note));
 
   return (
     <div className="nx-c" style={{ padding: "18px 20px 28px", gap: 14 }}>

@@ -17,6 +17,13 @@ const SAY = {
   progress: (done: number, of: number) => p(`Writing remarks… ${done} of ${of}`, `टिप्पणियाँ लिख रहे हैं… ${done} / ${of}`),
   ready: (n: number) => p(`${n} AI remarks are ready. Open each child, read it, tap it and save.`, `${n} AI टिप्पणियाँ तैयार। हर बच्चे को खोलें, पढ़ें, चुनें और सहेजें।`),
   one: p("Write one with AI", "AI से एक लिखवाएँ"),
+  confirm: (n: number) =>
+    p(
+      `AI will draft a remark for ${n} ${n === 1 ? "child" : "children"}. Nothing is saved: you read each one and choose.`,
+      `AI ${n} बच्चों के लिए टिप्पणी का मसौदा लिखेगा। कुछ भी सहेजा नहीं जाएगा: आप हर एक पढ़कर चुनेंगे।`,
+    ),
+  go: p("Write the drafts", "मसौदे लिखें"),
+  cancel: p("Cancel", "रद्द करें"),
   from: p("Written by AI · from marks, attendance and subjects", "AI ने लिखी · अंक, हाज़िरी और विषयों से"),
 };
 
@@ -119,6 +126,9 @@ export type AiRemarks = ReturnType<typeof useAiRemarks>;
 /** "Write AI remarks for 18 children without one", and its progress. */
 export function AiRemarksBar({ ai, missing }: { ai: AiRemarks; missing: readonly RemarkFacts[] }) {
   const { tx } = useVx();
+  // One tap used to start drafting for the whole class (teacher replay, 6 Nov
+  // 2026). The first tap now says what will happen; the second starts it.
+  const [asking, setAsking] = useState(false);
   if (!ai.offered) return null;
   const todo = missing.filter((k) => hasRemarkFacts(k) && !ai.drafts[k.id]);
   const ready = missing.filter((k) => ai.drafts[k.id]).length;
@@ -130,8 +140,18 @@ export function AiRemarksBar({ ai, missing }: { ai: AiRemarks; missing: readonly
           <Ic n="refresh" size={16} className="as-spin" />
           {tx(SAY.progress(ai.progress.done, ai.progress.of))}
         </div>
+      ) : todo.length > 0 && asking ? (
+        <div role="group" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 14, background: "var(--accs)", color: "var(--accfg)" }}>
+          <span style={{ flex: "1 1 220px", fontWeight: 600 }}>{tx(SAY.confirm(todo.length))}</span>
+          <button type="button" className="tap btn pri" style={{ minHeight: 44 }} onClick={() => { setAsking(false); void ai.write(todo); }}>
+            {tx(SAY.go)}
+          </button>
+          <button type="button" className="tap btn ghost" style={{ minHeight: 44 }} onClick={() => setAsking(false)}>
+            {tx(SAY.cancel)}
+          </button>
+        </div>
       ) : todo.length > 0 ? (
-        <AssistButton label={SAY.forClass(todo.length)} onClick={() => void ai.write(todo)} style={{ alignSelf: "flex-start" }} />
+        <AssistButton label={SAY.forClass(todo.length)} onClick={() => setAsking(true)} style={{ alignSelf: "flex-start" }} />
       ) : null}
       {!ai.progress && ready > 0 ? <span className="as-note">{tx(SAY.ready(ready))}</span> : null}
       {ai.problem ? <AssistProblemLine problem={ai.problem} onClose={ai.clearProblem} /> : null}
