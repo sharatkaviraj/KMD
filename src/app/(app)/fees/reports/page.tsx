@@ -36,6 +36,8 @@ import { getFeePolicySummary } from "@/modules/fees/domain/queries";
 import { getOfficeWorkflowReadiness } from "@/modules/fees/domain/readiness";
 import { getSetupWizardDataLight } from "@/modules/fees/data/setup-queries";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
+import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 
 type ReportsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -1288,7 +1290,13 @@ function ReportTables({ report }: { report: ReportData }) {
 
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const staff = await requireStaffPermission("reports:view", { onDenied: "redirect" });
-  const filters = normalizeReportFilters(searchParams ? await searchParams : undefined);
+  const asked = normalizeReportFilters(searchParams ? await searchParams : undefined);
+  // A session in the link that this viewer may not open (a test account
+  // handed ?sessionLabel=2026-27) falls back to their own instead of failing.
+  const view = asked.sessionLabel
+    ? await resolveViewSession({ searchParamSession: asked.sessionLabel, cookieSession: await getViewSessionCookie() })
+    : null;
+  const filters = view && view.source !== "url" ? { ...asked, sessionLabel: view.sessionLabel } : asked;
   const [data, policy, setup] = await Promise.all([
     getReportsPageData(filters),
     getFeePolicySummary(),
