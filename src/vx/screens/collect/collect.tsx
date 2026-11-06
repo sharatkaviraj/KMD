@@ -267,10 +267,19 @@ function CollectApp(props: CollectProps) {
 
   const primary = primaryId ? okDues(dues[primaryId]) : null;
 
+  // "Collect for all": once the household is known, tick the siblings the phone search found who owe.
+  const famShown = useMemo(() => {
+    if (!wantAll || !primary) return fam;
+    const household = new Set(primary.siblings.map((s) => s.id));
+    const extra = wantAll.filter((id) => household.has(id) && !fam.includes(id));
+    return extra.length ? [...fam, ...extra] : fam;
+  }, [wantAll, primary, fam]);
+
   // The primary child's siblings: read their dues (a few) so the ticks show fees and late fees apart.
   const siblingIds = useMemo(() => (primary ? primary.siblings.slice(0, SIBLINGS_READ).map((s) => s.id) : []), [primary]);
   useEffect(() => {
-    const missing = siblingIds.filter((id) => !dues[id]);
+    // Every ticked child is read too, so a fourth sibling ticked by "Collect for all" is never left loading.
+    const missing = [...new Set([...siblingIds, ...famShown])].filter((id) => !dues[id]);
     if (!missing.length) return;
     let live = true;
     void Promise.all(missing.map((id) => port.dues(id).then((answer) => [id, answer] as const))).then((pairs) => {
@@ -284,18 +293,16 @@ function CollectApp(props: CollectProps) {
     return () => {
       live = false;
     };
-  }, [siblingIds, dues, port]);
-
-  // "Collect for all": once the household is known, tick the siblings the phone search found who owe.
-  const famShown = useMemo(() => {
-    if (!wantAll || !primary) return fam;
-    const household = new Set(primary.siblings.map((s) => s.id));
-    const extra = wantAll.filter((id) => household.has(id) && !fam.includes(id));
-    return extra.length ? [...fam, ...extra] : fam;
-  }, [wantAll, primary, fam]);
+  }, [siblingIds, famShown, dues, port]);
 
   // ── Money, derived ──
   const members = famShown.map((id) => okDues(dues[id])).filter((d): d is CollectDues => d !== null);
+  // A ticked child whose dues have not arrived is not in `members` yet. Moving on
+  // then priced two children and quietly became three when the third loaded
+  // (office day, 6 Nov), so the dues card waits for every ticked child.
+  const famWaiting: "loading" | "failed" | null = members.length === famShown.length
+    ? null
+    : famShown.some((id) => dues[id]?.status === "error") ? "failed" : "loading";
   const family = members.length > 1;
   const choice: "waive" | "collect" = late.choice ?? (info.canWaive ? "waive" : "collect");
   const takesLate = (d: CollectDues) => d.onPlan || !info.canWaive || choice === "collect";
@@ -460,6 +467,7 @@ function CollectApp(props: CollectProps) {
       return;
     }
     if (card === "pay" && !payReady) return;
+    if ((card === "dues" || card === "amount") && famWaiting) return;
     if (card === "dues" && !members.some((d) => childTotals({ id: d.student.id, rows: d.rows, takeLate: true }, today).fees > 0)) return;
     const nextDone = new Set(done);
     nextDone.add(card);
@@ -480,6 +488,7 @@ function CollectApp(props: CollectProps) {
   }
   function jumpTo(c: Card) {
     if (!canJumpTo(c, { current: card, done }, Boolean(sealed)) || busy) return;
+    if (famWaiting && c !== "who" && c !== "dues") return;
     if (c === "who") {
       resetAll();
       return;
@@ -1144,6 +1153,7 @@ function CollectApp(props: CollectProps) {
         choice={choice}
         reason={late.reason}
         familyLate={familyLate}
+        waiting={famWaiting}
         onLate={(c) => setLate((l) => ({ ...l, choice: c }))}
         onReason={() => setLate((l) => ({ ...l, reason: nextReason(l.reason) }))}
         onSibling={toggleSibling}

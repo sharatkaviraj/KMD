@@ -89,6 +89,7 @@ export const mc = {
   collectFrom: t("{name} से लें", "Collect from {name}"),
   collectForN: t("{n} बच्चों के लिए लें", "Collect for {n} children"),
   duesFailed: t("इस बच्चे का बकाया लोड नहीं हो सका।", "This child's dues could not be loaded."),
+  siblingFailed: t("एक बच्चे का बकाया नहीं आया: उसे हटाकर फिर चुनें", "One child's dues did not load: untick and tick again"),
 
   instDone: t("किस्त {n} ✓", "Inst {n} ✓"),
   instClears: t("किस्त {n} साफ़", "Inst {n} clears"),
