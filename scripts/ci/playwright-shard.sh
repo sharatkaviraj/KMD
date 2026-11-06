@@ -44,13 +44,27 @@ prepare() {
 keep_failure() {
   local dest=".shard-failures/${1%.playwright.config.ts}"
   mkdir -p "$dest"
-  for dir in test-results tests/playwright/test-results .playwright .test-artifacts ../evidence; do
+  for dir in test-results tests/playwright/test-results .playwright .test-artifacts; do
     if [ -d "$dir" ]; then
       mkdir -p "$dest/$(echo "$dir" | tr '/.' '__')"
       cp -R "$dir/." "$dest/$(echo "$dir" | tr '/.' '__')/" 2>/dev/null || true
     fi
   done
+  # ../evidence holds several configs' output plus built static fixtures. Keep
+  # the same filter as the workflow's "safe evidence" step (no *admin* /
+  # *server* files) and skip the *-static builds, which are inputs, not results.
+  if [ -d ../evidence ]; then
+    mkdir -p "$dest/evidence"
+    find ../evidence -mindepth 1 -maxdepth 1 ! -name '*-static' ! -name '*admin*' ! -name '*server*' \
+      -exec cp -R {} "$dest/evidence/" \; 2>/dev/null || true
+  fi
 }
+
+# Per-config limit, so a hung config ends as an ordinary failure (its output
+# is kept and uploaded) instead of running into the job timeout, which GitHub
+# reports as "cancelled". The slowest config measured ~3 min including its
+# fixture build (5 Nov 2026), so 6 min is twice that.
+CONFIG_TIMEOUT="${PLAYWRIGHT_SHARD_CONFIG_TIMEOUT:-360}"
 
 failed=()
 summary "| Config | Result | Seconds |"
@@ -60,17 +74,19 @@ for config in "$@"; do
   start=$(date +%s)
   (
     prepare "$config" || exit 1
-    npx playwright test --config "tests/playwright/${config}"
+    timeout --kill-after=30 "$CONFIG_TIMEOUT" npx playwright test --config "tests/playwright/${config}"
   )
   status=$?
   seconds=$(( $(date +%s) - start ))
   echo "::endgroup::"
+  why="exit ${status}"
+  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then why="timed out after ${CONFIG_TIMEOUT}s"; fi
   if [ "$status" -eq 0 ]; then
     echo "${config}: passed in ${seconds}s"
     summary "| \`${config}\` | passed | ${seconds} |"
   else
-    echo "::error title=${config} failed::exit ${status} after ${seconds}s"
-    summary "| \`${config}\` | **failed** (exit ${status}) | ${seconds} |"
+    echo "::error title=${config} failed::${why} (${seconds}s)"
+    summary "| \`${config}\` | **failed** (${why}) | ${seconds} |"
     keep_failure "$config"
     failed+=("$config")
   fi

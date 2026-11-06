@@ -10,14 +10,17 @@ name: CI
 # is green only when every child succeeded, and red when any child failed, was
 # cancelled or was skipped.
 #
-# Caches (restored read-only on PRs; written only by pushes to main and by
-# manual dispatches — both need write access — so a PR never seeds a cache):
-#   - npm download cache (setup-node)
+# Caches:
+#   - npm download cache (setup-node, unchanged from before): setup-node may
+#     save it on any run, but GitHub scopes a PR's entry to that PR's ref, so
+#     main never restores it.
 #   - TypeScript .tsbuildinfo, ESLint --cache (content strategy), and
 #     .next/cache — each keyed on OS, arch, exact Node version, the lockfile
 #     (which pins next, typescript, eslint and the React Compiler) and the
 #     config files that change their output. restore-keys never cross a
-#     lockfile or config change, so those always start cold.
+#     lockfile or config change, so those always start cold. Restored on every
+#     run; saved only by pushes to main and by manual dispatches (both need
+#     write access), so no PR seeds these.
 # None of them stores credentials, sessions or data; none is a previous
 # commit's result: tsc, eslint and next still check every file of this commit
 # and only skip work whose inputs hash identically.

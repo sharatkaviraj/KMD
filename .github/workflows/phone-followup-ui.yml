@@ -48,7 +48,10 @@ jobs:
           mkdir -p .playwright/followup-evidence
           find ../evidence -maxdepth 1 -type f -name '*followup*' ! -name '*admin*' ! -name '*server*' -exec cp {} .playwright/followup-evidence/ \; 2>/dev/null || true
           find ../evidence -maxdepth 1 -type f -name '*sibling-context*' -exec cp {} .playwright/followup-evidence/ \; 2>/dev/null || true
-      # Failure: everything a reviewer needs to debug, kept 14 days.
+      # Failure (a hung config is a failure too: the shard script stops it at
+      # its own time limit, before the job timeout would cancel the job): everything
+      # a reviewer needs to debug, kept 14 days. A run cancelled because a newer
+      # push superseded it uploads nothing.
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -67,7 +70,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success() && github.event_name != 'pull_request'
         with:
-          name: targeted-${{ matrix.shard }}-evidence
+          name: targeted-${{ matrix.shard }}-evidence-${{ github.run_attempt }}
           retention-days: 7
           include-hidden-files: true
           if-no-files-found: ignore

@@ -44,7 +44,10 @@ jobs:
         run: node -e "const v=require('@playwright/test/package.json').version; if(v !== '1.64.1') throw new Error('Update the Playwright container to match '+v)"
       - name: Synthetic phone acceptance (no DB credentials)
         run: bash scripts/ci/playwright-shard.sh ${{ matrix.configs }}
-      # Failure: everything a reviewer needs to debug, kept 14 days.
+      # Failure (a hung config is a failure too: the shard script stops it at
+      # its own time limit, before the job timeout would cancel the job): everything
+      # a reviewer needs to debug, kept 14 days. A run cancelled because a newer
+      # push superseded it uploads nothing.
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -64,7 +67,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success() && github.event_name != 'pull_request'
         with:
-          name: phone-${{ matrix.shard }}-evidence
+          name: phone-${{ matrix.shard }}-evidence-${{ github.run_attempt }}
           retention-days: 7
           include-hidden-files: true
           if-no-files-found: ignore
