@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition, type CSSProperties } from "react";
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useRouter } from "next/navigation";
 
 import { activatePlanAction, logCallAction, previewPlanAction, queueFamilyReminderAction, undoPlanAction, type PlanPreview } from "@/app/(app)/dues/actions";

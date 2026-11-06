@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 

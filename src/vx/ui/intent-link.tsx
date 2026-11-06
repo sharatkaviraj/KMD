@@ -33,7 +33,7 @@ export function IntentLink({ feedback = false, ...props }: Omit<ComponentProps<t
   return (
     <Component
       {...props}
-      prefetch={full ? true : null}
+      prefetch={full}
       onTouchStart={(event) => {
         soon();
         props.onTouchStart?.(event);

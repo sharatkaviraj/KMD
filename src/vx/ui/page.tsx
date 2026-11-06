@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { Ic } from "@/vx/icons";

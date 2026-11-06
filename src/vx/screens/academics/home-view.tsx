@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 
 import { logoutAction } from "@/app/login/actions";
 import type { Language } from "@/platform/i18n/language";

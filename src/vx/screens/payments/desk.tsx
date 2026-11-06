@@ -2,7 +2,7 @@
 
 import "./paydesk.css";
 
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 

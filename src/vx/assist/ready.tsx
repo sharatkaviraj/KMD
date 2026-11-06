@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useState, type CSSProperties } from "react";
 
 import type { ReadyDraftView } from "@/modules/assist/domain/drafts";

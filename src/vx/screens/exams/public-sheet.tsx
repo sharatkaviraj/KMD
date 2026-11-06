@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";

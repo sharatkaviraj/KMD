@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 

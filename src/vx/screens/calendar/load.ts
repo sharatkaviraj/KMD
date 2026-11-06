@@ -36,31 +36,45 @@ export async function loadCalendar(staff: CurrentStaff, params: CalendarParams):
   const awayFrom = [grid[0][0].day, today, ...(isDay(params.day) ? [params.day] : [])].reduce((a, b) => (a < b ? a : b));
   const awayTo = [grid[grid.length - 1][6].day, addDays(today, 30), ...(isDay(params.day) ? [params.day] : [])].reduce((a, b) => (a > b ? a : b));
 
-  const [events, holidays, bdays, notices, audience, roll, away, teachers, directory, asEvent] = await Promise.all([
+  // The register for the one day a screen shows it: the month's side panel, or the day.
+  const view = params.view ?? "";
+  const shownDay = isDay(params.day) ? params.day : asked === today.slice(0, 7) ? today : monthRange(asked).first;
+  const needsRegister = (view === "" || view === "month" || view === "day") && !isUuid(params.eventId) && !params.holiday;
+  const wantsRegister = needsRegister && shownDay <= today && weekdayOf(shownDay) !== 0 && ctx.classes.length > 0;
+
+  // One wave (D-440). The register waits only on the holidays and the notice
+  // counts only on the notices, not on the slowest of the ten reads.
+  const holidaysRead = holidaysBetween(session, from, to);
+  const noticesRead = noticesFor(session, {});
+  const registerRead = holidaysRead.then(async (holidays) => {
+    if (!wantsRegister) return null;
+    const closed = new Set(holidayItems(holidays).flatMap((h) => {
+      const out: string[] = [];
+      for (let d = h.startsOn; d <= h.endsOn; d = addDays(d, 1)) out.push(d);
+      return out;
+    }));
+    return closed.has(shownDay) ? null : attendanceOn(ctx, shownDay);
+  });
+  const countsRead = noticesRead.then((notices) =>
+    noticeCounts(notices.map((n) => n.campaignId).filter((id): id is string => Boolean(id))));
+
+  const [events, holidays, bdays, notices, audience, roll, away, teachers, directory, asEvent, att, counts] = await Promise.all([
     eventsBetween(session, from, to),
-    holidaysBetween(session, from, to),
+    holidaysRead,
     birthdays(session),
-    noticesFor(session, {}),
+    noticesRead,
     audienceSize(session, []),
     rollByClass(session),
     staffAwayDetail(session, awayFrom, awayTo),
     classTeachersOn(session, today),
     staffDirectory(),
     isUuid(params.eventId) ? eventById(session, params.eventId) : Promise.resolve(null),
+    registerRead,
+    countsRead,
   ]);
 
-  // The register for the one day a screen shows it: the month's side panel, or the day.
-  const view = params.view ?? "";
-  const shownDay = isDay(params.day) ? params.day : asked === today.slice(0, 7) ? today : monthRange(asked).first;
-  const closed = new Set(holidayItems(holidays).flatMap((h) => {
-    const out: string[] = [];
-    for (let d = h.startsOn; d <= h.endsOn; d = addDays(d, 1)) out.push(d);
-    return out;
-  }));
   const attendance: Record<string, AttendanceFacts> = {};
-  const needsRegister = (view === "" || view === "month" || view === "day") && !isUuid(params.eventId) && !params.holiday;
-  if (needsRegister && shownDay <= today && weekdayOf(shownDay) !== 0 && !closed.has(shownDay) && ctx.classes.length) {
-    const att = await attendanceOn(ctx, shownDay);
+  if (att) {
     attendance[shownDay] = {
       marked: att.marked,
       classes: att.classes.length,
@@ -70,9 +84,6 @@ export async function loadCalendar(staff: CurrentStaff, params: CalendarParams):
       notMarked: att.notMarked.map((c) => c.label),
     };
   }
-
-  const campaignIds = notices.map((n) => n.campaignId).filter((id): id is string => Boolean(id));
-  const counts = await noticeCounts(campaignIds);
 
   const all: CalEvent[] = asEvent && !events.some((e) => e.id === asEvent.id) ? [...events, asEvent] : events;
   const classLabels: Record<string, string> = {};

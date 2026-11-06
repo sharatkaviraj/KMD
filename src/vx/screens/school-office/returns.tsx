@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import type { CSSProperties } from "react";
 import type { DestinationCard } from "@/modules/government-records/data/readiness";
 import { DEFAULT_MODULE, type Destination, type ReadinessCounts } from "@/modules/government-records/domain/readiness";

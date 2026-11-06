@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useRouter } from "next/navigation";
 
 import {

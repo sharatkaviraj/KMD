@@ -142,3 +142,7 @@ Batch 3 (D-436 to D-438):
   render per row). ✅
 - Checked and not built, with reasons in D-438: per-route fee catalogues,
   optimistic saves, fewer refreshes, tab view transitions, Cache Components.
+
+### 6 November: the prefetch storm (D-439)
+
+Counting `_rsc` requests in the first seconds after a screen loaded on live (phone viewport, admin): Calendar 53, Students 33, Academics 26, Collection 20, Fees 12, Attendance 10, Exams 9, Substitutions 9, Staff 8, Messages 7, Reports 6. Each is a full server render of a page somebody might open. On school wifi they fill the connection, and the tap the person makes waits behind them. Screen links now prefetch only on intent (`src/vx/ui/link.tsx`); the shell's tabs are unchanged.

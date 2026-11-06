@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { Language } from "@/platform/i18n/language";
