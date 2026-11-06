@@ -19,7 +19,7 @@ import { planTasks, type TaskStudent, type TaskOwner, type TaskPlan } from "../d
  * out and counted, not allowed to fail the whole sheet (N03: one such child
  * made "Teacher tasks could not be read" for everybody).
  */
-export type AssignmentContext = { session: string; students: TaskStudent[]; unmatched: number; owners: TaskOwner[]; fields: { id: string; key: string; labelHi: string; labelEn: string }[]; subjects: { id: string; label: string }[]; papers: { id: string; classId: string; subjectId: string; label: string }[] };
+export type AssignmentContext = { session: string; students: TaskStudent[]; unmatched: number; owners: TaskOwner[]; fields: { id: string; key: string; labelHi: string; labelEn: string }[]; subjects: { id: string; label: string }[]; papers: { id: string; classId: string; subjectId: string; label: { en: string; hi: string } }[] };
 export const assignmentSchema = z.object({
   kind: z.enum(["collection", "marks", "attendance"]), title: z.string().trim().min(1).max(120),
   mode: z.enum(["common", "class", "house", "route", "subject"]), teacherId: z.uuid().optional(), subjectId: z.uuid().optional(),
@@ -46,7 +46,7 @@ export async function assignmentContext(): Promise<AssignmentContext> {
     db.from("staff_scopes").select("staff_profile_id,kind,value").eq("session_label",session).returns<{staff_profile_id:string;kind:string;value:string}[]>(),
     fetchAllRows<{staff_profile_id:string;class_id:string;subject_id:string}>((from,to) => db.from("teaching_assignments").select("staff_profile_id,class_id,subject_id").eq("session_label",session).order("id").range(from,to), "subject assignments"),
     db.from("subjects").select("id,code").returns<{id:string;code:string}[]>(),
-    fetchAllRows<{id:string;class_id:string;subject_id:string;class_label:string;subject_code:string;assessments:{label_en:string}}>((from,to) => db.from("assessment_subjects").select("id,class_id,subject_id,class_label,subject_code,assessments!inner(label_en,session_label,status)").eq("assessments.session_label",session).eq("assessments.status","open").order("id").range(from,to).returns<{id:string;class_id:string;subject_id:string;class_label:string;subject_code:string;assessments:{label_en:string}}[]>(), "open papers"),
+    fetchAllRows<{id:string;class_id:string;subject_id:string;class_label:string;subject_code:string;assessments:{label_en:string;label_hi:string|null}}>((from,to) => db.from("assessment_subjects").select("id,class_id,subject_id,class_label,subject_code,assessments!inner(label_en,label_hi,session_label,status)").eq("assessments.session_label",session).eq("assessments.status","open").order("id").range(from,to).returns<{id:string;class_id:string;subject_id:string;class_label:string;subject_code:string;assessments:{label_en:string;label_hi:string|null}}[]>(), "open papers"),
   ]);
   for (const result of [profiles,classTeachers,scopes,subjects]) if (result.error) throw new Error("assignment_unavailable");
   const active = fields.filter(f => f.isActive);
@@ -68,7 +68,7 @@ export async function assignmentContext(): Promise<AssignmentContext> {
     students: matched.map(r => { const s=studentOf.get(r.student_id)!; return { id:r.student_id,name:s.full_name??"-",classId:r.class_id,classLabel:labels.get(r.class_id)??"-",house:s.house||null,routeId:s.transport_route_id||null,hasPhoto:hasPhoto.has(r.student_id),values:Object.fromEntries(active.map(f => { const v=f.key==="student_photo" ? (hasPhoto.has(r.student_id)?"present":null) : recorded.get(`${r.student_id}:${f.id}`) ?? (f.feeColumn?s[f.feeColumn]:null); return [f.key,v?.trim()?"present":null]; })) }; }),
     owners:(profiles.data??[]).map(s => ({id:s.id,name:s.display_name,active:true,classIds:(classTeachers.data??[]).filter(c => c.staff_profile_id===s.id && c.effective_from<=today && (!c.effective_to||c.effective_to>=today)).map(c=>c.class_id),houses:(scopes.data??[]).filter(c=>c.staff_profile_id===s.id&&c.kind==="house").map(c=>c.value),routeIds:(scopes.data??[]).filter(c=>c.staff_profile_id===s.id&&c.kind==="route").map(c=>c.value),subjects:assignments.filter(a=>a.staff_profile_id===s.id).map(a=>({classId:a.class_id,subjectId:a.subject_id}))})),
     fields:active.map(f=>({id:f.id,key:f.key,labelHi:f.labelHi,labelEn:f.labelEn})), subjects:(subjects.data??[]).map(s=>({id:s.id,label:s.code})),
-    papers:papers.map(p=>({id:p.id,classId:p.class_id,subjectId:p.subject_id,label:`${p.assessments.label_en} · ${p.class_label} · ${p.subject_code}`})),
+    papers:papers.map(p=>({id:p.id,classId:p.class_id,subjectId:p.subject_id,label:{en:`${p.assessments.label_en} · ${p.class_label} · ${p.subject_code}`,hi:`${p.assessments.label_hi?.trim()||p.assessments.label_en} · ${p.class_label} · ${p.subject_code}`}})),
   };
 }
 

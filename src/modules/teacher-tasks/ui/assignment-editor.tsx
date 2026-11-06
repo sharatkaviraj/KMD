@@ -131,7 +131,7 @@ export function AssignmentEditor({ context, selectedIds, initialKind, initialMis
       {kind === "collection" && mode === "subject" && <select aria-label={word(ms.taskSubject)} className={inputClass} value={subject} onChange={e => setSubject(e.target.value)}>
         <option value="">{word(ms.taskSubject)}</option>{context.subjects.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}</select>}
       {kind === "marks" && <select aria-label={word(m.taskMarks)} className={inputClass} value={paper} onChange={e => setPaper(e.target.value)}>
-        <option value="">{word(ms.taskChoose)}</option>{context.papers.filter(p => !selected.size || context.students.some(s => selected.has(s.id) && s.classId === p.classId)).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select>}
+        <option value="">{word(ms.taskChoose)}</option>{context.papers.filter(p => !selected.size || context.students.some(s => selected.has(s.id) && s.classId === p.classId)).map(p => <option key={p.id} value={p.id}>{word(p.label)}</option>)}</select>}
       {kind === "attendance" && <input aria-label={word(m.taskAttendance)} className={inputClass} type="date" value={day} onChange={e => setDay(e.target.value)} />}
       {only ? <p className="rounded-lg border border-border p-3 text-sm">
         <span className="font-medium">{only.name} · {only.classLabel}</span>
