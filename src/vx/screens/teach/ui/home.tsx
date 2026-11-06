@@ -8,7 +8,7 @@ import { draftKey } from "@/platform/drafts/policy";
 import { loadDraft } from "@/platform/drafts/store";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { initials } from "@/vx/format";
+import { initials, shortDayHi, timeHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { VxPage } from "@/vx/ui/page";
 import { Sheet, useToast } from "@/vx/ui/overlays";
@@ -387,7 +387,7 @@ export function TeachHome({
           [
             // The half day was left out: "3 present · 1 absent" for 5 children (6 Nov).
             tx(p(`Attendance saved · ${reg.present} present · ${reg.absent} absent${reg.halfDay ? ` · ${reg.halfDay} half day` : ""}`, `हाज़िरी सहेजी · ${reg.present} उपस्थित · ${reg.absent} अनुपस्थित${reg.halfDay ? ` · ${reg.halfDay} आधा दिन` : ""}`)),
-            [tx(classWord(classLabel)), reg.submittedAt ? tx(p(`saved at ${ampm(reg.submittedAt)}`, `${ampm(reg.submittedAt)} बजे सहेजी`)) : null, reg.alerts ? tx(p(`parents of ${reg.alerts} get a WhatsApp at 10`, `${reg.alerts} अभिभावकों को 10 बजे व्हाट्सऐप`)) : null].filter(Boolean).join(" · "),
+            [tx(classWord(classLabel)), reg.submittedAt ? tx(p(`saved at ${ampm(reg.submittedAt)}`, `${timeHi(reg.submittedAt)} बजे सहेजी`)) : null, reg.alerts ? tx(p(`parents of ${reg.alerts} get a WhatsApp at 10`, `${reg.alerts} अभिभावकों को 10 बजे व्हाट्सऐप`)) : null].filter(Boolean).join(" · "),
           ] as const,
           ...(data.notices[0] && seen.has(data.notices[0].id) ? [[tx(p(`Notice seen · ${data.notices[0].title}`, `सूचना देखी · ${data.notices[0].title}`)), tx(p("The office knows you have read it", "ऑफ़िस को पता है कि आपने पढ़ लिया"))] as const] : []),
           ...data.covers.filter((c) => c.acknowledged && rows.some((r, i) => r.coverId === c.id && phases[i] === "done")).map((c) => [tx(p(`P${c.number} covered · ${coverWhat(c).en}`, `P${c.number} लिया · ${coverWhat(c).hi}`)), tx(p(`${c.forName}’s class`, `${c.forName} की कक्षा`))] as const),
@@ -465,7 +465,7 @@ export function TeachHome({
                 {c.total ? <span className="tc-s">{tx(p(`${c.total} children`, `${c.total} बच्चे`))}</span> : null}
               </span>
               <span className="pill" style={{ background: c.saved ? "var(--oks)" : "var(--warns)", color: c.saved ? "var(--ok)" : "var(--warnfg)" }}>
-                {c.saved ? tx(p(`Saved${c.savedAt ? ` ${ampm(c.savedAt)}` : ""}`, `सेव${c.savedAt ? ` ${ampm(c.savedAt)}` : ""}`)) : tx(p("Not marked", "नहीं लगी"))}
+                {c.saved ? tx(p(`Saved${c.savedAt ? ` ${ampm(c.savedAt)}` : ""}`, `सेव${c.savedAt ? ` ${timeHi(c.savedAt)}` : ""}`)) : tx(p("Not marked", "नहीं लगी"))}
               </span>
               <Ic n="chevRight" />
             </Link>
@@ -610,7 +610,7 @@ export function TeachHome({
         {[...asked, ...laterTaken].map((c) => (
           <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
             <span style={{ display: "flex", flexDirection: "column" }}>
-              <span className="tc-p" style={{ fontWeight: 700 }}>{c.day === data.today ? tx(p("Today", "आज")) : dShort(c.day)} · P{c.number}{c.starts ? ` · ${hm12(c.starts)}` : ""} · {tx(coverWhat(c))}</span>
+              <span className="tc-p" style={{ fontWeight: 700 }}>{c.day === data.today ? tx(p("Today", "आज")) : tx(dShortP(c.day))} · P{c.number}{c.starts ? ` · ${hm12(c.starts)}` : ""} · {tx(coverWhat(c))}</span>
               <span className="tc-s">{tx(p(`for ${c.forName}`, `${c.forName} की जगह`))}{c.acknowledged ? ` · ${tx(p("You said you will take it ✓", "आपने हाँ कहा ✓"))}` : ""}</span>
             </span>
             {c.acknowledged ? null : (
@@ -802,8 +802,8 @@ export function TeachHome({
         ini: initials(tx(r.subject)),
         bg: late || due ? V("warns") : V("infos"),
         fg: late || due ? V("warnfg") : V("info"),
-        tag: due ? tx(p("Review today", "आज समीक्षा")) : late ? tx(p(`Review was ${dShort(r.followUpOn)}`, `समीक्षा ${dShort(r.followUpOn)} थी`)) : tx(p(`Follow-up ${dShort(r.followUpOn).split(" ")[0]}`, `${dShort(r.followUpOn).split(" ")[0]} को फिर देखना`)),
-        why: tx(p(`Your note: ${r.body} · follow-up due ${dShort(r.followUpOn)}`, `आपका नोट: ${r.body} · ${dShort(r.followUpOn)} को फिर देखना`)),
+        tag: due ? tx(p("Review today", "आज समीक्षा")) : late ? tx(p(`Review was ${dShort(r.followUpOn)}`, `समीक्षा ${shortDayHi(r.followUpOn)} थी`)) : tx(p(`Follow-up ${dShort(r.followUpOn).split(" ")[0]}`, `${shortDayHi(r.followUpOn).split(" ")[0]} को फिर देखना`)),
+        why: tx(p(`Your note: ${r.body} · follow-up due ${dShort(r.followUpOn)}`, `आपका नोट: ${r.body} · ${shortDayHi(r.followUpOn)} को फिर देखना`)),
         acts: [actBtn(`o${r.id}`, `/teach/notes?note=${r.id}`, "chevRight", tx(p("Open note", "खोलें")), "sec")],
       };
     }),
@@ -1154,7 +1154,7 @@ export function TeachHome({
         open={sheet === "subs"}
         onClose={() => { setSheet(null); setCantOpen(false); }}
         title={tx(p("Substitution for you", "आपके लिए सब्स्टिट्यूशन"))}
-        sub={cover ? tx(p(`${cover.day === data.today ? "Today" : dShort(cover.day)} · P${cover.number} · asked by the office at ${ampm(cover.askedAt)}`, `${cover.day === data.today ? "आज" : dShort(cover.day)} · P${cover.number} · ऑफ़िस ने ${ampm(cover.askedAt)} बजे पूछा`)) : undefined}
+        sub={cover ? tx(p(`${cover.day === data.today ? "Today" : dShort(cover.day)} · P${cover.number} · asked by the office at ${ampm(cover.askedAt)}`, `${cover.day === data.today ? "आज" : shortDayHi(cover.day)} · P${cover.number} · ऑफ़िस ने ${timeHi(cover.askedAt)} बजे पूछा`)) : undefined}
         footer={
           !cover ? undefined : cover.acknowledged ? (
             <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} onClick={() => setSheet(null)}>{tx(p("Done", "ठीक है"))}</button>
@@ -1187,7 +1187,7 @@ export function TeachHome({
                 <span className="tc-s">{tx(p(`for ${cover.forName}`, `${cover.forName} की जगह`))}</span>
               </span>
             </div>
-            <span className="tc-p">{cover.day === data.today ? tx(p(`${cover.forName} is away today. The office asked you to take P${cover.number}.`, `${cover.forName} आज नहीं हैं। ऑफ़िस ने आपसे P${cover.number} लेने को कहा है।`)) : tx(p(`${cover.forName} will be away on ${dShort(cover.day)}. The office asked you to take P${cover.number} that day.`, `${cover.forName} ${dShort(cover.day)} को नहीं होंगे। ऑफ़िस ने आपसे उस दिन P${cover.number} लेने को कहा है।`))}</span>
+            <span className="tc-p">{cover.day === data.today ? tx(p(`${cover.forName} is away today. The office asked you to take P${cover.number}.`, `${cover.forName} आज नहीं हैं। ऑफ़िस ने आपसे P${cover.number} लेने को कहा है।`)) : tx(p(`${cover.forName} will be away on ${dShort(cover.day)}. The office asked you to take P${cover.number} that day.`, `${cover.forName} ${shortDayHi(cover.day)} को नहीं होंगे। ऑफ़िस ने आपसे उस दिन P${cover.number} लेने को कहा है।`))}</span>
             {cover.reason ? (
               <div className="tc-note" style={{ background: "var(--s2)", flexDirection: "column", gap: 4 }}>
                 <span className="sech">{tx(p("Note from the office", "ऑफ़िस का नोट"))}</span>

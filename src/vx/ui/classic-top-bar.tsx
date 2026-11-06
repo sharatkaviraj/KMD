@@ -25,7 +25,7 @@ export function ClassicTopBar({
   sub,
   actions,
   back,
-  backLabel = "Back",
+  backLabel,
   hideOnPhone = false,
   hideActionsOnPhone = false,
   className,

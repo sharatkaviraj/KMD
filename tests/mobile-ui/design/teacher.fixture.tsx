@@ -222,7 +222,7 @@ function classData(): ClassData {
       nextReview: roll === 21 ? "2026-10-12" : null,
     };
   });
-  const subj = (code: string, average: number, marked: number, n: number) => ({ subjectId: id(500 + n), code, average, paperId: id(400 + n), paperLabel: "Half-yearly", below33: 1, marked });
+  const subj = (code: string, average: number, marked: number, n: number) => ({ subjectId: id(500 + n), code, average, paperId: id(400 + n), paperLabel: { en: "Half-yearly", hi: "अर्धवार्षिक" }, below33: 1, marked });
   return {
     kind: "class",
     sessionLabel: "2026-27",
@@ -276,12 +276,12 @@ function studentData(): StudentData {
     dateOfBirth: "2015-03-14",
     attendance: { hidden: false, percent: 91, counted: 33, present: 30, days: [...sep, ...days] },
     marks: [
-      { code: "English", label: "Half-yearly", value: 58, max: 80, absent: false, pct: 73 },
-      { code: "Hindi", label: "Half-yearly", value: 61, max: 80, absent: false, pct: 76 },
-      { code: "Maths", label: "Half-yearly", value: 24, max: 80, absent: false, pct: 30 },
-      { code: "Science", label: "Half-yearly", value: 52, max: 80, absent: false, pct: 65 },
-      { code: "Social Science", label: "Half-yearly", value: 49, max: 80, absent: false, pct: 61 },
-      { code: "Sanskrit", label: "Half-yearly", value: null, max: 80, absent: false, pct: null },
+      { code: "English", label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, value: 58, max: 80, absent: false, pct: 73 },
+      { code: "Hindi", label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, value: 61, max: 80, absent: false, pct: 76 },
+      { code: "Maths", label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, value: 24, max: 80, absent: false, pct: 30 },
+      { code: "Science", label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, value: 52, max: 80, absent: false, pct: 65 },
+      { code: "Social Science", label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, value: 49, max: 80, absent: false, pct: 61 },
+      { code: "Sanskrit", label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, value: null, max: 80, absent: false, pct: null },
     ],
     notes: [note(1, "Finds fractions hard; started practice sheets", ["studies"], "working", "Ms. Kavita Bhati", at("10:00", "2026-10-05"), "2026-10-12")],
   };
@@ -294,7 +294,7 @@ function subjectData(): SubjectData {
     const value = has ? Math.round(30 + rnd(i + 1, 63) * 46) : null;
     return { id: id(300 + i), name, rollNo: String(i + 1), value, absent: false, exempt: false, pct: value === null ? null : Math.round((value / 80) * 100) };
   });
-  return { classId: C7, classLabel: "Class 7", subjectCode: "Science", paper: { id: id(307), maxMarks: 80, label: "Half-yearly", entryStatus: "open" }, rows, average: 66 };
+  return { classId: C7, classLabel: "Class 7", subjectCode: "Science", paper: { id: id(307), maxMarks: 80, label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, entryStatus: "open" }, rows, average: 66 };
 }
 
 const classView = (view: "class" | "roster" | "subjects"): DesignView => ({ menu: "teacher", path: "/teach/class", render: () => layer(<TeachClass data={classData()} initialView={view} />) });

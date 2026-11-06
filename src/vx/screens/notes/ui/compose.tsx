@@ -52,7 +52,7 @@ export const COST = `₹${COST_PER_MESSAGE.toFixed(2)}`;
 
 type Lang = "hi-IN" | "en-IN";
 
-/** "Tap and speak · बोलकर लिखें". */
+/** "Tap and speak"; a reader of both languages also sees "बोलकर लिखें" (it was doubled for Hindi readers). */
 const SPEAK = p("Tap and speak", "बोलकर लिखें");
 const DRAFT_KEY = (viewer: string) => `vx.notes.draft.${viewer}`;
 
@@ -796,10 +796,10 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
           <div className="card nx-c" style={{ padding: "20px 18px", gap: 12, alignItems: "center", textAlign: "center" }}>
             {!on ? (
               <>
-                <button type="button" className="tap nx-mic" aria-label="Tap and speak" onClick={() => c.listen(false)}>
+                <button type="button" className="tap nx-mic" aria-label={tx(SPEAK)} onClick={() => c.listen(false)}>
                   <Ic n="mic" size={28} />
                 </button>
-                <span className="nx-v">{tx(SPEAK)} · {SPEAK.hi}</span>
+                <span className="nx-v">{both(SPEAK)}</span>
               </>
             ) : (
               <div className="nx-f" style={{ gap: 18, justifyContent: "center" }}>
@@ -1074,9 +1074,9 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
           >
             {voiceIdle ? (
               <div className="nx-c nt-ani" style={{ alignItems: "center", gap: 12, padding: "16px 8px 8px", textAlign: "center" }}>
-                <button type="button" className="tap nx-c" onClick={() => c.listen(false)} aria-label="Tap and speak" style={{ alignItems: "center", gap: 10, border: 0, background: "transparent", color: "var(--fg)", font: "inherit" }}>
+                <button type="button" className="tap nx-c" onClick={() => c.listen(false)} aria-label={tx(SPEAK)} style={{ alignItems: "center", gap: 10, border: 0, background: "transparent", color: "var(--fg)", font: "inherit" }}>
                   <span className="nt-micbig"><Ic n="mic" size={30} /></span>
-                  <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(SPEAK)} · {SPEAK.hi}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>{both(SPEAK)}</span>
                 </button>
                 <div className="nx-f" style={{ gap: 6 }}>
                   {(["hi-IN", "en-IN"] as const).map((l) => (

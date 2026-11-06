@@ -27,10 +27,14 @@ nothing was saved (B3); Left owing is session-scoped (B2 part); one family
 call counts once (B8); reminder preview shows the family's real overdue date
 (B9); search finds whole SRs like TEST-D-0366, JKG/SKG are classes (B11);
 Today's sparkline and follow-ups leave reversals out (B12); Promises tab
-counts open promises. **Open:** Dues "not due yet" ₹117 L vs Reports ₹4.4 L
-(likely seed students without installment rows; one SQL check when the DB is
-healthy), check card "Late fee Collected ₹3,000", slip/PDF waiver line, the
-rest of the P2/P3 lists in the findings files.
+counts open promises. **Evening follow-up:** Dues "not due yet" now reads installment rows due
+today or later, the same rule as Reports. SQL showed 507 TEST children with
+₹1.13 Cr owed on the student row and no installment rows (live 2026-27: 1),
+which made Dues read ₹117 L against Reports' ₹4.4 L. The late fee forgiven at
+the counter (waive_late_fee under the receipt's client_request_id) is now
+read by the shared receipt detail, so the receipt page, the slip and the PDF
+all show "Late fee waived". **Open:** the rest of the P2/P3 lists in the
+findings files.
 
 ## Teacher school day: 20 seats in TEST — 6 November 2026
 
@@ -47,7 +51,7 @@ have registers. Second batch (after teachers 11 and 18 re-checked PR 219 live): 
 
 Parent messages (owner's answer to D-320, 6 Nov): Settings → Parent messages lets the admin turn off, or set where it starts, every message teachers can queue for parents: the register's absent-child WhatsApp, "Tell parents" on a note, sharing a support plan, birthday wishes (D-451). Enforced in the server actions and hidden on the screen. Default keeps current behaviour until the admin saves.
 
-Last four seats (16, 17, 19, 20; one browser, after the 16:15 UTC database restart; every page under 9 s): a refresh during a note save brings the note back with its id, or says it was saved; the Notes tab closes an open form; the class page's Sampark list says "N blank — tell the exam office" for a sent paper with blanks; a health note's empty replies line names the admin; the tab bar no longer covers Save on a phone (D-463); a teacher with nothing assigned gets an "Attendance" title, no note shortcut, a Marks page that says she has no subjects, and Help opening on her own topic; My profile has Change password (Back returns to the profile); My tasks lights "Notices, links & leave". **Open (P3):** help pictures use other words than the buttons, Bolo is voice only, sidebar lacks Timetable/Tasks/Help/Profile, no office phone set in school profile.
+Last four seats (16, 17, 19, 20; one browser, after the 16:15 UTC database restart; every page under 9 s): a refresh during a note save brings the note back with its id, or says it was saved; the Notes tab closes an open form; the class page's Sampark list says "N blank — tell the exam office" for a sent paper with blanks; a health note's empty replies line names the admin; the tab bar no longer covers Save on a phone (D-464); a teacher with nothing assigned gets an "Attendance" title, no note shortcut, a Marks page that says she has no subjects, and Help opening on her own topic; My profile has Change password (Back returns to the profile); My tasks lights "Notices, links & leave". **Open (P3):** help pictures use other words than the buttons, Bolo is voice only, sidebar lacks Timetable/Tasks/Help/Profile, no office phone set in school profile.
 default on a register's first save (D-320) left for the owner.
 
 ## Collect: card-by-card payment entry — 5 November 2026
@@ -2038,7 +2042,9 @@ Plan and ideas: `docs/ui/PERFORMANCE.md` ("6 November"). Janmejay chose to build
 |---|---|---|---|
 | Wave 1 of the "VPPS One through a non-technical teacher's eyes" review (D-454, D-455): written word under the centre button and Marks for teachers without a class; teacher Today reordered for the first phone screen; "A+" and "Help" words; marks links read "Sent · N blank" instead of "Done ✓"; error card says nothing saved is lost and to call the office; loading screen explains itself after 8 s; TEST tab moved to the top edge on phones; Notes add button no longer covers a filter; Messages tabs and subtitles in plain words; task titles wrap to two lines; admin Menu drops tiles already pinned; board links moved below the work; the Sampark link page says it holds the same marks as the app | **released 6 Nov** | [PR 229](https://github.com/veerpatta/vppsone/pull/229) merged as `d4ca970` | Not crawled on live (load rule). Left for wave 2, after PRs 224 and 228 merge: class subject screen (Enter marks first, 92 vs 44 periods), admin/office home tiles and the ₹0 sparkline, dues/receipts/cheques tiles, long lists opening on a short view, Hindi strings on the counter and help, Settings hydration error |
 | Wave 2 (D-456): phone list screens lead with at most two tiles (Dues, Receipts, Notes, School Office), cheques tiles 2×2 and bilingual, admin phone Today with Needs you higher and no rising sparkline beside ₹0, Activity log 40 at a time, Settings activity times built by hand (the 12-hour `Intl` output differed between server and phone: React #418), payment modes on the desk in the reader's language, class subject screen with Enter marks first and one weekly count, "Sent · N blank" there too | **released 6 Nov** | [PR 231](https://github.com/veerpatta/vppsone/pull/231) | Not crawled on live. The #418 cause is inferred from the code (the only locale-formatted text on those pages), not seen in a browser. Still open from the review: exam names stored in English ("Half yearly") show in Hindi accounts until each exam gets a Hindi name |
+| UX review follow-up (D-463): exams can be renamed and given a Hindi name from Exams & marks; teacher class and subject screens show the stored Hindi exam name; Settings #418 fixed at its real cause (the theme line) | in review | `claude/project-thread-sg9lhm` | Phone check on live 6 Nov (one browser, 360×780): wave 1 and 2 changes present; the #418 was still there after wave 2, which is how the real cause was found. The admin task-assignment picker still lists papers by English exam name (admin-only) |
 | Fees roster sync is nightly only (D-457): every-minute `fees-bridge-sync` cron job unscheduled (migration 20261106162701, applied to wtgx), roster freshness 5 min → 26 h in the app and four SQL readers, roster wording no longer promises "live" | done | `claude/project-thread-j33nla` | The bridge had been in an error state since 14:19 UTC (`bridge_health_update_failed` during the overload); one manual `?verify=1` run after deploy clears it, otherwise the 02:00 IST run does. New Fees admissions now reach One the next morning. |
+| Smoke-test small bugs: Notes no longer carries the last tag (board composer had a default "studies" tag and never reset on close); family ticket waits for every ticked child before Next/amount, and loads ticked siblings past the first three; Hindi side of teacher Today/More/Class dates and times, exam "when" times, subject names on teacher marks screens, and Back / help / "Tap and speak" labels | done | `claude/project-thread-j33nla` | Marks "All filled" vs 4/5 not reproduced: the sheet tally is consistent; likely the teacher tile counts its roll from enrolment dates (`trackerFor`/`onRoll`) while the sheet lists a different set. Still open: Hindi search on Latin names, ported fee screens in "both", AI tidy-up answering in English |
 
 
 ## Opening the app faster — 6 November 2026

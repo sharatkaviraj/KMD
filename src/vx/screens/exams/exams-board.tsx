@@ -179,6 +179,7 @@ export type ExamsProps = {
     lock: Act<{ examId: string; classIds: string[] }>;
     issueClass: Act<{ examId: string; classId: string; reissue?: boolean }>;
     setExempt?: Act<{ paperId: string; allow: boolean }>;
+    rename?: Act<{ examId: string; nameEn: string; nameHi: string }>;
     create: Act<{
       nameEn: string;
       nameHi: string;
@@ -230,6 +231,9 @@ export function ExamsBoard(props: ExamsProps) {
   const { tx } = useVx();
   const router = useRouter();
   const [remindIds, setRemindIds] = useState<string[] | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const canRename = Boolean(manage && exam && props.actions.rename);
+  const renameAct: TopAct[] = canRename ? [{ label: tx(hasHindi(exam!.name) ? p("Exam name", "परीक्षा का नाम") : p("Add Hindi name", "हिंदी नाम जोड़ें")), icon: "edit", onClick: () => setRenaming(true) }] : [];
   const href = (v: ExamsView, extra = "") => `/exams?view=${v}${exam ? `&exam=${exam.id}` : ""}${extra}`;
   const examName = exam ? tx(exam.name) : "";
   const cellOpen = view === "cell" && Boolean(props.cell);
@@ -249,7 +253,7 @@ export function ExamsBoard(props: ExamsProps) {
         crumb: examCrumb,
         title: cellOpen && props.cell ? `${props.cell.classLabel} · ${tx(props.cell.subject)}` : tx(p("Marks tracker", "अंक ट्रैकर")),
         back: cellOpen ? href("grid") : "/exams",
-        acts: manage ? [{ label: tx(p("Sampark links", "संपर्क लिंक")), icon: "link", href: href("sampark") }] : [],
+        acts: manage ? [{ label: tx(p("Sampark links", "संपर्क लिंक")), icon: "link", href: href("sampark") }, ...(cellOpen ? [] : renameAct)] : [],
         mSub: cellOpen && props.cell ? (props.cell.teacherName ?? "") : exam ? `${exam.percent}% ${tx(p("entered", "भरे"))}${exam.dueLabel ? ` · ${tx(p("due", "अंतिम"))} ${exam.dueLabel}` : ""}` : undefined,
         mBack: cellOpen ? href("grid") : "/exams",
         mActs: [],
@@ -358,7 +362,7 @@ export function ExamsBoard(props: ExamsProps) {
         body = <Analysis {...props} href={href} />;
         break;
       default:
-        body = <ExamList {...props} href={href} />;
+        body = <ExamList {...props} href={href} onRename={canRename ? () => setRenaming(true) : undefined} />;
     }
   }
 
@@ -388,6 +392,7 @@ export function ExamsBoard(props: ExamsProps) {
         />
       ) : null}
       {manage ? <CreateSheet {...props} open={view === "create"} onClose={() => router.replace("/exams")} /> : null}
+      {canRename && exam && props.actions.rename ? <RenameSheet key={exam.id} open={renaming} onClose={() => setRenaming(false)} exam={{ id: exam.id, name: exam.name }} rename={props.actions.rename} /> : null}
     </VxPage>
   );
 }
@@ -420,7 +425,7 @@ const ACTIVITY_DOT: Record<string, string> = {
   unlocked: "var(--warn)",
 };
 
-function ExamList(props: ExamsProps & { href: Href }) {
+function ExamList(props: ExamsProps & { href: Href; onRename?: () => void }) {
   const { tx } = useVx();
   const { exam, timeline, href } = props;
   const parts = exam ? partsOf(exam.counts) : [];
@@ -465,6 +470,12 @@ function ExamList(props: ExamsProps & { href: Href }) {
                           </span>
                         </div>
                         <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.1 }}>{tx(exam.name)}</span>
+                        {props.onRename && !hasHindi(exam.name) ? (
+                          <button type="button" className="tap" onClick={props.onRename} style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px dashed var(--bds)", background: "transparent", color: "var(--accfg)", fontSize: 13, fontWeight: 600 }}>
+                            <Ic n="edit" />
+                            {tx(p("No Hindi name yet · add one", "अभी हिंदी नाम नहीं · जोड़ें"))}
+                          </button>
+                        ) : null}
                         <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>
                           {tx(p(`${nf(exam.entered)} of ${nf(exam.total)} marks entered`, `${nf(exam.total)} में से ${nf(exam.entered)} अंक भरे`))}
                           {props.manage && exam.notStarted ? ` · ${tx(p(`${exam.notStarted} teachers not started`, `${exam.notStarted} शिक्षकों ने शुरू नहीं किया`))}` : ""}
@@ -515,6 +526,48 @@ function ExamList(props: ExamsProps & { href: Href }) {
         </aside>
       ) : null}
     </div>
+  );
+}
+
+/** Whether an exam's Hindi name is really Hindi: one made without it stored the English twice. */
+function hasHindi(name: Pair): boolean {
+  return /[\u0900-\u097F]/.test(name.hi ?? "");
+}
+
+function RenameSheet(props: { open: boolean; onClose: () => void; exam: { id: string; name: Pair }; rename: Act<{ examId: string; nameEn: string; nameHi: string }> }) {
+  const { tx } = useVx();
+  const { pending, run } = useAct();
+  const [nameEn, setNameEn] = useState(props.exam.name.en);
+  const [nameHi, setNameHi] = useState(hasHindi(props.exam.name) ? (props.exam.name.hi ?? "") : "");
+  const ok = nameEn.trim().length > 1;
+  const save = () =>
+    run(
+      () => props.rename({ examId: props.exam.id, nameEn: nameEn.trim(), nameHi: nameHi.trim() }),
+      () => props.onClose(),
+    );
+  return (
+    <Sheet
+      open={props.open}
+      onClose={props.onClose}
+      title={tx(p("Exam name", "परीक्षा का नाम"))}
+      sub={tx(p("Hindi readers see the Hindi name on every marks card and report card.", "हिंदी पढ़ने वालों को हर अंक कार्ड और प्रगति पत्र पर हिंदी नाम दिखता है।"))}
+      footer={
+        <>
+          <Btn variant="sec" onClick={props.onClose} style={{ flex: 1 }}>{tx(p("Cancel", "रद्द करें"))}</Btn>
+          <Btn variant="pri" icon="check" disabled={!ok || pending} onClick={save} style={{ flex: 1.6 }}>{tx(p("Save name", "नाम सहेजें"))}</Btn>
+        </>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Field label={tx(p("Name in Hindi", "हिंदी में नाम"))}>
+          <Input value={nameHi} onChange={(e) => setNameHi(e.target.value)} placeholder="अर्धवार्षिक परीक्षा" maxLength={80} lang="hi" />
+        </Field>
+        <Field label={tx(p("Name in English", "अंग्रेज़ी में नाम"))}>
+          <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} maxLength={80} />
+        </Field>
+        <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("Marks, links and report cards stay as they are. Only the name changes.", "अंक, लिंक और प्रगति पत्र वैसे ही रहते हैं। सिर्फ़ नाम बदलता है।"))}</span>
+      </div>
+    </Sheet>
   );
 }
 

@@ -30,6 +30,8 @@ export function DuesCard(props: {
   choice: "waive" | "collect";
   reason: WaiverReason;
   familyLate: number;
+  /** A ticked sibling's dues are still on their way: the family total is not known yet. */
+  waiting?: "loading" | "failed" | null;
   onLate: (choice: "waive" | "collect") => void;
   onReason: () => void;
   onSibling: (id: string) => void;
@@ -53,8 +55,8 @@ export function DuesCard(props: {
       foot={
         <>
           <BackButton onClick={props.onBack} />
-          <button type="button" className="cx-btn pri" disabled={!anyDue} onClick={props.onNext}>
-            <Bi text={family ? fill(mc.collectForN, { n: props.familyCount }) : fill(mc.collectFrom, { name: firstName(dues.student.name) })} />
+          <button type="button" className="cx-btn pri" disabled={!anyDue || Boolean(props.waiting)} onClick={props.onNext}>
+            <Bi text={props.waiting === "failed" ? mc.siblingFailed : props.waiting ? mc.loadingNow : family ? fill(mc.collectForN, { n: props.familyCount }) : fill(mc.collectFrom, { name: firstName(dues.student.name) })} />
           </button>
         </>
       }

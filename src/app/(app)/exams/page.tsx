@@ -45,7 +45,7 @@ import { dateSpan, dueDay } from "@/vx/screens/exams/when";
 import { issueClassCardsAction, lockClassesAction } from "../exam-office/results/actions";
 import { marksLinkAction, remindTeachersAction } from "../exam-office/actions";
 import { saveTeacherMarksAction, withdrawTeacherMarksAction } from "../teach/marks/actions";
-import { createExamAction, setPaperExemptAction } from "./actions";
+import { createExamAction, renameExamAction, setPaperExemptAction } from "./actions";
 
 export const runtime = "nodejs";
 
@@ -467,6 +467,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
       issueClass: issueClassCardsAction,
       create: createExamAction,
       setExempt: setPaperExemptAction,
+      rename: renameExamAction,
     },
   };
   return <ExamsBoard {...data} />;

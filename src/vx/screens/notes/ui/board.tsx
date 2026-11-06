@@ -214,12 +214,16 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     lang: language === "hi" ? "hi-IN" : "en-IN",
     today: props.today,
     testSession: props.testSession,
-    tags: ["studies"],
+    // No tag is chosen for the writer: a default "studies" read as the last
+    // note's tag carried over (20-teacher day, 6 Nov). Speech still suggests one.
     ownerFor: (child) => (child && props.viewer.heldClassIds.includes(child.classId) ? "me" : "class_teacher"),
   });
 
   const openAdd = () => {
     const kid = scope && props.kids.some((k) => k.id === scope.studentId) ? scope.studentId : open?.note.studentId && props.kids.some((k) => k.id === open.note.studentId) ? open.note.studentId : null;
+    // Every note starts empty: the last one's tags and words never carry over
+    // to the next child. An unsaved one is still kept and comes back below.
+    composer.reset(false);
     if (kid) composer.pickChild(kid);
     // A note left unsaved for this child comes back (RULES G: forms keep their drafts).
     composer.restoreDraft(kid);
@@ -229,6 +233,8 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   const closeAdd = () => {
     if (composer.speech.listening) composer.speech.stop();
     setAdding(false);
+    // The stored draft stays; only the open form is cleared.
+    composer.reset(false);
     replaceParams({ sheet: null, step: null });
   };
   const setTab = (t: BoardTab) => {
