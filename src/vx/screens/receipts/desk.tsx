@@ -29,6 +29,7 @@ import { AVATAR_TONES, dayGroupLabel, daySeg, deskDay, deskTime, MIX, MODE_LOOK,
 import { ReceiptPanel } from "./receipt-panel";
 import type { DeskProps, DeskRow } from "./types";
 import { MODE_WORD, receiptCount, receiptModeWord, W } from "./words";
+import { sessionText } from "@/platform/helpers/session-text";
 
 /*
  * Receipts and the day close, drawn as the design's `Fees` module: KPI tiles,
@@ -126,7 +127,7 @@ export function ReceiptsDesk(props: DeskProps) {
   const spanLabel = span === "today" ? (anchor === today ? tx(W.today) : deskDay(anchor)) : span === "yesterday" ? tx(W.yesterday) : tx(W.last3);
   const closeHref = deskHref(base, { view: "close" });
   const listHref = deskHref(base, {});
-  const session = sessionLabel.replace("-", "–");
+  const session = sessionText(sessionLabel);
   const dayBookHref = `/fees/finance-controls/export?date=${anchor}&session=${encodeURIComponent(sessionLabel)}`;
   const kpiLabel = span === "today" ? (anchor === today ? tx(W.collectedToday) : `${tx(W.collected)} · ${deskDay(anchor)}`) : span === "yesterday" ? tx(W.collectedYesterday) : tx(W.last3);
   const query = filters.query;

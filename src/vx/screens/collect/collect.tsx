@@ -56,7 +56,7 @@ import { PayCard, type PayEffect, type PaySub } from "./cards/pay";
 import { SealedCard, type SealedView } from "./cards/sealed";
 import { WhoCard, type Found } from "./cards/who";
 import { flyChip, shake, slideIn, slideOut, stamp } from "./motion";
-import { allocText, CardShell, firstName, Icon, lateTaken, useOverflowCheck, YearBar } from "./parts";
+import { allocText, CardShell, firstName, Icon, lateTaken, slipInstallmentName, useOverflowCheck, YearBar } from "./parts";
 import { Seal } from "./seal";
 import { Bi, dayMonth, fill, money, useCx } from "./text";
 
@@ -666,7 +666,7 @@ function CollectApp(props: CollectProps) {
       if (left <= 0) break;
       const fee = Math.min(left, row.feesPending);
       left -= fee;
-      if (fee > 0) out.push({ label: row.isCarryForward ? mc.oldBalance : fill(mc.slipInstallment, { n: row.installmentNo }), amount: fee });
+      if (fee > 0) out.push({ label: row.isCarryForward ? mc.oldBalance : slipInstallmentName(row), amount: fee });
       if (takesLate(d) && fee === row.feesPending && row.lateFeePending > 0 && left > 0) {
         const lf = Math.min(left, row.lateFeePending);
         left -= lf;

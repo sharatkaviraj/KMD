@@ -143,7 +143,10 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
   }
 
   const fee = feePermissionsFor(staff.role);
-  const studentsPending = board.students.filter((s) => s.overdueAmount > 0).length;
+  const pendingKids = board.students.filter((s) => s.overdueAmount > 0);
+  const studentsPending = pendingKids.length;
+  const leftIds = new Set(leftRows.map((r) => r.studentId));
+  const leftPending = pendingKids.filter((s) => leftIds.has(s.studentId)).length;
   return {
     today,
     sessionLabel,
@@ -153,6 +156,7 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
     metrics: {
       pendingToday: callable.reduce((s, f) => s + f.pendingToday, 0),
       students: studentsPending,
+      leftStudents: leftPending,
       notDueYet: all.reduce((s, f) => s + f.notDueYet, 0),
       promisesToday: dueToday.length,
       promisesKeptToday: dueToday.filter((pv) => pv.state === "kept").length,

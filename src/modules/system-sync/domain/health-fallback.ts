@@ -102,3 +102,14 @@ export function isUnavailableSystemSyncHealth(health: SystemSyncHealth) {
     message.startsWith("Automatic health check could not finish:"),
   );
 }
+
+/**
+ * Missing dues can be prepared even while some classes have no fee settings,
+ * as long as some of the students missing dues sit in classes that do. The
+ * generator skips the fee-less classes and reports them, so the repair is
+ * still safe; before, one QA fixture class with no fees hid the button and
+ * left 440 test children with no installments at all (day run, 6 Nov 2026).
+ */
+export function canPrepareMissingDues(health: Pick<SystemSyncHealth, "studentsMissingInstallmentRows" | "studentsWithNoFeeSetting" | "errors">): boolean {
+  return health.errors.length === 0 && health.studentsMissingInstallmentRows > health.studentsWithNoFeeSetting;
+}

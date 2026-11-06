@@ -9,6 +9,7 @@ import { academicContext, attendanceOn, marksEntry, needsAttention, notesNeeding
 import { isUuid, mondayOf } from "./domain";
 import { AcadHomeView } from "./home-view";
 import { sayer } from "./ui";
+import { sessionText } from "@/platform/helpers/session-text";
 
 /*
  * AcadHome's server half: it reads the day (scoped to the reader's classes)
@@ -61,7 +62,7 @@ export async function AcadHome({ staff, view, sheet, marks, what, who }: Props) 
       who={isUuid(who) ? who : null}
       marksTab={marks === "class" ? "class" : "late"}
       me={{ name: staff.displayName }}
-      session={ctx.session.replace("-", "–")}
+      session={sessionText(ctx.session)}
       hello={{ en: hello, hi: HELLO[hello] ?? "नमस्ते" }}
       today={ctx.today}
       attendance={today}

@@ -22,6 +22,7 @@ import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
 
 import { LangToggle } from "./lang-toggle";
 import { day, firstName, minutesSince, time12, timeLeft, whenOn } from "./when";
+import { sessionText } from "@/platform/helpers/session-text";
 
 type View = "home" | "menu" | "evening";
 
@@ -583,7 +584,7 @@ function MenuView({ data, staffName, roleText, canCollect, canAccounts, help, he
         <span className="ac-av" style={{ width: 54, height: 54, borderRadius: 27, fontSize: 18, background: "var(--oks)", color: "var(--ok)" }}>{initials(staffName)}</span>
         <span className="ac-c ac-1" style={{ minWidth: 200 }}>
           <span className="serif" style={{ fontSize: 21, fontWeight: 600 }}>{staffName}</span>
-          <span className="ac-m">{roleText} · {tx(p(`Office counter · Session ${data.sessionLabel.replace("-", "–")}`, `ऑफिस काउंटर · सत्र ${data.sessionLabel.replace("-", "–")}`))}</span>
+          <span className="ac-m">{roleText} · {tx(p(`Office counter · Session ${sessionText(data.sessionLabel)}`, `ऑफिस काउंटर · सत्र ${sessionText(data.sessionLabel)}`))}</span>
         </span>
         <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: closed ? "var(--s3)" : "var(--oks)", color: closed ? "var(--mut)" : "var(--ok)" }}>
           <span style={{ width: 8, height: 8, borderRadius: 4, background: "currentColor" }} />

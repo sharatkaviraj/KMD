@@ -654,7 +654,7 @@ export function DuesScreen(props: DuesProps) {
           family below the fold (UX review 6 Nov 2026). Promises keep their count
           on the tab; the week's takings stay on the desk. */}
       <Grid cols={selected ? 2 : 4}>
-        <Tile label={tx(W.pendingToday)} value={lakh(metrics.pendingToday)} sub={tx(fill(W.kpiPendingSub, { n: metrics.students, amt: lakh(metrics.notDueYet) }))} delayMs={0} />
+        <Tile label={tx(W.pendingToday)} value={lakh(metrics.pendingToday)} sub={tx(metrics.leftStudents > 0 ? fill(W.kpiPendingSubLeft, { n: metrics.students, left: metrics.leftStudents, amt: lakh(metrics.notDueYet) }) : fill(W.kpiPendingSub, { n: metrics.students, amt: lakh(metrics.notDueYet) }))} delayMs={0} />
         <Tile label={tx(W.promisesToday)} value={metrics.promisesToday} sub={tx(fill(W.kpiPromSub, { amt: rupees(promToday.reduce((s, pv) => s + pv.amount, 0)), n: metrics.promisesKeptToday }))} delayMs={28} href={duesHref("prom")} deskOnly />
         <Tile label={tx(W.callsToday)} value={metrics.callsToday} unit={` ${tx(W.of)} ${callTarget}`} sub={tx(fill(W.leftToMake, { n: Math.max(0, callTarget - metrics.callsToday) }))} ring={Math.min(1, metrics.callsToday / callTarget)} delayMs={56} />
         <Tile label={tx(W.collectedWeek)} value={lakh(metrics.collectedWeek)} sub={weekLine(today)} tone="var(--ok)" delayMs={84} deskOnly />

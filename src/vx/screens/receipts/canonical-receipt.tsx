@@ -87,7 +87,7 @@ export function CanonicalReceipt({ receipt, language, canPrint = false, canRever
           <strong>{row.installmentLabel}</strong><p>{row.sessionLabel} · {row.dueDate}</p>
           <Grid cols={3}><Facts rows={[[t("Original amount", "मूल राशि"), rupees(row.originalAmount)], [t("Correction", "संशोधन"), rupees(row.adjustmentAmount)], [t("Effective amount", "प्रभावी राशि"), rupees(row.effectiveAmount)]]} />
             <Facts rows={[[t("Discount at collection", "भुगतान के समय छूट"), row.discountAppliedAtPosting === null ? null : rupees(row.discountAppliedAtPosting)], [t("Waiver at collection", "भुगतान के समय माफ़ी"), row.waiverAppliedAtPosting === null ? null : rupees(row.waiverAppliedAtPosting)]]} />
-            <Facts rows={[[t("Balance before collection", "भुगतान से पहले बकाया"), row.pendingBeforePosting === null ? null : rupees(row.pendingBeforePosting)], [t("Balance after collection", "भुगतान के बाद बकाया"), row.pendingAfterPosting === null ? null : rupees(row.pendingAfterPosting)]]} /></Grid>
+            <Facts rows={[[t("Owed before, with any late fee", "भुगतान से पहले देय, विलंब शुल्क सहित"), row.pendingBeforePosting === null ? null : rupees(row.pendingBeforePosting)], [t("Owed after, with any late fee", "भुगतान के बाद देय, विलंब शुल्क सहित"), row.pendingAfterPosting === null ? null : rupees(row.pendingAfterPosting)]]} /></Grid>
           {row.notes ? <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{row.notes}</p> : null}
         </Card>)}</div>
       </Card>

@@ -83,13 +83,36 @@ export function CardShell({ eyebrow, title, children, foot, bodyRef, className, 
   );
 }
 
+/** An EMI plan's own row (numbered over 100) by the ledger's name without its date ("EMI 2 late fee"), else null. */
+function planRowName(row: Pick<DeskLedgerRow, "installmentNo" | "label">): string | null {
+  if (row.installmentNo <= 100 || !row.label) return null;
+  return row.label.replace(/\s*\([^)]*\)\s*$/, "").trim() || null;
+}
+
+/**
+ * One installment line ("Inst 2 ✓"), naming a plan row by its ledger label —
+ * "EMI 2 late fee ✓", never "Inst 101 ✓" (day run, 6 Nov 2026).
+ */
+function instFill(pair: Localized, row: Pick<DeskLedgerRow, "installmentNo" | "label">, vars: { a?: string | Localized; d?: string | Localized } = {}): Localized {
+  const out = fill(pair, { ...vars, n: row.installmentNo });
+  const name = planRowName(row);
+  if (!name) return out;
+  return { hi: out.hi.replace(`किस्त ${row.installmentNo}`, name), en: out.en.replace(`Inst ${row.installmentNo}`, name) };
+}
+
+/** "Installment 2" on the slip, or a plan row's own name. */
+export function slipInstallmentName(row: Pick<DeskLedgerRow, "installmentNo" | "label">): Localized {
+  const name = planRowName(row);
+  return name ? { hi: name, en: name } : fill(mc.slipInstallment, { n: row.installmentNo });
+}
+
 function instLabel(row: DeskLedgerRow, now: number, onDate: string): Localized {
   if (row.isCarryForward) return mc.oldBalance;
-  if (row.feesPending <= 0) return fill(mc.instDone, { n: row.installmentNo });
-  if (now > 0 && now >= row.feesPending) return fill(mc.instClears, { n: row.installmentNo });
-  if (now > 0) return fill(mc.instPart, { n: row.installmentNo, a: money(now) });
-  if (isOverdueOn(row, onDate)) return fill(mc.instOverdue, { n: row.installmentNo });
-  return fill(mc.instDue, { n: row.installmentNo, d: dayMonth(row.dueDate) });
+  if (row.feesPending <= 0) return instFill(mc.instDone, row);
+  if (now > 0 && now >= row.feesPending) return instFill(mc.instClears, row);
+  if (now > 0) return instFill(mc.instPart, row, { a: money(now) });
+  if (isOverdueOn(row, onDate)) return instFill(mc.instOverdue, row);
+  return instFill(mc.instDue, row, { d: dayMonth(row.dueDate) });
 }
 
 /** The year, one segment per installment: paid, being paid now (striped), overdue. */
@@ -133,7 +156,7 @@ export function allocText(rows: readonly DeskLedgerRow[], amount: number, takeLa
   const parts = walk.lines
     .filter((l) => l.feesPaid + l.lateFeePaid > 0)
     .map((l) => {
-      const base = l.feesAfter === 0 ? fill(mc.allocDone, { n: l.row.installmentNo }) : fill(mc.allocPart, { n: l.row.installmentNo, a: money(l.feesPaid) });
+      const base = l.feesAfter === 0 ? instFill(mc.allocDone, l.row) : instFill(mc.allocPart, l.row, { a: money(l.feesPaid) });
       return l.lateFeePaid ? { hi: `${base.hi} ${mc.allocLate.hi}`, en: `${base.en} ${mc.allocLate.en}` } : base;
     });
   const left = walk.after.pendingToday + walk.after.dueToday + walk.after.notDueYet;

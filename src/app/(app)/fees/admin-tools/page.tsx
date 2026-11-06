@@ -16,7 +16,7 @@ import { getViewSessionCookie } from "@/modules/fees/platform/session-context/co
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { getOpenRefundCount } from "@/modules/finance-controls/data/open-refunds";
 import { getSystemSyncHealth, type SystemSyncHealth } from "@/modules/system-sync/domain/finance-sync";
-import { getErrorMessage } from "@/modules/system-sync/domain/health-fallback";
+import { canPrepareMissingDues, getErrorMessage } from "@/modules/system-sync/domain/health-fallback";
 import { hasStaffPermission, requireAnyStaffPermission } from "@/modules/fees/platform/session";
 
 import { reconcileSessionAction } from "./session-health/actions";
@@ -106,7 +106,7 @@ async function SystemStatusCard({
         <Metric label={t("metricClassFeeGaps")} value={health.classesWithoutFeeSettings} />
       </div>
 
-      {canReconcile && !healthy && health.classesWithoutFeeSettings === 0 ? (
+      {canReconcile && !healthy && (health.classesWithoutFeeSettings === 0 || canPrepareMissingDues(health)) ? (
         <form
           action={reconcileSessionAction}
           className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm"

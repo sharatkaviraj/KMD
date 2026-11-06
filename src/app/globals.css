@@ -835,13 +835,16 @@ body[data-vpps-test-session="true"] {
 body[data-vpps-test-session="true"]::before {
   content: "TEST SESSION — not live data";
   position: fixed;
-  top: 8px;
-  right: 8px;
+  /* Top centre, as a tab: at the top right it sat over the session pill
+     (accountant day run, 6 Nov 2026). */
+  top: 0;
+  right: 50%;
+  transform: translateX(50%);
   z-index: 9999;
   background: #c026d3;
   color: white;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 1px 10px;
+  border-radius: 0 0 6px 6px;
   font: 600 11px/1.4 system-ui;
   letter-spacing: 0.05em;
   pointer-events: none;

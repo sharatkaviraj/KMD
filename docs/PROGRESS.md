@@ -33,8 +33,17 @@ today or later, the same rule as Reports. SQL showed 507 TEST children with
 which made Dues read ₹117 L against Reports' ₹4.4 L. The late fee forgiven at
 the counter (waive_late_fee under the receipt's client_request_id) is now
 read by the shared receipt detail, so the receipt page, the slip and the PDF
-all show "Late fee waived". **Open:** the rest of the P2/P3 lists in the
-findings files.
+all show "Late fee waived". **Overnight follow-up (PR 241; the family race was fixed in PR 239):**
+EMI plan rows read "EMI 2 late fee", not "Inst 101"; receipts say "Owed
+before/after" because pending_before_posting holds the row's late fee too;
+the Dues tile says how many of its students have left (the badge counts
+active only); one helper writes session labels (TEST-2026–27, not
+TEST–2026-27); the desktop TEST tab no longer covers the session pill;
+Session health offers "prepare missing dues" when only fee-less QA classes
+stood in the way. The Who-list "full year, no late fee" figures were TEST-D-
+shells with no installment rows (installments appear on a first payment).
+**Open:** QA fixture classes in pickers (needed by the harnesses), the admin's
+15 s of "Reversal asked" (not reproduced), load-only timeouts.
 
 ## Teacher school day: 20 seats in TEST — 6 November 2026
 
