@@ -84,7 +84,7 @@ describe("marks entry", () => {
 });
 
 describe("weekly summary", () => {
-  const facts = { coordinator: "Test Coordinator", weekLabel: "5–10 Oct", attendancePct: 91.2, attendanceBefore: 90, classesAlwaysMarked: 17, classes: 19, marksPct: 64, lateTeachers: 3, attention: 54, attentionNew: 6, notesOpen: 4, correctionsMade: 2 };
+  const facts = { coordinator: "Test Coordinator", weekLabel: "5–10 Oct", attendancePct: 91.2, attendanceBefore: 90, classesAlwaysMarked: 17, classes: 19, marksPct: 64, examLabel: { en: "Half-yearly", hi: "अर्धवार्षिक" }, lateTeachers: 3, attention: 54, attentionNew: 6, notesOpen: 4, correctionsMade: 2 };
 
   it("gives four lines in both languages", () => {
     const lines = weeklySummary(facts);
@@ -92,6 +92,11 @@ describe("weekly summary", () => {
     expect(lines[0].en).toContain("91.2% (+1.2 vs last week)");
     expect(lines.every((l) => !!l.hi)).toBe(true);
     expect(weeklySummaryLine(facts)).toContain("54 children need attention");
+  });
+
+  it("names the current exam, and says so when none is being marked", () => {
+    expect(weeklySummary({ ...facts, examLabel: { en: "AI Rehearsal", hi: null } })[1].en).toBe("AI Rehearsal marks 64% entered; 3 teachers behind.");
+    expect(weeklySummary({ ...facts, examLabel: null })[1].en).toBe("No exam is being marked this week.");
   });
 });
 

@@ -567,7 +567,7 @@ function Register({
         </span>
         <span className="serif" style={{ fontSize: 26, fontWeight: 600 }}>{row.label}</span>
         <span style={{ fontSize: 14, color: "var(--mut)", lineHeight: 1.55 }}>
-          {pending ? tx(TO.hasntMarked(row.teacherName ?? tx(T.noClassTeacher))) : tx(TO.markedBy(sheet.savedBy ?? row.teacherName))}
+          {pending ? (row.teacherName ? tx(TO.hasntMarked(row.teacherName)) : tx(TO.notMarkedNoTeacher)) : tx(TO.markedBy(sheet.savedBy ?? row.teacherName))}
         </span>
         <div className="card" style={{ overflow: "hidden", boxShadow: "none" }}>
           {kv.map(([k, v], i) => (

@@ -309,7 +309,8 @@ export function LangButton({ tone = "nav" }: { tone?: "nav" | "page" }) {
   const isHi = language === "hi";
   return (
     <span role="group" aria-label="Language" style={{ display: "inline-flex", height: 40, borderRadius: 12, padding: 3, gap: 2, background: tone === "nav" ? "rgba(255,255,255,.07)" : "var(--s3)", opacity: pending ? 0.6 : 1 }}>
-      <button type="button" aria-pressed={!isHi} onClick={() => set("both")} style={{ border: 0, borderRadius: 9, padding: "0 10px", fontSize: 13, fontWeight: 700, background: !isHi ? (tone === "nav" ? "var(--navs)" : "var(--card)") : "transparent", color: "inherit" }}>EN</button>
+      {/* EN means English: it used to save "both", which reads Hindi-first, so a reader who tapped हि could not get English back here (day-run 6 Nov 2026, E45). "Both" stays in Preferences. */}
+      <button type="button" aria-pressed={language === "en"} onClick={() => set("en")} style={{ border: 0, borderRadius: 9, padding: "0 10px", fontSize: 13, fontWeight: 700, background: language === "en" ? (tone === "nav" ? "var(--navs)" : "var(--card)") : "transparent", color: "inherit" }}>EN</button>
       <button type="button" aria-pressed={isHi} onClick={() => set("hi")} lang="hi" style={{ border: 0, borderRadius: 9, padding: "0 10px", fontSize: 13, fontWeight: 700, background: isHi ? (tone === "nav" ? "var(--navs)" : "var(--card)") : "transparent", color: "inherit" }}>हि</button>
     </span>
   );

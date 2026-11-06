@@ -251,6 +251,14 @@ export async function publishResultsAction(input: { examId: string; when: "now" 
   if (!UUID.test(input.examId) || !["now", "scheduled"].includes(input.when) || (input.when === "scheduled" && (!input.at || Number.isNaN(Date.parse(input.at))))) {
     return { ok: false, message: RELOAD };
   }
+  // "Now" releases only what is locked; with nothing locked there is nothing
+  // to release, and the board used to say "Results released" anyway (day-run
+  // 6 Nov 2026, E26). A schedule may still be set ahead of the locks.
+  if (input.when === "now") {
+    const { count, error: lockError } = await db().from("exam_class_locks").select("class_id", { count: "exact", head: true }).eq("assessment_id", input.examId);
+    if (lockError) return { ok: false, message: NOT_SAVED };
+    if (!count) return { ok: false, message: p("No class is locked yet, so nothing can go now. Ask the admin to lock marks first.", "अभी कोई कक्षा बंद नहीं, इसलिए कुछ नहीं जाएगा। पहले एडमिन से अंक बंद करवाएँ।") };
+  }
   const now = new Date().toISOString();
   const row: Record<string, unknown> = {
     assessment_id: input.examId,

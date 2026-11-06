@@ -1168,7 +1168,12 @@ function noticeLine(d: CoverDutyView): Pair {
   if (d.notice === "read") return p(`${n} was told on WhatsApp · read`, `${n} को WhatsApp पर बताया · पढ़ लिया`);
   if (d.notice === "delivered" || d.notice === "accepted") return p(`${n} was told on WhatsApp · delivered`, `${n} को WhatsApp पर बताया · पहुँच गया`);
   if (d.notice === "failed") return p(`The WhatsApp notice to ${n} failed · call them`, `${n} को WhatsApp संदेश नहीं गया · फ़ोन करें`);
-  if (d.notice) return p(`${n} · WhatsApp notice queued`, `${n} · WhatsApp संदेश कतार में`);
+  // "Suppressed" is a notice that could not go — usually no WhatsApp number —
+  // and it used to read "queued" like one on its way (day-run 6 Nov 2026, AC-07).
+  if (d.notice === "suppressed") return p(`${n} was not messaged (no WhatsApp number) · tell them in person`, `${n} को संदेश नहीं गया (WhatsApp नंबर नहीं) · ख़ुद बताएँ`);
+  if (d.notice === "cancelled") return p(`${n} · notice cancelled`, `${n} · संदेश रद्द`);
+  if (d.notice === "pending" || d.notice === "dispatching") return p(`${n} · WhatsApp notice queued`, `${n} · WhatsApp संदेश कतार में`);
+  if (d.notice) return p(`${n} · WhatsApp notice not confirmed · check with them`, `${n} · WhatsApp संदेश की पुष्टि नहीं · उनसे पूछ लें`);
   return p(`${n} · no notice yet`, `${n} · अभी कोई संदेश नहीं`);
 }
 
@@ -1200,6 +1205,8 @@ function Subs({
   const [editing, setEditing] = useState(false);
   if (!c) return <EmptyState icon="swap" title={say("Cover is not open to you", "व्यवस्था आपके लिए खुली नहीं")} body={say("Ask the office who is covering.", "कौन ले रहा है, कार्यालय से पूछें।")} />;
   const live = c.duties;
+  // Duties whose covering teacher was never reached: no notice, or one that could not go.
+  const untold = live.filter((d) => d.status === "assigned" && d.coveringName && (d.notice === null || d.notice === "suppressed" || d.notice === "failed" || d.notice === "cancelled"));
   const assigned = live.filter((d) => d.status === "assigned").length;
   const nowPeriod = c.day === data.today ? periodAt(data.bells, hhmm) : -1;
   const isToday = c.day === data.today;
@@ -1325,7 +1332,9 @@ function Subs({
               {open
                 ? say(`${open} still need a teacher · best matches are picked for you`, `${open} को अभी शिक्षक चाहिए · सबसे उपयुक्त पहले चुने गए हैं`)
                 : live.length
-                  ? say("Everyone knows where to be today", "आज सबको पता है कहाँ जाना है")
+                  ? untold.length
+                    ? say(`${untold.length} covering ${untold.length === 1 ? "teacher was" : "teachers were"} not told on WhatsApp · tell them yourself`, `${untold.length} शिक्षकों को WhatsApp पर नहीं बताया जा सका · ख़ुद बताएँ`)
+                    : say("Everyone knows where to be today", "आज सबको पता है कहाँ जाना है")
                   : missed.length
                     ? say(`${missed.length} ${missed.length === 1 ? "period had" : "periods had"} begun before cover could be arranged · see below`, `${missed.length} पीरियड व्यवस्था से पहले शुरू हो चुके थे · नीचे देखें`)
                     : say("Mark a teacher away and their periods appear here", "शिक्षक को अनुपस्थित दर्ज करें, उनके पीरियड यहाँ दिखेंगे")}

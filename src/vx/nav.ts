@@ -129,12 +129,17 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
     {
       items: [
         { key: "home", label: L("Today", "आज"), icon: "home", href: "/academics", permission: "dashboard:view" },
+        // Cover is this role's core morning job and was reachable only through
+        // a Timetable tab (day-run 6 Nov 2026, AC-02).
+        { key: "cover", label: L("Cover for absent teachers", "अनुपस्थित की व्यवस्था"), icon: "swap", href: "/timetable?view=subs", permission: "substitutions:manage" },
+        { key: "inbox", label: L("Needs you", "आपके लिए"), icon: "inbox", href: "/inbox", permission: "attendance:correct", badge: "inbox" },
         { key: "progress", label: L("Student progress", "प्रगति"), icon: "trend", href: "/academics/progress", permission: "marks:view" },
         { key: "attendance", label: L("Attendance", "हाज़िरी"), icon: "calCheck", href: "/academics/attendance", permission: "attendance:view" },
         { key: "notes", label: L("Notes on children", "बच्चों के नोट्स"), icon: "note", href: "/notes", permission: "notes:view", badge: "notes" },
         { key: "exams", label: L("Marks & results", "अंक व परिणाम"), icon: "clipboard", href: "/exams", permission: "assessments:view" },
         { key: "timetable", label: L("Timetable", "समय सारणी"), icon: "clock", href: "/timetable", permission: "timetable:view" },
         { key: "calendar", label: L("Calendar", "कैलेंडर"), icon: "calendar", href: "/calendar", permission: "academics:view" },
+        { key: "messages", label: L("Notices", "सूचनाएँ"), icon: "megaphone", href: "/messages", permission: "messages:send" },
       ],
     },
   ],

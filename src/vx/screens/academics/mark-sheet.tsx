@@ -55,6 +55,10 @@ export function MarkSheet({
   const { run, pending } = useAct();
   const [marks, setMarks] = useState<Record<string, AttStatus>>(() => Object.fromEntries(students.map((s) => [s.studentId, s.status ?? "present"])));
   const [commandId] = useState(() => crypto.randomUUID());
+  // A saved register is changed by correction (with a reason), never by a
+  // second plain save from this sheet (AC-01). The server refuses it too.
+  const saved = revision > 0;
+  const hasTeacher = teacher.trim() !== "" && teacher.trim() !== "—";
   const count = (st: AttStatus[]) => Object.values(marks).filter((s) => st.includes(s)).length;
   const present = count(["present", "late"]);
   const save = () =>
@@ -80,14 +84,22 @@ export function MarkSheet({
     <UrlSheet
       closeHref={closeHref}
       wide
-      title={tx({ en: `Mark ${label} for ${teacher}`, hi: `${teacher} की ओर से ${label} की हाज़िरी` })}
-      sub={tx({ en: "On leave today. Everyone starts as Present — tap a child to change.", hi: "आज छुट्टी पर। सब उपस्थित से शुरू — बदलने को बच्चे पर टैप करें।" })}
+      title={
+        hasTeacher
+          ? tx({ en: `Mark ${label} for ${teacher}`, hi: `${teacher} की ओर से ${label} की हाज़िरी` })
+          : tx({ en: `Mark ${label}`, hi: `${label} की हाज़िरी` })
+      }
+      sub={
+        saved
+          ? tx({ en: "Already saved today. A change needs a correction with a reason, on Attendance.", hi: "आज सहेजा जा चुका है। बदलाव के लिए हाज़िरी में कारण लिखकर सुधार करें।" })
+          : tx({ en: "Everyone starts as Present — tap a child to change.", hi: "सब उपस्थित से शुरू — बदलने को बच्चे पर टैप करें।" })
+      }
       footer={
         <>
           <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={() => router.replace(closeHref, { scroll: false })}>
             {tx({ en: "Cancel", hi: "रद्द करें" })}
           </button>
-          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={!allowed || pending || students.length === 0} onClick={save}>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={!allowed || saved || pending || students.length === 0} onClick={save}>
             {pending ? <Ic n="refresh" size={16} className="spin" /> : <Ic n="check" size={18} />}
             {tx({ en: `Save attendance · ${present} present`, hi: `हाज़िरी सहेजें · ${present} उपस्थित` })}
           </button>

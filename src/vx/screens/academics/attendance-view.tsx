@@ -624,14 +624,22 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
   /* --------------------------------------------------------------- today */
   const t = today.total;
   const totalKids = today.classes.reduce((s, c) => s + c.roll, 0);
-  const inMarked = t.counted + t.leave;
   const present = t.present + t.late;
   const left = today.notMarked;
+  // The percentage gives a half-day ½ and leaves leave out, so the line under
+  // it says the same thing in counts (AC-03: "56.3% · 4 of 8" could not be
+  // reconciled).
+  const presentSub = say(
+    `${present} present${t.halfDay ? ` + ${t.halfDay} half-day (½)` : ""} of ${t.counted} counted${t.leave ? ` · ${t.leave} on leave not counted` : ""}`,
+    `${t.counted} में से ${present} उपस्थित${t.halfDay ? ` + ${t.halfDay} आधा दिन (½)` : ""}${t.leave ? ` · ${t.leave} छुट्टी पर, गिने नहीं` : ""}`,
+  );
   const closedName = today.closed ? say(today.closed.label ?? (today.closed.kind === "sunday" ? "Sunday" : "Holiday"), today.closed.labelHi ?? today.closed.label ?? (today.closed.kind === "sunday" ? "रविवार" : "छुट्टी")) : null;
   const parts: [string, number, string][] = [
     [say("Present", "उपस्थित"), present, "var(--ok)"],
     [say("Absent", "अनुपस्थित"), t.absent, "var(--bad)"],
-    [say("Leave", "छुट्टी"), t.leave + t.halfDay, "var(--warn)"],
+    // Half-days are their own figure; they used to be added to Leave (day-run 6 Nov 2026, AC-04).
+    [say("Leave", "छुट्टी"), t.leave, "var(--warn)"],
+    [say("Half day", "आधा दिन"), t.halfDay, "var(--warns)"],
     [say("Not marked", "दर्ज नहीं"), today.unmarkedChildren, "var(--bds)"],
   ];
   const L = Math.max(0.5, (263.9 * today.marked) / Math.max(1, today.classes.length));
@@ -680,7 +688,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 150 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{say("Present today", "आज उपस्थित")}</span>
                   <span className="num" style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.05, color: "var(--ok)" }}>{pct1(today.pct)}</span>
-                  <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${present} of ${inMarked} in marked classes`, `दर्ज कक्षाओं में ${inMarked} में से ${present}`)}</span>
+                  <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{presentSub}</span>
                 </div>
               </div>
               <div style={{ display: "flex", height: 12, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }} aria-hidden="true">
@@ -717,7 +725,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                 [
                   [say("Present", "उपस्थित"), present, say(`${pct1(today.pct)} of marked`, `दर्ज का ${pct1(today.pct)}`), "var(--ok)"],
                   [say("Absent", "अनुपस्थित"), t.absent, say(`in ${today.marked} classes`, `${today.marked} कक्षाओं में`), "var(--bad)"],
-                  [say("On leave", "छुट्टी पर"), t.leave + t.halfDay, say("with a reason", "कारण सहित"), "var(--warn)"],
+                  [say("On leave", "छुट्टी पर"), t.leave, t.halfDay ? say(`not counted · ${t.halfDay} half-day`, `गिने नहीं · ${t.halfDay} आधा दिन`) : say("not counted", "गिने नहीं"), "var(--warn)"],
                   [say("Came late", "देर से आए"), t.late, say("counted present", "उपस्थित गिने"), "var(--info)"],
                 ] as [string, number, string, string][]
               ).map(([l, v, s, c], i) => (
@@ -910,7 +918,7 @@ function ClassTile({ c, i, say, mayRemind, closed }: { c: ClassToday; i: number;
     );
   }
   const present = c.tally.present + c.tally.late;
-  const parts = [c.tally.absent ? say(`${c.tally.absent} absent`, `${c.tally.absent} अनुपस्थित`) : null, c.tally.leave + c.tally.halfDay ? say(`${c.tally.leave + c.tally.halfDay} leave`, `${c.tally.leave + c.tally.halfDay} छुट्टी`) : null].filter(Boolean);
+  const parts = [c.tally.absent ? say(`${c.tally.absent} absent`, `${c.tally.absent} अनुपस्थित`) : null, c.tally.leave ? say(`${c.tally.leave} leave`, `${c.tally.leave} छुट्टी`) : null, c.tally.halfDay ? say(`${c.tally.halfDay} half day`, `${c.tally.halfDay} आधा दिन`) : null].filter(Boolean);
   return (
     <Link href={qs(BASE, { view: "register", class: c.classId })} className="card tap lift" style={{ ...base, color: "var(--fg)" }}>
       {head(c.onBehalf && c.savedBy ? say(`Saved by ${c.savedBy}`, `${c.savedBy} ने सहेजा`) : c.teacherName, "check", "var(--oks)", "var(--ok)")}
