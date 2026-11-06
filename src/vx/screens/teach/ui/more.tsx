@@ -94,7 +94,9 @@ export function TeachMore({
   const [nf, setNf] = useState<"all" | "unread">("all");
   const [large, setLarge] = useState(data.profile.largeText);
   const [alerts, setAlerts] = useState<Record<string, boolean>>(data.profile.alerts);
-  const [topic, setTopic] = useState<HelpTopic>("att");
+  // Help opens on what this teacher does: attendance only for a class teacher,
+  // marks for a subject teacher, leave for one with nothing assigned yet (smoke 6 Nov).
+  const [topic, setTopic] = useState<HelpTopic>(() => (data.profile.classes.some((c) => c.held) ? "att" : data.profile.classes.length ? "marks" : "leave"));
   const [pending, start] = useTransition();
   // Withdrawing a leave request asks once first (6 Nov school day).
   const [askWithdraw, setAskWithdraw] = useState<string | null>(null);
@@ -720,6 +722,7 @@ export function TeachMore({
         {switchRow("dark", "moon", TS, p("Dark mode", "डार्क मोड"), p("डार्क मोड · easier on the eyes at night", "Dark mode · रात में आँखों को आराम"), dark, () => setTheme(dark ? "light" : "dark"))}
         {ALERTS.map((a) => switchRow(a.key, a.icon, a.tone, a.text, a.sub, alerts[a.key] !== false, () => toggleAlert(a.key, alerts[a.key] === false)))}
       </div>
+      <Link href="/preferences/password?from=teach" className="tap btn sec tc-mbg tc-mw"><Ic n="lock" />{tx(p("Change password", "पासवर्ड बदलें"))}</Link>
       <form action={logoutAction} style={{ display: "flex" }}>
         <button type="submit" className="tap btn sec tc-mbg tc-mw" style={{ color: "var(--bad)" }}><Ic n="logout" />{tx(p("Sign out", "साइन आउट"))}</button>
       </form>
@@ -788,7 +791,7 @@ const HELP: Record<HelpTopic, { icon: IconName; t: Pair; tone: Tone; href?: stri
   att: {
     icon: "calCheck", t: p("Mark attendance", "हाज़िरी लगाएँ"), tone: TO, href: "/teach/attendance",
     steps: [
-      step(p("Open Attendance", "हाज़िरी खोलें"), p("Tap the big round button at the bottom.", "नीचे बड़ा गोल बटन दबाएँ।"), <Mini rows={[{ t: "Attendance", tone: "soft", hl: true }, { t: "My class" }, { t: "Marks" }]} />),
+      step(p("Open Attendance", "हाज़िरी खोलें"), p("On Today, tap “Mark attendance”.", "“आज” पर “हाज़िरी लगाएँ” दबाएँ।"), <Mini rows={[{ t: "Attendance", tone: "soft", hl: true }, { t: "My class" }, { t: "Marks" }]} />),
       step(p("Tap who is absent", "अनुपस्थित पर टैप करें"), p("Everyone starts Present. Tap once for Absent, again for Half-day.", "सब उपस्थित से शुरू। एक बार अनुपस्थित, दोबारा आधा दिन।"), <Mini rows={[{ t: "Aadhya · Present", tone: "good" }, { t: "Om · Absent", tone: "bad", hl: true }, { t: "Pari · Present", tone: "good" }]} />),
       step(p("Save attendance", "हाज़िरी सेव करें"), p("Until you save, the office sees “Not marked”.", "सेव करने तक ऑफ़िस को “नहीं लगी” दिखती है।"), <Mini rows={[{ t: "Save attendance", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],

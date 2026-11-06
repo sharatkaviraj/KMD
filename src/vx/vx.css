@@ -146,7 +146,13 @@
 .vx-legacy{flex:1;min-width:0;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
 @media (min-width:900px){.vx-legacy{padding:22px 28px 40px}}
 /* Safe-area padding is separate from the layout/visual viewport gap published by the app's existing provider. */
+/* The tabs ride --keyboard-offset, so browser chrome covering the layout bottom never hides them
+   (receipt navigation). While a real on-screen keyboard is up (data-kb, set by
+   KeyboardOffsetProvider) they step aside, and every bar that sits on --vx-bottom-h (Save note,
+   Save marks, ...) sits on the keyboard instead: tabs lifted onto the keyboard covered
+   "Save note" (smoke 6 Nov, teacher 17). */
 .vx-bottom{position:fixed;left:0;right:0;bottom:var(--keyboard-offset,0px);z-index:40;padding-bottom:env(safe-area-inset-bottom)}
+:root[data-kb] .vx-bottom{display:none}
 @media (max-width:899px){.vx-shell>.vx-side{display:none!important}}
 @media (min-width:900px){.vx-bottom{display:none!important}}
 /* Bottom-bar words at 12.5px, not 11px: they are the only signposts many staff read (UX review, 6 Nov 2026). */
@@ -183,6 +189,11 @@
    the design's top bar (`.vx-ctop` below). From 1024px they are the design's own 22/28px,
    so an older screen's content lines up with a redesigned one's. */
 .vx-main{--vx-px:16px;--vx-pt:16px;--vx-ctop-h:58px;flex:1;min-width:0;width:100%;max-width:88rem;margin:0 auto;padding:var(--vx-pt) var(--vx-px) calc(96px + env(safe-area-inset-bottom))}
+/* A screen that slides in from the right (xPush, translateX 28px) made a phone's page 28px wider
+   for a moment; Chrome then widened the layout viewport to 400-418px and the fixed tab bar ended
+   above the screen's bottom edge, over "Save note" (smoke 6 Nov, teachers 17 and 19). `clip`, not
+   `hidden`: it makes no scroll container, so sticky save bars still stick to the window. */
+@media (max-width:899px){.vx-main{overflow-x:clip}}
 @media (min-width:768px){.vx-main{--vx-px:24px;--vx-pt:20px;padding-bottom:32px}}
 @media (min-width:900px){.vx-main{--vx-ctop-h:64px}}
 @media (min-width:1024px){.vx-main{--vx-px:28px;--vx-pt:22px;padding-bottom:40px}}
@@ -242,8 +253,10 @@
 .vx-main:not(:has(.vx-ctop)){--vx-ctop-h:0px}
 @media (max-width:899px){.vx-main:has(.vx-ctop.phone-hide),.vx-main:has(.vx-ctop .vx-ctop-act:not(.phone-hide)){--vx-ctop-h:0px}}
 /* The phone bottom bar's height, for anything that sits on it (phone action bars). */
-:root{--vx-bottom-h:calc(76px + env(safe-area-inset-bottom))}
+/* The tabs' height plus whatever lifts them, so a sticky save bar always sits on top of them. */
+:root{--vx-bottom-h:calc(76px + env(safe-area-inset-bottom) + var(--keyboard-offset, 0px))}
 @media (min-width:900px){:root{--vx-bottom-h:0px}}
+@media (max-width:899px){:root[data-kb]{--vx-bottom-h:var(--keyboard-offset,0px)}}
 
 /* ---- Touch: a 44px hit area (smoke 20 Oct, dev.groups[22]) --------------------------
    On a phone or tablet every control a finger presses is at least 44 × 44 px. A mouse

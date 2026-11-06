@@ -936,7 +936,7 @@ export function TeachHome({
       <div className="tc-g2">
         {allowed.attendance && data.myClass && data.schoolOpen ? tile("att", "calCheck", reg ? p("See attendance", "हाज़िरी देखें") : p("Mark attendance", "हाज़िरी लगाएँ"), V("pri"), V("prifg"), reg && later && data.myClass ? `/teach/attendance?class=${data.myClass.classId}&view=history` : attendHref) : null}
         {allowed.marks && !data.unassigned ? tile("marks", "clipboard", p("Enter marks", "अंक भरें"), V("infos"), V("info"), "/teach/marks") : null}
-        {allowed.notes ? tile("note", "mic", p("Note about a child", "बच्चे पर नोट"), V("accs"), V("accfg"), "/teach/notes?sheet=add") : null}
+        {allowed.notes && !data.unassigned ? tile("note", "mic", p("Note about a child", "बच्चे पर नोट"), V("accs"), V("accfg"), "/teach/notes?sheet=add") : null}
         {tile("leave", "calMinus", p("Ask for leave", "छुट्टी माँगें"), V("warns"), V("warnfg"), null)}
         {data.tasks.length ? tile("tasks", "inbox", p("My tasks", "मेरे काम"), V("infos"), V("info"), "/teach/tasks") : null}
       </div>

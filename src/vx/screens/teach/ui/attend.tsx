@@ -186,7 +186,7 @@ export function AttendChoose({ data, ownerId, context }: { data: AttendChoices; 
   const closed = context?.closedWhy ? closedText(context.closedWhy, data.day, data.day === context.today) : null;
   return (
     <VxPage className="tc">
-      <TchTop crumb={T(p("Attendance", "हाज़िरी"))} title={tx(p("Choose a class", "कक्षा चुनें"))} mBack="/teach" actions={<LangSeg />} mAction={<LangSeg />} />
+      <TchTop crumb={T(p("Attendance", "हाज़िरी"))} title={tx(data.choices.length === 0 ? p("Attendance", "हाज़िरी") : p("Choose a class", "कक्षा चुनें"))} mBack="/teach" actions={<LangSeg />} mAction={<LangSeg />} />
       <main>
         <div className="pad" style={{ padding: "20px 28px 40px", maxWidth: 720, display: "flex", flexDirection: "column", gap: 14 }}>
           {data.choices.length === 0 ? (

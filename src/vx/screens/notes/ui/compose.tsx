@@ -178,6 +178,14 @@ export function useComposer(init: ComposerInit) {
   const restoreDraft = (onlyFor: string | null): boolean => {
     const d = readDraft(init.viewer.id);
     if (!d || !d.body) return false;
+    // The page was refreshed while a save was on its way and the note did
+    // reach the server (smoke 6 Nov, teacher 16): it is on the list, so the
+    // kept copy goes instead of coming back as a second note to save.
+    if (init.notes.some((n) => n.writtenBy === init.viewer.id && n.studentId === d.studentId && n.body.trim() === d.body.trim())) {
+      writeDraft(init.viewer.id, null);
+      toast.show({ text: tx(p("Your last note was saved.", "आपका पिछला नोट सहेज लिया गया था।")), tone: "ok" });
+      return false;
+    }
     if (onlyFor && d.studentId !== onlyFor) return false;
     if (!init.kids.some((k) => k.id === d.studentId)) return false;
     setStudentId(d.studentId);
@@ -372,6 +380,9 @@ export function useComposer(init: ComposerInit) {
     // The draft's id, made now if the draft was never stored (a quick save).
     const id = requestId || newRequestId();
     if (id !== requestId) setRequestId(id);
+    // Kept before it leaves, not 600 ms later: a refresh during a quick save
+    // brings the note back with the same id, so saving it again files it once.
+    writeDraft(init.viewer.id, { studentId: child.id, body, tags, voice, at: Date.now(), requestId: id, follow, when, followOn, owner, visibility });
     start(async () => {
       try {
         const res = await createNoteAction({
