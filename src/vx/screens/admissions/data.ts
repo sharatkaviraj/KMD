@@ -75,6 +75,14 @@ export async function getEnquiry(id: string): Promise<Enquiry | null> {
   return data ? toEnquiry(data as EnquiryRow) : null;
 }
 
+/** The session an enquiry belongs to, for the test-session fence. Null: no such enquiry. */
+export async function enquirySessionLabel(id: string): Promise<string | null> {
+  await assertPermission("fees:manage");
+  const { data, error } = await createAdminClient().from("enquiries").select("session_label").eq("id", id).maybeSingle<{ session_label: string | null }>();
+  if (error) throw new Error(`Could not read the enquiry: ${error.message}`);
+  return data?.session_label ?? null;
+}
+
 export async function insertEnquiry(input: { sessionLabel: string; childName: string; classLabel: string; parentName: string; phone: string; staffId: string }) {
   await assertPermission("fees:manage");
   const { data, error } = await createAdminClient()

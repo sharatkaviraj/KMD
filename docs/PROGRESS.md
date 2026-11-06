@@ -1966,3 +1966,10 @@ Plan and ideas: `docs/ui/PERFORMANCE.md` ("6 November"). Janmejay chose to build
 | What | Status | Branch / commit | Remaining or surprising |
 |---|---|---|---|
 | Admissions, New admission, Student tools and Fee reports threw "That academic session is not available to this account" for every test account on live. Each asked the fees bridge for the live year (fee policy's or `app_settings`' label) instead of the viewer's session; now they use `resolveViewSession` (reports also drop a forbidden `?sessionLabel=`), and promotion starts from `defaultSessionFor` | in review | `claude/project-thread-wlt8d6` | Real staff see the same year as before unless their pill names another; the four screens follow the pill now. Pinned in `tests/test-account-session-screens.test.ts` |
+
+## Smoke test every workflow — 6 November 2026
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Test sign-in retried when a concurrent tap on the same QA account spent its one-time token (`/login?error=link`); admissions duplicate check and family search fenced to the viewer's sessions, admit checks session, class and siblings; enquiry moves and leave decisions fenced by the row's own session; QA teachers rebound from two real teachers' profiles to their `T-` twins (data, with Janmejay's yes) | in review | `claude/project-thread-j33nla` | Four test threads crawling at once overloaded One's database (smallest compute: 60 connections, ~10-connection API pool, 8 s statement timeout) from 11:20 UTC; requests hung to the 300 s function limit and simple scans ran ~100x slow afterwards. Janmejay: no upgrade now, write it up. Live runs: at most 2–3 browsers across all threads |
+

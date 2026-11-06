@@ -133,15 +133,25 @@ export async function testSignInAction(formData: FormData): Promise<void> {
   if (!access.ok) redirect("/login?error=profile");
 
   const { createAdminClient } = await import("@/platform/supabase/admin");
-  const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: account.email });
-  const tokenHash = data?.properties?.hashed_token;
-  if (error || !tokenHash) redirect("/login?error=link");
-
   const supabase = await createClient();
-  const verified = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: tokenHash });
-  if (verified.error || !verified.data.user) redirect("/login?error=link");
+  // Supabase keeps only the newest one-time token per user, so two people (or
+  // two QA agents) tapping the same account within a few seconds spend each
+  // other's token: "One-time token not found" and /login?error=link (smoke
+  // test, 6 Nov 2026). A fresh token on a short, jittered retry settles it.
+  // Only a refused *verify* is retried: a failure to mint means Auth itself is
+  // struggling, and asking again would only add to its load.
+  let userId: string | null = null;
+  for (let attempt = 0; attempt < 3 && !userId; attempt++) {
+    if (attempt > 0) await new Promise((done) => setTimeout(done, 300 + Math.floor(Math.random() * 900) * attempt));
+    const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: account.email });
+    const tokenHash = data?.properties?.hashed_token;
+    if (error || !tokenHash) break;
+    const verified = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: tokenHash });
+    if (!verified.error && verified.data.user) userId = verified.data.user.id;
+  }
+  if (!userId) redirect("/login?error=link");
 
-  const admitted = await admitSignedInUser(supabase, verified.data.user.id);
+  const admitted = await admitSignedInUser(supabase, userId);
   if (!admitted.ok) redirect("/login?error=profile");
 
   revalidatePath("/", "layout");

@@ -25,7 +25,7 @@ test.afterAll(async () => {
   if (!baselineEmpty) return;
   // Reconcile even if the browser lost the response, then delete exact IDs.
   const rows = await readTagged();
-  rows.forEach(row => { expect(row.written_by).toBe("29d76340-1929-4848-ad4f-8a3ae5653a43"); owned.add(row.id); });
+  rows.forEach(row => { expect(row.written_by).toBe("cf0dad7d-a1cd-5b1b-865a-a414113b2e36"); owned.add(row.id); });
   if (process.env.PHONEOPS_PRESERVE_FIXTURES === "1") {
     entries.push({phase:"preserved-readback-no-cleanup",notes:rows,ownedNoteIds:[...owned]});checkpoint();return;
   }
@@ -61,7 +61,7 @@ test("phone teacher saves a private observation, reloads it, and another teacher
     await expect.poll(async()=> (await readTagged()).length,{timeout:90000}).toBe(1);
     const rows = await readTagged(); expect(rows).toHaveLength(1);
     const note = rows[0]; owned.add(note.id);
-    expect(note).toMatchObject({ visibility:"private",tell_parents:false,student_id:studentId,needs_follow_up:false,written_by:"29d76340-1929-4848-ad4f-8a3ae5653a43" });
+    expect(note).toMatchObject({ visibility:"private",tell_parents:false,student_id:studentId,needs_follow_up:false,written_by:"cf0dad7d-a1cd-5b1b-865a-a414113b2e36" });
     entries.push({phase:"private-saved",note}); checkpoint();
     const queued = await db().from("parent_message_queue").select("id").eq("note_id", note.id); expect(queued.error).toBeNull();expect(queued.data).toEqual([]);
     await expect(page).toHaveURL(/step=saved/,{timeout:90000});

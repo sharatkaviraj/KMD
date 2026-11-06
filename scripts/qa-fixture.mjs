@@ -297,7 +297,9 @@ async function seed() {
     if (refused.length > 0) {
       console.error(
         `Refusing to seed on production: ${refused.length} profile(s) the fixture would bind are not test accounts ` +
-          `(${refused.join(", ")}). Mark them as test accounts first.`,
+          `(${refused.join(", ")}). Bind the QA login to a test profile instead — never mark a real ` +
+          `member of staff as a test account to get past this: it confines their real profile to TEST ` +
+          `(6 Nov 2026, two real teachers' profiles were flipped this way).`,
       );
       process.exit(1);
     }
