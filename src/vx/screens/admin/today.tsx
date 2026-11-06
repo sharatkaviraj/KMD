@@ -325,6 +325,7 @@ export function TodayScreen(props: TodayProps) {
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
           {props.notice ? <div className="vx-today-notice">{props.notice}</div> : null}
           <PhoneNeeds inbox={inbox} incomplete={inboxIncomplete} />
+          <PhoneCalls money={money} promisedToday={props.promisedToday} />
           {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
           <ReadyForYou wrap={{ padding: "18px 18px 0" }} />
@@ -623,7 +624,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
           ) : null}
         </div>
       </div>
-      <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--navm)" }}>
           <span aria-hidden="true" style={{ flex: "none", width: 8, height: 8, borderRadius: 4, background: HERO_TEAL, animation: "xPulse 2.2s infinite" }} />
           {shortDay(props.today)}
@@ -631,7 +632,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
         </span>
         <h1 className="serif" style={{ margin: 0, fontSize: 30, fontWeight: 600, lineHeight: 1.12, color: "var(--navfg)" }}>{props.hello}</h1>
       </div>
-      <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
         {money ? (
           <div className="td-hero-card" style={{ ...heroCard, gridColumn: "1 / -1", padding: "14px 16px", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
             <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
@@ -639,7 +640,8 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
               <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{rupees(money.today)}</span>
               <span style={{ fontSize: 12, color: "var(--navm)" }}>{receiptsLine(money, tx)}</span>
             </span>
-            <Spark values={weekRunning(money, props.today)} w={128} h={54} color={HERO_TEAL} stroke={2.5} dot={4.5} end={[124, 6]} />
+            {/* The week's running total rose to a high dot beside "₹0 today" and read as money coming in (UX review 6 Nov 2026). */}
+            {money.today > 0 ? <Spark values={weekRunning(money, props.today)} w={128} h={54} color={HERO_TEAL} stroke={2.5} dot={4.5} end={[124, 6]} /> : null}
           </div>
         ) : props.ledgerToday && props.ledgerToday !== "failed" ? (
           <div className="td-hero-card" style={{ ...heroCard, gridColumn: "1 / -1", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
@@ -682,20 +684,32 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             </span>
           </TileLink>
         ) : null}
-        {money ? (
-          <Link href="/dues" className="tap" style={{ ...tileText, gridColumn: "1 / -1", background: HERO_TEAL, color: HERO_INK, borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-            <span aria-hidden="true" style={{ flex: "none", width: 36, height: 36, borderRadius: 12, background: "rgba(8,47,73,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Ic n="phone" />
-            </span>
-            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(T.familiesToCall(money.followUps))}</span>
-              <span style={{ fontSize: 12, fontWeight: 500 }}>{tx(TD.callsSub(props.promisedToday ?? null))}</span>
-            </span>
-            <Ic n="chevRight" />
-          </Link>
-        ) : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * "Families to call" under Needs you, not inside the hero: in the hero it pushed
+ * the "Needs you" heading to the last line of the phone's first screen (UX
+ * review 6 Nov 2026).
+ */
+function PhoneCalls({ money, promisedToday }: { money: TodayMoneyView | null; promisedToday?: number | null }) {
+  const { tx } = useVx();
+  if (!money) return null;
+  return (
+    <div style={{ padding: "16px 18px 0" }}>
+      <Link href="/dues" className="tap" style={{ lineHeight: "normal", background: HERO_TEAL, color: HERO_INK, borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+        <span aria-hidden="true" style={{ flex: "none", width: 36, height: 36, borderRadius: 12, background: "rgba(8,47,73,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Ic n="phone" />
+        </span>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(T.familiesToCall(money.followUps))}</span>
+          <span style={{ fontSize: 12, fontWeight: 500 }}>{tx(TD.callsSub(promisedToday ?? null))}</span>
+        </span>
+        <Ic n="chevRight" />
+      </Link>
+    </div>
   );
 }
 
@@ -950,7 +964,7 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
           <span className="num" style={{ ...big, letterSpacing: "-0.02em" }}>{rupees(money.today)}</span>
           <span style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8, width: "100%" }}>
             <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.receiptsSoFar(money.receiptsToday))}</span>
-            <Spark values={weekRunning(money, props.today)} w={96} h={34} color="var(--acc)" stroke={2.4} dot={3.5} end={[92, 3]} />
+            {money.today > 0 ? <Spark values={weekRunning(money, props.today)} w={96} h={34} color="var(--acc)" stroke={2.4} dot={3.5} end={[92, 3]} /> : null}
           </span>
         </TileLink>
       ) : null}

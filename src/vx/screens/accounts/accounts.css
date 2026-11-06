@@ -97,9 +97,11 @@
   /* 16px, not the picture's 14px: a phone zooms the page into any smaller input it focuses. */
   .vx .ac-q input { font-size: 16px; }
   .vx .ac-close { height: 52px; font-size: 15px; }
-  .vx .ac-kp { display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px 4px; }
-  .vx .ac-kp::-webkit-scrollbar { display: none; }
-  .vx .ac-kp > button { flex: none; width: 208px; }
+  /* Two by two on a phone: a sideways strip hid half the summary ("UPI match 2 of 4…") behind a swipe nobody tries (UX review 6 Nov 2026). */
+  .vx .ac-kp { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .vx .ac-kp > button { padding: 12px; gap: 8px; min-width: 0; }
+  .vx .ac-kp .ac-ib { display: none; }
+  .vx .ac-kp .num { font-size: 17px !important; }
   .vx .ac-ctb { display: flex; flex-direction: column; gap: 10px; background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
   .vx .ac-cth, .vx .ac-ct > .c-no, .vx .ac-ct > .c-bank, .vx .ac-ct > .c-dt, .vx .ac-ct > .c-rec { display: none; }
   .vx .ac-ct { grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "cb fam amt" ". act act"; gap: 6px 8px; align-items: start; padding: 10px 12px 12px 4px; border: 1px solid var(--bd); border-radius: 18px; background: var(--card); box-shadow: var(--sh); }

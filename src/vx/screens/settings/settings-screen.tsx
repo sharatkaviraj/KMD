@@ -713,7 +713,18 @@ function SessionPanel({ data, onArchive }: { data: SettingsData; onArchive: () =
 /** "Thu 8 Oct", as the design heads a day. */
 const day3 = (value: string) => shortDay(value).replace(",", "");
 /** "3:12 pm", as the design writes a time. */
-const ampm = (value: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(value)).toLowerCase();
+/**
+ * "9:05 am", built from 24-hour parts. `Intl`'s own 12-hour en-IN output
+ * differs between the server's ICU and the phone's (a narrow no-break space
+ * before "am" on one, a plain space on the other), which is a hydration
+ * mismatch (React #418) on every Settings page that lists activity
+ * (UX review 6 Nov 2026).
+ */
+const ampm = (value: string) => {
+  const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)).split(":").map(Number);
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+};
 /** "Mr. Meena" → "M", "Janmejay Singh" → "JS". */
 const personInitials = (name: string) => initials(name.replace(/^(Mr|Ms|Mrs|Dr)\.?\s+/i, ""));
 
@@ -724,18 +735,22 @@ function whoTone(name: string): Tone {
   return WHO_TONES[h % WHO_TONES.length];
 }
 
+const ACTIVITY_PAGE = 40;
+
 function Activity({ events }: { events: SettingsData["activity"] }) {
   const { tx } = useVx();
   const [area, setArea] = useState<ActivityArea | "all">("all");
   const [who, setWho] = useState<string>("everyone");
   const [open, setOpen] = useState<string | null>(null);
+  // Forty at a time: the whole log ran to 47 phone screens (UX review 6 Nov 2026). Export still takes every row the filters match.
+  const [limit, setLimit] = useState(ACTIVITY_PAGE);
   const people = useMemo(() => {
     const count = new Map<string, number>();
     for (const e of events) count.set(e.who, (count.get(e.who) ?? 0) + 1);
     return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name]) => name);
   }, [events]);
   const shown = events.filter((e) => (area === "all" || e.area === area) && (who === "everyone" || e.who === who));
-  const days = groupByDay(shown);
+  const days = groupByDay(shown.slice(0, limit));
   const today = schoolToday();
   const yesterday = (() => {
     const d = new Date(`${today}T12:00:00+05:30`);
@@ -821,6 +836,11 @@ function Activity({ events }: { events: SettingsData["activity"] }) {
           </div>
         </div>
       ))}
+      {shown.length > limit ? (
+        <Btn variant="sec" onClick={() => setLimit((n) => n + ACTIVITY_PAGE)}>
+          {tx(p(`Show ${Math.min(ACTIVITY_PAGE, shown.length - limit)} more (${shown.length - limit} left)`, `${Math.min(ACTIVITY_PAGE, shown.length - limit)} और दिखाएँ (${shown.length - limit} बाकी)`))}
+        </Btn>
+      ) : null}
       {days.length === 0 ? (
         <div className="card fadein" style={{ padding: "36px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
           <Tile icon="activity" tone="mut" size={52} radius={26} iconSize={24} />

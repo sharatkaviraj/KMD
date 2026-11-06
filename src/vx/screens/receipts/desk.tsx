@@ -60,9 +60,9 @@ function initialFilters(i: DeskProps["initial"]): DeskFilters {
 }
 
 /** A design KPI tile: 12px label, 22px figure, 12px sub-line. */
-function Tile({ label, value, sub, tone, delay }: { label: ReactNode; value: ReactNode; sub: ReactNode; tone?: string; delay: number }) {
+function Tile({ label, value, sub, tone, delay, deskOnly }: { label: ReactNode; value: ReactNode; sub: ReactNode; tone?: string; delay: number; deskOnly?: boolean }) {
   return (
-    <div className="card rise" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 2, minWidth: 0, animationDelay: `${delay}ms` }}>
+    <div className={`card rise${deskOnly ? " hide-m" : ""}`} style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 2, minWidth: 0, animationDelay: `${delay}ms` }}>
       <span style={{ fontSize: 12, color: "var(--mut)", fontWeight: 600 }}>{label}</span>
       <span className="num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em", color: tone ?? "var(--fg)" }}>{value}</span>
       <span style={{ fontSize: 12, color: "var(--mut)" }}>{sub}</span>
@@ -137,14 +137,17 @@ export function ReceiptsDesk(props: DeskProps) {
 
   const list = (
     <section className={`pad${selected ? " hide-m" : ""}`} style={{ padding: "22px 28px 40px", display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+      {/* Phone: the day's total and the cash to count, then the receipts. The UPI
+          tile, a zero "Reversed" and the mode chart stay on the desk; they pushed
+          the list below the fold (UX review 6 Nov 2026). */}
       <Grid cols={4}>
         <Tile label={kpiLabel} value={rupees(summary.net)} sub={tx(receiptCount(summary.count))} delay={0} />
         <Tile label={tx(W.cash)} value={rupees(summary.byMode.cash.amount)} sub={`${tx(receiptCount(summary.byMode.cash.count))} · ${tx(W.toCount)}`} delay={28} />
-        <Tile label={tx(W.upi)} value={rupees(summary.byMode.upi.amount)} sub={tx(receiptCount(summary.byMode.upi.count))} delay={56} />
-        <Tile label={tx(W.reversed)} value={summary.reversedCount} sub={tx(W.reversedSub)} tone={summary.reversedCount ? "var(--bad)" : undefined} delay={84} />
+        <Tile label={tx(W.upi)} value={rupees(summary.byMode.upi.amount)} sub={tx(receiptCount(summary.byMode.upi.count))} delay={56} deskOnly />
+        <Tile label={tx(W.reversed)} value={summary.reversedCount} sub={tx(W.reversedSub)} tone={summary.reversedCount ? "var(--bad)" : undefined} delay={84} deskOnly={summary.reversedCount === 0} />
       </Grid>
 
-      <div className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="card hide-m" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>{tx(W.howItCameIn)}</span>
           <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{rupees(summary.net)} {tx(W.net)}</span>
