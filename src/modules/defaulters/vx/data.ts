@@ -13,6 +13,7 @@ import { getReceiptsPage } from "@/modules/receipts/data/queries";
 import { EMPTY_RECEIPT_FILTERS } from "@/modules/receipts/domain/filters";
 import { getRecoveryQueue } from "@/modules/recovery/data/queries";
 import type { ContactSummary, DuesStudent, PaymentFact } from "@/modules/defaulters/vx/domain/families";
+import type { StudentRecoveryDueRow } from "@/modules/recovery/domain/types";
 
 /*
  * Reads for the redesigned Dues & calls screen (/dues). Every amount comes from
@@ -104,34 +105,55 @@ export type LeftOwing = {
   lastPaymentDate: string | null;
 };
 
-/** Children who left, graduated or went inactive with money still owed. Not in headcount. */
-export async function loadLeftOwing(): Promise<LeftOwing[]> {
+/**
+ * Children who left, graduated or went inactive with money still owed in this
+ * session. Not in headcount.
+ *
+ * The recovery queue spans every session, so on TEST-2026-27 the Left owing
+ * tab and the reminder audience were reading live-session children (TEST
+ * school day, 6 Nov 2026, accountant B2). Only installments that belong to
+ * `sessionLabel` count — a carry-forward row sits in the session it was
+ * carried into, so last year's balance is still here.
+ */
+export async function loadLeftOwing(sessionLabel: string): Promise<LeftOwing[]> {
   const q = await getRecoveryQueue();
-  return q.rows
-    .filter((r) => r.totalRemaining > 0)
-    .map((r) => ({
+  return leftOwingInSession(q.rows, sessionLabel);
+}
+
+export function leftOwingInSession(rows: readonly StudentRecoveryDueRow[], sessionLabel: string): LeftOwing[] {
+  return rows
+    .map((r) => ({ r, owed: r.dues.filter((d) => d.sessionLabel === sessionLabel).reduce((s, d) => s + Math.max(0, d.remainingAmount), 0) }))
+    .filter(({ owed }) => owed > 0)
+    .map(({ r, owed }) => ({
       studentId: r.studentId,
       fullName: r.fullName,
       fatherName: r.fatherName,
       phone: r.phone,
       status: r.status,
       classLabel: r.classLabel,
-      owed: r.totalRemaining,
+      owed,
       lastPaymentDate: r.lastPaymentDate,
     }))
     .sort((a, b) => b.owed - a.owed);
 }
 
-/** Calls logged today (school day, IST) across the desk. */
-export async function countCallsToday(sessionLabel: string, today: string): Promise<number> {
+/**
+ * The children a call was logged for today (school day, IST) across the desk.
+ *
+ * One call to a family writes one contact row per child, so counting rows
+ * said "Calls done today 3 of 75" after a single call to a family of three
+ * (TEST school day, 6 Nov 2026, accountant B8). The caller counts families.
+ */
+export async function studentsCalledToday(sessionLabel: string, today: string): Promise<string[]> {
   const supabase = feeReader();
-  const { count } = await supabase
+  const { data } = await supabase
     .from("defaulter_contacts")
-    .select("id", { count: "exact", head: true })
+    .select("student_id")
     .eq("session_label", sessionLabel)
     .eq("channel", "call")
-    .gte("contacted_at", `${today}T00:00:00+05:30`);
-  return count ?? 0;
+    .gte("contacted_at", `${today}T00:00:00+05:30`)
+    .limit(5000);
+  return [...new Set(((data ?? []) as { student_id: string | null }[]).map((r) => String(r.student_id ?? "")).filter(Boolean))];
 }
 
 /** Money received this week, from the receipt aggregate. */

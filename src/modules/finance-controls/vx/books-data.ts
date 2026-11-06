@@ -491,7 +491,16 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
       .limit(1),
   ]);
 
-  const collections = finance.dayBookRows.filter((r) => r.entryType === "collection");
+  // The day book lists every receipt, reversed ones too. The money band below
+  // already nets them out (summary.receiptTotal), but the sparkline, "last one
+  // at" and the follow-up "paid today" read these rows, so the phone showed
+  // "₹0 · 1 reversed" over a rising line (TEST school day, 6 Nov 2026,
+  // accountant B12). What is left of a part-reversed receipt still counts.
+  const dayRows = finance.dayBookRows.filter((r) => r.entryType === "collection");
+  const dayReversals = await getReceiptReversalTotals(dayRows.map((r) => r.entryId), fee);
+  const collections = dayRows
+    .map((r) => ({ ...r, cashIn: r.cashIn - Math.min(r.cashIn, dayReversals.get(r.entryId) ?? 0) }))
+    .filter((r) => r.cashIn > 0);
   const modes = finance.summary.modeTotals.map((m) => ({ mode: String(m.paymentMode), total: m.totalAmount, count: m.receiptCount }));
   const lastAt = collections.map((r) => r.postedAt).sort().at(-1) ?? null;
   const dayTotals = history.data.map((r) => ({ date: String(r.payment_date), total: num(r.total_amount) }));

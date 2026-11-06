@@ -642,7 +642,10 @@ export function DuesScreen(props: DuesProps) {
     </div>
   );
 
-  const tabCounts: Record<DuesTab, string> = { call: String(families.length), prom: String(Math.max(0, promToday.length - keptToday)), left: String(props.left.length), aging: "" };
+  // Every promise still open: due today, coming up or broken. Counting only
+  // today's said "Promises 0" over a broken ₹88,100 promise (TEST school day,
+  // 6 Nov 2026, accountant P3).
+  const tabCounts: Record<DuesTab, string> = { call: String(families.length), prom: String(props.promises.filter((pv) => pv.state !== "kept").length), left: String(props.left.length), aging: "" };
   const first = shown[0] ?? families[0] ?? null;
 
   const list = (

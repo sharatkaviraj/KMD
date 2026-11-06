@@ -47,6 +47,14 @@ export type SelectedReceipt = {
   dayClosed?: boolean;
   /** The latest reversal: when (full ISO), by whom, and its note (B08). */
   reversal?: { at: string; byName: string | null; note: string | null } | null;
+  /**
+   * Forgiven at the counter with this receipt: a quick discount and a late-fee
+   * waiver. Not money received, and a reversal does not undo it (Fees'
+   * reverse_receipt_admin leaves receipt_adjustments alone), so the receipt
+   * and the reverse sheet both say so (day-run 6 Nov 2026, A-18).
+   */
+  discountGiven?: number;
+  lateFeeWaived?: number;
 };
 
 export type CloseEvent = {

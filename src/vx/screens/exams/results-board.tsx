@@ -244,6 +244,18 @@ function ampm(t: string | null, full = false): string {
   return `${h % 12 === 0 ? 12 : h % 12}${m || full ? `:${String(m || 0).padStart(2, "0")}` : ""} ${h >= 12 ? "pm" : "am"}`;
 }
 
+/**
+ * A stored UTC instant as the school's wall clock ("YYYY-MM-DDTHH:mm" in
+ * India time). The schedule used to be read by slicing the UTC string, so a
+ * 17:50 release showed "12:20 pm" and reopening the schedule shifted it back
+ * by 5½ hours on the next save (day-run 6 Nov 2026, E27).
+ */
+function schoolClock(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 16);
+  return new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 16);
+}
+
 const STEP_ORDER: PipelineStep[] = ["entered", "checked", "grace", "locked", "cards", "published"];
 const TAB_FOR: Record<PipelineStep, ResultsView> = { entered: "pipeline", checked: "moderation", grace: "grace", locked: "lock", cards: "cards", published: "publish" };
 const RECHECK_WORDS: Record<ResultsProps["rechecks"][number]["status"], { label: Pair; tone: ToneKey }> = {
@@ -268,7 +280,9 @@ export function ResultsBoard(props: ResultsProps) {
   const { pending, run } = useAct();
   const [remindOpen, setRemindOpen] = useState(false);
   const [lockConfirm, setLockConfirm] = useState(false);
-  const href = (v: ResultsView, extra = "") => `/exam-office/results?view=${v}${extra}`;
+  // Every step keeps the exam being looked at. Without it a step link or a
+  // re-check row jumped back to the current exam (day-run 6 Nov 2026, E43).
+  const href = (v: ResultsView, extra = "") => `/exam-office/results?view=${v}&exam=${encodeURIComponent(exam.id)}${extra}`;
   const openRecheck = view === "recheck" ? (props.rechecks.find((r) => r.id === props.recheckId) ?? null) : null;
 
   const titles: Record<ResultsView, Pair> = {
@@ -324,9 +338,9 @@ export function ResultsBoard(props: ResultsProps) {
   const lockChosen = props.classes.filter((c) => lockPicked.includes(c.id) && !c.locked);
   /* Publishing's choice, for the same reason. */
   const [when, setWhen] = useState<"now" | "scheduled">(exam.resultsOn ? "scheduled" : "now");
-  const [at, setAt] = useState(exam.publishAt ? exam.publishAt.slice(0, 16) : exam.resultsOn ? `${exam.resultsOn}T09:00` : "");
+  const [at, setAt] = useState(exam.publishAt ? schoolClock(exam.publishAt) : exam.resultsOn ? `${exam.resultsOn}T09:00` : "");
   const [ptm, setPtm] = useState(exam.ptm);
-  const publishNow = () => run(() => actions.publish({ examId: exam.id, when, at: when === "scheduled" ? new Date(at).toISOString() : null, ptm }));
+  const publishNow = () => run(() => actions.publish({ examId: exam.id, when, at: when === "scheduled" ? new Date(`${at}:00+05:30`).toISOString() : null, ptm }));
   const atLabel = at ? new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(new Date(at)).replace(",", "") + ` · ${ampm(at.slice(11, 16), true)}` : "";
 
   let body: ReactNode;
@@ -363,7 +377,7 @@ export function ResultsBoard(props: ResultsProps) {
         {tx(p(`Lock ${lockChosen.length} ${lockChosen.length === 1 ? "class" : "classes"}`, `${lockChosen.length} कक्षाएँ बंद करें`))}
       </button>
     ) : view === "publish" && !exam.publishedAt ? (
-      <button type="button" className="tap btn pri xbig" disabled={pending || (when === "scheduled" && !at)} onClick={publishNow}>
+      <button type="button" className="tap btn pri xbig" disabled={pending || (when === "scheduled" && !at) || (when === "now" && lockedNow === 0)} onClick={publishNow}>
         {when === "now" ? tx(p("Send results now", "परिणाम अभी भेजें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
       </button>
     ) : null;
@@ -466,7 +480,7 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
     exam.resultsLabel
       ? dayState === "passed"
         ? { k: p("RESULTS DAY", "परिणाम दिवस"), v: exam.resultsLabel, s: tx(p("passed · not sent", "बीत गया · नहीं भेजा")), tone: "bad" as const }
-        : { k: p("RESULTS DAY", "परिणाम दिवस"), v: exam.resultsLabel, s: `${exam.publishAt ? ampm(exam.publishAt.slice(11, 16)) : "9 am"}${exam.ptmAt ? ` · PTM ${ampm(exam.ptmAt)}` : ""}`, tone: "acc" as const }
+        : { k: p("RESULTS DAY", "परिणाम दिवस"), v: exam.resultsLabel, s: `${exam.publishAt ? ampm(schoolClock(exam.publishAt).slice(11, 16)) : "9 am"}${exam.ptmAt ? ` · PTM ${ampm(exam.ptmAt)}` : ""}`, tone: "acc" as const }
       : null,
   ].filter((d) => d !== null);
   const rq = [
@@ -1033,7 +1047,7 @@ function Lock(props: ResultsProps & { pending: boolean; run: Run; picked: string
 function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
   const { tx } = useVx();
   const { classes, cards, exam, actions, run, pending, childrenTotal } = props;
-  const termQ = `term=${encodeURIComponent(exam.term)}`;
+  const termQ = `term=${encodeURIComponent(exam.term)}&exam=${encodeURIComponent(exam.id)}`;
   const share = childrenTotal ? cards.issuedTotal / childrenTotal : 0;
   const len = Math.max(0.5, 263.9 * share);
   const sample = cards.sample;
@@ -1236,7 +1250,7 @@ function Publish(props: ResultsProps & { pending: boolean; when: "now" | "schedu
           ))}
         </div>
         {exam.publishedAt ? null : (
-          <button type="button" className="tap btn pri xbig hide-m" disabled={pending || (when === "scheduled" && !at)} onClick={props.onPublish}>
+          <button type="button" className="tap btn pri xbig hide-m" disabled={pending || (when === "scheduled" && !at) || (when === "now" && !lockedKids)} onClick={props.onPublish}>
             <Ic n={when === "now" ? "send" : "clock"} size={18} />
             {when === "now" ? tx(p("Send results now", "परिणाम अभी भेजें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
           </button>

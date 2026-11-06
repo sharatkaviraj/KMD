@@ -257,7 +257,13 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
     if (!cls) return;
     setSaving(true);
     setSaveError(null);
-    const res = await admitAction({
+    // A slow server can answer with a 504 after the admission has landed. The
+    // button used to stay on "Saving…" for ever and a second tap would admit
+    // the child twice (day-run 6 Nov 2026, A-14), so a lost answer is checked
+    // against the roll before anything else is said.
+    let res: Awaited<ReturnType<typeof admitAction>>;
+    try {
+      res = await admitAction({
       sessionLabel: ctx.sessionLabel,
       fullName: f.fullName.trim(),
       nameHi: f.nameHi,
@@ -279,6 +285,21 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
       docs,
       enquiryId: prefill.enquiryId,
     });
+    } catch {
+      const landed = await checkDuplicateAction({ fullName: f.fullName, fatherName: fam.fatherName, dob: f.dob, phone: fam.phone })
+        .then((hits) => hits.find((h) => Date.now() - Date.parse(h.createdAt) < 30 * 60_000) ?? null)
+        .catch(() => null);
+      setSaving(false);
+      if (landed) {
+        toast.show({ text: tx(p("The answer was slow, but the admission was saved.", "जवाब देर से आया, पर दाखिला सहेजा गया।")), tone: "info" });
+        router.push(`/admissions/new?done=${landed.id}`);
+        return;
+      }
+      const lost = tx(p(`No answer came back. Before saving again, search Students for ${f.fullName.trim()} — it may already be saved.`, `जवाब नहीं आया। फिर से सहेजने से पहले विद्यार्थियों में ${f.fullName.trim()} खोजें — शायद सहेजा जा चुका है।`));
+      setSaveError(lost);
+      toast.show({ text: lost, tone: "bad" });
+      return;
+    }
     setSaving(false);
     if (!res.ok) {
       setSaveError(res.message);
@@ -286,6 +307,9 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
       return;
     }
     if (res.note) toast.show({ text: res.note, tone: "info" });
+    // The child is admitted but the fee rows did not build: say so rather than
+    // let the office find "no fee record" at the Payment Desk later.
+    if (res.duesWarning) toast.show({ text: tx(p("Admitted, but the fees did not set up. Open the child's Fees tab and rebuild dues.", "दाखिला हो गया, पर फीस नहीं बनी। बच्चे का फीस टैब खोलकर बकाया फिर से बनाएँ।")), tone: "bad" });
     router.push(`/admissions/new?done=${res.studentId}`);
   }
 

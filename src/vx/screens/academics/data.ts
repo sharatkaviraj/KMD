@@ -1475,6 +1475,7 @@ export async function weekFacts(ctx: Ctx) {
       classesAlwaysMarked: always,
       classes: ctx.classes.length,
       marksPct: entry.pct,
+      examLabel: entry.exam ? { en: entry.exam.label, hi: entry.exam.labelHi } : null,
       lateTeachers: entry.late.length,
       attention: attention.length,
       attentionNew: Math.min(fresh, attention.length),

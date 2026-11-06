@@ -318,6 +318,19 @@ export function toFriendlyPaymentPostingError(error: unknown) {
         : String(error);
   const normalized = rawMessage.toLowerCase();
 
+  // A busy database is not the cashier's mistake, and the raw Postgres text
+  // ("canceling statement due to statement timeout") told them nothing they
+  // could act on (TEST day-run 6 Nov 2026, B3). Nothing was posted: the RPC
+  // runs in one transaction, and a waiver that times out stops before it.
+  if (
+    normalized.includes("statement timeout") ||
+    normalized.includes("57014") ||
+    normalized.includes("timed out acquiring connection") ||
+    normalized.includes("connection pool")
+  ) {
+    return "The server was too busy to save this payment, so nothing was saved. Wait a minute and save it again.";
+  }
+
   if (
     normalized.includes("cannot exceed") ||
     normalized.includes("exceed total pending") ||
