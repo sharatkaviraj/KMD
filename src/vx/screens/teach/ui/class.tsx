@@ -15,7 +15,7 @@ import { VxPage } from "@/vx/ui/page";
 
 import type { ClassData, MarksLink, StudentData, SubjectData } from "../data";
 import { ATTENTION_RULES, genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
-import { closedTitle } from "../domain/today";
+import { closedTitle, examWord } from "../domain/today";
 import { dShort, dShortP, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, TchTop } from "./shared";
 import { ChildSummary } from "@/vx/assist/summary-assist";
@@ -311,7 +311,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
             return (
               <Link key={s.subjectId} href={`/teach/class?subject=${data.classId}.${s.subjectId}`} className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 6, color: "inherit", animationDelay: `${j * 70}ms` }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="tc-el" style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{s.code} <span className="tc-s">· {s.paperLabel}</span></span>
+                  <span className="tc-el" style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{s.code} <span className="tc-s">· {tx(s.paperLabel)}</span></span>
                   <span className="tc-s num" style={{ color: full ? V("ok") : V("warnfg") }}>{full ? tx(p(`${n} of ${n} ✓`, `${n} में से ${n} ✓`)) : tx(p(`${s.marked} of ${n} entered`, `${n} में से ${s.marked}`))}</span>
                   <span className="num" style={{ width: 46, textAlign: "right", fontSize: 14, fontWeight: 700 }}>{s.average === null ? "—" : `${pct}%`}</span>
                 </span>
@@ -559,7 +559,7 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{link ? tx(p(`${link.exam} marks`, `${link.exam} अंक`)) : tx(p("Marks", "अंक"))}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{link ? tx(p(`${link.exam} marks`, `${link.examHi || link.exam} अंक`)) : tx(p("Marks", "अंक"))}</span>
                   <span className="num" style={{ fontSize: 13, fontWeight: 700 }}>{tx(p(`${entered} of ${total}`, `${total} में से ${entered}`))}</span>
                 </span>
                 <span className="tc-cbar"><span style={{ width: `${total ? Math.round((entered / total) * 100) : 0}%`, background: st[1] }} /></span>
@@ -581,7 +581,7 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
           {links.map((l) => (
             <div key={l.paperId} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 0", borderTop: "1px solid var(--bd)" }}>
               <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>{l.classLabel} · {tx(subjectPair(l.subjectCode))} · {l.exam}</span>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>{l.classLabel} · {tx(subjectPair(l.subjectCode))} · {tx(examWord(l.exam, l.examHi))}</span>
                 <span className="num" style={{ fontSize: 12, fontWeight: 600, color: l.submitted ? V("ok") : l.entered ? V("warnfg") : V("bad") }}>{l.submitted ? tx(p(`${l.total} of ${l.total} · sent`, `${l.total} में से ${l.total} · भेजे`)) : l.entered ? tx(p(`${l.entered} of ${l.total} · in progress`, `${l.total} में से ${l.entered} · जारी`)) : tx(p(`0 of ${l.total} · not started`, `${l.total} में से 0 · शुरू नहीं`))}</span>
               </span>
               <a href={l.url ?? `/teach/marks?paper=${l.paperId}`} className="tap btn soft">{tx(p("Open", "खोलें"))}</a>
@@ -801,10 +801,10 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
                 {data.marks.map((mk, j) => {
                   const lowMark = mk.pct !== null && mk.pct < 33;
                   return (
-                    <div key={`${mk.code}-${mk.label}`} className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 0", borderTop: "1px solid var(--bd)", animationDelay: `${j * 60}ms` }}>
+                    <div key={`${mk.code}-${mk.label.en}`} className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 0", borderTop: "1px solid var(--bd)", animationDelay: `${j * 60}ms` }}>
                       <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{mk.code}</span></span>
                       <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span className="tc-s" style={{ flex: "none", width: 82 }}>{mk.label}</span>
+                        <span className="tc-s" style={{ flex: "none", width: 82 }}>{tx(mk.label)}</span>
                         <span className="tc-cbar" style={{ flex: 1 }}><span style={{ width: `${mk.pct ?? 0}%`, background: lowMark ? V("bad") : V("c1"), animationDelay: `${j * 60}ms` }} /></span>
                         <span className="num" style={{ flex: "none", width: 64, textAlign: "right", fontSize: 13, fontWeight: 700, color: lowMark ? V("bad") : V("fg") }}>{mk.absent ? tx(p("Absent", "अनुपस्थित")) : mk.value === null ? tx(p("Not yet", "अभी नहीं")) : `${mk.value}/${mk.max ?? "—"}`}</span>
                       </span>
@@ -896,7 +896,7 @@ export function TeachSubject({ data }: { data: SubjectData }) {
             <span className="tc-ic" style={{ width: 56, height: 56, borderRadius: 18, background: "var(--accs)", color: "var(--accfg)" }}><Ic n={subjectIcon(data.subjectCode)} size={28} /></span>
             <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 2 }}>
               <span className="serif" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.15 }}>{data.classLabel} · {subjectText}</span>
-              <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p(`${n} children${data.paper ? ` · ${data.paper.label} ${entered} of ${n} entered` : ""}`, `${n} बच्चे${data.paper ? ` · ${data.paper.label} ${n} में से ${entered}` : ""}`))}</span>
+              <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p(`${n} children${data.paper ? ` · ${data.paper.label.en} ${entered} of ${n} entered` : ""}`, `${n} बच्चे${data.paper ? ` · ${data.paper.label.hi ?? data.paper.label.en} ${n} में से ${entered}` : ""}`))}</span>
             </span>
             {data.average !== null ? <span className="pill num" style={{ height: 32, padding: "0 12px", fontSize: 12, background: "var(--s2)", color: "var(--mut)" }}>{tx(p(`Class average ${data.average}%`, `कक्षा औसत ${data.average}%`))}</span> : null}
           </div>
@@ -908,13 +908,13 @@ export function TeachSubject({ data }: { data: SubjectData }) {
                     <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p(`Children · ${subject.en} marks`, `बच्चे · ${subject.hi ?? subject.en} के अंक`))}</span>
                     {sub(p(`Children · ${subject.en} marks`, `बच्चे · ${subject.hi ?? subject.en} के अंक`)) ? <span className="tc-hn">{sub(p(`Children · ${subject.en} marks`, `बच्चे · ${subject.hi ?? subject.en} के अंक`))}</span> : null}
                   </span>
-                  {data.paper ? <span className="tc-s num">{tx(p(`${data.paper.label} · out of ${data.paper.maxMarks ?? "—"}`, `${data.paper.label} · ${data.paper.maxMarks ?? "—"} में से`))}</span> : null}
+                  {data.paper ? <span className="tc-s num">{tx(p(`${data.paper.label.en} · out of ${data.paper.maxMarks ?? "—"}`, `${data.paper.label.hi ?? data.paper.label.en} · ${data.paper.maxMarks ?? "—"} में से`))}</span> : null}
                 </div>
                 {!data.paper ? <span className="tc-s" style={{ display: "block", padding: "14px 16px" }}>{tx(p("No paper yet in this subject.", "इस विषय में अभी पेपर नहीं।"))}</span> : null}
                 <div className="only-d tc-srow" style={{ minHeight: 38, background: "var(--s2)" }}>
                   <span className="sech">{tx(p("Roll", "रोल"))}</span>
                   <span className="sech">{tx(p("Child", "बच्चा"))}</span>
-                  <span className="sech">{data.paper?.label ?? tx(p("Marks", "अंक"))}</span>
+                  <span className="sech">{data.paper ? tx(data.paper.label) : tx(p("Marks", "अंक"))}</span>
                   <span className="sech">%</span>
                 </div>
                 {data.rows.map((r, i) => {

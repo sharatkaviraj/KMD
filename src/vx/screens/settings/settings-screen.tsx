@@ -3,7 +3,7 @@
 import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { logoutAction } from "@/app/login/actions";
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
@@ -128,7 +128,7 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
   const { tx, language } = useVx();
   const router = useRouter();
   const toast = useToast();
-  const { theme } = useTheme();
+  const theme = useThemeChoice();
   const [pending, start] = useTransition();
   const [largeText, setLargeText] = useState(data.prefs.largeText);
   const [checking, setChecking] = useState(false);
@@ -548,7 +548,8 @@ const ALERTS: { key: string; icon: IconName; tone: Tone; title: Pair; sub: Pair 
 
 function Prefs({ largeText, alerts, pending, onSave, onLanguage }: { largeText: boolean; alerts: Record<string, boolean>; pending: boolean; onSave: (next: { largeText: boolean; alerts: Record<string, boolean> }) => void; onLanguage: (lang: "en" | "both" | "hi") => void }) {
   const { tx, language } = useVx();
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
+  const theme = useThemeChoice();
   const [on, setOn] = useState<Record<string, boolean>>(alerts);
   const segRow = (icon: IconName, label: Pair, sub: Pair, width: number, control: ReactNode, first: boolean) => (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px 14px", padding: "14px 18px", borderTop: first ? 0 : "1px solid var(--bd)" }}>
@@ -708,17 +709,31 @@ function SessionPanel({ data, onArchive }: { data: SettingsData; onArchive: () =
   );
 }
 
+/* ---------------------------------------------------------------- theme */
+
+const noSubscribe = () => () => {};
+
+/**
+ * The saved theme, but only once the page is in the browser. next-themes
+ * reads it from localStorage, so the server has none: it wrote "Auto theme"
+ * and the phone "Light theme", a text mismatch (React #418) on every Settings
+ * page, seen live 6 Nov 2026. Until hydration both say what the server said.
+ */
+function useThemeChoice(): string | undefined {
+  const { theme } = useTheme();
+  const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
+  return ready ? theme : undefined;
+}
+
 /* ---------------------------------------------------------------- activity */
 
 /** "Thu 8 Oct", as the design heads a day. */
 const day3 = (value: string) => shortDay(value).replace(",", "");
-/** "3:12 pm", as the design writes a time. */
 /**
- * "9:05 am", built from 24-hour parts. `Intl`'s own 12-hour en-IN output
- * differs between the server's ICU and the phone's (a narrow no-break space
- * before "am" on one, a plain space on the other), which is a hydration
- * mismatch (React #418) on every Settings page that lists activity
- * (UX review 6 Nov 2026).
+ * "9:05 am", built from 24-hour parts, so the server and every phone write it
+ * the same way: `Intl`'s own 12-hour en-IN output varies by ICU version (the
+ * space before "am"). Not the cause of Settings' React #418 after all; that
+ * was the theme line (`useThemeChoice`).
  */
 const ampm = (value: string) => {
   const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)).split(":").map(Number);

@@ -179,3 +179,45 @@ export async function setPaperExemptAction(input: { paperId: string; allow: bool
   revalidatePath("/exams");
   return { ok: true, message: input.allow ? p("A child can now be excused from this paper.", "अब इस पेपर में बच्चे को छूट दी जा सकती है।") : p("Excusing is off for this paper.", "इस पेपर में छूट बंद।") };
 }
+
+/**
+ * Renaming an exam, mostly to give it a Hindi name. An exam made without one
+ * stored its English name in both columns, so a Hindi reader saw "Half yearly"
+ * on every marks card (UX review, 6 Nov 2026). Only the two names change: the
+ * code, term and dates stay, so links, report cards and the marks stream keep
+ * pointing at the same exam.
+ */
+export async function renameExamAction(input: { examId: string; nameEn: string; nameHi: string }): Promise<ActionResult> {
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
+  if (preview) return { ok: false, message: preview };
+
+  const nameEn = input.nameEn.replace(/\s+/g, " ").trim();
+  const nameHi = input.nameHi.replace(/\s+/g, " ").trim();
+  if (nameEn.length < 2 || nameEn.length > 80 || nameHi.length > 80) {
+    return { ok: false, message: p("Give the exam a name of up to 80 letters.", "परीक्षा का नाम 80 अक्षरों तक लिखें।") };
+  }
+
+  const db = createAdminClient();
+  const { data: exam } = await db.from("assessments").select("id, label_en, label_hi").eq("id", input.examId).maybeSingle<{ id: string; label_en: string; label_hi: string | null }>();
+  if (!exam) return { ok: false, message: p("That exam was not found.", "वह परीक्षा नहीं मिली।") };
+
+  const labelHi = nameHi || nameEn;
+  if (exam.label_en === nameEn && exam.label_hi === labelHi) return { ok: true, message: p("No change.", "कोई बदलाव नहीं।") };
+
+  const { error } = await db.from("assessments").update({ label_en: nameEn, label_hi: labelHi }).eq("id", exam.id);
+  if (error) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया। फिर से कोशिश करें।") };
+
+  await logActivity({
+    assessmentId: exam.id,
+    kind: "renamed",
+    en: `${staff.displayName} renamed ${exam.label_en} to ${nameEn}${nameHi ? ` / ${nameHi}` : ""}`,
+    hi: `${staff.displayName} ने परीक्षा का नाम ${labelHi} रखा`,
+    actorId: staff.id,
+  }).catch(() => undefined);
+
+  revalidatePath("/exams");
+  revalidatePath("/exam-office");
+  revalidatePath("/teach", "layout");
+  return { ok: true, message: p("Exam name saved", "परीक्षा का नाम सहेजा") };
+}
