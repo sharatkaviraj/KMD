@@ -306,8 +306,9 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
         <KpiTile label={tx(p("Notes this month", "इस महीने के नोट्स"))} value={kpis.thisMonth} sub={tx(p(`${stats.thisWeek} this week · by ${stats.teachers} ${stats.teachers === 1 ? "teacher" : "teachers"}`, `इस हफ़्ते ${stats.thisWeek} · ${stats.teachers} ${stats.teachers === 1 ? "अध्यापक" : "अध्यापकों"} से`))} icon="notePen" bg="var(--s3)" fg="var(--pri)" tone="var(--fg)" on={tab === "all"} onPick={() => setTab("all")} delay={84} />
       </div>
 
+      {/* Desk only: on a phone it pushed the notes themselves below the fold (UX review 6 Nov 2026). */}
       {mixTotal ? (
-        <div className="card nx-f" style={{ padding: "12px 16px", gap: 14, flexWrap: "wrap", background: "var(--accs)", borderColor: "transparent" }}>
+        <div className="card nx-f hide-m" style={{ padding: "12px 16px", gap: 14, flexWrap: "wrap", background: "var(--accs)", borderColor: "transparent" }}>
           <span className="nx-ib" style={{ background: "var(--card)", color: "var(--acc)" }}>
             <Ic n="zap" size={18} />
           </span>
@@ -319,7 +320,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
                   <>
                     {" · "}
                     <button type="button" className="tap" onClick={() => { setClassId(insight.classId!); setTab("all"); }} style={{ border: 0, padding: 0, background: "transparent", color: "var(--accfg)", font: "inherit", fontWeight: 700, textDecoration: "underline" }}>
-                      {tx(p(`${insight.classLabel} has ${insight.classCount} notes`, `${insight.classLabel} में ${insight.classCount} नोट`))}
+                      {tx(p(`${insight.classLabel} has ${insight.classCount} ${insight.classCount === 1 ? "note" : "notes"}`, `${insight.classLabel} में ${insight.classCount} नोट`))}
                     </button>
                   </>
                 ) : null}
@@ -334,6 +335,8 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
               })}
             </span>
             <span className="nx-f" style={{ flexWrap: "wrap", gap: "4px 12px" }}>
+              {/* These counts are every note on the board, not this month's: said so, because "Notes this month: 2" beside "Studies 18" read as a contradiction (UX review 6 Nov 2026). */}
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accfg)" }}>{tx(p("All notes so far:", "अब तक के सभी नोट:"))}</span>
               {NOTE_TAGS.map((t) => (
                 <span key={t} className="nx-f" style={{ gap: 5, fontSize: 11, color: "var(--accfg)" }}>
                   <span style={{ width: 8, height: 8, borderRadius: 4, background: MIX_COLOR[t] }} />

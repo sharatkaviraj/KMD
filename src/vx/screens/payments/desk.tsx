@@ -144,7 +144,8 @@ export type DeskActions = Omit<typeof SERVER, OptionalActions> & Partial<Pick<ty
 
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
 const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
-const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", online: "Online (Razorpay)" };
+// In the reader's language: these lines printed English to Hindi accounts (UX review 6 Nov 2026).
+const MODE_TEXT: Record<string, Pair> = { ...MODE_PAIR, online: { en: "Online (Razorpay)", hi: "ऑनलाइन (Razorpay)" } };
 const REMOVE_WINDOW_MS = 10 * 60_000;
 /** A child's dues read as the finger landed on the row are used if the tap follows within this. */
 const PRIME_MS = 10_000;
@@ -1520,7 +1521,7 @@ export function PaymentDesk({
               </div>
               <span className="pd-b">{student ? `${student.name} · ${student.classLabel}` : ""}</span>
               <div className="pd-f pd-j">
-                <span className="pd-m">{dup.mode ? (MODE_TEXT[dup.mode] ?? dup.mode) : ""}</span>
+                <span className="pd-m">{dup.mode ? (MODE_TEXT[dup.mode] ? tx(MODE_TEXT[dup.mode]) : dup.mode) : ""}</span>
                 <span className="num" style={{ fontSize: 20, fontWeight: 700 }}>{rupees(dup.amount ?? amount)}</span>
               </div>
             </div>
@@ -1769,7 +1770,7 @@ function StudentCard({
             <div key={h.id} className="pd-f pd-j num" style={{ fontSize: 13, padding: "3px 0" }}>
               <span className="pd-e">{h.receiptNumber} · {dayMonth(h.paymentDate)}{h.isReversed ? tx(W.histRemoved) : ""}</span>
               <span className="pd-f">
-                <span className="pd-m">{MODE_TEXT[h.mode] ?? h.mode}</span>
+                <span className="pd-m">{MODE_TEXT[h.mode] ? tx(MODE_TEXT[h.mode]) : h.mode}</span>
                 <b style={{ textDecoration: h.isReversed ? "line-through" : "none" }}>{rupees(h.amount)}</b>
               </span>
             </div>

@@ -50,10 +50,10 @@ const BOUNCE_REASONS = [
 ];
 const REFUND_REASONS = ["Paid twice", "Left the school", "Paid more than the fee", "Fee changed", "Other"];
 const METHODS = [
-  { value: "cash", label: "Cash" },
-  { value: "upi", label: "UPI" },
-  { value: "bank_transfer", label: "Bank transfer" },
-  { value: "cheque", label: "Cheque" },
+  { value: "cash", label: p("Cash", "नकद") },
+  { value: "upi", label: p("UPI", "UPI") },
+  { value: "bank_transfer", label: p("Bank transfer", "बैंक ट्रांसफ़र") },
+  { value: "cheque", label: p("Cheque", "चेक") },
 ];
 const KIND_LABEL: Record<string, string> = { late_fee_waiver: "Late-fee waiver", reversal: "Reversal", refund: "Refund", fee_change: "Fee change", other: "Request" };
 const KIND_ICON: Record<string, IconName> = { late_fee_waiver: "percent", reversal: "undo", refund: "swap", fee_change: "sliders", other: "inbox" };
@@ -158,37 +158,38 @@ export function Books({
   const requestsLabel = data.canDecide ? "Requests" : "My requests";
 
   const kpis: { key: BooksView; icon: IconName; label: string; value: string; sub: string; tone: [string, string] }[] = [
-    { key: "cheques", icon: "file", label: tx(p("Cheques to deposit", "जमा करने के चेक")), value: rupees(toDeposit.reduce((s, c) => s + c.amount, 0)), sub: `${toDeposit.length} cheques · ${ready.length} ready today`, tone: ["var(--warns)", "var(--warnfg)"] },
-    { key: "upi", icon: "zap", label: tx(p("UPI matched", "UPI मिलान")), value: upiTotal ? `${upiDone} of ${upiTotal}` : "No statement", sub: upiTotal ? (upiOpen.length ? `${upiOpen.length} need you` : "All matched") : "Upload the bank’s statement", tone: ["var(--oks)", "var(--ok)"] },
-    { key: "refunds", icon: "swap", label: tx(p("Advances held", "अग्रिम राशि")), value: rupees(advTotal), sub: `${data.advances.length} families${refundsWaiting ? ` · ${refundsWaiting} refund waiting` : ""}`, tone: ["var(--accs)", "var(--accfg)"] },
-    { key: "requests", icon: "inbox", label: tx(p(requestsLabel, data.canDecide ? "अनुरोध" : "मेरे अनुरोध")), value: `${myWaiting.length} waiting`, sub: `${decidedThisWeek} decided this week`, tone: ["var(--infos)", "var(--info)"] },
+    { key: "cheques", icon: "file", label: tx(p("Cheques to deposit", "जमा करने के चेक")), value: rupees(toDeposit.reduce((s, c) => s + c.amount, 0)), sub: tx(p(`${toDeposit.length} cheques · ${ready.length} ready today`, `${toDeposit.length} चेक · आज ${ready.length} तैयार`)), tone: ["var(--warns)", "var(--warnfg)"] },
+    { key: "upi", icon: "zap", label: tx(p("UPI matched", "UPI मिलान")), value: upiTotal ? tx(p(`${upiDone} of ${upiTotal}`, `${upiTotal} में ${upiDone}`)) : tx(p("No statement", "स्टेटमेंट नहीं")), sub: upiTotal ? (upiOpen.length ? tx(p(`${upiOpen.length} need you`, `${upiOpen.length} आपके लिए`)) : tx(p("All matched", "सब मिल गए"))) : tx(p("Upload the bank’s statement", "बैंक का स्टेटमेंट डालें")), tone: ["var(--oks)", "var(--ok)"] },
+    { key: "refunds", icon: "swap", label: tx(p("Advances held", "अग्रिम राशि")), value: rupees(advTotal), sub: tx(p(`${data.advances.length} families${refundsWaiting ? ` · ${refundsWaiting} refund waiting` : ""}`, `${data.advances.length} परिवार${refundsWaiting ? ` · ${refundsWaiting} रिफ़ंड बाकी` : ""}`)), tone: ["var(--accs)", "var(--accfg)"] },
+    { key: "requests", icon: "inbox", label: tx(p(requestsLabel, data.canDecide ? "अनुरोध" : "मेरे अनुरोध")), value: tx(p(`${myWaiting.length} waiting`, `${myWaiting.length} बाकी`)), sub: tx(p(`${decidedThisWeek} decided this week`, `इस हफ़्ते ${decidedThisWeek} तय`)), tone: ["var(--infos)", "var(--info)"] },
   ];
 
   const top = {
-    cheques: { crumb: "Cheques", mSub: `${toDeposit.length} to deposit · ${rupees(toDeposit.reduce((s, c) => s + c.amount, 0))}`, label: "Make a deposit slip", mLabel: "Slip", icon: "file" as IconName, variant: "pri", act: openDeposit, dim: pickedRows.length === 0 },
-    upi: { crumb: "UPI matching", mSub: upiTotal ? `${upiDone} of ${upiTotal} matched` : "No bank statement yet", label: "Upload bank statement", mLabel: "Upload", icon: "upload" as IconName, variant: "sec", act: () => openSheet("upload"), dim: false },
-    refunds: { crumb: "Refunds & advances", mSub: `${rupees(advTotal)} held for ${data.advances.length} families`, label: "Request refund", mLabel: "Refund", icon: "swap" as IconName, variant: "pri", act: () => openRefund(null), dim: data.advances.length === 0 },
-    requests: { crumb: requestsLabel, mSub: `${myWaiting.length} waiting for the admin`, label: "", mLabel: "", icon: "inbox" as IconName, variant: "sec", act: () => undefined, dim: false },
+    // In the reader's language: a Hindi account read these first-screen lines in English (UX review 6 Nov 2026).
+    cheques: { crumb: tx(p("Cheques", "चेक")), mSub: tx(p(`${toDeposit.length} to deposit · ${rupees(toDeposit.reduce((s, c) => s + c.amount, 0))}`, `${toDeposit.length} जमा करने · ${rupees(toDeposit.reduce((s, c) => s + c.amount, 0))}`)), label: tx(p("Make a deposit slip", "जमा पर्ची बनाएँ")), mLabel: tx(p("Slip", "पर्ची")), icon: "file" as IconName, variant: "pri", act: openDeposit, dim: pickedRows.length === 0 },
+    upi: { crumb: tx(p("UPI matching", "UPI मिलान")), mSub: upiTotal ? tx(p(`${upiDone} of ${upiTotal} matched`, `${upiTotal} में ${upiDone} मिले`)) : tx(p("No bank statement yet", "अभी बैंक स्टेटमेंट नहीं")), label: tx(p("Upload bank statement", "बैंक स्टेटमेंट डालें")), mLabel: tx(p("Upload", "डालें")), icon: "upload" as IconName, variant: "sec", act: () => openSheet("upload"), dim: false },
+    refunds: { crumb: tx(p("Refunds & advances", "रिफ़ंड व अग्रिम")), mSub: tx(p(`${rupees(advTotal)} held for ${data.advances.length} families`, `${data.advances.length} परिवारों के ${rupees(advTotal)} जमा`)), label: tx(p("Request refund", "रिफ़ंड माँगें")), mLabel: tx(p("Refund", "रिफ़ंड")), icon: "swap" as IconName, variant: "pri", act: () => openRefund(null), dim: data.advances.length === 0 },
+    requests: { crumb: tx(p(requestsLabel, data.canDecide ? "अनुरोध" : "मेरे अनुरोध")), mSub: tx(p(`${myWaiting.length} waiting for the admin`, `${myWaiting.length} एडमिन के पास बाकी`)), label: "", mLabel: "", icon: "inbox" as IconName, variant: "sec", act: () => undefined, dim: false },
   }[view];
   const hasAction = Boolean(top.label) && canAct;
 
   const help = [
-    { icon: "file" as IconName, title: "Cheques", body: "Tick the cheques you take to the bank and print the deposit slip. Mark each one cleared or bounced when the bank says so." },
-    { icon: "zap" as IconName, title: "UPI", body: "Upload the bank statement. Each payment is matched to its receipt; anything left over needs a look." },
-    { icon: "shield" as IconName, title: "Refunds and reversals", body: "Only the admin approves money going back. You ask here and watch the status in My requests." },
+    { icon: "file" as IconName, title: tx(p("Cheques", "चेक")), body: tx(p("Tick the cheques you take to the bank and print the deposit slip. Mark each one cleared or bounced when the bank says so.", "बैंक ले जाने वाले चेक चुनें और जमा पर्ची छापें। बैंक बताए तो हर चेक को क्लियर या बाउंस करें।")) },
+    { icon: "zap" as IconName, title: "UPI", body: tx(p("Upload the bank statement. Each payment is matched to its receipt; anything left over needs a look.", "बैंक स्टेटमेंट डालें। हर भुगतान अपनी रसीद से मिलाया जाता है; जो बचे उसे देखना होगा।")) },
+    { icon: "shield" as IconName, title: tx(p("Refunds and reversals", "रिफ़ंड और वापसी")), body: tx(p("Only the admin approves money going back. You ask here and watch the status in My requests.", "पैसा लौटाने की मंज़ूरी सिर्फ़ एडमिन देते हैं। आप यहाँ माँगें और ‘मेरे अनुरोध’ में स्थिति देखें।")) },
   ];
 
   return (
     <VxPage className="ac-page ac-books">
       <TopBar
-        crumb={`Money · ${day(data.today)} · ${top.crumb}`}
+        crumb={`${tx(p("Money", "पैसा"))} · ${day(data.today)} · ${top.crumb}`}
         title={tx(p("Cheques, UPI & refunds", "चेक, UPI व रिफंड"))}
         mTitle={top.crumb}
         mSub={top.mSub}
         mBack="/accounts?view=menu"
         actions={
           <>
-            <HelpButton title="Cheques, UPI & refunds" steps={help} />
+            <HelpButton title={tx(p("Cheques, UPI & refunds", "चेक, UPI व रिफंड"))} steps={help} />
             {hasAction ? (
               <button type="button" className={`tap btn ${top.variant}`} onClick={top.act} style={{ opacity: top.dim ? 0.5 : 1 }}>
                 <Ic n={top.icon} />
@@ -199,7 +200,7 @@ export function Books({
         }
         mAction={
           <span className="ac-f" style={{ gap: 4 }}>
-            <HelpButton title="Cheques, UPI & refunds" steps={help} style={{ width: 44, height: 44, borderRadius: 22 }} />
+            <HelpButton title={tx(p("Cheques, UPI & refunds", "चेक, UPI व रिफंड"))} steps={help} style={{ width: 44, height: 44, borderRadius: 22 }} />
             {hasAction ? (
               <button type="button" className="tap btn soft" onClick={top.act} style={{ height: 40, padding: "0 12px", fontSize: 13, opacity: top.dim ? 0.5 : 1 }}>
                 <Ic n={top.icon} size={16} />
@@ -883,6 +884,7 @@ function UploadSheet({ open, onClose, canAct, busy, run }: { open: boolean; onCl
 }
 
 function RefundSheet({ open, onClose, data, studentId: initialStudent, canAct, busy, run }: { open: boolean; onClose: () => void; data: BooksData; studentId: string | null; canAct: boolean; busy: boolean; run: Run }) {
+  const { tx } = useVx();
   const [studentId, setStudentId] = useState(initialStudent ?? data.advances[0]?.studentId ?? "");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState(REFUND_REASONS[0]);
@@ -915,7 +917,7 @@ function RefundSheet({ open, onClose, data, studentId: initialStudent, canAct, b
           {REFUND_REASONS.map((r) => <RadioCard key={r} checked={reason === r} onSelect={() => setReason(r)} title={r} />)}
         </div>
         <span className="sech">Pay back by</span>
-        <div className="ac-f ac-w" style={{ gap: 6 }}>{METHODS.map((m) => <Chip key={m.value} on={method === m.value} onClick={() => setMethod(m.value)}>{m.label}</Chip>)}</div>
+        <div className="ac-f ac-w" style={{ gap: 6 }}>{METHODS.map((m) => <Chip key={m.value} on={method === m.value} onClick={() => setMethod(m.value)}>{tx(m.label)}</Chip>)}</div>
         <Field label="Note for the admin (optional)"><Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: father asked on the phone, bank details are on file" style={{ minHeight: 64 }} /></Field>
         <div className="ac-in" style={{ background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="info" style={{ marginTop: 2 }} /><span>{adv && n ? `Nothing is paid yet. After the admin approves, ${rupees(adv.credit - Math.min(n, adv.credit))} stays as advance for ${adv.studentName}.` : "Nothing moves until the admin approves."}</span></div>
       </Stack>

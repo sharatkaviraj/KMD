@@ -505,7 +505,6 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
   const { tx } = useVx();
   const toast = useToast();
   const names = [...new Set(mySubjects.map((s) => s.name))];
-  const periods = mySubjects.reduce((a, s) => a + (s.periods || 0), 0);
   const copy = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -529,10 +528,9 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
     <div className="pad" style={{ padding: "16px 28px 40px", display: "flex", flexDirection: "column", gap: 16 }}>
       <span style={{ fontSize: 14, color: "var(--mut)" }}>
         {names.map((nm) => tx(p(`${nm} for Classes ${andList(mySubjects.filter((s) => s.name === nm).map((s) => shortClass(s.classLabel)))}`, `${nm} — कक्षा ${andList(mySubjects.filter((s) => s.name === nm).map((s) => shortClass(s.classLabel)), "और")}`))).join(" · ")}
-        {/* The planned load per class and subject, not timetable slots: a combined
-            period counts once per class, so it is labelled apart from the
-            "periods a week" More and the timetable count (B12). */}
-        {periods ? ` · ${tx(p(`Planned: ${periods} class-periods a week`, `योजना: हफ़्ते में ${periods} कक्षा-पीरियड`))}` : ""}
+        {/* No second weekly count here: "Planned: 92 class-periods" beside More's
+            "44 periods a week" read as two loads for one teacher (UX review 6 Nov
+            2026). The timetable's count, on More, is the one she sees. */}
       </span>
       <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
         {mySubjects.map((s, i) => {
@@ -541,7 +539,9 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
           const total = link?.total ?? s.children;
           const st = !link
             ? [tx(p("No paper yet", "अभी कोई पेपर नहीं")), V("bds"), V("mut")]
-            : link.submitted
+            : link.submitted && entered < total
+              ? [tx(p(`Sent · ${total - entered} blank`, `भेजे · ${total - entered} खाली`)), V("warn"), V("warnfg")]
+              : link.submitted
               ? [tx(p("All entered · sent", "सब भरे · भेजे")), V("ok"), V("ok")]
               : entered
                 ? [tx(p("In progress", "जारी")), V("acc"), V("warnfg")]
@@ -935,8 +935,9 @@ export function TeachSubject({ data }: { data: SubjectData }) {
               <div className="card rise" style={{ order: 2, padding: 18, display: "flex", flexDirection: "column", gap: 10, animationDelay: "60ms" }}>
                 <Title t={p("Note for the class teacher", "कक्षा अध्यापक के लिए नोट")} icon="note" iconTone={[V("warns"), V("warnfg")]} />
                 <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p(`Your note goes straight to the class teacher of ${data.classLabel}. The coordinator can see it too. Parents do not see it.`, `आपका नोट सीधे ${data.classLabel} के कक्षा अध्यापक तक जाता है। समन्वयक भी देख सकते हैं। माता-पिता नहीं देखते।`))}</span>
-                <Link href={`/teach/notes?sheet=add&class=${data.classId}`} className="tap btn pri tc-cbig"><Ic n="plus" />{tx(p("Write a note for the class teacher", "कक्षा अध्यापक को नोट लिखें"))}</Link>
-                {data.paper ? <Link href={`/teach/marks?paper=${data.paper.id}`} className="tap btn soft tc-cbig"><Ic n="clipboard" />{tx(p("Enter marks", "अंक भरें"))}</Link> : null}
+                {/* While a paper is open, marks are the job: Enter marks is the main button (UX review 6 Nov 2026). */}
+                {data.paper ? <Link href={`/teach/marks?paper=${data.paper.id}`} className="tap btn pri tc-cbig"><Ic n="clipboard" />{tx(p("Enter marks", "अंक भरें"))}</Link> : null}
+                <Link href={`/teach/notes?sheet=add&class=${data.classId}`} className={`tap btn ${data.paper ? "soft" : "pri"} tc-cbig`}><Ic n="plus" />{tx(p("Write a note for the class teacher", "कक्षा अध्यापक को नोट लिखें"))}</Link>
               </div>
             </div>
           </div>

@@ -35,7 +35,8 @@ export function CertificateRegister({ rows, count, page, query, status, kind = "
 
     {counts ? <div className="desk-kpis">
       {[[counts.today, O.today, ""], [counts.tray, O.awaiting, counts.tray ? "warn" : ""], [counts.handedThisMonth, O.handedMonth, ""], [counts.total, O.issuedTotal, ""]].map(([value, label, tone], index) =>
-        <div key={index} className={`desk-kpi ${tone}`} style={{ animationDelay: `${index * 55}ms` }}><b className="num">{value as number}</b><span>{tx(label as typeof O.today)}</span></div>)}
+        // A tile that reads 0 is off the phone: four zero tiles filled the first screen (UX review 6 Nov 2026).
+        <div key={index} className={`desk-kpi ${tone}${value === 0 ? " hide-m" : ""}`} style={{ animationDelay: `${index * 55}ms` }}><b className="num">{value as number}</b><span>{tx(label as typeof O.today)}</span></div>)}
     </div> : null}
 
     {canIssue && tray.length ? <SigningTray tray={tray} /> : null}
