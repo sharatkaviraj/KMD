@@ -345,6 +345,10 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
   for (const key of papers.marks.keys()) started.add(String(key).split("|")[0]);
 
   const subjectPct = new Map<string, number[]>();
+  // Children accounted for on each paper: a mark, an absent or an exempt.
+  // "Marked" counted only numbers, so a sent paper with one absent child read
+  // "3 of 4 entered" on the class page (6 Nov school day).
+  const subjectDone = new Map<string, number>();
   const children: ChildRow[] = [...roll].sort(compareRoll).map((r) => {
     const att = attendancePercent(statuses.get(r.studentId) ?? [], rules);
     let lowest: { code: string; pct: number } | null = null;
@@ -352,6 +356,7 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
     for (const paper of papers.latest) {
       const mark = papers.marks.get(`${paper.id}|${r.studentId}`) as { value: number | null; absent: boolean; exempt: boolean } | undefined;
       if (started.has(paper.id) && (!mark || (mark.value === null && !mark.absent && !mark.exempt))) missing += 1;
+      if (mark && (mark.value !== null || mark.absent || mark.exempt)) subjectDone.set(paper.id, (subjectDone.get(paper.id) ?? 0) + 1);
       if (!mark || mark.value === null || mark.absent || mark.exempt || !paper.maxMarks) continue;
       const pct = Math.round((mark.value / paper.maxMarks) * 100);
       const list = subjectPct.get(paper.id) ?? [];
@@ -389,7 +394,7 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
         paperId: paper.id,
         paperLabel: papers.when.get(paper.assessmentId)?.label ?? "",
         below33: pcts.filter((x) => x < 33).length,
-        marked: pcts.length,
+        marked: subjectDone.get(paper.id) ?? 0,
       };
     })
     .sort((a, b) => a.code.localeCompare(b.code));
@@ -647,6 +652,7 @@ export async function loadHome(staff: CurrentStaff) {
       classId: a.class_id,
       classLabel: labels.get(a.class_id) ?? "—",
       subjectId: a.subject_id,
+      code: subjectById.get(a.subject_id)?.code ?? null,
       name: subjectById.get(a.subject_id)?.nameEn || subjectById.get(a.subject_id)?.code || "—",
       nameHi: subjectById.get(a.subject_id)?.nameHi || subjectById.get(a.subject_id)?.nameEn || subjectById.get(a.subject_id)?.code || "—",
       children: linkSet.sizes.get(a.class_id) ?? 0,
