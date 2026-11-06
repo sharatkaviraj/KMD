@@ -58,6 +58,20 @@ const nextConfig: NextConfig = {
    */
   reactCompiler: { compilationMode: "annotation" },
 
+  /*
+   * No type check inside the Vercel build. CI's `types` job is the gate
+   * (`tsc --noEmit`, 6 GB heap), and nothing reaches main without it.
+   *
+   * Inside the build the check does not fit. Next runs it in a worker that
+   * inherits NODE_OPTIONS, while webpack's process is still holding memory,
+   * all on one 8 GB machine. With Node's default heap the worker
+   * (about 2 GB) sat in "Running TypeScript" until the build timed out
+   * (preview, 6 Nov 2026). With a 6 GB heap, the worker and webpack's
+   * process together filled the machine, and the build was SIGKILLed
+   * (production a01a427, same night). CI and local builds still type-check.
+   */
+  typescript: { ignoreBuildErrors: process.env.VERCEL === "1" },
+
   images: {
     formats: ["image/avif", "image/webp"],
   },

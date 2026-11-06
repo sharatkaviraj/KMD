@@ -194,7 +194,7 @@ against the sibling repo. Going back to v4 is a job for when there is one
 app instead of two.
 
 Also from the fee app: next-intl, next-themes, five Radix primitives, cva,
-@react-pdf/renderer, qrcode, fflate, xlsx. `build` is `next build --webpack` (through `scripts/next-build.mjs`, which gives the typecheck a 6 GB heap)
+@react-pdf/renderer, qrcode, fflate, xlsx. `build` is `next build --webpack` (through `scripts/next-build.mjs`, which gives the typecheck a 6 GB heap; on Vercel the build skips the typecheck and CI is the gate)
 because the React Compiler runs as a Babel pass and Turbopack skips it.
 
 ## Layout
