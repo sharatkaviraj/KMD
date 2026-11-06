@@ -68,7 +68,7 @@ catalogue; One's code uses One's clients, roles and message pairs.
 | `modules/students` vs `modules/students-fees` | One's roster/academic student vs the ported Fees student master screens |
 | `modules/staff` vs `modules/staff-fees` | One's staff profiles/duties vs the ported Fees staff/RBAC admin |
 | `modules/collect` vs `modules/collection` | **money** (Collect, `/payments`) vs gathering **missing student details** (`/collection`) |
-| vx screens vs classic | `src/vx/screens/*` is the current design; classic = ported Fees desks (`/fees/*`, `/payments/classic`) and One's pre-vx pages. The map labels each route |
+| vx screens vs classic | `src/vx/screens/*` is the current design; classic = the ported Fees screens under `/fees/*` and One's pre-vx pages; `/payments/classic` is the older vx Payment Desk, kept beside Collect. The map labels each route from its imports |
 
 **Three string systems, never mixed in one file:**
 1. One's own pages: `{ hi, en }` pairs in `src/messages/index.ts` (and

@@ -72,7 +72,7 @@ import.
 | `FEES_BRIDGE_ENABLED`, `FEES_BRIDGE_WRITES_ENABLED` | env, read in `policy.ts` | bridge posting needs both; `isConfinedDeployment()` forces bridge writes off on Preview/local |
 | previewing ("view as") | `getViewer()` | `canPost` is false while previewing another staff member |
 | Fees actor grant + DB gates | Fees `private.one_bridge_grants`, `one_bridge_config.commands_enabled` | Fees refuses even if One allows (see Fees `docs/modules/one-bridge.md`) |
-| Fee write-guard mode | `currentFeeWritesMode()` in `src/modules/fees/platform/supabase/write-guard.ts` | local-path writes are **test-only** when `FEES_BRIDGE_ENABLED` is on, on any confined deployment, or unless `app_settings.fee_writes_enabled` is `'true'` on a production database; otherwise **open**. Test-only means a write passes only if everything it names is in a TEST session |
+| Fee write-guard mode | `currentFeeWritesMode()` in `src/modules/fees/platform/supabase/write-guard.ts` | local-path writes are **test-only** when `FEES_BRIDGE_ENABLED` is on, on any confined deployment, whenever `app_settings.fee_writes_enabled` is `'false'`, and on a production database unless it is `'true'`; otherwise (a dev-marked database with the key unset or `'true'`) **open** (`feeWritesMode()` in `src/platform/deployment/decisions.ts`). Test-only means a write passes only if everything it names is in a TEST session |
 
 ## Lost answers and retries
 

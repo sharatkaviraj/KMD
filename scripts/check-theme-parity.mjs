@@ -54,7 +54,7 @@ const FEE_CONFIG = path.join(FEE_REPO, "tailwind.config.ts");
 
 if (!isFeesCheckout(FEE_REPO)) {
   const message =
-    `theme parity: NOT RUN — no School Fees checkout (package "schoolfees" with tailwind.config.ts) found ` +
+    `theme parity: ${REQUIRED ? "FAILED" : "NOT RUN"} — no School Fees checkout (package "schoolfees" with tailwind.config.ts) found ` +
     `(looked in: ${CANDIDATES.join(", ")}). Set SCHOOLFEES_REPO to a schoolfees checkout to run it.`;
   console.log(message);
   if (process.env.GITHUB_ACTIONS === "true") {

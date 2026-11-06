@@ -121,8 +121,8 @@ const isRedirectOnly = (src) => /\bredirect\(/.test(src) && !/(return|=>)\s*\(?\
 
 /**
  * What a route segment's pages render: vx screens (current), ported Fees
- * screens (classic), One's pre-vx screens, or redirects — every kind present,
- * so /payments (vx Collect + /payments/classic) shows both.
+ * screens (classic), One's pre-vx screens, or redirects,
+ * so a segment whose pages differ (e.g. /students) shows every kind present.
  */
 function routeKind(seg) {
   const dir = `src/app/(app)/${seg}`;
