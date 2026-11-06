@@ -150,3 +150,42 @@ Counting `_rsc` requests in the first seconds after a screen loaded on live (pho
 After PR 212 (live, same method): Calendar 0, Students 0, Academics 0, Attendance 0, Exams 0, Staff 0. Collection still 20 and Fees 12, because those links live outside `src/vx`; D-441 moves the link to `src/ui` so they use it too.
 
 After PR 214 (live): Collection 0, Dues 0, Reports 0, Home 0, Calendar 0. Fees 6, all from the ported shell's idle warm-up (`useIdlePrefetch`), which is staggered and renders only the loading shell, so it stays.
+
+## 6 November: opening the app (boot)
+
+Janmejay: the time from tapping the app (phone home screen or laptop) to the
+logo and then the first screen should be shorter and smoother.
+
+What the speed logs showed: on a first open, first paint (FCP) landed within
+a few hundred ms of the first byte (TTFB) almost every time, at 0.8 to 4 s on a
+normal day. Nothing reached the phone until the proxy, the root layout's
+locale, the (app) layout (profile, permissions, session, production marker)
+and the shell (preferences, AI features, photo, class) had all answered. An
+installed app sat on Android's own splash for all of it. A teacher then paid
+it twice: `/` (the manifest's start URL) rendered the whole frame only to
+redirect to `/teach`.
+
+Fixed (D-461, D-462):
+
+- **The splash at the first byte.** The root layout sends `<html>`, the
+  styles and a boot splash (same paper colour and crest as the system splash)
+  at once; the account's reads stream in behind it, then the frame, then the
+  screen. HTML and CSS only, dark mode aware, "Still loading" after 8 s.
+- **No second render on open.** The shell remembers where `/` sends this
+  person (`vx_home`, user id + path), and the proxy redirects before anything
+  renders. Teacher, accountant, academic and exam menus; the admin's `/` is
+  Today and is unchanged.
+
+Shipped as PR 234, taken out by PR 235 while the live database was saturated
+and sign-in was timing out (Supabase auth answered 504 to the proxy; the
+outage began before 234 deployed), and re-shipped once the database had
+recovered.
+
+Follow-ups:
+
+- Checked 6 Nov after the database recovered: the project signs sessions with
+  asymmetric keys (ES256 in `/auth/v1/.well-known/jwks.json`), so
+  `getClaims()` verifies locally and the proxy and page make no auth-server
+  call per request. Not a cost.
+- Timing the boot on a real phone with the app installed (BrowserStack), one
+  device at a time.

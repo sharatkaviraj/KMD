@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { cookies } from "next/headers";
+import { Suspense } from "react";
 import { getLocale } from "next-intl/server";
 import { shellMessages } from "@/platform/i18n/shell-messages";
 import { KeyboardOffsetProvider } from "@/ui/system/keyboard-offset-provider";
 import { ServiceWorkerRegistration } from "@/ui/system/service-worker-registration";
 import { schoolBrand } from "@/platform/config/school-brand";
 
-import { isSupportedLocale, type AppLocale } from "@/platform/i18n/locales";
+import { LOCALE_COOKIE_NAME, isSupportedLocale, type AppLocale } from "@/platform/i18n/locales";
+import { BootSplash } from "@/ui/system/boot-splash";
 import {
   LanguageProvider as FeeLanguageProvider,
   type LanguageCatalogs,
@@ -104,21 +107,26 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   /*
-   * The locale the ported fee screens will speak. `i18n/request.ts` resolves
-   * it from the signed-in account's `preferred_language`, so it follows the
-   * one setting rather than a second one.
+   * Nothing here waits on the database (boot speed, 6 Nov 2026).
    *
-   * `lang` on <html> stays this value rather than the hard-coded "hi" it was:
-   * a screen reader should be told which voice to read the page in, and for an
-   * English reader that answer is not Hindi.
+   * The frame below needs the staff profile, the permission matrix, the
+   * session and the shell's preferences, and until it had all of them the
+   * browser received not one byte: an installed app sat on the system splash
+   * for the whole time. Now `<html>`, the stylesheets and the boot splash go
+   * out at once, and everything that reads the account streams in behind the
+   * Suspense boundary.
+   *
+   * `lang` is the reader's chosen locale when the cookie says so. Without the
+   * cookie it is the default here and `LocaleRoot` corrects it from the
+   * account as soon as that is read — before any of the screen's text
+   * arrives, so a screen reader is never told the wrong voice for content.
    */
-  const resolved = await getLocale();
-  const locale: AppLocale = isSupportedLocale(resolved) ? resolved : "hi";
-  const feeMessages = await loadFeeMessages(locale);
+  const cookieLocale = (await cookies()).get(LOCALE_COOKIE_NAME)?.value;
+  const htmlLang: AppLocale = isSupportedLocale(cookieLocale) ? cookieLocale : "hi";
 
   return (
     <html
-      lang={locale}
+      lang={htmlLang}
       className={`h-full ${fontSans.variable} ${fontDisplay.variable} ${fontDevanagari.variable}`}
       // next-themes writes `class="dark"` here before React hydrates, which is
       // the point — it is what stops a light flash. React must be told not to
@@ -129,34 +137,62 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           tokens, and a `bg-slate-50` utility beat them — so the page was
           painted stock cool grey while every card on it was warm paper. */}
       <body className="min-h-dvh antialiased">
-        {/*
-          Two catalogues, deliberately. This provider carries the shared shell keys; fee routes add
-          their full catalogue locally. The app's own
-          Hindi/English pairs reach components through the other
-          `LanguageProvider`, mounted in `(app)/layout.tsx`. See
-          `src/platform/i18n/bridge.ts` for why neither was rewritten into the
-          other.
-
-          The fee app's provider rather than a bare `NextIntlClientProvider`:
-          it wraps one, and adds the `useLang()` context that the shell's own
-          locale switcher reads. Mounting only the inner one compiled, built,
-          and then failed at request time with "useLang must be used inside
-          <LanguageProvider>" — on every signed-in screen.
-
-          Only the active locale's shell catalogue is sent here; the provider
-          imports other shell catalogues on the first switch.
-        */}
-        <FeeLanguageProvider initialLocale={locale} catalogs={feeMessages} shellOnly>
-          <ThemeProvider>
-            <DensityProvider>
-              {children}
-              <ServiceWorkerRegistration />
-              <KeyboardOffsetProvider />
-              <ToastViewport />
-            </DensityProvider>
-          </ThemeProvider>
-        </FeeLanguageProvider>
+        {/* Outside the boundary, so the theme script runs before the splash
+            paints and a dark-mode reader never sees a white flash. */}
+        <ThemeProvider>
+          <Suspense fallback={<BootSplash />}>
+            <LocaleRoot htmlLang={htmlLang}>{children}</LocaleRoot>
+          </Suspense>
+        </ThemeProvider>
       </body>
     </html>
+  );
+}
+
+/**
+ * The language the ported fee screens speak, and every provider that needs it.
+ *
+ * `i18n/request.ts` resolves the locale from the cookie, then the signed-in
+ * account's `preferred_language`, so it follows the one setting rather than a
+ * second one — which is a database read when the cookie is absent, and why
+ * this sits inside the boot boundary rather than above it.
+ */
+async function LocaleRoot({ htmlLang, children }: { htmlLang: AppLocale; children: React.ReactNode }) {
+  const resolved = await getLocale();
+  const locale: AppLocale = isSupportedLocale(resolved) ? resolved : "hi";
+  const feeMessages = await loadFeeMessages(locale);
+
+  return (
+    <>
+      {locale !== htmlLang ? (
+        // Runs while the HTML is parsed, ahead of the screen it introduces.
+        <script dangerouslySetInnerHTML={{ __html: `document.documentElement.lang=${JSON.stringify(locale)}` }} />
+      ) : null}
+      {/*
+        Two catalogues, deliberately. This provider carries the shared shell keys; fee routes add
+        their full catalogue locally. The app's own
+        Hindi/English pairs reach components through the other
+        `LanguageProvider`, mounted in `(app)/layout.tsx`. See
+        `src/platform/i18n/bridge.ts` for why neither was rewritten into the
+        other.
+
+        The fee app's provider rather than a bare `NextIntlClientProvider`:
+        it wraps one, and adds the `useLang()` context that the shell's own
+        locale switcher reads. Mounting only the inner one compiled, built,
+        and then failed at request time with "useLang must be used inside
+        <LanguageProvider>" — on every signed-in screen.
+
+        Only the active locale's shell catalogue is sent here; the provider
+        imports other shell catalogues on the first switch.
+      */}
+      <FeeLanguageProvider initialLocale={locale} catalogs={feeMessages} shellOnly>
+        <DensityProvider>
+          {children}
+          <ServiceWorkerRegistration />
+          <KeyboardOffsetProvider />
+          <ToastViewport />
+        </DensityProvider>
+      </FeeLanguageProvider>
+    </>
   );
 }
