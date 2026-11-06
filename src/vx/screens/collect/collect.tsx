@@ -817,6 +817,14 @@ function CollectApp(props: CollectProps) {
     setAttempt(a);
     finish(a, false);
   }
+  /** Forget an attempt the server confirmed it never saved, and go back to the payment. */
+  function dropNotSaved() {
+    // A family attempt whose earlier children did save keeps those receipts.
+    if (attempt && savedReceipts(attempt).length) return finishSaved();
+    persist(null);
+    setAttempt(null);
+    setSave({ phase: "idle" });
+  }
   function dismissRefusal(toAmount: boolean) {
     setSave({ phase: "idle" });
     if (toAmount) {
@@ -998,7 +1006,13 @@ function CollectApp(props: CollectProps) {
         <div className="cx-sv amber" role="alert">
           <Icon name="info" size={28} />
           <p>{p(mc.notSavedSendAgain)}</p>
-          <div className="acts2"><button type="button" className="cx-btn pri sm" disabled={!info.canPost} onClick={() => sendAgain(save.commandId)}>{p(mc.sendAgain)}</button></div>
+          <div className="acts2">
+            <button type="button" className="cx-btn pri sm" disabled={!info.canPost} onClick={() => sendAgain(save.commandId)}>{p(mc.sendAgain)}</button>
+            {/* The server said this attempt was never saved, so dropping it is
+                safe; before, sending it again was the only way out (smoke test,
+                6 Nov 2026). */}
+            <button type="button" className="cx-btn sec sm" onClick={dropNotSaved}>{p(mc.dropNotSaved)}</button>
+          </div>
         </div>
       );
     if (save.phase === "refused") {

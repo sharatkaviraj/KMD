@@ -829,6 +829,18 @@ export function planProgress(steps: readonly PlanStep[]): { done: number; total:
   return { done: steps.filter((s) => s.done).length, total: steps.length };
 }
 
+/**
+ * The header line for a support plan. A plan still being written has no saved
+ * steps, and its header read "0 of 0 done" above three steps being typed
+ * (20-teacher school day, 6 Nov 2026): it says "New plan" instead.
+ */
+export function planProgressText(steps: readonly PlanStep[] | null): Pair {
+  if (steps === null) return p("New plan", "नई योजना");
+  const { done, total } = planProgress(steps);
+  if (total === 0) return p("No steps yet", "अभी कोई कदम नहीं");
+  return p(`${done} of ${total} done`, `${total} में से ${done} पूरे`);
+}
+
 /* --------------------------------------------------- telling the parents */
 
 /** What the parents would read about a note (RULES H: Hindi first, then English). */

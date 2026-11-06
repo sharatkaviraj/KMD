@@ -25,6 +25,7 @@ import {
   noteStage,
   NOTE_TAGS,
   planProgress,
+  planProgressText,
   TAG_TEXT,
   tagMix,
   weekEndOf,
@@ -275,9 +276,9 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   } else if (screen === "plan" && focus && (focus.kind === "plan" || focus.kind === "new-plan")) {
     const name = focus.kind === "plan" ? focus.plan.studentName : focus.note.studentName;
     const goal = focus.kind === "plan" ? focus.plan.goal : tx(p("New support plan", "नई सहायता योजना"));
-    const prog = focus.kind === "plan" ? planProgress(focus.plan.steps) : { done: 0, total: 0 };
+    const prog = planProgressText(focus.kind === "plan" ? focus.plan.steps : null);
     const back = focus.kind === "plan" ? (focus.plan.noteId ? at(`note=${focus.plan.noteId}`) : home) : at(`note=${focus.note.id}`);
-    top = { crumb: `${boardTitle} · ${tx(p("support plan", "सहायता योजना"))}`, title: `${goal} · ${name.split(" ")[0]}`, mTitle: tx(p("Support plan", "सहायता योजना")), mSub: `${name} · ${tx(p(`${prog.done} of ${prog.total} done`, `${prog.total} में से ${prog.done} पूरे`))}`, dBack: { href: back }, mBack: { href: back }, add: false };
+    top = { crumb: `${boardTitle} · ${tx(p("support plan", "सहायता योजना"))}`, title: `${goal} · ${name.split(" ")[0]}`, mTitle: tx(p("Support plan", "सहायता योजना")), mSub: `${name} · ${tx(prog)}`, dBack: { href: back }, mBack: { href: back }, add: false };
   } else if (screen === "student") {
     top = { crumb: `${boardTitle} · ${tx(p("one child", "एक बच्चा"))}`, title: kidName, mTitle: kidName, mSub: `${scope?.classLabel ?? ""} · ${tx(countP(kidNotes.length, "note", "notes", "नोट"))}`, dBack: { href: base }, mBack: { href: base }, add: props.viewer.canWrite };
   } else {
