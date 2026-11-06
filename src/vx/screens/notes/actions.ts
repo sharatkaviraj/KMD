@@ -13,6 +13,8 @@ import { schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { childBasics } from "@/vx/screens/teach/students";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { allowsParentKind } from "@/vx/screens/settings/domain/parent-switches";
+import { readParentSwitches } from "@/vx/screens/settings/parent-switches";
 
 import { noteViewer, visibleNotes, visiblePlans, type NoteViewer } from "./data";
 import {
@@ -164,7 +166,9 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
   if (!parsed.success) return fail("Write the note and pick a child.", "नोट लिखें और बच्चा चुनें।");
   const ctx = await context(staff);
   if (!ctx) return NOT_SAVED();
-  const v = parsed.data;
+  // Settings → Parent messages: with "Tell parents" turned off by the admin
+  // the note is still saved, and nothing is queued for the family.
+  const v = parsed.data.tellParents && !allowsParentKind(await readParentSwitches(), "note") ? { ...parsed.data, tellParents: false } : parsed.data;
   const requestId = v.requestId ?? null;
   if (requestId) {
     const filed = await noteFiledUnder(staff.id, requestId);
@@ -358,6 +362,7 @@ export async function tellParentsAboutNoteAction(noteId: string): Promise<NoteRe
   const found = await workable(staff, noteId);
   if (!found || !found.note.studentId) return fail("That note was not found.", "यह नोट नहीं मिला।");
   if (found.note.visibility === "private") return fail("An 'only me' note is not sent to parents.", "'सिर्फ़ मैं' नोट माता-पिता को नहीं भेजा जाता।");
+  if (!allowsParentKind(await readParentSwitches(), "note")) return fail("The admin has turned off messages to parents about notes.", "प्रशासक ने नोट के बारे में अभिभावकों को संदेश बंद किए हैं।");
   const msg = parentNoteMessage({ childName: found.note.studentName, teacher: found.note.writtenByName, body: found.note.body, school: schoolProfile.shortName });
   const admin = createAdminClient();
   const { error } = await admin.from("parent_message_queue").insert({
@@ -406,7 +411,7 @@ export async function createPlanAction(input: z.input<typeof planSchema>): Promi
   if (!parsed.success) return fail("Write a goal and at least one step.", "एक लक्ष्य और कम से कम एक कदम लिखें।");
   const ctx = await context(staff);
   if (!ctx) return NOT_SAVED();
-  const v = parsed.data;
+  const v = parsed.data.tellParents && !allowsParentKind(await readParentSwitches(), "support_plan") ? { ...parsed.data, tellParents: false } : parsed.data;
   const classId = await inScope(ctx.viewer, v.studentId, ctx.sessionLabel);
   if (classId === false) return fail("This child is not in your classes.", "यह बच्चा आपकी कक्षा में नहीं है।");
   // The note is read as this writer may read it, in this session (R01): a
@@ -534,6 +539,7 @@ export async function tellParentsAboutPlanAction(planId: string): Promise<NoteRe
   const staff = await writer(await assertPermission("notes:view"));
   const found = await plannable(staff, planId);
   if (!found) return fail("That plan was not found.", "यह योजना नहीं मिली।");
+  if (!allowsParentKind(await readParentSwitches(), "support_plan")) return fail("The admin has turned off sharing support plans with parents.", "प्रशासक ने अभिभावकों को सहायता योजना भेजना बंद किया है।");
   const { plan } = found;
   let noteBody: string | null = null;
   if (plan.noteId) {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const state = vi.hoisted(() => ({ stage: "", save: vi.fn(), queries: [] as string[], sentDuringCancel: false, queueStatus: "queued" }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/vx/screens/settings/parent-switches", () => ({ readParentSwitches: async () => ({ absentAlert: "ask_on", note: true, supportPlan: true, birthday: true }) }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: vi.fn() }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: async () => ({ id: "qa", role: "admin", permissions: ["attendance:view", "attendance:correct"] }) }));
 vi.mock("@/vx/view-as", () => ({ assertNotPreviewing: async () => undefined }));

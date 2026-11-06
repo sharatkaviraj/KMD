@@ -333,7 +333,7 @@ export function BoardNoteAside({
   const owner: FollowOwner | null = note.followUpOwner === "me" ? (note.authorRelation === "class_teacher" ? "class_teacher" : note.writtenBy === viewer.id && viewer.isAdmin ? "admin" : note.writtenBy === viewer.id && viewer.isCoordinator ? "coordinator" : null) : note.followUpOwner;
   const prog = plan ? planProgress(plan.steps) : null;
   const mayPlan = Boolean(plan) || (work && viewer.canWrite && Boolean(note.studentId));
-  const mayTell = work && note.visibility === "team" && Boolean(note.studentId);
+  const mayTell = work && note.visibility === "team" && Boolean(note.studentId) && viewer.parentNotes !== false;
   const conversation = replies.filter((r) => r.source !== "system");
   const nextMonday = day(followUpDate("next_monday", today));
   // "you" compares the viewer's id with whoever holds (or would get) the

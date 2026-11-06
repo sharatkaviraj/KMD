@@ -7,6 +7,7 @@ import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/aca
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { schoolToday } from "@/vx/format";
 import { childBasics } from "@/vx/screens/teach/students";
+import { readParentSwitches } from "@/vx/screens/settings/parent-switches";
 
 import { authorsOf, childChoices, childFacts, notesPeople, noteViewer, repliesFor, visibleNotes, visiblePlans } from "./data";
 import type { AddStep } from "./ui/parts";
@@ -38,12 +39,13 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
   // so the board and Today judge "due" against the same day (smoke 20 Oct).
   const today = schoolToday(await schoolNow(staff));
   const viewer = await noteViewer(staff, sessionLabel);
-  const [notes, plans, kids, labels, people] = await Promise.all([
+  const [notes, plans, kids, labels, people, parentSwitches] = await Promise.all([
     visibleNotes(viewer, sessionLabel),
     visiblePlans(viewer, sessionLabel),
     viewer.canWrite ? childChoices(viewer, sessionLabel) : Promise.resolve([]),
     classLabelMap(sessionLabel),
     notesPeople(sessionLabel, today, { id: staff.id, role: staff.role }).catch(() => ({ classTeachers: {}, coordinator: null, admin: null })),
+    readParentSwitches(),
   ]);
 
   // `?student=` opens one child's notes (from Student 360's "All notes"). It
@@ -88,6 +90,8 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
       canWrite: viewer.canWrite,
       isAdmin: viewer.isAdmin,
       isCoordinator: staff.role === "academic_coordinator",
+      parentNotes: parentSwitches.note,
+      parentPlans: parentSwitches.supportPlan,
     },
     today,
     school: "",

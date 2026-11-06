@@ -302,7 +302,8 @@ export function TeachAttend({
   // The teacher's own answer to "WhatsApp to parents?"; null until she
   // touches the switch, and then it stays what she chose (group 8).
   const [alertsChoice, setAlertsChoice] = useState<boolean | null>(null);
-  const alerts = alertsDefault({ mode: editing === "change" ? "change" : "mark", isToday, queued: queuedCount, chosen: alertsChoice });
+  const parentOff = data.parentAlerts === "off";
+  const alerts = alertsDefault({ mode: editing === "change" ? "change" : "mark", isToday, queued: queuedCount, chosen: alertsChoice, admin: data.parentAlerts });
   // Taps from an earlier visit that were never saved, offered back (group 1).
   const [restored, setRestored] = useState<number | null>(null);
   const [state, setState] = useState<VxSaveState | null>(null);
@@ -766,7 +767,9 @@ export function TeachAttend({
           <div className="tc-note" style={{ background: "var(--s2)", fontSize: 13 }}>
             <Ic n="message" style={{ marginTop: 1, color: "var(--acc)" }} />
             <span>
-              {alerts
+              {parentOff
+                ? tx(p("The admin has turned off WhatsApp to parents from the register.", "प्रशासक ने हाज़िरी से अभिभावकों को व्हाट्सऐप बंद किया है।"))
+                : alerts
                 ? tx(p(`Parents of absent children get a WhatsApp ${when.en}. You can turn it off before saving.`, `अनुपस्थित बच्चों के माता-पिता को ${when.hi ?? when.en} व्हाट्सऐप जाता है। सेव से पहले बंद कर सकते हैं।`))
                 : tx(p("No WhatsApp goes to parents for this unless you turn it on before saving.", "जब तक आप सेव से पहले चालू न करें, अभिभावकों को कोई व्हाट्सऐप नहीं जाएगा।"))}
             </span>
@@ -1221,7 +1224,7 @@ export function TeachAttend({
         }
       : SAVE_IDLE;
   const absentLabel = isToday ? p("Absent today", "आज अनुपस्थित") : p(`Absent on ${dayShortP(data.day).en}`, `${dayShortP(data.day).hi} को अनुपस्थित`);
-  const alertSwitch = absentKids.length ? (
+  const alertSwitch = absentKids.length && !parentOff ? (
     <>
       <button
         type="button"
