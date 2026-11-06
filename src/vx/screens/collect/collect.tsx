@@ -2,7 +2,7 @@
 
 import "./collect.css";
 
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { mc } from "@/messages/collect";

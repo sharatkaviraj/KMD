@@ -2,7 +2,7 @@
 
 import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
 import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useState, type ReactNode } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";

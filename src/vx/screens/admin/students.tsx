@@ -1,7 +1,7 @@
 "use client";
 
 import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
-import Link from "next/link";
+import Link from "@/vx/ui/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 
