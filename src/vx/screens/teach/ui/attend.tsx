@@ -302,7 +302,8 @@ export function TeachAttend({
   // The teacher's own answer to "WhatsApp to parents?"; null until she
   // touches the switch, and then it stays what she chose (group 8).
   const [alertsChoice, setAlertsChoice] = useState<boolean | null>(null);
-  const alerts = alertsDefault({ mode: editing === "change" ? "change" : "mark", isToday, queued: queuedCount, chosen: alertsChoice });
+  const parentOff = data.parentAlerts === "off";
+  const alerts = alertsDefault({ mode: editing === "change" ? "change" : "mark", isToday, queued: queuedCount, chosen: alertsChoice, admin: data.parentAlerts });
   // Taps from an earlier visit that were never saved, offered back (group 1).
   const [restored, setRestored] = useState<number | null>(null);
   const [state, setState] = useState<VxSaveState | null>(null);
@@ -766,7 +767,9 @@ export function TeachAttend({
           <div className="tc-note" style={{ background: "var(--s2)", fontSize: 13 }}>
             <Ic n="message" style={{ marginTop: 1, color: "var(--acc)" }} />
             <span>
-              {alerts
+              {parentOff
+                ? tx(p("The admin has turned off WhatsApp to parents from the register.", "प्रशासक ने हाज़िरी से अभिभावकों को व्हाट्सऐप बंद किया है।"))
+                : alerts
                 ? tx(p(`Parents of absent children get a WhatsApp ${when.en}. You can turn it off before saving.`, `अनुपस्थित बच्चों के माता-पिता को ${when.hi ?? when.en} व्हाट्सऐप जाता है। सेव से पहले बंद कर सकते हैं।`))
                 : tx(p("No WhatsApp goes to parents for this unless you turn it on before saving.", "जब तक आप सेव से पहले चालू न करें, अभिभावकों को कोई व्हाट्सऐप नहीं जाएगा।"))}
             </span>
@@ -839,7 +842,20 @@ export function TeachAttend({
             <div style={{ width: "100%", marginTop: 6 }}>{tiles(28, { ...fresh, ...savedMarks })}</div>
             {savedAway.length ? (
               <span className="tc-s" style={{ textAlign: "left", alignSelf: "stretch" }}>
-                {tx(p(`Away: ${andList(savedAway.map((k) => `${k.name}${sOf(savedMarks[k.id]) === "H" ? " (half-day)" : ""}`))}`, `अनुपस्थित: ${andList(savedAway.map((k) => `${k.name}${sOf(savedMarks[k.id]) === "H" ? " (आधा दिन)" : ""}`), "और")}`))}
+                {/* A half-day child came to school: listing them under "अनुपस्थित:" with
+                    "(आधा दिन)" read as absent (6 Nov school day). Two lines instead. */}
+                {[
+                  savedAway.filter((k) => sOf(savedMarks[k.id]) !== "H"),
+                  savedAway.filter((k) => sOf(savedMarks[k.id]) === "H"),
+                ].map((kids, i) =>
+                  kids.length ? (
+                    <span key={i} style={{ display: "block" }}>
+                      {tx(i === 0
+                        ? p(`Away: ${andList(kids.map((k) => k.name))}`, `अनुपस्थित: ${andList(kids.map((k) => k.name), "और")}`)
+                        : p(`Half day: ${andList(kids.map((k) => k.name))}`, `आधा दिन: ${andList(kids.map((k) => k.name), "और")}`))}
+                    </span>
+                  ) : null,
+                )}
               </span>
             ) : null}
             <span className="tc-s" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
@@ -1208,7 +1224,7 @@ export function TeachAttend({
         }
       : SAVE_IDLE;
   const absentLabel = isToday ? p("Absent today", "आज अनुपस्थित") : p(`Absent on ${dayShortP(data.day).en}`, `${dayShortP(data.day).hi} को अनुपस्थित`);
-  const alertSwitch = absentKids.length ? (
+  const alertSwitch = absentKids.length && !parentOff ? (
     <>
       <button
         type="button"

@@ -225,8 +225,16 @@ export function TeachHome({
   /* --------------------------------------------------------- the day */
   // A subject teacher's period opens her subject in that class (marks, children),
   // not the class teacher's "My class" page (20-teacher school day, 6 Nov).
-  const periodHref = (per: (typeof data.periods)[number]) => {
-    if (!per.classId) return undefined;
+  const periodHref = (per: (typeof data.periods)[number]): string | undefined => {
+    // A combined period (12 Arts + 12 Com Economics) has no single classId and
+    // was plain text (6 Nov school day). Open her own class if it is one of
+    // them, else the first class where she has that subject.
+    if (!per.classId) {
+      const ids = per.classIds ?? [];
+      if (data.myClass && ids.includes(data.myClass.classId)) return `/teach/class?class=${data.myClass.classId}`;
+      const hit = ids.map((id) => periodHref({ ...per, classId: id, classIds: [id] })).find((h) => h?.includes("subject="));
+      return hit ?? (ids[0] ? `/teach/class?class=${ids[0]}` : undefined);
+    }
     if (per.classId === data.myClass?.classId) return `/teach/class?class=${per.classId}`;
     // Match by code, then name, then the only subject she teaches in that class:
     // the timetable said "MATHS" where the subject list said "Mathematics",
@@ -761,7 +769,7 @@ export function TeachHome({
       why: tx(p(`Turns ${b.turning} today${b.rollNo ? ` · Roll ${b.rollNo}` : ""}`, `आज ${b.turning} साल${b.rollNo ? ` · रोल ${b.rollNo}` : ""}`)),
       done: b.wished || wishedNow.has(b.id) ? tx(p("Wishes sent to the parents", "माता-पिता को शुभकामना भेजी")) : null,
       acts:
-        b.wished || wishedNow.has(b.id)
+        b.wished || wishedNow.has(b.id) || data.birthdayWishes === false
           ? []
           : [
               <button key={`w${b.id}`} type="button" className="tap btn soft" style={{ height: 44 }} onClick={() => { setWishFor(b.id); setSheet("wish"); }}>

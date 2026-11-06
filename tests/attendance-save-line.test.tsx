@@ -41,7 +41,7 @@ const data = (sessionLabel = "QA") => ({
     { id: kidA, name: "Test Alpha", rollNo: "1", admissionNo: null, hint: null, gender: null, birthday: false },
     { id: kidB, name: "Test Beta", rollNo: "2", admissionNo: null, hint: null, gender: null, birthday: false },
   ],
-  registerId: null, revision: 0, saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], alertWhen: { en: "at 10 am" },
+  registerId: null, revision: 0, saved: {}, yesterday: {}, receipt: null, parentAlerts: "ask_on", queuedAlerts: [], alertWhen: { en: "at 10 am" },
   month: "2026-10", monthMarks: [], closedDays: [],
 }) as unknown as AttendData;
 

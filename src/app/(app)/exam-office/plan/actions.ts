@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { isTestProfile } from "@/modules/staff/data/staff-repo";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -283,6 +284,8 @@ export async function setPaperSetterAction(input: { examId: string; slotId: stri
   const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !UUID.test(input.slotId) || (input.staffId !== null && !UUID.test(input.staffId))) return { ok: false, message: RELOAD };
+  // A test account sets only test staff as a paper's setter (E09).
+  if (input.staffId !== null && staff.isTestAccount && !(await isTestProfile(input.staffId))) return { ok: false, message: RELOAD };
   const { error } = await db()
     .from("exam_question_papers")
     .upsert({ slot_id: input.slotId, setter_staff_id: input.staffId, updated_by: staff.id, updated_at: new Date().toISOString() }, { onConflict: "slot_id" });

@@ -18,7 +18,9 @@ export const W = {
   familiesAfter: p("families after a reminder", "परिवार, याद के बाद"),
   balance: p("AiSensy balance", "AiSensy बैलेंस"),
   balanceSub: p("check in AiSensy", "AiSensy में देखें"),
-  automaticOn: p("automatic on", "अपने-आप चालू"),
+  // Nothing reads fee_reminder_rules yet: no job in either app sends from
+  // them, so a rule switched on is a saved setting, not a sender (smoke 6 Nov).
+  automaticOn: p("automatic set · not sending yet", "अपने-आप तय · अभी नहीं भेजे जाते"),
   families: p("families", "परिवार"),
   messages: p("messages", "संदेश"),
   remindersSent: p("Reminders sent", "भेजी गई याद"),
@@ -185,7 +187,7 @@ export const W = {
   cls: p("Class", "कक्षा"),
   quoted: p("Quoted", "बताया"),
   // rule sheet
-  ruleSub: p("Automatic reminder · runs from the fee app's sender", "अपने-आप याद · फीस ऐप के भेजने वाले से"),
+  ruleSub: p("Saved setting · not sent automatically yet", "सहेजी गई सेटिंग · अभी अपने-आप नहीं जाती"),
   ruleIsOn: p("This reminder is on", "यह याद चालू है"),
   ruleIsOff: p("This reminder is off", "यह याद बंद है"),
   ruleWhen: p("When", "कब"),

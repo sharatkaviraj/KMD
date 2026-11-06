@@ -51,7 +51,7 @@ const base = {
     { id: kidA, name: "Test Alpha", rollNo: null, admissionNo: "PENDING-SR-1", hint: null, gender: null, birthday: false },
     { id: kidB, name: "Test Beta", rollNo: null, admissionNo: null, hint: null, gender: null, birthday: false },
   ],
-  registerId: null, revision: 0, saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], alertWhen: { en: "from the school office" },
+  registerId: null, revision: 0, saved: {}, yesterday: {}, receipt: null, parentAlerts: "ask_on", queuedAlerts: [], alertWhen: { en: "from the school office" },
   month: "2026-10", monthMarks: [], closedDays: [],
 } as unknown as AttendData;
 const saved = { ...base, registerId: "r1", revision: 1, saved: { [kidA]: "present", [kidB]: "absent" }, receipt: { savedAt: "2026-10-19T17:32:00Z", actorName: "QA Teacher", revision: 1 } } as unknown as AttendData;

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCurrentStaff } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { chunkArray, fetchInChunks, mapConcurrently } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -220,11 +221,20 @@ export async function classesFor(sessionLabel: string): Promise<ClassInfo[]> {
 
 export type StaffLite = { id: string; name: string; shortName: string; role: string; phone: string | null; isTeaching: boolean };
 
+/**
+ * The active staff. A test account (and everyone on a confined deployment)
+ * gets only test accounts: a TEST exam's duty sharing, setter picker and
+ * reminders otherwise offered real teachers, and "Share duties" wrote real
+ * teachers onto a TEST exam (exam-office replay E09, 6 Nov 2026).
+ */
 export async function staffList(): Promise<StaffLite[]> {
-  const { data, error } = await admin()
+  const viewer = await getCurrentStaff().catch(() => null);
+  let query = admin()
     .from("staff_profiles")
     .select("id, display_name, short_name, role, phone, whatsapp_phone, is_teaching, is_active")
-    .eq("is_active", true)
+    .eq("is_active", true);
+  if (viewer?.isTestAccount) query = query.eq("is_test_account", true);
+  const { data, error } = await query
     .order("display_name")
     .returns<{ id: string; display_name: string; short_name: string; role: string; phone: string | null; whatsapp_phone: string | null; is_teaching: boolean }[]>();
   if (error) throw new Error(`Could not read the staff: ${error.message}`);

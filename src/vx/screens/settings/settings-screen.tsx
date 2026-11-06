@@ -20,6 +20,8 @@ import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
 
 import type { SettingsData } from "./data";
+import { ParentSwitchesPanel, parentSwitchesSummary } from "./parent-switches-panel";
+import { DEFAULT_PARENT_SWITCHES } from "./domain/parent-switches";
 import { aiConnectionLink } from "@/messages/ai-connection-link";
 import { taskIntegrationMessages as taskIntegration } from "@/messages/setup";
 import {
@@ -50,6 +52,8 @@ import {
  * section list in its own sticky column, the section beside it; on a phone
  * the list is the first screen and each section opens on its own.
  */
+
+const PARENTS_TITLE = p("Parent messages", "अभिभावक संदेश");
 
 const go = (s: SettingsState) => (s === "home" ? "/settings" : `/settings?s=${s}`);
 
@@ -161,6 +165,7 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
         { s: "school", icon: "building", tone: "acc", title: T.schoolProfile, sub: tx(T.schoolSub) },
         { s: "school", icon: "fileText", tone: "info", title: p("Certificate settings", "प्रमाण पत्र की सेटिंग्स"), sub: tx(p("Wording, numbering and manual signature", "पाठ, संख्या और हस्ताक्षर")), href: "/school-office/template" },
         { s: "prefs", icon: "sliders", tone: "info", title: T.prefs, sub: status.prefs.sub },
+        { s: "parents", icon: "message", tone: "ok", title: PARENTS_TITLE, sub: tx(parentSwitchesSummary(data.parentSwitches ?? DEFAULT_PARENT_SWITCHES)) },
         { s: "session", icon: "calendar", tone: "warn", title: T.session, sub: status.session.sub },
         { s: "users", icon: "shield", tone: "ok", title: T.users, sub: tx(data.staffTotal && data.staffTotal > data.staffCount ? p(`${data.staffCount} active of ${data.staffTotal} · ${data.roleCount} roles`, `${data.staffTotal} में से ${data.staffCount} सक्रिय · ${data.roleCount} भूमिकाएँ`) : p(`${data.staffCount} people · ${data.roleCount} roles`, `${data.staffCount} लोग · ${data.roleCount} भूमिकाएँ`)), href: "/staff?view=roles" },
       ],
@@ -196,6 +201,7 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
     home: T.settings,
     school: T.schoolProfile,
     prefs: T.prefs,
+    parents: PARENTS_TITLE,
     session: T.session,
     activity: T.activity,
     backups: T.backups,
@@ -303,6 +309,9 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
           }
         />
       );
+      break;
+    case "parents":
+      content = <ParentSwitchesPanel initial={data.parentSwitches ?? DEFAULT_PARENT_SWITCHES} />;
       break;
     case "session":
       content = <SessionPanel data={data} onArchive={() => router.replace(go("archive"), { scroll: false })} />;

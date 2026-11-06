@@ -228,7 +228,7 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base,
         toast.show({ text: tx(p("Write the goal first", "पहले लक्ष्य लिखें")), tone: "bad" });
         return;
       }
-      const res = await createPlanAction({ studentId: draft.studentId, noteId: draft.id, goal, steps: draftSteps.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tellDraft && !privateSource, shareExcerpt: shared });
+      const res = await createPlanAction({ studentId: draft.studentId, noteId: draft.id, goal, steps: draftSteps.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tellDraft && !privateSource && viewer.parentPlans !== false, shareExcerpt: shared });
       if (res.ok && res.id) {
         toast.show({ text: tx(p("Support plan started", "सहायता योजना शुरू")) });
         router.replace(`${base}?plan=${res.id}`);
@@ -334,6 +334,7 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base,
           ) : null}
         </div>
         <div className="nx-c" style={{ gap: 14 }}>
+          {viewer.parentPlans === false ? null : (
           <div className="card nx-c" style={{ padding: "14px 16px", gap: 10 }}>
             <div className="nx-f" style={{ justifyContent: "space-between" }}>
               <span className="nx-v">{tx(p("Tell parents", "अभिभावक को बताएँ"))}</span>
@@ -358,6 +359,7 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base,
               </button>
             ) : null}
           </div>
+          )}
           {plan ? (
             <div className="card nx-c" style={{ padding: "14px 16px" }}>
               <span className="sech" style={{ marginBottom: 6 }}>{tx(p("History", "इतिहास"))}</span>
@@ -453,7 +455,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
   const save = () =>
     start(async () => {
       if (plan) {
-        if (tell && !plan.tellParents && mayEdit) {
+        if (tell && !plan.tellParents && mayEdit && viewer.parentPlans !== false) {
           const res = await tellParentsAboutPlanAction(plan.id);
           if (!res.ok) {
             toast.show({ text: tx(res.error), tone: "bad" });
@@ -474,7 +476,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
         toast.show({ text: tx(p("Write the goal first", "पहले लक्ष्य लिखें")), tone: "bad" });
         return;
       }
-      const res = await createPlanAction({ studentId: note.studentId, noteId: note.id, goal, steps: draft.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tell && !privateSource, shareExcerpt: shared });
+      const res = await createPlanAction({ studentId: note.studentId, noteId: note.id, goal, steps: draft.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tell && !privateSource && viewer.parentPlans !== false, shareExcerpt: shared });
       if (res.ok && res.id) {
         toast.show({ text: tx(tell ? p("Plan saved · WhatsApp queued for the office", "योजना सहेजी · व्हाट्सऐप कतार में") : p("Plan saved · the coordinator can see it", "योजना सहेजी · समन्वयक देख सकते हैं")) });
         router.push(`${base}?note=${note.id}`, { scroll: false });
@@ -628,6 +630,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
           ) : null}
         </div>
         <div className="nx-c" style={{ gap: 16 }}>
+          {viewer.parentPlans === false && !plan?.tellParents ? null : (
           <div className="card nx-c nt-cd">
             {plan?.tellParents ? (
               <div className="nx-f" style={{ gap: 12 }}>
@@ -662,6 +665,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
               <span className="nx-m" style={{ fontSize: 12 }}>{tx(p("Off · parents are not told. You can turn it on any time.", "बंद · माता-पिता को नहीं बताया जाएगा। कभी भी चालू कर सकते हैं।"))}</span>
             )}
           </div>
+          )}
           <div className="nt-nt" style={{ background: "var(--infos)", color: "var(--info)" }}>
             <Ic n="info" size={18} style={{ marginTop: 1 }} />
             <span>{tx(p(`Every step names a person and a date. ${people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator"} sees how the plan is going.`, `हर कदम में एक व्यक्ति और तारीख़ है। समन्वयक देखते हैं कि योजना कैसी चल रही है।`))}</span>

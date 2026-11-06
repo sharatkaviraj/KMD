@@ -266,7 +266,7 @@ export function TeachNotes(props: NotesProps) {
       followUpOwner: composer.follow ? composer.owner : null,
       followUpStaffId: null,
       followUpName: null,
-      tellParents: composer.tellParents && composer.visibility === "team",
+      tellParents: composer.tellParents && composer.visibility === "team" && props.viewer.parentNotes !== false,
       writtenBy: props.viewer.id,
       writtenByName: props.viewer.name,
       authorRelation: null,
@@ -325,7 +325,10 @@ export function TeachNotes(props: NotesProps) {
           <span className="nx-f" style={{ gap: 8 }}>
             {[
               { n: counts.followUp, l: p("to follow up", "फिर देखने हैं"), c: "var(--warnfg)" },
-              { n: counts.open, l: p("open", "खुले"), c: "var(--fg)" },
+              // The tiles are separate piles: a note you follow up is not counted again
+              // here, so a lone "Working on it" note read "1 to follow up · 0 open"
+              // and looked lost (6 Nov school day). Say "others".
+              { n: counts.open, l: p("others open", "बाकी खुले"), c: "var(--fg)" },
               { n: counts.done, l: p("done", "पूरे"), c: "var(--ok)" },
             ].map((k) => (
               <span key={k.l.en} className="nx-c" style={{ alignItems: "center", minWidth: 64, padding: "6px 10px", borderRadius: 12, background: "var(--card)" }}>
