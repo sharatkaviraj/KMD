@@ -95,3 +95,33 @@ Tabs are the win: no server trip after the first switch (the first still pays
 600–700 ms while the page settles). Back is one press from any tab now, since
 tabs replace the history entry. Opening Student 360 did not get faster; it is
 still about one second; idea 10 streams the fee side to attack it.
+
+## 6 November: real phones, and the next plan
+
+The app logs Web Vitals from 10% of visits (`/api/performance`). From 3 to 5 Nov
+(admin, phone and desktop): in-app navigations paint in 40 to 120 ms and taps
+answer in 8 to 90 ms; the **first open** waits 0.8 to 3.9 s for the first byte
+(once 6.6 s); the Students list's largest paint lands at 2.0 to 2.8 s on phones;
+one screen shifted by 0.86. The full idea list, ranked, is the Claude Doc
+"VPPS One: faster and smoother, ideas"; Janmejay chose to build it in order.
+
+Batch 1 (D-427 to D-431):
+
+- **Screen names in the speed logs.** About thirty fixed names instead of nine,
+  so the next measurement says which screen is slow. ✅
+- **One wave of reads before the frame.** The (app) layout started the session,
+  the previewed role's permissions and the production marker one after another;
+  the shell then read preferences, AI features and the staff photo in three more
+  waves. Each is one wave now. ✅
+- **Student photos stay in the browser for ten minutes.** The Fees photo route
+  was `no-store`, so each list visit fetched every thumbnail again through the
+  bridge. Avatars are also `loading="lazy"`, so off-screen rows wait. ✅
+- **The tapped link answers.** NavLink dims its own link 80 ms into a slow
+  navigation; Students rows use it. ✅
+- **Lighter glass on touch screens.** 8 px blur, no saturate, denser tint. ✅
+- Checked and dropped: animations that move layout. The ones left animate
+  progress-bar widths once, which is cheap.
+
+Not done yet: the native (non-bridge) student photos are still signed per
+render (300 s URLs), so the browser cannot reuse them; that matters for test
+accounts only today.

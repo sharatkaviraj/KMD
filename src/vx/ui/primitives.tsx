@@ -201,7 +201,7 @@ export function Avatar({ text, seed, size = 40, bg, photo }: { text: string; see
     >
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo} alt="" width={size} height={size} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+        <img src={photo} alt="" width={size} height={size} loading="lazy" decoding="async" style={{ objectFit: "cover", width: "100%", height: "100%" }} />
       ) : (
         text
       )}
