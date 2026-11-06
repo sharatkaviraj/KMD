@@ -316,6 +316,35 @@ describe("built-in AI provider routing", () => {
     expect(result.attempts.map(({ outcome }) => outcome)).toEqual(["ok", "invalid", "ok"]);
   });
 
+  it("sends a typed Bolo request straight to Claude as its own transcript, with no transcription", async () => {
+    const text = "Riya was absent today";
+    const typed: AiMedia = { mimeType: "text/plain", data: new TextEncoder().encode(text) };
+    const fetch = vi.fn();
+    const anthropic = vi.fn().mockResolvedValue(claudeResponse(JSON.stringify({
+      transcript: "Riya was absent today.", intent: "attendance_query", unclear: false, classLabel: "7 B",
+    })));
+    const result = await extractWithProviders({ ...options, ...voiceSpec, task: "voice", media: [typed] }, { fetch, anthropic });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, value: { transcript: text } });
+    expect(JSON.parse(anthropic.mock.calls[0][1].messages[0].content[0].text).transcript).toBe(text);
+    expect(anthropic.mock.calls[0][1].system).toContain("typed this request");
+  });
+
+  it("gives Gemini a typed request as text and keeps the typed words as the transcript", async () => {
+    const text = "7B ki haziri";
+    const typed: AiMedia = { mimeType: "text/plain", data: new TextEncoder().encode(text) };
+    const gemini = vi.fn().mockResolvedValue(geminiResponse(JSON.stringify({
+      transcript: "7 B ki hazri", intent: "attendance_query", unclear: false, classLabel: "7B",
+    })));
+    const result = await extractWithProviders(
+      { ...options, ...voiceSpec, task: "voice", media: [typed], config: { ...config, anthropicApiKey: undefined } }, { gemini },
+    );
+    expect(result).toMatchObject({ ok: true, value: { transcript: text } });
+    const part = gemini.mock.calls[0][1].contents[0].parts[1];
+    expect(part.inlineData).toBeUndefined();
+    expect(part.text).toContain(text);
+  });
+
   it("stops after a Gemini safety block", async () => {
     const gemini = vi.fn().mockResolvedValue(geminiResponse(validOutput, FinishReason.SAFETY));
     const anthropic = vi.fn();

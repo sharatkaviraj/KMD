@@ -27,6 +27,7 @@ vi.mock("@/vx/ui/overlays", () => ({
   Sheet: ({ open, children, footer, title }: { open: boolean; children: React.ReactNode; footer: React.ReactNode; title: string }) => (open ? <section data-sheet={title}>{children}{footer}</section> : null),
 }));
 vi.mock("@/vx/screens/teach/ui/shared", () => ({
+  DeskHelp: () => null,
   HelpIcon: () => null,
   HelpSheet: () => null,
   LangSeg: () => null,

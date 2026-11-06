@@ -23,7 +23,7 @@ vi.mock("@/vx/ui/overlays", () => ({
     open ? <section data-sheet><p data-sub>{sub}</p>{children}{footer}</section> : null,
 }));
 vi.mock("@/vx/screens/teach/ui/shared", () => ({
-  HelpIcon: () => null, HelpSheet: () => null, LangSeg: () => null, DrawnTick: () => null,
+  DeskHelp: () => null, HelpIcon: () => null, HelpSheet: () => null, LangSeg: () => null, DrawnTick: () => null,
   TchTop: ({ actions }: { actions?: React.ReactNode }) => <header>{actions}</header>,
   useUrlState: (_key: string, initial: string | null) => React.useState(initial),
 }));

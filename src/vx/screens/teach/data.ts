@@ -29,7 +29,7 @@ import { attendancePercent, compareRoll, registerAuthority, type AttendanceStatu
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { lessonsToday } from "@/modules/attendance/domain/today";
 import { getStudentCard, enrolmentForStudent } from "@/modules/students/data/student-repo";
-import { myDutiesOn } from "@/modules/substitutions/data/duty-repo";
+import { myDutiesOn, myEndedDuties, type EndedDutyWhy } from "@/modules/substitutions/data/duty-repo";
 import { reportsForAbsent, reportsOnDuties } from "@/modules/substitutions/data/cover-reports";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { schoolClock, type BellSchedule } from "@/modules/timetable/domain/bells";
@@ -430,6 +430,18 @@ export type CoverRow = {
   reason: string | null;
 };
 
+/** A cover that was hers until the office changed it; shown for a day so it never just vanishes. */
+export type ChangedCover = {
+  id: string;
+  day: string;
+  number: number;
+  starts: string;
+  classLabels: string;
+  subjectName: string;
+  subjectHi: string;
+  why: EndedDutyWhy;
+};
+
 /** The next `count` open school days after `today`, looking at most two weeks ahead. */
 function nextSchoolDays(today: string, calendar: Awaited<ReturnType<typeof attendanceCalendar>>, count: number): string[] {
   const out: string[] = [];
@@ -511,6 +523,9 @@ export async function loadHome(staff: CurrentStaff) {
   const reg = myClassId ? (registers.find((r) => r.classId === myClassId && r.period === null) ?? null) : null;
   const recorded = Boolean(reg && reg.revision >= 1);
   const upcomingDays = nextSchoolDays(today, calendar, 3);
+  // Covers the office took back from her in the last day, so Today can say so.
+  const endedP = myEndedDuties(staff.id, sessionLabel, [today, ...upcomingDays], new Date(Date.now() - 86_400_000).toISOString())
+    .catch((): Awaited<ReturnType<typeof myEndedDuties>> => []);
 
   const [slots, nextSlots, upcoming, insights, totals, queue, linkSet, myNotes, leave, lastRegisters, parentSwitches] = await Promise.all([
     slotsOn(today, runsToday),
@@ -573,6 +588,16 @@ export async function loadHome(staff: CurrentStaff) {
     reason: c.reason,
   });
   const coverRows = covers.map((c) => toRow(c, today));
+  const changedCovers: ChangedCover[] = (await endedP).map(({ duty: c, why }) => ({
+    id: c.id,
+    day: c.day,
+    number: periodNumber(c.period),
+    starts: timeOf(schedule, c.period).starts,
+    classLabels: c.classLabels.join(", "),
+    subjectName: subjectName.get(c.subjectCode) ?? c.subjectCode,
+    subjectHi: subjectHi.get(c.subjectCode) ?? subjectName.get(c.subjectCode) ?? c.subjectCode,
+    why,
+  }));
   const upcomingRows = upcoming.map((c) => toRow(c, c.day));
   // What she told the teachers she covered for, and what her own substitutes told her (D-419).
   const [toldMap, awayRaw] = await Promise.all([
@@ -692,6 +717,8 @@ export async function loadHome(staff: CurrentStaff) {
     covers: coverRows,
     /** Cover duties on the next three school days (BUG-06). */
     upcomingCovers: upcomingRows,
+    /** Her covers the office cancelled or moved in the last day (teacher 11, 6 Nov). */
+    changedCovers,
     /** Her report on each of today's covers, by duty id, once she has said how it went (D-419). */
     coverReports,
     /** Reports from the teachers who covered her periods in the last ten days, not yet read (D-419). */

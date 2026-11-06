@@ -119,4 +119,27 @@ describe("Bolo microphone and review", () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/ai/voice/upload", "/api/ai/voice/parse", "/api/ai/voice/discard"]);
     expect(layer.textContent).not.toContain(request);
   });
+
+  it("sends a typed request with no recording or upload, and shows what was typed", async () => {
+    const request = "Riya was absent today";
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true, jobId: "job", uploads: [] }));
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true, jobId: "job", transcript: request, confirmation: null,
+      result: { kind: "clarify", reason: "unsupported" } }));
+    act(() => root.render(<BoloPanel />));
+    act(() => button("Open Bolo").click());
+    const box = layer.querySelector<HTMLTextAreaElement>("textarea#bolo-typed");
+    if (!box) throw new Error("Missing the typing box");
+    expect(button("Send").disabled).toBe(true);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(box, request);
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => button("Send").click());
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/ai/voice/upload", "/api/ai/voice/parse"]);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ text: request });
+    expect(scene.upload).not.toHaveBeenCalled();
+    expect(layer.textContent).toContain("What you typed");
+    expect(layer.textContent).toContain(request);
+    expect(button("Try again")).toBeTruthy();
+  });
 });

@@ -41,7 +41,7 @@ import {
   type Mark,
 } from "../domain/teach";
 import { andList } from "./fmt";
-import { DrawnTick, HelpIcon, HelpSheet, LangSeg, TchTop, useUrlState, type HelpStep } from "./shared";
+import { DeskHelp, DrawnTick, HelpIcon, HelpSheet, LangSeg, TchTop, useUrlState, type HelpStep } from "./shared";
 
 /*
  * Teacher · Attendance (design TchAttend). Everyone starts Present; a tap
@@ -195,7 +195,7 @@ export function AttendChoose({ data, ownerId, context }: { data: AttendChoices; 
     <VxPage className="tc">
       <TchTop crumb={T(p("Attendance", "हाज़िरी"))} title={tx(data.choices.length === 0 ? p("Attendance", "हाज़िरी") : p("Choose a class", "कक्षा चुनें"))} mBack="/teach" actions={<><LangSeg /><Link href="/teach/more?view=help" className="tap btn sec"><Ic n="help" />{tx(p("Help", "मदद"))}</Link></>} mAction={<LangSeg />} />
       <main>
-        <div className="pad" style={{ padding: "20px 28px 40px", maxWidth: 720, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="pad" style={{ padding: "20px 28px 40px", maxWidth: 760, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
           {data.choices.length === 0 ? (
             <div className="card" style={{ padding: "32px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
               <span className="tc-av" style={{ width: 56, height: 56, background: "var(--s2)", color: "var(--mut)" }}><Ic n="calCheck" size={26} /></span>
@@ -1284,8 +1284,8 @@ export function TeachAttend({
           <>
             {outbox ? <span className="pill" style={{ height: 30, padding: "0 12px", fontSize: 13, background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="cloud" size={14} />{tx(p("Waiting to send", "भेजना बाकी"))}</span> : null}
             <LangSeg />
+            <DeskHelp onClick={() => setSheet("help")} label={tx(p("Help", "मदद"))} />
             {screen !== "history" ? <button type="button" className="tap btn sec" onClick={() => setView("history")}><Ic n="calendar" />{tx(p("Past days", "पिछले दिन"))}</button> : null}
-            <button type="button" className="tap btn sec" onClick={() => setSheet("help")}><Ic n="help" />{tx(p("Help", "मदद"))}</button>
           </>
         }
         dLead={screen === "history" ? historyBack : undefined}

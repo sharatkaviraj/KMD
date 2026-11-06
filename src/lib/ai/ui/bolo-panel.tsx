@@ -14,6 +14,9 @@ import { Btn, Card, CardHead } from "@/vx/ui/primitives";
 
 import { VoiceButton } from "./voice-button";
 
+/** As TYPED_REQUEST_MAX on the server (`feature-jobs.ts`), which this client file cannot import. */
+const TYPED_MAX = 500;
+
 const problems = {
   quota: p("You’ve reached today’s recording limit.", "आज की रिकॉर्डिंग सीमा पूरी हो गई है।"),
   upload: p("Could not upload this recording. Check your connection and try again.", "रिकॉर्डिंग अपलोड नहीं हुई। इंटरनेट जाँचकर फिर कोशिश करें।"),
@@ -170,6 +173,29 @@ export function BoloSheet({ open, onClose, cover = false }: { open: boolean; onC
   const [review, setReview] = useState<VoiceReview | null>(null);
   const [problem, setProblem] = useState<keyof typeof problems | null>(null);
   const [saved, setSaved] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [wasTyped, setWasTyped] = useState(false);
+
+  /** A typed request takes the same path as a recording, minus the upload (teacher day, 6 Nov 2026). */
+  async function readText() {
+    const text = typed.trim();
+    if (busy || review || text.length < 2) return;
+    if (jobId) void post("discard", { jobId }).catch(() => undefined);
+    setJobId(null);
+    setBusy("read");
+    setProblem(null);
+    setWasTyped(true);
+    try {
+      const batch = await post<{ jobId: string }>("upload", { text });
+      setJobId(batch.jobId);
+      setReview(await post<VoiceReview>("parse", { jobId: batch.jobId }));
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      setProblem(Object.hasOwn(problems, code) ? code as keyof typeof problems : "unavailable");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function read(clip: Blob) {
     if (busy || review) return;
@@ -177,6 +203,7 @@ export function BoloSheet({ open, onClose, cover = false }: { open: boolean; onC
     setJobId(null);
     setBusy("read");
     setProblem(null);
+    setWasTyped(false);
     try {
       const batch = await post<{ jobId: string; uploads: { path: string; token: string }[] }>("upload", { mimeType: clip.type });
       const [file] = batch.uploads;
@@ -218,6 +245,8 @@ export function BoloSheet({ open, onClose, cover = false }: { open: boolean; onC
     setReview(null);
     setProblem(null);
     setSaved(false);
+    setTyped("");
+    setWasTyped(false);
   }
 
   const title = cover ? tx(p("Substitute by voice", "बोलकर बदली")) : tx(p("Bolo", "बोलो"));
@@ -235,18 +264,26 @@ export function BoloSheet({ open, onClose, cover = false }: { open: boolean; onC
       footer={<div className="grid w-full grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         {canSave && <Btn variant="pri" big disabled={busy !== null} onClick={() => void confirm()}>{busy === "apply"
           ? tx(p("Saving…", "सहेज रहे हैं…")) : tx(p("Save", "सहेजें"))}</Btn>}
-        {again && <Btn variant="sec" big icon="mic" onClick={retry}>{tx(p("Speak again", "फिर से बोलें"))}</Btn>}
+        {again && <Btn variant="sec" big icon={wasTyped ? "edit" : "mic"} onClick={retry}>{wasTyped ? tx(p("Try again", "फिर से लिखें")) : tx(p("Speak again", "फिर से बोलें"))}</Btn>}
         <Btn big disabled={busy !== null || problem === "retry_save"} onClick={close}>{cancel ? tx(p("Cancel", "रद्द करें")) : tx(p("Close", "बंद करें"))}</Btn>
       </div>}>
       {open && <div className="space-y-4">
-        {!review && <p>{tx(p("Speak in Hindi, English, or a mix. Hold the microphone button and release when you finish. Nothing is saved until you tap Save.",
-          "हिंदी, अंग्रेज़ी या दोनों में बोलें। माइक बटन दबाकर रखें और बोलने के बाद छोड़ दें। सहेजें दबाने तक कुछ भी सहेजा नहीं जाता।"))}</p>}
+        {!review && <p>{tx(p("Speak in Hindi, English, or a mix. Hold the microphone button and release when you finish, or type below. Nothing is saved until you tap Save.",
+          "हिंदी, अंग्रेज़ी या दोनों में बोलें। माइक बटन दबाकर रखें और बोलने के बाद छोड़ दें, या नीचे लिखें। सहेजें दबाने तक कुछ भी सहेजा नहीं जाता।"))}</p>}
         {!review && cover && <p className="text-sm" style={{ color: "var(--mut)" }}>{tx(COVER_HINT)}</p>}
         {!review && !busy && <VoiceButton onClip={(clip) => void read(clip)} />}
-        {busy === "read" && <p role="status">{tx(p("Reading your recording…", "रिकॉर्डिंग पढ़ रहे हैं…"))}</p>}
+        {!review && !busy && <div className="space-y-2">
+          <label htmlFor="bolo-typed" className="font-semibold" style={{ display: "block" }}>{tx(p("Or type it", "या लिखकर बताएँ"))}</label>
+          <textarea id="bolo-typed" className="inp" dir="auto" rows={2} maxLength={TYPED_MAX} value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={tx(p("For example: Riya was absent today", "जैसे: रिया आज अनुपस्थित थी"))}
+            style={{ width: "100%", minHeight: 64, resize: "vertical" }} />
+          <Btn variant="sec" big full icon="send" disabled={typed.trim().length < 2} onClick={() => void readText()}>{tx(p("Send", "भेजें"))}</Btn>
+        </div>}
+        {busy === "read" && <p role="status">{wasTyped ? tx(p("Reading what you typed…", "आपका लिखा पढ़ रहे हैं…")) : tx(p("Reading your recording…", "रिकॉर्डिंग पढ़ रहे हैं…"))}</p>}
         {review && <>
           <div className="space-y-1">
-            <h3 className="font-semibold">{tx(p("Transcript", "बोले गए शब्द"))}</h3>
+            <h3 className="font-semibold">{wasTyped ? tx(p("What you typed", "आपने लिखा")) : tx(p("Transcript", "बोले गए शब्द"))}</h3>
             <p dir="auto" className="whitespace-pre-wrap break-words">{review.transcript || tx(p("No clear speech was detected.", "साफ़ आवाज़ सुनाई नहीं दी।"))}</p>
           </div>
           <Card><Result result={review.result} /></Card>

@@ -125,3 +125,57 @@ export async function respondToDuty(
   if (error) throw new Error(`Could not record that: ${error.message}`);
   return data as RespondOutcome;
 }
+
+/** Why a cover she had is no longer hers: given to a colleague, reopened by the office, or not needed. */
+export type EndedDutyWhy = "other" | "open" | "off";
+
+/**
+ * Her covers on these days that the office took back since `since` — so a
+ * card on Today never just vanishes (teacher 11, 6 Nov 2026: "the card had
+ * gone" when the office cancelled a Mon 9 Nov duty, and nothing said why).
+ *
+ * A need that is still hers on a newer revision is left out, and so is a
+ * duty she said she can't take: she already knows. One line per need.
+ */
+export async function myEndedDuties(
+  staffId: string,
+  sessionLabel: string,
+  days: readonly string[],
+  since: string,
+): Promise<{ duty: CoverDuty; why: EndedDutyWhy }[]> {
+  if (!days.length) return [];
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("cover_duties")
+    .select(DUTY_COLUMNS)
+    .eq("session_label", sessionLabel)
+    .in("day", [...days])
+    .eq("covering_staff_id", staffId)
+    .in("status", ["cancelled", "superseded"])
+    .gte("ended_at", since)
+    .order("ended_at", { ascending: false })
+    .returns<Row[]>();
+  if (error) throw new Error(`Could not read your changed covers: ${error.message}`);
+  const ended = data.map(toDuty).filter((d) => !d.cannotCoverAt);
+  if (!ended.length) return [];
+  const { data: live, error: liveError } = await admin
+    .from("cover_duties")
+    .select("day, need_key, covering_staff_id, status")
+    .eq("session_label", sessionLabel)
+    .in("day", [...new Set(ended.map((d) => d.day))])
+    .in("status", ["assigned", "needs_help"])
+    .returns<{ day: string; need_key: string; covering_staff_id: string | null; status: "assigned" | "needs_help" }[]>();
+  if (liveError) throw new Error(`Could not read the current covers: ${liveError.message}`);
+  const now = new Map(live.map((r) => [`${r.day}|${r.need_key}`, r]));
+  const seen = new Set<string>();
+  const out: { duty: CoverDuty; why: EndedDutyWhy }[] = [];
+  for (const duty of ended) {
+    const key = `${duty.day}|${duty.needKey}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const current = now.get(key);
+    if (current?.status === "assigned" && current.covering_staff_id === staffId) continue;
+    out.push({ duty, why: !current ? "off" : current.status === "assigned" ? "other" : "open" });
+  }
+  return out.sort((a, b) => a.duty.day.localeCompare(b.duty.day) || a.duty.period - b.duty.period);
+}

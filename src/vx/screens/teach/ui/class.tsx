@@ -17,7 +17,7 @@ import type { ClassData, MarksLink, StudentData, SubjectData } from "../data";
 import { ATTENTION_RULES, genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
 import { closedTitle, examWord } from "../domain/today";
 import { dShort, dShortP, hm12, shortClass, andList } from "./fmt";
-import { LangSeg, TchTop } from "./shared";
+import { DeskHelp, HelpIcon, LangSeg, TchTop } from "./shared";
 import { ChildSummary } from "@/vx/assist/summary-assist";
 import { sessionText } from "@/platform/helpers/session-text";
 
@@ -98,7 +98,7 @@ function ClassHelp({ open, onClose, steps }: { open: boolean; onClose: () => voi
   );
 }
 
-/** The top bar every TchClass view shares: Back on a sub-view, the round EN | हि, "?". */
+/** The top bar every TchClass view shares: Back on a sub-view, the language switch, "? Help". */
 function ClassTop({ crumb, title, mTitle, mSub, back, speak, onHelp }: { crumb: string; title: string; mTitle: string; mSub: string; back?: string; speak?: string; onHelp: () => void }) {
   const { tx } = useVx();
   const backBtn = back ? (
@@ -106,11 +106,7 @@ function ClassTop({ crumb, title, mTitle, mSub, back, speak, onHelp }: { crumb: 
       <Ic n="chevLeft" size={24} />
     </Link>
   ) : null;
-  const help = (
-    <button type="button" className="tap btn ghost tc-x" aria-label={tx(p("Help for this screen", "इस स्क्रीन की मदद"))} onClick={onHelp} style={{ color: "var(--fg)" }}>
-      <Ic n="help" size={22} />
-    </button>
-  );
+  const helpLabel = tx(p("Help", "मदद"));
   return (
     <TchTop
       dLead={backBtn}
@@ -118,9 +114,9 @@ function ClassTop({ crumb, title, mTitle, mSub, back, speak, onHelp }: { crumb: 
       title={title}
       actions={
         <>
+          <LangSeg />
+          <DeskHelp onClick={onHelp} label={helpLabel} />
           {speak ? <Link href={speak} className="tap btn pri"><Ic n="mic" />{tx(p("Speak a note", "बोलकर नोट लिखें"))}</Link> : null}
-          <LangSeg pill />
-          {help}
         </>
       }
       mLead={backBtn ?? undefined}
@@ -129,8 +125,8 @@ function ClassTop({ crumb, title, mTitle, mSub, back, speak, onHelp }: { crumb: 
       mSub={mSub}
       mAction={
         <>
-          <LangSeg pill />
-          {help}
+          <LangSeg />
+          <HelpIcon onClick={onHelp} label={helpLabel} />
         </>
       }
     />

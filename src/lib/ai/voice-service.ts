@@ -22,7 +22,7 @@ import { previewRefusal } from "@/vx/screens/exams/guards";
 
 import { builtinAiSession } from "./access";
 import type { AiPilotConfig } from "./config";
-import { aiJson, aiProblem, makeAiUpload, readOrParseAiJob, type AiOperation, type AiScope } from "./feature-jobs";
+import { aiJson, aiProblem, makeAiTypedInput, makeAiUpload, readOrParseAiJob, TYPED_REQUEST_MAX, type AiOperation, type AiScope } from "./feature-jobs";
 import { ownedAiJob, updateAiJob } from "./jobs";
 import { marksPhotoContext } from "./marks-context";
 import { loadVoiceTools, primaryVoiceClass, resolveVoice, voiceVocabulary, type VoiceCommand } from "./voice-context";
@@ -30,6 +30,8 @@ import type { VoiceReview } from "./voice-review";
 import { claudeVoiceOutput, VOICE_ACTION, voiceSpec } from "./voice-schema";
 
 const uploadInput = z.strictObject({ mimeType: z.enum(["audio/webm", "audio/mp4", "audio/wav"]) });
+/** A typed request instead of a recording (teacher day, 6 Nov 2026). */
+const typedInput = z.strictObject({ text: z.string().trim().min(2).refine((t) => [...t].length <= TYPED_REQUEST_MAX && !t.includes("\u0000")) });
 const jobInput = z.strictObject({ jobId: z.uuid() });
 const confirmationInput = z.strictObject({ jobId: z.uuid(), confirmation: z.string().regex(/^[a-f\d]{64}$/u) });
 const draftTimeout = 60 * 60 * 1_000;
@@ -162,6 +164,8 @@ export async function runVoiceRoute(staff: CurrentStaff, config: AiPilotConfig, 
   if (!session || await previewRefusal()) return aiProblem("not_found", 404);
   const scope = { staffId: staff.id, action: VOICE_ACTION, session, targetId: staff.id, revision: 0 };
   if (operation === "upload") {
+    const typed = typedInput.safeParse(body);
+    if (typed.success) return makeAiTypedInput(scope, config, typed.data.text);
     const input = uploadInput.safeParse(body);
     return input.success ? makeAiUpload(scope, config, { kind: "voice", mimeType: input.data.mimeType }) : aiProblem("invalid", 400);
   }

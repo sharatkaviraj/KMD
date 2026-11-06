@@ -13,7 +13,7 @@ import type { ZodType } from "zod";
 import type { AiModel, GeminiConfig } from "@/lib/ai/config";
 
 export type AiMedia = {
-  mimeType: "image/jpeg" | "audio/webm" | "audio/aac" | "audio/wav" | "audio/mp4" | "audio/m4a";
+  mimeType: "image/jpeg" | "audio/webm" | "audio/aac" | "audio/wav" | "audio/mp4" | "audio/m4a" | "text/plain";
   data: Uint8Array;
 };
 
@@ -70,7 +70,10 @@ export function geminiClient(apiKey: string): Generate {
 }
 
 export function geminiParts(context: unknown, media: readonly AiMedia[]): Part[] {
-  return [{ text: JSON.stringify(context ?? null) }, ...media.map(({ mimeType, data }) => ({
+  return [{ text: JSON.stringify(context ?? null) }, ...media.map(({ mimeType, data }) => mimeType === "text/plain" ? {
+    // A typed Bolo request: the words are the transcript, not audio to listen to.
+    text: `The member of staff typed this request instead of speaking. Copy it verbatim into \`transcript\`.\n${Buffer.from(data).toString("utf8")}`,
+  } : ({
     inlineData: {
       // Safari records AAC in an audio-only MP4 container. Gemini names that format M4A.
       mimeType: mimeType === "audio/mp4" ? "audio/m4a" : mimeType,
