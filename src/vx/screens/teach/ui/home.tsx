@@ -367,7 +367,8 @@ export function TeachHome({
       <div style={{ display: "flex", flexDirection: "column" }}>
         {[
           [
-            tx(p(`Attendance saved · ${reg.present} present · ${reg.absent} absent`, `हाज़िरी सहेजी · ${reg.present} उपस्थित · ${reg.absent} अनुपस्थित`)),
+            // The half day was left out: "3 present · 1 absent" for 5 children (6 Nov).
+            tx(p(`Attendance saved · ${reg.present} present · ${reg.absent} absent${reg.halfDay ? ` · ${reg.halfDay} half day` : ""}`, `हाज़िरी सहेजी · ${reg.present} उपस्थित · ${reg.absent} अनुपस्थित${reg.halfDay ? ` · ${reg.halfDay} आधा दिन` : ""}`)),
             [tx(classWord(classLabel)), reg.submittedAt ? tx(p(`saved at ${ampm(reg.submittedAt)}`, `${ampm(reg.submittedAt)} बजे सहेजी`)) : null, reg.alerts ? tx(p(`parents of ${reg.alerts} get a WhatsApp at 10`, `${reg.alerts} अभिभावकों को 10 बजे व्हाट्सऐप`)) : null].filter(Boolean).join(" · "),
           ] as const,
           ...(data.notices[0] && seen.has(data.notices[0].id) ? [[tx(p(`Notice seen · ${data.notices[0].title}`, `सूचना देखी · ${data.notices[0].title}`)), tx(p("The office knows you have read it", "ऑफ़िस को पता है कि आपने पढ़ लिया"))] as const] : []),
@@ -607,9 +608,12 @@ export function TeachHome({
 
   /* -------------------------------------------------------- periods */
   const pillText = allOver ? tx(p(`All ${rows.length} periods over`, `सभी ${rows.length} पीरियड पूरे`)) : [tx(p(`${classCount} ${classCount === 1 ? "class" : "classes"}`, `${classCount} कक्षाएँ`)), coverCount ? tx(p(`${coverCount} cover`, `${coverCount} सब्स्टिट्यूशन`)) : null, freeCount ? tx(p(`${freeCount} free`, `${freeCount} खाली`)) : null].filter(Boolean).join(" · ");
+  // On a phone the two columns flatten and every card without an order (the
+  // welcome, "Ready for you", Bolo, the cover ask) is order 0, so "first"
+  // needs -1: at 1 her periods were still the fifth card (6 Nov re-check).
   const subjectOnly = !data.myClass && !noClassHero;
   const periods = (
-    <div className="card tc-card" style={{ order: subjectOnly ? 1 : 4, animationDelay: "120ms" }}>
+    <div className="card tc-card" style={{ order: subjectOnly ? -1 : 4, animationDelay: "120ms" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <CardTitle t={p("My periods today", "आज मेरे पीरियड")} />
         {rows.length ? <span className="pill num" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s2)", color: "var(--mut)" }}>{pillText}</span> : null}

@@ -216,9 +216,10 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
         total: paper.total,
         invalid: paper.invalid ?? 0,
         status: paperStatus(paper),
+        sent: paper.entryStatus === "submitted",
         submittedToName: coordinator,
         dueOn: e.plan?.marksDueOn ?? null,
-        late: Boolean(e.plan?.marksDueOn && e.plan.marksDueOn < today && paperStatus(paper) !== "done"),
+        late: Boolean(e.plan?.marksDueOn && e.plan.marksDueOn < today && paper.entryStatus !== "submitted"),
         dueLabel: e.plan?.marksDueOn ? shortDay(e.plan.marksDueOn) : null,
         classSort: paper.classSort,
         examId: e.id,
@@ -239,7 +240,7 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   }
 
   // The date that matters is the one on the first paper she still has to fill.
-  const firstOpen = cards.find((c) => c.status !== "done") ?? null;
+  const firstOpen = cards.find((c) => c.status !== "done" && !c.sent) ?? null;
   const dueExam = firstOpen ? (openExams.find((e) => e.id === firstOpen.examId) ?? null) : null;
   const due = dueExam?.plan?.marksDueOn
     ? {

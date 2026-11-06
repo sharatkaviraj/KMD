@@ -960,8 +960,10 @@ export async function loadSubject(staff: CurrentStaff, classId: string, subjectI
   if (!sessionLabel) return null;
   const scope = await classScopeFor(staff, sessionLabel);
   if (!scopeIncludes(scope, classId)) return null;
-  const [labels, roll, papers] = await Promise.all([classLabelMap(sessionLabel), classRoll({ classId, sessionLabel }), latestPapers(classId, sessionLabel)]);
+  const [labels, roll, papers, subjects] = await Promise.all([classLabelMap(sessionLabel), classRoll({ classId, sessionLabel }), latestPapers(classId, sessionLabel), listSubjects().catch(() => [])]);
   const paper = papers.latest.find((p) => p.subjectId === subjectId) ?? null;
+  // A subject with no paper yet (Sports) titled its page "Class 12 Science · —" (6 Nov).
+  const subject = subjects.find((s) => s.id === subjectId);
   const rows = [...roll].sort(compareRoll).map((r) => {
     const m = paper ? (papers.marks.get(`${paper.id}|${r.studentId}`) as { value: number | null; absent: boolean; exempt: boolean } | undefined) : undefined;
     const pct = m && m.value !== null && paper?.maxMarks ? Math.round((m.value / paper.maxMarks) * 100) : null;
@@ -970,7 +972,7 @@ export async function loadSubject(staff: CurrentStaff, classId: string, subjectI
   return {
     classId,
     classLabel: labels.get(classId) ?? "—",
-    subjectCode: paper?.subjectCode ?? "—",
+    subjectCode: paper?.subjectCode ?? (subject?.nameEn || subject?.code || "—"),
     paper: paper ? { id: paper.id, maxMarks: paper.maxMarks, label: papers.when.get(paper.assessmentId)?.label ?? "", entryStatus: paper.entryStatus } : null,
     rows,
     average: average(rows.flatMap((r) => (r.pct === null ? [] : [r.pct]))),
