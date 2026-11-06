@@ -9,6 +9,7 @@ import {
   planPromotion,
   qualityScore,
   suggestFamilies,
+  familyCounts,
   suggestNextClass,
 } from "@/vx/screens/student-tools/logic";
 
@@ -88,5 +89,17 @@ describe("family suggestions", () => {
     const linked = new Map([["c", "g1"], ["d", "g1"], ["a", "g2"]]);
     const out = suggestFamilies(families, linked);
     expect(out.map((s) => s.key)).toEqual(["father one|9000000001"]);
+  });
+
+  it("counts linked children as one family, so the header agrees with the list", () => {
+    const families = [
+      { key: "a|1", kids: [{ id: "k1" }] },
+      { key: "b|2", kids: [{ id: "k2" }] },
+      { key: "c|3", kids: [{ id: "k3" }, { id: "k4" }] },
+      { key: "solo:k5", kids: [{ id: "k5" }] },
+    ];
+    expect(familyCounts(families, new Map())).toEqual({ families: 4, withSiblings: 1 });
+    const linked = new Map([["k1", "g1"], ["k2", "g1"]]);
+    expect(familyCounts(families, linked)).toEqual({ families: 3, withSiblings: 2 });
   });
 });

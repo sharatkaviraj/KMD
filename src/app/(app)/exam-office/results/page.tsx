@@ -272,6 +272,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
     enteredPct: progress.overall.percent,
     unusualOpen: unusualOpen.length,
     invalid: classes.reduce((a, c) => a + (c.invalid ?? 0), 0),
+    reviewedClasses: classes.filter((c) => c.readiness === "ready_for_review").length,
     graceOpen,
     lockedClasses: classes.filter((c) => c.locked).length,
     totalClasses: classes.length,

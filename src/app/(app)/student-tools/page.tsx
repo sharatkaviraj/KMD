@@ -16,7 +16,7 @@ import { listBulkChanges, loadPromotionMarks, loadQualitySkips } from "@/vx/scre
 import { FamiliesView, type FamKid } from "@/vx/screens/student-tools/families";
 import { ToolsHub, type HubTool } from "@/vx/screens/student-tools/hub";
 import { ImportFlow, type ImportProps } from "@/vx/screens/student-tools/import";
-import { findQualityIssues, qualityScore, suggestFamilies, suggestNextClass } from "@/vx/screens/student-tools/logic";
+import { familyCounts, findQualityIssues, qualityScore, suggestFamilies, suggestNextClass } from "@/vx/screens/student-tools/logic";
 import { PromoteFlow } from "@/vx/screens/student-tools/promote";
 import { QualityList } from "@/vx/screens/student-tools/quality";
 
@@ -91,17 +91,21 @@ export default async function StudentToolsPage(props: PageProps<"/student-tools"
 
 async function hubBody(lang: Lang) {
   const sessionLabel = await viewSessionLabel();
-  const [changes, board, imports, children, skipped] = await Promise.all([
+  const [changes, board, imports, children, skipped, linked] = await Promise.all([
     listBulkChanges(8),
     loadPromotionBoard().catch(() => null),
     loadImportBatch(null).catch(() => ({ batch: null, recent: [] })),
     loadRollChildren(sessionLabel),
     loadQualitySkips(schoolToday()),
+    loadLinkedFamilies(sessionLabel).catch(() => []),
   ]);
   const hits = findQualityIssues(children, sessionLabel, skipped);
   const score = qualityScore(children.length, hits);
   const families = groupFamilies(children);
-  const withSiblings = families.filter((f) => f.kids.length >= 2).length;
+  const groupOf = new Map<string, string>();
+  for (const g of linked) for (const id of g.memberIds) groupOf.set(id, g.groupId);
+  const familyTotals = familyCounts(families, groupOf);
+  const withSiblings = familyTotals.withSiblings;
   const last = imports.recent[0];
   const applied = board?.run?.status === "applied";
 
@@ -143,7 +147,7 @@ async function hubBody(lang: Lang) {
       tone: "ok",
       title: p("Families", "परिवार"),
       desc: p("Brothers and sisters, merge and split", "भाई-बहन, जोड़ें और अलग करें"),
-      status: p(`${families.length} families · ${withSiblings} with siblings`, `${families.length} परिवार · ${withSiblings} में भाई-बहन`),
+      status: p(`${familyTotals.families} families · ${withSiblings} with siblings`, `${familyTotals.families} परिवार · ${withSiblings} में भाई-बहन`),
       pill: p("Discounts", "छूट"),
     },
   ];
@@ -285,8 +289,7 @@ async function familiesBody(mergeKey: string | null) {
     })
     .filter((g) => g.kids.length > 0);
   return {
-    families: families.length,
-    withSiblings: families.filter((f) => f.kids.length >= 2).length,
+    ...familyCounts(families, groupOf),
     body: <FamiliesView sessionLabel={sessionLabel} linked={linkedView} suggested={suggested} mergeKey={mergeKey} />,
   };
 }
