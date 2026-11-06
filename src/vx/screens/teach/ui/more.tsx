@@ -153,7 +153,7 @@ export function TeachMore({
   const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => classWord(c.classLabel).hi ?? c.classLabel).join(", ")} की कक्षा अध्यापक`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
 
   /* ---------------------------------------------------- top bar */
-  const helpFor: Partial<Record<MoreView, HelpTopic>> = { news: "news", links: "link", leave: "leave", timetable: "leave" };
+  const helpFor: Partial<Record<MoreView, HelpTopic>> = { news: "news", links: "link", leave: "leave", timetable: "leave", profile: "me" };
   const T: Record<MoreView, [string, Pair, string]> = {
     menu: [tx(p(`Teacher · ${sessionText(data.sessionLabel)}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${tx(classWord(held[0].classLabel))}` : ""}`],
     news: [tx(p("More · Notices", "और · सूचनाएँ")), p("Notices", "सूचनाएँ"), unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं"))],
@@ -412,7 +412,8 @@ export function TeachMore({
           <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p(`${data.week.length} periods a week · today is ${new Date(`${data.today}T12:00:00+05:30`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "Asia/Kolkata" })}`, `हफ़्ते में ${data.week.length} पीरियड · आज ${new Date(`${data.today}T12:00:00+05:30`).toLocaleDateString("hi-IN", { weekday: "long", timeZone: "Asia/Kolkata" })} है`))}</span>
         </span>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 12 }}>
-          {classOrder.map((c) => <span key={c} style={{ display: "flex", alignItems: "center", gap: 6 }}><span className="tc-dot" style={{ background: toneOf(c)[2] }} />{c}</span>)}
+          {/* Five colours: past five classes a dot names nothing, and the class is written under every period anyway (teacher day, 6 Nov, teacher 16). */}
+          {classOrder.length <= CLASS_TONES.length ? classOrder.map((c) => <span key={c} style={{ display: "flex", alignItems: "center", gap: 6 }}><span className="tc-dot" style={{ background: toneOf(c)[2] }} />{c}</span>) : null}
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span className="tc-dot" style={{ border: "1.5px dashed var(--bds)" }} />{tx(p("Free", "खाली"))}</span>
         </div>
       </div>
@@ -607,7 +608,7 @@ export function TeachMore({
           {tp.href ? (
             <Link href={tp.href} className="tap btn pri tc-mbg tc-mw">{tx(p("Try it now", "अभी करके देखें"))}<Ic n="arrowRight" /></Link>
           ) : (
-            <button type="button" className="tap btn pri tc-mbg tc-mw" onClick={() => { if (topic === "leave") { go("leave"); setSheet("leave"); } else go(topic === "link" ? "links" : "news"); }}>{tx(p("Try it now", "अभी करके देखें"))}<Ic n="arrowRight" /></button>
+            <button type="button" className="tap btn pri tc-mbg tc-mw" onClick={() => { if (topic === "leave") { go("leave"); setSheet("leave"); } else go(topic === "link" ? "links" : topic === "me" ? "profile" : "news"); }}>{tx(p("Try it now", "अभी करके देखें"))}<Ic n="arrowRight" /></button>
           )}
         </div>
       </div>
@@ -764,9 +765,10 @@ export function TeachMore({
 
 /* ------------------------------------------------------------------ help */
 
-type HelpTopic = "att" | "marks" | "note" | "link" | "news" | "leave";
+type HelpTopic = "att" | "marks" | "note" | "link" | "news" | "leave" | "me";
 
-function Mini({ rows }: { rows: { t: string; tone?: "row" | "soft" | "btn" | "ok" | "bad" | "good" | "mic" | "wa"; r?: string; hl?: boolean }[] }) {
+function Mini({ rows }: { rows: { t: string | Pair; tone?: "row" | "soft" | "btn" | "ok" | "bad" | "good" | "mic" | "wa"; r?: string; hl?: boolean }[] }) {
+  const { tx } = useVx();
   const K = { row: [24, "card", "fg"], soft: [24, "accs", "accfg"], btn: [30, "pri", "prifg"], ok: [44, "oks", "ok"], bad: [24, "bads", "bad"], good: [24, "oks", "ok"], mic: [56, "pri", "prifg"], wa: [40, "wab", "wafg"] } as const;
   return (
     <>
@@ -777,7 +779,7 @@ function Mini({ rows }: { rows: { t: string; tone?: "row" | "soft" | "btn" | "ok
         return (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, height: h, padding: "0 9px", borderRadius: k === "mic" ? 28 : k === "wa" ? "10px 10px 2px 10px" : 8, background: V(bg), color: V(fg), border: x.hl ? "2px solid var(--acc)" : k === "row" ? "1px solid var(--bd)" : "1px solid transparent", justifyContent: center ? "center" : "flex-start", fontSize: 11, fontWeight: k === "row" || k === "good" ? 600 : k === "wa" ? 500 : 700, animation: x.hl ? "xPulse 1.8s ease infinite" : k === "mic" ? "xPulse 2s ease infinite" : "none", alignSelf: k === "mic" ? "center" : k === "wa" ? "flex-end" : "stretch", width: k === "mic" ? 56 : k === "wa" ? "84%" : "auto" }}>
             {k === "ok" ? <Ic n="check" size={22} stroke={2.6} /> : k === "mic" ? <Ic n="mic" size={26} stroke={2.6} /> : null}
-            {x.t ? <span className="tc-el" style={{ flex: center ? "0 1 auto" : 1 }}>{x.t}</span> : null}
+            {x.t ? <span className="tc-el" style={{ flex: center ? "0 1 auto" : 1 }}>{typeof x.t === "string" ? x.t : tx(x.t)}</span> : null}
             {x.r ? <span className="num" style={{ fontWeight: 700, padding: "1px 7px", borderRadius: 6, background: "var(--s3)", color: "var(--fg)" }}>{x.r}</span> : null}
           </div>
         );
@@ -791,49 +793,57 @@ const HELP: Record<HelpTopic, { icon: IconName; t: Pair; tone: Tone; href?: stri
   att: {
     icon: "calCheck", t: p("Mark attendance", "हाज़िरी लगाएँ"), tone: TO, href: "/teach/attendance",
     steps: [
-      step(p("Open Attendance", "हाज़िरी खोलें"), p("On Today, tap “Mark attendance”.", "“आज” पर “हाज़िरी लगाएँ” दबाएँ।"), <Mini rows={[{ t: "Attendance", tone: "soft", hl: true }, { t: "My class" }, { t: "Marks" }]} />),
-      step(p("Tap who is absent", "अनुपस्थित पर टैप करें"), p("Everyone starts Present. Tap once for Absent, again for Half-day.", "सब उपस्थित से शुरू। एक बार अनुपस्थित, दोबारा आधा दिन।"), <Mini rows={[{ t: "Aadhya · Present", tone: "good" }, { t: "Om · Absent", tone: "bad", hl: true }, { t: "Pari · Present", tone: "good" }]} />),
-      step(p("Save attendance", "हाज़िरी सेव करें"), p("Until you save, the office sees “Not marked”.", "सेव करने तक ऑफ़िस को “नहीं लगी” दिखती है।"), <Mini rows={[{ t: "Save attendance", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+      step(p("Open Attendance", "हाज़िरी खोलें"), p("On Today, tap “Mark attendance”.", "“आज” पर “हाज़िरी लगाएँ” दबाएँ।"), <Mini rows={[{ t: p("Mark attendance", "हाज़िरी लगाएँ"), tone: "btn", hl: true }, { t: p("My class", "मेरी कक्षा") }, { t: p("Marks", "अंक") }]} />),
+      step(p("Tap who is absent", "अनुपस्थित पर टैप करें"), p("Everyone starts Present. Tap once for Absent, again for Half-day.", "सब उपस्थित से शुरू। एक बार अनुपस्थित, दोबारा आधा दिन।"), <Mini rows={[{ t: p("Aadhya · Present", "आध्या · उपस्थित"), tone: "good" }, { t: p("Om · Absent", "ओम · अनुपस्थित"), tone: "bad", hl: true }, { t: p("Pari · Present", "परी · उपस्थित"), tone: "good" }]} />),
+      step(p("Save attendance", "हाज़िरी सेव करें"), p("Until you save, the office sees “Not marked”.", "सेव करने तक ऑफ़िस को “नहीं लगी” दिखती है।"), <Mini rows={[{ t: p("Save attendance", "हाज़िरी सेव करें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],
   },
   marks: {
     icon: "clipboard", t: p("Enter marks", "अंक भरें"), tone: TW, href: "/teach/marks",
     steps: [
-      step(p("Pick the class", "कक्षा चुनें"), p("Tap Continue on the class you want.", "जिस कक्षा के अंक भरने हैं उस पर “जारी रखें” दबाएँ।"), <Mini rows={[{ t: "Class 7 Science", r: "12/27" }, { t: "Continue", tone: "btn", hl: true }, { t: "Class 8 Science", r: "0/28" }]} />),
-      step(p("Type the mark", "अंक लिखें"), p("After two numbers it jumps to the next child by itself.", "दो अंक लिखते ही अगला बच्चा अपने आप आ जाता है।"), <Mini rows={[{ t: "Lokesh", r: "38" }, { t: "Muskan", tone: "soft", r: "5_", hl: true }, { t: "Nidhi" }]} />),
-      step(p("Check and send", "जाँचें और भेजें"), p("See the summary, then send it to the exam office.", "सारांश देखें, फिर परीक्षा विभाग को भेजें।"), <Mini rows={[{ t: "Average", r: "56" }, { t: "Send", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+      step(p("Pick the class", "कक्षा चुनें"), p("Tap Continue on the class you want.", "जिस कक्षा के अंक भरने हैं उस पर “जारी रखें” दबाएँ।"), <Mini rows={[{ t: p("Class 7 Science", "कक्षा 7 विज्ञान"), r: "12/27" }, { t: p("Continue", "जारी रखें"), tone: "btn", hl: true }, { t: p("Class 8 Science", "कक्षा 8 विज्ञान"), r: "0/28" }]} />),
+      step(p("Type the mark", "अंक लिखें"), p("After two numbers it jumps to the next child by itself.", "दो अंक लिखते ही अगला बच्चा अपने आप आ जाता है।"), <Mini rows={[{ t: p("Lokesh", "लोकेश"), r: "38" }, { t: p("Muskan", "मुस्कान"), tone: "soft", r: "5_", hl: true }, { t: p("Nidhi", "निधि") }]} />),
+      step(p("Check and send", "जाँचें और भेजें"), p("See the summary, then send it to the exam office.", "सारांश देखें, फिर परीक्षा विभाग को भेजें।"), <Mini rows={[{ t: p("Average", "औसत"), r: "56" }, { t: p("Send marks", "अंक भेजें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],
   },
   note: {
     icon: "mic", t: p("Speak a note", "बोलकर नोट लिखें"), tone: TI, href: "/teach/notes?sheet=add",
     steps: [
       step(p("Tap the mic", "माइक दबाएँ"), p("In Notes, tap the big round mic button.", "नोट्स में बड़ा गोल माइक बटन दबाएँ।"), <Mini rows={[{ t: "", tone: "mic" }]} />),
-      step(p("Speak in Hindi or English", "हिंदी या अंग्रेज़ी में बोलें"), p("Your words appear as you speak. Fix any word by typing.", "बोलते ही शब्द दिखते हैं। कोई शब्द टाइप करके ठीक करें।"), <Mini rows={[{ t: "Riya finds fractions…" }, { t: "started practice sheets|", tone: "soft", hl: true }]} />),
-      step(p("Save the note", "नोट सेव करें"), p("It reaches the class teacher by itself.", "यह अपने आप कक्षा अध्यापक तक पहुँचता है।"), <Mini rows={[{ t: "Save note", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+      step(p("Speak in Hindi or English", "हिंदी या अंग्रेज़ी में बोलें"), p("Your words appear as you speak. Fix any word by typing.", "बोलते ही शब्द दिखते हैं। कोई शब्द टाइप करके ठीक करें।"), <Mini rows={[{ t: p("Riya finds fractions…", "रिया को भिन्न…") }, { t: p("started practice sheets|", "अभ्यास शुरू किया|"), tone: "soft", hl: true }]} />),
+      step(p("Save the note", "नोट सेव करें"), p("It reaches the class teacher by itself.", "यह अपने आप कक्षा अध्यापक तक पहुँचता है।"), <Mini rows={[{ t: p("Save note", "नोट सहेजें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],
   },
   link: {
     icon: "link", t: p("Share a marks link", "अंक लिंक भेजें"), tone: TA,
     steps: [
-      step(p("Open Marks links", "अंक लिंक खोलें"), p("More → Marks links. One card for each class.", "और → अंक लिंक। हर कक्षा का एक कार्ड।"), <Mini rows={[{ t: "Class 7 Science", tone: "soft", r: "12/27", hl: true }, { t: "Class 8 Science", r: "0/28" }]} />),
-      step(p("Tap Share on WhatsApp", "व्हाट्सऐप पर भेजें दबाएँ"), p("Send it to yourself to open it on any phone.", "किसी भी फ़ोन पर खोलने के लिए इसे खुद को भेजें।"), <Mini rows={[{ t: "Share on WhatsApp", tone: "btn", hl: true }, { t: "Copy" }]} />),
-      step(p("Open it and type marks", "खोलें और अंक लिखें"), p("No password. Marks land in the same place.", "पासवर्ड नहीं। अंक उसी जगह पहुँचते हैं।"), <Mini rows={[{ t: "Your marks link · Class 7", tone: "wa" }, { t: "", tone: "ok" }]} />),
+      step(p("Open Marks links", "अंक लिंक खोलें"), p("More → Marks links. One card for each class.", "और → अंक लिंक। हर कक्षा का एक कार्ड।"), <Mini rows={[{ t: p("Class 7 Science", "कक्षा 7 विज्ञान"), tone: "soft", r: "12/27", hl: true }, { t: p("Class 8 Science", "कक्षा 8 विज्ञान"), r: "0/28" }]} />),
+      step(p("Tap Share on WhatsApp", "व्हाट्सऐप पर भेजें दबाएँ"), p("Send it to yourself to open it on any phone.", "किसी भी फ़ोन पर खोलने के लिए इसे खुद को भेजें।"), <Mini rows={[{ t: p("Share on WhatsApp", "व्हाट्सऐप पर भेजें"), tone: "btn", hl: true }, { t: p("Copy", "कॉपी") }]} />),
+      step(p("Open it and type marks", "खोलें और अंक लिखें"), p("No password. Marks land in the same place.", "पासवर्ड नहीं। अंक उसी जगह पहुँचते हैं।"), <Mini rows={[{ t: p("Your marks link · Class 7", "आपका अंक लिंक · कक्षा 7"), tone: "wa" }, { t: "", tone: "ok" }]} />),
     ],
   },
   news: {
     icon: "megaphone", t: p("Read notices", "सूचनाएँ पढ़ें"), tone: TS,
     steps: [
-      step(p("Open Notices", "सूचनाएँ खोलें"), p("The red number shows how many are new.", "लाल अंक बताता है कितनी नई हैं।"), <Mini rows={[{ t: "Notices", tone: "soft", r: "2", hl: true }, { t: "Marks links" }]} />),
-      step(p("Read the notice", "सूचना पढ़ें"), p("The newest one is pinned on top.", "सबसे नई सूचना सबसे ऊपर रहती है।"), <Mini rows={[{ t: "PTM Sat 17 Oct", hl: true }, { t: "Marks by Wed 14" }]} />),
-      step(p("Tap I have read it", "“पढ़ लिया” दबाएँ"), p("The office can see you have read it.", "ऑफ़िस देख सकता है कि आपने पढ़ ली।"), <Mini rows={[{ t: "I have read it", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+      step(p("Open Notices", "सूचनाएँ खोलें"), p("The red number shows how many are new.", "लाल अंक बताता है कितनी नई हैं।"), <Mini rows={[{ t: p("Notices", "सूचनाएँ"), tone: "soft", r: "2", hl: true }, { t: p("Marks links", "अंक लिंक") }]} />),
+      step(p("Read the notice", "सूचना पढ़ें"), p("The newest one is pinned on top.", "सबसे नई सूचना सबसे ऊपर रहती है।"), <Mini rows={[{ t: p("PTM Sat 17 Oct", "पीटीएम शनि 17 अक्टू"), hl: true }, { t: p("Marks by Wed 14", "अंक बुध 14 तक") }]} />),
+      step(p("Tap I have read it", "“पढ़ लिया” दबाएँ"), p("The office can see you have read it.", "ऑफ़िस देख सकता है कि आपने पढ़ ली।"), <Mini rows={[{ t: p("I have read it", "पढ़ लिया"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],
   },
   leave: {
-    icon: "calendar", t: p("Apply leave", "छुट्टी माँगें"), tone: TW,
+    icon: "calendar", t: p("Ask for leave", "छुट्टी माँगें"), tone: TW,
     steps: [
-      step(p("Pick the day", "दिन चुनें"), p("Tap Today, Tomorrow or Pick days, then how long.", "आज, कल या “दिन चुनें” दबाएँ, फिर कितनी देर।"), <Mini rows={[{ t: "Today", tone: "soft", hl: true }, { t: "Tomorrow" }]} />),
-      step(p("Pick a reason", "कारण चुनें"), p("Unwell, Family function, Personal work or Other.", "बीमार, पारिवारिक कार्यक्रम, निजी काम या अन्य।"), <Mini rows={[{ t: "Unwell", hl: true }, { t: "Family function" }]} />),
-      step(p("Send", "भेजें"), p("The office arranges your classes.", "आपकी कक्षाएँ ऑफ़िस संभालता है।"), <Mini rows={[{ t: "Send", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+      step(p("Pick the day", "दिन चुनें"), p("Tap Today, Tomorrow or Pick days, then how long.", "आज, कल या “दिन चुनें” दबाएँ, फिर कितनी देर।"), <Mini rows={[{ t: p("Today", "आज"), tone: "soft", hl: true }, { t: p("Tomorrow", "कल") }]} />),
+      step(p("Pick a reason", "कारण चुनें"), p("Unwell, Family function, Personal work or Other.", "बीमार, पारिवारिक कार्यक्रम, निजी काम या अन्य।"), <Mini rows={[{ t: p("Unwell", "बीमार"), hl: true }, { t: p("Family function", "पारिवारिक कार्यक्रम") }]} />),
+      step(p("Send to office", "ऑफ़िस को भेजें"), p("The office arranges your classes.", "आपकी कक्षाएँ ऑफ़िस संभालता है।"), <Mini rows={[{ t: p("Send to office", "ऑफ़िस को भेजें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+    ],
+  },
+  me: {
+    icon: "user", t: p("My profile", "मेरी प्रोफ़ाइल"), tone: TS,
+    steps: [
+      step(p("Pick your language", "अपनी भाषा चुनें"), p("Under Language, tap English, हिंदी or Both. Every screen changes at once.", "“भाषा” में English, हिंदी या दोनों दबाएँ। हर स्क्रीन तुरंत बदल जाती है।"), <Mini rows={[{ t: "English" }, { t: "हिंदी", tone: "soft", hl: true }, { t: "दोनों · Both" }]} />),
+      step(p("Make text bigger", "अक्षर बड़े करें"), p("Under Text size, tap Large. The preview shows how it looks.", "“अक्षर का आकार” में “बड़ा” दबाएँ। नमूने में देखें कैसा दिखेगा।"), <Mini rows={[{ t: p("Normal", "सामान्य") }, { t: p("Large", "बड़ा"), tone: "soft", hl: true }]} />),
+      step(p("Change password", "पासवर्ड बदलें"), p("Tap Change password, type the new one twice, and save.", "“पासवर्ड बदलें” दबाएँ, नया पासवर्ड दो बार लिखें और सेव करें।"), <Mini rows={[{ t: p("Change password", "पासवर्ड बदलें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],
   },
 };

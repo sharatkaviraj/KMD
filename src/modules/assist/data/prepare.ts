@@ -106,7 +106,7 @@ export async function prepareCoverPlans(opts: { day: string; dutyIds?: readonly 
       kind: "cover_plan",
       ref: duty.id,
       sessionLabel: duty.session_label,
-      title: coverPlanTitle(classLabels, periodNumber(duty.period)),
+      title: coverPlanTitle(classLabels, periodNumber(duty.period), duty.day),
       href: `/teach?sheet=subs&cover=${duty.id}`,
       payload: result.value,
       logId: result.logId,

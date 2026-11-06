@@ -106,7 +106,14 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "class", label: L("My class & subjects", "मेरी कक्षा"), icon: "users", href: "/teach/class", permission: "attendance:view" },
         { key: "marks", label: L("Marks", "अंक"), icon: "clipboard", href: "/teach/marks", permission: "marks:write" },
         { key: "notes", label: L("Notes on children", "बच्चों के नोट्स"), icon: "note", href: "/teach/notes", permission: "notes:write", badge: "notes" },
+        // Timetable, My tasks, Help and My profile were reachable on a desk
+        // only through the More page (teacher day, 6 Nov 2026, teacher 20).
+        // The phone bar picks its tabs by key, so it is unchanged.
+        { key: "timetable", label: L("My timetable", "मेरी समय-सारणी"), icon: "clock", href: "/teach/more?view=timetable", permission: "attendance:view" },
+        { key: "tasks", label: L("My tasks", "मेरे काम"), icon: "inbox", href: "/teach/tasks", permission: "attendance:view" },
         { key: "more", label: L("Notices, links & leave", "सूचना व लिंक"), icon: "megaphone", href: "/teach/more", permission: "attendance:view", badge: "news" },
+        { key: "help", label: L("Help", "मदद"), icon: "help", href: "/teach/more?view=help", permission: "attendance:view" },
+        { key: "profile", label: L("My profile", "मेरी प्रोफ़ाइल"), icon: "user", href: "/teach/more?view=profile", permission: "attendance:view" },
       ],
     },
   ],
@@ -280,13 +287,20 @@ export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
   return [a, b, center, c, d].filter((x): x is BottomTab => Boolean(x));
 }
 
-/** Which nav key is active for a path: the longest matching href wins. */
-export function activeKey(groups: NavGroup[], pathname: string): string | null {
+/**
+ * Which nav key is active for a path: the longest matching href wins. An href
+ * with a query (`/teach/more?view=help`) matches only that path with those
+ * values in `search`, and then beats the bare path.
+ */
+export function activeKey(groups: NavGroup[], pathname: string, search?: { get(key: string): string | null } | null): string | null {
   let best: { key: string; len: number } | null = null;
   for (const item of groups.flatMap((g) => g.items)) {
-    const h = item.href;
-    const match = h === "/" ? pathname === "/" : pathname === h || pathname.startsWith(`${h}/`);
-    if (match && (!best || h.length > best.len)) best = { key: item.key, len: h.length };
+    const [h, query] = item.href.split("?") as [string, string | undefined];
+    const want = query ? [...new URLSearchParams(query)] : [];
+    const match = query
+      ? pathname === h && want.every(([k, v]) => search?.get(k) === v)
+      : h === "/" ? pathname === "/" : pathname === h || pathname.startsWith(`${h}/`);
+    if (match && (!best || item.href.length > best.len)) best = { key: item.key, len: item.href.length };
   }
   // A teacher's screen under Today with no item of its own (My tasks) lights
   // "Notices, links & leave", her catch-all, as the phone bar does (smoke 6 Nov, teacher 20).

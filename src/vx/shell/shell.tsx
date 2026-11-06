@@ -52,7 +52,7 @@ const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", 
  */
 function meHref(role: StaffRole, settings: boolean): string {
   if (settings) return "/settings";
-  if (role === "teacher") return "/teach/more";
+  if (role === "teacher") return "/teach/more?view=profile";
   return "/menu";
 }
 

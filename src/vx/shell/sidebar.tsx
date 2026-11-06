@@ -4,7 +4,7 @@ import Image from "next/image";
 import { schoolBrand } from "@/platform/config/school-brand";
 import Link from "next/link";
 import { NavLink } from "@/ui/shell/nav-link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransition } from "react";
 import { useTheme } from "next-themes";
 
@@ -92,7 +92,8 @@ export function VxSidebar({
   const pathname = usePathname() ?? "/";
   const { tx, sub } = useVx();
   const collapsed = useSyncExternalStore(subscribeCollapse, readCollapsed, () => false);
-  const active = activeKey(groups, pathname);
+  const search = useSearchParams();
+  const active = activeKey(groups, pathname, search);
   const nav = useRef<HTMLElement>(null);
   const pill = useRef<HTMLSpanElement>(null);
 

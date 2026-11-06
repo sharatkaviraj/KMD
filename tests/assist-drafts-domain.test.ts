@@ -34,6 +34,7 @@ describe("readDraft", () => {
 describe("titles and expiry", () => {
   it("names the period and the class", () => {
     expect(coverPlanTitle("7 B", 4)).toEqual({ en: "Plan for P4 · 7 B", hi: "P4 की योजना · 7 B" });
+    expect(coverPlanTitle("Class 2", 8, "2026-11-09")).toEqual({ en: "Plan for Mon 9 Nov · P8 · Class 2", hi: "सोम 9 नव॰ · P8 की योजना · Class 2" });
     expect(classDigestTitle("9 A").en).toBe("This week in 9 A");
   });
 

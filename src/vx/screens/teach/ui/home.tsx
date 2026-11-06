@@ -56,7 +56,7 @@ const HELP: Record<TeacherKind, HelpStep[]> = {
     STEP_COVER,
   ],
   new: [
-    { title: p("Wait for your class and periods", "अपनी कक्षा और पीरियड का इंतज़ार करें"), body: p("Once the office gives you a class or periods, attendance and marks show here. Call the office if it is taking long.", "ऑफ़िस से कक्षा या पीरियड मिलते ही हाज़िरी और अंक यहाँ दिखेंगे। देर हो तो ऑफ़िस को फ़ोन करें।"), icon: "users" },
+    { title: p("Wait for your class and periods", "अपनी कक्षा और पीरियड का इंतज़ार करें"), body: p("Once the office gives you a class or periods, attendance and marks show here. Ask the office if it is taking long.", "ऑफ़िस से कक्षा या पीरियड मिलते ही हाज़िरी और अंक यहाँ दिखेंगे। देर हो तो ऑफ़िस से पूछें।"), icon: "users" },
     STEP_NOTICE,
     STEP_LEAVE,
   ],
@@ -348,19 +348,27 @@ export function TeachHome({
   // A subject teacher who has periods gets one line inside "My periods today"
   // instead of a whole card above it: on a phone that card pushed her periods
   // below the first screen (20-teacher school day, 6 Nov).
+  // The words say "ask" unless the school profile has a number to call
+  // (teacher day, 6 Nov 2026: told to phone the office, given no number).
+  // Each line carries its Hindi under it for a "both" reader, as the
+  // headings around it do (teacher 19).
+  const noClassTitle = data.unassigned ? p("You have no class or periods yet", "आपको अभी कोई कक्षा या पीरियड नहीं मिला") : p("You do not take attendance", "आप हाज़िरी नहीं लेते");
+  const noClassBody = data.unassigned
+    ? tel
+      ? p("The office has not given you a class or periods this session. Call the office to be added to the timetable. Notices and leave work now.", "इस सत्र में ऑफ़िस ने अभी आपको कोई कक्षा या पीरियड नहीं दिया है। समय-सारणी में जुड़ने के लिए ऑफ़िस को फ़ोन करें। सूचनाएँ और छुट्टी अभी से चलती हैं।")
+      : p("The office has not given you a class or periods this session. Ask the office to add you to the timetable. Notices and leave work now.", "इस सत्र में ऑफ़िस ने अभी आपको कोई कक्षा या पीरियड नहीं दिया है। समय-सारणी में जुड़ने के लिए ऑफ़िस से कहें। सूचनाएँ और छुट्टी अभी से चलती हैं।")
+    : data.periods.length
+      ? p("Class teachers take attendance. Your periods are below.", "हाज़िरी कक्षा अध्यापक लेते हैं। आपके पीरियड नीचे हैं।")
+      : p("Class teachers take attendance. You have no periods today.", "हाज़िरी कक्षा अध्यापक लेते हैं। आज आपका कोई पीरियड नहीं।");
   const noClassHero = !data.myClass && (data.unassigned || data.closed || !data.periods.length) ? (
     <div className="card rise" style={{ order: 1, padding: 22, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
         <span className="tc-ib" style={{ width: 56, height: 56, borderRadius: 16, background: "var(--s2)", color: "var(--acc)" }}><Ic n="users" size={26} /></span>
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-          <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{data.unassigned ? tx(p("You have no class or periods yet", "आपको अभी कोई कक्षा या पीरियड नहीं मिला")) : tx(p("You do not take attendance", "आप हाज़िरी नहीं लेते"))}</span>
-          <span className="tc-p" style={{ color: "var(--mut)" }}>
-            {data.unassigned
-              ? tx(p("The office has not given you a class or periods this session. Call the office to be added to the timetable. Notices and leave work now.", "इस सत्र में ऑफ़िस ने अभी आपको कोई कक्षा या पीरियड नहीं दिया है। समय-सारणी में जुड़ने के लिए ऑफ़िस को फ़ोन करें। सूचनाएँ और छुट्टी अभी से चलती हैं।"))
-              : data.periods.length
-                ? tx(p("Class teachers take attendance. Your periods are below.", "हाज़िरी कक्षा अध्यापक लेते हैं। आपके पीरियड नीचे हैं।"))
-                : tx(p("Class teachers take attendance. You have no periods today.", "हाज़िरी कक्षा अध्यापक लेते हैं। आज आपका कोई पीरियड नहीं।"))}
-          </span>
+          <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{tx(noClassTitle)}</span>
+          {sub(noClassTitle) ? <span className="tc-s">{sub(noClassTitle)}</span> : null}
+          <span className="tc-p" style={{ color: "var(--mut)" }}>{tx(noClassBody)}</span>
+          {sub(noClassBody) ? <span className="tc-s">{sub(noClassBody)}</span> : null}
         </span>
       </div>
       {data.unassigned && tel ? (
@@ -587,7 +595,7 @@ export function TeachHome({
               : p("Here you take your class’s attendance, enter marks, write notes about children, read the office’s notices and ask for leave.", "यहाँ आप अपनी कक्षा की हाज़िरी लगाते हैं, अंक भरते हैं, बच्चों के नोट्स लिखते हैं, ऑफ़िस की सूचनाएँ पढ़ते हैं और छुट्टी माँगते हैं।"),
         )}
       </span>
-      <span className="tc-s">{tx(p("Stuck? Tap “Help” at the top, or call the office.", "कहीं अटकें तो ऊपर “मदद” दबाएँ, या ऑफ़िस को फ़ोन करें।"))}</span>
+      <span className="tc-s">{tel ? tx(p("Stuck? Tap “Help” at the top, or call the office.", "कहीं अटकें तो ऊपर “मदद” दबाएँ, या ऑफ़िस को फ़ोन करें।")) : tx(p("Stuck? Tap “Help” at the top, or ask the office.", "कहीं अटकें तो ऊपर “मदद” दबाएँ, या ऑफ़िस से पूछें।"))}</span>
       <button type="button" className="tap btn pri" onClick={() => dismissWelcome(data.staffId)} style={{ alignSelf: "flex-start", minHeight: 46 }}>
         <Ic n="check" />
         {tx(p("Got it, start", "समझ गए, शुरू करें"))}
@@ -808,7 +816,8 @@ export function TeachHome({
       };
     }),
   ];
-  const kids = (
+  // A teacher with no class has no children to show (teacher day, 6 Nov, teacher 17).
+  const kids = data.unassigned ? null : (
     <div className="card tc-card" style={{ order: 5, animationDelay: "180ms" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <CardTitle t={p("Children who need you today", "आज इन बच्चों पर ध्यान दें")} />
@@ -1073,7 +1082,8 @@ export function TeachHome({
               {kids}
             </div>
             <div className="tc-col">
-              {bolo ? <div style={{ order: 6 }}>{bolo}</div> : null}
+              {/* Bolo answers about a teacher's own classes, so a teacher with none is not offered it (teacher day, 6 Nov, teacher 19). */}
+              {bolo && !data.unassigned ? <div style={{ order: 6 }}>{bolo}</div> : null}
               {tasksCard}
               {office}
               {quick}

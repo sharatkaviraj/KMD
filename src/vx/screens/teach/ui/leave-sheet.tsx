@@ -94,6 +94,10 @@ function LeavePreview({ preview, asked }: { preview: LeavePreviewState | null; a
           })
         : null}
       {preview.status === "ready" && total > 0 ? <span style={{ fontSize: 13, fontWeight: 700 }}>{tx(p(`The office will arrange cover for these ${total} period${total === 1 ? "" : "s"}.`, `ऑफ़िस इन ${total} पीरियड का इंतज़ाम करेगा।`))}</span> : null}
+      {/* The register is taken in P1, so leave over P1 takes the morning register too (teacher day, 6 Nov 2026, teacher 12). */}
+      {preview.status === "ready" && preview.days.some((d) => !d.closed && d.periods.some((x) => x.number === 1)) ? (
+        <span style={{ fontSize: 13 }}>{tx(p("If you take the morning register, the office marks it on these days once the leave is approved.", "अगर सुबह की हाज़िरी आप लगाते हैं, तो छुट्टी मंज़ूर होने पर इन दिनों वह ऑफ़िस लगाएगा।"))}</span>
+      ) : null}
       {asked !== preview.span ? <span style={{ fontSize: 13 }}>{tx(p("A half day is asked one day at a time, so these days go as full days.", "आधा दिन एक-एक दिन के लिए माँगा जाता है, इसलिए ये पूरे दिन जाएँगे।"))}</span> : null}
     </span>
   );
