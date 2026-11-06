@@ -1,5 +1,29 @@
 # VPPS One — progress
 
+## Office roles school day in TEST — 6 November 2026
+
+Owner asked for agents replaying a whole school day as the academic
+coordinator, exam coordinator, accountant and admin in TEST-2026-27 (qa.*
+accounts, one.vpps.co.in). Branch `claude/project-thread-rjz9br`. Findings:
+`/mnt/project-files/day-run-office/` (admin, academic, exam; accountant
+pending). **Done (this PR):** admission wizard recovers from a 504 that saved
+(was stuck on "Saving…") and warns when fees did not set up (A-14); a
+coordinator cannot overwrite a saved register without a reason (AC-01, server
+and sheet); academic menu has Cover, Needs you, Notices (AC-02); half-day is
+not counted as leave and the present line matches its % (AC-03/04); weekly
+summary names the current exam (AC-08); write-off reasons in words (A-05);
+"No class teacher" sentence (A-20); denial for Admissions/Student tools names
+the right area (AC-17/E34); undeliverable cover notices no longer read
+"queued" (AC-07); results board keeps `exam=` on every step (E43), refuses
+"Send results now" with nothing locked (E26, server too), shows schedule in
+India time and no longer shifts it on re-save (E27); report card PDF prints
+"कुल" in the Hindi font (E33) and the chosen exam's title (E44); EN means
+English (E45). **Surprised:** live One's DB was CPU-starved from ~11:19 UTC
+while four threads crawled it; saves took 30–150 s. TEST-D-*/AIQ-* students
+have no installment rows (seed data), which explains "No fee record".
+**Open:** money findings (late-fee waiver kept after reversal is Fees' design
+but One's reversal sheet doesn't say so, A-18), the rest of the P2/P3 lists.
+
 ## Teacher school day: 20 seats in TEST — 6 November 2026
 
 Owner asked for 20 teacher agents replaying a school day in TEST and the bugs
