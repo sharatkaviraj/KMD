@@ -13,14 +13,12 @@ import { DEFAULT_LOCALE, type AppLocale } from "@/platform/i18n/locales";
  * `vppsone.staff_profiles.preferred_language` is the single source of truth.
  * The fee locale is derived from it; nothing stores a second preference.
  *
- * **`both` maps to `hi`, and that is a real decision rather than a rounding.**
- * There is no bilingual fee catalogue. Synthesising one would mean 2,094
- * strings of the shape "हिन्दी · English" printed onto money tables the fee
- * app deliberately designed as single-line — its own v2 design retreated from
- * bilingual labels for exactly that reason. `primary()` already leads with
- * Hindi for a `both` reader, so a fee screen and an academic screen agree on
- * the lead line; what a `both` reader loses is the English under it, on the
- * fee screens only.
+ * **`both` maps to `hi` here, and gets both on the page.** There is no
+ * bilingual fee catalogue on disk; `i18n/request.ts` builds one for a `both`
+ * reader at request time (`bilingual-catalog.ts`, A-23): short labels read
+ * "Receipts · रसीदें", sentences and spliced fragments stay English, the way
+ * VPPS One's own screens show a `both` reader. The cookie this writes is `hi`
+ * so dates and numbers keep the Hindi formatting they had.
  *
  * Hinglish has no VPPS One equivalent and is not reachable from a language
  * preference. It stays available through the fee app's own locale switcher,

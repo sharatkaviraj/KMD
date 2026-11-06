@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 
 import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { bilingualCatalog } from "@/platform/i18n/bilingual-catalog";
 import { feeLocaleFor } from "@/platform/i18n/bridge";
 import {
   DEFAULT_LOCALE,
@@ -29,6 +30,7 @@ import {
  */
 export default getRequestConfig(async () => {
   let locale: AppLocale = DEFAULT_LOCALE;
+  let bilingual = false;
 
   try {
     /*
@@ -44,20 +46,24 @@ export default getRequestConfig(async () => {
      * before anybody has touched a switcher on it.
      */
     const cookieValue = (await cookies()).get(LOCALE_COOKIE_NAME)?.value;
+    const staff = await getCurrentStaff();
     if (isSupportedLocale(cookieValue)) {
       locale = cookieValue;
-    } else {
-      const staff = await getCurrentStaff();
-      if (staff) {
-        locale = feeLocaleFor(staff.language);
-      }
+    } else if (staff) {
+      locale = feeLocaleFor(staff.language);
     }
+    // A reader of both languages gets both on the fee screens too, unless
+    // they picked Hinglish on the fee switcher (A-23). `/preferences` writes
+    // `hi` for them, so that cookie is theirs and not a choice of Hindi only.
+    bilingual = staff?.language === "both" && locale === "hi";
   } catch {
     // Signed out, or called somewhere cookies() is not available. The default
     // is a language, which is the one thing this must always return.
   }
 
-  const messages = (await import(`../../messages/${locale}.json`)).default;
+  const messages = bilingual
+    ? bilingualCatalog((await import("../../messages/en.json")).default, (await import("../../messages/hi.json")).default)
+    : (await import(`../../messages/${locale}.json`)).default;
 
   return {
     locale,

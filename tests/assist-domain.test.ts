@@ -113,6 +113,16 @@ describe("tasks clean what comes back", () => {
     expect(spec.finish!({ text: "Finds fractions hard.", tags: ["studies", "made-up", "studies"] }, input)).toEqual({ text: "Finds fractions hard.", tags: ["studies"] });
   });
 
+  it("a Hindi reader's note is tidied into Hindi; others keep the note's own language", () => {
+    const spec = ASSIST_TASKS["note.polish"];
+    const base = { text: "aaj homework nahi laya", tags: [], childName: null };
+    const hindi = spec.prompt(spec.input.parse({ ...base, language: "hi" }));
+    expect(hindi).toContain("Hindi");
+    expect(hindi).not.toContain("the teacher's own language");
+    expect(spec.prompt(spec.input.parse({ ...base, language: "en" }))).toContain("the teacher's own language");
+    expect(spec.prompt(spec.input.parse(base))).toContain("the teacher's own language");
+  });
+
   it("column matches use only real headings and free fields, once each", () => {
     const spec = ASSIST_TASKS["columns.match"];
     const input = spec.input.parse({

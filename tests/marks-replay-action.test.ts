@@ -34,6 +34,7 @@ describe("successful submit replay activity", () => {
     scene.commit.mockResolvedValue({ ...receipt, replayed: true });
     await expect(saveTeacherMarksAction(payload)).resolves.toMatchObject({ ok: true });
     expect(scene.activity).not.toHaveBeenCalled();
-    expect(scene.revalidate).toHaveBeenCalledWith("/teach/marks");
+    // Every screen that counts her marks, so a tile cannot keep the count from before the save.
+    expect(scene.revalidate).toHaveBeenCalledWith("/teach", "layout");
   });
 });

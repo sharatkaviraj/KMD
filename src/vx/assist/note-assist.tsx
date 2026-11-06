@@ -44,7 +44,7 @@ export function NoteAssist({
   /** Offer the tidied version without a tap, as for a just-dictated note. */
   autoTidy?: boolean;
 }) {
-  const { tx } = useVx();
+  const { tx, language } = useVx();
   const offerNote = useAssistOffers("note");
   const offerTranslate = useAssistOffers("translate");
   const tidy = useAssistTask("note.polish");
@@ -65,10 +65,10 @@ export function NoteAssist({
       autoDone.current = true;
       setAuto(true);
       setLast("tidy");
-      void runPolish({ text: autoText, tags: NOTE_TAGS.map((code) => ({ code, label: TAG_TEXT[code].en })), childName });
+      void runPolish({ text: autoText, tags: NOTE_TAGS.map((code) => ({ code, label: TAG_TEXT[code].en })), childName, language });
     }, 900);
     return () => clearTimeout(timer);
-  }, [autoWanted, autoText, childName, runPolish]);
+  }, [autoWanted, autoText, childName, language, runPolish]);
 
   if (!offerNote && !offerTranslate) return null;
   const enough = body.trim().length >= 8;
@@ -79,7 +79,7 @@ export function NoteAssist({
     translate.reset();
     setLast("tidy");
     setAuto(false);
-    void tidy.run({ text: body.trim(), tags: NOTE_TAGS.map((code) => ({ code, label: TAG_TEXT[code].en })), childName });
+    void tidy.run({ text: body.trim(), tags: NOTE_TAGS.map((code) => ({ code, label: TAG_TEXT[code].en })), childName, language });
   };
   const runTranslate = () => {
     tidy.reset();

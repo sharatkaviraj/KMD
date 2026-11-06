@@ -2176,5 +2176,20 @@
     "unavailable": "जानकारी नहीं मिल रही · Unavailable",
     "receipts": "आज {count} रसीद · {count} receipts today",
     "writtenOff": "{amount} बकाया हटाया · written off, not collected"
+  },
+  "FeeScreens": {
+    "back": "Wapas",
+    "statement": "Statement",
+    "printLastReceipt": "Pichhli receipt print karein",
+    "lastReceipt": "Pichhli receipt",
+    "downloadPhoto": "Student ki photo download karein",
+    "edit": "Badlein",
+    "printStatement": "Statement print karein",
+    "backToStudent": "Student par wapas",
+    "notFoundEyebrow": "Nahin mila",
+    "notFoundTitle": "Yeh record nahin mila",
+    "notFoundBody": "Jis link se aap aaye, uska record ab nahin hai ya kabhi bana hi nahin. App theek chal raha hai — wapas jaakar phir koshish karein, ya dashboard par jaayein.",
+    "backToDashboard": "Dashboard par wapas",
+    "openStudents": "Students kholein"
   }
 }

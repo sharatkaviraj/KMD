@@ -1,4 +1,5 @@
 import Link from "@/ui/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Download, Edit2, FileText, Printer } from "lucide-react";
 
 import { OldBalanceChip } from "@/ui/shared/old-balance-chip";
@@ -68,6 +69,7 @@ export function StudentDetailHeader({
    */
   sendReminder?: React.ReactNode;
 }) {
+  const t = useTranslations("FeeScreens");
   const isActive = student.status === "active";
   const hasPhone = Boolean(student.fatherPhone || student.motherPhone);
   const initials =
@@ -132,14 +134,14 @@ export function StudentDetailHeader({
           <Button asChild size="sm" variant="ghost" className="h-8 gap-1.5 px-2 text-xs">
             <Link href={returnTo}>
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Back</span>
+              <span>{t("back")}</span>
             </Link>
           </Button>
 
           <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
             <Link href={`/fees/students/${student.id}/statement?returnTo=${encodedReturnTo}`}>
               <FileText className="h-3.5 w-3.5" />
-              <span>Statement</span>
+              <span>{t("statement")}</span>
             </Link>
           </Button>
 
@@ -147,7 +149,7 @@ export function StudentDetailHeader({
             <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
               <Link href={`/fees/receipts/${latestReceiptId}?returnTo=${encodedReturnTo}`}>
                 <Printer className="h-3.5 w-3.5" />
-                <span>{canPrintReceipts ? "Print last receipt" : "Last receipt"}</span>
+                <span>{canPrintReceipts ? t("printLastReceipt") : t("lastReceipt")}</span>
               </Link>
             </Button>
           ) : null}
@@ -162,8 +164,8 @@ export function StudentDetailHeader({
               <a
                 href={`/fees/students/photo/download?studentId=${student.id}`}
                 download
-                aria-label="Download student photo"
-                title="Download student photo"
+                aria-label={t("downloadPhoto")}
+                title={t("downloadPhoto")}
               >
                 <Download className="h-3.5 w-3.5" />
               </a>
@@ -174,7 +176,7 @@ export function StudentDetailHeader({
             <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
               <Link href={`/fees/students/${student.id}/edit?returnTo=${encodedReturnTo}`}>
                 <Edit2 className="h-3.5 w-3.5" />
-                <span>Edit</span>
+                <span>{t("edit")}</span>
               </Link>
             </Button>
           ) : null}
