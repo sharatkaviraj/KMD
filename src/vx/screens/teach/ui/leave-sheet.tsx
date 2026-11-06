@@ -22,6 +22,7 @@ import { Sheet } from "@/vx/ui/overlays";
 import { previewLeaveVx, requestLeaveVx } from "../actions";
 import { leaveSpanFor, type LeaveDayPeriods } from "@/vx/screens/timetable/domain/timetable";
 import { addDays, LEAVE_REASONS, leaveSubmissionFor, type LeaveSpan, type LeaveSubmission } from "../domain/teach";
+import { isEmptyLeaveDraft, LEAVE_DRAFT_STORAGE_KEY, parseLeaveDraft } from "../domain/leave-draft";
 import { periodClassList } from "../domain/today";
 import { dShortP } from "./fmt";
 import { DrawnTick } from "./shared";
@@ -121,6 +122,54 @@ export function LeaveSheet({ open, onClose, today, closedDays = [] }: { open: bo
   // The id this request is sent under, kept across tries of the same request
   // so a send whose answer was lost files once when she taps it again.
   const submission = useRef<LeaveSubmission | null>(null);
+  // The half-filled request survives a refresh of the tab (6 Nov school day:
+  // a slow send, a refresh, and the day and reason were gone). Restored once
+  // the sheet opens; saved only after that, so the empty first render never
+  // overwrites what was kept.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    void Promise.resolve().then(() => {
+      if (!live) return;
+      let raw: string | null = null;
+      try {
+        raw = window.sessionStorage.getItem(LEAVE_DRAFT_STORAGE_KEY);
+      } catch {
+        raw = null;
+      }
+      const d = parseLeaveDraft(raw, today, LEAVE_REASONS.map((r) => r.key));
+      if (d) {
+        setWhen(d.when);
+        setPicked(d.picked);
+        setSpan(d.span);
+        setReason(d.reason);
+        setNote(d.note);
+        submission.current = d.submission;
+      }
+      restored.current = true;
+    });
+    return () => {
+      live = false;
+    };
+  }, [open, today]);
+  useEffect(() => {
+    if (!open || !restored.current || sent) return;
+    try {
+      if (isEmptyLeaveDraft({ when, reason, note })) window.sessionStorage.removeItem(LEAVE_DRAFT_STORAGE_KEY);
+      else window.sessionStorage.setItem(LEAVE_DRAFT_STORAGE_KEY, JSON.stringify({ savedOn: today, when, picked, span, reason, note, submission: submission.current }));
+    } catch {
+      /* storage blocked: the form still works, it just is not kept */
+    }
+  }, [open, sent, today, when, picked, span, reason, note]);
+  const forgetDraft = () => {
+    restored.current = false;
+    try {
+      window.sessionStorage.removeItem(LEAVE_DRAFT_STORAGE_KEY);
+    } catch {
+      /* nothing kept */
+    }
+  };
 
   const closedTagOf = (d: string) => closedDays.find((c) => c.day === d)?.tag ?? null;
   const tomorrow = addDays(today, 1);
@@ -150,12 +199,19 @@ export function LeaveSheet({ open, onClose, today, closedDays = [] }: { open: bo
     const input = { days, span: leaveSpanFor(days.length, span), reason: reasonPair.en, note };
     const current = leaveSubmissionFor(submission.current, input, () => crypto.randomUUID());
     submission.current = current;
+    try {
+      // Keep the id with the draft: a refresh during a slow send must resend under it.
+      window.sessionStorage.setItem(LEAVE_DRAFT_STORAGE_KEY, JSON.stringify({ savedOn: today, when, picked, span, reason, note, submission: current }));
+    } catch {
+      /* not kept */
+    }
     start(async () => {
       setError(null);
       try {
         const res = await requestLeaveVx({ ...input, requestId: current.id });
         if (res.ok) {
           submission.current = null;
+          forgetDraft();
           // No toast: it sat on top of "what happens next" (smoke 20 Oct). The sheet itself says it went.
           setSent({ summary: text, covered });
           router.refresh();
@@ -170,6 +226,7 @@ export function LeaveSheet({ open, onClose, today, closedDays = [] }: { open: bo
 
   const close = () => {
     onClose();
+    forgetDraft();
     submission.current = null;
     setSent(null);
     setWhen(null);

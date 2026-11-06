@@ -22,7 +22,7 @@ import type { MoreData } from "../data";
 import { spanPeriods } from "@/vx/screens/timetable/domain/timetable";
 import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, marksTileLine, mayCancelLeave, subjectWord } from "../domain/today";
 import { ampm, callName, dShort, dShortP, greetingPair, hm12, shortClass, andList } from "./fmt";
-import { LangSeg, LeaveSheet, TchTop, useUrlState } from "./shared";
+import { LangSeg, LeaveSheet, TchTop, useUrlState, WithdrawConfirm } from "./shared";
 import "./today.css";
 
 /*
@@ -95,6 +95,8 @@ export function TeachMore({
   const [alerts, setAlerts] = useState<Record<string, boolean>>(data.profile.alerts);
   const [topic, setTopic] = useState<HelpTopic>("att");
   const [pending, start] = useTransition();
+  // Withdrawing a leave request asks once first (6 Nov school day).
+  const [askWithdraw, setAskWithdraw] = useState<string | null>(null);
   const current: MoreView = view ?? "menu";
   const unread = data.notices.filter((n) => !seen.has(n.id));
 
@@ -508,8 +510,9 @@ export function TeachMore({
   const cancelLeave = (id: string) =>
     start(async () => {
       const res = await cancelLeaveVx(id);
+      setAskWithdraw(null);
       if (res.ok) {
-        toast.show({ text: tx(p("Leave request cancelled", "छुट्टी का अनुरोध रद्द")) });
+        toast.show({ text: tx(p("Leave request withdrawn", "छुट्टी का अनुरोध वापस लिया")) });
         router.refresh();
       } else toast.show({ text: tx(res.error), tone: "bad" });
     });
@@ -550,7 +553,7 @@ export function TeachMore({
               </span>
             ) : null}
             {state === "passed" ? <span style={{ flexBasis: "100%", fontSize: 13, color: "var(--mut)" }}>{tx(p("These days have passed and the office never answered. Withdraw it, and talk to the office if needed.", "ये दिन निकल गए और ऑफ़िस ने जवाब नहीं दिया। अनुरोध वापस लें, ज़रूरत हो तो ऑफ़िस से बात करें।"))}</span> : null}
-            {mayCancelLeave(l) ? <button type="button" className="tap btn ghost" disabled={pending} onClick={() => cancelLeave(l.id)} style={{ minHeight: 44 }}><Ic n="x" />{tx(p("Withdraw", "वापस लें"))}</button> : null}
+            {mayCancelLeave(l) ? (askWithdraw === l.id ? <WithdrawConfirm pending={pending} onYes={() => cancelLeave(l.id)} onNo={() => setAskWithdraw(null)} /> : <button type="button" className="tap btn ghost" disabled={pending} onClick={() => setAskWithdraw(l.id)} style={{ minHeight: 44 }}><Ic n="x" />{tx(p("Withdraw", "वापस लें"))}</button>) : null}
           </div>
         );
       })}
