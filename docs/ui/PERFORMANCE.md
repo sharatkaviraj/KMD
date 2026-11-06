@@ -134,3 +134,11 @@ Batch 2 (D-432 to D-435):
 - **Sign in straight to the start screen**, no `/dashboard` hop. ✅
 - **Screens settle in** over 180 ms. ✅
 - Deferred: keeping the server warm (needs pg_cron or a paid plan; measure first).
+
+Batch 3 (D-436 to D-438):
+
+- **Drag a phone sheet down to close it**, with a spring back on a short pull. ✅
+- **Dues family rows answer a tap** (no prefetch: that would be a full Dues
+  render per row). ✅
+- Checked and not built, with reasons in D-438: per-route fee catalogues,
+  optimistic saves, fewer refreshes, tab view transitions, Cache Components.
