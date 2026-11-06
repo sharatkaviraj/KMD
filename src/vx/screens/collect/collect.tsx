@@ -56,7 +56,7 @@ import { PayCard, type PayEffect, type PaySub } from "./cards/pay";
 import { SealedCard, type SealedView } from "./cards/sealed";
 import { WhoCard, type Found } from "./cards/who";
 import { flyChip, shake, slideIn, slideOut, stamp } from "./motion";
-import { allocText, CardShell, firstName, Icon, useOverflowCheck, YearBar } from "./parts";
+import { allocText, CardShell, firstName, Icon, lateTaken, useOverflowCheck, YearBar } from "./parts";
 import { Seal } from "./seal";
 import { Bi, dayMonth, fill, money, useCx } from "./text";
 
@@ -1223,7 +1223,12 @@ function CollectApp(props: CollectProps) {
     }
     if (familyLate) {
       const waiving = info.canWaive && choice === "waive";
-      lines.push({ key: "late", label: mc.lateFee, value: waiving ? <>{p(fill(mc.lateWaived, { a: money(lateOnDate || familyLate) }))} <small>{p(REASON_TEXT[late.reason])}</small></> : p(fill(mc.lateCollected, { a: money(lateOnDate || familyLate) })), goto: info.canWaive ? "dues" : null });
+      // Collecting: say what THIS payment takes, not the whole late fee owed —
+      // a ₹1,000 part-payment does not collect a ₹3,000 late fee.
+      const owed = lateOnDate || familyLate;
+      const taken = Math.min(owed, members.reduce((s, d, i) => s + lateTaken(d.rows, shares[i] ?? 0, takesLate(d), date), 0));
+      const collected = taken >= owed ? fill(mc.lateCollected, { a: money(taken) }) : fill(mc.lateCollectedPart, { a: money(taken), b: money(owed - taken) });
+      lines.push({ key: "late", label: mc.lateFee, value: waiving ? <>{p(fill(mc.lateWaived, { a: money(owed) }))} <small>{p(REASON_TEXT[late.reason])}</small></> : p(collected), goto: info.canWaive ? "dues" : null });
     }
     lines.push({ key: "pay", label: mc.linePayment, value: p(tenderPair()), goto: "pay" });
     lines.push({ key: "date", label: mc.lineDate, value: <>{p(dayMonth(date))}{date !== today ? <small> · {p(mc.backdatedSmall)}</small> : null}</>, goto: "pay" });

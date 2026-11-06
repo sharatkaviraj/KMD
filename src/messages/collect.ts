@@ -211,6 +211,7 @@ export const mc = {
   lineDate: t("तारीख", "Date"),
   lineBy: t("प्राप्तकर्ता", "Received by"),
   lateCollected: t("लिया {a}", "Collected {a}"),
+  lateCollectedPart: t("लिया {a} · {b} बाकी", "Collected {a} · {b} still owed"),
   lateWaived: t("माफ़ {a}", "Waived {a}"),
   backdatedSmall: t("पिछली तारीख", "backdated"),
   ackDaily: t("यह नया भुगतान है, {name} का दोहराव नहीं", "This is a new payment, not a repeat of {name}"),

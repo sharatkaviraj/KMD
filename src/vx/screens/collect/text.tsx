@@ -4,10 +4,10 @@ import { flat, primary, secondary, type Language, type Localized } from "@/platf
 import { useLanguage } from "@/platform/i18n/use-language";
 import { dayMonthP, rupees, weekdayP } from "@/vx/format";
 
-/** A pair with its `{a}`/`{n}`/`{d}`/`{name}` holes filled in, in both halves. */
-export function fill(pair: Localized, vars: Partial<Record<"a" | "n" | "d" | "name", string | number | Localized>>): Localized {
+/** A pair with its `{a}`/`{b}`/`{n}`/`{d}`/`{name}` holes filled in, in both halves. */
+export function fill(pair: Localized, vars: Partial<Record<"a" | "b" | "n" | "d" | "name", string | number | Localized>>): Localized {
   const put = (text: string, half: "hi" | "en") =>
-    text.replace(/\{(a|n|d|name)\}/g, (_, key: "a" | "n" | "d" | "name") => {
+    text.replace(/\{(a|b|n|d|name)\}/g, (_, key: "a" | "b" | "n" | "d" | "name") => {
       const v = vars[key];
       if (v === undefined) return "";
       return typeof v === "object" ? v[half] : String(v);
