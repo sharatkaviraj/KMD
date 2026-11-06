@@ -30,11 +30,7 @@ import { flat } from "@/platform/i18n/language";
 import { AssistProvider } from "@/vx/assist/context";
 import { coverPhotoEnabled } from "@/lib/ai/access";
 
-import { encodeHomeHint } from "@/platform/auth/home-hint";
-import { homeHintFor } from "@/vx/home-redirect";
-
 import { VxBottomBar } from "./bottom-bar";
-import { HomeHint } from "./home-hint";
 import { LazySearchPalette } from "./lazy";
 import type { PaletteItem } from "./palette";
 import { PreviewBanner } from "./preview-banner";
@@ -163,7 +159,6 @@ export async function VxShell({
   const coverAi = !previewing && coverPhotoEnabled(staff, sessionLabel || null);
   const badges = loadBadges(viewer, sessionLabel);
   const fees = can(staff, "fees:view");
-  const homeHint = homeHintFor(viewer);
 
   // A rehearsal session says so on the role line, which is where the session is named now.
   const testMark = sessionIsTest && !/test/i.test(sessionLabel) ? " · test" : "";
@@ -195,7 +190,6 @@ export async function VxShell({
           <NavTrail />
           {fees ? <OfficeSyncListener sessionLabel={sessionLabel} /> : null}
         </Suspense>
-        <HomeHint value={homeHint ? encodeHomeHint(staff.userId, homeHint) : null} />
         <a href="#vx-main" className="vx-skip">Skip to content</a>
         <div className={`vxt vx-shell${large ? " vx-large" : ""}`}>
           <VxSidebar
