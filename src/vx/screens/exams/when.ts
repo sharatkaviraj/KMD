@@ -1,3 +1,4 @@
+import { dayMonthHi, shortDayHi, timeHi } from "@/vx/format";
 import type { Pair } from "@/vx/text";
 
 /*
@@ -14,16 +15,18 @@ export function when(at: string | Date, opts: { short?: boolean; now?: Date } = 
   if (Number.isNaN(d.getTime())) return { en: "—" };
   const now = opts.now ?? new Date();
   const time = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true }).format(d).toLowerCase();
+  // The Hindi line had "Mon 9 Nov" and "9:40 am" in it (20-teacher day, 6 Nov).
+  const timeH = timeHi(d);
   const key = dayKey(d);
-  if (key === dayKey(now)) return { en: `Today ${time}`, hi: `आज ${time}` };
-  if (key === dayKey(new Date(now.getTime() - 86_400_000))) return { en: `${opts.short ? "Yest." : "Yesterday"} ${time}`, hi: `कल ${time}` };
+  if (key === dayKey(now)) return { en: `Today ${time}`, hi: `आज ${timeH}` };
+  if (key === dayKey(new Date(now.getTime() - 86_400_000))) return { en: `${opts.short ? "Yest." : "Yesterday"} ${time}`, hi: `कल ${timeH}` };
   const days = (now.getTime() - d.getTime()) / 86_400_000;
   if (days > 0 && days < 6) {
     const label = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(d).replace(",", "");
-    return { en: label, hi: label };
+    return { en: label, hi: shortDayHi(d) };
   }
   const label = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, day: "numeric", month: "short" }).format(d);
-  return { en: label, hi: label };
+  return { en: label, hi: dayMonthHi(d) };
 }
 
 /** "14–18 Jul", "23 Sep – 3 Oct", "14 Jul"; empty without a first day. */

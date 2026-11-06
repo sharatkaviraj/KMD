@@ -227,6 +227,7 @@ export function Seg<T extends string>({
 export type Back = { href: string } | { onClick: () => void } | null;
 
 function BackButton({ back, size }: { back: NonNullable<Back>; size: number }) {
+  const { tx } = useVx();
   const icon = <Ic n="chevLeft" size={size === 44 ? 24 : 22} />;
   const style: CSSProperties = { width: size, height: size, padding: 0, borderRadius: size / 2, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" };
   if ("href" in back) {
@@ -237,7 +238,7 @@ function BackButton({ back, size }: { back: NonNullable<Back>; size: number }) {
     );
   }
   return (
-    <button type="button" className="tap btn ghost" aria-label="Back" onClick={back.onClick} style={style}>
+    <button type="button" className="tap btn ghost" aria-label={tx(p("Back", "वापस"))} onClick={back.onClick} style={style}>
       {icon}
     </button>
   );
@@ -270,8 +271,9 @@ export function NotesTop({
   add?: ReactNode;
   teacher?: boolean;
 }) {
+  const { tx } = useVx();
   const help = (size: number) => (
-    <button type="button" className="tap btn ghost" aria-label="Help for this screen" onClick={onHelp} style={{ width: size, height: size, padding: 0, borderRadius: teacher ? size / 2 : undefined }}>
+    <button type="button" className="tap btn ghost" aria-label={tx(p("Help for this screen", "इस स्क्रीन की मदद"))} onClick={onHelp} style={{ width: size, height: size, padding: 0, borderRadius: teacher ? size / 2 : undefined }}>
       <Ic n="help" size={22} />
     </button>
   );

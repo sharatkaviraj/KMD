@@ -7,7 +7,8 @@ import { useState, type ReactNode } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { dayMonth, initials } from "@/vx/format";
+import { dayMonth, initials, shortDayHi } from "@/vx/format";
+import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
@@ -15,7 +16,7 @@ import { VxPage } from "@/vx/ui/page";
 import type { ClassData, MarksLink, StudentData, SubjectData } from "../data";
 import { ATTENTION_RULES, genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
 import { closedTitle } from "../domain/today";
-import { dShort, hm12, shortClass, andList } from "./fmt";
+import { dShort, dShortP, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, TchTop } from "./shared";
 import { ChildSummary } from "@/vx/assist/summary-assist";
 
@@ -255,7 +256,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
             <span className="tc-ic" style={{ background: "var(--s3)", color: "var(--mut)" }}><Ic n="calCheck" /></span>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p("Today’s attendance", "आज की हाज़िरी"))}</span>
-              <span className="tc-hn">{sub(p("Today’s attendance", "आज की हाज़िरी")) ? `${sub(p("Today’s attendance", "आज की हाज़िरी"))} · ` : ""}{dShort(data.today)}</span>
+              <span className="tc-hn">{sub(p("Today’s attendance", "आज की हाज़िरी")) ? `${sub(p("Today’s attendance", "आज की हाज़िरी"))} · ` : ""}{tx(dShortP(data.today))}</span>
             </span>
             {reg ? (
               <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: "var(--oks)", color: "var(--ok)" }}><Ic n="check" size={13} />{tx(p("Saved", "सेव हुई"))}</span>
@@ -324,7 +325,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
         {ttRows.length ? (
           <div className="card rise" style={{ order: 5, padding: "16px 16px 10px", display: "flex", flexDirection: "column", gap: 4, animationDelay: "160ms" }}>
             <div style={{ padding: "0 4px 6px" }}>
-              <Title t={p(`${classLabel} timetable today`, "आज की समय-सारणी")} trail={<span className="tc-s">{dShort(data.today)}</span>} />
+              <Title t={p(`${classLabel} timetable today`, "आज की समय-सारणी")} trail={<span className="tc-s">{tx(dShortP(data.today))}</span>} />
             </div>
             {ttRows.map((r, i) => {
               const tg = r.kind === "done" ? [tx(p("Done", "हो गया")), V("s3"), V("mut")] : r.kind === "now" ? [tx(p("Now", "अभी")), V("acc"), V("onsolid")] : null; // Her own period already says "You" under the subject and is tinted; a second "You" pill read "You You" (6 Nov).
@@ -580,7 +581,7 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
           {links.map((l) => (
             <div key={l.paperId} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 0", borderTop: "1px solid var(--bd)" }}>
               <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>{l.classLabel} · {l.subjectCode} · {l.exam}</span>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>{l.classLabel} · {tx(subjectPair(l.subjectCode))} · {l.exam}</span>
                 <span className="num" style={{ fontSize: 12, fontWeight: 600, color: l.submitted ? V("ok") : l.entered ? V("warnfg") : V("bad") }}>{l.submitted ? tx(p(`${l.total} of ${l.total} · sent`, `${l.total} में से ${l.total} · भेजे`)) : l.entered ? tx(p(`${l.entered} of ${l.total} · in progress`, `${l.total} में से ${l.entered} · जारी`)) : tx(p(`0 of ${l.total} · not started`, `${l.total} में से 0 · शुरू नहीं`))}</span>
               </span>
               <a href={l.url ?? `/teach/marks?paper=${l.paperId}`} className="tap btn soft">{tx(p("Open", "खोलें"))}</a>
@@ -837,7 +838,7 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
                         <span className="pill" style={{ background: LOOK[st.tone][0], color: LOOK[st.tone][1] }}>{tx(st.t)}</span>
                       </span>
                       <span style={{ fontSize: 15 }}>{nt.body}</span>
-                      <span className="tc-s">{nt.writtenByName} · {dShort(nt.createdAt)}{nt.followUpOn ? ` · ${tx(p(`follow up ${dShort(nt.followUpOn)}`, `फ़ॉलो-अप ${dShort(nt.followUpOn)}`))}` : ""}</span>
+                      <span className="tc-s">{nt.writtenByName} · {tx(dShortP(nt.createdAt))}{nt.followUpOn ? ` · ${tx(p(`follow up ${dShort(nt.followUpOn)}`, `फ़ॉलो-अप ${shortDayHi(nt.followUpOn)}`))}` : ""}</span>
                     </Link>
                   );
                 })}
@@ -873,6 +874,9 @@ function dateLong(iso: string): string {
 
 export function TeachSubject({ data }: { data: SubjectData }) {
   const { tx, sub } = useVx();
+  // "ELGA" and "EVS" were shown as codes to Hindi readers (20-teacher day, 6 Nov).
+  const subject = subjectPair(data.subjectCode);
+  const subjectText = tx(subject);
   const [help, setHelp] = useState(false);
   const n = data.rows.length;
   const entered = data.rows.filter((r) => r.value !== null || r.absent || r.exempt).length;
@@ -880,8 +884,8 @@ export function TeachSubject({ data }: { data: SubjectData }) {
     <VxPage label="Subject" className="tc">
       <ClassTop
         crumb={tx(p(`My subjects › ${data.classLabel}`, `मेरे विषय › ${data.classLabel}`))}
-        title={`${data.classLabel} · ${data.subjectCode}`}
-        mTitle={`${data.classLabel} · ${data.subjectCode}`}
+        title={`${data.classLabel} · ${subjectText}`}
+        mTitle={`${data.classLabel} · ${subjectText}`}
         mSub={tx(p(`${n} children`, `${n} बच्चे`))}
         back={`/teach/class?class=${data.classId}&view=subjects`}
         onHelp={() => setHelp(true)}
@@ -891,7 +895,7 @@ export function TeachSubject({ data }: { data: SubjectData }) {
           <div className="card rise" style={{ padding: "18px 20px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
             <span className="tc-ic" style={{ width: 56, height: 56, borderRadius: 18, background: "var(--accs)", color: "var(--accfg)" }}><Ic n={subjectIcon(data.subjectCode)} size={28} /></span>
             <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="serif" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.15 }}>{data.classLabel} · {data.subjectCode}</span>
+              <span className="serif" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.15 }}>{data.classLabel} · {subjectText}</span>
               <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p(`${n} children${data.paper ? ` · ${data.paper.label} ${entered} of ${n} entered` : ""}`, `${n} बच्चे${data.paper ? ` · ${data.paper.label} ${n} में से ${entered}` : ""}`))}</span>
             </span>
             {data.average !== null ? <span className="pill num" style={{ height: 32, padding: "0 12px", fontSize: 12, background: "var(--s2)", color: "var(--mut)" }}>{tx(p(`Class average ${data.average}%`, `कक्षा औसत ${data.average}%`))}</span> : null}
@@ -901,8 +905,8 @@ export function TeachSubject({ data }: { data: SubjectData }) {
               <div className="card rise" style={{ order: 3, overflow: "hidden", animationDelay: "80ms" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--bd)" }}>
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p(`Children · ${data.subjectCode} marks`, `बच्चे · ${data.subjectCode} के अंक`))}</span>
-                    {sub(p(`Children · ${data.subjectCode} marks`, `बच्चे · ${data.subjectCode} के अंक`)) ? <span className="tc-hn">{sub(p(`Children · ${data.subjectCode} marks`, `बच्चे · ${data.subjectCode} के अंक`))}</span> : null}
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p(`Children · ${subject.en} marks`, `बच्चे · ${subject.hi ?? subject.en} के अंक`))}</span>
+                    {sub(p(`Children · ${subject.en} marks`, `बच्चे · ${subject.hi ?? subject.en} के अंक`)) ? <span className="tc-hn">{sub(p(`Children · ${subject.en} marks`, `बच्चे · ${subject.hi ?? subject.en} के अंक`))}</span> : null}
                   </span>
                   {data.paper ? <span className="tc-s num">{tx(p(`${data.paper.label} · out of ${data.paper.maxMarks ?? "—"}`, `${data.paper.label} · ${data.paper.maxMarks ?? "—"} में से`))}</span> : null}
                 </div>
