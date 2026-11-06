@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { feesBridgeEnabled, feesDestination, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
+import { HOME_HINT_COOKIE, followsHomeHint, readHomeHint } from "@/platform/auth/home-hint";
 
 import {
   getRequiredEnvVar,
@@ -202,6 +203,22 @@ export async function updateSession(request: NextRequest) {
     url.search = "";
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
+  }
+
+  // Opening the app on `/`: a person whose `/` only redirects goes straight
+  // to their home, without first rendering the frame once for the redirect
+  // (boot speed, 6 Nov 2026). See `home-hint.ts` for why this is safe.
+  if (hasUser && followsHomeHint(request)) {
+    const home = readHomeHint(request.cookies.get(HOME_HINT_COOKIE)?.value, userId);
+    if (home) {
+      const url = request.nextUrl.clone();
+      const [path, query = ""] = home.split("?", 2);
+      url.pathname = path;
+      url.search = query ? `?${query}` : "";
+      const response = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+      return response;
+    }
   }
 
   // Financial features without an adapter stay in their existing Fees
