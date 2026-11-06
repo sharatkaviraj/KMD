@@ -591,6 +591,8 @@ export function WhatsAppPreview({ lines, footer, count, cost, title = "WhatsApp 
   );
 }
 
+const WRAP_TITLE: CSSProperties = { fontWeight: 600, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" };
+
 /** A row in a card list: leading tile/avatar, title + sub, trailing slot. Renders as a link when `href`. */
 export function ListRow({
   lead: leading,
@@ -602,6 +604,7 @@ export function ListRow({
   style,
   delay,
   onClickHint,
+  wrap,
 }: {
   lead?: ReactNode;
   title: ReactNode;
@@ -612,6 +615,8 @@ export function ListRow({
   style?: CSSProperties;
   delay?: number;
   onClickHint?: string;
+  /** Let a long title run to two lines instead of being cut mid-word on a phone. */
+  wrap?: boolean;
 }) {
   const st: CSSProperties = {
     display: "flex",
@@ -627,7 +632,7 @@ export function ListRow({
     <>
       {leading}
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-        <span className="clip" style={{ fontWeight: 600 }}>{title}</span>
+        <span className={wrap ? undefined : "clip"} style={wrap ? WRAP_TITLE : { fontWeight: 600 }}>{title}</span>
         {sub ? <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{sub}</span> : null}
       </span>
       {trail}

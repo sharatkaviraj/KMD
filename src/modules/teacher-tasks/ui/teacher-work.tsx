@@ -76,6 +76,7 @@ export function TeacherWork({ rows, language, compact, reviewPhotos = false, off
                 key={t.id}
                 href={t.href}
                 title={titleOf(t)}
+                wrap
                 sub={[office ? t.teacherName : null, t.expected > 0 ? `${t.answered}/${t.expected}` : null, dueOf(t.dueDate)].filter(Boolean).join(" · ")}
                 trail={t.rejected ? <Pill tone="bad">{`${say(ms.taskRejected)} ${t.rejected}`}</Pill> : <Ic n="chevRight" size={18} />}
                 style={{ minHeight: 52, padding: "8px 16px" }}

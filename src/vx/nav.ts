@@ -237,11 +237,34 @@ export function groupsFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
     .filter((g) => g.items.length > 0);
 }
 
-export type BottomTab = { key: string; label: Pair; icon: IconName; href: string; badge?: BadgeKey; center?: boolean; quick?: string[] };
+export type BottomTab = { key: string; label: Pair; icon: IconName; href: string; badge?: BadgeKey; center?: boolean; quick?: string[]; short?: Pair };
 
-export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boolean): BottomTab[] {
+/**
+ * The word printed under the centre button. It used to be an icon alone (a
+ * "+" or a calendar), so the biggest button on the phone said nothing to
+ * someone who reads only what is on the screen (UX review, 6 Nov 2026).
+ */
+const CENTER_SHORT: Record<string, Pair> = {
+  "#quick": L("Quick", "जल्दी करें"),
+  "/teach/attendance": L("Attendance", "हाज़िरी"),
+  "/teach/marks": L("Marks", "अंक"),
+  "/payments": L("Collect", "फीस जमा"),
+  "/academics/attendance": L("Attendance", "हाज़िरी"),
+  "/exams": L("Marks", "अंक"),
+};
+
+/**
+ * The teacher's centre button when she has no class of her own. "Mark
+ * attendance" opened "You do not take attendance" for every subject teacher —
+ * the biggest button on the phone led nowhere (UX review, 6 Nov 2026). Marks is
+ * the job a subject teacher actually comes back for.
+ */
+const TEACHER_NO_CLASS_CENTER = { label: L("Marks", "अंक"), icon: "clipboard", href: "/teach/marks", permission: "marks:write" } as const satisfies (typeof BOTTOM)["teacher"]["center"];
+
+export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boolean, opts: { teacherHasClass?: boolean } = {}): BottomTab[] {
   const all = MENUS[menu].flatMap((g) => g.items);
-  const spec = BOTTOM[menu];
+  const base = BOTTOM[menu];
+  const spec = menu === "teacher" && opts.teacherHasClass === false ? { ...base, center: TEACHER_NO_CLASS_CENTER } : base;
   const tab = (key: string): BottomTab | null => {
     if (key === "menu") return { key: "menu", label: L("Menu", "मेनू"), icon: "grid", href: "/menu" };
     const item = all.find((i) => i.key === key);
@@ -252,7 +275,7 @@ export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
   const quick = spec.center.href === "#quick" ? quickActionsFor(allowed) : undefined;
   const center: BottomTab | null =
     allowed(spec.center.permission) && (quick === undefined || quick.length > 0)
-      ? { key: "center", label: spec.center.label, icon: spec.center.icon, href: spec.center.href, center: true, quick }
+      ? { key: "center", label: spec.center.label, icon: spec.center.icon, href: spec.center.href, center: true, quick, short: CENTER_SHORT[spec.center.href] ?? spec.center.label }
       : null;
   return [a, b, center, c, d].filter((x): x is BottomTab => Boolean(x));
 }

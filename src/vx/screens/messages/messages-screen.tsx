@@ -250,9 +250,10 @@ export function MessagesScreen({ data, state, outbox, outboxCount, staffLog = nu
       onChange={(v) => go({ view: v })}
       options={[
         { value: "sent", label: tx(p("Sent", "भेजे गए")) },
-        { value: "outbox", label: `${tx(p("To send", "भेजने को"))}${outboxCount ? ` · ${outboxCount}` : ""}` },
-        { value: "replies", label: `${tx(p("Replies", "जवाब"))}${openReplies ? ` · ${openReplies}` : ""}` },
-        { value: "templates", label: tx(p("Templates", "टेम्पलेट")) },
+        { value: "outbox", label: `${tx(p("To send", "भेजने को"))}${outboxCount ? ` (${outboxCount})` : ""}` },
+        // "Replies · 2 Templates" read as one tab (UX review 6 Nov 2026): counts in brackets, plain words.
+        { value: "replies", label: `${tx(p("Replies", "जवाब"))}${openReplies ? ` (${openReplies})` : ""}` },
+        { value: "templates", label: tx(p("Formats", "फ़ॉर्मैट")) },
         { value: "staff", label: tx(p("Staff", "स्टाफ़")) },
       ]}
     />
@@ -274,10 +275,10 @@ export function MessagesScreen({ data, state, outbox, outboxCount, staffLog = nu
     state.view === "replies"
       ? tx(p(`${openReplies} waiting`, `${openReplies} प्रतीक्षा में`))
       : state.view === "templates"
-        ? tx(p("AiSensy · WhatsApp approval", "AiSensy · व्हाट्सऐप स्वीकृति"))
+        ? tx(p("Message formats WhatsApp has approved", "व्हाट्सऐप से मंज़ूर संदेश फ़ॉर्मैट"))
         : state.view === "outbox"
           ? tx(p("Sent by hand from your WhatsApp", "आपके व्हाट्सऐप से हाथ से भेजे जाते हैं"))
-          : tx(p("WhatsApp through AiSensy", "AiSensy से व्हाट्सऐप"));
+          : tx(p("WhatsApp messages to parents and staff", "अभिभावकों और स्टाफ़ को व्हाट्सऐप संदेश"));
 
   const header = (
     <TopBar
@@ -365,7 +366,7 @@ function SentLog({ data, outboxCount }: { data: MessagesData; outboxCount: numbe
   const earlier = went.filter((c) => logBucket(c.createdAt) === "earlier");
 
   const kpis: { label: Pair; value: string; sub: ReactNode; color?: string }[] = [
-    { label: p("Sent this month", "इस महीने भेजे"), value: data.month.sent.toLocaleString("en-IN"), sub: tx(p(`of ${data.month.count.toLocaleString("en-IN")} messages made this month`, `इस महीने बने ${data.month.count.toLocaleString("en-IN")} संदेशों में से`)) },
+    { label: p("Sent this month", "इस महीने भेजे"), value: data.month.sent.toLocaleString("en-IN"), sub: tx(p(`of ${data.month.count.toLocaleString("en-IN")} made`, `${data.month.count.toLocaleString("en-IN")} में से`)) },
     {
       label: p("Waiting to send", "भेजने बाकी"),
       // Sent by hand, what waits is what the To send tab counts — one number in both places (coordinators B13).

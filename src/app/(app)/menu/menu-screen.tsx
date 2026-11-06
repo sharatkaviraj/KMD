@@ -105,6 +105,10 @@ export function MenuScreen(props: MenuScreenProps) {
   const pins = usePins();
   const pinned = pinnedTiles(props.groups, pins, props.menu);
   const all = props.groups.flatMap((g) => g.tiles);
+  // A pinned tile is not drawn a second time below: the admin's four pins were
+  // the whole Daily group, so the same tiles showed twice (UX review 6 Nov 2026).
+  const pinnedKeys = new Set(pinned.map((x) => x.key));
+  const groups = props.groups.map((g) => ({ ...g, tiles: g.tiles.filter((x) => !pinnedKeys.has(x.key)) })).filter((g) => g.tiles.length > 0);
 
   return (
     <>
@@ -133,7 +137,7 @@ export function MenuScreen(props: MenuScreenProps) {
           {pinned.length ? <PinnedRow pinned={pinned} all={all} /> : null}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-            {props.groups.map((g) => [
+            {groups.map((g) => [
               <GroupHead key={`h-${g.title.en}`} title={g.title} />,
               ...g.tiles.map((x) => (
                 <Link key={x.key} href={x.href} className="tap" style={tileStyle}>

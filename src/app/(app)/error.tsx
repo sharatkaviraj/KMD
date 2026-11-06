@@ -59,6 +59,9 @@ export default function AppError({
     <div className="py-6">
       <ErrorState
         language={language}
+        // What to do next, in words (UX review 6 Nov 2026): the bare "ref" told a
+        // teacher nothing about whether her work was lost or whom to tell.
+        help={primary(m.errorReassure, language)}
         detail={
           error.digest ? `${primary(m.reference, language)} ${error.digest}` : null
         }

@@ -847,10 +847,17 @@ body[data-vpps-test-session="true"]::before {
   pointer-events: none;
 }
 
+/* Phone: a small tab at the very top edge. Above the bottom bar it covered the
+   last row of every list and the floating buttons (UX review 6 Nov 2026). */
 @media (max-width: 767px) {
   body[data-vpps-test-session="true"]::before {
-    top: auto;
-    bottom: calc(var(--mobile-bottom-nav-offset, 4.25rem) + 8px);
+    content: "TEST";
+    top: 0;
+    right: 50%;
+    transform: translateX(50%);
+    padding: 0 8px;
+    border-radius: 0 0 6px 6px;
+    font: 700 10px/1.5 system-ui;
   }
 }
 

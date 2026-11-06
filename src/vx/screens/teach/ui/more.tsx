@@ -320,7 +320,9 @@ export function TeachMore({
       ) : null}
       <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
         {data.links.map((l, i) => {
-          const st: [Pair, string, string, string] = l.submitted ? [p("Done ✓", "पूरा ✓"), V("oks"), V("ok"), V("ok")] : l.entered ? [p("In progress", "चल रहा है"), V("accs"), V("accfg"), V("acc")] : [p("Not started", "शुरू नहीं"), V("s3"), V("mut"), V("acc")];
+          // Sent with blanks is not done: the review found "Done ✓" on a paper with 0 marks entered (6 Nov 2026).
+          const blank = Math.max(0, l.total - l.entered);
+          const st: [Pair, string, string, string] = l.submitted && blank > 0 ? [p(`Sent · ${blank} blank`, `भेजा · ${blank} खाली`), V("warns"), V("warnfg"), V("warn")] : l.submitted ? [p("Done ✓", "पूरा ✓"), V("oks"), V("ok"), V("ok")] : l.entered ? [p("In progress", "चल रहा है"), V("accs"), V("accfg"), V("acc")] : [p("Not started", "शुरू नहीं"), V("s3"), V("mut"), V("acc")];
           const frac = l.total ? Math.min(1, l.entered / l.total) : 0;
           return (
             <div key={l.paperId} className="card tc-in" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, animationDelay: `${Math.min(i, 14) * 30}ms` }}>
@@ -341,7 +343,7 @@ export function TeachMore({
                   <span className="pill" style={{ alignSelf: "flex-start", background: st[1], color: st[2] }}>{tx(st[0])}</span>
                 </span>
               </div>
-              <span className="tc-ts" style={{ color: "var(--mut)" }}>{l.submitted ? tx(p("Sent to the exam office", "परीक्षा विभाग को भेजे गए")) : tx(p(`${l.entered} of ${l.total} entered`, `${l.total} में से ${l.entered} भरे`))}</span>
+              <span className="tc-ts" style={{ color: "var(--mut)" }}>{l.submitted && blank > 0 ? tx(p(`Sent to the exam office with ${blank} of ${l.total} blank`, `परीक्षा विभाग को भेजे, ${l.total} में से ${blank} खाली`)) : l.submitted ? tx(p("Sent to the exam office", "परीक्षा विभाग को भेजे गए")) : tx(p(`${l.entered} of ${l.total} entered`, `${l.total} में से ${l.entered} भरे`))}</span>
               {l.url ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <a href={l.url} className="tap btn pri tc-mbg"><Ic n="globe" />{tx(p("Open link", "लिंक खोलें"))}</a>

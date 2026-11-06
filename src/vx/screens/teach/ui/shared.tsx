@@ -132,8 +132,10 @@ export function LangSeg({ pill }: { pill?: boolean } = {}) {
 /** The phone bar's "?". */
 export function HelpIcon({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <button type="button" className="tap btn ghost tc-x" aria-label={label} onClick={onClick} style={{ color: "var(--fg)" }}>
-      <Ic n="help" size={24} />
+    // The word beside the "?" — an icon alone said nothing to a teacher who reads only what is printed (UX review 6 Nov 2026).
+    <button type="button" className="tap btn ghost" onClick={onClick} style={{ color: "var(--fg)", gap: 4, paddingInline: 8, minWidth: 44 }}>
+      <Ic n="help" size={22} />
+      <span style={{ fontWeight: 700, fontSize: 14 }}>{label}</span>
     </button>
   );
 }

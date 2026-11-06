@@ -67,6 +67,10 @@ export const notFoundDetail = /* @__PURE__ */ t(
     "The address may have changed. Start again from your own home screen.",
   );
 export const reference = /* @__PURE__ */ t("संदर्भ", "ref");
+export const errorReassure = /* @__PURE__ */ t(
+    "जो आपने सहेजा था वह सुरक्षित है। फिर कोशिश करें; बार-बार हो तो ऑफ़िस को फ़ोन करके यह नंबर बताएँ।",
+    "Nothing you saved is lost. Try again; if it keeps happening, call the office and read out this number.",
+  );
 
   /* ------------------------------------------------------------- session */
 export const session = /* @__PURE__ */ t("सत्र", "Session");

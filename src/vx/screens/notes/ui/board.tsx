@@ -290,6 +290,14 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   /* ---------------------------------------------------------- the screens */
   const board = (
     <div className="nx-c" style={{ gap: 16, animation: "xIn .32s var(--ease) both" }}>
+      {/* On the phone, a plain button at the top: the floating one sat over the
+          second filter box and that filter could not be tapped (UX review 6 Nov 2026). */}
+      {props.viewer.canWrite ? (
+        <button type="button" className="tap btn pri only-m" onClick={openAdd} style={{ width: "100%", height: 52, fontSize: 16 }}>
+          <Ic n="mic" size={22} />
+          {tx(p("Add a note", "नोट लिखें"))}
+        </button>
+      ) : null}
       <div className="g4" style={{ display: "grid", gridTemplateColumns: `repeat(${open ? 2 : 4},minmax(0,1fr))`, gap: 12 }}>
         <KpiTile label={tx(p("Needs action", "कार्रवाई ज़रूरी"))} value={kpis.needsAction} sub={tx(p("Due now, or nobody has picked them up", "समय हो गया, या किसी ने नहीं उठाए"))} icon="flag" bg="var(--warns)" fg="var(--warnfg)" tone={kpis.needsAction ? "var(--warnfg)" : "var(--fg)"} on={tab === "action"} onPick={() => setTab("action")} delay={0} />
         {/* The tile counts what its tab lists (smoke 20 Oct: 7 on one, 4 on the other). */}
@@ -420,14 +428,6 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
         <Ic n="lock" size={16} />
         {tx(p("Notes a teacher marks “Only me” stay private and are not shown here.", "जिन नोट्स को अध्यापक “सिर्फ़ मैं” रखते हैं, वे यहाँ नहीं दिखते।"))}
       </span>
-      {props.viewer.canWrite ? (
-        <div className="only-m nx-fabrow">
-          <button type="button" className="tap btn pri nx-fab" onClick={openAdd}>
-            <Ic n="mic" size={22} />
-            {tx(p("Add a note", "नोट लिखें"))}
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 

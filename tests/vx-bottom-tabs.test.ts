@@ -55,3 +55,23 @@ describe("a screen under the accountant's Today but reached from Menu (smoke 20 
     expect(activeTab(tabs, "/teach/more")).toBe("/teach/more");
   });
 });
+
+describe("the centre button (UX review, 6 Nov 2026)", () => {
+  it("prints a word under the centre button for every role", () => {
+    for (const menu of ["admin", "teacher", "accountant", "academic", "exam"] as const) {
+      const centre = bottomFor(menu, all).find((t) => t.center);
+      expect(centre?.short?.en, menu).toBeTruthy();
+      expect(centre?.short?.hi, menu).toBeTruthy();
+    }
+  });
+
+  it("gives a teacher without a class Marks, not a dead-end Attendance", () => {
+    const centre = (o?: { teacherHasClass?: boolean }) => bottomFor("teacher", all, o).find((t) => t.center);
+    expect(centre()?.href).toBe("/teach/attendance");
+    expect(centre({ teacherHasClass: true })?.href).toBe("/teach/attendance");
+    expect(centre({ teacherHasClass: false })?.href).toBe("/teach/marks");
+    expect(centre({ teacherHasClass: false })?.short?.en).toBe("Marks");
+    // Other roles are untouched by the flag.
+    expect(bottomFor("academic", all, { teacherHasClass: false }).find((t) => t.center)?.href).toBe("/academics/attendance");
+  });
+});
