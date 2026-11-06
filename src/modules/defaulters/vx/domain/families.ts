@@ -21,6 +21,14 @@ export type DuesStudent = {
   totalPending: number;
   /** Late fee still owed. Kept apart. */
   lateFee: number;
+  /**
+   * Fees on installments due today or later, read off the installment rows —
+   * the same rule as Reports (due-rule.ts). When given it replaces
+   * totalPending − overdue, which also counted a child whose fees were never
+   * set up as installments (TEST: 507 such seed children, ₹1.13 Cr, so Dues
+   * read "₹117 L not due yet" against Reports' ₹4.4 L; 6 Nov 2026).
+   */
+  notDueYet?: number;
   daysOverdue: number;
   familyGroupId?: string | null;
   lastPaymentDate?: string | null;
@@ -91,7 +99,7 @@ export function groupFamilies(students: readonly DuesStudent[], contacts?: Reado
     f.kids.push(s);
     const overdue = Math.max(0, Math.round(s.overdueAmount));
     f.pendingToday += overdue;
-    f.notDueYet += Math.max(0, Math.round(s.totalPending) - overdue);
+    f.notDueYet += Math.max(0, Math.round(s.notDueYet ?? s.totalPending - overdue));
     f.lateFee += Math.max(0, Math.round(s.lateFee));
     f.days = Math.max(f.days, s.daysOverdue || 0);
     f.usesBus = f.usesBus || Boolean(s.transportRouteId);

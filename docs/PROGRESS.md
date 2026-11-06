@@ -27,10 +27,14 @@ nothing was saved (B3); Left owing is session-scoped (B2 part); one family
 call counts once (B8); reminder preview shows the family's real overdue date
 (B9); search finds whole SRs like TEST-D-0366, JKG/SKG are classes (B11);
 Today's sparkline and follow-ups leave reversals out (B12); Promises tab
-counts open promises. **Open:** Dues "not due yet" ₹117 L vs Reports ₹4.4 L
-(likely seed students without installment rows; one SQL check when the DB is
-healthy), check card "Late fee Collected ₹3,000", slip/PDF waiver line, the
-rest of the P2/P3 lists in the findings files.
+counts open promises. **Evening follow-up:** Dues "not due yet" now reads installment rows due
+today or later, the same rule as Reports. SQL showed 507 TEST children with
+₹1.13 Cr owed on the student row and no installment rows (live 2026-27: 1),
+which made Dues read ₹117 L against Reports' ₹4.4 L. The late fee forgiven at
+the counter (waive_late_fee under the receipt's client_request_id) is now
+read by the shared receipt detail, so the receipt page, the slip and the PDF
+all show "Late fee waived". **Open:** the rest of the P2/P3 lists in the
+findings files.
 
 ## Teacher school day: 20 seats in TEST — 6 November 2026
 
