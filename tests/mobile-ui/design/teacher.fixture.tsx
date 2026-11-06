@@ -85,9 +85,9 @@ function home(state: "home" | "later"): HomeData {
     followUpsDue: 1,
     reviews: [{ id: id(601), studentId: id(119), studentName: "Riya Singh", subject: { en: "Riya Singh" }, body: "finds fractions hard · practice sheets started", followUpOn: "2026-10-12" }],
     subjects: [
-      { classId: C6, classLabel: "Class 6", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 31, mine: true },
-      { classId: C7, classLabel: "Class 7", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 27, mine: false },
-      { classId: C8, classLabel: "Class 8", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 28, mine: false },
+      { classId: C6, classLabel: "Class 6", subjectId: SCI, code: "SCI", name: "Science", nameHi: "विज्ञान", children: 31, mine: true },
+      { classId: C7, classLabel: "Class 7", subjectId: SCI, code: "SCI", name: "Science", nameHi: "विज्ञान", children: 27, mine: false },
+      { classId: C8, classLabel: "Class 8", subjectId: SCI, code: "SCI", name: "Science", nameHi: "विज्ञान", children: 28, mine: false },
     ],
     links: [
       { paperId: id(306), classLabel: "Class 6", subjectCode: "Science", exam: "Half-yearly", entered: 31, total: 31, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },

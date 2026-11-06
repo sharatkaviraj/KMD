@@ -228,7 +228,11 @@ export function TeachHome({
   const periodHref = (per: (typeof data.periods)[number]) => {
     if (!per.classId) return undefined;
     if (per.classId === data.myClass?.classId) return `/teach/class?class=${per.classId}`;
-    const s = data.subjects.find((x) => x.classId === per.classId && x.name === per.subjectName);
+    // Match by code, then name, then the only subject she teaches in that class:
+    // the timetable said "MATHS" where the subject list said "Mathematics",
+    // and her Class 10 Maths period still opened "My class" (6 Nov re-check).
+    const inClass = data.subjects.filter((x) => x.classId === per.classId);
+    const s = inClass.find((x) => x.code === per.subjectCode) ?? inClass.find((x) => x.name === per.subjectName) ?? (inClass.length === 1 ? inClass[0] : undefined);
     return s ? `/teach/class?subject=${s.classId}.${s.subjectId}` : `/teach/class?class=${per.classId}`;
   };
   const rows: Row[] = [];

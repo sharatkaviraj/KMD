@@ -663,10 +663,14 @@ export function MarksSheet({
   /* ------------------------------------------------------ sending */
 
   async function send(kind: "submit" | "correction") {
-    if (inflight.current || busy || !ready || recovered) return;
+    if (busy || !ready || recovered) return;
     if (timer.current) clearTimeout(timer.current);
     setBusy(true);
     try {
+      // The last mark's autosave still on its way goes first. Send used to
+      // return here without a word, so on a slow day a teacher pressed it,
+      // nothing happened for 90 s and the paper was never sent (6 Nov).
+      if (inflight.current) await inflight.current;
       if (command.current) {
         // A draft still waiting goes first; a send or correction still waiting is the send.
         const waiting = command.current;
@@ -812,12 +816,13 @@ export function MarksSheet({
   // One line for where the save stands, read out politely when it changes.
   const statusLine =
     status === "saving"
-      ? tx(p("Sending…", "भेज रहे हैं…"))
+      ? // Autosave, not "Send to the exam office": "Sending…" here read as the paper going off (6 Nov).
+        tx(p("Saving…", "सहेज रहे हैं…"))
       : status === "blocked" && blocker
         ? tx(blocker)
         : status === "error"
           ? pendingCommand
-            ? tx(online ? p("Not sent yet — trying again by itself", "अभी नहीं गए — अपने आप फिर भेज रहे हैं") : p("No internet — marks are safe on this phone", "इंटरनेट नहीं — अंक फ़ोन में सुरक्षित हैं"))
+            ? tx(online ? p("Not saved yet — trying again by itself", "अभी सहेजे नहीं गए — अपने आप फिर कोशिश कर रहे हैं") : p("No internet — marks are safe on this phone", "इंटरनेट नहीं — अंक फ़ोन में सुरक्षित हैं"))
             : tx(p("Not saved — tap Retry", "सहेजा नहीं — “फिर कोशिश करें” दबाएँ"))
           : status === "stale"
             ? tx(p("Not saved yet", "अभी सहेजा नहीं"))
