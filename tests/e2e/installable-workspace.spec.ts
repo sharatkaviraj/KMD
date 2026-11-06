@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { attendanceLabels } from "@/modules/attendance/domain/attendance";
 import { primary } from "@/platform/i18n/language";
 import { draftKey } from "@/platform/drafts/policy";

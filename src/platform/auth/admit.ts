@@ -1,6 +1,6 @@
 import "server-only";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { resolveStaffRole, type StaffRole } from "@/platform/auth/permissions";
 import { resolveLanguage, type Localized } from "@/platform/i18n/language";
 import { writeLanguageCookie } from "@/platform/i18n/language-cookie";

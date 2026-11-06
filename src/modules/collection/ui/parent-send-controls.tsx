@@ -7,7 +7,7 @@ import {
   confirmParentSentAction,
   flagRouteAction,
 } from "@/app/(app)/collection/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { idleCollectionState } from "@/modules/collection/domain/form-state";
 import { idleParentSendState } from "@/modules/collection/domain/parent-send-state";

@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary, type Language } from "@/platform/i18n/language";
 import { RequestForm } from "@/modules/collection/ui/request-form";
 import type { CollectionRequest, RollRow } from "@/modules/collection/domain/requests";

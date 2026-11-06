@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { decodeMessage, type Localized } from "@/platform/i18n/language";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";

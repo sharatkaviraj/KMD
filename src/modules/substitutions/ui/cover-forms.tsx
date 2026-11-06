@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { CoverCommandForm } from "@/modules/substitutions/ui/cover-command";
 import { PeriodPicker } from "@/modules/substitutions/ui/period-picker";
 import { flat, primary, t } from "@/platform/i18n/language";

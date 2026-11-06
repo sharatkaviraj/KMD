@@ -5,7 +5,7 @@ import { isEmptyCard } from "@/modules/assessments/domain/report-card";
 import { reportRefusals } from "@/modules/assessments/domain/report-refusals";
 import { revalidatePath } from "next/cache";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";

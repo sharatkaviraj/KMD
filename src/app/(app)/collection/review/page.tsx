@@ -3,7 +3,7 @@ import { PhotoReview } from "@/modules/collection/ui/photo-review";
 import { photoMessages } from "@/messages/setup";
 import { TriangleAlert } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";

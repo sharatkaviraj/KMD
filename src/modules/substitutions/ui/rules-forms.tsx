@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { saveBellsAction, saveTeamRuleAction } from "@/app/(app)/substitutions/rules/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import type { BellPeriod } from "@/modules/timetable/domain/bells";
 import { periodNumber } from "@/modules/timetable/domain/periods";

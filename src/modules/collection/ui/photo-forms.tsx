@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { placePhotoAction, type PhotoResult } from "@/app/(app)/collection/photos/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms, photoMessages as words } from "@/messages/setup";
 import {
   photoAmbiguityLabels,

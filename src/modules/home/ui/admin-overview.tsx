@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import type { AttentionItem } from "@/modules/home/domain/attention";
 import { needsAttention } from "@/modules/home/domain/attention";
 import { overviewRows, type OverviewFacts } from "@/modules/home/domain/overview";

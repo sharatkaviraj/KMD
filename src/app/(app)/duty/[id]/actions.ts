@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { assertStaff } from "@/platform/auth/current-staff";
 import { t } from "@/platform/i18n/language";
 import { respondToDuty, type DutyResponse } from "@/modules/substitutions/data/duty-repo";

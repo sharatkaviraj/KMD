@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { roleLabel } from "@/platform/auth/permissions";
 import { ClassicTopBar } from "@/vx/ui/classic-top-bar";
 import type { CurrentStaff } from "@/platform/auth/current-staff";

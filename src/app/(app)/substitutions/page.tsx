@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { coverPhotoEnabled } from "@/lib/ai/access";
 import { recentCoverPhoto } from "@/lib/ai/cover-photo-service";

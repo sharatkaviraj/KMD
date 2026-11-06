@@ -7,8 +7,8 @@
       "sourceUrl": "https://raw.githubusercontent.com/google/fonts/6c1dbe27dcf7d817d4b62cec033ba77fa8e2a5ec/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf",
       "sourceSha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
       "file": "Inter-Variable.woff2",
-      "sha256": "b33cb85c06adfd76d777d9de472c8a33b85154e2e7e686af467387e1e43ed494",
-      "bytes": 236444,
+      "sha256": "4d1ad3d4b757c7db4baa809afda2126c88ad799bf446f5805f29114190fa8cc0",
+      "bytes": 153052,
       "fixedAxes": {
         "opsz": 14.0
       },
@@ -18,15 +18,22 @@
           100.0,
           900.0
         ]
-      ]
+      ],
+      "subset": {
+        "date": "2026-11-06",
+        "tool": "pyftsubset (fonttools 4.68.0)",
+        "unicodes": "U+0000-024F,U+0259,U+02B0-02FF,U+0300-036F,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2100-218F,U+2190-21FF,U+2200-22FF,U+2300-23FF,U+25A0-25FF,U+2600-26FF,U+2700-27BF,U+FEFF,U+FFFD",
+        "layoutFeatures": "*",
+        "reason": "Latin scripts, Indian transliteration, punctuation, the rupee sign, arrows and symbols only; Greek, Cyrillic and Vietnamese-only glyphs dropped to cut the first visit by 158 KB"
+      }
     },
     {
       "family": "SourceSerif4",
       "sourceUrl": "https://raw.githubusercontent.com/google/fonts/6c1dbe27dcf7d817d4b62cec033ba77fa8e2a5ec/ofl/sourceserif4/SourceSerif4%5Bopsz%2Cwght%5D.ttf",
       "sourceSha256": "97b2d4da6e3cb494b5a1e66ae176914d852ccabef49e0c02c0df25f3e39aca0b",
       "file": "SourceSerif4-Variable.woff2",
-      "sha256": "024c5f740d695433be5bfb95df91aa2c5b553beab17349ced2ce1e84736c8885",
-      "bytes": 180492,
+      "sha256": "73973cf8fe6e252a4cccc37831603f85efa4b3ce253e836ac21f72c1a7f18117",
+      "bytes": 105468,
       "fixedAxes": {
         "opsz": 20.0
       },
@@ -36,7 +43,14 @@
           200.0,
           900.0
         ]
-      ]
+      ],
+      "subset": {
+        "date": "2026-11-06",
+        "tool": "pyftsubset (fonttools 4.68.0)",
+        "unicodes": "U+0000-024F,U+0259,U+02B0-02FF,U+0300-036F,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2100-218F,U+2190-21FF,U+2200-22FF,U+2300-23FF,U+25A0-25FF,U+2600-26FF,U+2700-27BF,U+FEFF,U+FFFD",
+        "layoutFeatures": "*",
+        "reason": "Latin scripts, Indian transliteration, punctuation, the rupee sign, arrows and symbols only; Greek, Cyrillic and Vietnamese-only glyphs dropped to cut the first visit by 158 KB"
+      }
     },
     {
       "family": "NotoSansDevanagari",

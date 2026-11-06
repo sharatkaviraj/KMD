@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { ExternalLink } from "lucide-react";
 
 import { saveStartAction, type PreferencesState } from "./actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { cn } from "@/platform/utils";

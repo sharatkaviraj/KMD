@@ -93,7 +93,7 @@ vi.mock("@/platform/fees-bridge/client", () => ({ getBridgeStudent: vi.fn() }));
 vi.mock("@/modules/fees/platform/session-context/cookie", () => ({ getViewSessionCookie: async () => null }));
 
 import StudentPage from "@/app/(app)/teach/student/[id]/page";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 
 function viewer(role: CurrentStaff["role"], permissions: string[]): CurrentStaff {
   return {

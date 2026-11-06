@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { saveLanguageAction, type PreferencesState } from "./actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { languages, primary, type Language } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { cn } from "@/platform/utils";

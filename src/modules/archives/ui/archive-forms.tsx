@@ -3,7 +3,7 @@
 import { useActionState, useTransition } from "react";
 
 import { buildArchiveAction, manifestLinkAction, runDrillAction } from "@/app/(app)/archives/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { idleCollectionState } from "@/modules/collection/domain/form-state";
 import { primary } from "@/platform/i18n/language";

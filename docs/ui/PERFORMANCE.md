@@ -125,3 +125,12 @@ Batch 1 (D-427 to D-431):
 Not done yet: the native (non-bridge) student photos are still signed per
 render (300 s URLs), so the browser cannot reuse them; that matters for test
 accounts only today.
+
+Batch 2 (D-432 to D-435):
+
+- **Each page ships only the words it says.** The pair catalogue is named
+  exports now; every measured route lost about 17 KB gzipped. ✅
+- **Lighter fonts.** Inter and Source Serif 4 subset; 158 KB off a first visit. ✅
+- **Sign in straight to the start screen**, no `/dashboard` hop. ✅
+- **Screens settle in** over 180 ms. ✅
+- Deferred: keeping the server warm (needs pg_cron or a paid plan; measure first).

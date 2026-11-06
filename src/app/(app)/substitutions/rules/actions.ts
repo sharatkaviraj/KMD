@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { t } from "@/platform/i18n/language";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";

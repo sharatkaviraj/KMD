@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   flat,
   primary,

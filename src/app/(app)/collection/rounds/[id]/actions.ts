@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import {managedTasksForRequests} from "@/modules/teacher-tasks/data/delivery-routing";
 import {taskDeliveryMessages} from "@/messages/setup";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import {
   assertCollectionRequestVisible,

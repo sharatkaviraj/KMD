@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { assertSessionWritable, assertStudentsVisible, passesFence } from "@/platform/auth/test-session-access";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";

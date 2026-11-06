@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary, type Language, type Localized } from "@/platform/i18n/language";
 import { buttonClasses } from "@/ui/primitives/button";
 import { StateCard } from "@/ui/states";

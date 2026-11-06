@@ -11,7 +11,7 @@ import {
   markSentAction,
   openRoundAction,
 } from "@/app/(app)/collection/rounds/[id]/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { roundStatusLabel } from "@/modules/collection/domain/rounds";
 import { idleCollectionState } from "@/modules/collection/domain/form-state";
 import { countOf, primary, type Language, type Localized } from "@/platform/i18n/language";

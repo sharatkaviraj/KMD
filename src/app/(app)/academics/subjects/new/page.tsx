@@ -1,5 +1,5 @@
 import { createSubjectAction } from "@/app/(app)/academics/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { SubjectForm } from "@/modules/academics/ui/subject-form";

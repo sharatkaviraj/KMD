@@ -1,4 +1,4 @@
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { deleteNoteAction } from "@/app/(app)/teach/actions";
 import { byNewest, type Note, type NoteTone } from "@/modules/notes/domain/notes";
 import { dayLabel } from "@/platform/dates";

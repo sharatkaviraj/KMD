@@ -2,7 +2,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { AdminOverview } from "@/modules/home/ui/admin-overview";
 import { attentionFor } from "@/modules/home/domain/attention";
 import { primary, type Language } from "@/platform/i18n/language";

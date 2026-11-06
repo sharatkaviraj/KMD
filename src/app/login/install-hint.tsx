@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary } from "@/platform/i18n/language";
 import { useLang } from "@/platform/locale/language-provider";
 import { installPwa, usePwaState } from "@/platform/pwa/store";

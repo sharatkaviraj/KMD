@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { mc } from "@/messages/collect";
 import { ms } from "@/messages/setup";
 import { taskAssignMessages } from "@/messages/task-assign";

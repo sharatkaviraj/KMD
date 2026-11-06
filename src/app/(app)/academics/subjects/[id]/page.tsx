@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { updateSubjectAction } from "@/app/(app)/academics/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { getSubjectById } from "@/modules/academics/data/academics-repo";
 import { SubjectForm } from "@/modules/academics/ui/subject-form";

@@ -114,7 +114,7 @@ vi.mock("@/vx/screens/teach/students", () => ({ childBasics: vi.fn() }));
 
 import { requestLeaveVx } from "@/vx/screens/teach/actions";
 import { leaveSubmissionFor } from "@/vx/screens/teach/domain/teach";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 
 const FIRST = "00000000-0000-4000-8000-0000000000a1";
 const SECOND = "00000000-0000-4000-8000-0000000000a2";

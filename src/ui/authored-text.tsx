@@ -1,4 +1,4 @@
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { readAuthored, type Authored } from "@/platform/i18n/authored";
 import { flat, t, type Language, type Localized } from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";

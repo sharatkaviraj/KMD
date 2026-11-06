@@ -51,6 +51,10 @@ describe("sign-in destinations", () => {
     expect(landingFor({ ...accounts, requested })).toBe("/fees");
     expect(landingFor({ role: "teacher", preferredStart: null, requested })).toBe("/teach");
   });
+  it("sends the old /dashboard default straight to the start screen, not through a redirect", () => {
+    expect(landingFor({ ...accounts, requested: "/dashboard" })).toBe("/fees");
+    expect(landingFor({ role: "teacher", preferredStart: null, requested: "/dashboard" })).toBe("/teach");
+  });
   it.each(staffRoles)("sends %s's bookmarked Apps link to their role home", role => {
     expect(landingFor({ role, preferredStart: "app:schoolfees", requested: "/apps?from=bookmark" })).toBe(homeFor(role));
   });

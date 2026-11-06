@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { acknowledgeDutyAction, cannotCoverAction } from "@/app/(app)/duty/[id]/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import { primary } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";

@@ -4,7 +4,7 @@ import {
   deleteDraftAction,
   publishVersionAction,
 } from "@/app/(app)/timetable/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { assertSessionVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { can } from "@/platform/auth/permissions";

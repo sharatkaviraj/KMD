@@ -8,7 +8,7 @@ import { draftKey, isStringRecord } from "@/platform/drafts/policy";
 import { useDurableDraft } from "@/platform/drafts/use-durable-draft";
 import { DraftStatus } from "@/ui/draft-status";
 import { recordPerformance } from "@/platform/performance/record";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   validateField,
   type CollectionField,

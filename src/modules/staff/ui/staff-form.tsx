@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 
 import type { StaffFormState } from "@/app/(app)/staff/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { roleLabel, type StaffRole } from "@/platform/auth/permissions";
 import { flat, primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";

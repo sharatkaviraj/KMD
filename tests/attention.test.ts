@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { staffRoles, type StaffRole } from "@/platform/auth/permissions";
 import {
   attentionFor,

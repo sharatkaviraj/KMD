@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BookOpen, ClipboardCheck, Clock, Plus, Users } from "lucide-react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { can } from "@/platform/auth/permissions";

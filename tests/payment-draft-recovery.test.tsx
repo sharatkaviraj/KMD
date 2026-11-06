@@ -9,7 +9,7 @@ import { PaymentDeskClient, type PaymentDeskMobileProps } from "@/modules/paymen
 import { buildPaymentDraftKey, loadDraft, saveDraft, type PaymentDraftKeyParts } from "@/modules/payments/domain/draft-store";
 import { flushDraftWrites } from "@/platform/drafts/store";
 import { draftPageData, draftSummary } from "./payment-draft.fixture";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
 vi.mock("next/link", () => ({ default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));

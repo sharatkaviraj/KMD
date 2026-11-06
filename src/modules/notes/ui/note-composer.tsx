@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { writeNoteAction } from "@/app/(app)/teach/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import {
   activeKinds,
   type NoteKind,

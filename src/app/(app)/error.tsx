@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { primary } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { Button } from "@/ui/primitives/button";

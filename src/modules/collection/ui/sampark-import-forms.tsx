@@ -7,7 +7,7 @@ import {
   resolveSamparkRowAction,
   stageSamparkImportAction,
 } from "@/app/(app)/collection/import/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import { idleCollectionState, type CollectionState } from "@/modules/collection/domain/form-state";
 import { primary } from "@/platform/i18n/language";

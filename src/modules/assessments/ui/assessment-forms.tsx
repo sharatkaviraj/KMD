@@ -9,7 +9,7 @@ import {
   saveAssessmentAction,
   savePaperAction,
 } from "@/app/(app)/assessments/actions";
-import { m } from "@/messages";
+import * as m from "@/messages/pairs";
 import { ms } from "@/messages/setup";
 import {
   assessmentKindLabels,
