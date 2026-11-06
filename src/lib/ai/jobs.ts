@@ -45,7 +45,7 @@ export async function ownedAiJob(owner: Owner): Promise<AiJob | null> {
   return data;
 }
 
-export async function reserveAiJob(input: Omit<Owner, "id"> & { revision: number; pages: number; model: string; audioExtension?: "webm" | "m4a" | "wav" }) {
+export async function reserveAiJob(input: Omit<Owner, "id"> & { revision: number; pages: number; model: string; audioExtension?: "webm" | "m4a" | "wav" | "txt" }) {
   if (!/^(?:[A-Z]{2,5}-)?\d{4}-\d{2}$/u.test(input.session)) throw new Error("Unknown AI session");
   const { data, error } = await db().rpc("reserve_ai_job", {
     p_staff: input.staffId, p_action: input.action, p_session: input.session, p_target: input.targetId,
@@ -92,7 +92,7 @@ export async function purgeBuiltinAiInputs(now = new Date()) {
   if (!data.length) return { jobs: 0, paths: 0 };
   const paths = data.flatMap((job) => job.input_paths.filter((path) =>
     [1, 2, 3, 4].some((i) => path === job.id + "/" + i + ".jpg") ||
-      ["webm", "m4a", "wav"].some((ext) => path === job.id + "/1." + ext),
+      ["webm", "m4a", "wav", "txt"].some((ext) => path === job.id + "/1." + ext),
   ));
   if (paths.length) {
     const { error: removalError } = await inputBucket().remove(paths);

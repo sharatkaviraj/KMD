@@ -22,7 +22,7 @@ export default async function Page() {
   const now = await schoolNow(staff);
   const rows = await listTeacherTasks(false, { now }).catch(() => null);
   return (
-    <TaskShell title={p("My tasks", "मेरे काम")} back="/teach/more" phone={schoolProfile.phone || undefined}>
+    <TaskShell title={p("My tasks", "मेरे काम")} back="/teach/more" phone={schoolProfile.officePhone || undefined}>
       <TeacherWork rows={rows} language={staff.language} compact={false} office={false} />
     </TaskShell>
   );

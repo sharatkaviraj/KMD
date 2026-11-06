@@ -9,7 +9,7 @@ import { p, type Pair } from "@/vx/text";
 import { useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 import { initials } from "@/vx/format";
-import { HelpSheet, LangSeg, TchTop, type HelpStep } from "@/vx/screens/teach/ui/shared";
+import { DeskHelp, HelpIcon, HelpSheet, LangSeg, TchTop, type HelpStep } from "@/vx/screens/teach/ui/shared";
 
 import { subjectPair } from "./domain/groups";
 import { remarkText, type RemarkSuggestion } from "./domain/messages";
@@ -85,12 +85,8 @@ export type RemarksCard = { classId: string; classLabel: string; done: number; t
 
 function MarksTop({ crumb, title, mSub, back, onHelp }: { crumb: string; title: string; mSub: string; back: string; onHelp: () => void }) {
   const { tx } = useVx();
-  const help = (size: number) => (
-    <button type="button" className="tap btn ghost" aria-label={tx(p("Help for this screen", "इस स्क्रीन की मदद"))} onClick={onHelp} style={{ width: size, height: size === 44 ? 44 : undefined, padding: 0, borderRadius: size === 44 ? 22 : undefined, color: "var(--fg)" }}>
-      <Ic n="help" size={22} />
-    </button>
-  );
-  return <TchTop crumb={crumb} title={title} actions={<><LangSeg />{help(42)}</>} mBack={back} mTitle={title} mSub={mSub} mAction={<><LangSeg />{help(44)}</>} />;
+  const label = tx(p("Help", "मदद"));
+  return <TchTop crumb={crumb} title={title} actions={<><LangSeg /><DeskHelp onClick={onHelp} label={label} /></>} mBack={back} mTitle={title} mSub={mSub} mAction={<><LangSeg /><HelpIcon onClick={onHelp} label={label} /></>} />;
 }
 
 export function TeacherPick({

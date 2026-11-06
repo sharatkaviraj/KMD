@@ -18,7 +18,7 @@ vi.mock("@/vx/screens/teach/actions", () => ({ saveRegisterVx: state.save, check
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en, sub: () => null }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 vi.mock("@/vx/shell/sidebar", () => ({ LangButton: () => null }));
 vi.mock("@/vx/ui/overlays", () => ({ useToast: () => ({ show: state.toast }), Sheet: ({ open, children, footer }: { open: boolean; children: React.ReactNode; footer: React.ReactNode }) => open ? <section>{children}{footer}</section> : null }));
-vi.mock("@/vx/screens/teach/ui/shared", () => ({ HelpIcon: () => null, HelpSheet: () => null, LangSeg: () => null, DrawnTick: () => null,
+vi.mock("@/vx/screens/teach/ui/shared", () => ({ DeskHelp: () => null, HelpIcon: () => null, HelpSheet: () => null, LangSeg: () => null, DrawnTick: () => null,
   TchTop: ({ actions }: { actions?: React.ReactNode }) => <header>{actions}</header>,
   useUrlState: (_key: string, initial: string | null) => React.useState(initial),
 }));

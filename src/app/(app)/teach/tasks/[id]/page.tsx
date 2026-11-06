@@ -41,7 +41,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   const staff = await requirePermission("attendance:view", `/teach/tasks/${id}`);
   const language = formLanguage(staff.language);
-  const phone = schoolProfile.phone || undefined;
+  const phone = schoolProfile.officePhone || undefined;
   if (id.startsWith("collection-")) {
     const request = await resolveAssignedRequest(id.slice(11), staff.id);
     if (!request) notFound();

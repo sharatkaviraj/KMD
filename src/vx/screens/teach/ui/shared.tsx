@@ -140,6 +140,20 @@ export function HelpIcon({ onClick, label }: { onClick: () => void; label: strin
   );
 }
 
+/**
+ * The desk bar's "? Help": one button, one word, one place — after the
+ * language switch — on every teacher screen (teacher 20, 6 Nov 2026: Help was
+ * a word on one screen, a bare "?" on the next and missing on Attendance).
+ */
+export function DeskHelp({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button type="button" className="tap btn sec" onClick={onClick}>
+      <Ic n="help" />
+      {label}
+    </button>
+  );
+}
+
 /* ------------------------------------------------------------ small parts */
 
 /** The drawn tick in a soft circle (xDraw), as the design's saved states draw it. */

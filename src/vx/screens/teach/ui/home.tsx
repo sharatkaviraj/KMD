@@ -637,6 +637,29 @@ export function TeachHome({
       </div>
     ) : null;
 
+  // A cover the office took back says so for a day, instead of the card
+  // just vanishing (teacher 11, 6 Nov 2026).
+  const changedWhy = {
+    off: p("The office cancelled this cover. You do not need to go.", "ऑफ़िस ने यह ड्यूटी रद्द कर दी। आपको नहीं जाना है।"),
+    other: p("The office gave this cover to another teacher. You do not need to go.", "ऑफ़िस ने यह ड्यूटी किसी और अध्यापक को दे दी। आपको नहीं जाना है।"),
+    open: p("The office took this cover back. You do not need to go.", "ऑफ़िस ने यह ड्यूटी वापस ले ली। आपको नहीं जाना है।"),
+  } as const;
+  const changedCard = data.changedCovers.length ? (
+    <div className="card rise" role="status" style={{ order: 0, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span className="tc-ib" style={{ width: 40, height: 40, borderRadius: 12, background: "var(--infos)", color: "var(--info)" }}><Ic n="info" size={20} /></span>
+        <CardTitle t={p("Cover changed", "ड्यूटी बदली")} />
+      </span>
+      {data.changedCovers.map((c) => (
+        <span key={c.id} style={{ display: "flex", flexDirection: "column", paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
+          <span className="tc-p" style={{ fontWeight: 700 }}>{c.day === data.today ? tx(p("Today", "आज")) : tx(dShortP(c.day))} · P{c.number}{c.starts ? ` · ${hm12(c.starts)}` : ""} · {tx(coverWhat(c))}</span>
+          <span className="tc-s">{tx(changedWhy[c.why])}</span>
+          {sub(changedWhy[c.why]) ? <span className="tc-s">{sub(changedWhy[c.why])}</span> : null}
+        </span>
+      ))}
+    </div>
+  ) : null;
+
   /* -------------------------------------------------------- periods */
   const pillText = allOver ? tx(p(`All ${rows.length} periods over`, `सभी ${rows.length} पीरियड पूरे`)) : [tx(p(`${classCount} ${classCount === 1 ? "class" : "classes"}`, `${classCount} कक्षाएँ`)), coverCount ? tx(p(`${coverCount} cover`, `${coverCount} सब्स्टिट्यूशन`)) : null, freeCount ? tx(p(`${freeCount} free`, `${freeCount} खाली`)) : null].filter(Boolean).join(" · ");
   // On a phone the two columns flatten and every card without an order (the
@@ -1076,6 +1099,7 @@ export function TeachHome({
               {unsavedCard}
               {leaveCard}
               {coverAsk}
+              {changedCard}
               {classesCard}
               {hero}
               {periods}

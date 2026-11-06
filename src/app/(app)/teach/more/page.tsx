@@ -29,7 +29,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       initialView={view}
       initialSheet={sheet}
       makeLink={can(staff, "marks:write") ? makeMyMarksLinkAction : undefined}
-      officePhone={schoolProfile.phone || undefined}
+      officePhone={schoolProfile.officePhone || undefined}
     />
   );
 }

@@ -22,7 +22,7 @@ import type { MoreData } from "../data";
 import { spanPeriods } from "@/vx/screens/timetable/domain/timetable";
 import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, marksTileLine, mayCancelLeave, subjectWord } from "../domain/today";
 import { ampm, callName, dShort, dShortP, greetingPair, hm12, shortClass, andList } from "./fmt";
-import { LangSeg, LeaveSheet, TchTop, useUrlState, WithdrawConfirm } from "./shared";
+import { DeskHelp, HelpIcon, LangSeg, LeaveSheet, TchTop, useUrlState, WithdrawConfirm } from "./shared";
 import "./today.css";
 import { sessionText } from "@/platform/helpers/session-text";
 
@@ -164,11 +164,8 @@ export function TeachMore({
     profile: [tx(p("More · My profile", "और · मेरी प्रोफ़ाइल")), p("My profile", "मेरी प्रोफ़ाइल"), tx(p("Language, text size, dark mode", "भाषा, आकार, डार्क मोड"))],
   };
   const [crumb, titleP, mSub] = T[current];
-  const helpBtn = (size: number) => (
-    <button type="button" className="tap btn ghost" aria-label={tx(p("Help for this screen", "इस स्क्रीन की मदद"))} onClick={() => { setTopic(helpFor[current] ?? topic); go("help"); }} style={{ width: size, height: size === 44 ? 44 : undefined, padding: 0, borderRadius: size === 44 ? 22 : undefined, color: "var(--fg)" }}>
-      <Ic n="help" size={22} />
-    </button>
-  );
+  const openHelp = () => { setTopic(helpFor[current] ?? topic); go("help"); };
+  const helpLabel = tx(p("Help", "मदद"));
   const back = (
     <button type="button" className="tap btn ghost tc-x" aria-label={tx(p("Back", "पीछे"))} onClick={() => go("menu")} style={{ color: "var(--fg)" }}>
       <Ic n="chevLeft" size={22} />
@@ -741,7 +738,7 @@ export function TeachMore({
         actions={
           <>
             <LangSeg />
-            {helpBtn(42)}
+            {current === "help" ? null : <DeskHelp onClick={openHelp} label={helpLabel} />}
             {action}
           </>
         }
@@ -751,7 +748,7 @@ export function TeachMore({
         mAction={
           <>
             <LangSeg />
-            {helpBtn(44)}
+            {current === "help" ? null : <HelpIcon onClick={openHelp} label={helpLabel} />}
           </>
         }
       />

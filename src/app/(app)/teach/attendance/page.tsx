@@ -52,7 +52,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       initialSheet={one(sp.sheet) ?? null}
       initialView={one(sp.view) ?? null}
       school={schoolProfile.shortName}
-      officePhone={schoolProfile.phone}
+      officePhone={schoolProfile.officePhone}
       context={context}
     />
   );

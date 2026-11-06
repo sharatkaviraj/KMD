@@ -23,6 +23,31 @@ export const aiJson = (value: Record<string, unknown>, status = 200) =>
   Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
 export const aiProblem = (code: string, status: number) => aiJson({ ok: false, code }, status);
 
+/** The longest typed Bolo request, in characters: one request, as a sentence or two. */
+export const TYPED_REQUEST_MAX = 500;
+
+/**
+ * A typed Bolo request: the same voice job, quota and purge as a recording,
+ * with one UTF-8 text file the server writes itself (no signed upload).
+ */
+export async function makeAiTypedInput(scope: AiScope, config: AiPilotConfig, text: string) {
+  const job = await reserveAiJob({ ...scope, pages: 1, model: config.model, audioExtension: "txt" });
+  if (!job) return aiProblem("quota", 429);
+  const [path] = job.input_paths;
+  const written = await inputBucket().upload(path, Buffer.from(text, "utf8"), { contentType: "text/plain", upsert: false });
+  if (written.error) {
+    await updateAiJob({ ...scope, id: job.id }, { status: "failed", error: "upload_token" }, "discard");
+    return aiProblem("upload", 503);
+  }
+  return aiJson({ ok: true, jobId: job.id, uploads: [] });
+}
+
+function checkedText(bytes: Buffer): string {
+  const text = bytes.toString("utf8");
+  if (bytes.includes(0) || !Buffer.from(text, "utf8").equals(bytes) || !text.trim() || [...text].length > TYPED_REQUEST_MAX) throw new Error("Bad text");
+  return text;
+}
+
 export async function makeAiUpload(scope: AiScope, config: AiPilotConfig, files: Files) {
   const pages = files.kind === "photo" ? files.pages : 1;
   if (!Number.isInteger(pages) || pages < 1 || pages > AI_MAX_PAGES) return aiProblem("invalid", 400);
@@ -57,11 +82,12 @@ function checkedAudio(path: string, bytes: Buffer): AudioMime {
 
 export async function readAiInput(id: string, path: string, index: number, task: "image" | "voice"): Promise<AiMedia> {
   const validPath = task === "image" ? path === id + "/" + (index + 1) + ".jpg"
-    : index === 0 && Object.values(extensions).some((ext) => path === id + "/1." + ext);
+    : index === 0 && [...Object.values(extensions), "txt"].some((ext) => path === id + "/1." + ext);
   if (!validPath) throw new Error("Unexpected AI path");
   const { data, error } = await inputBucket().download(path);
   if (error || !data || data.size < 4 || data.size > AI_MAX_FILE_BYTES) throw new Error("Input unavailable");
   const bytes = Buffer.from(await data.arrayBuffer());
+  if (task === "voice" && path.endsWith(".txt")) return { mimeType: "text/plain", data: Buffer.from(checkedText(bytes), "utf8") };
   if (task === "voice") return { mimeType: checkedAudio(path, bytes), data: bytes };
   if (bytes[0] !== 255 || bytes[1] !== 216 || bytes[2] !== 255) throw new Error("Not a JPEG");
   const clean = await sharp(bytes, { limitInputPixels: 16_000_000, failOn: "error" })
