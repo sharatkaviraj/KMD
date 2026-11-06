@@ -10,18 +10,27 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  # Every config still runs on every revision. They are grouped into two
+  # balanced shards (median test seconds, 20 runs, 5 Nov 2026: 188 / 201)
+  # instead of nine jobs that each paid ~75s of container + npm ci setup.
+  # None of these checks is required by the ruleset (`check` in ci.yml is).
   targeted-phone:
     runs-on: ubuntu-latest
-    # Keep all matrix check identities; reuse the version-matched browsers/OS.
+    # Reuse the version-matched browsers/OS.
     container: mcr.microsoft.com/playwright:v1.64.1-noble
     defaults:
       run:
         shell: bash
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        config: [export-followup.playwright.config.ts, cheque-followup.playwright.config.ts, module-followup.playwright.config.ts, fee-followup.playwright.config.ts, class-followup.playwright.config.ts, academic-followup.playwright.config.ts, student360-sibling.playwright.config.ts, login-ui.playwright.config.ts, receipt-navigation.playwright.config.ts]
+        include:
+          - shard: a
+            configs: module-followup.playwright.config.ts class-followup.playwright.config.ts academic-followup.playwright.config.ts student360-sibling.playwright.config.ts
+          - shard: b
+            configs: fee-followup.playwright.config.ts login-ui.playwright.config.ts receipt-navigation.playwright.config.ts cheque-followup.playwright.config.ts export-followup.playwright.config.ts
+    name: targeted-phone (${{ matrix.shard }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,30 +41,39 @@ jobs:
       - name: Verify preinstalled browser version matches lockfile
         run: node -e "const v=require('@playwright/test/package.json').version; if(v !== '1.64.1') throw new Error('Update the Playwright container to match '+v)"
       - name: Targeted touch component checks
-        run: |
-          if [ "${{ matrix.config }}" = "class-followup.playwright.config.ts" ]; then
-            npx vite build --config tests/class-followup/vite.config.ts
-            export PHONEOPS_CLASS_STATIC_DIR="../evidence/class-followup-static"
-          fi
-          if [ "${{ matrix.config }}" = "student360-sibling.playwright.config.ts" ]; then
-            npx vite build --config tests/sibling-context/vite.config.ts
-            export PHONEOPS_SIBLING_STATIC_DIR="../evidence/sibling-context-static"
-          fi
-          npx playwright test --config tests/playwright/${{ matrix.config }}
+        run: bash scripts/ci/playwright-shard.sh ${{ matrix.configs }}
       - name: Collect safe generated follow-up evidence
         if: always()
         run: |
           mkdir -p .playwright/followup-evidence
           find ../evidence -maxdepth 1 -type f -name '*followup*' ! -name '*admin*' ! -name '*server*' -exec cp {} .playwright/followup-evidence/ \; 2>/dev/null || true
           find ../evidence -maxdepth 1 -type f -name '*sibling-context*' -exec cp {} .playwright/followup-evidence/ \; 2>/dev/null || true
+      # Failure (a hung config is a failure too: the shard script stops it at
+      # its own time limit, before the job timeout would cancel the job): everything
+      # a reviewer needs to debug, kept 14 days. A run cancelled because a newer
+      # push superseded it uploads nothing.
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
-          name: targeted-${{ matrix.config }}
+          name: targeted-${{ matrix.shard }}-failure-${{ github.run_attempt }}
           retention-days: 14
           include-hidden-files: true
           if-no-files-found: ignore
           path: |
+            .shard-failures/
             .playwright/
             test-results/
+            .test-artifacts/fee-followup/
+      # Success on main or a manual run: the generated evidence, as before.
+      # Success on a PR: the job summary table only (no upload) — run the
+      # workflow manually on the branch when a PR needs the evidence files.
+      - uses: actions/upload-artifact@v4
+        if: success() && github.event_name != 'pull_request'
+        with:
+          name: targeted-${{ matrix.shard }}-evidence-${{ github.run_attempt }}
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: ignore
+          path: |
+            .playwright/
             .test-artifacts/fee-followup/

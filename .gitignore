@@ -65,3 +65,7 @@ smoke-kit-*.json
 # Smoke Lab run working files (kit holds passes)
 .smoke-run/
 !.env.example
+
+# CI-only caches and shard failure copies (scripts/ci/playwright-shard.sh)
+/.cache/
+/.shard-failures/
