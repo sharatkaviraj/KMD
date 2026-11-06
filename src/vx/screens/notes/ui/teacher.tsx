@@ -220,6 +220,9 @@ export function TeachNotes(props: NotesProps) {
   const opn = shownN.filter((n) => !isDue(n) && (noteStage(n) === "open" || noteStage(n) === "working"));
   const rest = shownN.filter((n) => noteStage(n) === "done" || noteStage(n) === "noting");
   const noClass = props.kids.length === 0 && mine.length === 0;
+  // No notes at all: the counters read 0/0/0 and the tag filters can never
+  // show anything, so only the empty card speaks (teacher day, 6 Nov, teacher 20).
+  const bare = mine.length === 0;
   const filteredOut = ftag !== "all" || fcls !== "all";
   const classes = [...new Map([...props.kids.map((k) => [k.classId, k.classLabel] as const), ...mine.filter((n) => n.classId).map((n) => [n.classId!, n.classLabel] as const)]).entries()];
   const secs: { key: string; title: Pair; icon: IconName; c: string; notes: BoardNote[] }[] = [
@@ -334,7 +337,7 @@ export function TeachNotes(props: NotesProps) {
               {tx(p("Speak or type. It gets noted and followed up.", "बोलें या लिखें। नोट होगा और आगे देखा जाएगा।"))}
             </span>
           </span>
-          <span className="nx-f" style={{ gap: 8 }}>
+          {bare ? null : <span className="nx-f" style={{ gap: 8 }}>
             {[
               { n: counts.followUp, l: p("to follow up", "फिर देखने हैं"), c: "var(--warnfg)" },
               // The tiles are separate piles: a note you follow up is not counted again
@@ -348,9 +351,9 @@ export function TeachNotes(props: NotesProps) {
                 <span className="nx-m" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{tx(k.l)}</span>
               </span>
             ))}
-          </span>
+          </span>}
         </div>
-        <div className="nx-c" style={{ gap: 10 }}>
+        {bare ? null : <div className="nx-c" style={{ gap: 10 }}>
           <div className="hs" role="group" aria-label="Tag" style={{ display: "flex", gap: 8 }}>
             {(["all", ...NOTE_TAGS] as (NoteTag | "all")[]).map((t) => (
               <button key={t} type="button" className={`tap chip${ftag === t ? " on" : ""}`} aria-pressed={ftag === t} onClick={() => setFtag(t)}>
@@ -367,7 +370,7 @@ export function TeachNotes(props: NotesProps) {
               {classes.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           ) : null}
-        </div>
+        </div>}
         {/* The week's notes in short (D-328), for one class: the one picked, or her only class. */}
         {(() => {
           const digestClass = fcls !== "all" ? classes.find(([id]) => id === fcls) : classes.length === 1 ? classes[0] : undefined;

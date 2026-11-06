@@ -24,7 +24,8 @@ import { AiRemarkCard, AiRemarksBar, useAiRemarks } from "@/vx/assist/remarks-as
 
 const V = (x: string) => `var(--${x})`;
 
-function Mini({ rows }: { rows: { t: string; tone?: "row" | "soft" | "btn" | "ok"; r?: string; hl?: boolean }[] }) {
+function Mini({ rows }: { rows: { t: string | Pair; tone?: "row" | "soft" | "btn" | "ok"; r?: string; hl?: boolean }[] }) {
+  const { tx } = useVx();
   const K = { row: [24, "card", "fg"], soft: [24, "accs", "accfg"], btn: [30, "pri", "prifg"], ok: [44, "oks", "ok"] } as const;
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -35,7 +36,7 @@ function Mini({ rows }: { rows: { t: string; tone?: "row" | "soft" | "btn" | "ok
         return (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, height: h, padding: "0 9px", borderRadius: 8, background: V(bg), color: V(fg), border: x.hl ? "2px solid var(--acc)" : k === "row" ? "1px solid var(--bd)" : "1px solid transparent", justifyContent: center ? "center" : "flex-start", fontSize: 11, fontWeight: k === "row" ? 600 : 700, animation: x.hl ? "xPulse 1.8s ease infinite" : "none" }}>
             {k === "ok" ? <Ic n="check" size={22} stroke={2.6} /> : null}
-            {x.t ? <span className="tc-el" style={{ flex: center ? "0 1 auto" : 1 }}>{x.t}</span> : null}
+            {x.t ? <span className="tc-el" style={{ flex: center ? "0 1 auto" : 1 }}>{typeof x.t === "string" ? x.t : tx(x.t)}</span> : null}
             {x.r ? <span className="num" style={{ fontWeight: 700, padding: "1px 7px", borderRadius: 6, background: "var(--s3)", color: "var(--fg)" }}>{x.r}</span> : null}
           </div>
         );
@@ -45,15 +46,15 @@ function Mini({ rows }: { rows: { t: string; tone?: "row" | "soft" | "btn" | "ok
 }
 
 const PICK_HELP: HelpStep[] = [
-  { title: p("Pick the class", "कक्षा चुनें"), body: p("Tap Continue on the class you want.", "जिस कक्षा के अंक भरने हैं उस पर “जारी रखें” दबाएँ।"), pic: <Mini rows={[{ t: "Class 7 Science", r: "12/27" }, { t: "Continue", tone: "btn", hl: true }, { t: "Class 8 Science", r: "0/28" }]} /> },
-  { title: p("Type the mark", "अंक लिखें"), body: p("In the list, two numbers move you to the next child. On the number pad, tap Next child.", "सूची में दो अंक लिखते ही अगला बच्चा आता है। नंबर पैड पर “अगला बच्चा” दबाएँ।"), pic: <Mini rows={[{ t: "Lokesh", r: "38" }, { t: "Muskan", tone: "soft", r: "5_", hl: true }, { t: "Nidhi" }]} /> },
-  { title: p("Check and send", "जाँचें और भेजें"), body: p("See the summary, then send it to the exam office.", "सारांश देखें, फिर परीक्षा विभाग को भेजें।"), pic: <Mini rows={[{ t: "Average", r: "56" }, { t: "Send", tone: "btn", hl: true }, { t: "", tone: "ok" }]} /> },
+  { title: p("Pick the class", "कक्षा चुनें"), body: p("Tap Continue on the class you want.", "जिस कक्षा के अंक भरने हैं उस पर “जारी रखें” दबाएँ।"), pic: <Mini rows={[{ t: p("Class 7 Science", "कक्षा 7 विज्ञान"), r: "12/27" }, { t: p("Continue", "जारी रखें"), tone: "btn", hl: true }, { t: p("Class 8 Science", "कक्षा 8 विज्ञान"), r: "0/28" }]} /> },
+  { title: p("Type the mark", "अंक लिखें"), body: p("In the list, two numbers move you to the next child. On the number pad, tap Next child.", "सूची में दो अंक लिखते ही अगला बच्चा आता है। नंबर पैड पर “अगला बच्चा” दबाएँ।"), pic: <Mini rows={[{ t: p("Lokesh", "लोकेश"), r: "38" }, { t: p("Muskan", "मुस्कान"), tone: "soft", r: "5_", hl: true }, { t: p("Nidhi", "निधि") }]} /> },
+  { title: p("Check and send", "जाँचें और भेजें"), body: p("See the summary, then send it to the exam office.", "सारांश देखें, फिर परीक्षा विभाग को भेजें।"), pic: <Mini rows={[{ t: p("Average", "औसत"), r: "56" }, { t: p("Send marks", "अंक भेजें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} /> },
 ];
 
 const REMARK_HELP: HelpStep[] = [
-  { title: p("Pick a child", "बच्चा चुनें"), body: p("Tap a name in the list, or tap Next child.", "सूची में नाम दबाएँ, या “अगला बच्चा”।"), pic: <Mini rows={[{ t: "10 Ishaan", hl: true }, { t: "11 Jiya" }, { t: "12 Kabir" }]} /> },
-  { title: p("Tap a suggestion", "सुझाव चुनें"), body: p("Suggestions come from marks and attendance.", "सुझाव अंकों और हाज़िरी से बनते हैं।"), pic: <Mini rows={[{ t: "Good progress…", tone: "soft", hl: true }, { t: "Sincere and…" }, { t: "Must come…" }]} /> },
-  { title: p("Change the words", "शब्द बदलें"), body: p("Tap Save, or Next child — both save the remark.", "“सहेजें” या “अगला बच्चा” दबाएँ — दोनों से टिप्पणी सहेज जाती है।"), pic: <Mini rows={[{ t: "Next child", tone: "btn", hl: true }, { t: "", tone: "ok" }]} /> },
+  { title: p("Pick a child", "बच्चा चुनें"), body: p("Tap a name in the list, or tap Next child.", "सूची में नाम दबाएँ, या “अगला बच्चा”।"), pic: <Mini rows={[{ t: p("10 Ishaan", "10 ईशान"), hl: true }, { t: p("11 Jiya", "11 जिया") }, { t: p("12 Kabir", "12 कबीर") }]} /> },
+  { title: p("Tap a suggestion", "सुझाव चुनें"), body: p("Suggestions come from marks and attendance.", "सुझाव अंकों और हाज़िरी से बनते हैं।"), pic: <Mini rows={[{ t: p("Good progress…", "अच्छी प्रगति…"), tone: "soft", hl: true }, { t: p("Sincere and…", "मेहनती और…") }, { t: p("Must come…", "नियमित आए…") }]} /> },
+  { title: p("Change the words", "शब्द बदलें"), body: p("Tap Save, or Next child — both save the remark.", "“सहेजें” या “अगला बच्चा” दबाएँ — दोनों से टिप्पणी सहेज जाती है।"), pic: <Mini rows={[{ t: p("Next child", "अगला बच्चा"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} /> },
 ];
 
 /* ------------------------------------------------------------- pick */

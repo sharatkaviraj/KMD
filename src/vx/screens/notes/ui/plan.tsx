@@ -18,7 +18,7 @@ import {
   togglePlanStepAction,
 } from "../actions";
 import type { NotesPeople, SupportPlan } from "../data";
-import { excerpt, followUpDate, knownPair, parentPlanMessage, planProgress, planReaders, suggestedGoals, suggestedSteps, whenPair, type BoardNote } from "../domain/notes";
+import { excerpt, followUpDate, isSensitiveNote, knownPair, parentPlanMessage, planProgress, planReaders, suggestedGoals, suggestedSteps, whenPair, type BoardNote } from "../domain/notes";
 import { COST } from "./compose";
 import { day, useBoth, WaBubble } from "./look";
 import { mayEditPlan, type ClientViewer } from "./parts";
@@ -45,12 +45,15 @@ const OWNER_TEXT: Record<OwnerRole, Pair> = {
  * changed person on each tap, and "Me" turned into "Class teacher" for the
  * class teacher herself). The class teacher is "Me (class teacher)", once.
  */
-function ownerChoices(input: { holds: boolean; classTeacher: string | null; coordinator: string | null }, tx: (p: Pair) => string): { role: OwnerRole; label: string }[] {
+function ownerChoices(input: { holds: boolean; classTeacher: string | null; coordinator: string | null; sensitive?: boolean }, tx: (p: Pair) => string): { role: OwnerRole; label: string }[] {
   return [
     { role: "me" as const, label: input.holds ? tx(p("Me (class teacher)", "मैं (कक्षा अध्यापक)")) : tx(OWNER_TEXT.me) },
     ...(input.holds ? [] : [{ role: "class_teacher" as const, label: `${tx(OWNER_TEXT.class_teacher)}${input.classTeacher ? ` · ${input.classTeacher}` : ""}` }]),
     { role: "subject_teacher" as const, label: tx(OWNER_TEXT.subject_teacher) },
-    { role: "coordinator" as const, label: `${tx(OWNER_TEXT.coordinator)}${input.coordinator ? ` · ${input.coordinator}` : ""}` },
+    // A health or family note is read by the admin and the class teacher
+    // only, so its plan never hands a step to the coordinator (teacher day,
+    // 6 Nov 2026, teachers 13 and 16).
+    ...(input.sensitive ? [] : [{ role: "coordinator" as const, label: `${tx(OWNER_TEXT.coordinator)}${input.coordinator ? ` · ${input.coordinator}` : ""}` }]),
     { role: "parents" as const, label: tx(OWNER_TEXT.parents) },
   ];
 }
@@ -425,7 +428,8 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
   const sugg = suggestedSteps(note?.tags ?? [], { text: note?.body ?? plan?.goal, classLabel: note?.classLabel ?? plan?.classLabel }).filter((s) => !used.has(s.en));
   const msg = parentPlanMessage({ childName: studentName, goal: plan?.goal ?? goal, steps: steps.map((s) => s.body), school, noteBody: note?.body ?? null });
   const classId = plan?.classId ?? note?.classId ?? null;
-  const owners = ownerChoices({ holds: classId !== null && viewer.heldClassIds.includes(classId), classTeacher: classId ? (people.classTeachers[classId] ?? null) : null, coordinator: people.coordinator }, tx);
+  const sensitive = note ? isSensitiveNote(note) : false;
+  const owners = ownerChoices({ holds: classId !== null && viewer.heldClassIds.includes(classId), classTeacher: classId ? (people.classTeachers[classId] ?? null) : null, coordinator: people.coordinator, sensitive }, tx);
   const hint =
     steps.length < 3
       ? tx(p(`Add ${3 - steps.length} more step${3 - steps.length === 1 ? "" : "s"} · 3 to 5 work best`, `${3 - steps.length} और कदम जोड़ें · 3 से 5 ठीक रहते हैं`))
@@ -668,14 +672,14 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
           )}
           <div className="nt-nt" style={{ background: "var(--infos)", color: "var(--info)" }}>
             <Ic n="info" size={18} style={{ marginTop: 1 }} />
-            <span>{tx(p(`Every step names a person and a date. ${people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator"} sees how the plan is going.`, `हर कदम में एक व्यक्ति और तारीख़ है। समन्वयक देखते हैं कि योजना कैसी चल रही है।`))}</span>
+            <span>{tx(sensitive ? p("Every step names a person and a date. The admin sees how the plan is going.", "हर कदम में एक व्यक्ति और तारीख़ है। प्रशासक देखते हैं कि योजना कैसी चल रही है।") : p(`Every step names a person and a date. ${people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator"} sees how the plan is going.`, `हर कदम में एक व्यक्ति और तारीख़ है। समन्वयक देखते हैं कि योजना कैसी चल रही है।`))}</span>
           </div>
         </div>
       </div>
       <div className="glass nt-sbar">
         <span className="nx-c nt-rt" style={{ flex: 1 }}>
           <span className="nt-f14" style={{ fontSize: 14, fontWeight: 700 }}>{tx(p(`${done} of ${steps.length} steps done`, `${steps.length} में से ${done} कदम पूरे`))}</span>
-          <span className="nx-m" style={{ fontSize: 12 }}>{steps.length < 3 ? tx(p("3 to 5 steps work best", "3 से 5 कदम ठीक रहते हैं")) : tx(p(`${people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator"} will see this plan`, "समन्वयक यह योजना देखेंगे"))}</span>
+          <span className="nx-m" style={{ fontSize: 12 }}>{steps.length < 3 ? tx(p("3 to 5 steps work best", "3 से 5 कदम ठीक रहते हैं")) : sensitive ? tx(p("The admin and the class teacher will see this plan", "प्रशासक और कक्षा अध्यापक यह योजना देखेंगे")) : tx(p(`${people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator"} will see this plan`, "समन्वयक यह योजना देखेंगे"))}</span>
         </span>
         <button type="button" className="tap btn pri nt-big mfull" disabled={saving || (!plan && draft.length === 0)} onClick={save} style={{ opacity: steps.length >= 3 || plan ? 1 : 0.6 }}>
           {saving ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="check" size={18} />}

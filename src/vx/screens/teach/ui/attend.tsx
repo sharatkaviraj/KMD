@@ -80,6 +80,13 @@ const MINI = (rows: [string, string][]) => (
   </div>
 );
 
+
+/** The real button's words in the reader's language, for the help picture. */
+function SaveWord() {
+  const { tx } = useVx();
+  return <>{tx(p("Save attendance", "हाज़िरी सेव करें"))}</>;
+}
+
 const HELP: HelpStep[] = [
   { title: p("Everyone starts as Present", "सब बच्चे पहले से उपस्थित हैं।"), body: p("You do not need to tap the children who came.", "जो बच्चे आए उन पर टैप करने की ज़रूरत नहीं।"), pic: MINI([[V("oks"), V("ok")], [V("oks"), V("ok")], [V("oks"), V("ok")]]) },
   {
@@ -93,7 +100,7 @@ const HELP: HelpStep[] = [
     pic: (
       <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5 }}>
         <span className="tc-mini"><span className="tc-msk" /><span style={{ width: 18, height: 12, borderRadius: 6, background: V("ok") }} /></span>
-        <span className="tc-ib" style={{ height: 30, borderRadius: 9, background: V("pri"), color: V("prifg"), fontSize: 11, fontWeight: 700 }}>Save attendance</span>
+        <span className="tc-ib" style={{ height: 30, borderRadius: 9, background: V("pri"), color: V("prifg"), fontSize: 11, fontWeight: 700 }}><SaveWord /></span>
       </div>
     ),
   },
@@ -186,7 +193,7 @@ export function AttendChoose({ data, ownerId, context }: { data: AttendChoices; 
   const closed = context?.closedWhy ? closedText(context.closedWhy, data.day, data.day === context.today) : null;
   return (
     <VxPage className="tc">
-      <TchTop crumb={T(p("Attendance", "हाज़िरी"))} title={tx(data.choices.length === 0 ? p("Attendance", "हाज़िरी") : p("Choose a class", "कक्षा चुनें"))} mBack="/teach" actions={<LangSeg />} mAction={<LangSeg />} />
+      <TchTop crumb={T(p("Attendance", "हाज़िरी"))} title={tx(data.choices.length === 0 ? p("Attendance", "हाज़िरी") : p("Choose a class", "कक्षा चुनें"))} mBack="/teach" actions={<><LangSeg /><Link href="/teach/more?view=help" className="tap btn sec"><Ic n="help" />{tx(p("Help", "मदद"))}</Link></>} mAction={<LangSeg />} />
       <main>
         <div className="pad" style={{ padding: "20px 28px 40px", maxWidth: 720, display: "flex", flexDirection: "column", gap: 14 }}>
           {data.choices.length === 0 ? (

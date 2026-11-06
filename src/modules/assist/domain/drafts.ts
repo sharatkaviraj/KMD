@@ -59,10 +59,35 @@ export function readDraft(row: {
   return null;
 }
 
-/** "Class 7 B" + period 4 → the line on the Ready-for-you strip. */
-export function coverPlanTitle(classLabels: string, periodNumber: number): { en: string; hi: string } {
+const WEEKDAY = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], hi: ["रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"] };
+const MONTH = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  hi: ["जन॰", "फ़र॰", "मार्च", "अप्रैल", "मई", "जून", "जुला॰", "अग॰", "सित॰", "अक्टू॰", "नव॰", "दिस॰"],
+};
+
+/** "2026-11-09" → "Mon 9 Nov" / "सोम 9 नव॰"; anything else → null. */
+function dutyDay(day: string): { en: string; hi: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(day);
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  const w = d.getUTCDay();
+  const mo = d.getUTCMonth();
+  const n = d.getUTCDate();
+  return { en: `${WEEKDAY.en[w]} ${n} ${MONTH.en[mo]}`, hi: `${WEEKDAY.hi[w]} ${n} ${MONTH.hi[mo]}` };
+}
+
+/**
+ * "Class 7 B" + period 4 (+ the duty's day) → the line on the Ready-for-you
+ * strip. The day is named: a plan for Monday's P8 sat on Friday's Today,
+ * where P8 was a free period, and read as if it were for today (teacher day,
+ * 6 Nov 2026, teacher 11).
+ */
+export function coverPlanTitle(classLabels: string, periodNumber: number, day?: string): { en: string; hi: string } {
   const label = classLabels.slice(0, 80);
-  return { en: `Plan for P${periodNumber} · ${label}`, hi: `P${periodNumber} की योजना · ${label}` };
+  const when = day ? dutyDay(day) : null;
+  return when
+    ? { en: `Plan for ${when.en} · P${periodNumber} · ${label}`, hi: `${when.hi} · P${periodNumber} की योजना · ${label}` }
+    : { en: `Plan for P${periodNumber} · ${label}`, hi: `P${periodNumber} की योजना · ${label}` };
 }
 
 export function classDigestTitle(classLabel: string): { en: string; hi: string } {

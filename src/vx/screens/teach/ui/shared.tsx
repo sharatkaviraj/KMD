@@ -265,8 +265,16 @@ export function HelpSheet({ open, onClose, title, sub: subtitle, steps, phone }:
   );
 }
 
-/** The help pictures: a few skeleton lines and the one control the step is about. */
+/**
+ * The help pictures: a few skeleton lines and the one control the step is
+ * about, labelled with the words on the real button in the reader's language.
+ * They were English-only and used other words ("Seen ✓" for "I have read it",
+ * "Apply leave" for "Ask for leave"), so the picture and its caption
+ * disagreed (teacher day, 6 Nov 2026, teachers 17 and 19).
+ */
 export function HelpPic({ kind }: { kind: "mark" | "seen" | "take" | "tap" | "save" | "change" | "pick" | "type" | "send" | "news" | "link" | "leave" }) {
+  const { tx } = useVx();
+  const w = (en: string, hi: string) => tx(p(en, hi));
   const box = (bg: string, children: ReactNode) => (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, padding: 10, borderRadius: 10, background: bg }}>{children}</div>
   );
@@ -276,19 +284,19 @@ export function HelpPic({ kind }: { kind: "mark" | "seen" | "take" | "tap" | "sa
       return (
         <div style={{ width: "100%", height: "100%", padding: 10, display: "flex", flexDirection: "column", gap: 6, borderRadius: 10, background: "var(--pri)", color: "var(--prifg)" }}>
           <span className="tc-sk" style={{ width: "60%", background: "currentColor", opacity: 0.5 }} />
-          <span className="tc-ib" style={{ marginTop: "auto", height: 26, borderRadius: 9, background: "var(--prifg)", color: "var(--pri)", fontSize: 11, fontWeight: 700, animation: "xPulse 2.4s ease infinite" }}>Mark</span>
+          <span className="tc-ib" style={{ marginTop: "auto", height: 26, borderRadius: 9, background: "var(--prifg)", color: "var(--pri)", fontSize: 11, fontWeight: 700, animation: "xPulse 2.4s ease infinite" }}>{w("Mark attendance", "हाज़िरी लगाएँ")}</span>
         </div>
       );
     case "seen":
-      return box("var(--card)", <><span className="tc-sk" style={{ width: "80%" }} /><span className="tc-sk" style={{ width: "55%" }} />{pill("var(--oks)", "var(--ok)", "Seen ✓")}</>);
+      return box("var(--card)", <><span className="tc-sk" style={{ width: "80%" }} /><span className="tc-sk" style={{ width: "55%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--pri)", color: "var(--prifg)", fontSize: 11, fontWeight: 700, animation: "xPulse 2.4s ease infinite" }}>{w("I have read it", "पढ़ लिया")}</span></>);
     case "take":
       return box(
         "var(--warns)",
         <>
           <span className="tc-sk" style={{ width: "70%", background: "var(--warnm)" }} />
           <span style={{ display: "flex", gap: 5 }}>
-            <span className="tc-ib" style={{ flex: 1, height: 24, borderRadius: 8, background: "var(--pri)", color: "var(--prifg)", fontSize: 10, fontWeight: 700 }}>Take</span>
-            <span className="tc-ib" style={{ flex: 1, height: 24, borderRadius: 8, background: "var(--card)", fontSize: 10, fontWeight: 700 }}>Can’t</span>
+            <span className="tc-ib" style={{ flex: 1, height: 24, borderRadius: 8, background: "var(--pri)", color: "var(--prifg)", fontSize: 10, fontWeight: 700 }}>{w("I’ll take it", "हाँ, ले लेंगे")}</span>
+            <span className="tc-ib" style={{ flex: 1, height: 24, borderRadius: 8, background: "var(--card)", fontSize: 10, fontWeight: 700 }}>{w("I can’t", "नहीं ले पाएँगे")}</span>
           </span>
         </>,
       );
@@ -296,26 +304,26 @@ export function HelpPic({ kind }: { kind: "mark" | "seen" | "take" | "tap" | "sa
       return box(
         "transparent",
         <>
-          <span className="tc-ib" style={{ justifyContent: "space-between", height: 24, padding: "0 8px", borderRadius: 8, background: "var(--card)", border: "1px solid var(--bd)", fontSize: 10, fontWeight: 700 }}>Aadhya<span style={{ color: "var(--ok)" }}>P</span></span>
-          <span className="tc-ib" style={{ justifyContent: "space-between", height: 24, padding: "0 8px", borderRadius: 8, background: "var(--bads)", border: "1.5px solid var(--bad)", fontSize: 10, fontWeight: 700 }}>Om<span style={{ color: "var(--bad)" }}>A</span></span>
+          <span className="tc-ib" style={{ justifyContent: "space-between", height: 24, padding: "0 8px", borderRadius: 8, background: "var(--card)", border: "1px solid var(--bd)", fontSize: 10, fontWeight: 700 }}>{w("Aadhya", "आध्या")}<span style={{ color: "var(--ok)" }}>{w("P", "उ")}</span></span>
+          <span className="tc-ib" style={{ justifyContent: "space-between", height: 24, padding: "0 8px", borderRadius: 8, background: "var(--bads)", border: "1.5px solid var(--bad)", fontSize: 10, fontWeight: 700 }}>{w("Om", "ओम")}<span style={{ color: "var(--bad)" }}>{w("A", "अ")}</span></span>
         </>,
       );
     case "save":
-      return box("transparent", <><span className="tc-sk" style={{ width: "70%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--pri)", color: "var(--prifg)", fontSize: 11, fontWeight: 700 }}>Save</span></>);
+      return box("transparent", <><span className="tc-sk" style={{ width: "70%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--pri)", color: "var(--prifg)", fontSize: 11, fontWeight: 700 }}>{w("Save attendance", "हाज़िरी सेव करें")}</span></>);
     case "change":
-      return box("var(--card)", <>{pill("var(--oks)", "var(--ok)", "Saved ✓")}<span className="tc-ib" style={{ height: 24, borderRadius: 8, border: "1px solid var(--bds)", fontSize: 10, fontWeight: 700 }}>Change</span></>);
+      return box("var(--card)", <>{pill("var(--oks)", "var(--ok)", w("Saved ✓", "सेव हो गई ✓"))}<span className="tc-ib" style={{ height: 24, borderRadius: 8, border: "1px solid var(--bds)", fontSize: 10, fontWeight: 700 }}>{w("Change", "बदलें")}</span></>);
     case "pick":
-      return box("var(--card)", <><span className="tc-sk" style={{ width: "50%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, border: "2px solid var(--pri)", fontSize: 11, fontWeight: 700 }}>Class 7 · Science</span></>);
+      return box("var(--card)", <><span className="tc-sk" style={{ width: "50%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, border: "2px solid var(--pri)", fontSize: 11, fontWeight: 700 }}>{w("Class 7 · Science", "कक्षा 7 · विज्ञान")}</span></>);
     case "type":
       return box("var(--card)", <><span className="tc-sk" style={{ width: "60%" }} /><span className="tc-ib num" style={{ height: 26, width: 46, borderRadius: 8, border: "2px solid var(--acc)", fontSize: 13, fontWeight: 700 }}>58</span></>);
     case "send":
-      return box("var(--card)", <><span className="tc-sk" style={{ width: "70%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--ok)", color: "var(--onsolid)", fontSize: 11, fontWeight: 700 }}>Send ✓</span></>);
+      return box("var(--card)", <><span className="tc-sk" style={{ width: "70%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--ok)", color: "var(--onsolid)", fontSize: 11, fontWeight: 700 }}>{w("Send ✓", "भेजें ✓")}</span></>);
     case "news":
-      return box("var(--card)", <>{pill("var(--accs)", "var(--accfg)", "New")}<span className="tc-sk" style={{ width: "85%" }} /><span className="tc-sk" style={{ width: "60%" }} /></>);
+      return box("var(--card)", <>{pill("var(--accs)", "var(--accfg)", w("New", "नया"))}<span className="tc-sk" style={{ width: "85%" }} /><span className="tc-sk" style={{ width: "60%" }} /></>);
     case "link":
-      return box("var(--card)", <><span className="tc-sk" style={{ width: "60%" }} /><span className="tc-ib" style={{ height: 24, borderRadius: 8, background: "var(--accs)", color: "var(--accfg)", fontSize: 10, fontWeight: 700 }}>Share link</span></>);
+      return box("var(--card)", <><span className="tc-sk" style={{ width: "60%" }} /><span className="tc-ib" style={{ height: 24, borderRadius: 8, background: "var(--accs)", color: "var(--accfg)", fontSize: 10, fontWeight: 700 }}>{w("Share on WhatsApp", "व्हाट्सऐप पर भेजें")}</span></>);
     case "leave":
-      return box("var(--card)", <><span className="tc-sk" style={{ width: "55%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--warns)", color: "var(--warnfg)", fontSize: 11, fontWeight: 700 }}>Apply leave</span></>);
+      return box("var(--card)", <><span className="tc-sk" style={{ width: "55%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--warns)", color: "var(--warnfg)", fontSize: 11, fontWeight: 700 }}>{w("Ask for leave", "छुट्टी माँगें")}</span></>);
   }
 }
 
