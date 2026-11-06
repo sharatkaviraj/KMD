@@ -49,6 +49,15 @@ describe("families", () => {
     expect(fams[0].usesBus).toBe(true);
   });
 
+  it("takes not due yet from the installment rows when the board gives it (Reports' rule)", () => {
+    // A child whose fees were never set up as installments owes ₹22,000 on
+    // the student row but has nothing due on any installment.
+    const [f] = groupFamilies([kid({ overdueAmount: 0, totalPending: 22000, notDueYet: 0 })]);
+    expect(f.notDueYet).toBe(0);
+    const [g] = groupFamilies([kid({ overdueAmount: 3000, totalPending: 9000, notDueYet: 6000 })]);
+    expect(g.notDueYet).toBe(6000);
+  });
+
   it("keeps pending today, not due yet and late fee apart", () => {
     const [f] = groupFamilies([kid({ overdueAmount: 3000, totalPending: 9000, lateFee: 200 })]);
     expect(f.pendingToday).toBe(3000);

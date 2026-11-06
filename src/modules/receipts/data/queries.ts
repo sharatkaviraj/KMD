@@ -118,6 +118,7 @@ type ReceiptDetailRow = {
   received_by: string | null;
   created_at: string;
   created_by: string | null;
+  client_request_id?: string | null;
   student_ref: StudentRow | StudentRow[] | null;
 };
 
@@ -808,6 +809,33 @@ export async function getReceiptDetail(receiptId: string): Promise<ReceiptDetail
   return getReceiptDetailWith(await createClient(), receiptId);
 }
 
+/**
+ * The late fee forgiven at the counter with this receipt: non-voided
+ * `student_late_fee_waivers` rows carrying the receipt's own client request
+ * id. A read failure shows no line rather than failing the receipt.
+ */
+async function lateFeeWaivedWithReceipt(
+  supabase: ReceiptDataClient,
+  receipt: { student_id: string; client_request_id?: string | null },
+): Promise<number> {
+  if (!receipt.client_request_id) return 0;
+  try {
+    const { data, error } = await supabase
+      .from("student_late_fee_waivers")
+      .select("amount")
+      .eq("student_id", receipt.student_id)
+      .eq("client_request_id", receipt.client_request_id)
+      .is("voided_at", null);
+    if (error) return 0;
+    return ((data ?? []) as Array<{ amount: number | string | null }>).reduce(
+      (sum, row) => sum + Math.max(0, Number(row.amount) || 0),
+      0,
+    );
+  } catch {
+    return 0;
+  }
+}
+
 export async function getReceiptDetailWith(
   supabase: ReceiptDataClient,
   receiptId: string,
@@ -815,7 +843,7 @@ export async function getReceiptDetailWith(
   const { data: receiptRaw, error: receiptError } = await supabase
     .from("receipts")
     .select(
-      "id, student_id, receipt_number, payment_date, payment_mode, total_amount, reference_number, notes, received_by, created_at, created_by, student_ref:students(id, full_name, admission_no, father_name, primary_phone, secondary_phone, email, family_links:student_family_members(family_group_id, academic_session_label), class_ref:classes(session_label, class_name, section, stream_name), route_ref:transport_routes(route_name, route_code))",
+      "id, student_id, receipt_number, payment_date, payment_mode, total_amount, reference_number, notes, received_by, created_at, created_by, client_request_id, student_ref:students(id, full_name, admission_no, father_name, primary_phone, secondary_phone, email, family_links:student_family_members(family_group_id, academic_session_label), class_ref:classes(session_label, class_name, section, stream_name), route_ref:transport_routes(route_name, route_code))",
     )
     .eq("id", receiptId)
     .maybeSingle();
@@ -829,6 +857,8 @@ export async function getReceiptDetailWith(
   }
 
   const receipt = receiptRaw as ReceiptDetailRow;
+  // Read beside the others below; it never throws.
+  const counterLateFeeWaivedRead = lateFeeWaivedWithReceipt(supabase, receipt);
 
   const [
     { data: paymentsRaw, error: paymentsError },
@@ -996,7 +1026,8 @@ export async function getReceiptDetailWith(
   const currentReceiptIndex = studentReceipts.findIndex((row) => row.id === receipt.id);
   const receiptsUpToCurrent = currentReceiptIndex === -1 ? [] : studentReceipts.slice(0, currentReceiptIndex + 1);
   const receiptsBeforeCurrent = currentReceiptIndex <= 0 ? [] : studentReceipts.slice(0, currentReceiptIndex);
-  const adjustmentTotals = buildReceiptAdjustmentTotals({
+  const counterLateFeeWaived = await counterLateFeeWaivedRead;
+  const adjustmentTotalsRaw = buildReceiptAdjustmentTotals({
     currentReceiptId: receipt.id,
     receiptIdsUpToCurrent: receiptsUpToCurrent.map((row) => row.id),
     financialLateFeeTotal: financial?.late_fee_total ?? 0,
@@ -1006,6 +1037,18 @@ export async function getReceiptDetailWith(
       amountDelta: row.amount_delta,
     })),
   });
+  // The desk forgives a late fee BEFORE it posts (waive_late_fee under the
+  // same client request id), so no writeoff lands on the receipt and the
+  // receipt, slip and PDF never said it was forgiven (TEST school day,
+  // 6 Nov 2026, accountant B4). The waiver posted with this receipt counts.
+  const adjustmentTotals =
+    counterLateFeeWaived > adjustmentTotalsRaw.receiptLateFeeWaived
+      ? {
+          ...adjustmentTotalsRaw,
+          receiptLateFeeWaived: counterLateFeeWaived,
+          receiptLateFeeAmount: Math.max(adjustmentTotalsRaw.receiptLateFeeAmount, counterLateFeeWaived),
+        }
+      : adjustmentTotalsRaw;
   const sessionLabel = resolveReceiptSessionLabel({
     paymentSessionLabels: breakdown.map((item) => item.sessionLabel),
     studentSessionLabel: studentClass?.session_label,

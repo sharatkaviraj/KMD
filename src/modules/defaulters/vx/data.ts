@@ -2,7 +2,7 @@ import "server-only";
 
 import { byClassLabel } from "@/modules/academics/domain/class-order";
 
-import { fetchInChunks } from "@/platform/helpers/chunk";
+import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { getWorkbookInstallmentRows } from "@/modules/fees/data/queries";
@@ -43,9 +43,10 @@ export type DuesBoard = {
 
 /** Everyone with fees still owed this session, with the overdue installment numbers per child. */
 export async function loadDuesBoard(sessionLabel: string): Promise<DuesBoard> {
-  const [page, overdue] = await Promise.all([
+  const [page, overdue, notDue] = await Promise.all([
     getDefaultersPageData(EMPTY_DEFAULTER_FILTERS, sessionLabel),
     getWorkbookInstallmentRows({ sessionLabel, overdueOnly: true }),
+    loadNotDueYet(sessionLabel),
   ]);
 
   const instByStudent = new Map<string, Set<number>>();
@@ -79,6 +80,7 @@ export async function loadDuesBoard(sessionLabel: string): Promise<DuesBoard> {
     overdueAmount: r.overdueAmount,
     totalPending: r.totalPending,
     lateFee: r.lateFee,
+    notDueYet: notDue.get(r.studentId) ?? 0,
     daysOverdue: r.daysOverdue,
     familyGroupId: r.familyGroupId ?? null,
     lastPaymentDate: r.lastPaymentDate,
@@ -92,6 +94,35 @@ export async function loadDuesBoard(sessionLabel: string): Promise<DuesBoard> {
 
   const classByInst = [...byClass.values()].sort((a, b) => byClassLabel(a.classLabel, b.classLabel));
   return { students, contacts, classByInst };
+}
+
+function schoolDay(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+/**
+ * Fees on installments due today or later, per child — the rows Reports
+ * counts as "not due yet" (due-rule.ts: a carry-forward row is always
+ * pending today). One narrow paged read of the session's open rows.
+ */
+async function loadNotDueYet(sessionLabel: string): Promise<Map<string, number>> {
+  const today = schoolDay();
+  const supabase = feeReader();
+  const { data, error } = await fetchAllPages<{ student_id: string; pending_amount: number | string | null }>((a, b) =>
+    supabase
+      .from("v_workbook_installment_balances")
+      .select("student_id, pending_amount")
+      .eq("session_label", sessionLabel)
+      .gt("pending_amount", 0)
+      .gte("due_date", today)
+      .not("is_carry_forward", "is", true)
+      .order("installment_id")
+      .range(a, b),
+  );
+  if (error) throw new Error(error instanceof Error ? error.message : "Could not read the installments not due yet.");
+  const out = new Map<string, number>();
+  for (const r of data) out.set(String(r.student_id), (out.get(String(r.student_id)) ?? 0) + Math.max(0, Number(r.pending_amount) || 0));
+  return out;
 }
 
 export type LeftOwing = {
