@@ -59,6 +59,8 @@ export const TO = {
   everyClassMarked: p("Every class has marked attendance today.", "आज हर कक्षा की हाज़िरी दर्ज है।"),
   notMarkedYet: p("Not marked yet", "अभी दर्ज नहीं"),
   hasntMarked: (who: string): Pair => p(`${who} hasn’t marked attendance yet.`, `${who} ने अभी हाज़िरी दर्ज नहीं की।`),
+  // A class with no class teacher read "No class teacher hasn’t marked attendance yet." (day-run 6 Nov 2026, A-20).
+  notMarkedNoTeacher: p("Not marked yet. This class has no class teacher.", "अभी दर्ज नहीं। इस कक्षा का कोई कक्षा-अध्यापक नहीं है।"),
   classTeacher: p("Class teacher", "कक्षा-अध्यापक"),
   studentsN: p("Students", "विद्यार्थी"),
   reminder: p("Reminder", "याद दिलाना"),

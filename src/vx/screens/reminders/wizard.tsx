@@ -46,11 +46,26 @@ const MONTH_HI = ["जनवरी", "फ़रवरी", "मार्च", "�
 type Highlight = TemplateField | "pay link" | "";
 const FIELD_CHIPS: Highlight[] = ["parent", "student", "amount", "due date", "pay link"];
 
-function valuesFor(f: AudienceFamily | undefined, filters: AudienceFilters, today: string): { hi: TemplateValues; en: TemplateValues } {
+/**
+ * The preview's "due date" is the family's own oldest overdue date, the one the
+ * queued message carries (messages/domain/outbox.ts). It used to be today − 10
+ * for everyone, so a family 200 days overdue read "pending since 27 Oct" (TEST
+ * school day, 6 Nov 2026, accountant B9). The upcoming template names the next
+ * due date, which the audience does not carry, so its preview leaves it blank
+ * rather than invent one.
+ */
+function valuesFor(f: AudienceFamily | undefined, filters: AudienceFilters, today: string, template: TemplateId): { hi: TemplateValues; en: TemplateValues } {
   const amount = rupees(f ? quotedAmount(f, filters) : 0);
   const kids = (f?.kidsLine ?? "—").split(", ").map((k) => k.split(" · ")[0]);
-  const [, m, d] = addDays(today, -10).split("-").map(Number);
+  const days = f?.daysOverdue ?? 0;
   const parent = f?.fatherName ?? "—";
+  if (template === "upcoming" || days <= 0) {
+    return {
+      hi: { parent, student: kids.join(" और "), amount, "due date": "—" },
+      en: { parent, student: kids.join(" and "), amount, "due date": "—" },
+    };
+  }
+  const [, m, d] = addDays(today, -days).split("-").map(Number);
   return {
     hi: { parent, student: kids.join(" और "), amount, "due date": `${d} ${MONTH_HI[m - 1]}` },
     en: { parent, student: kids.join(" and "), amount, "due date": `${d} ${MONTH_EN[m - 1]}` },
@@ -93,7 +108,7 @@ export function ReminderWizard(props: RemindersProps) {
   const cost = messageCost(count);
   const pi = count ? ((sampleIndex % count) + count) % count : 0;
   const sample = picked[pi];
-  const values = valuesFor(sample, filters, today);
+  const values = valuesFor(sample, filters, today, template);
   const leftOut = {
     promised: leftOutBy(all, filters, "promised"),
     paid: leftOutBy(all, filters, "paid"),

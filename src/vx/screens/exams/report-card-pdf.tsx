@@ -139,7 +139,8 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
           );
         })}
         <View style={[sharedStyles.tableHeader, { paddingVertical: 6 }]}>
-          <Text style={{ flex: 2.2 + exams.length, fontFamily: "Helvetica-Bold" }}>Total · कुल</Text>
+          {/* Helvetica has no Devanagari: "कुल" printed as "A2" (day-run 6 Nov 2026, E33). */}
+          <Text style={{ flex: 2.2 + exams.length, fontFamily: "Helvetica-Bold" }}>Total <Text style={{ fontFamily: HI_FONT }}>· कुल</Text></Text>
           <Text style={{ flex: 1.2, textAlign: "right", fontFamily: "Helvetica-Bold" }}>
             {card.totals.scored}
             {graceTotal ? ` +${graceTotal}G` : ""}/{card.totals.outOf}

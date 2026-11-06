@@ -4,7 +4,7 @@ import { getViewSessionCookie } from "@/modules/fees/platform/session-context/co
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import {
   collectedThisWeek,
-  countCallsToday,
+  studentsCalledToday,
   loadDuesBoard,
   loadFamilyDetail,
   loadLeftOwing,
@@ -55,10 +55,10 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
   const sessionLabel = viewSession.sessionLabel;
   const promiseWindow = addDays(today, -21);
 
-  const [board, leftRows, callsToday, collectedWeek, promiseRows, writeOffs] = await Promise.all([
+  const [board, leftRows, calledIds, collectedWeek, promiseRows, writeOffs] = await Promise.all([
     loadDuesBoard(sessionLabel),
-    loadLeftOwing(),
-    countCallsToday(sessionLabel, today),
+    loadLeftOwing(sessionLabel),
+    studentsCalledToday(sessionLabel, today),
     collectedThisWeek(sessionLabel),
     listPromises(sessionLabel, promiseWindow),
     listWriteOffRequests(sessionLabel),
@@ -70,6 +70,8 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
   const lateOnly = lateFeeOnly(all);
   const familyOf = new Map<string, DuesFamily>();
   for (const f of all) for (const k of f.kids) familyOf.set(k.studentId, f);
+  // Families called today, not contact rows: a family of three is one call.
+  const callsToday = new Set(calledIds.map((id) => familyOf.get(id)?.key ?? `s:${id}`)).size;
 
   // Promises: judged against every receipt of the family made since the promise.
   const missing = promiseRows.map((r) => r.studentId).filter((id) => !familyOf.has(id));

@@ -221,6 +221,24 @@ describe("search", () => {
     expect(searchLocal(roll, "lkg").map((s) => s.id)).toEqual(["5"]);
   });
 
+  it("finds a child by a whole SR with letters in it, and reads JKG/SKG as classes", () => {
+    const withLetters = [
+      ...roll,
+      { id: "6", name: "Kabir Devdas", sr: "TEST-D-0366", classLabel: "JKG", father: "Mohan Devdas", phone: "9000000140" },
+      { id: "7", name: "Aarav Placeholder", sr: "PENDING-SR-0003", classLabel: "SKG", father: null, phone: null },
+    ];
+    expect(queryShape("TEST-D-0366")).toMatchObject({ kind: "sr", text: "testd0366" });
+    expect(searchLocal(withLetters, "TEST-D-0366").map((s) => s.id)).toEqual(["6"]);
+    expect(searchLocal(withLetters, "test-d-0366").map((s) => s.id)).toEqual(["6"]);
+    expect(searchLocal(withLetters, "PENDING-SR-0003").map((s) => s.id)).toEqual(["7"]);
+    expect(bridgeQuery(queryShape("TEST-D-0366"), " TEST-D-0366 ")).toBe("TEST-D-0366");
+    expect(queryShape("jkg")).toMatchObject({ kind: "class", grade: "jkg" });
+    expect(searchLocal(withLetters, "skg").map((s) => s.id)).toEqual(["7"]);
+    // Classes still win over the SR reading.
+    expect(queryShape("7b")).toMatchObject({ kind: "class" });
+    expect(queryShape("12sci")).toMatchObject({ kind: "class" });
+  });
+
   it("ranks the child's own name above the father's", () => {
     expect(searchLocal(roll, "ramesh").map((s) => s.id)).toEqual(["3"]);
     expect(searchLocal(roll, "prisha")[0].id).toBe("2");

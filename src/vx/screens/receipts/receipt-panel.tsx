@@ -55,6 +55,8 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
   const base = { anchor, today, span };
   const pdf = `/fees/receipts/${r.id}/pdf`;
   const remaining = Math.max(0, r.totalAmount - r.reversedAmount);
+  const forgiven = (r.lateFeeWaived ?? 0) + (r.discountGiven ?? 0);
+  const forgivenWhat = [r.lateFeeWaived ? tx(W.forgivenLateFee) : null, r.discountGiven ? tx(W.forgivenDiscount) : null].filter(Boolean).join(" + ");
   const mode = deskModeOf(r.paymentMode);
   const sent = r.share.status === "sent" || r.share.status === "delivered" || r.share.status === "read";
 
@@ -185,6 +187,12 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
               <span className="num" style={{ fontWeight: 600 }}>{rupees(h.amount)}</span>
             </div>
           ))}
+          {forgiven > 0 ? (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--bd)", fontSize: 13, color: "var(--mut)" }}>
+              <span>{tx(W.forgivenLine)}{forgivenWhat ? ` · ${forgivenWhat}` : ""}</span>
+              <span className="num" style={{ fontWeight: 600 }}>{rupees(forgiven)}</span>
+            </div>
+          ) : null}
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 2px" }}>
             <span style={{ fontSize: 14, fontWeight: 700 }}>{tx(W.totalReceived)}</span>
             <span className="num" style={{ fontSize: 18, fontWeight: 700 }}>{rupees(r.totalAmount)}</span>
@@ -317,6 +325,12 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
               {perms.reverse
                 ? tx(fill(W.impactAdmin, { amount: rupees(-remaining), no: r.receiptNumber, name: firstName, back: rupees(remaining), day: deskDay(r.paymentDate) }))
                 : `${tx(W.impactRequest)} ${tx(W.impactRequestNote)}`}
+              {forgiven > 0 ? (
+                <>
+                  <br />
+                  {tx(fill(W.impactConcession, { forgiven: rupees(forgiven), what: forgivenWhat }))}
+                </>
+              ) : null}
               {perms.reverse && r.dayClosed ? (
                 <>
                   <br />

@@ -117,6 +117,10 @@ export function requestAccessHref(staff: StaffLike[], myName: string, permission
  * (smoke 20 Oct, dev.groups[16]). Null for a code it does not know.
  */
 export function permissionArea(permission: string | null | undefined): { en: string; hi: string } | null {
+  // Admissions and Student tools are guarded on fees:manage (the fee app's
+  // student record), and the denial said "It is the page for fees." (day-run
+  // 6 Nov 2026, AC-17).
+  if (permission === "fees:manage") return { en: "admissions and student records", hi: "दाखिले और विद्यार्थी रिकॉर्ड" };
   const area = String(permission ?? "").split(":")[0];
   switch (area) {
     case "dashboard": return { en: "the school overview", hi: "स्कूल का सारांश" };

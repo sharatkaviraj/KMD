@@ -275,7 +275,7 @@ export async function requestWriteOffAction(input: { studentId: string; sessionL
     await assertSessionWritable(staff, input.sessionLabel);
     await assertNotPreviewing();
     if (!isWriteOffReason(input.reasonCode)) return { ok: false, error: "Choose why." };
-    const left = (await loadLeftOwing()).find((l) => l.studentId === input.studentId);
+    const left = (await loadLeftOwing(input.sessionLabel)).find((l) => l.studentId === input.studentId);
     if (!left) return { ok: false, error: "This child no longer owes anything." };
     const amount = Number(input.amount);
     if (!validWriteOffAmount(amount, left.owed)) return { ok: false, error: `Enter an amount from ₹1 to ₹${Math.round(left.owed)}.` };
@@ -334,7 +334,7 @@ export async function decideWriteOffAction(input: {
     }
 
     if (!isWriteOffReason(input.reasonCode)) return { ok: false, error: "Choose why." };
-    const left = (await loadLeftOwing()).find((l) => l.studentId === input.studentId);
+    const left = (await loadLeftOwing(input.sessionLabel)).find((l) => l.studentId === input.studentId);
     if (!left) return { ok: false, error: "This child no longer owes anything." };
     const amount = Number(input.amount);
     if (!validWriteOffAmount(amount, left.owed)) return { ok: false, error: `Enter an amount from ₹1 to ₹${Math.round(left.owed)}.` };

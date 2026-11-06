@@ -646,7 +646,7 @@ function RequestsPane({ data, canAct, busy, onWithdraw, onRemind, onDecide }: { 
                 <span className="ac-c ac-1" style={{ gap: 1 }}>
                   <span className="ac-f ac-w" style={{ gap: 6 }}><span className="ac-b" style={{ fontWeight: 700 }}>{KIND_LABEL[q.kind] ?? "Request"}</span>{isNew ? <span className="pill" style={{ background: "var(--accs)", color: "var(--accfg)", animation: "xPopIn .4s var(--spring) both" }}>New</span> : null}</span>
                   <span className="ac-m">{q.title}{q.studentName ? ` · ${q.studentName}` : ""}{q.mine ? "" : ` · asked by ${q.requestedByName}`}</span>
-                  <span className="ac-m" style={{ color: "var(--sub)" }}>{q.reason}</span>
+                  <span className="ac-m" style={{ color: "var(--sub)" }}>{readableReason(q.reason)}</span>
                 </span>
                 {q.amount !== null ? <span className="num ac-v">{rupees(q.amount)}</span> : null}
               </div>
@@ -1025,3 +1025,23 @@ function DecideForm({ request, onClose, busy, run }: { request: AccRequestRow; o
     </Sheet>
   );
 }
+
+/**
+ * A write-off request keeps the reason's code ("too_small"), and the queue
+ * printed it as typed (day-run 6 Nov 2026, A-05). The same four labels as the
+ * write-off action in `app/(app)/dues/actions.ts`.
+ */
+const REASON_CODE_LABEL: Record<string, string> = {
+  moved: "Family moved away",
+  hardship: "Family in hardship",
+  too_small: "Too small to chase",
+  settled: "Settled by talk",
+};
+
+function readableReason(reason: string | null | undefined): string {
+  if (!reason) return "";
+  const m = /^([a-z_]+)\b([\s\S]*)$/.exec(reason.trim());
+  if (!m || !(m[1] in REASON_CODE_LABEL)) return reason;
+  return `${REASON_CODE_LABEL[m[1]]}${m[2]}`;
+}
+

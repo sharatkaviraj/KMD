@@ -99,6 +99,8 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
       history,
       pendingRequest: pending ? { at: pending.createdAt, by: pending.requestedByName, reasonCode: pending.reasonCode, note: pending.note } : null,
       dayClosed: latestCloseState(dayEvents).closed,
+      discountGiven: Math.max(0, d.discountAmount ?? 0),
+      lateFeeWaived: Math.max(0, d.lateFeeWaived ?? 0, selectedRaw.lateFeeWaivedWithReceipt ?? 0),
       reversal: selectedRaw.isReversed && lastReversal ? { at: lastReversal.at, byName: lastReversal.byName ?? null, note: lastReversal.note ?? null } : null,
     };
   }

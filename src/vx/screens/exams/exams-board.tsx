@@ -1275,7 +1275,7 @@ function Preview(props: ExamsProps & { href: Href }) {
           </span>
           <Btn variant="sec" icon="chevRight" href={go(c.nextId)} disabled={!c.nextId} ariaLabel={tx(p("Next student", "अगला विद्यार्थी"))} style={navBtn} />
         </div>
-        <a className="tap btn sec mfull" href={`/exams/report-card?student=${c.studentId}&term=${encodeURIComponent(exam.term)}`} target="_blank" rel="noopener noreferrer">
+        <a className="tap btn sec mfull" href={`/exams/report-card?student=${c.studentId}&term=${encodeURIComponent(exam.term)}&exam=${encodeURIComponent(exam.id)}`} target="_blank" rel="noopener noreferrer">
           <Ic n="printer" />
           {tx(p("Print this card", "यह कार्ड प्रिंट करें"))}
         </a>
