@@ -92,7 +92,7 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
   if (pathname.startsWith("/fees/receipts/")) return null;
   return (
     <>
-      <nav className="vxt glass vx-bottom" aria-label="Primary navigation" style={{ height: "var(--vx-bottom-h)", padding: "6px 6px calc(16px + env(safe-area-inset-bottom))", borderTop: "1px solid var(--bd)", background: "var(--glass2)", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, boxSizing: "border-box" }}>
+      <nav className="vxt glass vx-bottom" aria-label="Primary navigation" style={{ height: "calc(76px + env(safe-area-inset-bottom))", padding: "6px 6px calc(16px + env(safe-area-inset-bottom))", borderTop: "1px solid var(--bd)", background: "var(--glass2)", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, boxSizing: "border-box" }}>
         {tabs.map((n) =>
           n.center ? (
             n.href === "#quick" ? (

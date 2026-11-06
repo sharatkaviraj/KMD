@@ -146,11 +146,12 @@
 .vx-legacy{flex:1;min-width:0;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
 @media (min-width:900px){.vx-legacy{padding:22px 28px 40px}}
 /* Safe-area padding is separate from the layout/visual viewport gap published by the app's existing provider. */
-/* The tabs stay at the bottom edge. While the on-screen keyboard is up (data-kb, set by
-   KeyboardOffsetProvider) they step aside and every bar that sits on --vx-bottom-h (Save note,
-   Save marks, ...) sits on the keyboard instead: lifting the tabs onto the keyboard put the
-   round centre button over "Save note" (smoke 6 Nov, teacher 17). */
-.vx-bottom{position:fixed;left:0;right:0;bottom:0;z-index:40;padding-bottom:env(safe-area-inset-bottom)}
+/* The tabs ride --keyboard-offset, so browser chrome covering the layout bottom never hides them
+   (receipt navigation). While a real on-screen keyboard is up (data-kb, set by
+   KeyboardOffsetProvider) they step aside, and every bar that sits on --vx-bottom-h (Save note,
+   Save marks, ...) sits on the keyboard instead: tabs lifted onto the keyboard covered
+   "Save note" (smoke 6 Nov, teacher 17). */
+.vx-bottom{position:fixed;left:0;right:0;bottom:var(--keyboard-offset,0px);z-index:40;padding-bottom:env(safe-area-inset-bottom)}
 :root[data-kb] .vx-bottom{display:none}
 @media (max-width:899px){.vx-shell>.vx-side{display:none!important}}
 @media (min-width:900px){.vx-bottom{display:none!important}}
@@ -252,7 +253,8 @@
 .vx-main:not(:has(.vx-ctop)){--vx-ctop-h:0px}
 @media (max-width:899px){.vx-main:has(.vx-ctop.phone-hide),.vx-main:has(.vx-ctop .vx-ctop-act:not(.phone-hide)){--vx-ctop-h:0px}}
 /* The phone bottom bar's height, for anything that sits on it (phone action bars). */
-:root{--vx-bottom-h:calc(76px + env(safe-area-inset-bottom))}
+/* The tabs' height plus whatever lifts them, so a sticky save bar always sits on top of them. */
+:root{--vx-bottom-h:calc(76px + env(safe-area-inset-bottom) + var(--keyboard-offset, 0px))}
 @media (min-width:900px){:root{--vx-bottom-h:0px}}
 @media (max-width:899px){:root[data-kb]{--vx-bottom-h:var(--keyboard-offset,0px)}}
 
