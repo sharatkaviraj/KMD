@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { m } from "@/messages";
 import { mc } from "@/messages/collect";
 import { ms } from "@/messages/setup";
+import { taskAssignMessages } from "@/messages/task-assign";
 import {
   countOf,
   countOfPair,
@@ -227,6 +228,14 @@ describe("the message catalogue", () => {
     // Two `attendanceRulesTitle`s would be two strings that drift apart.
     expect(Object.keys(ms).filter((key) => key in m)).toEqual([]);
     expect(Object.keys(mc).filter((key) => key in m || key in ms)).toEqual([]);
+  });
+
+  it("keeps the task-assignment words identical in ms and in their own module", () => {
+    // `ms` re-spreads them; a later `taskAssign: …` written into `ms` would
+    // silently override the spread, and /students would show a different word.
+    for (const [key, pair] of Object.entries(taskAssignMessages)) {
+      expect(ms[key as keyof typeof ms]).toBe(pair);
+    }
   });
 
   it.each(entries)("%s has both halves", (key, value) => {
