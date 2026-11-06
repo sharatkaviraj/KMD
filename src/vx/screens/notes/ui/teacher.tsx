@@ -13,7 +13,7 @@ import { VxPage } from "@/vx/ui/page";
 import type { ChildChoice } from "../data";
 import { shortDayHi } from "@/vx/format";
 
-import { countP, followUpDate, isMyFollowUp, noteStage, NOTE_TAGS, planProgress, TAG_TEXT, teacherCounts, type BoardNote, type NoteTag } from "../domain/notes";
+import { countP, followUpDate, isMyFollowUp, noteStage, NOTE_TAGS, planProgressText, TAG_TEXT, teacherCounts, type BoardNote, type NoteTag } from "../domain/notes";
 import { TeachCompose, TeachListening, TeachSaved, useComposer, useUndo } from "./compose";
 import { TeachNoteDetail } from "./detail";
 import { day, HelpSteps, nameTone, NotesTop, replaceParams, Seg, StagePill, TEACH_TAG, useBoth, useNoteWords, type HelpStep } from "./look";
@@ -234,9 +234,9 @@ export function TeachNotes(props: NotesProps) {
     top = { crumb: `${tx(p("Notes", "नोट्स"))} › ${name}`, title: `${name} · ${tx(p("note", "नोट"))}`, mTitle: name, mSub: `${n.classLabel} · ${tx({ open: p("Open", "खुला"), working: p("Working on it", "काम चल रहा"), done: p("Done", "पूरा"), noting: p("Just noting", "सिर्फ़ नोट") }[noteStage(n)])}`, back: { href: base } };
   } else if (screen === "plan" && focus && (focus.kind === "plan" || focus.kind === "new-plan")) {
     const name = focus.kind === "plan" ? focus.plan.studentName : focus.note.studentName;
-    const prog = focus.kind === "plan" ? planProgress(focus.plan.steps) : { done: 0, total: 0 };
+    const prog = planProgressText(focus.kind === "plan" ? focus.plan.steps : null);
     const noteId = focus.kind === "plan" ? focus.plan.noteId : focus.note.id;
-    top = { crumb: `${tx(p("Notes", "नोट्स"))} › ${name} › ${tx(p("Support plan", "सहायता योजना"))}`, title: `${tx(p("Support plan", "सहायता योजना"))} · ${name}`, mTitle: tx(p("Support plan", "सहायता योजना")), mSub: `${name} · ${tx(p(`${prog.done} of ${prog.total} done`, `${prog.total} में से ${prog.done} पूरे`))}`, back: { href: noteId ? `${base}?note=${noteId}` : base } };
+    top = { crumb: `${tx(p("Notes", "नोट्स"))} › ${name} › ${tx(p("Support plan", "सहायता योजना"))}`, title: `${tx(p("Support plan", "सहायता योजना"))} · ${name}`, mTitle: tx(p("Support plan", "सहायता योजना")), mSub: `${name} · ${tx(prog)}`, back: { href: noteId ? `${base}?note=${noteId}` : base } };
   } else {
     top = { crumb: tx(p("Teacher · notes on children", "अध्यापक · बच्चों के नोट्स")), title: tx(p("Notes on children", "बच्चों के नोट्स")), mTitle: tx(p("Notes on children", "बच्चों के नोट्स")), mSub: `${tx(countP(counts.total, "note", "notes", "नोट"))} · ${tx(p(`${counts.followUp} to follow up`, `${counts.followUp} फिर देखने हैं`))}`, back: null };
   }

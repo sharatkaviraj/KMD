@@ -325,3 +325,12 @@ describe("the redesigned board's words", () => {
     expect(suggestTags("   ")).toEqual([]);
   });
 });
+
+describe("planProgressText (support plan header read \"0 of 0 done\" over three new steps)", () => {
+  it("a plan being written says New plan, an empty one No steps yet", async () => {
+    const { planProgressText } = await import("@/vx/screens/notes/domain/notes");
+    expect(planProgressText(null).en).toBe("New plan");
+    expect(planProgressText([]).en).toBe("No steps yet");
+    expect(planProgressText([{ done: true }, { done: false }] as never).en).toBe("1 of 2 done");
+  });
+});

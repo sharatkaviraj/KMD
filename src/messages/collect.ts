@@ -231,6 +231,7 @@ export const mc = {
   checkAgain: t("फिर से जाँचें", "Check again"),
   notSavedSendAgain: t("यह भुगतान सहेजा नहीं गया। वही भुगतान उसी अनुरोध से फिर भेजें?", "This payment was not saved. Send the same payment again, with the same request?"),
   sendAgain: t("वही भुगतान फिर भेजें", "Send the same payment again"),
+  dropNotSaved: t("न भेजें, भुगतान पर लौटें", "Don't send it, back to payment"),
   stillUnknown: t("अभी पता नहीं चला। थोड़ी देर बाद फिर जाँचें; पैसे दोबारा न लें।", "Still not known. Check again in a moment; do not take the money again."),
   foundSaved: t("मिल गई: {name} सहेजी गई।", "Found it: {name} saved."),
   partSaved: t("{name} के लिए सहेजा गया।", "Saved for {name}."),

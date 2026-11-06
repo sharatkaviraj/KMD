@@ -456,8 +456,18 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
 
   const [finance, history, queueRes, followRes, pauseRes, chequeData, upi, requests, dueRes, nextRes] = await Promise.all([
     getFinanceControlsPageData(today, sessionLabel, fee),
+    // "Usual Friday" is this session's Fridays only: it used to average every
+    // session's receipts, so a TEST counter compared itself with the live
+    // year's takings (smoke test, 6 Nov 2026).
     fetchAllPages<Row>((a, b) =>
-      fee.from("receipts").select("payment_date, total_amount").neq("payment_mode", "discount").gte("payment_date", addDays(today, -56)).lt("payment_date", today).range(a, b),
+      fee
+        .from("receipts")
+        .select("payment_date, total_amount, student_ref:students!inner(class_ref:classes!inner(session_label))")
+        .eq("student_ref.class_ref.session_label", sessionLabel)
+        .neq("payment_mode", "discount")
+        .gte("payment_date", addDays(today, -56))
+        .lt("payment_date", today)
+        .range(a, b),
     ),
     app.from("acc_counter_queue").select("id, student_id, family_label, note, arrived_at").is("served_at", null).is("left_at", null).order("arrived_at").limit(20),
     fee.from("defaulter_contacts").select("student_id, snooze_until, note, contacted_at").eq("session_label", sessionLabel).in("snooze_until", [today, tomorrow]).order("contacted_at", { ascending: false }).limit(200),
