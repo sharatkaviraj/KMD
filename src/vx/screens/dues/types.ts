@@ -69,6 +69,8 @@ export type DuesProps = {
   /** The log sheet was opened by a Call button: the phone is dialling. */
   dialing?: boolean;
   writeOffFor: LeftView | null;
+  /** Read live from Fees at `asOf` (real staff, real session); null for One's own copy. */
+  live?: { asOf: string } | null;
   /** `openStudent`: the reader may open Student 360 (`students:view`); absent means no. */
   perms: { log: boolean; plan: boolean; planEnabled: boolean; collect: boolean; writeOff: boolean; callSheet?: boolean; openStudent?: boolean };
 };

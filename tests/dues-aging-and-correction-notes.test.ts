@@ -5,7 +5,7 @@ import { correctionNoteText } from "@/modules/finance-controls/domain/display";
 
 // Accountant run, 6 Nov 2026.
 describe("Dues aging: every overdue installment has a column", () => {
-  const data = readFileSync("src/modules/defaulters/vx/data.ts", "utf8");
+  const data = readFileSync("src/modules/defaulters/vx/domain/board.ts", "utf8");
   const screen = readFileSync("src/vx/screens/dues/screen.tsx", "utf8");
   const words = readFileSync("src/vx/screens/dues/words.ts", "utf8");
 

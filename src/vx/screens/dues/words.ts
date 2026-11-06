@@ -4,6 +4,7 @@ import { p, type Pair } from "@/vx/text";
 export const W = {
   crumb: p("Money · Dues & calls", "पैसा · बकाया और कॉल"),
   title: p("Dues & calls", "बकाया और कॉल"),
+  liveNotYet: p("Logging calls, promises, plans and write-offs is not in One yet. Record them in the Fees app for now.", "कॉल, वादे, किस्त योजना और माफ़ी दर्ज करना अभी One में नहीं है। अभी इन्हें Fees ऐप में दर्ज करें।"),
   pendingToday: p("Pending today", "आज तक बकाया"),
   notDueYet: p("Not due yet", "अभी देय नहीं"),
   lateFee: p("Late fee", "विलंब शुल्क"),

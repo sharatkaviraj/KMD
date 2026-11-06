@@ -1,0 +1,80 @@
+import { z } from "zod";
+
+// Fees screen reads (schoolfees docs/one-bridge/screen-reads.md): the data
+// behind One's own Dues & calls and Fee setup screens. Parse what One shows;
+// money is whole rupees, as in every other bridge contract.
+const text = z.string();
+const nullableText = text.nullable();
+const amount = z.number().finite();
+const count = z.number().int().nonnegative();
+const pins = { sessionLabel: text, asOf: text, asOfDate: text };
+
+export const bridgeDuesSchema = z.object({
+  ...pins,
+  defaulters: z.array(z.object({
+    studentId: text, fullName: text, fatherName: nullableText, fatherPhone: nullableText, motherPhone: nullableText,
+    classLabel: text, transportRouteId: nullableText, overdueAmount: amount, totalPending: amount, lateFee: amount,
+    daysOverdue: z.number().finite(), familyGroupId: nullableText, lastPaymentDate: nullableText,
+  })),
+  contacts: z.array(z.object({ studentId: text, lastContactedAt: nullableText, lastOutcome: nullableText, lastChannel: nullableText, snoozeUntil: nullableText })),
+  overdueRows: z.array(z.object({ studentId: text, classLabel: text, installmentNo: z.number().int(), isCarryForward: z.boolean(), pendingAmount: amount })),
+  notDueYet: z.array(z.object({ studentId: text, amount })),
+  recovery: z.array(z.object({
+    studentId: text, fullName: text, fatherName: nullableText, phone: nullableText, status: text, classLabel: nullableText,
+    lastPaymentDate: nullableText, dues: z.array(z.object({ sessionLabel: text, remainingAmount: amount })),
+  })),
+  calledToday: z.array(text),
+  collectedWeek: amount,
+});
+export type BridgeDues = z.infer<typeof bridgeDuesSchema>;
+
+export const bridgeDuesFamilySchema = z.object({
+  ...pins,
+  installments: z.array(z.object({
+    studentId: text, admissionNo: nullableText, route: nullableText, installmentNo: z.number().int(), isCarryForward: z.boolean(),
+    label: text, dueDate: text, pendingAmount: amount, lateFeePending: amount, balanceStatus: text, baseCharge: amount,
+  })),
+  contacts: z.array(z.object({ studentId: text, contactedAt: text, channel: nullableText, outcome: nullableText, note: nullableText })),
+});
+export type BridgeDuesFamily = z.infer<typeof bridgeDuesFamilySchema>;
+
+export const bridgeDuesPeopleSchema = z.object({
+  ...pins,
+  briefs: z.array(z.object({ studentId: text, fullName: text, fatherName: nullableText, phone: nullableText })),
+  payments: z.array(z.object({ studentId: text, paymentDate: text, amount, receiptNumber: text })),
+});
+export type BridgeDuesPeople = z.infer<typeof bridgeDuesPeopleSchema>;
+
+const feeHead = z.object({
+  id: text, label: text, amount, applicationType: text, isRefundable: z.boolean(), chargeFrequency: text,
+  isMandatory: z.boolean(), includeInWorkbookCalculation: z.boolean(), isActive: z.boolean(), notes: nullableText,
+});
+export const bridgeFeeSetupSchema = z.object({
+  ...pins,
+  draft: z.object({
+    academicSessionLabel: text,
+    installmentDates: z.array(text),
+    lateFeeFlatAmount: amount,
+    newStudentAcademicFeeAmount: amount,
+    oldStudentAcademicFeeAmount: amount,
+    academicFeeDistribution: z.enum(["first_only", "equal"]),
+    customFeeHeads: z.array(feeHead),
+    discounts: z.array(z.object({
+      key: text, id: nullableText, code: text, displayName: text,
+      calculationType: z.enum(["tuition_zero", "tuition_percentage", "tuition_fixed_amount"]),
+      fixedTuitionAmount: amount.nullable(), percentage: amount.nullable(), isActive: z.boolean(), isBuiltin: z.boolean(),
+    })),
+    classRows: z.array(z.object({ label: text, annualTuition: amount })),
+    routeRows: z.array(z.object({ routeName: text, annualFee: amount })),
+  }),
+  studentsByClass: z.record(text, count),
+  studentsByRoute: z.record(text, count),
+  activeStudents: count,
+  paidInstallments: z.array(z.number().int()),
+  ruleStudents: z.record(text, count),
+  ruleStudentNames: z.record(text, z.array(text)),
+  // Fees' RecentConfigChangeLogItem, the type One's ported change log shares.
+  history: z.array(z.object({ id: text, createdAt: text }).passthrough()),
+  updatedAt: nullableText,
+});
+export type BridgeFeeSetup = z.infer<typeof bridgeFeeSetupSchema>;

@@ -7,8 +7,7 @@ import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Input } from "@/vx/ui/controls";
 import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
-import { CouldNotRead } from "@/vx/ui/read-state";
-import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { CouldNotRead, RetryButton } from "@/vx/ui/read-state";
 import { sourceReceiptHref } from "./source-receipt";
 
 const CLOSE_WORD: Record<string, { en: string; hi: string }> = {
@@ -18,7 +17,7 @@ const CLOSE_WORD: Record<string, { en: string; hi: string }> = {
   reopened: { en: "Reopened", hi: "फिर खोला गया" },
 };
 
-/** Fees did not answer: say so, offer Try again, and the way to Fees — never an empty day. */
+/** Fees did not answer: say so and offer Try again — never an empty day, never a trip to the Fees app. */
 export function DayBookUnavailable({ language, sessionLabel }: { language: Language; sessionLabel: string }) {
   const t = (en: string, hi: string) => lead({ en, hi }, language);
   return (
@@ -26,7 +25,7 @@ export function DayBookUnavailable({ language, sessionLabel }: { language: Langu
       <TopBar title={t("Receipts and day book", "रसीदें और दिन का हिसाब")} crumb={sessionLabel} />
       <Section>
         <CouldNotRead message={{ en: "Receipts could not be read from Fees just now. They are not lost.", hi: "अभी Fees से रसीदें पढ़ी नहीं जा सकीं। वे खोई नहीं हैं।" }}
-          action={<a href={`${FEES_ORIGIN}/protected/receipts?${new URLSearchParams({ session: sessionLabel })}`} style={{ fontWeight: 700, color: "var(--acc)" }}>{t("Open in Fees", "Fees में खोलें")}</a>} />
+          action={<RetryButton />} />
       </Section>
     </VxPage>
   );

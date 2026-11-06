@@ -1,5 +1,5 @@
 import { describe,it,expect } from "vitest";
-import { assertBridgeSession,delegatedFeesPath,feesBridgeEnabled,feesBridgeOrigin,feesBridgeWritesEnabled,feesDestination,usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { assertBridgeSession,delegatedFeesPath,nativeReadOnlyFeesPath,feesBridgeEnabled,feesBridgeOrigin,feesBridgeWritesEnabled,feesDestination,usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { projectionUrl } from "@/platform/fees-bridge/projection-policy";
 
 const production={FEES_BRIDGE_ENABLED:"true",VERCEL_ENV:"production"};
@@ -35,6 +35,16 @@ describe("one authoritative financial backend",()=>{
     expect(feesDestination("/receipts/SVP20261101-0001", "2026-27")).toBeNull();
     expect(feesDestination("/receipts", "2026-27")).toBe("https://fees.vpps.co.in/protected/receipts?session=2026-27");
     expect(feesDestination("/receipts/SVP20261101-0001/reverse", "2026-27")).toBe("https://fees.vpps.co.in/protected/receipts?session=2026-27");
+  });
+  it("serves Dues & calls and Fee setup in One, read-only (6 Nov 2026)",()=>{
+    for(const path of ["/dues","/fee-setup"]){
+      expect(feesDestination(path,"2026-27"),path).toBeNull();
+      expect(delegatedFeesPath(path),path).toBeNull();
+      // Still matched by the proxy, so a write there is refused for real staff.
+      expect(nativeReadOnlyFeesPath(path),path).toBe(true);
+    }
+    for(const path of ["/dues/x","/fee-setupx","/reports","/reminders","/payments"])expect(nativeReadOnlyFeesPath(path),path).toBe(false);
+    expect(feesDestination("/dues/export","2026-27")).toBe("https://fees.vpps.co.in/protected/defaulters?session=2026-27");
   });
 });
 

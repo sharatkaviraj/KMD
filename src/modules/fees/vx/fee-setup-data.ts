@@ -9,6 +9,8 @@ import { getRecentConfigChangeLog, type RecentConfigChangeLogItem } from "@/modu
 import { getFeeSetupPageData } from "@/modules/fees/data/policy";
 import { createClient as createFeeClient } from "@/modules/fees/platform/supabase/server";
 import { fetchAllPages } from "@/platform/helpers/chunk";
+import { getBridgeFeeSetup } from "@/platform/fees-bridge/client";
+import type { FeeHeadDefinition } from "@/modules/fees/domain/types";
 
 import { buildDraft, type FeeSetupDraft } from "@/modules/fees/vx/domain/fee-setup";
 
@@ -27,7 +29,31 @@ export type FeeSetupVxData = {
   ruleStudentNames: Record<string, string[]>;
   history: RecentConfigChangeLogItem[];
   updatedAt: string | null;
+  /** Read live from Fees at this time (real staff, real session); absent for One's copy. */
+  liveAsOf?: string;
 };
+
+/**
+ * The same screen data, read live from Fees through the bridge (6 Nov 2026)
+ * for real staff on a real session, built by Fees from the same setup page
+ * data and row builders. The caller shows "could not read" if this throws.
+ */
+export async function getFeeSetupVxDataFromFees(sessionLabel: string): Promise<FeeSetupVxData> {
+  const live = await getBridgeFeeSetup(sessionLabel);
+  return {
+    sessionLabel: live.sessionLabel,
+    draft: { ...live.draft, customFeeHeads: live.draft.customFeeHeads as FeeHeadDefinition[] },
+    studentsByClass: live.studentsByClass,
+    studentsByRoute: live.studentsByRoute,
+    activeStudents: live.activeStudents,
+    paidInstallments: live.paidInstallments,
+    ruleStudents: live.ruleStudents,
+    ruleStudentNames: live.ruleStudentNames,
+    history: live.history as unknown as RecentConfigChangeLogItem[],
+    updatedAt: live.updatedAt,
+    liveAsOf: live.asOf,
+  };
+}
 
 export async function getFeeSetupVxData(sessionLabel: string): Promise<FeeSetupVxData> {
   const fee = await createFeeClient();

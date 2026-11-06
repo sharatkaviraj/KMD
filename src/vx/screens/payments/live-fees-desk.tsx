@@ -86,7 +86,6 @@ export function LiveFeesDesk(props:{
   // Ticked by default when shown (the office's 27 Oct call); hidden with nothing to waive.
   const offerWaive=props.canWaive && Boolean(studentId) && (lateFeeKnown===null || (lateFeeKnown??0)>0);
   const locked=pending || command!==null || recoveryError;
-  const feesLink=`${FEES_ORIGIN}/protected/payments?${new URLSearchParams({session:props.sessionLabel,...(studentId?{studentId}:{})})}`;
   const receipt=saved??openedReceipt;
 
   function changed(){setQuote(null);setMessage(null);}
@@ -135,7 +134,6 @@ export function LiveFeesDesk(props:{
 
   return <section className="mx-auto max-w-3xl space-y-5 px-3 py-5 sm:px-6">
     <header><h1 className="text-2xl font-semibold">{label(ms.bridgeTitle)}</h1><p className="mt-2 text-sm text-slate-600">{label(ms.bridgeLedger)}</p><p className="mt-1 text-sm">{props.sessionLabel}</p></header>
-    <a className="inline-block font-medium text-blue-700 underline" href={feesLink}>{label(ms.bridgeOpenFees)}</a>
     {!props.canPost && <p className="rounded-lg bg-amber-50 p-3 text-amber-950">{label(ms.bridgeReadOnly)}</p>}
     {message && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-amber-950">{message}</p>}
     {receipt && !uncertain ? <div className="space-y-3 rounded-xl border border-emerald-300 bg-emerald-50 p-5" role="status">

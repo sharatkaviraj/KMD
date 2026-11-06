@@ -22,6 +22,7 @@ import { Chip, Seg } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
 import { Grid, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
+import { LiveFromFees } from "@/vx/ui/live-fees";
 import type { Pair } from "@/vx/text";
 
 import { FamilyPanel } from "./family-panel";
@@ -721,6 +722,11 @@ export function DuesScreen(props: DuesProps) {
           ) : null
         }
       />
+      {props.live ? (
+        <div className="pad" style={{ paddingBottom: 0 }}>
+          <LiveFromFees asOf={props.live.asOf} notYet={W.liveNotYet} />
+        </div>
+      ) : null}
       <main>
         <div className="stack" style={{ display: "grid", gridTemplateColumns: selected ? "minmax(0, 1fr) 440px" : "minmax(0, 1fr)", alignItems: "start", minHeight: "100%" }}>
           {list}

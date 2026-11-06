@@ -2,7 +2,8 @@ import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
 import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { feesBridgeEnabled, feesDestination, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { feesBridgeEnabled, feesDestination, nativeReadOnlyFeesPath, usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { cleanFromPath } from "@/platform/fees-bridge/not-in-one";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { HOME_HINT_COOKIE, followsHomeHint, readHomeHint } from "@/platform/auth/home-hint";
@@ -221,10 +222,11 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Financial features without an adapter stay in their existing Fees
-  // workflow. Never redirect/replay a POST or a provider callback. The data
+  // Financial features without a One screen stay in their existing Fees
+  // workflow, and are named on One's "not in One yet" page rather than
+  // redirected to Fees. Never redirect/replay a POST or a provider callback. The data
   // clients independently refuse local real reads/writes and forged actions.
-  if (feesBridgeEnabled() && (feesDestination(pathname) || pathname.startsWith("/api/fees/"))) {
+  if (feesBridgeEnabled() && (feesDestination(pathname) || nativeReadOnlyFeesPath(pathname) || pathname.startsWith("/api/fees/"))) {
     const {data:profile,error} = hasUser
       ? await supabase.schema("vppsone").from("staff_profiles").select("is_active,is_test_account,role").eq("user_id",userId!).maybeSingle<{is_active:boolean;is_test_account:boolean;role:string}>()
       : {data:null,error:null};
@@ -236,9 +238,13 @@ export async function updateSession(request: NextRequest) {
     }
     if(profile && !error && usesCanonicalFees({isActive:profile.is_active,role:profile.role,isTestAccount:profile.is_test_account,confined:isConfinedDeployment()},testContext?askedSession:null)) {
       if(request.method!=="GET" && request.method!=="HEAD") return NextResponse.json({error:"Use the live Fees connection for this operation.",code:"ONE_CANONICAL_FEES_REQUIRED"},{status:409});
-      const destination=feesDestination(pathname,askedSession);
-      if(destination){
-        const response=NextResponse.redirect(destination);
+      // Never the Fees app (owner, 6 Nov 2026): a screen One does not have yet
+      // lands on One's own page that says so. The work is still done in Fees.
+      if(feesDestination(pathname,askedSession)){
+        const url=request.nextUrl.clone();
+        url.pathname="/not-in-one";
+        url.search=`?${new URLSearchParams({from:cleanFromPath(pathname)})}`;
+        const response=NextResponse.redirect(url);
         supabaseResponse.cookies.getAll().forEach(cookie=>response.cookies.set(cookie));
         return response;
       }

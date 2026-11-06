@@ -22,7 +22,9 @@ import {
   type ContactSummary,
   type DuesFamily,
 } from "@/modules/defaulters/vx/domain/families";
+import { familyDetailFromFees, loadDuesFromFees, peopleFromFees } from "@/modules/defaulters/vx/fees-data";
 import { addDays } from "@/modules/receipts/vx/domain/day-close";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { can } from "@/platform/auth/permissions";
@@ -43,6 +45,20 @@ function kidsLine(f: Pick<DuesFamily, "kids">): string {
   return f.kids.map((k) => `${k.fullName.split(" ")[0]} · ${k.classLabel}`).join(", ");
 }
 
+/** Fees did not answer for a live read: the page says so, and never shows the local copy's numbers instead. */
+export class DuesFeesUnavailable extends Error {
+  constructor(readonly sessionLabel: string) { super("Fees could not be read for Dues & calls."); }
+}
+
+/**
+ * Real staff on a real session read Fees itself (6 Nov 2026): the same
+ * screen, live from the Fees bridge, instead of being sent to the Fees app.
+ * Test accounts and TEST sessions keep reading One's copy, as before.
+ */
+export function duesReadsFees(staff: CurrentStaff, sessionLabel: string): boolean {
+  return /^\d{4}-\d{2}$/.test(sessionLabel) && usesCanonicalFees(staff, sessionLabel);
+}
+
 /** Everything /dues draws, from the URL. */
 export async function loadDues(staff: CurrentStaff, search: Search): Promise<DuesProps> {
   const today = schoolToday();
@@ -55,14 +71,17 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
   const sessionLabel = viewSession.sessionLabel;
   const promiseWindow = addDays(today, -21);
 
-  const [board, leftRows, calledIds, collectedWeek, promiseRows, writeOffs] = await Promise.all([
-    loadDuesBoard(sessionLabel),
-    loadLeftOwing(sessionLabel),
-    studentsCalledToday(sessionLabel, today),
-    collectedThisWeek(sessionLabel),
+  const live = duesReadsFees(staff, sessionLabel);
+  const fees = <T,>(read: () => Promise<T>): Promise<T> => read().catch((): never => { throw new DuesFeesUnavailable(sessionLabel); });
+  const [source, promiseRows, writeOffs] = await Promise.all([
+    live
+      ? fees(() => loadDuesFromFees(sessionLabel))
+      : Promise.all([loadDuesBoard(sessionLabel), loadLeftOwing(sessionLabel), studentsCalledToday(sessionLabel, today), collectedThisWeek(sessionLabel)])
+          .then(([board, left, calledIds, collectedWeek]) => ({ board, left, calledIds, collectedWeek, asOf: null as string | null })),
     listPromises(sessionLabel, promiseWindow),
     listWriteOffRequests(sessionLabel),
   ]);
+  const { board, left: leftRows, calledIds, collectedWeek } = source;
 
   const contacts = new Map<string, ContactSummary>(Object.entries(board.contacts));
   const all = groupFamilies(board.students, contacts);
@@ -75,10 +94,15 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
 
   // Promises: judged against every receipt of the family made since the promise.
   const missing = promiseRows.map((r) => r.studentId).filter((id) => !familyOf.has(id));
-  const briefs = new Map((await studentBriefs(missing)).map((b) => [b.studentId, b]));
   const familyIds = (studentId: string) => familyOf.get(studentId)?.kids.map((k) => k.studentId) ?? [studentId];
   const since = promiseRows.reduce((min, r) => (r.createdAt.slice(0, 10) < min ? r.createdAt.slice(0, 10) : min), today);
-  const payments = await paymentsSince([...new Set(promiseRows.flatMap((r) => familyIds(r.studentId)))], since);
+  const promiseKids = [...new Set(promiseRows.flatMap((r) => familyIds(r.studentId)))];
+  // Live: one Fees read answers both (names for the missing, receipts for all).
+  const people = live
+    ? await fees(() => peopleFromFees(sessionLabel, [...new Set([...missing, ...promiseKids])], since))
+    : { briefs: await studentBriefs(missing), payments: await paymentsSince(promiseKids, since) };
+  const briefs = new Map(people.briefs.map((b) => [b.studentId, b]));
+  const payments = people.payments;
 
   const promises: PromiseView[] = promiseRows.map((r) => {
     const fam = familyOf.get(r.studentId);
@@ -117,7 +141,10 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
 
   const familyKey = one(search.family);
   const selected = familyKey ? (all.find((f) => f.key === familyKey) ?? null) : null;
-  const detail = selected ? await loadFamilyDetail(sessionLabel, selected.kids.map((k) => k.studentId)) : null;
+  const kids = selected ? selected.kids.map((k) => k.studentId) : [];
+  const detail = selected
+    ? live ? await fees(() => familyDetailFromFees(sessionLabel, kids)) : await loadFamilyDetail(sessionLabel, kids)
+    : null;
   const woId = one(search.wo);
   let writeOffFor = woId ? (left.find((l) => l.studentId === woId) ?? null) : null;
   // A request waiting under Needs you for a child who no longer owes anything
@@ -127,7 +154,7 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
   if (woId && !writeOffFor) {
     const asked = writeOffs.find((w) => w.studentId === woId && w.status === "pending");
     if (asked) {
-      const b = (await studentBriefs([woId]).catch(() => []))[0];
+      const b = (await (live ? peopleFromFees(sessionLabel, [woId], today).then((p) => p.briefs) : studentBriefs([woId])).catch(() => []))[0];
       writeOffFor = {
         studentId: woId,
         fullName: b?.fullName ?? "—",
@@ -175,14 +202,19 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
     sheet: selected || writeOffFor ? sheet : null,
     dialing: Boolean(selected) && sheet === "call" && one(search.dial) === "1",
     writeOffFor,
+    // Live from Fees: read-only for now. Calls, promises, plans and
+    // write-offs would land in One's copy, not in Fees, so they stay off until
+    // they go through the Fees connection; the screen says so.
+    live: source.asOf ? { asOf: source.asOf } : null,
     perms: {
-      log: fee.includes("defaulters:view"),
-      plan: fee.includes("fees:repayment_plan"),
+      log: !live && fee.includes("defaulters:view"),
+      plan: !live && fee.includes("fees:repayment_plan"),
       planEnabled: isRepaymentPlanCreationEnabled(),
       collect: can(staff, "fees:collect"),
-      writeOff: fee.includes("finance:write"),
+      writeOff: !live && fee.includes("finance:write"),
       // The call sheet is the fee app's defaulters export, which asks for reports:view.
-      callSheet: fee.includes("reports:view"),
+      // It is a Fees file, so live it would send staff to Fees: off until One has its own.
+      callSheet: !live && fee.includes("reports:view"),
       // Student 360 asks for students:view; the accountant has fees but not
       // that, and "Open student" landed on "No access" (smoke 21 Oct).
       openStudent: can(staff, "students:view"),

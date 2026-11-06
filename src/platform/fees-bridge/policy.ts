@@ -64,6 +64,17 @@ const NATIVE_FINANCE_ROUTES: Readonly<Record<string, string>> = {
   "/student-tools": "/protected/students",
 };
 
+/**
+ * Screens One now draws itself from Fees' own data (6 Nov 2026): a GET is
+ * served here, never redirected. Their changes are not in One yet, so a write
+ * (a server action posts to the page's path) is still refused with 409 for
+ * real staff rather than landing in One's copy.
+ */
+const NATIVE_READ_ROUTES: ReadonlySet<string> = new Set(["/dues", "/fee-setup"]);
+export function nativeReadOnlyFeesPath(pathname: string): boolean {
+  return NATIVE_READ_ROUTES.has(pathname);
+}
+
 /** Exact path segments, fixed origin and no tokens or untrusted query forwarding. */
 export function delegatedFeesPath(pathname: string, env: Environment = process.env): string | null {
   // The receipts list and day book are native once Fees' office reads are live (review F01);
@@ -76,6 +87,7 @@ export function delegatedFeesPath(pathname: string, env: Environment = process.e
   if(pathname==="/admissions/new")return "/protected/students/new";
   const admission=/^\/admissions\/([0-9a-f-]{36})$/.exec(pathname);
   if(admission)return `/protected/students/${admission[1]}/edit`;
+  if (NATIVE_READ_ROUTES.has(pathname)) return null;
   // These are One-owned homes/CRM. Their source-data adapters keep them here.
   if(pathname==="/accounts" || pathname==="/admissions" || pathname==="/admissions/seats")return null;
   // The single-receipt page validates number + source UUID + session and is

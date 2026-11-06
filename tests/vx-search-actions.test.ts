@@ -232,11 +232,12 @@ describe("searchEverythingAction under the live Fees connection (S01)", () => {
     expect(r.students[0]).toEqual(expect.objectContaining({ classLabel: "Class 7", money: null, href: "/students/qa-child" }));
   });
 
-  it("reports a failed Fees read instead of Nothing matches", async () => {
+  it("still finds children from One's roster, without money, when Fees does not answer (6 Nov 2026)", async () => {
     state.perms = new Set(["fees:view"]);
     state.directory.mockRejectedValue(new Error("source down"));
     const r = await searchEverythingAction("aarav");
-    expect(r.students).toEqual([]);
-    expect(r.failed).toEqual(["students"]);
+    expect(r.students.length).toBeGreaterThan(0);
+    expect(r.students.every((s) => !("money" in s) || s.money == null)).toBe(true);
+    expect(r.failed).toBeUndefined();
   });
 });

@@ -143,6 +143,11 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "Somewhere you are sent, never somewhere you go.",
   },
   {
+    route: "/not-in-one",
+    allow: EVERYONE,
+    because: "Where a screen One does not have yet lands, instead of a redirect to the Fees app (owner, 6 Nov 2026). It names the screen and nothing else.",
+  },
+  {
     route: "/preferences",
     allow: EVERYONE,
     because:

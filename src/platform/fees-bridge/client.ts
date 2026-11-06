@@ -10,6 +10,7 @@ import {
   bridgeStudentLedgerSchema, bridgeStudentReceiptsSchema, type BridgeWorkspace,
 } from "./student-read-contracts";
 import { composeStudentView } from "./student-view";
+import { bridgeDuesFamilySchema, bridgeDuesPeopleSchema, bridgeDuesSchema, bridgeFeeSetupSchema } from "./screen-read-contracts";
 import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import {
   officeCommandStatusSchema, refundDecisionInputSchema, refundDecisionResultSchema, refundProcessInputSchema, refundProcessResultSchema,
@@ -214,6 +215,47 @@ export async function getBridgeReceipts(input:{sessionLabel:string;from:string;t
   const result=await bridgeRequest({...(await credentials(staff,input.sessionLabel)),path:`/receipts?${params}`,schema:bridgeReceiptListSchema});
   if(result.sessionLabel!==input.sessionLabel)throw new FeesBridgeError("invalid_response","The Fees receipts did not match this session.");
   return result;
+}
+
+/*
+ * Screen reads (6 Nov 2026): the data behind One's own Dues & calls and Fee
+ * setup, so neither sends staff to the Fees app. Fees checks defaulters:view /
+ * fees:view for the mapped Fees user; One checks its own permission first.
+ */
+const sessionMatches = <T extends { sessionLabel: string }>(result: T, sessionLabel: string, what: string): T => {
+  if (result.sessionLabel !== sessionLabel) throw new FeesBridgeError("invalid_response", `The Fees ${what} did not match this session.`);
+  return result;
+};
+const studentIds = (ids: readonly string[], max: number) => z.array(z.uuid()).min(1).max(max).parse([...new Set(ids)]);
+
+/** Fees' Defaulters page and what Dues & calls adds to it, for one session. */
+export async function getBridgeDues(sessionLabel: string) {
+  const staff = await assertPermission("fees:view");
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
+    path:`/screens/dues?${new URLSearchParams({session:sessionLabel})}`,schema:bridgeDuesSchema}),sessionLabel,"dues");
+}
+
+/** One family's installments and contact log (up to eight children). */
+export async function getBridgeDuesFamily(sessionLabel: string, ids: readonly string[]) {
+  const staff = await assertPermission("fees:view");
+  const params = new URLSearchParams({session:sessionLabel});
+  for (const id of studentIds(ids.slice(0, 8), 8)) params.append("student", id);
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/screens/dues/family?${params}`,schema:bridgeDuesFamilySchema}),sessionLabel,"family");
+}
+
+/** Names and receipts since a date, for judging promises (up to 200 children). */
+export async function getBridgeDuesPeople(sessionLabel: string, ids: readonly string[], since: string) {
+  const staff = await assertPermission("fees:view");
+  const params = new URLSearchParams({session:sessionLabel,since:z.iso.date().parse(since)});
+  for (const id of studentIds(ids, 200)) params.append("student", id);
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/screens/dues/people?${params}`,schema:bridgeDuesPeopleSchema}),sessionLabel,"promise families");
+}
+
+/** The session's published fee setup, in the shape One's Fee setup draws. */
+export async function getBridgeFeeSetup(sessionLabel: string) {
+  const staff = await assertPermission("fees:view");
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
+    path:`/screens/fee-setup?${new URLSearchParams({session:sessionLabel})}`,schema:bridgeFeeSetupSchema}),sessionLabel,"fee setup");
 }
 
 export async function listBridgeStudents(sessionLabel: string, query = "", cursor: string | null = null) {

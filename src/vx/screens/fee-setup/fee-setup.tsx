@@ -168,6 +168,7 @@ export function FeeSetup({
   canEdit,
   readOnly,
   draftStart,
+  notice,
 }: {
   data: FeeSetupVxData;
   today: string;
@@ -178,6 +179,8 @@ export function FeeSetup({
   readOnly: boolean;
   /** Unsaved edits to open with (the design fixture's review state); the page always starts from the live setup. */
   draftStart?: FeeSetupDraft;
+  /** A line above the tabs: where the figures came from (live from Fees). */
+  notice?: ReactNode;
 }) {
   const { tx } = useVx();
   const base = data.draft;
@@ -270,6 +273,7 @@ export function FeeSetup({
           </span>
         </header>
       ) : null}
+      {notice ? <div className={`pad${editing ? " hide-m" : ""}`} style={{ paddingBottom: 0 }}>{notice}</div> : null}
       <div className={`pad fs-tabbar${editing ? " hide-m" : ""}`}>
         <div className="hs">
           <div className="seg fs-seg" role="tablist">

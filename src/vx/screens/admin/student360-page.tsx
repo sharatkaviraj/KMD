@@ -26,7 +26,8 @@ import { studentReturnHref } from "@/vx/screens/admin/students-logic";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
-import { usesCanonicalFees, FEES_ORIGIN } from "@/platform/fees-bridge/policy";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { notInOneHref } from "@/platform/fees-bridge/not-in-one";
 import { getBridgeStudentView } from "@/platform/fees-bridge/client";
 import { bridgeStudentPhotoHref } from "@/platform/fees-bridge/student-photo";
 import { feesFromBridge } from "@/modules/students-fees/vx/canonical-students";
@@ -163,7 +164,7 @@ export async function Student360Content({ id, search }: { id: string; search: Re
           name: school.card.fullName,
           photoUrl,
           canEditPhoto: !canonical && !previewing && (((staff.role === "admin" || staff.role === "office") && can(staff,"collection:manage")) || (staff.role === "teacher" && contactAccess)),
-          sourcePhotoEditHref:canonical&&!previewing&&can(staff,"fees:manage")?`${FEES_ORIGIN}/protected/students/${id}/edit?${new URLSearchParams({session:sessionLabel})}`:undefined,
+          sourcePhotoEditHref:canonical&&!previewing&&can(staff,"fees:manage")?notInOneHref(`/admissions/${id}`):undefined,
           unavailable: [...(school.unavailable ?? []), ...unavailable],
           classLabel: school.classLabel,
           sr: school.card.admissionNo,

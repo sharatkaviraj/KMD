@@ -1,5 +1,18 @@
 # Decisions
 
+## One without the Fees redirects — 6 November 2026
+
+Janmejay asked that One stop sending staff to the Fees app for anything, while Fees stays the money system and One reads from it behind the scenes. The plan ("One without the Fees redirects", Claude Doc) was approved in full, with deployment to live. Fees changes are additive (new read endpoints, no migration, no live-DB schema change).
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-467 | **Dues & calls and Fee setup are One's own screens for real staff, read live from Fees through `/api/one/v1/screens/*`** | Fees PR 146 adds four read-only endpoints (`screens/dues`, `screens/dues/family`, `screens/dues/people`, `screens/fee-setup`) built from the Fees screens' own readers, authorized through the existing `directory` read context so no live migration was needed, plus the Defaulters permission for the dues reads. One draws them with the same screens it draws for TEST (`loadDues`, `getFeeSetupVxDataFromFees`), a "Live from Fees" line with the read time, and "could not read" when Fees does not answer. It never falls back to One's copy of fee data |
+| D-468 | **On those live screens nothing writes yet** | A call log, promise, plan, write-off or fee-setup publish from One would land in One's local copy, not in Fees. The buttons are off on the live screens and the proxy still answers 409 to a non-GET there for real staff. Writes come through new `/api/one/v1` commands later, one at a time |
+| D-469 | **Every remaining Fees redirect lands on One's own "Not in One yet" page (`/not-in-one?from=`)** | The proxy used to send real staff to the Fees app for receipts, reports, books, reminders, student tools and admissions edits. It now sends them to one page that names the screen and says the office keeps using Fees for it for now. Links in the finance hub, student page, admin today, ledger and receipts point there or at One's own screens. The uncertain-payment link on the desk still opens Fees, because that is where the office checks whether a payment went through |
+| D-470 | **An admin can refresh the roster from Fees on demand, no more than once every 10 minutes** | `POST /api/fees-bridge/roster/refresh` (same origin, real admin, not previewing, not a test account) runs one ordinary bridge sync. D-457 stands: there is no scheduled frequent sync, only the nightly job and this button |
+| D-471 | **Search falls back to One's roster when Fees does not answer** | Staff with money access search through Fees; when Fees is slow or down they now get names and classes from One's roster, with no money figures, instead of nothing |
+| D-472 | **New Fees features are frozen; Fees takes bug fixes and One's bridge endpoints only** | The approved plan's end state keeps the Fees backend as One's money service, so new work goes into One's screens. Real payments from One stay behind `FEES_BRIDGE_WRITES_ENABLED`, the owner's switch |
+
 ## Opening the app faster — 6 November 2026
 
 Janmejay asked for the app to boot faster and more smoothly, from the logo to the first screen, on phones (installed) and laptops. The speed logs showed first paint landing with the first byte on almost every first open: nothing reached the phone until every read of the frame was done.

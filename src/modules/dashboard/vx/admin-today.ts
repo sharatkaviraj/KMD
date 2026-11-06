@@ -11,7 +11,8 @@ import { settleParts } from "@/platform/helpers/partial-read";
 import { getBridgePendingRequests } from "@/platform/fees-bridge/client";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
-import { FEES_ORIGIN, feesBridgeWritesEnabled } from "@/platform/fees-bridge/policy";
+import { feesBridgeWritesEnabled } from "@/platform/fees-bridge/policy";
+import { notInOneHref } from "@/platform/fees-bridge/not-in-one";
 import { deskReason } from "@/modules/dashboard/domain/desk-reason";
 import { p, type Pair } from "@/vx/text";
 
@@ -285,7 +286,8 @@ export async function pendingFeesRefunds(sessionLabel: string): Promise<PendingR
     title: FEES_REFUND_TITLE[item.kind],
     receiptNumber: item.receipt.receiptNumber,
     requestedAt: item.requestedAt,
-    href: new URL(item.feesPath, FEES_ORIGIN).toString(),
+    // Refund screens are not in One yet: One's own page says so (owner, 6 Nov 2026).
+    href: notInOneHref("/accounts/books"),
   }));
 }
 

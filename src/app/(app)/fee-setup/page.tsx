@@ -1,6 +1,9 @@
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
-import { getFeeSetupVxData } from "@/modules/fees/vx/fee-setup-data";
+import { getFeeSetupVxData, getFeeSetupVxDataFromFees } from "@/modules/fees/vx/fee-setup-data";
+import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { FeesScreenUnavailable, LiveFromFees } from "@/vx/ui/live-fees";
+import { F } from "@/vx/screens/fee-setup/words";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { schoolToday } from "@/vx/format";
@@ -23,9 +26,13 @@ export default async function FeeSetupPage({ searchParams }: { searchParams: Pro
   const { previewing } = await getViewer();
   const sp = await searchParams;
   const session = await resolveViewSession({ searchParamSession: sp.session, cookieSession: await getViewSessionCookie() });
-  const data = await getFeeSetupVxData(session.sessionLabel);
+  // Real staff on a real session read Fees itself, read-only until publishing
+  // goes through the Fees connection (6 Nov 2026). Never the copy's numbers instead.
+  const live = /^\d{4}-\d{2}$/.test(session.sessionLabel) && usesCanonicalFees(staff, session.sessionLabel);
+  const data = live ? await getFeeSetupVxDataFromFees(session.sessionLabel).catch(() => null) : await getFeeSetupVxData(session.sessionLabel);
+  if (!data) return <FeesScreenUnavailable title={F.title} crumb={session.sessionLabel} />;
   const asked = one(sp.view) as FeeSetupView;
-  const canEdit = can(staff, "fees:manage");
+  const canEdit = !live && can(staff, "fees:manage");
   // Edit-only states open read-only for a viewer; review needs something to publish, so it falls back to the table.
   const view: FeeSetupView = VIEWS.includes(asked) ? (!canEdit && (asked === "copy" || asked === "rule" || asked === "review") ? "structure" : asked) : "structure";
   return (
@@ -37,7 +44,8 @@ export default async function FeeSetupPage({ searchParams }: { searchParams: Pro
       initialClass={one(sp.class) || null}
       initialRoute={one(sp.route) || null}
       canEdit={canEdit}
-      readOnly={Boolean(previewing)}
+      readOnly={Boolean(previewing) || live}
+      notice={data.liveAsOf ? <LiveFromFees asOf={data.liveAsOf} notYet={F.liveNotYet} /> : null}
     />
   );
 }

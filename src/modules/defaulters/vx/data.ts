@@ -1,7 +1,5 @@
 import "server-only";
 
-import { byClassLabel } from "@/modules/academics/domain/class-order";
-
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
@@ -12,8 +10,8 @@ import { EMPTY_DEFAULTER_FILTERS } from "@/modules/defaulters/domain/types";
 import { getReceiptsPage } from "@/modules/receipts/data/queries";
 import { EMPTY_RECEIPT_FILTERS } from "@/modules/receipts/domain/filters";
 import { getRecoveryQueue } from "@/modules/recovery/data/queries";
-import type { ContactSummary, DuesStudent, PaymentFact } from "@/modules/defaulters/vx/domain/families";
-import type { StudentRecoveryDueRow } from "@/modules/recovery/domain/types";
+import type { PaymentFact } from "@/modules/defaulters/vx/domain/families";
+import { buildDuesBoard, leftOwingInSession, type DuesBoard, type LeftOwing } from "@/modules/defaulters/vx/domain/board";
 
 /*
  * Reads for the redesigned Dues & calls screen (/dues). Every amount comes from
@@ -27,19 +25,8 @@ import type { StudentRecoveryDueRow } from "@/modules/recovery/domain/types";
  */
 const feeReader = () => createAdminClient();
 
-/**
- * Overdue fees by class and installment. Every installment past its due date
- * has a column: the board had only Inst 1 and 2 and said "Inst 3 and 4 are
- * not due yet", while Inst 3 (due 20 Oct) was in the total (accountant run,
- * 6 Nov 2026). `other` is any other plan row (an EMI's own numbers).
- */
-export type ClassInstRow = { classLabel: string; inst1: number; inst2: number; inst3: number; inst4: number; other: number; lastYear: number; total: number };
-
-export type DuesBoard = {
-  students: DuesStudent[];
-  contacts: Record<string, ContactSummary>;
-  classByInst: ClassInstRow[];
-};
+export type { ClassInstRow, DuesBoard, LeftOwing } from "@/modules/defaulters/vx/domain/board";
+export { leftOwingInSession } from "@/modules/defaulters/vx/domain/board";
 
 /** Everyone with fees still owed this session, with the overdue installment numbers per child. */
 export async function loadDuesBoard(sessionLabel: string): Promise<DuesBoard> {
@@ -48,52 +35,7 @@ export async function loadDuesBoard(sessionLabel: string): Promise<DuesBoard> {
     getWorkbookInstallmentRows({ sessionLabel, overdueOnly: true }),
     loadNotDueYet(sessionLabel),
   ]);
-
-  const instByStudent = new Map<string, Set<number>>();
-  const byClass = new Map<string, ClassInstRow>();
-  for (const row of overdue) {
-    const pending = Math.max(0, Number(row.pendingAmount) || 0);
-    if (pending <= 0) continue;
-    const no = row.isCarryForward ? 0 : row.installmentNo;
-    const set = instByStudent.get(row.studentId) ?? new Set<number>();
-    set.add(no);
-    instByStudent.set(row.studentId, set);
-    const label = row.classLabel || "—";
-    const c = byClass.get(label) ?? { classLabel: label, inst1: 0, inst2: 0, inst3: 0, inst4: 0, other: 0, lastYear: 0, total: 0 };
-    if (row.isCarryForward) c.lastYear += pending;
-    else if (row.installmentNo === 1) c.inst1 += pending;
-    else if (row.installmentNo === 2) c.inst2 += pending;
-    else if (row.installmentNo === 3) c.inst3 += pending;
-    else if (row.installmentNo === 4) c.inst4 += pending;
-    else c.other += pending;
-    c.total += pending;
-    byClass.set(label, c);
-  }
-
-  const students: DuesStudent[] = page.rows.map((r) => ({
-    studentId: r.studentId,
-    fullName: r.fullName,
-    fatherName: r.fatherName,
-    fatherPhone: r.fatherPhone ?? r.motherPhone,
-    classLabel: r.classLabel,
-    transportRouteId: r.transportRouteId,
-    overdueAmount: r.overdueAmount,
-    totalPending: r.totalPending,
-    lateFee: r.lateFee,
-    notDueYet: notDue.get(r.studentId) ?? 0,
-    daysOverdue: r.daysOverdue,
-    familyGroupId: r.familyGroupId ?? null,
-    lastPaymentDate: r.lastPaymentDate,
-    overdueInstallments: [...(instByStudent.get(r.studentId) ?? [])].sort((a, b) => a - b),
-  }));
-
-  const contacts: Record<string, ContactSummary> = {};
-  for (const [id, c] of page.contactSummaries) {
-    contacts[id] = { lastContactedAt: c.lastContactedAt, lastOutcome: c.lastOutcome ?? null, lastChannel: c.lastChannel ?? null, snoozeUntil: c.snoozeUntil };
-  }
-
-  const classByInst = [...byClass.values()].sort((a, b) => byClassLabel(a.classLabel, b.classLabel));
-  return { students, contacts, classByInst };
+  return buildDuesBoard({ defaulters: page.rows, overdue, notDue, contacts: page.contactSummaries });
 }
 
 function schoolDay(): string {
@@ -125,17 +67,6 @@ async function loadNotDueYet(sessionLabel: string): Promise<Map<string, number>>
   return out;
 }
 
-export type LeftOwing = {
-  studentId: string;
-  fullName: string;
-  fatherName: string | null;
-  phone: string | null;
-  status: string;
-  classLabel: string | null;
-  owed: number;
-  lastPaymentDate: string | null;
-};
-
 /**
  * Children who left, graduated or went inactive with money still owed in this
  * session. Not in headcount.
@@ -149,23 +80,6 @@ export type LeftOwing = {
 export async function loadLeftOwing(sessionLabel: string): Promise<LeftOwing[]> {
   const q = await getRecoveryQueue();
   return leftOwingInSession(q.rows, sessionLabel);
-}
-
-export function leftOwingInSession(rows: readonly StudentRecoveryDueRow[], sessionLabel: string): LeftOwing[] {
-  return rows
-    .map((r) => ({ r, owed: r.dues.filter((d) => d.sessionLabel === sessionLabel).reduce((s, d) => s + Math.max(0, d.remainingAmount), 0) }))
-    .filter(({ owed }) => owed > 0)
-    .map(({ r, owed }) => ({
-      studentId: r.studentId,
-      fullName: r.fullName,
-      fatherName: r.fatherName,
-      phone: r.phone,
-      status: r.status,
-      classLabel: r.classLabel,
-      owed,
-      lastPaymentDate: r.lastPaymentDate,
-    }))
-    .sort((a, b) => b.owed - a.owed);
 }
 
 /**

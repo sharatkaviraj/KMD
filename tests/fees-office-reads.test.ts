@@ -27,11 +27,11 @@ beforeEach(() => {
 });
 
 describe("Fees refund requests in Needs you", () => {
-  it("names them as Fees refunds and links to where Fees decides them", async () => {
+  it("names them as Fees refunds, and links to One's page, never the Fees app", async () => {
     const [row] = await pendingFeesRefunds("2026-27");
     expect(row).toEqual(expect.objectContaining({ id: `fees:${item.id}`, amount: 400, studentName: "Synthetic Child", receiptNumber: "SVP-9" }));
     expect(row.title?.en).toBe("Refund to approve in Fees");
-    expect(row.href).toBe("https://fees.vpps.co.in/protected/finance-controls?date=2026-11-02&session=2026-27");
+    expect(row.href).toBe("/not-in-one?from=%2Faccounts%2Fbooks");
   });
 
   it("treats a Fees refusal as nothing to show, not as a failed read", async () => {

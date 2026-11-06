@@ -1,20 +1,22 @@
 import Link from "@/ui/link";
 import { ms } from "@/messages/setup";
 import { flat, type Language } from "@/platform/i18n/language";
-import { FEES_ORIGIN, feesBridgeOfficeReads } from "@/platform/fees-bridge/policy";
+import { feesBridgeOfficeReads } from "@/platform/fees-bridge/policy";
+import { notInOneHref } from "@/platform/fees-bridge/not-in-one";
 
 /**
- * The accountant stays in One; each current financial tool names its
- * destination. Receipts and the day book are One's own page once Fees' office
- * reads are on (review F01); the rest still open in Fees.
+ * The accountant stays in One. Receipts, Dues & calls and Fee setup are One's
+ * own screens, read live from Fees; a tool One does not have yet says so on
+ * One's own page, never a link to the Fees app (owner, 6 Nov 2026).
  */
 export function LiveFinanceHub({language,receiptsHere=feesBridgeOfficeReads()}:{language:Language;receiptsHere?:boolean}) {
   const links=[
-    {label:ms.bridgeTitle,href:"/payments"},
-    {label:ms.bridgeReceipts,href:receiptsHere?"/receipts":`${FEES_ORIGIN}/protected/receipts`},
-    {label:ms.bridgeReports,href:`${FEES_ORIGIN}/protected/reports`},
-    {label:ms.bridgeDues,href:`${FEES_ORIGIN}/protected/defaulters`},
-    {label:ms.bridgeBooks,href:`${FEES_ORIGIN}/protected/finance-controls`},
+    {label:ms.bridgeTitle,href:"/payments",here:true},
+    {label:ms.bridgeReceipts,href:receiptsHere?"/receipts":notInOneHref("/receipts"),here:receiptsHere},
+    {label:ms.bridgeDuesOnly,href:"/dues",here:true},
+    {label:ms.bridgeFeeSetup,href:"/fee-setup",here:true},
+    {label:ms.bridgeReports,href:notInOneHref("/reports"),here:false},
+    {label:ms.bridgeBooks,href:notInOneHref("/accounts/books"),here:false},
   ];
-  return <section className="mx-auto max-w-3xl space-y-5 px-4 py-6"><h1 className="text-2xl font-semibold">{flat(ms.bridgeFinance,language)}</h1><p className="text-sm text-slate-600">{flat(ms.bridgeLedger,language)}</p><nav className="grid gap-3 sm:grid-cols-2">{links.map(link=><Link key={link.href} href={link.href} className="rounded-xl border border-slate-200 p-5 font-medium hover:bg-slate-50">{flat(link.label,language)}{link.href.startsWith(FEES_ORIGIN)&&<span className="mt-2 block text-xs font-normal text-slate-500">{flat(ms.bridgeOpenFees,language)}</span>}</Link>)}</nav></section>;
+  return <section className="mx-auto max-w-3xl space-y-5 px-4 py-6"><h1 className="text-2xl font-semibold">{flat(ms.bridgeFinance,language)}</h1><p className="text-sm text-slate-600">{flat(ms.bridgeLedger,language)}</p><nav className="grid gap-3 sm:grid-cols-2">{links.map(link=><Link key={link.href} href={link.href} className="rounded-xl border border-slate-200 p-5 font-medium hover:bg-slate-50">{flat(link.label,language)}{!link.here&&<span className="mt-2 block text-xs font-normal text-slate-500">{flat(ms.bridgeNotYet,language)}</span>}</Link>)}</nav></section>;
 }

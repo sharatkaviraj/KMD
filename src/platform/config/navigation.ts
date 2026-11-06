@@ -250,6 +250,8 @@ export const MAX_TABS = 5;
  */
 export const NON_NAV_SCREENS = [
   "/access-denied",
+  // A screen One does not have yet lands here instead of the Fees app (6 Nov 2026).
+  "/not-in-one",
   // Compatibility for old bookmarks, redirected to the role's Home.
   "/apps",
   // Archives and their restore drills (P11): an administrator's, a few times

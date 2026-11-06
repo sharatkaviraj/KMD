@@ -84,6 +84,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `/menu` | One (pre-vx) |
 | `/messages` | vx (current) |
 | `/more` | One (pre-vx) |
+| `/not-in-one` | One (pre-vx) |
 | `/notes` | vx (current) |
 | `/payments` | vx (current) |
 | `/preferences` | One (pre-vx) + vx (current) |

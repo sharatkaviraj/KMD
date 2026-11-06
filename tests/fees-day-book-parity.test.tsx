@@ -51,11 +51,16 @@ describe("day book parity with Fees", () => {
 });
 
 describe("finance hub", () => {
-  it("keeps Receipts in One once Fees' office reads are on, and in Fees until then", () => {
+  it("keeps Receipts in One once Fees' office reads are on, and never links to the Fees app", () => {
     const here = render(<LiveFinanceHub language="en" receiptsHere />);
     expect(here.querySelector('a[href="/receipts"]')).not.toBeNull();
     expect(here.querySelector('a[href="https://fees.vpps.co.in/protected/receipts"]')).toBeNull();
     const there = render(<LiveFinanceHub language="en" receiptsHere={false} />);
-    expect(there.querySelector('a[href="https://fees.vpps.co.in/protected/receipts"]')).not.toBeNull();
+    expect(there.querySelector('a[href="/not-in-one?from=%2Freceipts"]')).not.toBeNull();
+    for (const hub of [here, there]) {
+      expect(hub.querySelector('a[href^="https://fees.vpps.co.in"]')).toBeNull();
+      expect(hub.querySelector('a[href="/dues"]')).not.toBeNull();
+      expect(hub.querySelector('a[href="/fee-setup"]')).not.toBeNull();
+    }
   });
 });

@@ -127,27 +127,36 @@ async function canonicalSearch(ask: Ask, sessionLabel: string): Promise<Seen> {
     ? findTypedReceipt(ask.term, sessionLabel)
     : Promise.resolve({ receipts: [] as ReceiptHit[], failed: false });
   let students: Found[] = [];
+  const fromRoster = async () => {
+    const [page, labels] = await Promise.all([
+      searchStudents({ text: ask.term, classId: null, page: 1 }, sessionLabel),
+      classLabelMap(sessionLabel).catch(() => null),
+    ]);
+    return page.rows.slice(0, SHOWN).map((s): Found => ({
+      id: s.studentId, name: s.fullName, classLabel: (s.classId && labels?.get(s.classId)) || "", sr: s.admissionNo ?? "",
+      father: s.fatherName, mother: null, fatherPhone: s.guardianPhone, motherPhone: null, money: null,
+    }));
+  };
   try {
     if (ask.money) {
       const read = (status: "active" | "all") =>
         lookupBridgeDirectory({ sessionLabel, query: ask.term, pageSize: SHOWN, status });
-      // Children on the roll first; a child who left still owes and is still found.
-      let page = await read("active");
-      if (page.students.length === 0) page = await read("all");
-      students = page.students.map((s) => ({
-        id: s.id, name: s.fullName, classLabel: s.classLabel, sr: s.admissionNo,
-        father: s.fatherName, mother: s.motherName, fatherPhone: s.fatherPhone, motherPhone: s.motherPhone,
-        money: s,
-      }));
+      try {
+        // Children on the roll first; a child who left still owes and is still found.
+        let page = await read("active");
+        if (page.students.length === 0) page = await read("all");
+        students = page.students.map((s) => ({
+          id: s.id, name: s.fullName, classLabel: s.classLabel, sr: s.admissionNo,
+          father: s.fatherName, mother: s.motherName, fatherPhone: s.fatherPhone, motherPhone: s.motherPhone,
+          money: s,
+        }));
+      } catch {
+        // Fees did not answer: the school still finds its children, from
+        // One's own roster, without money (6 Nov 2026).
+        students = await fromRoster();
+      }
     } else {
-      const [page, labels] = await Promise.all([
-        searchStudents({ text: ask.term, classId: null, page: 1 }, sessionLabel),
-        classLabelMap(sessionLabel).catch(() => null),
-      ]);
-      students = page.rows.slice(0, SHOWN).map((s) => ({
-        id: s.studentId, name: s.fullName, classLabel: (s.classId && labels?.get(s.classId)) || "", sr: s.admissionNo ?? "",
-        father: s.fatherName, mother: null, fatherPhone: s.guardianPhone, motherPhone: null, money: null,
-      }));
+      students = await fromRoster();
     }
   } catch {
     failed.push("students");

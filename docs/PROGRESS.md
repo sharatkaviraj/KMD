@@ -2064,3 +2064,9 @@ Plan and ideas: `docs/ui/PERFORMANCE.md` ("6 November"). Janmejay chose to build
 | What | Status | Branch / commit | Remaining or surprising |
 |---|---|---|---|
 | Boot splash at the first byte and the account's reads streamed behind it (D-461); `/` sent straight to the person's home by the proxy, from a home hint the shell writes (D-462) | **released 6 Nov** (again) | PR 234, reverted by PR 235 during the database outage, re-shipped | Sessions use ES256 keys, so sign-in checks stay local. Real-phone timing still to do |
+
+## One without the Fees redirects — 6 November 2026
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Dues & calls and Fee setup read live from Fees for real staff (D-467, D-468); every other Fees redirect lands on "Not in One yet" (D-469); admin "Refresh roster now" (D-470); search falls back to One's roster (D-471); Fees feature freeze (D-472) | **released 6 Nov** | `claude/project-thread-vv9vvk`, with Fees PR 146 | Still not in One: Reports (needs a `reports:view` bridge operation, which is a live Fees migration, so not done), Books, Reminders, Student tools, admissions edits, receipt send and reverse. Dues writes (calls, promises, plans, write-offs) and fee-setup publishing are off on the live screens until Fees has commands for them. `tests/sentry-lite.test.ts` fails on main too · The build's typecheck ran out of Node's default heap on Vercel (preview stuck in Running TypeScript); `npm run build` now goes through `scripts/next-build.mjs` with the 6 GB CI uses |

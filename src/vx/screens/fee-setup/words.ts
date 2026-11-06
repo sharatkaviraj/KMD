@@ -13,6 +13,7 @@ export const F = {
   transport: p("Transport", "बस"),
   history: p("History", "इतिहास"),
   ask: p("Ask admin to change", "एडमिन से बदलवाएं"),
+  liveNotYet: p("Changing the fee setup is not in One yet. Publish changes in the Fees app for now.", "फीस सेटअप बदलना अभी One में नहीं है। अभी बदलाव Fees ऐप में करें।"),
   viewOnly: p("View only. Fees are changed by the admin; ask and it shows in your requests.", "केवल देखें। फीस एडमिन बदलते हैं; पूछें, यह आपके अनुरोधों में दिखेगा।"),
   editFees: p("Edit fees", "फीस बदलें"),
   // help

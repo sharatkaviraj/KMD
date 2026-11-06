@@ -95,7 +95,7 @@ test("roster details and ledger explanation keep exact evidence and links availa
   await expect(page.locator(".vx-roster time")).toHaveAttribute("datetime", "2026-11-02T11:30:00.000Z");
   await page.locator(".only-m .vx-ledger-notice summary").click();
   await expect(page.locator('.only-m .vx-ledger-notice a[href="/payments"]')).toBeVisible();
-  await expect(page.locator('.only-m .vx-ledger-notice a[href="https://fees.vpps.co.in/protected/dashboard"]')).toBeVisible();
+  await expect(page.locator('.only-m .vx-ledger-notice a[href="/dues"]')).toBeVisible();
 });
 
 test("reduced-motion sheets finish closing promptly and list rows do not move", async ({ page }) => {
