@@ -11,6 +11,8 @@ import { createClient } from "@/modules/fees/platform/supabase/server";
 import { getStudentFormOptions } from "@/modules/students-fees/data/queries";
 import { formatPaymentModeLabel } from "@/platform/config/fee-rules";
 import { getFeePolicySummary } from "@/modules/fees/domain/queries";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
+import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { calculateInstallmentBasePending } from "@/modules/fees/domain/due-amounts";
 import { getDisplayInstallmentLabel } from "@/modules/prev-year-dues/domain/display";
 import {
@@ -619,8 +621,10 @@ function filterReceiptSourceRows(
 
 async function getActiveSessionBaseReportStudents(filters: ReportFilters) {
   const supabase = await createClient();
-  const policy = await getFeePolicySummary();
-  const sessionLabel = filters.sessionLabel || policy.academicSessionLabel;
+  // No session chosen: the viewer's own (the pill, or TEST-2026-27 for a test
+  // account), not the policy's live year, which a test account may not read.
+  const sessionLabel =
+    filters.sessionLabel || (await resolveViewSession({ cookieSession: await getViewSessionCookie() })).sessionLabel;
   let query = supabase
     .from("students")
     .select(

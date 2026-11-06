@@ -84,7 +84,10 @@ export type AdmissionsFeeContext = {
 
 export async function loadAdmissionsFeeContext(): Promise<AdmissionsFeeContext> {
   await requireStaffPermission("students:write");
-  const [options, policy] = await Promise.all([getStudentFormOptions(), getFeePolicySummary({ useAdmin: true })]);
+  // The viewer's session, not the policy's: a test account is fenced to
+  // TEST-2026-27, and asking for the live year's classes is refused outright.
+  const view = await resolveViewSession({ cookieSession: await getViewSessionCookie() });
+  const [options, policy] = await Promise.all([getStudentFormOptions({ sessionLabel: view.sessionLabel }), getFeePolicySummary({ useAdmin: true })]);
   const sessionLabel = options.resolvedSessionLabel;
   const admin = createAdminClient();
 

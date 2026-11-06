@@ -1,6 +1,8 @@
 import "server-only";
 
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
+import { currentSessionViewer } from "@/platform/auth/test-session-access";
+import { defaultSessionFor, UNREADABLE_VIEWER } from "@/platform/auth/test-session-policy";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { createClient } from "@/modules/fees/platform/supabase/server";
@@ -62,7 +64,10 @@ async function classesOf(sessionLabel: string): Promise<TargetClass[]> {
 /** The active session, the next one, and the newest run between them. */
 export async function loadPromotionBoard(runId?: string | null): Promise<PromotionBoard> {
   await requireStaffPermission("students:write");
-  const sourceSessionLabel = await getActiveSessionLabel();
+  // A test account promotes TEST-2026-27; everyone else the active year. An
+  // unreadable viewer fails closed onto TEST, as the session resolver does.
+  const viewer = (await currentSessionViewer().catch(() => UNREADABLE_VIEWER)) ?? UNREADABLE_VIEWER;
+  const sourceSessionLabel = defaultSessionFor(viewer, await getActiveSessionLabel());
   const targetSessionLabel = getNextAcademicSessionLabel(sourceSessionLabel);
   const runs = await listPromotionRuns(25);
   const run =
