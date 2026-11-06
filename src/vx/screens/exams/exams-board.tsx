@@ -256,7 +256,7 @@ export function ExamsBoard(props: ExamsProps) {
         acts: manage ? [{ label: tx(p("Sampark links", "संपर्क लिंक")), icon: "link", href: href("sampark") }, ...(cellOpen ? [] : renameAct)] : [],
         mSub: cellOpen && props.cell ? (props.cell.teacherName ?? "") : exam ? `${exam.percent}% ${tx(p("entered", "भरे"))}${exam.dueLabel ? ` · ${tx(p("due", "अंतिम"))} ${exam.dueLabel}` : ""}` : undefined,
         mBack: cellOpen ? href("grid") : "/exams",
-        mActs: [],
+        mActs: cellOpen ? [] : renameAct,
       };
       break;
     case "sampark":
