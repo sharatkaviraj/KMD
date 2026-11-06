@@ -182,6 +182,13 @@ describe("B04 — readiness from persisted marks and their validity", () => {
     expect(pipelineStates({ ...input, invalid: 1 }).checked).not.toBe("done");
   });
 
+  it("the pipeline's Checked step is not done while a class still waits to be submitted", () => {
+    // UX review, 6 Nov 2026: "Checked 0 of 1" sat beside a Done tick.
+    const input = { enteredPct: 100, unusualOpen: 0, graceOpen: 0, lockedClasses: 0, totalClasses: 1, cardsIssued: 0, cardsDue: 10, published: false };
+    expect(pipelineStates({ ...input, reviewedClasses: 0 }).checked).not.toBe("done");
+    expect(pipelineStates({ ...input, reviewedClasses: 1 }).checked).toBe("done");
+  });
+
   it("the tracker never says 'No marks yet' over saved marks", () => {
     expect(progressLine(0, 30).en).toBe("No marks yet");
     expect(progressLine(12, 30).en).toBe("Marks being entered (12 of 30 saved)");

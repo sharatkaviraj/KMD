@@ -147,6 +147,25 @@ export function qualityScore(total: number, hits: readonly QualityHit[]): number
 
 /* --------------------------------------------------------------- families */
 
+/**
+ * How many families there are, and how many have two or more children. A
+ * child linked into a family group counts in that group; the rest fall back
+ * to the same-father-same-phone guess. Without the links the header read
+ * "0 with siblings" above "3 linked as brothers or sisters" (UX review,
+ * 6 Nov 2026).
+ */
+export function familyCounts(families: readonly { key: string; kids: { id: string }[] }[], linkedGroupOf: ReadonlyMap<string, string>): { families: number; withSiblings: number } {
+  const size = new Map<string, number>();
+  for (const f of families) {
+    for (const k of f.kids) {
+      const g = linkedGroupOf.get(k.id);
+      const key = g ? `group:${g}` : `guess:${f.key}`;
+      size.set(key, (size.get(key) ?? 0) + 1);
+    }
+  }
+  return { families: size.size, withSiblings: [...size.values()].filter((n) => n >= 2).length };
+}
+
 export type SuggestedFamily = { key: string; father: string; phone: string | null; childIds: string[] };
 
 /**

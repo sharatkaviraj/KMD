@@ -555,7 +555,7 @@ function HomeBody({
                 </DRing>
                 <div className="xc x6 xf">
                   <span className="xs">
-                    <b>{tx(p("Marks entry", "अंक भरना"))}</b> · {tx(p("due", "अंतिम"))} {results.dueLabel ?? "—"}
+                    <b>{tx(p("Marks entry", "अंक भरना"))}</b> · {results.dueLabel ? `${tx(p("due", "अंतिम"))} ${results.dueLabel}` : tx(p("no due date set", "अंतिम तिथि तय नहीं"))}
                   </span>
                   {results.lateCount ? (
                     <Link href="/exam-office?view=late" className="tap xr x8 xw1" style={{ height: 40, padding: "0 12px", borderRadius: 12, border: "1px solid var(--bad)", background: "var(--bads)", color: "var(--bad)", fontSize: 13, fontWeight: 700, textAlign: "left" }}>
@@ -565,7 +565,9 @@ function HomeBody({
                     </Link>
                   ) : null}
                   <span className="xm">
-                    {tx(p(`${results.teachersDone} of ${results.teachersTotal} teachers done`, `${results.teachersTotal} में से ${results.teachersDone} शिक्षक पूरे`))}
+                    {results.teachersTotal
+                      ? tx(p(`${results.teachersDone} of ${results.teachersTotal} teachers done`, `${results.teachersTotal} में से ${results.teachersDone} शिक्षक पूरे`))
+                      : tx(p("No teacher is set for these papers", "इन पेपरों के लिए कोई शिक्षक तय नहीं"))}
                     {results.daysToDue !== null && results.daysToDue >= 0 ? ` · ${tx(p(`${results.daysToDue} days to the deadline`, `अंतिम तिथि में ${results.daysToDue} दिन`))}` : ""}
                   </span>
                 </div>

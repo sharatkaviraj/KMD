@@ -156,7 +156,10 @@ function CollectApp(props: CollectProps) {
   const [done, setDone] = useState<ReadonlySet<Card>>(() => new Set<Card>(props.initialStudentId ? ["who"] : []));
   const [jumping, setJumping] = useState(false);
   const [q, setQ] = useState("");
-  const [hl, setHl] = useState(0);
+  // -1 = nothing chosen. The "likely today" list opens with no child picked, so
+  // "Open child" and Enter cannot open somebody nobody tapped (UX review, 6 Nov);
+  // a typed search still puts its first match under Enter.
+  const [hl, setHl] = useState(-1);
   const [found, setFound] = useState<Found>({ q: "", rows: [], loading: false, error: null });
   const [likely, setLikely] = useState<LikelyRow[]>([]);
   const [primaryId, setPrimaryId] = useState<string | null>(props.initialStudentId);
@@ -511,7 +514,7 @@ function CollectApp(props: CollectProps) {
     setWantAll(null);
     setDone(new Set());
     setQ("");
-    setHl(0);
+    setHl(-1);
     if (mode === "split") setMode(readMode(modeKey));
     go("who");
   }
@@ -846,14 +849,14 @@ function CollectApp(props: CollectProps) {
         const rows = q.trim() ? foundNow.rows : likely;
         if (k === "ArrowDown" || k === "ArrowUp") {
           e.preventDefault();
-          if (rows.length) setHl((h) => (Math.min(h, rows.length - 1) + (k === "ArrowDown" ? 1 : -1) + rows.length) % rows.length);
+          if (rows.length) setHl((h) => (h < 0 ? (k === "ArrowDown" ? 0 : rows.length - 1) : (Math.min(h, rows.length - 1) + (k === "ArrowDown" ? 1 : -1) + rows.length) % rows.length));
           return;
         }
         if (k === "Enter") {
           e.preventDefault();
           // Never open a child from the previous search while this one is still coming back.
           if (q.trim() && foundNow.loading) return;
-          const row = rows[Math.min(hl, rows.length - 1)];
+          const row = hl < 0 ? undefined : rows[Math.min(hl, rows.length - 1)];
           if (row) pick(row, false);
           return;
         }
@@ -1093,7 +1096,7 @@ function CollectApp(props: CollectProps) {
       />
     );
   } else if (card === "who") {
-    body = <WhoCard query={q} onQuery={(v) => { setQ(v); setHl(0); }} found={foundNow} likely={likely} highlight={hl} onPick={pick} inputRef={searchRef} />;
+    body = <WhoCard query={q} onQuery={(v) => { setQ(v); setHl(v.trim() ? 0 : -1); }} found={foundNow} likely={likely} highlight={hl} onPick={pick} inputRef={searchRef} />;
   } else if (!primary) {
     const state = primaryId ? dues[primaryId] : undefined;
     body = (
