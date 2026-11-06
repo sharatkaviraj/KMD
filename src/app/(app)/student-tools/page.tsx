@@ -3,7 +3,8 @@ import { loadRollChildren } from "@/modules/students-fees/vx/admissions";
 import { loadLinkedFamilies } from "@/modules/students-fees/vx/families";
 import { IMPORT_FIELDS, loadImportBatch, suggestedMapping } from "@/modules/imports/vx/flow";
 import { loadPromotionBoard } from "@/modules/promotion/vx/promote";
-import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
+import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { dayMonth, schoolToday } from "@/vx/format";
 import { lead, p, type Pair } from "@/vx/text";
 import { VxPage, TopBar } from "@/vx/ui/page";
@@ -26,6 +27,11 @@ type View = (typeof VIEWS)[number];
 
 function one(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
+/** The session this viewer is on — TEST-2026-27 for a test account, never the live year it may not read. */
+async function viewSessionLabel(): Promise<string> {
+  return (await resolveViewSession({ cookieSession: await getViewSessionCookie() })).sessionLabel;
 }
 
 type Lang = Parameters<typeof lead>[1];
@@ -84,7 +90,7 @@ export default async function StudentToolsPage(props: PageProps<"/student-tools"
 }
 
 async function hubBody(lang: Lang) {
-  const sessionLabel = await getActiveSessionLabel();
+  const sessionLabel = await viewSessionLabel();
   const [changes, board, imports, children, skipped] = await Promise.all([
     listBulkChanges(8),
     loadPromotionBoard().catch(() => null),
@@ -190,7 +196,7 @@ async function promoteBody(view: "promote" | "promote-review" | "promoted") {
 }
 
 async function importBody(view: "import" | "mapping" | "validate" | "imported", batchId: string | null) {
-  const sessionLabel = await getActiveSessionLabel();
+  const sessionLabel = await viewSessionLabel();
   const { batch, recent } = await loadImportBatch(batchId);
   const stage = batch ? view : "import";
   // A few values per column from the first rows, so a column can be recognised by what is in it.
@@ -243,7 +249,7 @@ async function importBody(view: "import" | "mapping" | "validate" | "imported", 
 }
 
 async function qualityBody() {
-  const sessionLabel = await getActiveSessionLabel();
+  const sessionLabel = await viewSessionLabel();
   const [children, skipped] = await Promise.all([loadRollChildren(sessionLabel), loadQualitySkips(schoolToday())]);
   const hits = findQualityIssues(children, sessionLabel, skipped);
   return {
@@ -259,7 +265,7 @@ async function qualityBody() {
 }
 
 async function familiesBody(mergeKey: string | null) {
-  const sessionLabel = await getActiveSessionLabel();
+  const sessionLabel = await viewSessionLabel();
   const [children, linked] = await Promise.all([loadRollChildren(sessionLabel), loadLinkedFamilies(sessionLabel)]);
   const byId = new Map(children.map((c) => [c.id, c]));
   const groupOf = new Map<string, string>();
