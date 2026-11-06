@@ -5,11 +5,11 @@ import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { schoolNow } from "@/platform/auth/qa-clock";
-import { resolveStart } from "@/platform/config/start";
+import { rootRedirectFor } from "@/vx/home-redirect";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { todayMoney } from "@/modules/dashboard/vx/admin-today";
 import { initials, longDay, schoolToday } from "@/vx/format";
-import { MENU_HOME, QUICK_ACTIONS } from "@/vx/nav";
+import { QUICK_ACTIONS } from "@/vx/nav";
 import { boardSummary, runningPeriod, schoolMinutes, sortInbox } from "@/vx/screens/admin/logic";
 import { loadInbox, loadToday, moneyRequestsFor, promisedToday, weekAttendance } from "@/vx/screens/admin/data";
 import { T } from "@/vx/screens/admin/text";
@@ -43,10 +43,10 @@ export const metadata = { title: "Today" };
 export default async function TodayPage() {
   const { staff, menu, previewing } = await getViewer();
 
-  if (menu !== "admin") {
-    const chosen = previewing ? null : resolveStart(staff.role, staff.preferredStart)?.href;
-    redirect(chosen && chosen !== "/" ? chosen : MENU_HOME[menu]);
-  }
+  // The proxy usually does this before rendering, from the shell's home hint;
+  // this is the same rule for the first open and for a fresh browser.
+  const elsewhere = rootRedirectFor({ menu, previewing, staff });
+  if (elsewhere) redirect(elsewhere);
 
   await requirePermission("dashboard:view", "/");
   const language = staff.language;

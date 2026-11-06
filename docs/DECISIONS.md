@@ -1,5 +1,14 @@
 # Decisions
 
+## Opening the app faster — 6 November 2026
+
+Janmejay asked for the app to boot faster and more smoothly, from the logo to the first screen, on phones (installed) and laptops. The speed logs showed first paint landing with the first byte on almost every first open: nothing reached the phone until every read of the frame was done.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-461 | **The root layout waits on nothing slow: `<html>`, the styles and a boot splash go out at the first byte, and everything that reads the account streams in behind a Suspense boundary** | Before, the root layout resolved the locale (a staff read when the `vpps_locale` cookie is absent) and the (app) layout and shell did every read before one byte was sent, so an installed app sat on the system splash and a browser tab on a white page for 0.8 to 4 s on a normal day. The splash (`src/ui/system/boot-splash.tsx`) uses the manifest's paper colour and the crest, so the hand-over from the phone's own splash is invisible; it is HTML and CSS only, says "Still loading" by itself after 8 s, and follows dark mode because next-themes stays above the boundary. `<html lang>` comes from the cookie when there is one; otherwise a one-line script inside the stream corrects it from the account before any screen text arrives. A redirect from the (app) layout (a missing or inactive profile) now streams instead of answering 307; the proxy still answers 307 for everybody signed out |
+| D-462 | **Opening `/` goes straight to the person's home from the proxy, by a home hint cookie (`vx_home`)** | The installed app always opens `/`. For everyone but the admin menu `/` only redirects (to `/teach`, `/accounts`, a chosen start screen), and that redirect came after the layout and shell had done all their reads: two full signed-in renders on every open for a teacher. The shell now writes where `/` would send this person (`src/vx/home-redirect.ts`, the same rule the page uses) as `user id + path`; the proxy follows it only for that same account, only for a plain document load of `/` with no query (never a client navigation or prefetch), and only to a safe internal path. It is a hint, never a grant: the screen it opens checks its own permission. Stale after a role or start-screen change for one open at most, and the screen it lands on rewrites it. Never written while an admin previews another role |
+
 ## Faster and smoother, batch 1 — 6 November 2026
 
 Janmejay asked for faster loading and smoother motion, and chose to work through the whole plan in order (`docs/ui/PERFORMANCE.md`, "6 November").
