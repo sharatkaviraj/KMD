@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { generateCertificateAction } from "@/app/(app)/school-office/actions";
 import type { CertificateExtras, CertificateKind, CertificateResult } from "@/modules/certificates/domain/certificate";
 import { useVx } from "@/vx/i18n";

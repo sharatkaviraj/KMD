@@ -1,6 +1,6 @@
 import "server-only";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import {
   describeAttemptResult,

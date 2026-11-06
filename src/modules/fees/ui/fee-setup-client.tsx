@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, X, Calendar, BadgeIndianRupee, School, Bus, ClipboardList, Tag, ChevronDown } from "lucide-react";

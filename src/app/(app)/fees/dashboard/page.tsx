@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import {

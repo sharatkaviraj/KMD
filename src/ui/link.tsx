@@ -15,7 +15,9 @@ import { forwardRef, useEffect, useRef, useState, type ComponentProps, type Comp
  * resting on it for a beat, a mouse resting on it, or keyboard focus. Then it
  * fetches the whole destination, so the tap that follows is instant. A touch
  * that turns into a scroll is cancelled before it costs a render. An explicit
- * `prefetch` still wins. The shell's own tabs keep Next's default.
+ * `prefetch` still wins. The shell's own tabs keep Next's default. Since D-441 the
+ * ported Fees screens and every other module use it too, which is why it
+ * lives in `src/ui` rather than `src/vx`.
  */
 const REST_MS = 90;
 

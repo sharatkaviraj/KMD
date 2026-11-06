@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import type { ReactNode } from "react";
 import type { BridgeWorkspace } from "@/platform/fees-bridge/student-read-contracts";
 import { useVx } from "@/vx/i18n";

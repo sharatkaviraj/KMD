@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { DASHBOARD_VIEWS, type DashboardView } from "@/modules/dashboard/data/analytics";
 import { cn } from "@/platform/utils";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { ms } from "@/messages/setup";
 import { FEES_ORIGIN } from "@/platform/fees-bridge/policy";

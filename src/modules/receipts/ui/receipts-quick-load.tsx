@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useTranslations } from "next-intl";
 import { Search, SlidersHorizontal } from "lucide-react";
 

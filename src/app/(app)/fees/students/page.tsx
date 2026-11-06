@@ -49,7 +49,7 @@ import {
   requireStaffPermission,
   type AuthenticatedStaffSession,
 } from "@/modules/fees/platform/session";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 type StudentsPageProps = {
   searchParams?: Promise<{

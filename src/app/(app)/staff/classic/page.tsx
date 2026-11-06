@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { BookOpen, ClipboardCheck, Clock, Plus, Users } from "lucide-react";
 
 import * as m from "@/messages/pairs";

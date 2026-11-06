@@ -1,5 +1,5 @@
 import { MobileDesktopOnlyNotice } from "@/ui/mobile/mobile-kit";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { PageHeader } from "@/ui/shell/page-header";
 import { OfficeNotice } from "@/ui/office/office-ui";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { ChevronRight } from "lucide-react";
 
 import * as m from "@/messages/pairs";

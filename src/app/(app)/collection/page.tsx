@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { MessageSquare } from "lucide-react";
 
 import { AuthoredText } from "@/ui/authored-text";

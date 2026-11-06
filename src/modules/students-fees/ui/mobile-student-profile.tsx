@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useTranslations } from "next-intl";
 import { Pencil, Phone } from "lucide-react";
 

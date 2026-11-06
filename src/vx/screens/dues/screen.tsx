@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { NavLink } from "@/ui/shell/nav-link";
 import { useRouter } from "next/navigation";
 

@@ -7,7 +7,7 @@ import { clearRouteFlagAction } from "@/app/(app)/collection/actions";
 import { openRouteFlags } from "@/modules/collection/data/parent-messages-repo";
 import { staleReasonLabels, type StaleReason } from "@/modules/collection/domain/parent-policy";
 import { FlagRouteForm, ParentSendControls } from "@/modules/collection/ui/parent-send-controls";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { Input } from "@/ui/primitives";
 import { primary } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";

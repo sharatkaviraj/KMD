@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { ArrowLeft, Download, Edit2, FileText, Printer } from "lucide-react";
 
 import { OldBalanceChip } from "@/ui/shared/old-balance-chip";

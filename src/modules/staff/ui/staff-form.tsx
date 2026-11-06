@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import type { StaffFormState } from "@/app/(app)/staff/actions";
 import * as m from "@/messages/pairs";

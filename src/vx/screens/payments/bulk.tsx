@@ -2,7 +2,7 @@
 
 import "./paydesk.css";
 
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useMemo, useRef, useState } from "react";
 
 import { commitBulkRowsAction, createBulkBatchAction } from "@/app/(app)/payments/actions";

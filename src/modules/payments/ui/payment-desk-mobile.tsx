@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { PostingReceiptSheet } from "@/modules/payments/ui/posting-receipt-sheet";
 import { usePostingIndicator } from "@/ui/hooks/use-posting-indicator";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useTranslations } from "next-intl";
 
 import { MetricCard } from "@/ui/shell/metric-card";

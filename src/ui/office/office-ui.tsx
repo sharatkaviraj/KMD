@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 

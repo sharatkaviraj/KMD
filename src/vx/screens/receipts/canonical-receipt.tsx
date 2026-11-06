@@ -1,4 +1,4 @@
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import type { ReactNode } from "react";
 import type { BridgeReceiptDetail } from "@/platform/fees-bridge/student-read-contracts";
 import type { Language } from "@/platform/i18n/language";

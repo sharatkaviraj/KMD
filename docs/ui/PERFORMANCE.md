@@ -146,3 +146,5 @@ Batch 3 (D-436 to D-438):
 ### 6 November: the prefetch storm (D-439)
 
 Counting `_rsc` requests in the first seconds after a screen loaded on live (phone viewport, admin): Calendar 53, Students 33, Academics 26, Collection 20, Fees 12, Attendance 10, Exams 9, Substitutions 9, Staff 8, Messages 7, Reports 6. Each is a full server render of a page somebody might open. On school wifi they fill the connection, and the tap the person makes waits behind them. Screen links now prefetch only on intent (`src/vx/ui/link.tsx`); the shell's tabs are unchanged.
+
+After PR 212 (live, same method): Calendar 0, Students 0, Academics 0, Attendance 0, Exams 0, Staff 0. Collection still 20 and Fees 12, because those links live outside `src/vx`; D-441 moves the link to `src/ui` so they use it too.

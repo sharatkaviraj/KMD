@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { Plus } from "lucide-react";
 
 import * as m from "@/messages/pairs";

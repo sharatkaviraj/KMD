@@ -3,7 +3,7 @@
 import { Crest } from "@/vx/screens/system/brand";
 import "./reports.css";
 
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { createContext, use, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 

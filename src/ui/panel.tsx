@@ -1,5 +1,5 @@
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { ArrowRight, ChevronRight, type LucideIcon } from "lucide-react";
 
 import {

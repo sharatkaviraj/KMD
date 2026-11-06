@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useState } from "react";
 
 import { bulkUpdateImportRowReviewAction } from "@/app/(app)/fees/imports/actions";

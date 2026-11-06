@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { ExternalLink, MessageCircle, ReceiptText } from "lucide-react";
 
 import { PageHeader } from "@/ui/shell/page-header";

@@ -1,4 +1,4 @@
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 
 import type { BridgeReceiptList } from "@/platform/fees-bridge/office-read-contracts";
 import type { Language } from "@/platform/i18n/language";

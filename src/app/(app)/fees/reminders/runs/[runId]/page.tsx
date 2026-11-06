@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/ui/shell/page-header";

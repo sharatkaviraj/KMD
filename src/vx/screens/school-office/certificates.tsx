@@ -1,5 +1,5 @@
 "use client";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { handOverManyAction } from "@/app/(app)/school-office/actions";

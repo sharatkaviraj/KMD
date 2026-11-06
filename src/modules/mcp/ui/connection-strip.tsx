@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { aiConnectionMessages as a } from "@/messages/ai-connection";
 import type { CardState } from "@/modules/mcp/domain/card";

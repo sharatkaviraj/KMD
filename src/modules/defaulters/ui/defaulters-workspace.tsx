@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { EmiPlanBadge } from "@/modules/students-fees/ui/emi-plan-badge";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {

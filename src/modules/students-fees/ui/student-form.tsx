@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, type ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { MobileTabs } from "@/ui/mobile/mobile-tabs";
 import { ValueStatePill } from "@/ui/office/office-ui";

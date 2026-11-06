@@ -16,7 +16,7 @@
  * collection. CollectTrigger now does a regular full-page navigation.
  */
 
-import Link from "next/link";
+import Link from "@/ui/link";
 import { BadgeIndianRupee } from "lucide-react";
 
 import { cn } from "@/platform/utils";
