@@ -18,6 +18,7 @@ import {
   type EditPatch,
 } from "@/modules/students-fees/vx/admissions";
 import {
+  enquirySessionLabel,
   enrolStudent,
   insertEnquiry,
   saveSeats,
@@ -28,7 +29,7 @@ import {
 } from "@/vx/screens/admissions/data";
 import { groupFamilies, isLikelySameChild, nextStage, parseDob, tcNumber, type FamilyCard, type Stage } from "@/vx/screens/admissions/logic";
 import { assertNotPreviewing } from "@/vx/view-as";
-import { assertSessionWritable, assertStudentVisible } from "@/platform/auth/test-session-access";
+import { assertClassVisible, assertSessionWritable, assertStudentVisible, assertStudentsVisible, filterVisibleStudentIds } from "@/platform/auth/test-session-access";
 
 /*
  * Every write: `fees:manage` (admitting a child creates a fee record, which
@@ -54,8 +55,15 @@ export async function addEnquiryAction(input: { sessionLabel: string; childName:
   }
 }
 
+/** An enquiry carries its own session; a test account moves TEST enquiries only. */
+async function assertEnquiryWritable(staff: Awaited<ReturnType<typeof assertPermission>>, id: string) {
+  const label = await enquirySessionLabel(id);
+  if (label) await assertSessionWritable(staff, label);
+}
+
 export async function moveEnquiryAction(id: string, from: Stage) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
+  await assertEnquiryWritable(staff, id);
   await assertNotPreviewing();
   const to = nextStage(from);
   if (!to) return { ok: false as const, message: "This family is ready to admit." };
@@ -69,7 +77,8 @@ export async function moveEnquiryAction(id: string, from: Stage) {
 }
 
 export async function undoMoveEnquiryAction(id: string, back: Stage) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
+  await assertEnquiryWritable(staff, id);
   await assertNotPreviewing();
   try {
     await setEnquiryStage(id, back);
@@ -81,7 +90,8 @@ export async function undoMoveEnquiryAction(id: string, back: Stage) {
 }
 
 export async function closeEnquiryAction(id: string) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
+  await assertEnquiryWritable(staff, id);
   await assertNotPreviewing();
   try {
     await setEnquiryStage(id, "closed");
@@ -96,18 +106,30 @@ export type DuplicateHit = { id: string; fullName: string; fatherName: string | 
 
 /** A read, but behind the same door: it names children and their parents. */
 export async function checkDuplicateAction(input: { fullName: string; fatherName: string; dob: string; phone: string }): Promise<DuplicateHit[]> {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
   const dateOfBirth = parseDob(input.dob);
   const adding = { fullName: input.fullName, fatherName: input.fatherName, dateOfBirth, phone: input.phone };
-  const matches = await findNameMatches(input.fullName);
+  const matches = await onlyVisible(staff, await findNameMatches(input.fullName));
   return matches
     .filter((m) => isLikelySameChild(adding, { fullName: m.fullName, fatherName: m.fatherName, dateOfBirth: m.dateOfBirth, phone: m.phone }))
     .map((m) => ({ id: m.id, fullName: m.fullName, fatherName: m.fatherName, dateOfBirth: m.dateOfBirth, phone: m.phone, admissionNo: m.admissionNo, classLabel: m.classLabel, createdAt: m.createdAt }));
 }
 
+/*
+ * Both lookups read every session with the service role, so the test-session
+ * fence is applied here: a test account sees TEST children only, and real
+ * staff do not see rehearsal children. Without it a QA admin typing "Sharma"
+ * was shown live 2026-27 families, names and phones, and could link a TEST
+ * admission to one of them as a sibling (smoke test, 6 Nov 2026).
+ */
+async function onlyVisible<T extends { id: string }>(staff: Awaited<ReturnType<typeof assertPermission>>, rows: T[]): Promise<T[]> {
+  const visible = new Set(await filterVisibleStudentIds(staff, rows.map((row) => row.id)));
+  return rows.filter((row) => visible.has(row.id));
+}
+
 export async function searchFamiliesAction(query: string): Promise<FamilyCard[]> {
-  await assertPermission("fees:manage");
-  const children = await searchFamilyCandidates(query);
+  const staff = await assertPermission("fees:manage");
+  const children = await onlyVisible(staff, await searchFamilyCandidates(query));
   return groupFamilies(children).slice(0, 12);
 }
 
@@ -120,6 +142,9 @@ export type AdmitRequest = Omit<AdmitInput, "dateOfBirth"> & {
 
 export async function admitAction(request: AdmitRequest) {
   const staff = await assertPermission("fees:manage");
+  await assertSessionWritable(staff, request.sessionLabel);
+  await assertClassVisible(staff, request.classId);
+  if (request.siblingStudentIds.length > 0) await assertStudentsVisible(staff, request.siblingStudentIds);
   await assertNotPreviewing();
   const dateOfBirth = parseDob(request.dob);
   if (!dateOfBirth) return { ok: false as const, message: "Write the date like 21-08-2019.", fieldErrors: { dateOfBirth: "Write the date like 21-08-2019." } };

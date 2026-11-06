@@ -268,7 +268,8 @@ export async function findNameMatches(fullName: string): Promise<ExistingChild[]
     .select(LOOKUP_COLUMNS)
     .ilike("full_name", likePattern(name))
     .in("status", ["active", "inactive"])
-    .limit(20);
+    // Generous: the caller drops rows from sessions this viewer may not see.
+    .limit(60);
   if (error) throw new Error(`Could not check for duplicates: ${error.message}`);
   return ((data ?? []) as unknown as StudentLookupRow[]).map(toChild);
 }
@@ -280,7 +281,7 @@ export async function searchFamilyCandidates(query: string): Promise<ExistingChi
   if (q.length < 2) return [];
   const digits = q.replace(/\D/g, "");
   const admin = createAdminClient();
-  let request = admin.from("students").select(LOOKUP_COLUMNS).eq("status", "active").limit(40);
+  let request = admin.from("students").select(LOOKUP_COLUMNS).eq("status", "active").limit(120);
   if (digits.length >= 4) {
     request = request.or(`primary_phone.ilike.%${digits}%,secondary_phone.ilike.%${digits}%`);
   } else {

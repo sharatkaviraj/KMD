@@ -18,8 +18,8 @@ const EXISTING: readonly DayrunAccount[] = [
   {alias:'accountant',email:'qa.fees@qa.vpps.local',role:'accountant',landing:'/accounts',isNew:false,userId:'f8d35f69-debd-4273-8c03-13efca8a20d2',staffProfileId:'c96ffb1a-e9ef-4ced-abb5-54587bbb4908'},
   {alias:'academic',email:'qa.academic@qa.vpps.local',role:'academic_coordinator',landing:'/academics',isNew:false,userId:'8973f5dd-5f3b-4c15-9534-e804cab8db31',staffProfileId:'0f2ecc32-6c5a-4f90-b741-8dad29b77c4b'},
   {alias:'exam',email:'qa.exam@qa.vpps.local',role:'exam_coordinator',landing:'/exam-office',isNew:false,userId:'1b07ce9c-8f87-4d65-953a-91e2fddb4244',staffProfileId:'119ee211-fd46-421e-a6b2-9ea2aab4e5f7'},
-  {alias:'teacher',email:'qa.teacher@qa.vpps.local',role:'teacher',landing:'/teach',isNew:false,userId:'392a7a49-5ec3-44db-a605-9f8dc057a292',staffProfileId:'29d76340-1929-4848-ad4f-8a3ae5653a43'},
-  {alias:'teacher2',email:'qa.teacher2@qa.vpps.local',role:'teacher',landing:'/teach',isNew:false,userId:'cb4848e1-155c-44dd-b0b2-9d7b9815972e',staffProfileId:'b9805a93-f3ee-4e53-a0df-e053b5fcb795'},
+  {alias:'teacher',email:'qa.teacher@qa.vpps.local',role:'teacher',landing:'/teach',isNew:false,userId:'392a7a49-5ec3-44db-a605-9f8dc057a292',staffProfileId:'cf0dad7d-a1cd-5b1b-865a-a414113b2e36'},
+  {alias:'teacher2',email:'qa.teacher2@qa.vpps.local',role:'teacher',landing:'/teach',isNew:false,userId:'cb4848e1-155c-44dd-b0b2-9d7b9815972e',staffProfileId:'9f36f3ac-99e7-5088-ac09-c4a1235981c3'},
 ];
 export function accountForAlias(alias:unknown):DayrunAccount|null {
   if(typeof alias!=='string') return null;

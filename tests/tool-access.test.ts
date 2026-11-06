@@ -156,4 +156,19 @@ describe("testSignInAction on a production database", () => {
     expect(mocks.generateLink).toHaveBeenCalledTimes(1);
     expect(mocks.toolAccess.mock.invocationCallOrder[0]).toBeLessThan(mocks.generateLink.mock.invocationCallOrder[0]);
   });
+
+  it("mints a fresh token when a concurrent sign-in spent the first one", async () => {
+    mocks.toolAccess.mockResolvedValue({ ok: true });
+    mocks.generateLink.mockReset();
+    mocks.generateLink.mockResolvedValue({ data: { properties: { hashed_token: "h" } }, error: null });
+    mocks.verifyOtp.mockReset();
+    mocks.verifyOtp
+      .mockResolvedValueOnce({ data: { user: null }, error: { message: "One-time token not found" } })
+      .mockResolvedValueOnce({ data: { user: null }, error: { message: "One-time token not found" } })
+      .mockResolvedValueOnce({ data: { user: null }, error: { message: "One-time token not found" } });
+    const { testSignInAction } = await import("@/app/login/actions");
+    await expect(testSignInAction(form())).rejects.toThrow("REDIRECT /login?error=link");
+    expect(mocks.generateLink).toHaveBeenCalledTimes(3);
+    expect(mocks.verifyOtp).toHaveBeenCalledTimes(3);
+  });
 });

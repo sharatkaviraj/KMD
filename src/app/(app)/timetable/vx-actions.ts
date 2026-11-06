@@ -345,6 +345,8 @@ export async function decideLeaveAction(input: { id: string; approve: boolean })
     .eq("id", input.id)
     .maybeSingle<{ id: string; session_label: string; staff_profile_id: string; from_day: string; to_day: string; span: LeaveSpan; status: string }>();
   if (!leave || leave.status !== "asked") return fail(p("That leave was already decided.", "यह पहले तय हो चुकी है।"));
+  // The id came from the browser: a test account decides TEST leave only.
+  await assertSessionWritable(actor, leave.session_label);
 
   const { data: decided, error } = await admin
     .from("teacher_leave")

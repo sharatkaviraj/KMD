@@ -6,7 +6,7 @@ import { db, signIn, currentSessionLabel } from './support/harness';
 // from reports/traces/screenshots. The reserved date must remain entirely empty.
 const day = '2026-11-13';
 const classId = '745643d0-aaca-470f-9372-d87397770a77';
-const teacherId = '29d76340-1929-4848-ad4f-8a3ae5653a43';
+const teacherId = 'cf0dad7d-a1cd-5b1b-865a-a414113b2e36';
 
 async function safeSignIn(page: Page, role: string, next: string) {
   try { await signIn(page, role, next); }
