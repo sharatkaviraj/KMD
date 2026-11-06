@@ -5,6 +5,9 @@
 | `index.ts` | Everything except the fee screens | `m.someKey` is a `{ hi, en }` pair, rendered with `primary()` / `secondary()` / `flat()` against the reader's `Language` |
 | `en.json`, `hi.json`, `hi-en.json` | The ported School Fees screens | next-intl keys, read with `useTranslations()` / `getTranslations()` |
 | `receipts-bilingual.json` | Receipt rendering only | Fixed Hindi+English pairs printed on paper, where the reader is a parent rather than a staff member |
+| `setup.ts` (`ms`, …) | Set-up and policy screens a handful of staff open (D-229) | Same pairs as `index.ts`, kept out of everyday pages |
+| `task-assign.ts` | The "Assign work" launcher and missing-details filter on everyday lists (`/students`) | Eight task pairs; `ms` re-spreads them. Own file because webpack keeps a module whole: importing anything from `setup.ts` ships all of it |
+| `collect.ts` | Collect (`/payments`) | Collect's own pairs |
 
 There is no name clash: `@/messages` resolves to `index.ts`, and the JSON files
 are imported by path.
