@@ -1,7 +1,7 @@
 import { ON_ROLL_STATUSES } from "@/modules/students-fees/domain/populations";
 import "server-only";
 
-import { fetchInChunks } from "@/platform/helpers/chunk";
+import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { createClient } from "@/modules/fees/platform/supabase/server";
@@ -541,22 +541,30 @@ async function buildLedgerSyncPlan(options: LedgerPlanOptions = {}): Promise<Led
     ? new Set(options.scopedStudentIds)
     : null;
 
-  let studentsQuery = supabase
-    .from("students")
-    .select(
-      "id, admission_no, full_name, class_id, transport_route_id, status, left_on, class_ref:classes(class_name, section, stream_name, session_label, status)",
-    );
-
-  if (scopedStudentIdSet) {
-    studentsQuery = studentsQuery.in("id", [...scopedStudentIdSet]);
-  } else {
-    studentsQuery = studentsQuery.in("status", [...ON_ROLL_STATUSES]);
-  }
-
-  const { data: studentsRaw, error: studentsError } = await studentsQuery;
+  // Every session's students come back here, and the session is picked below.
+  // PostgREST cuts a response at max-rows (1,000) without an error, so an
+  // unpaged read silently dropped whoever came after the cut: with 541 live and
+  // 596 TEST children on file, Reconcile for TEST-2026-27 never saw 106 of
+  // them and they were left with no installments at all. Page it, ordered by
+  // id so pages neither repeat nor skip; chunk a scoped id list, which is
+  // serialised into the URL.
+  const studentColumns =
+    "id, admission_no, full_name, class_id, transport_route_id, status, left_on, class_ref:classes(class_name, section, stream_name, session_label, status)";
+  const { data: studentsRaw, error: studentsError } = scopedStudentIdSet
+    ? await fetchInChunks<GeneratorStudentRow>([...scopedStudentIdSet], IN_FILTER_CHUNK_SIZE, (chunk) =>
+        supabase.from("students").select(studentColumns).in("id", chunk),
+      )
+    : await fetchAllPages<GeneratorStudentRow>((from, to) =>
+        supabase
+          .from("students")
+          .select(studentColumns)
+          .in("status", [...ON_ROLL_STATUSES])
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
 
   if (studentsError) {
-    throw new Error(studentsError.message);
+    throw new Error((studentsError as { message?: string }).message ?? String(studentsError));
   }
 
   const loadedStudents = (studentsRaw ?? []) as GeneratorStudentRow[];
@@ -641,9 +649,13 @@ async function buildLedgerSyncPlan(options: LedgerPlanOptions = {}): Promise<Led
     // Unchunked it did not return an error, it failed at the transport with
     // `TypeError: fetch failed`, which surfaced as a blank panel on Reports
     // after a ten-second wait.
+    // 100, not 200: a child carries four rows and sometimes seven (carry-forward,
+    // EMI late fee, cancelled rows kept), and 200 children at ~4.1 rows sat
+    // within a few families of the 1,000-row cut. Missing a child's existing
+    // rows here would plan them as new.
     const { data: installmentsRaw, error: installmentsError } = await fetchInChunks<ExistingInstallmentRow>(
       studentIds,
-      200,
+      100,
       (chunk) =>
         supabase
           .from("installments")

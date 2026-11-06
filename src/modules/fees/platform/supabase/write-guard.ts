@@ -199,12 +199,14 @@ export async function sessionsTouched(scope: WriteScope): Promise<string[] | nul
   if (!(await through("import_batches", "target_session_label", [...importBatchIds], addLabel))) return null;
   if (!(await through("academic_sessions", "session_label", scope.academicSessionIds, addLabel))) return null;
   if (!(await through("fee_policy_configs", "academic_session_label", scope.policyIds, addLabel))) return null;
+  if (!(await through("session_reconcile_log", "session_label", scope.reconcileLogIds, addLabel))) return null;
 
   const studentIds = new Set(scope.studentIds);
   if (!(await placeOnlinePayment(scope, (id) => studentIds.add(id), addLabel))) return null;
 
   for (const [table, ids] of [
     ["receipts", scope.receiptIds],
+    ["installments", scope.installmentIds],
     ["student_repayment_plans", scope.planIds],
     ["student_late_fee_waivers", scope.waiverIds],
     ["refund_requests", scope.refundIds],

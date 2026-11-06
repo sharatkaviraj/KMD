@@ -29,6 +29,10 @@
 export type WriteScope = {
   studentIds: string[];
   receiptIds: string[];
+  /** public.installments.id -> its student. The ledger generator updates rows by id. */
+  installmentIds: string[];
+  /** public.session_reconcile_log.id -> its session_label (Session health's repair log). */
+  reconcileLogIds: string[];
   planIds: string[];
   waiverIds: string[];
   refundIds: string[];
@@ -168,6 +172,8 @@ function emptyScope(): WriteScope {
   return {
     studentIds: [],
     receiptIds: [],
+    installmentIds: [],
+    reconcileLogIds: [],
     planIds: [],
     waiverIds: [],
     refundIds: [],
@@ -234,6 +240,8 @@ function scopeKeyOf(table: string, column: string): keyof WriteScope | null {
   if (column === "session_label" || column === "academic_session_label" || column === "target_session_label") {
     return "sessionLabels";
   }
+  if (table === "installments" && column === "id") return "installmentIds";
+  if (table === "session_reconcile_log" && column === "id") return "reconcileLogIds";
   if (table === "student_repayment_plans" && column === "id") return "planIds";
   if (table === "student_late_fee_waivers" && column === "id") return "waiverIds";
   if (table === "refund_requests" && column === "id") return "refundIds";
