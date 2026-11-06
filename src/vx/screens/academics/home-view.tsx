@@ -385,7 +385,7 @@ export function AcadHomeView(props: AcadHomeProps) {
             label={say(`${examName} marks entered`, `${examName} अंक भरे गए`)}
             value={`${entry.pct}%`}
             pill={late.length ? { tone: "bad", text: say(`${late.length} ${late.length === 1 ? "teacher" : "teachers"} late`, `${late.length} शिक्षक पीछे`) } : { tone: "ok", text: say("Nobody late", "कोई पीछे नहीं") }}
-            sub={due ? say(`Deadline ${due}`, `अंतिम तिथि ${dueHi}`) : entry.exam?.endsOn ? say(`Exam ended ${dayName(entry.exam.endsOn)}`, `परीक्षा ${dayNameHi(entry.exam.endsOn)} को समाप्त`) : null}
+            sub={due ? say(`Deadline ${due}`, `अंतिम तिथि ${dueHi}`) : entry.exam?.endsOn ? (entry.exam.endsOn > props.today ? say(`Exam ends ${dayName(entry.exam.endsOn)}`, `परीक्षा ${dayNameHi(entry.exam.endsOn)} को समाप्त होगी`) : say(`Exam ended ${dayName(entry.exam.endsOn)}`, `परीक्षा ${dayNameHi(entry.exam.endsOn)} को समाप्त`)) : null}
             delay={60}
           />
           <CoordKpi
