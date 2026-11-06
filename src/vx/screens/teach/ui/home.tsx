@@ -17,12 +17,12 @@ import { answerCoverVx, cancelLeaveVx, noticeSeenVx, queueBirthdayWishVx, setTex
 import type { HomeData } from "../data";
 import { birthdayWish, periodPhases, type AttentionReason, type PeriodPhase } from "../domain/teach";
 import { subjectPair } from "@/vx/screens/exams/domain/groups";
-import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, teacherKind, type TeacherKind } from "../domain/today";
+import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveNow, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, registerOnLeaveLine, teacherKind, type TeacherKind } from "../domain/today";
 import { ampm, andList, callName, dLongP, dShort, dShortP, greetingPair, hm12, shortClass, whenSent } from "./fmt";
 import { LazyCoverAssist, ReadyForYou } from "@/vx/assist/lazy-ready";
 import { LazyAwayReports, LazyCoverReportForm } from "./lazy-cover-report";
 import "./today.css";
-import { CardTitle, DrawnTick, HelpIcon, HelpPic, HelpSheet, LangSeg, LeaveSheet, LinkRing, TchTop, useUrlState, type HelpStep } from "./shared";
+import { CardTitle, DrawnTick, HelpIcon, HelpPic, HelpSheet, LangSeg, LeaveSheet, LinkRing, TchTop, useUrlState, WithdrawConfirm, type HelpStep } from "./shared";
 
 /*
  * Teacher · Today (design TchHome): the register card, the office's notices,
@@ -203,9 +203,13 @@ export function TeachHome({
     };
   }, [draftSig, data.staffId, data.sessionLabel, data.myClasses]);
 
+  // Withdrawing asks once first: one tap used to remove the card with no way
+  // back (6 Nov school day).
+  const [askWithdraw, setAskWithdraw] = useState<string | null>(null);
   const cancelLeave = (id: string) =>
     start(async () => {
       const res = await cancelLeaveVx(id);
+      setAskWithdraw(null);
       if (res.ok) {
         toast.show({ text: tx(p("Leave request withdrawn", "छुट्टी का अनुरोध वापस लिया")) });
         router.refresh();
@@ -257,6 +261,8 @@ export function TeachHome({
   }
   rows.sort((a, b) => a.period - b.period);
   const phases: PeriodPhase[] = periodPhases(rows, data.nowMinutes);
+  // Her leave today (approved or waiting): those periods say so, never "Done ✓".
+  const myLeave = leaveNow(data.leave, data.today);
   const allOver = rows.length > 0 && phases.every((ph) => ph === "done");
   const later = Boolean(reg) && (rows.length === 0 ? true : allOver) && data.schoolOpen;
   const classCount = rows.filter((r) => r.kind === "cls").length;
@@ -438,6 +444,7 @@ export function TeachHome({
         ) : null}
         <span className="tc-s" style={{ color: "inherit", opacity: 0.8, flex: "1 1 200px" }}>{tx(p(`Until you save, the office sees ${classLabel} as Not marked.`, `सेव करने तक कार्यालय में ${classHi} “नहीं लगी” दिखेगी।`))}</span>
       </div>
+      {registerOnLeaveLine(myLeave) ? <span className="tc-s" role="status" style={{ color: "inherit", fontWeight: 600 }}>{tx(registerOnLeaveLine(myLeave)!)}</span> : null}
     </div>
   ));
 
@@ -531,10 +538,14 @@ export function TeachHome({
               <span className="tc-s">{tx(p("Talk to the office if you still need the day off.", "अगर छुट्टी अब भी चाहिए तो ऑफ़िस से बात करें।"))}</span>
             ) : null}
             {mayCancelLeave(l) ? (
-              <button type="button" className="tap btn ghost" disabled={pending} onClick={() => cancelLeave(l.id)} style={{ alignSelf: "flex-start", minHeight: 44 }}>
-                <Ic n="x" />
-                {tx(p("Withdraw request", "अनुरोध वापस लें"))}
-              </button>
+              askWithdraw === l.id ? (
+                <WithdrawConfirm pending={pending} onYes={() => cancelLeave(l.id)} onNo={() => setAskWithdraw(null)} />
+              ) : (
+                <button type="button" className="tap btn ghost" disabled={pending} onClick={() => setAskWithdraw(l.id)} style={{ alignSelf: "flex-start", minHeight: 44 }}>
+                  <Ic n="x" />
+                  {tx(p("Withdraw request", "अनुरोध वापस लें"))}
+                </button>
+              )
             ) : null}
           </div>
         );
@@ -654,7 +665,11 @@ export function TeachHome({
               ? r.acknowledged
                 ? [done ? tx(p("Covered", "लिया")) : tx(p("Covering", "आप ले रहे हैं")), V("ok"), V("onsolid")]
                 : [tx(p("Asked you", "आपसे पूछा")), V("warn"), V("onsolid")]
-              : now
+              : r.kind === "cls" && myLeave?.periods.includes(r.number)
+                ? myLeave.state === "approved"
+                  ? [tx(p("On leave", "छुट्टी पर")), V("infos"), V("info")]
+                  : [tx(p("Leave asked", "छुट्टी माँगी")), V("warns"), V("warnfg")]
+                : now
                 ? [tx(p(`Now · ${leftMin} min left`, `अभी · ${leftMin} मिनट बाकी`)), V("acc"), V("onsolid")]
                 : ph === "next"
                   ? [tx(p("Next", "अगला")), V("accs"), V("accfg")]

@@ -5,6 +5,8 @@
  */
 
 import { p, type Pair } from "@/vx/text";
+import { periodNumber } from "@/modules/timetable/domain/periods";
+import { spanPeriods, type LeaveSpan } from "@/vx/screens/timetable/domain/timetable";
 
 /* --------------------------------------------------------- closed days */
 
@@ -101,6 +103,30 @@ export function leaveForToday<T extends { status: string; from_day: string; to_d
     .filter((r) => r.status !== "cancelled" && r.to_day >= today)
     .sort((a, b) => a.from_day.localeCompare(b.from_day))
     .slice(0, 3);
+}
+
+/**
+ * Her leave that covers today, approved or still waiting, and which of
+ * today's periods it takes. Today used to read "Done ✓" on periods 1 to 4 of
+ * a first-half leave, as if she had taught them (20-teacher school day,
+ * 6 Nov 2026). Approved wins over waiting; a request over several days is a
+ * full day each day (B11). `periods` are the numbers shown, P1 = 1.
+ */
+export function leaveNow(rows: readonly { status: string; from_day: string; to_day: string; span: string }[], today: string): { state: "approved" | "waiting"; periods: number[] } | null {
+  const over = rows.filter((r) => r.from_day <= today && r.to_day >= today);
+  const row = over.find((r) => r.status === "approved") ?? over.find((r) => r.status === "asked") ?? null;
+  if (!row) return null;
+  const span: LeaveSpan = row.from_day !== row.to_day ? "full" : row.span === "first_half" || row.span === "second_half" ? row.span : "full";
+  // `spanPeriods` gives stored indexes (0-based); Today shows P1…P8.
+  return { state: row.status === "approved" ? "approved" : "waiting", periods: spanPeriods(span).map(periodNumber) };
+}
+
+/** The line under an unmarked register when her leave takes the first period, where the register is taken. */
+export function registerOnLeaveLine(leave: { state: "approved" | "waiting"; periods: readonly number[] } | null): Pair | null {
+  if (!leave || !leave.periods.includes(1)) return null;
+  return leave.state === "approved"
+    ? p("You are on leave this morning. The office marks this register today, or you can mark it when you come in.", "आज सुबह आपकी छुट्टी है। आज यह हाज़िरी ऑफ़िस लगाएगा, या आप आकर लगा सकते हैं।")
+    : p("Your leave for this morning is waiting for the office. If it is approved, the office marks this register.", "आज सुबह की आपकी छुट्टी ऑफ़िस के जवाब का इंतज़ार कर रही है। मंज़ूर होने पर हाज़िरी ऑफ़िस लगाएगा।");
 }
 
 /** One cover row for the teacher's own absence: who takes it, or nobody yet. */

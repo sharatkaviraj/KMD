@@ -318,3 +318,25 @@ export function HelpPic({ kind }: { kind: "mark" | "seen" | "take" | "tap" | "sa
       return box("var(--card)", <><span className="tc-sk" style={{ width: "55%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--warns)", color: "var(--warnfg)", fontSize: 11, fontWeight: 700 }}>Apply leave</span></>);
   }
 }
+
+/**
+ * "Withdraw this request?" with Yes and Keep it — the second step of
+ * withdrawing a leave request, on Today and on More. One tap used to remove
+ * the request with no way back (20-teacher school day, 6 Nov 2026).
+ */
+export function WithdrawConfirm({ pending, onYes, onNo }: { pending: boolean; onYes: () => void; onNo: () => void }) {
+  const { tx } = useVx();
+  return (
+    <span role="group" aria-label={tx(p("Withdraw this request?", "यह अनुरोध वापस लें?"))} style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+      <span style={{ fontSize: 14, fontWeight: 700 }}>{tx(p("Withdraw this request? The office will no longer see it.", "यह अनुरोध वापस लें? ऑफ़िस को यह फिर नहीं दिखेगा।"))}</span>
+      <span style={{ display: "flex", gap: 8 }}>
+        <button type="button" className="tap btn" disabled={pending} onClick={onYes} style={{ minHeight: 44, background: "var(--bads)", color: "var(--bad)" }}>
+          {pending ? tx(p("Withdrawing…", "वापस लिया जा रहा है…")) : tx(p("Yes, withdraw", "हाँ, वापस लें"))}
+        </button>
+        <button type="button" className="tap btn ghost" disabled={pending} onClick={onNo} style={{ minHeight: 44 }}>
+          {tx(p("Keep it", "रहने दें"))}
+        </button>
+      </span>
+    </span>
+  );
+}
