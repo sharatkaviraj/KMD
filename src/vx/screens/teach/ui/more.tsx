@@ -12,7 +12,7 @@ import { logoutAction } from "@/app/login/actions";
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { agoP, initials } from "@/vx/format";
+import { agoP, initials, shortDayHi, timeHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
@@ -535,14 +535,14 @@ export function TeachMore({
           <div key={l.id} className="card" style={{ padding: "14px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
             <span className="tc-ibx" style={{ background: st.tone[0], color: st.tone[1] }}><Ic n={st.icon} /></span>
             <span style={{ flex: 1, minWidth: 170, display: "flex", flexDirection: "column" }}>
-              <span className="tc-tb" style={{ fontWeight: 700 }}>{l.from_day === l.to_day ? dShort(l.from_day) : `${dShort(l.from_day)} – ${dShort(l.to_day)}`}</span>
+              <span className="tc-tb" style={{ fontWeight: 700 }}>{l.from_day === l.to_day ? tx(dShortP(l.from_day)) : `${tx(dShortP(l.from_day))} – ${tx(dShortP(l.to_day))}`}</span>
               <span className="tc-ts" style={{ color: "var(--mut)" }}>{[tx(SPAN[l.span] ?? SPAN.full), l.note].filter(Boolean).join(" · ")}</span>
-              <span style={{ fontSize: 12, color: "var(--sub)" }}>{tx(p(`Sent ${dShort(l.created_at)}`, `${dShort(l.created_at)} को भेजा`))}</span>
+              <span style={{ fontSize: 12, color: "var(--sub)" }}>{tx(p(`Sent ${dShort(l.created_at)}`, `${shortDayHi(l.created_at)} को भेजा`))}</span>
               {l.decided_at && (l.status === "approved" || l.status === "declined") ? (
                 <span style={{ fontSize: 12, color: "var(--sub)" }}>
                   {l.status === "approved"
-                    ? tx(p(`Approved${l.decided_by_name ? ` by ${l.decided_by_name}` : ""} · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`, `${l.decided_by_name ? `${l.decided_by_name} ने ` : ""}मंज़ूर की · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`))
-                    : tx(p(`Declined${l.decided_by_name ? ` by ${l.decided_by_name}` : ""} · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`, `${l.decided_by_name ? `${l.decided_by_name} ने ` : ""}अस्वीकार की · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`))}
+                    ? tx(p(`Approved${l.decided_by_name ? ` by ${l.decided_by_name}` : ""} · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`, `${l.decided_by_name ? `${l.decided_by_name} ने ` : ""}मंज़ूर की · ${shortDayHi(l.decided_at)} ${timeHi(l.decided_at)}`))
+                    : tx(p(`Declined${l.decided_by_name ? ` by ${l.decided_by_name}` : ""} · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`, `${l.decided_by_name ? `${l.decided_by_name} ने ` : ""}अस्वीकार की · ${shortDayHi(l.decided_at)} ${timeHi(l.decided_at)}`))}
                 </span>
               ) : null}
             </span>

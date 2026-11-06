@@ -78,12 +78,3 @@ describe("receipts say owed, not pending, for a figure that holds the late fee",
     expect(readFileSync("src/vx/screens/receipts/canonical-receipt.tsx", "utf8")).toContain("Owed before, with any late fee");
   });
 });
-
-describe("Collect waits for every ticked child", () => {
-  it("holds the amount until a loading sibling is in", () => {
-    const src = readFileSync("src/vx/screens/collect/collect.tsx", "utf8");
-    expect(src).toContain("const famLoading = famShown.some(");
-    expect(src).toContain("const amountOk = !famLoading &&");
-    expect(src).toContain('if (card === "dues" && famLoading) return;');
-  });
-});

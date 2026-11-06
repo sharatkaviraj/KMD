@@ -50,7 +50,7 @@ import { onRoll } from "@/vx/screens/exams/domain/tracker";
 import { p, type Pair } from "@/vx/text";
 
 import { alertWhen, attentionReasons, average, dayBefore, mergeCombinedSlots, monthEnd, tellApart, upcomingBirthdays, withoutAttendance, type AttentionReason, type Mark } from "./domain/teach";
-import { closedTag, closedWhy, joinPairs, lastOpenDay, leaveForToday, openNotesP, profileClasses, remarksLeft, type CalendarEntry, type ClosedWhy, type MyCover } from "./domain/today";
+import { closedTag, closedWhy, examWord, joinPairs, lastOpenDay, leaveForToday, openNotesP, profileClasses, remarksLeft, type CalendarEntry, type ClosedWhy, type MyCover } from "./domain/today";
 import { childBasics, staffNames } from "./students";
 
 /*
@@ -280,14 +280,17 @@ export type ChildRow = {
   nextReview: string | null;
 };
 
-export type SubjectAverage = { subjectId: string; code: string; average: number | null; paperId: string; paperLabel: string; below33: number; marked: number };
+export type SubjectAverage = { subjectId: string; code: string; average: number | null; paperId: string; paperLabel: Pair; below33: number; marked: number };
+
+/** A paper whose exam row is missing: nothing to name, in either language. */
+const NO_EXAM: Pair = p("", "");
 
 async function latestPapers(classId: string, sessionLabel: string) {
   const [papers, assessments] = await Promise.all([
     papersForClass(classId, sessionLabel).catch(() => []),
     listAssessments(sessionLabel).catch(() => []),
   ]);
-  const when = new Map(assessments.map((a) => [a.id, { at: a.startsOn ?? a.endsOn ?? "", label: a.labelEn || a.code }]));
+  const when = new Map(assessments.map((a) => [a.id, { at: a.startsOn ?? a.endsOn ?? "", label: examWord(a.labelEn || a.code, a.labelHi) }]));
   const bySubject = new Map<string, (typeof papers)[number]>();
   // An undated exam is a rehearsal, not part of the year, while any dated exam
   // exists (the exam office's plannedExams rule): its zeros flagged whole
@@ -393,7 +396,7 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
         code: paper.subjectCode,
         average: average(pcts),
         paperId: paper.id,
-        paperLabel: papers.when.get(paper.assessmentId)?.label ?? "",
+        paperLabel: papers.when.get(paper.assessmentId)?.label ?? NO_EXAM,
         below33: pcts.filter((x) => x < 33).length,
         marked: subjectDone.get(paper.id) ?? 0,
       };
@@ -995,7 +998,7 @@ export async function loadSubject(staff: CurrentStaff, classId: string, subjectI
     classId,
     classLabel: labels.get(classId) ?? "—",
     subjectCode: paper?.subjectCode ?? (subject?.nameEn || subject?.code || "—"),
-    paper: paper ? { id: paper.id, maxMarks: paper.maxMarks, label: papers.when.get(paper.assessmentId)?.label ?? "", entryStatus: paper.entryStatus } : null,
+    paper: paper ? { id: paper.id, maxMarks: paper.maxMarks, label: papers.when.get(paper.assessmentId)?.label ?? NO_EXAM, entryStatus: paper.entryStatus } : null,
     rows,
     average: average(rows.flatMap((r) => (r.pct === null ? [] : [r.pct]))),
   };
@@ -1025,7 +1028,7 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
     const m = papers.marks.get(`${paper.id}|${studentId}`) as { value: number | null; absent: boolean; exempt: boolean } | undefined;
     return {
       code: paper.subjectCode,
-      label: papers.when.get(paper.assessmentId)?.label ?? "",
+      label: papers.when.get(paper.assessmentId)?.label ?? NO_EXAM,
       value: m?.value ?? null,
       max: paper.maxMarks,
       absent: Boolean(m?.absent),

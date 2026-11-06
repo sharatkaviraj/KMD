@@ -3,6 +3,11 @@
 import Link from "@/ui/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useLanguage } from "@/platform/i18n/use-language";
+import { lead, p } from "@/vx/text";
+
+/** Back, read aloud in the reader's language (it said "Back" to Hindi readers). */
+const BACK = p("Back", "वापस");
 
 /*
  * Back that behaves like Back.
@@ -54,8 +59,9 @@ function pathOf(href: string): string {
   return cut === -1 ? href : href.slice(0, cut);
 }
 
-export function BackLink({ href, className, style, children, label = "Back" }: { href: string; className?: string; style?: CSSProperties; children: ReactNode; label?: string }) {
+export function BackLink({ href, className, style, children, label }: { href: string; className?: string; style?: CSSProperties; children: ReactNode; label?: string }) {
   const router = useRouter();
+  const language = useLanguage();
   const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     const previous = read(PREVIOUS);
@@ -65,7 +71,7 @@ export function BackLink({ href, className, style, children, label = "Back" }: {
     }
   };
   return (
-    <Link href={href} onClick={onClick} className={className} aria-label={label} style={style}>
+    <Link href={href} onClick={onClick} className={className} aria-label={label ?? lead(BACK, language)} style={style}>
       {children}
     </Link>
   );
@@ -85,8 +91,9 @@ const NO_SUBSCRIPTION = () => () => {};
  * page, `CURRENT` still names the screen we came from; after, `PREVIOUS` does.
  * Either way the answer is the same, which is what lets the snapshot be stable.
  */
-export function TrailBack({ className, style, children, label = "Back" }: { className?: string; style?: CSSProperties; children: ReactNode; label?: string }) {
+export function TrailBack({ className, style, children, label }: { className?: string; style?: CSSProperties; children: ReactNode; label?: string }) {
   const pathname = usePathname();
+  const language = useLanguage();
   const previous = useSyncExternalStore(
     NO_SUBSCRIPTION,
     () => {
@@ -104,7 +111,7 @@ export function TrailBack({ className, style, children, label = "Back" }: { clas
     }
   };
   return (
-    <Link href={previous} onClick={onClick} className={className} aria-label={label} style={style}>
+    <Link href={previous} onClick={onClick} className={className} aria-label={label ?? lead(BACK, language)} style={style}>
       {children}
     </Link>
   );
