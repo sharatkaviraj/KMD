@@ -85,16 +85,22 @@ fields as well as the original JSON. This avoids rewriting the whole roster on
 each payment. Concurrent workers are fenced; ordinary lease contention does
 not mark the bridge unhealthy.
 
-An idle poll releases its lease and records a successful check without writing
-the roster. A new IST calculation day or the nightly `?verify=1` request forces
-a fresh complete snapshot and verification. `fees_bridge_runs` records each
+**Since 6 Nov 2026 the roster is copied once a night (D-457).** The only
+scheduled run is `fees-bridge-nightly-verify` at 20:30 UTC (02:00 IST), whose
+`?verify=1` forces a fresh complete snapshot, applies it and acknowledges the
+events. The every-minute `fees-bridge-sync` job was removed by migration
+20261106162701 after it overlapped itself during the 6 Nov outage. A manual
+call without `verify=1` still works: an idle one releases its lease and records
+a successful check without writing the roster, and a new IST calculation day
+forces a complete snapshot. `fees_bridge_runs` records each
 verified generation's revision, counts, hash and time. No nightly equality claim
 compares two moving live queries.
 
 Publication is separate from loading. A database guard rejects publication
 without a fresh verified snapshot or with TEST/real student or class ID
 collisions. The application refuses current roster/identity decisions after
-five minutes without a successful check and shows an outage banner. Canonical
+26 hours without a successful check (one missed night) and shows an outage
+banner; `BRIDGE_FRESH_FOR_MS` and four SQL readers carry the figure. Canonical
 financial lookup remains a direct source request. One's academic records remain
 stored during a source outage.
 
