@@ -57,12 +57,19 @@ const TEST_LINK_CAPTURE = "00000000-0000-4000-8000-0000000d0001";
 const TEST_ORDER_CAPTURE = "00000000-0000-4000-8000-0000000d0002";
 const REAL_ORDER_CAPTURE = "00000000-0000-4000-8000-0000000d0003";
 const UNKNOWN_CAPTURE = "00000000-0000-4000-8000-0000000d0009";
+const TEST_INST = "00000000-0000-4000-8000-0000000e0002";
+const REAL_INST = "00000000-0000-4000-8000-0000000e0001";
+const UNKNOWN_INST = "00000000-0000-4000-8000-0000000e0009";
+const TEST_RECONCILE = "00000000-0000-4000-8000-0000000f0002";
+const REAL_RECONCILE = "00000000-0000-4000-8000-0000000f0001";
 
 /** The database, as far as the guard's lookups can see it: table -> id -> { column: value }. */
 const DB: Record<string, Record<string, Record<string, string>>> = {
   students: { [REAL_STUDENT]: { class_id: REAL_CLASS }, [TEST_STUDENT]: { class_id: TEST_CLASS } },
   classes: { [REAL_CLASS]: { session_label: "2026-27" }, [TEST_CLASS]: { session_label: "TEST-2026-27" } },
   receipts: { [REAL_RECEIPT]: { student_id: REAL_STUDENT }, [TEST_RECEIPT]: { student_id: TEST_STUDENT } },
+  installments: { [TEST_INST]: { student_id: TEST_STUDENT }, [REAL_INST]: { student_id: REAL_STUDENT } },
+  session_reconcile_log: { [TEST_RECONCILE]: { session_label: "TEST-2026-27" }, [REAL_RECONCILE]: { session_label: "2026-27" } },
   payment_import_batches: { [TEST_BATCH]: { session_label: "TEST-2026-27" } },
   payment_import_rows: { [TEST_BATCH_ROW]: { batch_id: TEST_BATCH } },
   academic_sessions: { [REAL_SESSION_ID]: { session_label: "2026-27" } },
@@ -172,6 +179,30 @@ describe("classifyFeeRequest", () => {
     for (const name of ["post_student_payment", "post_student_payment_with_adjustments", "post_corrected_payment", "undo_recent_payment", "reverse_receipt_admin", "waive_late_fee", "void_late_fee_waiver", "process_refund_with_adjustment", "create_student_repayment_plan", "reschedule_student_repayment_plan", "cancel_student_repayment_plan", "sync_repayment_plan_late_fees", "import_student_batch_row"]) {
       expect(KNOWN_WRITE_RPCS).toContain(name);
     }
+  });
+});
+
+describe("the ledger generator and Session health's repair log", () => {
+  const patch = (path: string, body: object) => guarded()(`${BASE}/${path}`, { method: "PATCH", body: JSON.stringify(body) });
+
+  it("lets the generator update and cancel a TEST child's installments by id", async () => {
+    expect((await patch(`installments?id=eq.${TEST_INST}`, { base_charge: 1000 })).status).toBe(200);
+    expect((await patch(`installments?id=in.(${TEST_INST})`, { status: "cancelled" })).status).toBe(200);
+    expect(sent).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a real child's installment, an unknown one, and a TEST row moved onto a real child", async () => {
+    await refusedWith(await patch(`installments?id=eq.${REAL_INST}`, { base_charge: 1000 }));
+    await refusedWith(await patch(`installments?id=in.(${TEST_INST},${REAL_INST})`, { status: "cancelled" }));
+    await refusedWith(await patch(`installments?id=eq.${UNKNOWN_INST}`, { base_charge: 1000 }));
+    await refusedWith(await patch(`installments?id=eq.${TEST_INST}`, { student_id: REAL_STUDENT }));
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it("lets a TEST reconcile finish its log row, and refuses a live one", async () => {
+    expect((await patch(`session_reconcile_log?id=eq.${TEST_RECONCILE}`, { status: "done" })).status).toBe(200);
+    await refusedWith(await patch(`session_reconcile_log?id=eq.${REAL_RECONCILE}`, { status: "done" }));
+    expect(sent).toHaveBeenCalledTimes(1);
   });
 });
 
