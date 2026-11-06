@@ -319,7 +319,7 @@ const LEFT: LeftView[] = (
 const HEAT: [string, number, number, number][] = [["Nursery", 6, 9, 0], ["LKG", 8, 10, 0], ["UKG", 9, 12, 2], ["Class 1", 11, 13, 3], ["Class 2", 10, 12, 2], ["Class 3", 12, 14, 4], ["Class 4", 18, 23, 6], ["Class 5", 14, 16, 5], ["Class 6", 26, 24, 8], ["Class 7", 19, 24, 7], ["Class 8", 20, 19, 6], ["Class 9", 28, 22, 9], ["Class 10", 21, 22, 7], ["11 Science", 20, 17, 5], ["11 Commerce", 12, 13, 3], ["11 Arts", 6, 7, 2], ["12 Science", 17, 16, 6], ["12 Commerce", 9, 12, 3], ["12 Arts", 4, 5, 2]];
 const classByInst = HEAT.map(([classLabel, ...ks], i) => {
   const [inst1, inst2, lastYear] = ks.map((k, j) => (k ? k * 1000 + ((((i * 3 + j) % 5) - 2) * 100) : 0));
-  return { classLabel, inst1, inst2, lastYear, total: inst1 + inst2 + lastYear };
+  return { classLabel, inst1, inst2, inst3: 0, inst4: 0, other: 0, lastYear, total: inst1 + inst2 + lastYear };
 });
 
 /** Rakesh Sharma's installments as the family panel draws them. */

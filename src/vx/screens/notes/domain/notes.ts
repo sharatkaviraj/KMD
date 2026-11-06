@@ -251,6 +251,17 @@ export function isSensitiveNote(note: { tags: readonly NoteTag[] }): boolean {
   return note.tags.some((t) => SENSITIVE_TAGS.includes(t));
 }
 
+/**
+ * Who may be asked to follow a note up. Following a note up lets that person
+ * read it (`canSeeNote`), so a health or family note may not go to the
+ * coordinator: only the admin and the class teacher read those (D-264). The
+ * teacher replay on 6 Nov 2026 found the coordinator offered, which widened
+ * the note's audience by one tap.
+ */
+export function followOwnerAllowed(owner: FollowOwner, note: { tags: readonly NoteTag[] }): boolean {
+  return !(owner === "coordinator" && isSensitiveNote(note));
+}
+
 export type NoteReader = {
   id: string;
   /** `role === "admin"`: the only school-wide role that reads health and family notes. */
