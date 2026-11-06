@@ -11,6 +11,7 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -212,6 +213,51 @@ export function Sheet({
     };
   }, [mounted, closing, dismissable]);
 
+  // Drag the handle or the title down to close, as on a native bottom sheet
+  // (phones only: from 900px the sheet is a centred dialog with no handle).
+  // The panel follows the finger; a long or quick pull closes, anything else
+  // springs back. Inline `animation: none` first, because the opening
+  // animation's fill would otherwise pin `transform` and hide the drag.
+  const drag = useRef<{ y: number; lastY: number; lastT: number; v: number; dy: number } | null>(null);
+  const onDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const box = panel.current;
+    const target = event.target as Element;
+    if (!box || !dismissable || closing || event.button !== 0) return;
+    if (!target.closest("[data-drag-zone]") || target.closest("button,a,input,select,textarea")) return;
+    if (window.matchMedia?.("(min-width: 900px)").matches) return;
+    drag.current = { y: event.clientY, lastY: event.clientY, lastT: event.timeStamp, v: 0, dy: 0 };
+    box.setPointerCapture?.(event.pointerId);
+    box.style.animation = "none";
+    box.style.transition = "none";
+  };
+  const onDragMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    const box = panel.current;
+    if (!d || !box) return;
+    const dt = Math.max(1, event.timeStamp - d.lastT);
+    d.v = (event.clientY - d.lastY) / dt;
+    d.lastY = event.clientY;
+    d.lastT = event.timeStamp;
+    // Upward pulls resist instead of lifting the sheet off the bottom edge.
+    const raw = event.clientY - d.y;
+    d.dy = raw > 0 ? raw : raw / 6;
+    box.style.transform = `translateY(${d.dy}px)`;
+  };
+  const onDragEnd = () => {
+    const d = drag.current;
+    const box = panel.current;
+    drag.current = null;
+    if (!d || !box) return;
+    if (d.dy > 110 || (d.dy > 24 && d.v > 0.55)) {
+      box.style.transition = "transform .2s var(--ease)";
+      box.style.transform = "translateY(100%)";
+      closeRef.current();
+    } else {
+      box.style.transition = "transform .3s var(--spring)";
+      box.style.transform = "translateY(0)";
+    }
+  };
+
   if (!mounted || !layer) return null;
 
   return createPortal(
@@ -226,10 +272,14 @@ export function Sheet({
         tabIndex={-1}
         className={`sheet${wide ? " wide" : ""} ${closing ? "closing" : "open"}`}
         style={{ outline: "none" }}
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
       >
-        <div className="grab" aria-hidden="true" />
+        <div className="grab" aria-hidden="true" data-drag-zone="" style={{ touchAction: "none", boxSizing: "content-box", paddingBlock: 6, marginTop: 2, marginBottom: -6, backgroundClip: "content-box" }} />
         {title ? (
-          <div style={{ flex: "none", display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 20px 10px" }}>
+          <div data-drag-zone="" style={{ flex: "none", display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 20px 10px", touchAction: "none" }}>
             {icon ? (
               <span style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Ic n={icon} size={20} />

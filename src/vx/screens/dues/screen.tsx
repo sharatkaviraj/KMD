@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
+import { NavLink } from "@/ui/shell/nav-link";
 import { useRouter } from "next/navigation";
 
 import { queueFamilyReminderAction } from "@/app/(app)/dues/actions";
@@ -363,10 +364,10 @@ export function DuesScreen(props: DuesProps) {
             {visible.map((f, i) => (
               <div key={f.key} role="row" className={`row${selected?.key === f.key ? " sel" : ""}`} style={{ display: "grid", gridTemplateColumns: selected ? TRACKS_CMP : TRACKS, gap: 10, alignItems: "center", minHeight: 64, padding: "0 14px 0 6px", borderTop: i === 0 && selected ? 0 : "1px solid var(--bd)", overflow: "hidden", animation: `xIn .32s var(--ease) ${delay(i)} both` }}>
                 {perms.log ? <Check on={sel.has(f.key)} onToggle={() => toggle(f.key)} label={tx(fill(W.selectOne, { name: f.fatherName }))} /> : <span />}
-                <Link href={familyHref(f)} prefetch={false} className="tap" title={f.fatherName} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "10px 0", minWidth: 0, color: "var(--fg)" }}>
+                <NavLink href={familyHref(f)} prefetch={false} className="tap" title={f.fatherName} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "10px 0", minWidth: 0, color: "var(--fg)" }}>
                   <span className="clip" style={{ maxWidth: "100%", fontSize: 15, fontWeight: 600 }}>{f.fatherName}</span>
                   <span className="num clip" style={{ maxWidth: "100%", fontSize: 12, color: "var(--mut)" }}>{maskPhone(f.phone)}</span>
-                </Link>
+                </NavLink>
                 {selected ? null : <span style={{ display: "flex", flexWrap: "wrap", gap: 4, minWidth: 0 }}>{f.kids.map((k) => kidPill(`${firstName(k.fullName)} · ${k.classLabel}`, k.studentId))}</span>}
                 {amountCell(f)}
                 <span>{daysPill(f)}</span>
@@ -381,10 +382,10 @@ export function DuesScreen(props: DuesProps) {
             {visible.map((f, i) => (
               <div key={f.key} style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) auto", gap: 6, alignItems: "start", padding: "8px 12px 12px 4px", border: "1px solid var(--bd)", borderRadius: 18, background: "var(--card)", boxShadow: "var(--sh)", animation: `xIn .32s var(--ease) ${delay(i)} both` }}>
                 {perms.log ? <Check on={sel.has(f.key)} onToggle={() => toggle(f.key)} label={tx(fill(W.selectOne, { name: f.fatherName }))} /> : <span />}
-                <Link href={familyHref(f)} prefetch={false} className="tap" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", paddingTop: 8, minWidth: 0, color: "var(--fg)" }}>
+                <NavLink href={familyHref(f)} prefetch={false} className="tap" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", paddingTop: 8, minWidth: 0, color: "var(--fg)" }}>
                   <span className="clip" style={{ maxWidth: "100%", fontSize: 15, fontWeight: 600 }}>{f.fatherName}</span>
                   <span className="num clip" style={{ maxWidth: "100%", fontSize: 12, color: "var(--mut)" }}>{maskPhone(f.phone)}</span>
-                </Link>
+                </NavLink>
                 <span style={{ paddingTop: 8 }}>{amountCell(f)}</span>
                 <span style={{ gridColumn: 2, display: "flex", flexWrap: "wrap", gap: 4, minWidth: 0 }}>{f.kids.map((k) => kidPill(`${firstName(k.fullName)} · ${k.classLabel}`, k.studentId))}</span>
                 <span style={{ gridColumn: 3, justifySelf: "end" }}>{daysPill(f)}</span>
