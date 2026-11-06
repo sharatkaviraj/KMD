@@ -131,8 +131,33 @@ const createSchema = z.object({
   followOn: z.string().max(10).nullable().optional(),
   visibility: z.enum(["team", "private"]),
   tellParents: z.boolean(),
+  /** The composer's id for this draft, the same on every retry of it (20261106123000). */
+  requestId: UUID.nullable().optional(),
 });
 
+/** The note this writer already filed under a draft's id, if any. */
+async function noteFiledUnder(staffId: string, requestId: string): Promise<string | null> {
+  const { data, error } = await createAdminClient()
+    .from("notes")
+    .select("id")
+    .eq("written_by", staffId)
+    .eq("client_request_id", requestId)
+    .limit(1)
+    .returns<{ id: string }[]>();
+  if (error) return null;
+  return data?.[0]?.id ?? null;
+}
+
+/**
+ * Save one note about a child.
+ *
+ * **A retry files once.** A save can take a minute on a slow day; a teacher
+ * who leaves while it says "Still saving" comes back to her draft and saves it
+ * again. The composer sends the same `requestId` for every save of one draft,
+ * so the second save gets the first note back instead of filing a twin (the
+ * 6 Nov school day found six). Two saves at once meet `notes_request_once`:
+ * the loser reads back what the winner filed.
+ */
 export async function createNoteAction(input: z.input<typeof createSchema>): Promise<NoteResult> {
   const staff = await writer(await assertPermission("notes:view"));
   const parsed = createSchema.safeParse(input);
@@ -140,6 +165,11 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
   const ctx = await context(staff);
   if (!ctx) return NOT_SAVED();
   const v = parsed.data;
+  const requestId = v.requestId ?? null;
+  if (requestId) {
+    const filed = await noteFiledUnder(staff.id, requestId);
+    if (filed) return { ok: true, id: filed };
+  }
 
   const classId = await inScope(ctx.viewer, v.studentId, ctx.sessionLabel);
   if (classId === false) return fail("This child is not in your classes.", "यह बच्चा आपकी कक्षा में नहीं है।");
@@ -177,9 +207,14 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
       visibility: v.visibility,
       tell_parents: v.tellParents,
       author_relation: relation,
+      ...(requestId ? { client_request_id: requestId } : {}),
     })
     .select("id")
     .single<{ id: string }>();
+  if (error && requestId && error.code === "23505") {
+    const filed = await noteFiledUnder(staff.id, requestId);
+    if (filed) return { ok: true, id: filed };
+  }
   if (error || !data) return NOT_SAVED();
 
   if (v.tellParents) {

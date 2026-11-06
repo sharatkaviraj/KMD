@@ -319,7 +319,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
               <Title t={p(`${classLabel} timetable today`, "आज की समय-सारणी")} trail={<span className="tc-s">{dShort(data.today)}</span>} />
             </div>
             {ttRows.map((r, i) => {
-              const tg = r.kind === "done" ? [tx(p("Done", "हो गया")), V("s3"), V("mut")] : r.kind === "now" ? [tx(p("Now", "अभी")), V("acc"), V("onsolid")] : r.kind === "me" ? [tx(p("You", "आप")), V("warns"), V("warnfg")] : null;
+              const tg = r.kind === "done" ? [tx(p("Done", "हो गया")), V("s3"), V("mut")] : r.kind === "now" ? [tx(p("Now", "अभी")), V("acc"), V("onsolid")] : null; // Her own period already says "You" under the subject and is tinted; a second "You" pill read "You You" (6 Nov).
               return (
                 <div key={r.key} className="tc-in" style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 12, background: r.kind === "now" ? V("accs") : r.kind === "break" ? "transparent" : r.kind === "me" ? V("warns") : V("s2"), border: r.kind === "now" ? "1px solid var(--acc)" : r.kind === "break" ? "1px dashed var(--bd)" : "1px solid transparent", opacity: r.kind === "done" ? 0.6 : 1, animationDelay: `${Math.min(i, 14) * 30}ms` }}>
                   <span className="num" style={{ flex: "none", width: 46, display: "flex", flexDirection: "column" }}><span style={{ fontSize: 13, fontWeight: 700 }}>{r.no}</span><span className="tc-s">{r.time}</span></span>

@@ -1,5 +1,19 @@
 # VPPS One — progress
 
+## Teacher school day: 20 seats in TEST — 6 November 2026
+
+Owner asked for 20 teacher agents replaying a school day in TEST and the bugs
+fixed. Branch `claude/project-thread-fgot2n`. D-443 to D-446. **Done:** teachers
+1-10 ran the day on live One (Smoke Lab seats, TEST-2026-27) before the run was
+paused for database load; bug list in project files `teacher-day/`. Fixed: a
+note saved twice files once (migration `20261106122604` applied on wtgx),
+health/family note audience line, papers with no children no longer read
+"Sent"/"Done", subject teachers see their periods first and a period opens
+their subject, "You You" on the class timetable. TEST data only: enrolments
+dated from 1 Apr and 14 TEST classes given smoke-seat class teachers so seats
+have registers. **Open:** teachers 11-20 and the re-check; parent WhatsApp ON by
+default on a register's first save (D-320) left for the owner.
+
 ## Collect: card-by-card payment entry — 5 November 2026
 
 Owner approved the Collect prototype; plan

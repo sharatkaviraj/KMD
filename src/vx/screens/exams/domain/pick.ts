@@ -58,6 +58,11 @@ export function pickState(c: PickFacts): PickState {
         : p(`${c.total} of ${c.total} sent`, `${c.total} में से ${c.total} भेजे`),
     };
   }
+  if (c.total === 0) {
+    // "0 of 0 entered · Start" read as a paper that just needs filling in; it
+    // has nobody on it (6 Nov school day).
+    return { tone: "warn", sent: false, action: p("View", "देखें"), pill: p("No children", "कोई बच्चा नहीं"), line: p("No children are on this paper yet. Tell the exam office.", "इस पेपर पर अभी कोई बच्चा नहीं है। परीक्षा प्रभारी को बताएँ।") };
+  }
   const entered = p(`${c.entered} of ${c.total} entered`, `${c.total} में से ${c.entered} भरे`);
   const line = fix > 0 ? p(`${entered.en} · ${fix} to fix`, `${entered.hi} · ${fix} ठीक करने हैं`) : entered;
   if (c.status === "in_progress") return { tone: "acc", sent: false, action: p("Continue", "जारी रखें"), pill: p("In progress", "चल रहा है"), line };
