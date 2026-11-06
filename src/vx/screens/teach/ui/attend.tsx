@@ -839,7 +839,20 @@ export function TeachAttend({
             <div style={{ width: "100%", marginTop: 6 }}>{tiles(28, { ...fresh, ...savedMarks })}</div>
             {savedAway.length ? (
               <span className="tc-s" style={{ textAlign: "left", alignSelf: "stretch" }}>
-                {tx(p(`Away: ${andList(savedAway.map((k) => `${k.name}${sOf(savedMarks[k.id]) === "H" ? " (half-day)" : ""}`))}`, `अनुपस्थित: ${andList(savedAway.map((k) => `${k.name}${sOf(savedMarks[k.id]) === "H" ? " (आधा दिन)" : ""}`), "और")}`))}
+                {/* A half-day child came to school: listing them under "अनुपस्थित:" with
+                    "(आधा दिन)" read as absent (6 Nov school day). Two lines instead. */}
+                {[
+                  savedAway.filter((k) => sOf(savedMarks[k.id]) !== "H"),
+                  savedAway.filter((k) => sOf(savedMarks[k.id]) === "H"),
+                ].map((kids, i) =>
+                  kids.length ? (
+                    <span key={i} style={{ display: "block" }}>
+                      {tx(i === 0
+                        ? p(`Away: ${andList(kids.map((k) => k.name))}`, `अनुपस्थित: ${andList(kids.map((k) => k.name), "और")}`)
+                        : p(`Half day: ${andList(kids.map((k) => k.name))}`, `आधा दिन: ${andList(kids.map((k) => k.name), "और")}`))}
+                    </span>
+                  ) : null,
+                )}
               </span>
             ) : null}
             <span className="tc-s" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>

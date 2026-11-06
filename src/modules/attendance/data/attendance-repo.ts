@@ -5,7 +5,7 @@ import { retiredStudentLabels } from "@/platform/fees-bridge/history";
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { assertActorEveryClass, assertActorPermission, assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { FEE_SCHEMA } from "@/platform/env";
-import { fetchInChunks } from "@/platform/helpers/chunk";
+import { CHUNK_CONCURRENCY, chunkArray, fetchInChunks, mapConcurrently } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -533,35 +533,51 @@ export async function classAttendanceRange(
 
   const supabase = await createClient();
 
-  type MarkRow = {
-    id: string;
-    student_id: string;
-    status: AttendanceStatus;
-    attendance_registers: { day: string };
-  };
-
-  const data = await fetchAllRows<MarkRow>(
+  // Two reads, not one embedded join. "marks !inner registers, ordered by
+  // mark id" leaves Postgres free to walk the school's marks in id order and
+  // test each against the register filter (not confirmed with EXPLAIN: the
+  // database was refusing connections at the time); under load it hit the
+  // statement timeout and the register page showed "Something went wrong" (React #441,
+  // digest 3259228696, nine times on 6 Nov). A class's registers for a range
+  // come off attendance_registers_by_class_idx, and their marks off
+  // attendance_marks_unique (register_id, student_id).
+  const registers = await fetchAllRows<{ id: string; day: string }>(
     (pageFrom, pageTo) =>
       supabase
-        .from("attendance_marks")
-        .select(
-          "id, student_id, status, attendance_registers!inner(day, class_id, session_label, status)",
-        )
-        .eq("attendance_registers.class_id", classId)
-        .eq("attendance_registers.session_label", sessionLabel)
-        .eq("attendance_registers.status", "submitted")
-        .gte("attendance_registers.day", from)
-        .lte("attendance_registers.day", to)
-        // A stable order, so a row cannot be skipped between pages.
+        .from("attendance_registers")
+        .select("id, day")
+        .eq("class_id", classId)
+        .eq("session_label", sessionLabel)
+        .eq("status", "submitted")
+        .gte("day", from)
+        .lte("day", to)
         .order("id")
         .range(pageFrom, pageTo)
-        .returns<MarkRow[]>(),
+        .returns<{ id: string; day: string }[]>(),
     "attendance",
   );
+  if (registers.length === 0) return [];
+  const dayOf = new Map(registers.map((r) => [r.id, r.day]));
 
-  return data.map((row) => ({
+  type MarkRow = { id: string; register_id: string; student_id: string; status: AttendanceStatus };
+  const parts = await mapConcurrently(chunkArray([...dayOf.keys()], IN_FILTER_CHUNK_SIZE), CHUNK_CONCURRENCY, (ids) =>
+    fetchAllRows<MarkRow>(
+      (pageFrom, pageTo) =>
+        supabase
+          .from("attendance_marks")
+          .select("id, register_id, student_id, status")
+          .in("register_id", ids)
+          // A stable order, so a row cannot be skipped between pages.
+          .order("id")
+          .range(pageFrom, pageTo)
+          .returns<MarkRow[]>(),
+      "attendance",
+    ),
+  );
+
+  return parts.flat().map((row) => ({
     studentId: row.student_id,
-    day: row.attendance_registers.day,
+    day: dayOf.get(row.register_id) ?? "",
     status: row.status,
   }));
 }
