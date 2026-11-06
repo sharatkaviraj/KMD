@@ -13,7 +13,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
 import type { ClassData, MarksLink, StudentData, SubjectData } from "../data";
-import { genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
+import { ATTENTION_RULES, genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
 import { closedTitle } from "../domain/today";
 import { dShort, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, TchTop } from "./shared";
@@ -410,7 +410,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
               <span className="pill num" style={{ background: "var(--s2)", color: "var(--mut)" }}>{tx(p(`Roll ${c.rollNo ?? "—"}`, `रोल ${c.rollNo ?? "—"}`))}</span>
               <span className="num" style={{ fontSize: 12, fontWeight: 700, color: ringColor(c.attendancePct) }}>{c.attendancePct === null ? "—" : `${Math.round(c.attendancePct)}%`}</span>
             </span>
-            <Ring pct={c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
+            <Ring pct={c.daysCounted < ATTENTION_RULES.minDays ? null : c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{c.name}</span>
             {badges(c, true)}
           </Link>
@@ -420,7 +420,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
         {shown.map((c, i) => (
           <Link key={c.id} href={kidHref(c.id)} className="tap row tc-in" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 76, padding: "10px 14px", borderTop: i ? "1px solid var(--bd)" : 0, color: "var(--fg)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
             <span className="num tc-s" style={{ flex: "none", width: 22, textAlign: "center", fontWeight: 700 }}>{c.rollNo ?? ""}</span>
-            <Ring pct={c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
+            <Ring pct={c.daysCounted < ATTENTION_RULES.minDays ? null : c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <span className="tc-el" style={{ fontSize: 16, fontWeight: 600 }}>{c.name}</span>
               <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
@@ -622,10 +622,15 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
   const phone = phoneLinks(data.phone);
   const first = data.name.split(" ")[0];
   const pct = data.attendance.percent;
+  // Same rule as the class list's "Low attendance" chip: a few marked days are
+  // not a trend. One half day read as a red "Attendance 50%" while the chip
+  // said 0 (6 Nov school day, teacher 14).
+  const early = pct !== null && data.attendance.counted < ATTENTION_RULES.minDays;
+  const ringPct = early ? null : pct;
   const low = data.marks.filter((m) => m.pct !== null && m.pct < 33);
   const openNotes = data.notes.filter((n) => n.status !== "done").length;
   const why = [
-    pct !== null && pct < 75 ? { label: tx(p(`Attendance ${Math.round(pct)}%`, `उपस्थिति ${Math.round(pct)}%`)), t: LOOK.bad } : null,
+    pct !== null && !early && pct < ATTENTION_RULES.attendanceBelow ? { label: tx(p(`Attendance ${Math.round(pct)}%`, `उपस्थिति ${Math.round(pct)}%`)), t: LOOK.bad } : null,
     ...low.map((m) => ({ label: tx(p(`${m.code} below 33%`, `${m.code} 33% से कम`)), t: LOOK.bad })),
     openNotes ? { label: tx(p(`${openNotes} open ${openNotes === 1 ? "note" : "notes"}`, `${openNotes} खुले नोट`)), t: LOOK.warn } : null,
   ].filter((x): x is { label: string; t: readonly [string, string] } => x !== null);
@@ -677,7 +682,7 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
         <div className="pad stack" style={{ padding: "18px 28px 40px", display: "grid", gridTemplateColumns: "minmax(0, 360px) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
           <div className="tc-cc">
             <div className="card rise tc-hdr" style={{ order: 1, display: "flex", padding: 20, gap: 16 }}>
-              <Ring pct={pct} size={96}>
+              <Ring pct={ringPct} size={96}>
                 <span className="tc-av serif" style={{ top: 11, left: 11, width: 74, height: 74, fontSize: 26, background: tone(data.rollNo ?? 1)[0], color: tone(data.rollNo ?? 1)[1] }}>{data.photoUrl ? <PrivatePhoto src={data.photoUrl} alt="" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(data.name)}</span>
               </Ring>
               <span className="tc-hdc" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -685,8 +690,8 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
                 <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{[data.classLabel, data.rollNo ? tx(p(`Roll ${data.rollNo}`, `रोल ${data.rollNo}`)) : null, data.admissionNo].filter(Boolean).join(" · ")}</span>
                 {why.length ? <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{why.map((w) => <span key={w.label} className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: w.t[0], color: w.t[1] }}>{w.label}</span>)}</span> : null}
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span className="num" style={{ fontSize: 26, fontWeight: 700, color: ringColor(pct) }}>{pct === null ? "—" : `${Math.round(pct)}%`}</span>
-                  <span className="tc-s" style={{ textAlign: "left" }}>{tx(p("attendance", "हाज़िरी"))}<br />{tx(p("this session", "इस सत्र"))}</span>
+                  <span className="num" style={{ fontSize: 26, fontWeight: 700, color: ringColor(ringPct) }}>{pct === null ? "—" : `${Math.round(pct)}%`}</span>
+                  <span className="tc-s" style={{ textAlign: "left" }}>{tx(p("attendance", "हाज़िरी"))}<br />{early ? tx(p(`from ${data.attendance.counted} ${data.attendance.counted === 1 ? "day" : "days"} so far`, `अभी ${data.attendance.counted} दिन से`)) : tx(p("this session", "इस सत्र"))}</span>
                 </span>
                 {data.canEditPhoto ? <span><ProfilePhotoControl sheet credential={{ kind: "student", id: data.id }} language={language} /></span> : null}
               </span>
