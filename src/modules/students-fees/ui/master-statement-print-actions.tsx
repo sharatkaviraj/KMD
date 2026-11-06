@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { Button } from "@/ui/primitives/button";
 

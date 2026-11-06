@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 import type { ReactNode } from "react";
 import { useActionState, useMemo, useState } from "react";
 import { AlertTriangle, Send, UserPlus, X } from "lucide-react";

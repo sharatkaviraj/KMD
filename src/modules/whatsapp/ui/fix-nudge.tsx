@@ -1,6 +1,6 @@
 import "server-only";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { loadFixDesk } from "@/modules/whatsapp/data/fix-desk";
 import { addDays } from "@/modules/whatsapp/domain/reminder-cadence";

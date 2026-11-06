@@ -1,5 +1,5 @@
 "use client";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { prepareReturnAction } from "@/app/(app)/school-office/returns/actions";

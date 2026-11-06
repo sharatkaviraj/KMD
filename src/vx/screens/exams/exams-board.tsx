@@ -1,7 +1,7 @@
 "use client";
 
 import { Crest } from "@/vx/screens/system/brand";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 

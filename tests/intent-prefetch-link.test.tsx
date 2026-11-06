@@ -2,11 +2,11 @@
 import * as React from "react";
 import { act } from "react";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/link",()=>({default:React.forwardRef<HTMLAnchorElement,React.ComponentProps<"a">&{prefetch?:boolean|null}>(function MockLink({prefetch,children,...props},ref){return <a ref={ref} {...props} data-prefetch={String(prefetch)}>{children}</a>;})}));
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 
 /* D-439: a screen link fetches nothing until someone means to open it. Calendar used to prefetch 53 pages on open. */
 let host:HTMLDivElement,root:Root;
@@ -41,13 +41,27 @@ describe("vx Link", () => {
   });
 });
 
-describe("vx screens use the intent link", () => {
+describe("every screen uses the intent link", () => {
+  // The shell's tabs keep Next's default prefetch (D-439); everything else waits for intent (D-441).
+  const SHELL = new Set([
+    "src/ui/link.tsx",
+    "src/vx/ui/intent-link.tsx",
+    "src/vx/shell/bottom-bar.tsx",
+    "src/vx/shell/sidebar.tsx",
+    "src/vx/shell/top-actions.tsx",
+    "src/ui/shell/nav-link.tsx",
+    "src/ui/shell/app-topbar.tsx",
+    "src/ui/shell/dashboard-shell.tsx",
+  ]);
   const walk = (dir: string): string[] => readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     return statSync(path).isDirectory() ? walk(path) : /\.tsx?$/.test(name) ? [path] : [];
   });
-  it("no screen imports next/link directly", () => {
-    const offenders = walk(join(process.cwd(), "src/vx/screens")).filter((file) => /from\s+["']next\/link["']/.test(readFileSync(file, "utf8")));
+  it("only the shell imports next/link directly", () => {
+    const root = process.cwd();
+    const offenders = walk(join(root, "src"))
+      .map((file) => relative(root, file).split(sep).join("/"))
+      .filter((file) => !SHELL.has(file) && /from\s+["']next\/link["']/.test(readFileSync(join(root, file), "utf8")));
     expect(offenders).toEqual([]);
   });
 });

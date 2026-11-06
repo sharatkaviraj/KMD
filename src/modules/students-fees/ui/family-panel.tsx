@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { formatInr } from "@/platform/helpers/currency";
 import { Section } from "@/ui/primitives/section";
 import { Button } from "@/ui/primitives/button";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import type { ReminderFilters } from "@/modules/whatsapp/domain/fee-reminders";
 import { COLLECTION_GROUP_BY } from "@/modules/whatsapp/domain/collection-list";

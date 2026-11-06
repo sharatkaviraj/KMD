@@ -1,7 +1,7 @@
 "use client";
 
 import { ProfilePhotoControl, type PhotoControlHandle } from "@/modules/collection/ui/profile-photo-editor";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import dynamic from "next/dynamic";
 import { AssignmentLauncher, type AssignmentHandle } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ms, photoMessages as photoWords } from "@/messages/setup";

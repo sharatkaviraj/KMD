@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { notFound } from "next/navigation";
 
 import { isUuid } from "@/platform/helpers/uuid";

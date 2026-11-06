@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { ResumeReminderButton } from "@/modules/whatsapp/ui/reminder-controls";
 import { ProfileBadge } from "@/modules/whatsapp/ui/profile-badge";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import * as m from "@/messages/pairs";
 import { requirePermission } from "@/platform/auth/current-staff";

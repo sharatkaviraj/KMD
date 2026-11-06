@@ -2,7 +2,7 @@
 
 import "./reminders.css";
 
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 

@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import Link from "next/link";
+import Link from "@/ui/link";
 import {managedTasksForRequests} from "@/modules/teacher-tasks/data/delivery-routing";
 import {taskDeliveryMessages} from "@/messages/setup";
 

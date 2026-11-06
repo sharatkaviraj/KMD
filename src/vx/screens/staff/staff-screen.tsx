@@ -2,7 +2,7 @@
 
 import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
 import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 

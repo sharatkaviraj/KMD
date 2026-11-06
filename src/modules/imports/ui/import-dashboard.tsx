@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { SectionCard } from "@/ui/shell/section-card";
 import { StatusBadge } from "@/ui/shell/status-badge";

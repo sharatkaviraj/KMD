@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useState } from "react";
 import type { DirectoryRow } from "@/modules/students/data/directory-repo";
 import { recordPerformance } from "@/platform/performance/record";

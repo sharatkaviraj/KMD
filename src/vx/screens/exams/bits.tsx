@@ -1,4 +1,4 @@
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { SectionCard } from "@/ui/shell/section-card";
 import { Button } from "@/ui/primitives/button";

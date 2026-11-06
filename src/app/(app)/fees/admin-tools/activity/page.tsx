@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/ui/shell/page-header";

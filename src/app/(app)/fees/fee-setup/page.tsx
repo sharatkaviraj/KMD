@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { getTranslations } from "next-intl/server";
 
 import { FeeSetupClient } from "@/modules/fees/ui/fee-setup-client";

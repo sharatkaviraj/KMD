@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { DownloadAnchor } from "@/ui/primitives/download-anchor";

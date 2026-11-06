@@ -1,4 +1,4 @@
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { loadSchoolOfficeAttention, type SchoolOfficeAttentionItem } from "@/modules/certificates/data/attention";
 import { lead, p, under, type Pair } from "@/vx/text";
 import { Card, CardHead } from "@/vx/ui/primitives";

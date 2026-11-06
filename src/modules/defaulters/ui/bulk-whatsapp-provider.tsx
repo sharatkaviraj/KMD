@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { MessageSquare, X } from "lucide-react";
 
 import { Button } from "@/ui/primitives/button";

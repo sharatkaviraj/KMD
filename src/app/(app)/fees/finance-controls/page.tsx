@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { PendingSubmitButton } from "@/ui/shell/pending-submit-button";
 import { PageHeader } from "@/ui/shell/page-header";

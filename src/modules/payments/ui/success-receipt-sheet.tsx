@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { MobileStepRail } from "@/ui/mobile/mobile-kit";
 import { MobilePrintedReceipt } from "@/modules/payments/ui/mobile-printed-receipt";

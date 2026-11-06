@@ -2,7 +2,7 @@
 
 import "./accounts.css";
 
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useSyncExternalStore, useTransition, type CSSProperties } from "react";
 

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import type { getTranslations } from "next-intl/server";
 
 import { PendingSubmitButton } from "@/ui/shell/pending-submit-button";

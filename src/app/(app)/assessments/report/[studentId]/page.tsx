@@ -22,7 +22,7 @@ import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { PageHeader } from "@/ui/page-header-localized";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { assertStudentVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 
 export const runtime = "nodejs";

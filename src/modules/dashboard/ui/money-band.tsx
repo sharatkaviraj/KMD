@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { CountUp } from "@/ui/primitives/count-up";
 import { Money } from "@/ui/primitives/money";

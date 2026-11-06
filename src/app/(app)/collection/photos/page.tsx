@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 import { createHash } from "node:crypto";
 
 import * as m from "@/messages/pairs";

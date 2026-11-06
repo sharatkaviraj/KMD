@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 

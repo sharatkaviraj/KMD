@@ -1,7 +1,7 @@
 "use client";
 
 import { Crest } from "@/vx/screens/system/brand";
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { periodNumber } from "@/modules/timetable/domain/periods";

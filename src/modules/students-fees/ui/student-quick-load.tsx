@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useTranslations } from "next-intl";
 
 import { SectionCard } from "@/ui/shell/section-card";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import {taskDeliveryMessages} from "@/messages/setup";
 import { Check, Link2, Send, TriangleAlert, Users } from "lucide-react";
 

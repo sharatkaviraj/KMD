@@ -1,4 +1,4 @@
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { ms } from "@/messages/setup";
 import { flat, type Language } from "@/platform/i18n/language";
 import { FEES_ORIGIN, feesBridgeOfficeReads } from "@/platform/fees-bridge/policy";

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { MetricCard } from "@/ui/shell/metric-card";
 import { PageHeader } from "@/ui/shell/page-header";

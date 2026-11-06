@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { AlertCircle, ArrowLeft, Loader2, RotateCcw } from "lucide-react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 

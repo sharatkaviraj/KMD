@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { EmiLateFeeWaiveButton } from "@/modules/students-fees/ui/emi-late-fee-waive-button";
 import { Notice } from "@/ui/primitives/notice";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { PageHeader } from "@/ui/shell/page-header";
 import { MobileAccountCard } from "@/ui/mobile/account-card";

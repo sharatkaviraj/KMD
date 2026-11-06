@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Users, GraduationCap, ShieldAlert, AlertTriangle, CheckCircle2, Clock } from "lucide-react";

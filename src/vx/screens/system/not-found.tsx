@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 import { useState } from "react";
 
 import type { Language } from "@/platform/i18n/language";

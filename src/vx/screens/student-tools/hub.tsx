@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "@/vx/ui/link";
+import Link from "@/ui/link";
 
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";

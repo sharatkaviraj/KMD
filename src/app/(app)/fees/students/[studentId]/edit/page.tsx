@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { isUuid } from "@/platform/helpers/uuid";
-import Link from "next/link";
+import Link from "@/ui/link";
 
 import { PageHeader } from "@/ui/shell/page-header";
 import { SectionCard } from "@/ui/shell/section-card";
