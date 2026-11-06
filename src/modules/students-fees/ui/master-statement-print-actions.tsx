@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import Link from "@/ui/link";
 
 import { Button } from "@/ui/primitives/button";
@@ -9,13 +11,14 @@ export function MasterStatementPrintActions({
 }: {
   backHref: string;
 }) {
+  const t = useTranslations("FeeScreens");
   return (
     <div className="no-print flex flex-wrap items-center justify-end gap-2">
       <Button type="button" variant="outline" onClick={() => window.print()}>
-        Print statement
+        {t("printStatement")}
       </Button>
       <Button asChild variant="secondary">
-        <Link href={backHref}>Back to student</Link>
+        <Link href={backHref}>{t("backToStudent")}</Link>
       </Button>
     </div>
   );

@@ -72,14 +72,17 @@ const notePolish = task({
     text: text(2000),
     tags: z.array(z.object({ code: z.string().max(40), label: z.string().max(60) })).max(20),
     childName: z.string().max(120).nullable(),
+    /** The teacher's reading language. Older clients send none. */
+    language: z.enum(["hi", "en", "both"]).optional(),
   }),
   output: z.object({ text: z.string(), tags: z.array(z.string()) }),
   instructions: `Task: a teacher has written or spoken a quick note about a child. It may be a voice transcript with mistakes, missing punctuation or repeated words.
 Rewrite it as a clear, kind, factual note of one to three short sentences that another teacher or the principal will read later.
-- Keep the teacher's language: a Hindi note stays in Hindi, an English note stays in English, a mixed note goes into the language most of it is in.
+- Write it in the language given in write_in. "Hindi" means Devanagari Hindi whatever the note was typed in. "the teacher's own language" means: a Hindi note stays in Hindi, an English note stays in English, a mixed note goes into the language most of it is in.
+- Hindi typed or transcribed in Latin letters ("bachcha aaj der se aaya") is a Hindi note: write it in Devanagari.
 - Fix spelling, grammar and punctuation, and remove filler words. Keep every fact and every observation; add none. Do not soften a real concern until it disappears.
 - Choose up to two tags from the list given, by code, that best describe what the note is about. Choose none if nothing fits.`,
-  prompt: (input) => fence({ note: input.text, tags: input.tags }),
+  prompt: (input) => fence({ note: input.text, tags: input.tags, write_in: input.language === "hi" ? "Hindi" : "the teacher's own language" }),
   names: (input) => (input.childName ? [input.childName] : []),
   finish: (output, input) => {
     const allowed = new Set(input.tags.map((t) => t.code));

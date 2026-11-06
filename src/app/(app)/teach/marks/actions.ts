@@ -19,6 +19,19 @@ import type { ActionResult, SaveOutcome, SavePayload } from "@/vx/screens/exams/
  * is hers — and `save_marks` checks the paper again inside its transaction.
  */
 
+/**
+ * Every screen that counts this teacher's marks, not only the sheet.
+ *
+ * The router keeps a visited page for 300 s (`staleTimes` in next.config), so
+ * revalidating only `/teach/marks` left Today, My class and More showing the
+ * count from before the save: the sheet said "All filled" while the tile
+ * beside it still said 4 of 5 (smoke test, 6 Nov 2026).
+ */
+function refreshMarksScreens() {
+  revalidatePath("/teach", "layout");
+  revalidatePath("/exams");
+}
+
 export async function saveTeacherMarksAction(payload: SavePayload): Promise<SaveOutcome> {
   const staff = await assertPermission("marks:write");
   const preview = await previewRefusal();
@@ -40,7 +53,7 @@ export async function saveTeacherMarksAction(payload: SavePayload): Promise<Save
         actorId: staff.id,
       }).catch(() => undefined);
     }
-    revalidatePath("/teach/marks");
+    refreshMarksScreens();
   }
   return result;
 }
@@ -50,7 +63,7 @@ export async function withdrawTeacherMarksAction(paperId: string, expectedRevisi
   const preview = await previewRefusal();
   if (preview) return { ok: false, reason: "preview", message: preview };
   const result = await withdrawMarks(staff.id, paperId, expectedRevision);
-  if (result.ok) revalidatePath("/teach/marks");
+  if (result.ok) refreshMarksScreens();
   return result;
 }
 

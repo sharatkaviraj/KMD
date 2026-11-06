@@ -2176,5 +2176,20 @@
     "unavailable": "Unavailable",
     "receipts": "{count, plural, =1 {# receipt today} other {# receipts today}}",
     "writtenOff": "{amount} written off · not collected"
+  },
+  "FeeScreens": {
+    "back": "Back",
+    "statement": "Statement",
+    "printLastReceipt": "Print last receipt",
+    "lastReceipt": "Last receipt",
+    "downloadPhoto": "Download student photo",
+    "edit": "Edit",
+    "printStatement": "Print statement",
+    "backToStudent": "Back to student",
+    "notFoundEyebrow": "Not found",
+    "notFoundTitle": "We could not find that record",
+    "notFoundBody": "The link you followed points to a record that no longer exists or was never created. The workspace itself is healthy — please go back and try again, or jump to the dashboard.",
+    "backToDashboard": "Back to dashboard",
+    "openStudents": "Open students"
   }
 }

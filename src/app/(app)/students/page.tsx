@@ -31,7 +31,8 @@ import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { assignmentContext } from "@/modules/teacher-tasks/data/assignment";
 import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
-import { missingDirectoryPage } from "@/modules/teacher-tasks/data/missing-directory";
+import { keptDirectoryPage } from "@/modules/teacher-tasks/data/missing-directory";
+import { hasDevanagari, matchesHindiName } from "@/modules/students/domain/hindi-name-search";
 import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 
 export const runtime = "nodejs";
@@ -134,7 +135,13 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const typedClass =
     !classParam && q ? classFromQuery(q, [...((await labelsRead) ?? new Map<string, string>()).entries()].map(([id, label]) => ({ id, label }))) : null;
   const classId = classParam ?? typedClass?.id ?? null;
-  const text = typedClass ? "" : q;
+  const typed = typedClass ? "" : q;
+  // Names are stored in Latin letters, so a name typed in Hindi is matched
+  // here, by sound, over the whole list rather than in the database (A-10).
+  const hindiQuery = hasDevanagari(typed) ? typed : null;
+  const text = hindiQuery ? "" : typed;
+  const keepRow = (id: string, names: (string | null | undefined)[]) =>
+    (!missingIds || missingIds.has(id)) && (!hindiQuery || matchesHindiName(hindiQuery, names));
   const missingIds = missing
     ? new Set((await assignmentContext()).students.filter(s => missing === "photo" ? !s.hasPhoto : !s.values[missing]).map(s => s.id))
     : null;
@@ -145,7 +152,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
       // Grouped by class, the list is read in class order so a class's children sit together across pages.
       const byClass = sort.key === "class" || layout === "class";
       const read = (page: number) => studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name",...(canonicalDirectory?{status:enrollment}:{}) });
-      const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.id, page) : null;
+      const filtered = missingIds || hindiQuery ? await keptDirectoryPage(read, row => keepRow(row.id, [row.fullName, row.parentName]), row => row.id, page) : null;
       const list = filtered ?? await read(page);
       taskMatchingIds = filtered?.matchingIds ?? null;
       rows = list.rows.map((row) => {
@@ -166,7 +173,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
       });
       total = list.total;
       // On the All list the chip counts what the list holds, so "All 510" never sits over "1–50 of 538" (school-day run B11).
-      counts = filters.length === 0 ? { ...list.counts, all: filtered?.sourceTotal ?? list.total } : list.counts;
+      counts = filters.length === 0 ? { ...list.counts, all: hindiQuery ? list.total : (filtered?.sourceTotal ?? list.total) } : list.counts;
       session = list.sessionLabel;
       moneyMode = true;
     } catch (error) {
@@ -180,7 +187,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   if (!moneyMode) {
     if (missingIds && readsMoney && !moneySession) throw new Error("directory_unavailable");
     const read = (page: number) => searchStudents({ text, classId, page }, directorySession);
-    const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.studentId, page) : null;
+    const filtered = missingIds || hindiQuery ? await keptDirectoryPage(read, row => keepRow(row.studentId, [row.fullName, row.fatherName]), row => row.studentId, page) : null;
     const [labels, results] = await Promise.all([
       moneySession ? classLabelMap(directorySession) : labelsRead.then((l) => l ?? classLabelMap(directorySession)),
       filtered ?? read(page),

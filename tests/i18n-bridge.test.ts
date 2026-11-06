@@ -20,14 +20,8 @@ const expectedLocale: Record<Language, AppLocale> = {
   en: "en",
 
   /*
-   * The decision worth a test of its own.
-   *
-   * There is no bilingual fee catalogue and there will not be one: it would
-   * mean 2,094 strings shaped "हिन्दी · English" printed onto money tables the
-   * fee app deliberately designed as single-line. `primary()` already leads
-   * with Hindi for a `both` reader, so a fee screen and an academic screen
-   * agree on the lead line; what is lost is the English under it, on the fee
-   * screens only.
+   * The cookie and the formatting stay Hindi; the words on the page are
+   * built bilingual for this reader by `i18n/request.ts` (A-23).
    */
   both: "hi",
 };

@@ -1,9 +1,12 @@
+import { useTranslations } from "next-intl";
+
 import Link from "@/ui/link";
 import { FileSearch } from "lucide-react";
 
 import { Button } from "@/ui/primitives/button";
 
 export default function ProtectedNotFound() {
+  const t = useTranslations("FeeScreens");
   return (
     <div className="rounded-lg border border-border bg-surface-2 p-6 anim-fade-in">
       <div className="flex items-start gap-3">
@@ -12,21 +15,20 @@ export default function ProtectedNotFound() {
         </span>
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Not found
+            {t("notFoundEyebrow")}
           </p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            We could not find that record
+            {t("notFoundTitle")}
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            The link you followed points to a record that no longer exists or was never created. The
-            workspace itself is healthy — please go back and try again, or jump to the dashboard.
+            {t("notFoundBody")}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Button asChild variant="primary">
-              <Link href="/fees/dashboard">Back to dashboard</Link>
+              <Link href="/fees/dashboard">{t("backToDashboard")}</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/fees/students">Open students</Link>
+              <Link href="/fees/students">{t("openStudents")}</Link>
             </Button>
           </div>
         </div>
