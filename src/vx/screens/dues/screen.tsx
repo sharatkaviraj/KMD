@@ -22,6 +22,7 @@ import { Chip, Seg } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
 import { Grid, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
+import type { Pair } from "@/vx/text";
 
 import { FamilyPanel } from "./family-panel";
 import { duesHref } from "./href";
@@ -542,14 +543,18 @@ export function DuesScreen(props: DuesProps) {
   const top = props.aging.top;
   const topMax = Math.max(1, top[0]?.pendingToday ?? 1);
   const cls = props.aging.classByInst;
-  const hmax = Math.max(1, ...cls.flatMap((r) => [r.inst1, r.inst2, r.lastYear]));
-  const col = (k: "inst1" | "inst2" | "lastYear" | "total") => cls.reduce((s, r) => s + r[k], 0);
+  type HeatKey = "inst1" | "inst2" | "inst3" | "inst4" | "other" | "lastYear";
+  const col = (k: HeatKey | "total") => cls.reduce((s, r) => s + r[k], 0);
+  // Inst 1, Inst 2 and last year always; a later installment or a plan row once it holds overdue money.
+  const heatKeys: HeatKey[] = (["inst1", "inst2", "inst3", "inst4", "other", "lastYear"] as const).filter((k) => k === "inst1" || k === "inst2" || k === "lastYear" || col(k) > 0);
+  const heatLabel: Record<HeatKey, Pair> = { inst1: W.inst1, inst2: W.inst2, inst3: W.inst3, inst4: W.inst4, other: W.instOther, lastYear: W.lastYear };
+  const hmax = Math.max(1, ...cls.flatMap((r) => heatKeys.map((k) => r[k])));
   const heatCell = (v: number, i: number, j: number) => (
     <span key={j} className="num" style={{ height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 8px", fontSize: 12, fontWeight: 600, background: v ? `rgba(var(--heat), ${(0.08 + (0.52 * v) / hmax).toFixed(2)})` : "var(--s2)", animation: `xFade .5s ease ${i * 22 + j * 60}ms both` }}>
       {v ? rupees(v) : "—"}
     </span>
   );
-  const HEAT_COLS = "minmax(76px, 1.1fr) repeat(4, minmax(0, 1fr))";
+  const HEAT_COLS = `minmax(76px, 1.1fr) repeat(${heatKeys.length + 1}, minmax(0, 1fr))`;
 
   const agingTab = (
     <div className="fadein" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -615,22 +620,20 @@ export function DuesScreen(props: DuesProps) {
         </div>
         <div role="table" aria-label={tx(W.classByInst)} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div role="row" style={{ display: "grid", gridTemplateColumns: HEAT_COLS, gap: 4, alignItems: "center" }}>
-            {[W.cls, W.inst1, W.inst2, W.lastYear, W.total].map((h, j) => (
+            {[W.cls, ...heatKeys.map((k) => heatLabel[k]), W.total].map((h, j) => (
               <span key={h.en} role="columnheader" style={{ height: 24, display: "flex", alignItems: "center", justifyContent: j ? "flex-end" : "flex-start", padding: j ? "0 8px" : 0, fontSize: 12, fontWeight: 700 }}>{tx(h)}</span>
             ))}
           </div>
           {cls.map((r, i) => (
             <div key={r.classLabel} role="row" style={{ display: "grid", gridTemplateColumns: HEAT_COLS, gap: 4, alignItems: "center" }}>
               <span className="clip" style={{ fontSize: 12, fontWeight: 600 }}>{r.classLabel}</span>
-              {heatCell(r.inst1, i, 0)}
-              {heatCell(r.inst2, i, 1)}
-              {heatCell(r.lastYear, i, 2)}
+              {heatKeys.map((k, j) => heatCell(r[k], i, j))}
               <span className="num" style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 8px", fontSize: 12, fontWeight: 700 }}>{rupees(r.total)}</span>
             </div>
           ))}
           <div role="row" style={{ display: "grid", gridTemplateColumns: HEAT_COLS, gap: 4, alignItems: "center", borderTop: "2px solid var(--bd)", paddingTop: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>{tx(W.allClasses)}</span>
-            {(["inst1", "inst2", "lastYear", "total"] as const).map((k) => (
+            {[...heatKeys, "total" as const].map((k) => (
               <span key={k} className="num" style={{ height: 30, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 8px", fontSize: 12, fontWeight: 700 }}>{lakh(col(k))}</span>
             ))}
           </div>

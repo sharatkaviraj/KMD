@@ -16,6 +16,7 @@ import { Label } from "@/ui/primitives/label";
 import { formatPaymentModeLabel } from "@/platform/config/fee-rules";
 import { formatInr } from "@/platform/helpers/currency";
 import { formatDateTimeIst, formatShortDate } from "@/platform/helpers/date";
+import { correctionNoteText } from "@/modules/finance-controls/domain/display";
 import type { FinanceControlsActionState } from "@/modules/finance-controls/domain/types";
 import { useActionFeedbackMany } from "@/ui/hooks/use-action-feedback";
 import type {
@@ -809,7 +810,7 @@ function CorrectionReviewSection({
               footnote={
                 <>
                   {row.reason}
-                  {row.notes ? ` · ${row.notes}` : null}
+                  {correctionNoteText(row.notes) ? ` · ${correctionNoteText(row.notes)}` : null}
                   {row.reviewNote ? ` · ${row.reviewNote}` : null}
                 </>
               }
@@ -864,7 +865,7 @@ function CorrectionReviewSection({
                   <td className="px-4 py-3 font-medium text-foreground">{formatInr(row.amountDelta)}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     <div>{row.reason}</div>
-                    <div className="text-xs text-muted-foreground">{row.notes ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">{correctionNoteText(row.notes) ?? "-"}</div>
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge

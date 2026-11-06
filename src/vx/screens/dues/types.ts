@@ -41,7 +41,7 @@ export type KidMeta = { admissionNo: string | null; route: string | null };
 
 export type FamilyContact = { at: string; channel: string | null; outcome: string | null; note: string | null; studentId: string };
 
-export type ClassInstRow = { classLabel: string; inst1: number; inst2: number; lastYear: number; total: number };
+export type ClassInstRow = { classLabel: string; inst1: number; inst2: number; inst3: number; inst4: number; other: number; lastYear: number; total: number };
 
 export type DuesProps = {
   today: string;

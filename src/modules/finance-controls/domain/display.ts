@@ -104,7 +104,20 @@ function statusLabelForCashDeposit(status: CollectionCloseRow["cash_deposit_stat
   }
 }
 
+/**
+ * A correction row's notes as a person reads them. An admin reversal is
+ * tagged `admin_reversal:<receipt id>` by the Fees RPC (20260817103000) so
+ * that every one falls into this queue; the tag itself showed raw in the day
+ * book (accountant run, 6 Nov 2026). Any other note is shown as written.
+ */
+function correctionNoteText(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  if (/^admin_reversal:[0-9a-f-]{36}$/i.test(notes.trim())) return "Receipt reversed by an admin";
+  return notes;
+}
+
 export {
+  correctionNoteText,
   statusLabelForCashDeposit,
   statusLabelForClosure,
   statusLabelForReconciliation,

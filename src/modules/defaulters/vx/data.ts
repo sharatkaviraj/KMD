@@ -26,7 +26,13 @@ import type { ContactSummary, DuesStudent, PaymentFact } from "@/modules/default
  */
 const feeReader = () => createAdminClient();
 
-export type ClassInstRow = { classLabel: string; inst1: number; inst2: number; lastYear: number; total: number };
+/**
+ * Overdue fees by class and installment. Every installment past its due date
+ * has a column: the board had only Inst 1 and 2 and said "Inst 3 and 4 are
+ * not due yet", while Inst 3 (due 20 Oct) was in the total (accountant run,
+ * 6 Nov 2026). `other` is any other plan row (an EMI's own numbers).
+ */
+export type ClassInstRow = { classLabel: string; inst1: number; inst2: number; inst3: number; inst4: number; other: number; lastYear: number; total: number };
 
 export type DuesBoard = {
   students: DuesStudent[];
@@ -51,10 +57,13 @@ export async function loadDuesBoard(sessionLabel: string): Promise<DuesBoard> {
     set.add(no);
     instByStudent.set(row.studentId, set);
     const label = row.classLabel || "—";
-    const c = byClass.get(label) ?? { classLabel: label, inst1: 0, inst2: 0, lastYear: 0, total: 0 };
+    const c = byClass.get(label) ?? { classLabel: label, inst1: 0, inst2: 0, inst3: 0, inst4: 0, other: 0, lastYear: 0, total: 0 };
     if (row.isCarryForward) c.lastYear += pending;
     else if (row.installmentNo === 1) c.inst1 += pending;
     else if (row.installmentNo === 2) c.inst2 += pending;
+    else if (row.installmentNo === 3) c.inst3 += pending;
+    else if (row.installmentNo === 4) c.inst4 += pending;
+    else c.other += pending;
     c.total += pending;
     byClass.set(label, c);
   }
