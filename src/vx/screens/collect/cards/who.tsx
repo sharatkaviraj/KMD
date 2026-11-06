@@ -56,7 +56,8 @@ export function WhoCard({ inputRef, ...props }: {
   const household = isHouseholdSearch(shape, rows.length);
   const owing = rows.filter((r) => r.fees > 0);
   const label = shapeLabel(shape);
-  const hl = rows.length ? Math.min(props.highlight, rows.length - 1) : 0;
+  // -1 until somebody is chosen: a tap, an arrow key, or a typed search.
+  const hl = rows.length && props.highlight >= 0 ? Math.min(props.highlight, rows.length - 1) : -1;
 
   return (
     <CardShell
@@ -72,7 +73,7 @@ export function WhoCard({ inputRef, ...props }: {
               <span className="cx-k">Enter</span> {p(mc.hintOpen)}
             </span>
           </div>
-          <button type="button" className="cx-btn pri" disabled={!rows.length || (searching && props.found.loading)} onClick={() => rows[hl] && props.onPick(rows[hl], false)}>
+          <button type="button" className="cx-btn pri" disabled={hl < 0 || (searching && props.found.loading)} onClick={() => hl >= 0 && rows[hl] && props.onPick(rows[hl], false)}>
             <Bi text={mc.openChild} />
           </button>
         </>
