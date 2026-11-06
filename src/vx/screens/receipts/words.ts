@@ -110,6 +110,13 @@ export const W = {
     "{no} stays in history marked REVERSED and is taken out of the total for its own day, {day} ({amount}). {name}’s dues go back up by {back}.",
     "{no} इतिहास में 'रद्द' के निशान के साथ रहेगी और अपने दिन, {day}, के कुल से हट जाएगी ({amount})। {name} का बकाया {back} बढ़ेगा।",
   ),
+  impactConcession: p(
+    "The {forgiven} forgiven with this receipt ({what}) stays forgiven: reversing the receipt does not charge it again.",
+    "इस रसीद के साथ माफ़ किए गए {forgiven} ({what}) माफ़ ही रहेंगे: रसीद रद्द करने से वे दोबारा नहीं लगेंगे।",
+  ),
+  forgivenLateFee: p("late fee", "विलंब शुल्क"),
+  forgivenDiscount: p("discount", "छूट"),
+  forgivenLine: p("Also forgiven with this receipt · not money received", "इस रसीद के साथ माफ़ · यह जमा राशि नहीं"),
   impactDayClosed: p(
     "{day} is already closed. After this its cash count will not match: an admin reopens that day and it is counted again.",
     "{day} पहले ही बंद हो चुका है। इसके बाद उस दिन की नकद गिनती मेल नहीं खाएगी: एडमिन वह दिन फिर खोलेंगे और दोबारा गिनती होगी।",
