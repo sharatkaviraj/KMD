@@ -100,6 +100,8 @@ export type AudienceFamily = {
   notDueYet: number;
   usesBus: boolean;
   overdueInstallments: number[];
+  /** Days since the oldest installment still owed fell due; 0 when nothing is overdue. */
+  daysOverdue?: number;
   promised: boolean;
   paidLast3Days: boolean;
   left: boolean;

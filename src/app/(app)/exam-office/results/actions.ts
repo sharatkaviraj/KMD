@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { assertPermission } from "@/platform/auth/current-staff";
-import { assertClassVisible, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
+import { assertClassVisible, assertSessionVisible, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { p, type Pair } from "@/vx/text";
@@ -250,6 +250,18 @@ export async function publishResultsAction(input: { examId: string; when: "now" 
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !["now", "scheduled"].includes(input.when) || (input.when === "scheduled" && (!input.at || Number.isNaN(Date.parse(input.at))))) {
     return { ok: false, message: RELOAD };
+  }
+  // "Now" releases only what is locked; with nothing locked there is nothing
+  // to release, and the board used to say "Results released" anyway (day-run
+  // 6 Nov 2026, E26). A schedule may still be set ahead of the locks.
+  // The exam must be one of the viewer's own session (a test account names a
+  // TEST exam only).
+  const found = await examOf(input.examId);
+  if (!found || !(await passesFence(() => assertSessionVisible(staff, found.sessionLabel)))) return { ok: false, message: RELOAD };
+  if (input.when === "now") {
+    const { count, error: lockError } = await db().from("exam_class_locks").select("*", { count: "exact", head: true }).eq("assessment_id", input.examId);
+    if (lockError) return { ok: false, message: NOT_SAVED };
+    if (!count) return { ok: false, message: p("No class is locked yet, so nothing can go now. Ask the admin to lock marks first.", "अभी कोई कक्षा बंद नहीं, इसलिए कुछ नहीं जाएगा। पहले एडमिन से अंक बंद करवाएँ।") };
   }
   const now = new Date().toISOString();
   const row: Record<string, unknown> = {

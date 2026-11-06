@@ -5,6 +5,7 @@
  *  - 10+ digits            → a father's phone: the whole family
  *  - 6–9 digits            → part of a phone
  *  - 1–5 digits            → an SR number (leading zeros ignored)
+ *  - "TEST-D-0366", "PENDING-SR-0003" → a whole SR with letters in it
  *  - Devanagari            → a Hindi name
  *  - "7B aarav", "lkg", "12 sci"  → class, then a name inside it
  *  - anything else         → names (child or father), with spelling variants
@@ -17,13 +18,14 @@ export type QueryShape =
   | { kind: "empty" }
   | { kind: "phone"; digits: string }
   | { kind: "phonepart"; digits: string }
-  | { kind: "sr"; digits: string }
+  /** `text` is set for an SR typed whole with its letters, lower-cased and without separators. */
+  | { kind: "sr"; digits: string; text?: string }
   | { kind: "hindi"; text: string }
   | { kind: "class"; grade: string; section: string; words: string[] }
   | { kind: "name"; words: string[] };
 
 const DEVANAGARI = /[ऀ-ॿ]/;
-const CLASS = /^(lkg|ukg|nur|nursery|\d{1,2})\s*(a|b|c|d|e|sci|science|com|commerce|arts|art|hum)?(?:\s+(.*))?$/i;
+const CLASS = /^(lkg|ukg|jkg|skg|nur|nursery|\d{1,2})\s*(a|b|c|d|e|sci|science|com|commerce|arts|art|hum)?(?:\s+(.*))?$/i;
 
 export function queryShape(raw: string): QueryShape {
   const text = String(raw ?? "").trim().replace(/\s+/g, " ");
@@ -37,8 +39,15 @@ export function queryShape(raw: string): QueryShape {
   if (DEVANAGARI.test(text)) return { kind: "hindi", text };
   const cls = CLASS.exec(text);
   // A bare number with a name ("7 aarav"), a section ("7b"), or LKG/UKG alone is a class.
-  if (cls && (cls[2] || cls[3] || /^(lkg|ukg|nur|nursery)$/i.test(cls[1]))) {
+  if (cls && (cls[2] || cls[3] || /^(lkg|ukg|jkg|skg|nur|nursery)$/i.test(cls[1]))) {
     return { kind: "class", grade: normalGrade(cls[1]), section: normalSection(cls[2] ?? ""), words: words(cls[3] ?? "") };
+  }
+  // One word with letters and digits in it is an SR typed whole. Names carry
+  // no digits, so this never hides a name search. Before this, "TEST-D-0366"
+  // went to the name search and found nobody (TEST school day, 6 Nov 2026,
+  // accountant B11); live has PENDING-SR-* numbers of the same shape.
+  if (!text.includes(" ") && /\d/.test(text) && /[a-z]/i.test(text)) {
+    return { kind: "sr", digits: text.replace(/\D/g, ""), text: srKey(text) };
   }
   return { kind: "name", words: words(text) };
 }
@@ -54,6 +63,9 @@ function normalSection(section: string): string {
   if (s.startsWith("com")) return "com";
   if (s.startsWith("art") || s === "hum") return "arts";
   return s;
+}
+function srKey(value: string | null | undefined): string {
+  return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 function words(text: string): string[] {
   return text.split(" ").map(spellingKey).filter(Boolean);
@@ -88,7 +100,7 @@ export function spellingKey(word: string): string {
 /** "7B" → {grade:"7",section:"b"}; "12 Science" → {12, sci}; "LKG" → {lkg, ""}. */
 export function classParts(label: string): { grade: string; section: string } {
   const t = String(label ?? "").trim().replace(/^class\s+/i, "");
-  const m = /^(lkg|ukg|nur|nursery|\d{1,2})\s*[-\s]?\s*([a-z]+)?/i.exec(t);
+  const m = /^(lkg|ukg|jkg|skg|nur|nursery|\d{1,2})\s*[-\s]?\s*([a-z]+)?/i.exec(t);
   if (!m) return { grade: t.toLowerCase(), section: "" };
   return { grade: normalGrade(m[1]), section: normalSection(m[2] ?? "") };
 }
@@ -122,6 +134,10 @@ export function matchScore(student: SearchableStudent, shape: QueryShape): numbe
     case "phonepart":
       return digitsOf(student.phone).includes(shape.digits) ? 0 : null;
     case "sr": {
+      if (shape.text) {
+        const sr = srKey(student.sr);
+        return sr === shape.text ? 0 : sr.startsWith(shape.text) ? 1 : null;
+      }
       const want = shape.digits.replace(/^0+/, "");
       const sr = String(student.sr ?? "").replace(/\D/g, "").replace(/^0+/, "");
       if (!want) return null;
@@ -180,6 +196,7 @@ export function bridgeQuery(shape: QueryShape, raw: string): string | null {
     case "phonepart":
       return shape.digits;
     case "sr":
+      if (shape.text) return String(raw).trim();
       return shape.digits.length >= 2 ? shape.digits : null;
     case "hindi":
       return shape.text.length >= 2 ? shape.text : null;

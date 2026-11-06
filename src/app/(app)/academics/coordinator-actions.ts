@@ -356,6 +356,17 @@ export async function markRegisterAction(payload: unknown): Promise<ActionResult
   if (parsed.data.day !== schoolToday() && parsed.data.kind === "save") return fail("Only today's register can be marked here.", "यहाँ केवल आज का रजिस्टर दर्ज होता है।");
   if (!(await passesFence(() => assertClassVisible(actor, parsed.data.classId)))) return { ok: false, text: NOT_YOURS };
   const held = await heldClassIds(actor.id, session);
+  // Marking for a teacher is for a register nobody has saved yet. Once it is
+  // saved, a change from anyone but the class's own teacher is a correction
+  // and needs a reason; the SQL only asks for one on kind "correction", so a
+  // plain save from a reopened sheet used to overwrite it silently (day-run
+  // 6 Nov 2026, AC-01).
+  if (parsed.data.kind === "save" && parsed.data.expectedRevision > 0 && !held.includes(parsed.data.classId)) {
+    return fail(
+      "This register is already saved. To change it, make a correction with a reason on Attendance.",
+      "यह रजिस्टर पहले से सहेजा है। बदलने के लिए हाज़िरी में कारण लिखकर सुधार करें।",
+    );
+  }
   const authority = registerAuthority({
     isOwner: held.includes(parsed.data.classId),
     hasMarkPermission: can(actor, "attendance:mark"),

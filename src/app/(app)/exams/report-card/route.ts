@@ -53,7 +53,11 @@ export async function GET(request: NextRequest) {
     const cards = states.filter((state): state is CardState => state !== null).map(toPdf);
     if (cards.length === 0) return new Response("No report card yet.", { status: 404 });
 
-    const exam = termExams.at(-1);
+    // The exam the reader was looking at names the card; the last exam of the
+    // term is only a fallback (a Half yearly card printed as "QA Terra
+    // Isolated Exam", day-run 6 Nov 2026, E44).
+    const asked = url.searchParams.get("exam");
+    const exam = termExams.find((e) => e.id === asked) ?? termExams.at(-1);
     const title = { en: `${exam?.labelEn ?? term} · Report card`, hi: `${exam?.labelHi ?? term} · प्रगति पत्र` };
     const { renderReportCardsPdf } = await import("@/vx/screens/exams/report-card-pdf");
     const buffer = await renderReportCardsPdf({ cards, title });

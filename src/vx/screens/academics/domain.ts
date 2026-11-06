@@ -397,6 +397,8 @@ export type WeekFacts = {
   classesAlwaysMarked: number;
   classes: number;
   marksPct: number;
+  /** The exam the marks figure is about; null when no exam is current. */
+  examLabel?: { en: string; hi: string | null } | null;
   lateTeachers: number;
   attention: number;
   attentionNew: number;
@@ -413,7 +415,10 @@ export function weeklySummary(f: WeekFacts): Pair[] {
       : "";
   return [
     p(`Attendance ${att}${diff}. ${f.classesAlwaysMarked} of ${f.classes} classes marked every day.`, `उपस्थिति ${att}${diff}। ${f.classes} में से ${f.classesAlwaysMarked} कक्षाओं ने रोज़ हाज़िरी ली।`),
-    p(`Half-yearly marks ${f.marksPct}% entered; ${f.lateTeachers} teachers behind.`, `अर्धवार्षिक अंक ${f.marksPct}% दर्ज; ${f.lateTeachers} शिक्षक पीछे।`),
+    // Named after the current exam, not a fixed "Half-yearly" (day-run 6 Nov 2026, AC-08).
+    f.examLabel
+      ? p(`${f.examLabel.en} marks ${f.marksPct}% entered; ${f.lateTeachers} teachers behind.`, `${f.examLabel.hi ?? f.examLabel.en} अंक ${f.marksPct}% दर्ज; ${f.lateTeachers} शिक्षक पीछे।`)
+      : p("No exam is being marked this week.", "इस सप्ताह किसी परीक्षा के अंक नहीं भरे जा रहे।"),
     p(`${f.attention} children need attention (${f.attentionNew} new this week).`, `${f.attention} बच्चों पर ध्यान चाहिए (इस सप्ताह ${f.attentionNew} नए)।`),
     p(`${f.notesOpen} notes waiting for action; ${f.correctionsMade} attendance corrections made.`, `${f.notesOpen} नोट कार्रवाई के लिए; ${f.correctionsMade} हाज़िरी सुधार किए गए।`),
   ];

@@ -918,11 +918,19 @@ async function getDailyCollectionReportData(
   filters: ReportFilters,
   classOptions: StudentClassOption[],
 ): Promise<DailyCollectionReportData> {
-  const receiptRows = filterReceiptSourceRows(
+  const sourceRows = filterReceiptSourceRows(
     await getReceiptSourceRows(),
     filters,
     classOptions,
   );
+  // A reversed receipt is excluded from every collection figure. This report
+  // and its CSV summed every receipt, so on 6 Nov 2026 (TEST day-run, B1) the
+  // export read ₹1,850 where every screen read ₹1,600. A part-reversed
+  // receipt counts what is left of it.
+  const reversalTotals = await getReceiptReversalTotals(sourceRows.map((row) => row.receiptId));
+  const receiptRows = sourceRows
+    .map((row) => ({ ...row, totalAmount: row.totalAmount - Math.min(row.totalAmount, reversalTotals.get(row.receiptId) ?? 0) }))
+    .filter((row) => row.totalAmount > 0);
 
   const summaryMap = new Map<
     string,

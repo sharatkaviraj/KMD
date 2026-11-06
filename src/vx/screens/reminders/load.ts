@@ -31,7 +31,7 @@ export async function resolveSession(search: Search = {}): Promise<string> {
  * The amounts are pending today and not due yet, never a late fee.
  */
 export async function loadAudience(sessionLabel: string, today: string): Promise<{ families: AudienceFamily[]; classOf: Map<string, string> }> {
-  const [board, left, promises] = await Promise.all([loadDuesBoard(sessionLabel), loadLeftOwing(), listPromises(sessionLabel, today)]);
+  const [board, left, promises] = await Promise.all([loadDuesBoard(sessionLabel), loadLeftOwing(sessionLabel), listPromises(sessionLabel, today)]);
   const promisedIds = new Set(promises.filter((pr) => pr.kind === "pay").map((pr) => pr.studentId));
   const contacts = new Map<string, ContactSummary>(Object.entries(board.contacts));
   const recent = addDays(today, -3);
@@ -48,6 +48,7 @@ export async function loadAudience(sessionLabel: string, today: string): Promise
     notDueYet: f.notDueYet,
     usesBus: f.usesBus,
     overdueInstallments: f.overdueInstallments,
+    daysOverdue: f.days,
     promised:
       f.kids.some((k) => promisedIds.has(k.studentId)) ||
       f.kids.some((k) => {
