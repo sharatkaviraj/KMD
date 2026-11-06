@@ -2035,3 +2035,9 @@ Plan and ideas: `docs/ui/PERFORMANCE.md` ("6 November"). Janmejay chose to build
 |---|---|---|---|
 | Wave 1 of the "VPPS One through a non-technical teacher's eyes" review (D-454, D-455): written word under the centre button and Marks for teachers without a class; teacher Today reordered for the first phone screen; "A+" and "Help" words; marks links read "Sent · N blank" instead of "Done ✓"; error card says nothing saved is lost and to call the office; loading screen explains itself after 8 s; TEST tab moved to the top edge on phones; Notes add button no longer covers a filter; Messages tabs and subtitles in plain words; task titles wrap to two lines; admin Menu drops tiles already pinned; board links moved below the work; the Sampark link page says it holds the same marks as the app | in review | `claude/project-thread-sg9lhm` | Not crawled on live (load rule). Left for wave 2, after PRs 224 and 228 merge: class subject screen (Enter marks first, 92 vs 44 periods), admin/office home tiles and the ₹0 sparkline, dues/receipts/cheques tiles, long lists opening on a short view, Hindi strings on the counter and help, Settings hydration error |
 
+
+## Opening the app faster — 6 November 2026
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Boot splash at the first byte and the account's reads streamed behind it (D-461); `/` sent straight to the person's home by the proxy, from a home hint the shell writes (D-462) | in review | `claude/project-thread-kdilm5` | Live timing waits for the database to recover. Still to check: whether sessions use asymmetric signing keys (if not, every request makes two auth-server calls) |
