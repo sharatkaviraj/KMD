@@ -39,9 +39,16 @@ was to retire the Fees deployment and make One the ledger (PLAN §9). The
 coexistence direction above replaces that: **Fees stays the financial
 authority and keeps running**, and real collections from One go to Fees
 through `/api/one/v1`. Do not treat "Fees will be retired" or "two apps write
-one fee database" as instructions.
+one fee database" as instructions. SamPark is unaffected and its parity work
+continues.
 
-### The overlap
+### The overlap (written for the port; the `client_request_id` rule still binds)
+
+**Still binding: keep passing `client_request_id` on every post** — locally it
+is the idempotency key, and through the bridge it is the `commandId` Fees uses
+to answer a lost response (see `docs/maps/collect-flow.md`). The rest of this
+section describes the port-era arrangement of two apps writing one fee
+database, which coexistence replaced.
 
 Two things make that safe, and both are in Postgres rather than in discipline:
 `post_student_payment` serialises receipt numbering with a **database-wide
@@ -80,8 +87,9 @@ database `vgqyilgstjvgohrsiwkb` is never a target from here.
    `public` belongs to the fee app.
 2. **Fee data is writable now, and only from the fee module.** This replaced
    "fee data is read-only, always" when the fee app was ported into this repo
-   and scheduled for retirement (D-178). The property that rule protected is
-   the one kept: **nothing writes fee data by accident.**
+   (D-178; the retirement half of that decision is superseded by coexistence —
+   real money goes to Fees). The property that rule protected is the one
+   kept: **nothing writes fee data by accident.**
 
    - Fee tables are reached only through `src/modules/fees/platform/supabase/*`,
      never through this app's own clients. Ported code calls `.from("students")`

@@ -30,7 +30,7 @@ catalogue; everything else uses One's own.
 | `src/messages/` | strings: `index.ts`/`setup.ts` pairs (One) and `{en,hi,hi-en}.json` (ported, next-intl) |
 | `src/modules/` | feature folders: `domain/` (pure) · `data/` (db) · `ui/` |
 | `src/platform/` | auth, Supabase clients, deployment confinement, Fees bridge client, i18n, money |
-| `src/ui/` | School Fees' design kit (ported) — ported |
+| `src/ui/` | School Fees' design kit — ported |
 | `src/vx/` | the current screen design: `screens/`, shell, `text.ts` pairs |
 
 ## `src/app/` segments
@@ -41,17 +41,17 @@ catalogue; everything else uses One's own.
 | `.well-known` | OAuth/MCP discovery documents |
 | `api` | route handlers: cron/jobs, webhooks, Fees bridge relay, AI, MCP |
 | `auth` | Supabase auth callbacks |
-| `cv` | public short-link: cover/certificate view by code |
+| `cv` | public certificate verification (the QR on a school certificate) |
 | `fonts` | self-hosted fonts used by PDFs and the shell |
 | `lab` | signed-out lab/kiosk screens |
 | `login` | staff sign-in |
 | `mcp` | MCP OAuth authorize screen |
 | `pay` | parent payment link by code (Razorpay is owned by Fees) |
 | `qa` | QA day-run entry (test accounts only) |
-| `r` | tokenised public link (receipt/report) |
+| `r` | a teacher's tokenised page (for teachers without an account) |
 | `rv` | public receipt verification by code |
 | `t` | tokenised teacher links (marks, tasks) |
-| `w` | tokenised public link |
+| `w` | landing page for the button on a WhatsApp template message |
 
 ## Signed-in routes — `src/app/(app)/`
 
@@ -60,17 +60,17 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 
 | Route | Renders |
 |---|---|
-| `/academics` | mixed: vx + older |
+| `/academics` | One (pre-vx) + vx (current) |
 | `/access-denied` | vx (current) |
 | `/accounts` | vx (current) |
 | `/admissions` | vx (current) |
-| `/apps` | One (pre-vx) |
+| `/apps` | redirect |
 | `/archives` | One (pre-vx) |
-| `/assessments` | mixed: vx + older |
+| `/assessments` | One (pre-vx) + vx (current) |
 | `/attendance` | vx (current) |
-| `/calendar` | mixed: vx + older |
+| `/calendar` | One (pre-vx) + vx (current) |
 | `/collection` | One (pre-vx) |
-| `/dashboard` | One (pre-vx) |
+| `/dashboard` | redirect |
 | `/documents` | no page |
 | `/dues` | vx (current) |
 | `/duty` | One (pre-vx) |
@@ -86,19 +86,19 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `/more` | One (pre-vx) |
 | `/notes` | vx (current) |
 | `/payments` | vx (current) |
-| `/preferences` | mixed: vx + older |
+| `/preferences` | One (pre-vx) + vx (current) |
 | `/receipts` | vx (current) |
 | `/reminders` | vx (current) |
 | `/reports` | vx (current) |
 | `/school-office` | vx (current) |
-| `/settings` | mixed: vx + older |
+| `/settings` | One (pre-vx) + vx (current) |
 | `/smoke` | vx (current) |
-| `/staff` | mixed: vx + older |
+| `/staff` | One (pre-vx) + vx (current) |
 | `/student-tools` | vx (current) |
-| `/students` | mixed: vx + older |
-| `/substitutions` | mixed: vx + older |
-| `/teach` | mixed: vx + older |
-| `/timetable` | mixed: vx + older |
+| `/students` | One (pre-vx) + vx (current) |
+| `/substitutions` | One (pre-vx) + vx (current) |
+| `/teach` | One (pre-vx) + vx (current) |
+| `/timetable` | One (pre-vx) + vx (current) |
 
 ## Modules — `src/modules/`
 
@@ -188,12 +188,43 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `tests/architecture.test.ts` | import/ownership rules, ported-tree fences | nothing external |
 | `tests/sql/*.mjs` | migration + grant proofs on in-memory PGlite | nothing external |
 | `tests/sql/*.py` | lock/concurrency proofs on a disposable PostgreSQL 17 with two real connections | CI service container or local Postgres |
-| `tests/playwright/*.playwright.config.ts` | synthetic browser harnesses (no DB credentials) | Playwright browsers |
+| `tests/playwright/*.playwright.config.ts` | browser harnesses — synthetic or external, per config below | Playwright browsers; external ones need an app |
 | `playwright.config.ts` → `tests/e2e` | workflow suite (`npm run smoke:workflows`) | a database and test accounts — **not** part of `check` |
 
-Synthetic Playwright configs:
+Playwright configs, classified from each config's `webServer` ("In CI" = named in a workflow):
 
-`academic-followup` · `academic-ui` · `accountant-dev` · `accountant-mobile` · `cheque-followup` · `class-followup` · `contact-durable` · `contact-genuine-continuation` · `contact-genuine` · `export-followup` · `fee-collector-dev` · `fee-followup` · `login-ui` · `marks-dev` · `marks-mobile` · `mobile-ui` · `module-followup` · `one-polish` · `operations-admin-interruption` · `operations-admin` · `operations-fee-collector` · `payment-draft` · `payment-ui` · `phone-operations` · `pr79-readonly` · `receipt-navigation` · `school-office` · `student-profile` · `student360-mobile` · `student360-sibling`
+| Config | Needs | In CI |
+|---|---|---|
+| `academic-followup` | synthetic (vite fixture) | yes |
+| `academic-ui` | synthetic (vite fixture) | yes |
+| `accountant-dev` | **external**: a running app/database or a deployed site | no |
+| `accountant-mobile` | synthetic (vite fixture) | yes |
+| `cheque-followup` | synthetic (vite fixture) | yes |
+| `class-followup` | synthetic (vite fixture) | yes |
+| `contact-durable` | **external**: a running app/database or a deployed site | no |
+| `contact-genuine-continuation` | **external**: a running app/database or a deployed site | no |
+| `contact-genuine` | **external**: a running app/database or a deployed site | no |
+| `export-followup` | synthetic (vite fixture) | yes |
+| `fee-collector-dev` | **external**: a running app/database or a deployed site | no |
+| `fee-followup` | synthetic (vite fixture) | yes |
+| `login-ui` | synthetic (vite fixture) | yes |
+| `marks-dev` | **external**: a running app/database or a deployed site | no |
+| `marks-mobile` | synthetic (vite fixture) | yes |
+| `mobile-ui` | synthetic (vite fixture) | no |
+| `module-followup` | synthetic (vite fixture) | yes |
+| `one-polish` | synthetic (vite fixture) | yes |
+| `operations-admin-interruption` | **external**: a running app/database or a deployed site | no |
+| `operations-admin` | synthetic (vite fixture) | yes |
+| `operations-fee-collector` | synthetic (vite fixture) | yes |
+| `payment-draft` | synthetic (vite fixture) | no |
+| `payment-ui` | synthetic (vite fixture) | yes |
+| `phone-operations` | **external**: a running app/database or a deployed site | no |
+| `pr79-readonly` | **external**: a running app/database or a deployed site | no |
+| `receipt-navigation` | synthetic (vite fixture) | yes |
+| `school-office` | synthetic (vite fixture) | no |
+| `student-profile` | synthetic (vite fixture) | yes |
+| `student360-mobile` | synthetic (vite fixture) | yes |
+| `student360-sibling` | synthetic (vite fixture) | yes |
 
 Test folders:
 

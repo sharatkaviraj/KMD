@@ -12,38 +12,50 @@
  * private and the workflow token cannot read it. A skip is reported as a skip
  * — a GitHub warning annotation and a step-summary line saying NOT RUN — so a
  * green job never reads as "theme parity passed". Pass `--require` (or set
- * THEME_PARITY_REQUIRED=1) to make an absent checkout a failure.
+ * THEME_PARITY_REQUIRED=1) to make an absent checkout a failure; an explicit
+ * SCHOOLFEES_REPO that is not a schoolfees checkout always fails.
  *
  *   node scripts/check-theme-parity.mjs
  *   SCHOOLFEES_REPO=../schoolfees node scripts/check-theme-parity.mjs --require
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import resolveConfig from "tailwindcss/resolveConfig.js";
 
-const REQUIRED = process.argv.includes("--require") || process.env.THEME_PARITY_REQUIRED === "1";
+/** An explicit SCHOOLFEES_REPO means the caller meant to compare, so a bad path fails rather than skips. */
+const EXPLICIT = process.env.SCHOOLFEES_REPO?.trim() || "";
+const REQUIRED = process.argv.includes("--require") || process.env.THEME_PARITY_REQUIRED === "1" || EXPLICIT !== "";
+
+/** A School Fees checkout: its own package name and a tailwind config. Guards against comparing One with itself. */
+function isFeesCheckout(dir) {
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
+    return pkg.name === "schoolfees" && existsSync(path.join(dir, "tailwind.config.ts"));
+  } catch {
+    return false;
+  }
+}
 
 /** An explicit SCHOOLFEES_REPO is authoritative; otherwise the sibling layouts in use on developer machines. */
-const CANDIDATES = process.env.SCHOOLFEES_REPO?.trim()
-  ? [path.resolve(process.env.SCHOOLFEES_REPO.trim())]
+const CANDIDATES = EXPLICIT
+  ? [path.resolve(EXPLICIT)]
   : [
       path.resolve(process.cwd(), "..", "schoolfees"),
       path.resolve(process.cwd(), "..", "..", "schoolfees"),
       path.resolve(process.cwd(), "..", "..", "Projects", "schoolfees"),
     ];
 
-const FEE_REPO =
-  CANDIDATES.find((dir) => existsSync(path.join(dir, "tailwind.config.ts"))) ?? CANDIDATES[0];
+const FEE_REPO = CANDIDATES.find(isFeesCheckout) ?? CANDIDATES[0];
 
 const FEE_CONFIG = path.join(FEE_REPO, "tailwind.config.ts");
 
-if (!existsSync(FEE_CONFIG)) {
+if (!isFeesCheckout(FEE_REPO)) {
   const message =
-    `theme parity: NOT RUN — no School Fees checkout found (looked in: ${CANDIDATES.join(", ")}). ` +
-    "Set SCHOOLFEES_REPO to a schoolfees checkout to run it.";
+    `theme parity: NOT RUN — no School Fees checkout (package "schoolfees" with tailwind.config.ts) found ` +
+    `(looked in: ${CANDIDATES.join(", ")}). Set SCHOOLFEES_REPO to a schoolfees checkout to run it.`;
   console.log(message);
   if (process.env.GITHUB_ACTIONS === "true") {
     console.log(`::warning title=Theme parity NOT RUN::${message}`);
@@ -58,13 +70,15 @@ if (!existsSync(FEE_CONFIG)) {
   process.exit(REQUIRED ? 1 : 0);
 }
 
-/** Which Fees revision was compared, so a result can be reproduced. */
-let feeRevision = "unknown revision";
+/** Which Fees revision was compared — commit, branch, and whether the tree is dirty — so a result can be reproduced. */
+const git = (...args) =>
+  execFileSync("git", ["-C", FEE_REPO, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+let feeRevision = "unknown revision (not a git checkout)";
 try {
-  feeRevision = execFileSync("git", ["-C", FEE_REPO, "rev-parse", "--short=12", "HEAD"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  }).trim();
+  const sha = git("rev-parse", "--short=12", "HEAD");
+  const branch = git("rev-parse", "--abbrev-ref", "HEAD");
+  const dirty = git("status", "--porcelain", "--", "tailwind.config.ts", "src/app/globals.css") !== "";
+  feeRevision = `${sha} (${branch === "HEAD" ? "detached" : branch}${dirty ? ", UNCOMMITTED theme changes" : ""})`;
 } catch {
   // Not a git checkout: the comparison still runs, it just cannot name a commit.
 }
@@ -91,8 +105,18 @@ const COMPARED = [
 const EXEMPT_PREFIXES = ["containers"];
 
 async function loadTheme(configPath) {
-  const mod = await import(pathToFileURL(configPath).href);
-  return resolveConfig(mod.default).theme;
+  try {
+    const mod = await import(pathToFileURL(configPath).href);
+    return resolveConfig(mod.default).theme;
+  } catch (error) {
+    // Most often the Fees checkout has no node_modules (its config imports
+    // Tailwind plugins). That is a failed check, never a silent pass.
+    console.error(
+      `theme parity: FAILED to load ${configPath}: ${error?.message ?? error}\n` +
+        "            run `npm ci` in that checkout first.",
+    );
+    process.exit(1);
+  }
 }
 
 function flatten(value, prefix = []) {

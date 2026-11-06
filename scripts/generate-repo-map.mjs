@@ -47,7 +47,31 @@ function childDirs(dir) {
 
 const under = (dir) => files.filter((f) => f.startsWith(`${dir}/`));
 const isPorted = (rel) => PORTED_TREES.some((t) => rel === t || rel.startsWith(`${t}/`));
-const read = (rel) => readFileSync(path.join(ROOT, rel), "utf8");
+/**
+ * File contents as committed to the index (`git cat-file --batch`), not the
+ * working tree: an uncommitted edit cannot change the map, and a tracked file
+ * deleted on disk cannot crash it. One git process per batch of reads.
+ */
+const indexed = new Map();
+function preload(rels) {
+  const wanted = [...new Set(rels)].filter((r) => !indexed.has(r));
+  if (!wanted.length) return;
+  const input = wanted.map((r) => `:${r}`).join("\n") + "\n";
+  const out = execFileSync("git", ["cat-file", "--batch"], { cwd: ROOT, input, maxBuffer: 1 << 28 });
+  let at = 0;
+  for (const rel of wanted) {
+    const nl = out.indexOf(10, at);
+    const header = out.subarray(at, nl).toString("utf8");
+    const size = Number(header.split(" ")[2]);
+    if (!Number.isFinite(size)) throw new Error(`git cat-file could not read ${rel}: ${header}`);
+    indexed.set(rel, out.subarray(nl + 1, nl + 1 + size).toString("utf8").replace(/\r\n/g, "\n"));
+    at = nl + 1 + size + 1;
+  }
+}
+const read = (rel) => {
+  preload([rel]);
+  return indexed.get(rel);
+};
 
 /** First prose line of a README, if there is one. */
 function readmeLine(dir) {
@@ -76,36 +100,64 @@ const APP_SEGMENTS = {
   ".well-known": "OAuth/MCP discovery documents",
   api: "route handlers: cron/jobs, webhooks, Fees bridge relay, AI, MCP",
   auth: "Supabase auth callbacks",
-  cv: "public short-link: cover/certificate view by code",
+  cv: "public certificate verification (the QR on a school certificate)",
   fonts: "self-hosted fonts used by PDFs and the shell",
   lab: "signed-out lab/kiosk screens",
   login: "staff sign-in",
   mcp: "MCP OAuth authorize screen",
   pay: "parent payment link by code (Razorpay is owned by Fees)",
   qa: "QA day-run entry (test accounts only)",
-  r: "tokenised public link (receipt/report)",
+  r: "a teacher's tokenised page (for teachers without an account)",
   rv: "public receipt verification by code",
   t: "tokenised teacher links (marks, tasks)",
-  w: "tokenised public link",
+  w: "landing page for the button on a WhatsApp template message",
 };
 
-/** What a route segment renders: the vx screens (current), the ported Fees screens, or One's older screens. */
+/** Imports of a ported feature module (`src/modules/x` in PORTED_TREES becomes `@/modules/x/`). The ported design kit and platform helpers are shared, so they do not make a page "ported". */
+const PORTED_ALIASES = PORTED_TREES.filter((t) => t.startsWith("src/modules/")).map((t) => `"@/${t.replace(/^src\//, "")}/`);
+const importsPorted = (src) => PORTED_ALIASES.some((a) => src.includes(a)) || src.includes('"@/app/(app)/fees');
+/** A page whose only job is to send the reader elsewhere: calls redirect() and renders no JSX. */
+const isRedirectOnly = (src) => /\bredirect\(/.test(src) && !/(return|=>)\s*\(?\s*</.test(src);
+
+/**
+ * What a route segment's pages render: vx screens (current), ported Fees
+ * screens (classic), One's pre-vx screens, or redirects — every kind present,
+ * so /payments (vx Collect + /payments/classic) shows both.
+ */
 function routeKind(seg) {
   const dir = `src/app/(app)/${seg}`;
-  if (seg === "fees") return "ported Fees screens (classic)";
   const pages = under(dir).filter((f) => /\/page\.tsx$/.test(f));
   if (!pages.length) return "no page";
-  let vx = 0;
-  let fees = 0;
+  preload(pages);
+  const kinds = new Set();
   for (const p of pages) {
     const src = read(p);
-    if (src.includes("@/vx/screens")) vx += 1;
-    else if (/@\/modules\/(fees|payments|receipts|transactions|defaulters|students-fees|staff-fees)\//.test(src) || src.includes("@/app/(app)/fees")) fees += 1;
+    if (seg === "fees") kinds.add("ported Fees screens (classic)");
+    else if (isRedirectOnly(src)) kinds.add("redirect");
+    else if (src.includes("@/vx/screens")) kinds.add("vx (current)");
+    else if (importsPorted(src)) kinds.add("ported Fees screens (classic)");
+    else kinds.add("One (pre-vx)");
   }
-  if (vx === pages.length) return "vx (current)";
-  if (vx === 0 && fees === pages.length) return "ported Fees screens (classic)";
-  if (vx === 0) return "One (pre-vx)";
-  return "mixed: vx + older";
+  return [...kinds].sort().join(" + ");
+}
+
+/**
+ * Playwright configs by what they need. A config whose webServer builds a
+ * vite fixture is synthetic (no app, no database). Anything else drives a
+ * running app — local `next` on One's production database — or a deployed
+ * site, and is an external effect (AGENTS.md).
+ */
+function playwrightRows() {
+  const configs = files.filter((f) => /^tests\/playwright\/[^/]+\.playwright\.config\.ts$/.test(f)).sort();
+  const workflows = files.filter((f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f));
+  preload([...configs, ...workflows]);
+  const ci = workflows.map(read).join("\n");
+  return configs.map((f) => {
+    const name = path.basename(f, ".playwright.config.ts");
+    const synthetic = /webServer[\s\S]*vite/.test(read(f));
+    const needs = synthetic ? "synthetic (vite fixture)" : "**external**: a running app/database or a deployed site";
+    return `| \`${name}\` | ${needs} | ${ci.includes(`${name}.playwright.config.ts`) ? "yes" : "no"} |`;
+  });
 }
 
 function moduleRow(name) {
@@ -155,7 +207,7 @@ const SRC = {
   messages: "strings: `index.ts`/`setup.ts` pairs (One) and `{en,hi,hi-en}.json` (ported, next-intl)",
   modules: "feature folders: `domain/` (pure) · `data/` (db) · `ui/`",
   platform: "auth, Supabase clients, deployment confinement, Fees bridge client, i18n, money",
-  ui: "School Fees' design kit (ported)",
+  ui: "School Fees' design kit",
   vx: "the current screen design: `screens/`, shell, `text.ts` pairs",
 };
 for (const d of childDirs("src")) push(`| \`src/${d}/\` | ${SRC[d] ?? "—"}${isPorted(`src/${d}`) ? " — ported" : ""} |`);
@@ -193,19 +245,15 @@ push(
   "| `tests/architecture.test.ts` | import/ownership rules, ported-tree fences | nothing external |",
   "| `tests/sql/*.mjs` | migration + grant proofs on in-memory PGlite | nothing external |",
   "| `tests/sql/*.py` | lock/concurrency proofs on a disposable PostgreSQL 17 with two real connections | CI service container or local Postgres |",
-  "| `tests/playwright/*.playwright.config.ts` | synthetic browser harnesses (no DB credentials) | Playwright browsers |",
+  "| `tests/playwright/*.playwright.config.ts` | browser harnesses — synthetic or external, per config below | Playwright browsers; external ones need an app |",
   "| `playwright.config.ts` → `tests/e2e` | workflow suite (`npm run smoke:workflows`) | a database and test accounts — **not** part of `check` |",
   "",
-  "Synthetic Playwright configs:",
+  "Playwright configs, classified from each config's `webServer` (\"In CI\" = named in a workflow):",
   "",
+  "| Config | Needs | In CI |",
+  "|---|---|---|",
 );
-push(
-  files
-    .filter((f) => /^tests\/playwright\/[^/]+\.playwright\.config\.ts$/.test(f))
-    .map((f) => `\`${path.basename(f, ".playwright.config.ts")}\``)
-    .sort()
-    .join(" · "),
-);
+push(...playwrightRows());
 push("", "Test folders:", "", childDirs("tests").map((d) => `\`${d}\``).join(" · "));
 
 push("", "## Workflows — `.github/workflows/`", "", "| File | Name | Runs on |", "|---|---|---|");

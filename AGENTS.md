@@ -46,9 +46,14 @@ canonical document disagree, the canonical document wins — fix this page.
 | PGlite / Postgres 17 service containers | disposable, created by `tests/sql/*` and CI | yes |
 
 Local `next dev` and Vercel Preview are *confined*
-(`src/platform/deployment/confinement.ts`): every user is a test account and
-fee writes reach only TEST-session students. Do not defeat that with
-`VPPSONE_ENV=live` or `APP_MODE=production`. `.env.example` lists names only.
+(`isConfinedDeployment()` in `src/platform/deployment/confinement.ts`): every
+user is a test account and fee writes reach only TEST-session students. The
+**only** thing that lifts confinement is `VERCEL_ENV=production`, so never set
+it locally (an env file pulled from Vercel's production environment can carry
+it — check before using one). Keep `VPPSONE_ENV=dev` and leave `APP_MODE`
+unset; `VPPSONE_ENV=live` makes guards stricter, never looser, but it is also
+one of the conditions for live payment keys and parent sends.
+`.env.example` has no real values.
 
 ## Two apps in one tree
 
@@ -77,7 +82,7 @@ derives the fee locale. See `src/messages/README.md`.
 
 | Task | Start at | Tests |
 |---|---|---|
-| A signed-in screen | `src/app/(app)/<route>/page.tsx` → `src/vx/screens/<area>/` | `tests/vx/`, matching `tests/playwright/*.playwright.config.ts` |
+| A signed-in screen | `src/app/(app)/<route>/page.tsx` → `src/vx/screens/<area>/` | `tests/vx/`, and the synthetic Playwright config for that screen (the map lists which configs are synthetic) |
 | Domain rule | `src/modules/<x>/domain/` (pure, no DB import) | `tests/<x>-domain.test.ts` |
 | Database access | `src/modules/<x>/data/` (One) or `src/modules/fees/platform/supabase/*` (ported only) | `tests/architecture.test.ts` |
 | Fees bridge call | `src/platform/fees-bridge/client.ts` → `transport.ts`; Fees side `src/app/api/one/v1/[...path]` | `tests/fees-bridge-*.test.ts` |
@@ -95,13 +100,20 @@ npm run lint
 npm run check:port       # ported-import fences
 npm run check:theme      # needs a schoolfees checkout (SCHOOLFEES_REPO); says NOT RUN otherwise
 npm run test             # vitest
-npm run build            # placeholder env is enough, see .github/workflows/ci.yml
+npm run build            # with the placeholder env from .github/workflows/ci.yml (next build also reads .env.local)
 npm run check:bundles    # after build
 npm run docs:map:check   # the generated map is current
-npx playwright test --config tests/playwright/<name>.playwright.config.ts   # synthetic, no DB
+npx playwright test --config tests/playwright/<name>.playwright.config.ts
+# ^ ONLY for configs the map marks "synthetic (vite fixture)" — the ones CI runs.
 ```
 
 `npm run check` runs the CI gate set in one go.
+
+Playwright configs are **not** all safe: the map's Playwright table marks the
+ones that need a running app or deployed site as **external** (for example
+`pr79-readonly` targets the live site; `*-dev`, `fee-collector-dev`,
+`contact-*` and `phone-operations` drive a local app on One's production
+database). Treat those as external effects.
 
 **External effects — do not run in an agent task without the owner's explicit
 yes.** Assume anything not in the safe list reaches One's production database,
@@ -110,7 +122,8 @@ a provider or the network:
 - Database (One production, test-confined where guarded): `seed:*`, `qa:*`,
   `dev:login`, `smoke:roles|deep|screens|pool|ready`, `verify:*`
   (except `verify:origins`, which calls the deployed sites), `cutover:check`,
-  `verify:native-recovery`, `smoke:workflows` (default `playwright.config.ts`).
+  `verify:native-recovery`, `smoke:workflows` (default `playwright.config.ts`),
+  and every Playwright config the map marks **external**.
 - Supabase CLI against the linked project: `db:link`, `db:types`, `db:diff`,
   `supabase db push`.
 - Live-source and historical cutover tooling: `replica:*`, `migrate:*`.

@@ -14,9 +14,12 @@ nothing.
 
 Fees (`veerpatta/schoolfees`, database `vgqyilgstjvgohrsiwkb`) is the financial
 authority (coexistence direction of 1 November 2026,
-[plan](../plans/2026-11-01-fees-one-coexistence-plan.md)). One never numbers a
-real receipt, never allocates a real payment, never runs a real financial job.
-A real collection is a **command sent to Fees**; One displays what Fees returns.
+[plan](../plans/2026-11-01-fees-one-coexistence-plan.md)): One should never
+number a real receipt, allocate a real payment or run a real financial job; a
+real collection is a **command sent to Fees**, and One displays what Fees
+returns. That is the *policy*. In code it holds because of the switches below —
+chiefly, with the bridge enabled the local path is forced test-only — so read
+the switches table before you change any of them.
 
 ## The path
 
@@ -37,13 +40,20 @@ A real collection is a **command sent to Fees**; One displays what Fees returns.
    │                 Fees re-checks the actor grant, then calls its own money
    │                 functions (receipt lock, idempotent client_request_id)
    │
-   └─ no (test account, or a confined Preview/local deployment)
-           → <CollectLocal>                src/vx/screens/collect/collect-local.tsx
+   └─ no → <CollectLocal>                src/vx/screens/collect/collect-local.tsx
              localAdapter(info)            src/modules/collect/data/local-adapter.ts
                vx Payment Desk actions     src/app/(app)/payments/actions.ts
                  ported fee action → fee clients in src/modules/fees/platform/supabase/*
-                 TEST session only; One's database (wtgxcptmucjerhufzjcf, production)
+                 One's database (wtgxcptmucjerhufzjcf, production), through write-guard.ts
 ```
+
+`usesCanonicalFees` is **yes** only when all of these hold: `FEES_BRIDGE_ENABLED`
+is true, the viewer is active, not a test account and not confined, the
+deployment is not confined (`VERCEL_ENV=production`), and either the session is
+a real one **or** the viewer is a non-admin. So a non-admin real staff member
+uses the bridge even on a `TEST-` session label; only an admin on a TEST
+session stays local. With `FEES_BRIDGE_ENABLED` off, real staff on production
+get the **local** adapter.
 
 Both adapters implement one interface,
 [`MoneyPort`](../../src/modules/collect/data/money-port.ts): `search`, `likely`,
@@ -58,11 +68,11 @@ import.
 | Switch | Where | Effect |
 |---|---|---|
 | `fees:collect` permission | `requirePermission` in the page; `assertPermission` in each action | no permission, no screen and no action |
-| `usesCanonicalFees` | `src/platform/fees-bridge/policy.ts` | real staff on a real session go to the bridge; everyone else is local/TEST |
-| `FEES_BRIDGE_ENABLED`, `FEES_BRIDGE_WRITES_ENABLED` | env, read in `policy.ts` | bridge posting needs both; `isConfinedDeployment()` forces writes off on Preview/local |
+| `usesCanonicalFees` | `src/platform/fees-bridge/policy.ts` | bridge or local, by the conditions above |
+| `FEES_BRIDGE_ENABLED`, `FEES_BRIDGE_WRITES_ENABLED` | env, read in `policy.ts` | bridge posting needs both; `isConfinedDeployment()` forces bridge writes off on Preview/local |
 | previewing ("view as") | `getViewer()` | `canPost` is false while previewing another staff member |
 | Fees actor grant + DB gates | Fees `private.one_bridge_grants`, `one_bridge_config.commands_enabled` | Fees refuses even if One allows (see Fees `docs/modules/one-bridge.md`) |
-| `app_settings.fee_writes_enabled` | One DB, local adapter path | fee writes in One's own database |
+| Fee write-guard mode | `currentFeeWritesMode()` in `src/modules/fees/platform/supabase/write-guard.ts` | local-path writes are **test-only** when `FEES_BRIDGE_ENABLED` is on, on any confined deployment, or unless `app_settings.fee_writes_enabled` is `'true'` on a production database; otherwise **open**. Test-only means a write passes only if everything it names is in a TEST session |
 
 ## Lost answers and retries
 
@@ -83,5 +93,5 @@ payment becomes two receipts.
 | Ownership fences | `tests/architecture.test.ts` |
 | Payment UI (synthetic browser) | `tests/playwright/payment-ui.playwright.config.ts` (CI: `payment-parity-ui.yml`), `operations-fee-collector` in `phone-operations-ui.yml` |
 
-`npx vitest run tests/collect tests/fees-bridge-` runs the unit layer in seconds.
+`npx vitest run tests/collect tests/fees-bridge-` runs the unit layer in under a minute.
 None of these needs a database or a Fees deployment.
