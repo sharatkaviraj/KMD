@@ -348,7 +348,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
               <Ic n="chevRight" style={{ color: "var(--sub)" }} />
             </Link>
           ))}
-          <span className="tc-s" style={{ padding: "6px 6px 2px" }}>{tx(p("The list builds itself: attendance below 75%, any subject below 33%, or 2+ open notes.", "सूची अपने आप बनती है: 75% से कम हाज़िरी, किसी विषय में 33% से कम, या 2+ खुले नोट।"))}</span>
+          <span className="tc-s" style={{ padding: "6px 6px 2px" }}>{tx(p(`The list builds itself: attendance below ${ATTENTION_RULES.attendanceBelow}% (once ${ATTENTION_RULES.minDays} days are marked), any subject below ${ATTENTION_RULES.marksBelow}%, or ${ATTENTION_RULES.openNotes}+ open notes.`, `सूची अपने आप बनती है: ${ATTENTION_RULES.attendanceBelow}% से कम हाज़िरी (${ATTENTION_RULES.minDays} दिन दर्ज होने के बाद), किसी विषय में ${ATTENTION_RULES.marksBelow}% से कम, या ${ATTENTION_RULES.openNotes}+ खुले नोट।`))}</span>
         </div>
 
         {data.birthdays.length ? (

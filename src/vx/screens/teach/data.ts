@@ -405,7 +405,7 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
 
 /* ------------------------------------------------------------------ Today */
 
-export type TodayPeriod = { period: number; number: number; starts: string; ends: string; subjectCode: string; subjectName: string; subjectHi: string; classLabel: string; classId: string | null; combined: boolean };
+export type TodayPeriod = { period: number; number: number; starts: string; ends: string; subjectCode: string; subjectName: string; subjectHi: string; classLabel: string; classId: string | null; combined: boolean; /** Every class in the lesson; a combined period has several and no single classId. */ classIds?: string[] };
 
 export type CoverRow = {
   id: string;
@@ -546,6 +546,7 @@ export async function loadHome(staff: CurrentStaff) {
     classLabel: l.classes.map((c) => c.classLabel).join(" · "),
     classId: l.classId,
     combined: l.classes.length > 1,
+    classIds: l.classes.map((c) => c.classId),
   }));
   // The whole bell day, so the timeline can draw the free periods between lessons.
   const bellDay = slots.length || covers.length ? schedule.periods.map((b) => ({ period: b.index, number: periodNumber(b.index), starts: b.starts, ends: b.ends })) : [];
