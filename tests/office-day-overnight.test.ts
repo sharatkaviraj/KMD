@@ -78,3 +78,14 @@ describe("receipts say owed, not pending, for a figure that holds the late fee",
     expect(readFileSync("src/vx/screens/receipts/canonical-receipt.tsx", "utf8")).toContain("Owed before, with any late fee");
   });
 });
+
+describe("the ledger generator reads every student, not the first 1,000", () => {
+  it("pages the on-roll read and chunks a scoped one", () => {
+    const src = readFileSync("src/modules/fees/data/generator.ts", "utf8");
+    const read = src.slice(src.indexOf("const studentColumns"), src.indexOf("const loadedStudents"));
+    expect(read).toContain("fetchAllPages<GeneratorStudentRow>");
+    expect(read).toContain('.order("id", { ascending: true })');
+    expect(read).toContain(".range(from, to)");
+    expect(read).toContain("fetchInChunks<GeneratorStudentRow>([...scopedStudentIdSet]");
+  });
+});
