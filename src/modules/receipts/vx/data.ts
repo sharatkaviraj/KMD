@@ -89,6 +89,8 @@ export type DeskReceiptDetail = {
   isReversed: boolean;
   share: { status: "not_sent" | "sent" | "delivered" | "read" | "failed"; at: string | null };
   history: ReceiptHistoryEvent[];
+  /** Late fee forgiven at the counter with this payment (same request id), not voided. */
+  lateFeeWaivedWithReceipt: number;
 };
 
 /** One receipt by its printed number, with its reversal and WhatsApp history. */
@@ -99,7 +101,7 @@ export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceipt
   const detail = await getReceiptDetailWith(supabase, id);
   if (!detail) return null;
 
-  const [paymentsRes, sendsRes] = await Promise.all([
+  const [paymentsRes, sendsRes, waivedWithReceipt] = await Promise.all([
     supabase.from("payments").select("id").eq("receipt_id", id),
     supabase
       .from("whatsapp_reminder_sends")
@@ -107,6 +109,7 @@ export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceipt
       .eq("receipt_id", id)
       .order("created_at", { ascending: false })
       .limit(5),
+    lateFeeWaivedWith(supabase, id),
   ]);
   if (paymentsRes.error) throw new Error(paymentsRes.error.message);
   if (sendsRes.error) throw new Error(sendsRes.error.message);
@@ -145,5 +148,30 @@ export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceipt
   history.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
   const reversedAmount = detail.reversedAmount ?? 0;
-  return { detail, isReversed: detail.totalAmount > 0 && reversedAmount >= detail.totalAmount, share, history };
+  return { detail, isReversed: detail.totalAmount > 0 && reversedAmount >= detail.totalAmount, share, history, lateFeeWaivedWithReceipt: waivedWithReceipt };
+}
+
+/**
+ * The desk forgives a late fee with `waive_late_fee` BEFORE it posts, under the
+ * same client request id, so the waiver lands in `student_late_fee_waivers`
+ * and not as a writeoff on the receipt. The receipt therefore said nothing
+ * about the ₹3,000 it was taken with (TEST school day, 6 Nov 2026, accountant
+ * B4). Matching on the request id finds exactly that waiver. A read failure
+ * shows no line rather than failing the receipt.
+ */
+async function lateFeeWaivedWith(supabase: ReturnType<typeof feeReader>, receiptId: string): Promise<number> {
+  try {
+    const { data: r } = await supabase.from("receipts").select("student_id, client_request_id").eq("id", receiptId).maybeSingle();
+    const row = r as { student_id: string | null; client_request_id: string | null } | null;
+    if (!row?.client_request_id || !row.student_id) return 0;
+    const { data } = await supabase
+      .from("student_late_fee_waivers")
+      .select("amount")
+      .eq("student_id", row.student_id)
+      .eq("client_request_id", row.client_request_id)
+      .is("voided_at", null);
+    return ((data ?? []) as { amount: number | string | null }[]).reduce((sum, w) => sum + Math.max(0, Number(w.amount) || 0), 0);
+  } catch {
+    return 0;
+  }
 }
