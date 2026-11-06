@@ -45,7 +45,7 @@ export async function approvedStudentPhotos(ids: readonly string[]): Promise<Map
         chunk => createAdminClient().from("fees_bridge_students").select("id,photo_path")
           .eq("session_label", session).in("id", chunk));
       if (result.error) throw new Error("photo_unavailable");
-      return new Map(result.data.filter(row => !!row.photo_path).map(row => [row.id, bridgeStudentPhotoHref(row.id, session)]));
+      return new Map(result.data.filter(row => !!row.photo_path).map(row => [row.id, bridgeStudentPhotoHref(row.id, session, "list")]));
     }
   }
   const db = directory ? await createClient() : createAdminClient();

@@ -34,7 +34,7 @@ beforeEach(() => {
 describe("canonical real student portraits", () => {
   it("returns only authenticated same-origin URLs for the exact current session and requested IDs", async () => {
     const photos = await approvedStudentPhotos([withPhoto, withoutPhoto, withPhoto]);
-    expect([...photos]).toEqual([[withPhoto, `/api/fees-bridge/students/${withPhoto}/photo?session=2026-27&variant=thumb`]]);
+    expect([...photos]).toEqual([[withPhoto, `/api/fees-bridge/students/${withPhoto}/photo?session=2026-27&variant=list`]]);
     expect(state.filters).toEqual([["session_label", "2026-27"], ["id", [withPhoto, withoutPhoto]]]);
     expect(state.from.mock.calls).toEqual([["fees_bridge_students"]]);
     expect(state.sign).not.toHaveBeenCalled();

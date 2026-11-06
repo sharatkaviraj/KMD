@@ -14,7 +14,7 @@ export function moneyListFromBridge(source:BridgeDirectory):MoneyList {
     sessionLabel:source.sessionLabel,total:source.pagination.totalCount,page:source.pagination.page,pageSize:source.pagination.pageSize,
     rows:source.students.map(row=>({id:row.id,fullName:row.fullName,admissionNo:row.admissionNo,classLabel:row.classLabel,routeLabel:row.transportRouteLabel,
       parentName:row.fatherName||row.motherName,phone:row.fatherPhone||row.motherPhone,status:row.status,
-      photoUrl:row.hasPhoto?bridgeStudentPhotoHref(row.id,source.sessionLabel):null,
+      photoUrl:row.hasPhoto?bridgeStudentPhotoHref(row.id,source.sessionLabel,"list"):null,
       overdueAmount:row.overdueAmount,outstandingAmount:row.outstandingAmount,pendingLateFeeAmount:row.pendingLateFeeAmount,totalPaid:row.totalPaid,totalDue:row.totalDue,lateFeeTotal:row.lateFeeTotal,
       siblingCount:row.siblingCount,isNew:row.studentStatusLabel==="New",yearClear:isYearCleared({outstandingAmount:row.outstandingAmount,totalPaid:row.totalPaid,discountClosedAmount:row.discountClosedAmount,hasPreparedDues:row.duesStatus==="generated"}),
       emi:row.emiPlan?{status:row.emiPlan.paymentStatus,monthly:row.emiPlan.monthlyAmount,nextDue:row.emiPlan.nextDueDate}:null,concessions:row.conventionalDiscountLabels,
