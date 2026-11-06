@@ -16,6 +16,10 @@ export type ClientViewer = {
   isAdmin?: boolean;
   /** The academic coordinator: "Coordinator · you". */
   isCoordinator?: boolean;
+  /** Settings → Parent messages: false hides "Tell parents" on a note. */
+  parentNotes?: boolean;
+  /** Settings → Parent messages: false hides sharing a support plan. */
+  parentPlans?: boolean;
 };
 
 /** The add-a-note steps: write (or speak), listening, check, saved. */

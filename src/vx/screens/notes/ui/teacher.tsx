@@ -266,7 +266,7 @@ export function TeachNotes(props: NotesProps) {
       followUpOwner: composer.follow ? composer.owner : null,
       followUpStaffId: null,
       followUpName: null,
-      tellParents: composer.tellParents && composer.visibility === "team",
+      tellParents: composer.tellParents && composer.visibility === "team" && props.viewer.parentNotes !== false,
       writtenBy: props.viewer.id,
       writtenByName: props.viewer.name,
       authorRelation: null,

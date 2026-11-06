@@ -15,7 +15,7 @@ import '../../src/vx/screens/teach/ui/teach.css';
 
 const classId = '00000000-0000-4000-8000-000000000001';
 const roll = Array.from({ length: 24 }, (_, index) => ({ id: `00000000-0000-4000-8000-${String(index + 2).padStart(12, '0')}`, name: `QA Follow-up Child ${index + 1}`, rollNo: String(index + 1), admissionNo: null, hint: null, gender: null, birthday: false }));
-const fresh = { kind: 'class', sessionLabel: 'QA-followup', classId, classLabel: 'QA Follow-up Class', day: '2026-10-10', prevDay: '2026-10-09', choices: [], closed: false, canSave: true, canCorrect: true, isOwner: true, correctsAny: false, onBehalf: false, reason: null, roll, registerId: null, revision: 0, saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], alertWhen: { en: 'at 10 am' }, month: '2026-10', monthMarks: [], closedDays: [] } as AttendData;
+const fresh = { kind: 'class', sessionLabel: 'QA-followup', classId, classLabel: 'QA Follow-up Class', day: '2026-10-10', prevDay: '2026-10-09', choices: [], closed: false, canSave: true, canCorrect: true, isOwner: true, correctsAny: false, onBehalf: false, reason: null, roll, registerId: null, revision: 0, saved: {}, yesterday: {}, receipt: null, parentAlerts: 'ask_on', queuedAlerts: [], alertWhen: { en: 'at 10 am' }, month: '2026-10', monthMarks: [], closedDays: [] } as AttendData;
 function readback(): AttendData {
   const row = snapshot().attendance[0];
   return row ? { ...fresh, revision: row.revision, registerId: 'qa-register', saved: Object.fromEntries(row.marks.map(mark => [mark.studentId, mark.status])), receipt: { savedAt: '2026-10-11T08:00:00Z', registerId: 'qa-register', revision: 1, actorName: 'QA Teacher' } } as AttendData : fresh;

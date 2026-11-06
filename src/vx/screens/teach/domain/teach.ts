@@ -339,10 +339,13 @@ export function classLabelP(label: string): Pair {
  *
  * Whatever the teacher picks in the sheet stays picked (`chosen`).
  */
-export function alertsDefault(input: { mode: "mark" | "change"; isToday: boolean; queued: number; chosen?: boolean | null }): boolean {
+export function alertsDefault(input: { mode: "mark" | "change"; isToday: boolean; queued: number; chosen?: boolean | null; admin?: "off" | "ask_off" | "ask_on" }): boolean {
+  // The admin's Settings → Parent messages: "off" means no message at all,
+  // whatever the phone remembers; "ask_off" starts today's switch off.
+  if (input.admin === "off") return false;
   if (typeof input.chosen === "boolean") return input.chosen;
   if (input.mode === "change") return input.queued > 0;
-  return input.isToday;
+  return input.isToday && input.admin !== "ask_off";
 }
 
 /**

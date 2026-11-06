@@ -34,7 +34,7 @@ const box = { payload: "qa-payload", alerts: false, commandId: "qa-command", at:
 const data = { kind: "class", sessionLabel: "QA", classId, classLabel: "QA class", day: "2026-10-10", prevDay: "2026-10-09",
   choices: [], closed: false, canSave: true, canCorrect: true, isOwner: true, correctsAny: false, onBehalf: false, reason: null,
   roll: [{ id: studentId, name: "QA Child", rollNo: "1", admissionNo: null, hint: null, gender: null, birthday: false }], registerId: null, revision: 0,
-  saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], alertWhen: { en: "at 10 am" }, month: "2026-10", monthMarks: [], closedDays: [],
+  saved: {}, yesterday: {}, receipt: null, parentAlerts: "ask_on", queuedAlerts: [], alertWhen: { en: "at 10 am" }, month: "2026-10", monthMarks: [], closedDays: [],
 } as AttendData;
 let root: Root; let host: HTMLDivElement;
 async function render(model: AttendData = data) { await act(async () => root.render(<TeachAttend data={model} ownerId={ownerId} initialSheet="save" initialView={null} school="QA School" />)); }
