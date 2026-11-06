@@ -31,7 +31,7 @@ with
   a_tables(t) as (select unnest(array[
     'academic_calendar_days','attendance_rules','bell_schedules','calendar_events','class_aliases','class_seats',
     'class_teachers','collection_fields','cover_policies','exam_rooms','fee_reminder_rules','message_templates',
-    'note_kinds','parent_message_policies','report_schemes','role_permissions','school_settings','staff_profiles',
+    'note_kinds','parent_message_policies','parent_message_switches','report_schemes','role_permissions','school_settings','staff_profiles',
     'staff_scopes','subjects','team_supervision_rules'])),
   r_tables(t) as (select unnest(array['enrolments','teaching_assignments'])),
   untouched(t) as (select unnest(array[

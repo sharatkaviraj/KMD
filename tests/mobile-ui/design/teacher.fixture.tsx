@@ -231,6 +231,7 @@ function classData(): ClassData {
     classLabel: "Class 6",
     isHeld: true,
     heldClasses: [{ classId: C6, classLabel: "Class 6" }],
+    seesAttendance: true,
     children,
     subjects: [subj("English", 71, 31, 1), subj("Hindi", 74, 31, 2), subj("Maths", 62, 31, 3), subj("Science", 68, 31, 4), subj("Social Science", 70, 31, 5), subj("Sanskrit", 52, 18, 6)],
     classAttendance: 93,
@@ -273,7 +274,7 @@ function studentData(): StudentData {
     motherName: "Meena Kanwar",
     phone: "9000000327",
     dateOfBirth: "2015-03-14",
-    attendance: { percent: 91, counted: 33, present: 30, days: [...sep, ...days] },
+    attendance: { hidden: false, percent: 91, counted: 33, present: 30, days: [...sep, ...days] },
     marks: [
       { code: "English", label: "Half-yearly", value: 58, max: 80, absent: false, pct: 73 },
       { code: "Hindi", label: "Half-yearly", value: 61, max: 80, absent: false, pct: 76 },
