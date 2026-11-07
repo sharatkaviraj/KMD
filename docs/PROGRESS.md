@@ -1,5 +1,28 @@
 # VPPS One — progress
 
+## Certificates on the letterhead, signed and sealed, and teachers' requests — 7 November 2026
+
+Owner asked (7 Nov) for the certificate letterhead to be redesigned from the
+school's own letterhead and certificates on Google Drive, the principal's
+signature from the receipts and a new school seal printed on certificates made
+by approved staff, and for a teacher's certificate to need an admin's approval,
+after which the teacher downloads it and sends it to the parent. Branch
+`claude/project-thread-m9wq3f`, D-540 to D-543. **Done:** the official
+letterhead on every certificate (crest, both names, trust, address, codes) as
+Certificate settings' defaults, with every line editable there; the receipts'
+signature and a new round seal printed by default; one A4 sheet always (three
+densities, page-counted in tests); `certificates:request` for teachers and
+`certificates:approve` for the admin; "Ask for a certificate" on a child's
+page; "Asked by teachers" at the top of School office and on the admin's
+Today; Approve and sign issues under the approver's name; the teacher's card
+on the child's page and on Today with Send to parent (the phone's share list)
+and Download. Migrations `…_certificate_requests.sql` and
+`…_certificate_requests_role_permissions.sql`; PGlite test in CI. **Remains:**
+the principal's name is printed only once someone types it in Certificate
+settings; the five real certificates issued before today stay hand-signed;
+the letterhead's address (Opposite Mela Ground, 313330) differs from the
+receipts' (Amet-Kelwa Road, 313332) and the owner may want one of them changed.
+
 ## One on a desk: every screen uses the width it is given — 7 November 2026
 
 Owner asked (7 Nov) for the desktop view of the whole app, everything changed

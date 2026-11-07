@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { conductGrades, type ConductGrade } from "./conduct";
 import { dateFigures, dateInWords, dateLong } from "./date-words";
 
 /** Documents the school issues itself. A TC is a kind; marking a child as left is not done here. */
@@ -12,8 +13,7 @@ export type CertificateField = (typeof certificateFields)[number];
 /** What the office says at the counter for this one issue: the TC's reason, the conduct line. */
 export const certificateExtras = ["reasonForLeaving", "conduct", "lastResult", "remarks"] as const;
 export type CertificateExtra = (typeof certificateExtras)[number];
-export const conductGrades = ["excellent", "very_good", "good", "satisfactory"] as const;
-export type ConductGrade = (typeof conductGrades)[number];
+export { conductGrades, type ConductGrade };
 
 const derived = ["dateOfBirthWords", "sonDaughter", "heShe", "himHer", "hisHer", "putraPutri"] as const;
 export const detailRowKeys = [...certificateFields, ...certificateExtras, "dateOfBirthWords"] as const;
@@ -57,11 +57,26 @@ export type CertificateFacts = {
 export type CertificateSchool = {
   name: string; nameHi?: string; address: string; phone: string; email: string; logo?: string | null; affiliation?: string;
   place?: string; udiseCode?: string; pspCode?: string; recognitionNo?: string;
+  /** The official letterhead's other lines (D-540). Older snapshots have none and print without them. */
+  registrationNo?: string; recognisedBy?: string; trust?: string; website?: string;
   principalName?: string; principalDesignation?: string; principalDesignationHi?: string;
-  /** Set only when the school's policy allowed a facsimile signature at preparation time. */
+  /** An image embedded in older snapshots, when a facsimile had been allowed at preparation time. */
   signature?: string | null; signaturePolicy?: "manual" | "facsimile";
+  /**
+   * Which stored image signs it and whether the school seal is printed
+   * (D-541). Names, not bytes: the snapshot records that this document was
+   * signed and sealed, and the renderer reads the files, so a snapshot does
+   * not carry 40 KB of image into the database for every issue.
+   */
+  signatureAsset?: "principal-2026"; seal?: "school-seal-2026";
   layout?: "classic" | "preprinted"; offsetX?: number; offsetY?: number; verifyBase?: string;
 };
+
+/** Signed and sealed by the school when it was prepared, so nobody signs the print by hand. */
+export function certificateSigned(snapshot: Pick<CertificateSnapshot, "school">): boolean {
+  const school = snapshot.school;
+  return school.signaturePolicy === "facsimile" && Boolean(school.signatureAsset || school.signature);
+}
 export type CertificateExtras = Partial<Record<CertificateExtra, string>>;
 export type CertificateSnapshot = {
   serial: string; issuedAt: string; issuedOn: string; isTest: boolean; school: CertificateSchool; facts: CertificateFacts; template: CertificateTemplate;

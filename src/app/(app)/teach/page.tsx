@@ -8,6 +8,7 @@ import { loadHome } from "@/vx/screens/teach/data";
 import { TeachEmpty } from "@/vx/screens/teach/ui/empty";
 import { TeachHome } from "@/vx/screens/teach/ui/home";
 import { previewRefusal } from "@/vx/screens/exams/guards";
+import { MyCertificateRequestsLazy } from "@/vx/screens/teach/ui/certificates-lazy";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       school={schoolProfile.shortName}
       officePhone={schoolProfile.officePhone}
       bolo={voiceAvailable ? <LazyBoloPanel /> : undefined}
+      certificates={data.sessionLabel && can(staff, "certificates:request") ? <MyCertificateRequestsLazy sessionLabel={data.sessionLabel} /> : undefined}
       allowed={{ attendance: can(staff, "attendance:mark"), marks: can(staff, "marks:write"), notes: can(staff, "notes:write") }}
     />
   );

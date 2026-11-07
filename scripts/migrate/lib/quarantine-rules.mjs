@@ -82,6 +82,7 @@ export const TABLES = {
   school_certificate_commands: { bucket: "K", why: "post go-live School Office authority and audit" },
   school_certificate_events: { bucket: "K", why: "post go-live School Office authority and audit" },
   school_certificate_issues: { bucket: "K", why: "post go-live School Office authority and audit" },
+  school_certificate_requests: { bucket: "K", why: "post go-live School Office authority and audit" },
   school_certificate_series: { bucket: "K", why: "post go-live School Office authority and audit" },
   school_certificate_templates: { bucket: "K", why: "post go-live School Office authority and audit" },
   school_external_records: { bucket: "K", why: "post go-live School Office authority and audit" },

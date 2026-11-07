@@ -1087,6 +1087,7 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
     attendance: { hidden: !seesAttendance, percent: pct.percent, counted: pct.counted, present: pct.present, days: seesAttendance ? att.map((a) => ({ day: a.day, status: a.status as Mark })) : [] },
     marks: marks.sort((a, b) => a.code.localeCompare(b.code)),
     notes,
+    sessionLabel,
   };
 }
 

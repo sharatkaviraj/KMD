@@ -6,7 +6,7 @@ import { renderCertificateBundle, renderCertificatePdf } from "@/modules/certifi
 import { certificatePreflight, detailRows, maskName, purposeLine, renderCertificateBody, requiredExtras, templateSchema, type CertificateFacts, type CertificateSnapshot } from "@/modules/certificates/domain/certificate";
 import { defaultTemplates } from "@/modules/certificates/domain/defaults";
 import { dateFigures, dateInWords, dateLong } from "@/modules/certificates/domain/date-words";
-import { cleanIdentity, stampIdentity } from "@/modules/certificates/domain/identity";
+import { cleanIdentity, DEFAULT_IDENTITY, stampIdentity } from "@/modules/certificates/domain/identity";
 
 const facts: CertificateFacts = {
   studentId: "00000000-0000-4000-8000-000000000011", enrolmentId: "00000000-0000-4000-8000-000000000012", classId: "00000000-0000-4000-8000-000000000013",
@@ -82,17 +82,23 @@ describe("certificate kinds", () => {
 });
 
 describe("certificate identity", () => {
-  it("defaults to a manual signature and stamps who allowed a facsimile", () => {
+  it("defaults to the printed signature and seal, and stamps who turned them back on (D-541)", () => {
     const before = cleanIdentity(null);
-    expect(before.signaturePolicy).toBe("manual");
-    const on = stampIdentity(before, { ...before, signaturePolicy: "facsimile" }, "staff-1", "2026-11-03T05:00:00Z");
+    expect(before.signaturePolicy).toBe("facsimile");
+    // The school's own default: nobody switched it on.
+    expect(before.facsimileEnabledBy).toBeNull();
+    const off = stampIdentity(before, { ...before, signaturePolicy: "manual" }, "staff-1", "2026-11-03T05:00:00Z");
+    expect(off.facsimileEnabledBy).toBeNull();
+    const on = stampIdentity(off, { ...off, signaturePolicy: "facsimile" }, "staff-1", "2026-11-03T05:00:00Z");
     expect(on.facsimileEnabledBy).toBe("staff-1");
     const kept = stampIdentity(on, { ...on, place: "Town", facsimileEnabledBy: "someone-else" }, "staff-2", "later");
     expect(kept.facsimileEnabledBy).toBe("staff-1");
     expect(stampIdentity(on, { ...on, signaturePolicy: "manual" }, "staff-2", "later").facsimileEnabledBy).toBeNull();
   });
-  it("refuses unsafe school codes", () => {
-    expect(cleanIdentity({ udiseCode: "<script>" }).udiseCode).toBe("");
+  it("refuses unsafe school codes, falling back to the official letterhead", () => {
+    const cleaned = cleanIdentity({ udiseCode: "<script>" });
+    expect(cleaned.udiseCode).not.toContain("<");
+    expect(cleaned).toEqual(DEFAULT_IDENTITY);
   });
 });
 

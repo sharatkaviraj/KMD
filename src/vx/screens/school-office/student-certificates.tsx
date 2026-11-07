@@ -6,10 +6,10 @@ import { dateLabel } from "@/vx/format";
 import { Btn, Pill } from "@/vx/ui/primitives";
 import { certificateKinds, type CertificateKind, type CertificateStatus } from "@/modules/certificates/domain/certificate";
 import { CertificateSheet } from "./certificate-sheet";
-import { CERTIFICATE_STATUS, KIND_LABELS, O } from "./text";
+import { KIND_LABELS, O, statusLabel } from "./text";
 import "./cert.css";
 
-type Row = { id: string; serial: string; status: CertificateStatus; kind?: CertificateKind; issuedAt?: string; ready?: boolean };
+type Row = { id: string; serial: string; status: CertificateStatus; kind?: CertificateKind; issuedAt?: string; ready?: boolean; signed?: boolean };
 const asKind = (value: string | null): CertificateKind | undefined => (certificateKinds as readonly string[]).includes(value ?? "") ? value as CertificateKind : undefined;
 
 /**
@@ -52,7 +52,7 @@ export function StudentCertificateTools({ studentId, studentName = "", sessionLa
           <strong style={{ display: "block", fontSize: 13.5 }}>{tx(KIND_LABELS[row.kind ?? "study"])}</strong>
           <span className="num" style={{ fontSize: 12, color: "var(--mut)", overflowWrap: "anywhere" }}>{row.serial}{row.issuedAt ? ` · ${tx(dateLabel(row.issuedAt))}` : ""}</span>
         </span>
-        <Pill tone={row.status === "issued" ? "ok" : row.status === "prepared" ? "warn" : "mut"}>{tx(CERTIFICATE_STATUS[row.status])}</Pill>
+        <Pill tone={row.status === "issued" ? "ok" : row.status === "prepared" ? "warn" : "mut"}>{tx(statusLabel(row.status, Boolean(row.signed)))}</Pill>
       </a>)}</div>
       : <p style={{ color: "var(--mut)", margin: 0 }}>{tx(O.noIssued)}</p>}
     <Btn href={`/school-office?student=${studentId}`}>{tx(O.openRegister)}</Btn>
