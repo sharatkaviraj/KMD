@@ -152,7 +152,7 @@
    Save marks, ...) sits on the keyboard instead: tabs lifted onto the keyboard covered
    "Save note" (smoke 6 Nov, teacher 17). */
 .vx-bottom{position:fixed;left:0;right:0;bottom:var(--keyboard-offset,0px);z-index:40;padding-bottom:env(safe-area-inset-bottom)}
-:root[data-kb] .vx-bottom{display:none}
+:root[data-kb] .vx-bottom{display:none!important}
 @media (max-width:899px){.vx-shell>.vx-side{display:none!important}}
 @media (min-width:900px){.vx-bottom{display:none!important}}
 /* Bottom-bar words at 12.5px, not 11px: they are the only signposts many staff read (UX review, 6 Nov 2026). */

@@ -2,7 +2,6 @@ import Link from "@/ui/link";
 import { getTranslations } from "next-intl/server";
 import { ArrowRight, IndianRupee, Phone, Receipt } from "lucide-react";
 
-import { MobileSessionPill } from "@/ui/shell/mobile-session-pill";
 import { ViewSwitcher } from "@/modules/dashboard/ui/view-switcher";
 import { MobileCommandTrigger } from "@/ui/command/mobile-command-trigger";
 import { ConnectionPill } from "@/ui/mobile/connection-pill";
@@ -17,7 +16,6 @@ import {
   MobileSectionCard,
   MobileStatStrip,
 } from "@/ui/mobile/mobile-kit";
-import type { AvailableSessionRow } from "@/modules/fees/platform/session-context/available-sessions";
 import type { DashboardView } from "@/modules/dashboard/data/analytics";
 import type { KpiDelta } from "@/modules/dashboard/domain/kpi-delta";
 import { computePaceToYearEnd } from "@/modules/dashboard/domain/mobile-derived";
@@ -61,9 +59,6 @@ type MobileDashboardScreenProps = {
    */
   greeting: string;
   dateLine: string;
-  sessionIsTest: boolean;
-  /** Preloaded so the pill opens instantly instead of fetching on tap. */
-  sessionOptions: AvailableSessionRow[];
   staffInitials: string;
   settingsHref: string;
   /** Due dates and expected amounts — what "Pace to year end" is measured against. */
@@ -93,8 +88,6 @@ export async function MobileDashboardScreen({
   canViewDefaulters,
   greeting,
   dateLine,
-  sessionIsTest,
-  sessionOptions,
   staffInitials,
   settingsHref,
   installmentSummary,
@@ -146,13 +139,10 @@ export async function MobileDashboardScreen({
         </div>
       </div>
 
-      {/* Session switching was in the removed app bar — it stays one tap away. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <MobileSessionPill
-          currentLabel={sessionLabel}
-          isTest={sessionIsTest}
-          initialSessions={sessionOptions}
-        />
+      {/* In One the shell's top bar carries the session pill on every screen; a
+          second one here showed two session pickers on Fees home (BrowserStack,
+          7 Nov 2026). */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <ConnectionPill />
       </div>
 

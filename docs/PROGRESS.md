@@ -1,5 +1,25 @@
 # VPPS One — progress
 
+## Every screen on a real phone and desktop — 7 November 2026
+
+Owner asked whether anyone had seen One's screens on BrowserStack, phone and
+desktop. Branch `claude/project-thread-gpn8c6`. **Done:** a new
+`QA_LOGIN_KEY` on Vercel (the old one was Sensitive and unreadable; the copy
+agents read is `/mnt/project-files/secrets/qa-login-key.txt`). A 390×844 crawl
+of 352 screens for all ten QA roles found one error: the defaulters PDF
+answered 500 for every money role (the export's student read put ~530 ids in
+one URL; chunked at 200 in PR 255, live, 585 rows now; same fix for Fees in
+schoolfees PR 148). A real Galaxy M32 found three more, fixed here: the tab
+bar rode on top of the keyboard (inline `display:grid` beat the `data-kb`
+rule, D-479), the accountant home opened the keyboard on arrival (D-478),
+Fees home showed two session pickers (D-480); Fee setup said "Inst 4–4".
+**Not fixable with QA accounts:** the roster status and "Refresh roster now"
+show only for real staff on the real session, and Dues/Fee setup/Reports
+show One's TEST copy rather than "Live from Fees" for test accounts.
+**Remains:** `/fees/dashboard`'s background dues preparation calls
+`cookies()` inside `after()` and logs "Unable to load school defaults";
+dates on Hindi screens still read "Wed 14 Oct".
+
 ## Language choice on Add staff — 7 November 2026
 
 Owner asked (7 Nov) that creating an account asks whether the app opens in

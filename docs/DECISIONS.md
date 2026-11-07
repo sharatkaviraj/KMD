@@ -1,5 +1,15 @@
 # Decisions
 
+## Real-device screen check — 7 November 2026
+
+Janmejay asked whether anyone had looked at One's screens on a real phone and a desktop through BrowserStack. A container crawl at 390×844 visited 352 screens across the ten QA roles, then a real Galaxy M32 (Chrome), an iPhone 15 (Safari) and Windows 11 (Chrome) were driven by hand.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-478 | **The accountant's home puts the cursor in "Find a student or family" only on a device with a mouse (`pointer: fine`)** | On a real Galaxy M32 the autofocus opened the keyboard the moment an accountant signed in, over half the screen and today's collection. A counter PC keeps the cursor on arrival (and Alt F); a phone user taps the box. |
+| D-479 | **`:root[data-kb] .vx-bottom` hides the tab bar with `!important`** | The bar's inline `display: grid` (bottom-bar.tsx) beat the non-important rule, so on Android the tabs rode on top of the keyboard and covered the middle of the screen; the 6 Nov fix for "Save note" was never in effect. |
+| D-480 | **Fees home (ported dashboard) no longer draws its own session pill** | One's shell already shows the session pill on every screen for every fee reader (`canSwitchSessions`), so Fees home showed two session pickers. The session list fetch it preloaded is dropped with it. |
+
 ## Language chosen when an account is made — 7 November 2026
 
 | Decision | Outcome | Evidence and reason |

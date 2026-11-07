@@ -57,6 +57,8 @@ function sheetOf(view: FeeSetupView): SheetName {
 }
 
 const range = (nos: number[]) => (nos.length === 0 ? "" : nos.length === 1 ? String(nos[0]) : `${nos[0]}–${nos[nos.length - 1]}`);
+/** "4–4" is one installment: say "4". */
+const span = (from: number, to: number) => (from >= to ? String(to) : `${from}–${to}`);
 const delay = (i: number) => `${Math.min(i, 14) * 30}ms`;
 const signed = (d: number) => `${d > 0 ? "+" : d < 0 ? "−" : ""}${rupees(Math.abs(d))}`;
 const digits = (v: string) => Math.max(0, Math.round(Number(v.replace(/\D/g, "")) || 0));
@@ -543,7 +545,7 @@ function StructureTab({
                     </span>
                     <span className="fs-c" style={{ alignItems: "flex-end" }}>
                       <span className="num fs-tt" style={{ color: t !== was ? "var(--accfg)" : "var(--fg)" }}>{rupees(t + draft.oldStudentAcademicFeeAmount)}</span>
-                      <span className="num fs-m">{equal ? `${per.length} × ${rupees(per[0] ?? 0)}` : `${tx(F.inst)} ${next}–${per.length}: ${rupees(per[next - 1] ?? 0)}`}</span>
+                      <span className="num fs-m">{equal ? `${per.length} × ${rupees(per[0] ?? 0)}` : `${tx(F.inst)} ${span(next, per.length)}: ${rupees(per[next - 1] ?? 0)}`}</span>
                     </span>
                     <Ic n="chevDown" style={{ color: "var(--sub)", transform: `rotate(${open ? 180 : 0}deg)`, transition: "transform .3s var(--spring)" }} />
                   </button>
@@ -692,7 +694,7 @@ function EditClassPanel({ row: feeRow, draft, base, students, paidNos, editable,
             <Ic n="users" size={14} style={{ marginTop: 2 }} />
             <span>
               {delta
-                ? `${tx(F.affects)} ${students} ${tx(F.students)} · ${signed(delta)} ${tx(F.eachThisYear)}${paidNos.length ? ` · ${tx(F.inst)} ${unpaidFrom}–${n}` : ""}`
+                ? `${tx(F.affects)} ${students} ${tx(F.students)} · ${signed(delta)} ${tx(F.eachThisYear)}${paidNos.length ? ` · ${tx(F.inst)} ${span(unpaidFrom, n)}` : ""}`
                 : tx(F.noChangeYet)}
             </span>
           </div>

@@ -4,7 +4,7 @@ import "./accounts.css";
 
 import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useSyncExternalStore, useTransition, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition, type CSSProperties } from "react";
 
 import { addToQueueAction, searchFamiliesAction, updateQueueAction } from "@/app/(app)/accounts/actions";
 import { remindAdminAction } from "@/app/(app)/accounts/books/actions";
@@ -219,6 +219,15 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, no
   const [searching, startSearch] = useTransition();
   const timer = useRef<number | null>(null);
   const seq = useRef(0);
+  const searchBox = useRef<HTMLInputElement>(null);
+
+  // The counter's first job is finding a family, so a desk with a mouse gets the
+  // cursor on arrival (Alt F brings it back). A phone does not: focusing opened the
+  // keyboard over half the screen the moment an accountant signed in (Galaxy M32,
+  // BrowserStack, 7 Nov 2026), hiding today's collection until it was dismissed.
+  useEffect(() => {
+    if (window.matchMedia("(pointer: fine)").matches) searchBox.current?.focus();
+  }, []);
 
   const onQ = (value: string) => {
     setQ(value);
@@ -303,8 +312,7 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, no
             <label className="ac-q ac-f">
               <Ic n="search" size={22} />
               <span className="sr">{tx(p("Find a student or family", "छात्र या परिवार खोजें"))}</span>
-              {/* The counter's first job is finding a family, so the box takes the cursor (Alt F brings it back). */}
-              <input type="search" autoFocus accessKey="f" value={q} onChange={(e) => onQ(e.target.value)} placeholder={tx(p("Name, SR no., father, phone", "नाम, SR नं., पिता, फ़ोन"))} autoComplete="off" />
+              <input ref={searchBox} type="search" accessKey="f" value={q} onChange={(e) => onQ(e.target.value)} placeholder={tx(p("Name, SR no., father, phone", "नाम, SR नं., पिता, फ़ोन"))} autoComplete="off" />
               {searching ? <Ic n="refresh" size={16} className="spin" /> : <span className="k only-d">Alt F</span>}
             </label>
             {hits === null ? (

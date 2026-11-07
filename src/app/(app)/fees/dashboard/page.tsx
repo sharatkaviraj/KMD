@@ -86,7 +86,6 @@ import { staffDisplayName, staffInitials } from "@/platform/helpers/staff-name";
 import { appendSessionParam } from "@/platform/navigation/session-href";
 import { ServerTimer } from "@/platform/observability/timing";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
-import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import {
   hasStaffPermission,
@@ -1733,9 +1732,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // aboveFold (needs the resolved session) and today's activity counts (need
   // only staff.id) are independent reads — run them concurrently rather than
   // chaining one after the other.
-  // sessionSwitcher preloaded so Home's pill opens with rows in hand rather
-  // than firing a request on tap. TTL-cached, so this costs nothing.
-  const [aboveFold, todayActivityCounts, sessionSwitcher] = await Promise.all([
+  const [aboveFold, todayActivityCounts] = await Promise.all([
     timer.measure("aboveFold", () =>
       getDashboardAboveFoldData({
         staffRole: staff.appRole,
@@ -1745,7 +1742,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     typeof staff?.id === "string"
       ? timer.measure("todayActivityCounts", () => getTodayActivityCounts(staff.id))
       : Promise.resolve({}),
-    getSessionSwitcherData(),
   ]);
   const canWriteStudents = hasStaffPermission(staff, "students:write");
   const canPostPayments = hasStaffPermission(staff, "payments:write");
@@ -1966,8 +1962,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             canViewDefaulters={hasStaffPermission(staff, "defaulters:view")}
             greeting={mobileGreeting}
             dateLine={`${formatShortDate(new Date())} · ${viewSession.sessionLabel}`}
-            sessionIsTest={viewSession.isTest}
-            sessionOptions={sessionSwitcher.availableSessions}
             staffInitials={mobileInitials}
             settingsHref={withSession("/fees/settings")}
             installmentSummary={aboveFold.installmentSummary}
