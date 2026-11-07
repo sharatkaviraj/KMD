@@ -162,7 +162,7 @@ export function TeachMore({
     timetable: [tx(p("More · Timetable", "और · समय-सारणी")), p("My timetable", "मेरी समय-सारणी"), tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`))],
     leave: [tx(p("More · Leave", "और · छुट्टी")), p("My leave", "मेरी छुट्टियाँ"), tx(p(`${data.leave.filter((l) => l.status === "asked").length} waiting for approval`, `${data.leave.filter((l) => l.status === "asked").length} मंज़ूरी बाकी`))],
     help: [tx(p("More · Help", "और · मदद")), p("Help", "मदद"), tx(p("How do I…", "कैसे करें…"))],
-    profile: [tx(p("More · My profile", "और · मेरी प्रोफ़ाइल")), p("My profile", "मेरी प्रोफ़ाइल"), tx(p("Language, text size, dark mode", "भाषा, आकार, डार्क मोड"))],
+    profile: [tx(p("More · My profile", "और · मेरी प्रोफ़ाइल")), p("My profile", "मेरी प्रोफ़ाइल"), tx(p("Language, text size, sounds", "भाषा, आकार, आवाज़"))],
   };
   const [crumb, titleP, mSub] = T[current];
   const openHelp = () => { setTopic(helpFor[current] ?? topic); go("help"); };
@@ -192,7 +192,7 @@ export function TeachMore({
     { k: "tt", icon: "clock", t: p("Timetable", "समय-सारणी"), info: tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`)), tone: TS, onClick: () => go("timetable") },
     { k: "leave", icon: "calendar", t: p("My leave", "मेरी छुट्टी"), info: asked ? tx(p(`${asked} waiting for the office`, `${asked} पर ऑफ़िस का जवाब बाकी`)) : tx(p("See your requests or ask for leave", "अपने अनुरोध देखें या छुट्टी माँगें")), tone: TW, onClick: () => go("leave") },
     { k: "help", icon: "help", t: p("Help", "मदद"), info: tx(p("How do I…", "कैसे करें…")), tone: TO, onClick: () => go("help") },
-    { k: "me", icon: "user", t: p("My profile", "मेरी प्रोफ़ाइल"), info: tx(p("Language, text size", "भाषा, अक्षर का आकार")), tone: TS, onClick: () => go("profile") },
+    { k: "me", icon: "user", t: p("My profile", "मेरी प्रोफ़ाइल"), info: tx(p("Language, text size, sounds", "भाषा, अक्षर का आकार, आवाज़")), tone: TS, onClick: () => go("profile") },
   ];
   const tileBody = (t: Tile) => (
     <>
