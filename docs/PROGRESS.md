@@ -19,7 +19,14 @@ on the child's page with Send to parent (the phone's share list) and Download,
 and her requests on Today, drawn on the server so the teacher's first screen
 carries no extra JavaScript (the /teach/attendance budget had only bytes to
 spare). Migrations `…_certificate_requests.sql` and
-`…_certificate_requests_role_permissions.sql`; PGlite test in CI. **Remains:**
+`…_certificate_requests_role_permissions.sql`; PGlite test in CI. **Checked
+live** (one.vpps.co.in, TEST-2026-27, QA teacher2 on a phone-sized window and
+QA admin on a desk): two asks from a child's page, both in "Asked by
+teachers", Approve and sign made `TEST/VPPS/STUDY/TEST-2026-27/0001` in about
+4 s, a decline reached the teacher with its reason, her Today card drew in
+about 2 s, and the downloaded PDF (208 KB) is one A4 page with the letterhead,
+seal and signature. That check found a declined request listed above the
+signed one on Today; a signed copy now always comes first. **Remains:**
 the principal's name is printed only once someone types it in Certificate
 settings; the five real certificates issued before today stay hand-signed;
 the letterhead's address (Opposite Mela Ground, 313330) differs from the

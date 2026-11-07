@@ -27,6 +27,8 @@ const TILE: Record<RequestStage, { background: string; color: string }> = {
   gone: { background: "var(--s2)", color: "var(--mut)" },
 };
 const SHOWN = 5;
+// What she can act on first: a signed copy to send, then what is still with the office.
+const RANK: Record<RequestStage, number> = { ready: 0, waiting: 1, declined: 2, gone: 3 };
 
 export async function MyCertificateRequestsToday({ sessionLabel, language }: { sessionLabel: string; language: Language }) {
   const { previewing } = await getViewer();
@@ -39,7 +41,8 @@ export async function MyCertificateRequestsToday({ sessionLabel, language }: { s
   }
   if (!rows.length) return null;
   const say = (pair: Pair) => lead(pair, language);
-  const ready = rows.filter((row) => requestStage(row) === "ready").length;
+  const listed = rows.map((row) => ({ row, stage: requestStage(row) })).sort((a, b) => RANK[a.stage] - RANK[b.stage]);
+  const ready = listed.filter((item) => item.stage === "ready").length;
   const second = under(R.mine, language);
 
   return (
@@ -52,8 +55,7 @@ export async function MyCertificateRequestsToday({ sessionLabel, language }: { s
         </span>
         {ready ? <Pill tone="ok">{ready} · {say(STAGE.ready.label)}</Pill> : null}
       </div>
-      {rows.slice(0, SHOWN).map((row, index) => {
-        const stage = requestStage(row);
+      {listed.slice(0, SHOWN).map(({ row, stage }, index) => {
         const status = stage === "waiting" ? `${say(STAGE.waiting.label)} · ${say(R.asked)} ${say(dateLabelP(row.requestedAt))}`
           : stage === "ready" ? say(R.openReady)
           : stage === "declined" ? [say(STAGE.declined.label), row.declineReason].filter(Boolean).join(": ")
