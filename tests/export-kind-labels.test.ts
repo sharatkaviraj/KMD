@@ -4,7 +4,8 @@ import { exportKinds, exportKindLabels, type ExportKind } from "@/modules/assess
 import { primary } from "@/platform/i18n/language";
 
 const migration = readFileSync("supabase/migrations/20261004123341_export_kinds_for_workbooks.sql", "utf8");
-const workbookKinds = [...migration.matchAll(/add value if not exists '([^']+)'/g)].map(match => match[1]);
+const aiReport = readFileSync("supabase/migrations/20261107045020_ai_report_export_kind.sql", "utf8");
+const workbookKinds = [...`${migration}\n${aiReport}`.matchAll(/add value if not exists '([^']+)'/g)].map(match => match[1]);
 describe("export log after workbook exports", () => {
   for (const kind of workbookKinds) {
     it(`renders the database's ${kind} kind in Hindi and English`, () => {

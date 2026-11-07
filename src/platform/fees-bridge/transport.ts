@@ -74,15 +74,77 @@ export async function bridgePhotoRequest(options: {
   return {bytes: bytes.buffer, contentType};
 }
 
+const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+/** Fees refuses a workbook over 4.3 MB; a response cannot pass 4.5 MB anyway. */
+const WORKBOOK_LIMIT = 4_500_000;
+/**
+ * The AI report's Fees half: Fees' whole-session AI context workbook, as
+ * bytes. Read-only. Long by nature (Fees reads the whole year), so it waits
+ * up to 115 s, under the 120 s both routes are given.
+ */
+export async function bridgeWorkbookRequest(options: {
+  sessionLabel: string; token: string; key: string; origin?: string; fetcher?: typeof fetch;
+}): Promise<{ bytes: Uint8Array<ArrayBuffer>; sessionLabel: string; asOf: string }> {
+  const session = z.string().regex(/^\d{4}-\d{2}$/).parse(options.sessionLabel);
+  const origin = feesBridgeOrigin({ FEES_BRIDGE_ORIGIN: options.origin });
+  if (!options.token || !options.key) throw new FeesBridgeError("not_configured", "The live Fees connection is not configured.");
+  const started = Date.now();
+  let status = 0;
+  try {
+    let response: Response;
+    try {
+      response = await (options.fetcher ?? globalThis.fetch)(`${origin}/api/one/v1/screens/reports/ai-context?${new URLSearchParams({ session })}`, {
+        method: "GET", headers: { Authorization: `Bearer ${options.token}`, "X-One-Bridge-Key": options.key, Accept: XLSX_TYPE },
+        cache: "no-store", redirect: "error", signal: AbortSignal.timeout(115_000),
+      });
+    } catch { throw new FeesBridgeError("unavailable", "The Fees workbook could not be read."); }
+    status = response.status;
+    if (!response.ok) {
+      let code: string | undefined;
+      try { code = z.object({ error: z.object({ code: z.string() }) }).parse(await response.json()).error.code; } catch { code = undefined; }
+      throw new FeesBridgeError(code ?? (status === 401 ? "unauthorized" : status === 403 ? "forbidden" : status === 404 ? "not_found" : status === 413 ? "too_large" : "unavailable"),
+        "The Fees workbook could not be read.");
+    }
+    if (response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== XLSX_TYPE || Number(response.headers.get("content-length") ?? 0) > WORKBOOK_LIMIT) {
+      await response.body?.cancel().catch(() => {});
+      throw new FeesBridgeError("invalid_response", "The Fees workbook response is not supported.");
+    }
+    const reader = response.body?.getReader();
+    if (!reader) throw new FeesBridgeError("invalid_response", "The Fees workbook is empty.");
+    const chunks: Uint8Array[] = []; let size = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read(); if (done) break;
+        size += value.byteLength;
+        if (size > WORKBOOK_LIMIT) throw new FeesBridgeError("too_large", "The Fees workbook is too large.");
+        chunks.push(value);
+      }
+    } finally { await reader.cancel().catch(() => {}); }
+    const bytes = new Uint8Array(size); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    // An .xlsx is a zip: "PK\x03\x04".
+    if (!(bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04)) {
+      throw new FeesBridgeError("invalid_response", "The Fees workbook is not a workbook.");
+    }
+    const answered = response.headers.get("x-one-session") ?? "";
+    if (answered !== session) throw new FeesBridgeError("invalid_response", "The Fees workbook did not match this session.");
+    return { bytes, sessionLabel: answered, asOf: response.headers.get("x-one-as-of") ?? "" };
+  } finally {
+    logBridgeTiming("GET", "/screens/reports/ai-context", status, Date.now() - started);
+  }
+}
+
 /** Small explicit HTTP contract. Never expose a SQL, RPC name or remote URL parameter. */
 export async function bridgeRequest<T>(options: {
   path: string; token: string; key: string; schema: z.ZodType<T>; body?: unknown;
   origin?: string; fetcher?: typeof fetch;
+  /** A read that is slow by nature (a page of photographs) may wait longer than the usual 15 s. */
+  timeoutMs?: number;
 }): Promise<T> {
   const {path,token,key,schema,body} = options;
   // Every route One may call, and nothing else. Office reads (Fees 20261103170000) and
   // office commands (Fees 20261103190000) were missing here, so they failed before leaving One.
-  if (!/^\/(?:students(?:\/[0-9a-f-]+(?:\/(?:workspace|fees|receipts|ledger|finance-history|household|history))?)?|directory(?:\/lookup)?|sessions|classes|quote|payments|commands\/[0-9a-f-]+|receipts\/[0-9a-f-]+(?:\/detail)?|summary\/today|requests\/pending|receipts\/lookup|receipts|screens\/(?:dues(?:\/(?:family|people))?|fee-setup|reports\/(?:balances|receipts|daybook))|reversals|refunds\/[0-9a-f-]+\/(?:decision|process))(?:\?[^#]*)?$/i.test(path)) {
+  if (!/^\/(?:students(?:\/[0-9a-f-]+(?:\/(?:workspace|fees|receipts|ledger|finance-history|household|history))?)?|directory(?:\/lookup)?|sessions|classes|quote|payments|commands\/[0-9a-f-]+|receipts\/[0-9a-f-]+(?:\/detail)?|summary\/today|requests\/pending|receipts\/lookup|receipts|screens\/(?:dues(?:\/(?:family|people))?|fee-setup|reports\/(?:balances|receipts|daybook|ai-photos))|reversals|refunds\/[0-9a-f-]+\/(?:decision|process))(?:\?[^#]*)?$/i.test(path)) {
     throw new FeesBridgeError("invalid_route", "The Fees connection route is not permitted.");
   }
   // A command that moves money or decides a request: a lost or unreadable answer may have committed.
@@ -104,7 +166,7 @@ export async function bridgeRequest<T>(options: {
         method:body === undefined ? "GET" : "POST",
         headers:{Authorization:`Bearer ${token}`,"X-One-Bridge-Key":key,"Content-Type":"application/json"},
         body:body === undefined ? undefined : JSON.stringify(body),
-        cache:"no-store",redirect:"error",signal:AbortSignal.timeout(body === undefined ? 15_000 : 45_000),
+        cache:"no-store",redirect:"error",signal:AbortSignal.timeout(options.timeoutMs ?? (body === undefined ? 15_000 : 45_000)),
       });
     } catch {
       throw new FeesBridgeError("unavailable", "The Fees connection could not confirm the result.", command);

@@ -118,3 +118,21 @@ export const bridgeReportDaybookSchema = z.object({
   })),
 });
 export type BridgeReportDaybook = z.infer<typeof bridgeReportDaybookSchema>;
+
+// The AI report (7 Nov 2026): one page of student photographs, at most 40 and
+// about 2 MB of image bytes, with the children whose photograph could not be
+// read. Base64 because the page is JSON; One passes it to the browser as is.
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const bridgeAiPhotosSchema = z.object({
+  ...pins,
+  photos: z.array(z.object({
+    studentId: z.uuid(), admissionNo: nullableText, fullName: text, classLabel: text, status: text,
+    contentType: z.enum(PHOTO_TYPES),
+    // 512 KiB is Fees' cap on a stored photograph; as base64 that is 699,052 characters.
+    data: z.string().min(4).max(700_000).regex(/^[A-Za-z0-9+/]+={0,2}$/),
+  })).max(40),
+  skipped: z.array(z.object({ studentId: z.uuid(), admissionNo: nullableText, fullName: text, reason: z.enum(["missing", "unreadable"]) })).max(41),
+  next: z.uuid().nullable(),
+  total: count.nullable(),
+});
+export type BridgeAiPhotos = z.infer<typeof bridgeAiPhotosSchema>;

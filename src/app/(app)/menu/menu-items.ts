@@ -56,6 +56,7 @@ const ADMIN: MenuGroup[] = [
       t("reminders", "Fee reminders", "फीस रिमाइंडर", "bell", "/reminders", "fees:view"),
       t("approvals", "Approvals & refunds", "स्वीकृति व रिफंड", "undo", "/inbox", "attendance:correct"),
       t("reports", "Reports", "रिपोर्ट", "chart", "/reports", "fees:reports"),
+      t("aireport", "AI report", "AI रिपोर्ट", "database", "/reports/ai", "reports:ai"),
       t("transport", "Transport", "परिवहन", "bus", "/students?view=fees&seg=bus", "fees:view"),
     ],
   },

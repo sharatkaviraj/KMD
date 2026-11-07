@@ -86,6 +86,12 @@ export const staffPermissions = [
   "marks:view",
   "marks:write",
   "reports:view",
+  // The AI report (owner, 7 Nov 2026): one file of everything One and Fees
+  // hold for a session, student photographs included, for staff to give to
+  // an AI assistant. The admin's alone until Staff → Roles grants it to a
+  // role; what it carries is narrowed again to what the reader may already
+  // see (src/modules/ai-report), so a grant never opens more than that.
+  "reports:ai",
 
   // The student directory (R2.3).
   //

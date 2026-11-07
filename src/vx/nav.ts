@@ -68,6 +68,8 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "online", label: L("Online payments", "ऑनलाइन भुगतान"), icon: "globe", href: "/fees/payments/online", permission: "fees:accounts" },
         { key: "feesetup", label: L("Fee setup", "फीस ढाँचा"), icon: "sliders", href: "/fee-setup", permission: "fees:view" },
         { key: "reports", label: L("Reports", "रिपोर्ट"), icon: "chart", href: "/reports", permission: "fees:reports" },
+        // The whole year in one file for ChatGPT (7 Nov 2026); admin's alone until Staff → Roles gives it.
+        { key: "aireport", label: L("AI report", "AI रिपोर्ट"), icon: "database", href: "/reports/ai", permission: "reports:ai" },
       ],
     },
     {
@@ -128,6 +130,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "books", label: L("Cheques, UPI & refunds", "चेक व यूपीआई"), icon: "swap", href: "/accounts/books", permission: "fees:view", badge: "books" },
         { key: "online", label: L("Online payments", "ऑनलाइन भुगतान"), icon: "globe", href: "/fees/payments/online", permission: "fees:accounts" },
         { key: "reports", label: L("Reports", "रिपोर्ट"), icon: "chart", href: "/reports", permission: "fees:reports" },
+        { key: "aireport", label: L("AI report", "AI रिपोर्ट"), icon: "database", href: "/reports/ai", permission: "reports:ai" },
         { key: "feesetup", label: L("Fee setup (view)", "फीस ढाँचा"), icon: "sliders", href: "/fee-setup", permission: "fees:view" },
       ],
     },
@@ -147,6 +150,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "timetable", label: L("Timetable", "समय सारणी"), icon: "clock", href: "/timetable", permission: "timetable:view" },
         { key: "calendar", label: L("Calendar", "कैलेंडर"), icon: "calendar", href: "/calendar", permission: "academics:view" },
         { key: "messages", label: L("Notices", "सूचनाएँ"), icon: "megaphone", href: "/messages", permission: "messages:send" },
+        { key: "aireport", label: L("AI report", "AI रिपोर्ट"), icon: "database", href: "/reports/ai", permission: "reports:ai" },
       ],
     },
   ],
@@ -161,6 +165,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "officialresults", label: L("Official results", "आधिकारिक परिणाम"), icon: "award", href: "/exam-office/official-results", permission: "outcomes:view" },
         { key: "calendar", label: L("Calendar", "कैलेंडर"), icon: "calendar", href: "/calendar", permission: "academics:view" },
         { key: "messages", label: L("Notices", "सूचनाएँ"), icon: "megaphone", href: "/messages", permission: "messages:send" },
+        { key: "aireport", label: L("AI report", "AI रिपोर्ट"), icon: "database", href: "/reports/ai", permission: "reports:ai" },
       ],
     },
   ],

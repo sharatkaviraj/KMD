@@ -632,6 +632,7 @@ function redesign(): RouteExpectation[] {
     row("/reminders", FEE_READERS, "Fee reminders are drafted from the dues list by the fee desk."),
     row("/fee-setup", FEE_READERS, "Fee setup is read by the fee desk; changing it stays admin-only inside the screen."),
     row("/reports", FEE_READERS, "Money reports belong to the fee desk and the office."),
+    row("/reports/ai", ["admin"], "The AI report is one file of everything One and Fees hold for a year, Aadhaar, notes and photos included: the admin's until Staff → Roles gives it to someone (owner, 7 Nov 2026)."),
     row("/accounts", FEE_READERS, "The accountant's home: the day's money at a glance."),
     row("/accounts/books", FEE_READERS, "The books: ledger and day closes, read-only for the fee desk."),
     row(

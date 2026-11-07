@@ -10,7 +10,7 @@ import {
   bridgeStudentLedgerSchema, bridgeStudentReceiptsSchema, type BridgeWorkspace,
 } from "./student-read-contracts";
 import { composeStudentView } from "./student-view";
-import { bridgeDuesFamilySchema, bridgeDuesPeopleSchema, bridgeDuesSchema, bridgeFeeSetupSchema,
+import { bridgeAiPhotosSchema, bridgeDuesFamilySchema, bridgeDuesPeopleSchema, bridgeDuesSchema, bridgeFeeSetupSchema,
   bridgeReportBalancesSchema, bridgeReportDaybookSchema, bridgeReportReceiptsSchema } from "./screen-read-contracts";
 import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import {
@@ -20,7 +20,7 @@ import {
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { oneStudentReadPermissions, permittedFinanceKinds, restrictStudentWorkspace } from "./read-permissions";
 import { assertBridgeSession, feesBridgeOrigin, feesBridgeWritesEnabled, usesCanonicalFees } from "./policy";
-import { bridgeDocumentRequest, bridgePhotoRequest, bridgeRequest, FeesBridgeError } from "./transport";
+import { bridgeDocumentRequest, bridgePhotoRequest, bridgeRequest, bridgeWorkbookRequest, FeesBridgeError } from "./transport";
 import {
   commandSchema, postedPaymentSchema, postInputSchema, quoteInputSchema, studentDetailSchema,
   quoteSchema, receiptSchema, sessionsSchema, studentListSchema,
@@ -278,6 +278,25 @@ export async function getBridgeReportDaybook(sessionLabel: string, date: string)
   const staff = await assertPermission("fees:view");
   return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
     path:`/screens/reports/daybook?${new URLSearchParams({session:sessionLabel,date})}`,schema:bridgeReportDaybookSchema}),sessionLabel,"day book");
+}
+
+/**
+ * The AI report's Fees half: Fees' whole-session AI context workbook (in Fees
+ * the person needs reports:view, students:view and finance:view). One asks
+ * for "See fee reports" first; the caller has already asked for reports:ai.
+ */
+export async function getBridgeAiContextWorkbook(sessionLabel: string) {
+  const staff = await assertPermission("fees:reports");
+  return bridgeWorkbookRequest({...(await credentials(staff,sessionLabel)),sessionLabel});
+}
+
+/** The AI report's photographs, one page at a time (students:view here and in Fees). */
+export async function getBridgeAiPhotos(sessionLabel: string, after: string | null) {
+  const staff = await assertPermission("students:view");
+  const params = new URLSearchParams({session:sessionLabel});
+  if (after) params.set("after", z.uuid().parse(after));
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
+    path:`/screens/reports/ai-photos?${params}`,schema:bridgeAiPhotosSchema,timeoutMs:55_000}),sessionLabel,"photographs");
 }
 
 export async function listBridgeStudents(sessionLabel: string, query = "", cursor: string | null = null) {
