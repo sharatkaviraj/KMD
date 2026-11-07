@@ -53,9 +53,15 @@ to my view; Windows 11 Chrome — sidebar Choose a person, See as QA Accountant
 found the sidebar's sliding highlight drawn over "Choose a person" while the
 picker was open (the highlight is positioned; that line was not, unlike every
 other menu line). **Fixed** with `position: relative`; and "See the app as" a
-role (sidebar, Menu tiles, its banner) now also pushes once without a refresh
-(its banner is sticky, so the router's own scroll keeps it in view), and that
-banner reads in the admin's language.
+role (sidebar, Menu tiles, its banner) now also pushes once without a refresh,
+and that banner reads in the admin's language. On the branch preview at phone
+width, Menu → Teacher showed the teacher's screen in 3.7 s (6.0 s live before,
+which fetched `/teach` twice) and Back to admin took 4.0 s (5.0 s). That run also
+showed a role opening part-way down, live too: the router keeps the old scroll
+whenever the new screen's top is still on screen, and the banner pushes it into
+view, so the session bar, the header and Help sat above the fold. The role
+banner now scrolls to the top as it first appears (a layout effect, before
+paint).
 
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 

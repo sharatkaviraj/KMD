@@ -401,6 +401,14 @@ describe("moving into and out of a view", () => {
     }
   });
 
+  it("opens a role at the very top too, as its banner first appears", () => {
+    // From the Menu's tiles the router kept the Menu's scroll (the new screen's
+    // top was still on screen), which hid the teacher's header and Help.
+    expect(src("src/vx/shell/preview-banner.tsx")).toMatch(
+      /useLayoutEffect\(\(\) => \{\n\s*window\.scrollTo\(\{ top: 0, behavior: "instant" \}\);\n\s*\}, \[\]\);/,
+    );
+  });
+
   it("keeps the sidebar's See the app as lines above its sliding highlight", () => {
     expect(src("src/vx/shell/preview-links.tsx")).toMatch(/style=\{\{ position: "relative",/);
   });

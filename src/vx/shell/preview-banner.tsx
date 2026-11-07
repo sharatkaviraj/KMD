@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useLayoutEffect, useTransition } from "react";
 
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -20,6 +20,14 @@ export function PreviewBanner({ label }: { label: Pair }) {
   const { tx } = useVx();
   const router = useRouter();
   const [pending, start] = useTransition();
+  // The banner first appears with the role's first screen. The router keeps the
+  // old scroll whenever that screen's top is still on screen, and the banner
+  // pushes it down into view, so a role opened from the Menu's tiles landed
+  // part-way down with the header and Help above the fold. Before paint, so
+  // that never shows; instant, because the page otherwise scrolls smoothly.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
   return (
     <div className="vx-preview" role="status">
       <Ic n="eye" size={16} />
