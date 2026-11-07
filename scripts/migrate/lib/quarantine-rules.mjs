@@ -151,6 +151,7 @@ export const TABLES = {
   staff_ui_preferences: { bucket: "K", why: "per-person UI preferences" },
   staff_authority_changes: { bucket: "K", why: "staff audit trail" },
   role_permission_changes: { bucket: "K", why: "permission audit trail" },
+  view_as_log: { bucket: "K", why: "administrator view-as audit trail (D-544): staff ids only, no pupil data" },
   staff_photos: { bucket: "K", why: "staff photos (by profile)" },
   // ---------------------------------------------------------------- R
   enrolments: { bucket: "R", why: "rebuilt from public.students after the load (rebuild-enrolments.mjs)" },

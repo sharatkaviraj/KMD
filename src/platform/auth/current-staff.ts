@@ -1,14 +1,18 @@
 import "server-only";
 
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { hasRequiredEnvVars } from "@/platform/env";
-import { resolveLanguage, type Language } from "@/platform/i18n/language";
+import { rethrowNextSignal } from "@/platform/helpers/next-signals";
+import { isLanguage, resolveLanguage, type Language } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
+import { readViewAsPerson, VIEW_AS_LANGUAGE_COOKIE, VIEW_AS_PERSON_COOKIE } from "@/platform/auth/view-as-cookie";
+import { resolvingStaff } from "@/platform/auth/staff-resolution-context";
 import {
   can,
   canAny,
@@ -63,6 +67,22 @@ export type CurrentStaff = {
   isTestAccount?: boolean;
   /** True on a confined deployment (Preview, local), for every account: the shell says so. */
   confined?: boolean;
+  /**
+   * Set only while an administrator sees One as this person (D-544): the
+   * administrator who is looking, who is the one actually signed in. This
+   * object is then the *chosen* person — their role, permissions, classes and
+   * language — so every screen draws what they would see. Nothing may be
+   * saved while it is set: `assertNotPreviewing()` refuses, and so do the
+   * data clients themselves (`platform/supabase/view-as-guard.ts`). Anything
+   * that speaks for the signed-in person to another system (the Fees bridge's
+   * token) uses `viewedBy`, never this object's `userId`.
+   */
+  viewedBy?: CurrentStaff;
+  /**
+   * With `viewedBy`: the chosen person's own language. `language` is what the
+   * view is shown in, which the administrator may switch without saving it.
+   */
+  ownLanguage?: Language;
 };
 
 type StaffProfileRow = {
@@ -104,8 +124,13 @@ export type CurrentStaffResult =
  * whenever a shared cache decides. The fee app trades that for a 60-second
  * data cache because it serves far more traffic; this app has a few dozen
  * users, so the simpler thing is also the correct thing.
+ *
+ * Inside `resolvingStaff`: these reads answer "who is this?", so the view-as
+ * lock (D-544) lets them through untouched rather than asking it again.
  */
-const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
+const readSignedInStaff = cache((): Promise<CurrentStaffResult> => resolvingStaff(readSignedInStaffNow));
+
+async function readSignedInStaffNow(): Promise<CurrentStaffResult> {
   if (!hasRequiredEnvVars) {
     return { staff: null, reason: "signed-out" };
   }
@@ -185,7 +210,48 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
   }
 
   return { staff, reason: null };
-});
+}
+
+/**
+ * The staff member this request is *for*: the signed-in person, or — while an
+ * administrator sees One as a chosen member of staff (D-544) — that person,
+ * with `viewedBy` set to the administrator.
+ *
+ * Only an active administrator's request even looks at the cookie, so every
+ * other account keeps the exact existing path. A cookie that does not resolve
+ * (set by somebody else, a person who has left, a failed read) is ignored and
+ * the administrator simply sees their own screens, which is never a leak and
+ * never a write as anybody else.
+ */
+const readCurrentStaff = cache((): Promise<CurrentStaffResult> =>
+  resolvingStaff(async () => {
+    const signedIn = await readSignedInStaff();
+    const actor = signedIn.staff;
+    if (!actor || actor.role !== "admin" || actor.smokeLab) return signedIn;
+    const chosen = readViewAsPerson(await viewAsCookieValue(VIEW_AS_PERSON_COOKIE));
+    if (!chosen) return signedIn;
+    try {
+      const { loadViewAsSubject } = await import("@/platform/auth/view-as-subject");
+      const shown = await viewAsCookieValue(VIEW_AS_LANGUAGE_COOKIE);
+      const subject = await loadViewAsSubject(actor, chosen, (flag) => testAccountFlags(flag), {
+        language: shown && isLanguage(shown) ? shown : null,
+      });
+      return subject ? { staff: subject, reason: null } : signedIn;
+    } catch {
+      return signedIn;
+    }
+  }),
+);
+
+/** A view-as cookie, or null outside a request (a cron, a test, a cached scope). */
+async function viewAsCookieValue(name: string): Promise<string | null> {
+  try {
+    return (await cookies()).get(name)?.value || null;
+  } catch (error) {
+    rethrowNextSignal(error);
+    return null;
+  }
+}
 
 /**
  * The profile's own flag, widened by the deployment: on a confined deployment
@@ -242,6 +308,16 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
 /** Same, but says why when there is nobody — for the screen that explains it. */
 export async function getCurrentStaffResult(): Promise<CurrentStaffResult> {
   return readCurrentStaff();
+}
+
+/**
+ * The person actually signed in, never the one an administrator is looking
+ * as (D-544). For the few places that must speak for the real person: the
+ * view-as switch itself, its banner and log, and the Fees bridge's token.
+ */
+export async function getSignedInStaff(): Promise<CurrentStaff | null> {
+  const { staff } = await readSignedInStaff();
+  return staff;
 }
 
 /**
@@ -314,6 +390,21 @@ export async function requireAnyPermission(
  */
 export async function assertStaff(): Promise<CurrentStaff> {
   const { staff } = await readCurrentStaff();
+
+  if (!staff) {
+    throw new Error("Not signed in.");
+  }
+
+  return staff;
+}
+
+/**
+ * Top of a server action that must act as the person actually signed in —
+ * never the person an administrator is looking as (D-544): starting or ending
+ * a view, and nothing else. Throws, like `assertStaff`, when nobody is.
+ */
+export async function assertSignedInStaff(): Promise<CurrentStaff> {
+  const staff = await getSignedInStaff();
 
   if (!staff) {
     throw new Error("Not signed in.");

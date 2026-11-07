@@ -5,17 +5,15 @@ import { schoolBrand } from "@/platform/config/school-brand";
 import Link from "next/link";
 import ScreenLink from "@/ui/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransition } from "react";
+import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { activeKey, type BadgeKey, type NavGroup } from "@/vx/nav";
-import type { Pair } from "@/vx/text";
 import { Avatar } from "@/vx/ui/primitives";
 
-import { setViewAsAction } from "./view-as-actions";
 import "./shell.css";
 
 export type Me = { photo?: string | null; initials: string; name: string; sub: string; href: string; color: string };
@@ -53,14 +51,19 @@ function subscribeCollapse(cb: () => void) {
 
 const noSubscribe = () => () => {};
 
-export type PreviewMenu = { key: string; label: Pair; icon: "grad" | "rupee" | "trend" | "award" };
+/** Whether the desktop sidebar is drawn as icons only (the window's width, or the person's choice). */
+export function useSideCollapsed(): boolean {
+  return useSyncExternalStore(subscribeCollapse, readCollapsed, () => false);
+}
 
 /**
  * The desktop sidebar, as the design's shared `XSide.dc.html` draws it for
  * every role: brand, grouped nav (Hindi beside a group's name when the reader
- * reads both), red badges, "See the app as" for the admin, and the signed-in
- * person at the foot. Nothing else sits in the footer: theme and language are
- * on Settings, the teacher's More and the Menu page, where the design puts them.
+ * reads both), red badges, "See the app as" for the admin (`preview`, which
+ * the shell loads only for an administrator: `./preview-links.tsx`), and the
+ * signed-in person at the foot. Nothing else sits in the footer: theme and
+ * language are on Settings, the teacher's More and the Menu page, where the
+ * design puts them.
  *
  * Collapsing to icons follows the window (≤1200px, D09-Laptop). The manual
  * collapse is a small edge button that shows on hover or keyboard focus, so it
@@ -74,7 +77,7 @@ export function VxSidebar({
   home,
   badges,
   teacherSized,
-  previewMenus,
+  preview,
   previewing,
 }: {
   groups: NavGroup[];
@@ -86,12 +89,13 @@ export function VxSidebar({
   home: string;
   badges: Promise<Badges>;
   teacherSized: boolean;
-  previewMenus: PreviewMenu[];
+  /** "See the app as", the admin's only (`PreviewLinks`). */
+  preview?: ReactNode;
   previewing: string | null;
 }) {
   const pathname = usePathname() ?? "/";
   const { tx, sub } = useVx();
-  const collapsed = useSyncExternalStore(subscribeCollapse, readCollapsed, () => false);
+  const collapsed = useSideCollapsed();
   const search = useSearchParams();
   const active = activeKey(groups, pathname, search);
   const nav = useRef<HTMLElement>(null);
@@ -220,20 +224,7 @@ export function VxSidebar({
             })}
           </div>
         ))}
-        {previewMenus.length ? (
-          <div>
-            {collapsed ? (
-              <div aria-hidden="true" style={{ height: 28 }} />
-            ) : (
-              <div style={{ height: 28, padding: "10px 12px 0", fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--navm)" }}>
-                {tx({ en: "See the app as", hi: "दूसरे रूप में देखें" })}
-              </div>
-            )}
-            {previewMenus.map((m) => (
-              <PreviewLink key={m.key} menu={m.key} label={tx(m.label)} icon={m.icon} collapsed={collapsed} on={previewing === m.key} />
-            ))}
-          </div>
-        ) : null}
+        {preview}
       </nav>
         {/* For the mouse: the keyboard brings each item into view by itself. */}
         <button type="button" className="tap vx-side-more" tabIndex={-1} aria-hidden="true" title={moreLabel} onClick={() => nav.current?.scrollBy({ top: nav.current.clientHeight * 0.7 })}>
@@ -272,31 +263,6 @@ function NavBadge({ badges, k, dot }: { badges: Promise<Badges>; k: BadgeKey; do
     <span className="pill num" aria-label={`${n} waiting`} style={{ minWidth: 22, justifyContent: "center", background: "#E05252", color: "#FFFFFF", animation: "xPopIn .45s var(--spring) both" }}>
       {n > 99 ? "99+" : n}
     </span>
-  );
-}
-
-function PreviewLink({ menu, label, icon, collapsed, on }: { menu: string; label: string; icon: PreviewMenu["icon"]; collapsed: boolean; on: boolean }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  return (
-    <button
-      type="button"
-      className={`tap sidei${on ? " on" : ""}`}
-      aria-current={on ? "page" : undefined}
-      title={collapsed ? label : undefined}
-      disabled={pending}
-      onClick={() =>
-        start(async () => {
-          const href = await setViewAsAction(menu);
-          router.push(href);
-          router.refresh();
-        })
-      }
-      style={{ width: "100%", height: 38, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, border: 0, background: on ? undefined : "transparent", fontSize: 14, justifyContent: collapsed ? "center" : undefined, textAlign: "left" }}
-    >
-      <Ic n={pending ? "refresh" : icon} size={19} className={pending ? "spin" : undefined} />
-      {collapsed ? null : <span className="clip" style={{ flex: 1 }}>{label}</span>}
-    </button>
   );
 }
 

@@ -8,6 +8,9 @@ import { landingFor } from "@/platform/config/start";
 import * as m from "@/messages/pairs";
 import type { Localized } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
+import { endViewAsPerson } from "@/platform/auth/view-as-session";
+import { cookies } from "next/headers";
+import { VIEW_AS_COOKIE } from "@/vx/view-as";
 
 export type LoginActionState = {
   status: "idle" | "error";
@@ -97,6 +100,11 @@ export async function loginAction(
 }
 
 export async function logoutAction() {
+  // An administrator who signs out while seeing One as somebody else ends
+  // that view first, so the log says how it ended (D-544), and leaves no
+  // preview behind for the next person on this computer.
+  await endViewAsPerson("signed_out");
+  (await cookies()).delete(VIEW_AS_COOKIE);
   const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath("/", "layout");

@@ -59,7 +59,6 @@ function Shell({ menu, children }: { menu: DesignMenu; children: ReactNode }) {
         home={MENU_HOME[menu]}
         badges={badges}
         teacherSized={menu === "teacher"}
-        previewMenus={[]}
         previewing={null}
       />
       <div className="vx-content">

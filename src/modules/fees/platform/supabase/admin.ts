@@ -11,6 +11,7 @@ import { createGuardedFetch } from "@/platform/supabase/guarded-fetch";
 
 import { createFeeWriteGuardedFetch } from "./write-guard";
 import { createProjectionFetch } from "@/platform/fees-bridge/projection-fetch";
+import { createViewAsGuardedFetch } from "@/platform/supabase/view-as-guard";
 
 /**
  * The service-role client for fee data. **This is where the money is written.**
@@ -53,7 +54,13 @@ export function createFeeAdminClient() {
       // a real session while writes are test-only is answered here with the
       // database's own VPP01 refusal. Inner: refuses an over-long PostgREST
       // URL at once instead of stalling eight seconds. See both files.
-      global: { fetch: createFeeWriteGuardedFetch(createProjectionFetch(createGuardedFetch(), { privileged: true })) },
+      // Outermost of all: no save while an administrator sees One as
+      // somebody else (D-544, view-as-guard.ts).
+      global: {
+        fetch: createViewAsGuardedFetch(
+          createFeeWriteGuardedFetch(createProjectionFetch(createGuardedFetch(), { privileged: true })),
+        ),
+      },
     },
   );
 }

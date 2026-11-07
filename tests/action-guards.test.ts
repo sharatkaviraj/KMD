@@ -47,6 +47,13 @@ const GUARDS = [
   "requireAuthenticatedStaff",
   "requireStaffPermission",
   "requireAnyStaffPermission",
+
+  /*
+   * The person actually signed in, never the one an administrator is looking
+   * as (D-544). Throws like `assertStaff` when nobody is; only the actions
+   * that start or end a view use it, because they act for the administrator.
+   */
+  "assertSignedInStaff",
 ];
 
 /**

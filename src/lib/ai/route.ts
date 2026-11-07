@@ -28,6 +28,8 @@ export async function runAiRoute(request: NextRequest, action: string, operation
   try {
     const staff = await getCurrentStaff();
     if (!staff) return aiProblem("denied", 401);
+    // Nothing is read or applied as somebody an administrator is looking at (D-544).
+    if (staff.viewedBy) return aiProblem("denied", 403);
     if (Number(request.headers.get("content-length")) > 65_536) return aiProblem("invalid", 413);
     const payload = await request.text();
     if (payload.length > 65_536) return aiProblem("invalid", 413);

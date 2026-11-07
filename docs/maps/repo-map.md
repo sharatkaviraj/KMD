@@ -101,6 +101,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `/teach` | One (pre-vx) + vx (current) |
 | `/timetable` | One (pre-vx) + vx (current) |
 | `/transport` | vx (current) |
+| `/view-as` | vx (current) |
 
 ## Modules — `src/modules/`
 
@@ -182,7 +183,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 
 ## vx screens — `src/vx/screens/`
 
-`academics` · `accounts` · `admin` · `admissions` · `board-office` · `calendar` · `collect` · `dues` · `exams` · `family-contact` · `fee-setup` · `messages` · `notes` · `payments` · `receipts` · `reminders` · `reports` · `school-office` · `settings` · `smoke` · `staff` · `student-tools` · `system` · `teach` · `timetable` · `transport`
+`academics` · `accounts` · `admin` · `admissions` · `board-office` · `calendar` · `collect` · `dues` · `exams` · `family-contact` · `fee-setup` · `messages` · `notes` · `payments` · `receipts` · `reminders` · `reports` · `school-office` · `settings` · `smoke` · `staff` · `student-tools` · `system` · `teach` · `timetable` · `transport` · `view-as`
 
 ## Test harnesses
 

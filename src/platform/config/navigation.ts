@@ -266,6 +266,10 @@ export const NON_NAV_SCREENS = [
   // The Smoke Lab (D-311): an administrator's test tool, on the test database
   // only, reached by its address. A 404 for anybody else and on live.
   "/smoke",
+  // "See One as a person" (D-544): an administrator's, reached from the Menu
+  // tab's "See One as…" group, the sidebar and a staff member's profile. A 404
+  // for anybody else.
+  "/view-as",
 ] as const;
 
 /** Primary modules use native destinations and the existing permission map. */

@@ -1,0 +1,85 @@
+/*
+ * See One as a person (D-544). Class names are `vxa-*` and nothing else uses
+ * them, so they need no `.vx` scope; the colour tokens come from `.vx`/`.vxt`,
+ * which also covers the "Opening One as…" layer drawn in `#vx-layer`.
+ */
+
+.vxa{display:flex;flex-direction:column;gap:18px;max-width:1080px;padding:14px 16px 24px}
+@container vx (min-width:900px){.vxa{padding:22px 28px 40px}}
+.vxa-head{display:flex;align-items:center;gap:12px;min-height:48px}
+.vxa-head h1{flex:1;margin:0;font-size:28px;font-weight:600;line-height:1.15}
+.vxa-h{display:flex;align-items:center;gap:8px;margin:0;font-size:18px;font-weight:700;line-height:1.2}
+.vxa-h>svg{flex:none;color:var(--mut)}
+
+/* ------------------------------------------------- what it does, in three lines */
+
+.vxa-intro{padding:16px;display:flex;flex-direction:column;gap:12px;animation:xIn .35s var(--ease) both}
+.vxa-intro>p{margin:0;font-size:17px;font-weight:700;line-height:1.35}
+.vxa-line{display:flex;align-items:flex-start;gap:12px;font-size:15px;line-height:1.4}
+.vxa-line>span:first-child{flex:none;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accs);color:var(--accfg)}
+.vxa-line.safe>span:first-child{background:var(--oks);color:var(--ok)}
+.vxa-line.ends>span:first-child{background:var(--s3);color:var(--fg)}
+.vxa-line>span:last-child{padding-top:8px;min-width:0}
+@container vx (min-width:900px){.vxa-intro{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 18px}.vxa-intro>p{grid-column:1/-1}}
+
+/* --------------------------------------------------------- looking right now */
+
+.vxa-now{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:20px;background:var(--warns);color:var(--warnfg);border:1.5px solid var(--warnm);animation:xIn .35s var(--ease) both}
+.vxa-now-who{display:flex;align-items:center;gap:12px;min-width:0}
+.vxa-now-who>span:last-child{flex:1;min-width:0;display:flex;flex-direction:column}
+.vxa-now-k{font-size:13px;font-weight:600}
+.vxa-now-who b{font-size:18px;line-height:1.25;color:var(--fg);overflow-wrap:anywhere}
+.vxa-now-r{font-size:13px;color:var(--mut)}
+.vxa-now-act{display:flex;flex-wrap:wrap;gap:8px}
+.vxa-now-act>*{flex:1 1 200px}
+
+/* -------------------------------------------------------------- seen recently */
+
+.vxa-recent,.vxa-people{display:flex;flex-direction:column;gap:12px}
+.vxa-rec{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+@container vx (min-width:700px){.vxa-rec{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vxa-rec-i{display:flex;align-items:center;gap:10px;min-width:0;padding:10px 10px 10px 12px;border-radius:16px;border:1px solid var(--bd);background:var(--card);animation:xRise .35s var(--ease) backwards}
+.vxa-rec-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.vxa-rec-t b{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vxa-rec-t span{font-size:12.5px;color:var(--mut)}
+.vxa-again{flex:none;height:42px!important;border-radius:21px;padding:0 14px}
+
+/* -------------------------------------------------------------------- people */
+
+.vxa-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@container vx (min-width:700px){.vxa-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container vx (min-width:1180px){.vxa-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.vxa-card{display:flex;flex-direction:column;gap:12px;min-width:0;padding:14px;border-radius:20px;border:1px solid var(--bd);background:var(--card);box-shadow:var(--sh);scroll-margin:96px;animation:xRise .4s var(--ease) backwards;animation-delay:min(calc(var(--i, 0) * 24ms), 360ms)}
+/* `backwards`, not `both`: a fill that outlives the rise would hold `transform` and swallow the press. */
+.vxa-card.lit{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs),var(--sh)}
+.vxa-card.now{border-color:var(--warn);box-shadow:0 0 0 3px var(--warns),var(--sh)}
+.vxa-who{display:flex;align-items:center;gap:12px;min-width:0}
+.vxa-who-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.vxa-who-t b{font-size:17px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
+.vxa-who-t span{font-size:13.5px;color:var(--mut);line-height:1.35}
+.vxa-tags{display:flex;flex-wrap:wrap;gap:6px}
+.vxa-tag{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:3px 10px;border-radius:14px;background:var(--s2);color:var(--mut);font-size:12.5px;font-weight:600;line-height:1.3}
+.vxa-tag>svg{flex:none}
+.vxa-tag.test{background:var(--infos);color:var(--info)}
+.vxa-tag.now{background:var(--warns);color:var(--warnfg)}
+.vxa-tag.quiet{background:transparent;border:1px dashed var(--bds)}
+.vxa-see{width:100%;margin-top:auto}
+
+/* ------------------------------------------------- "Opening One as…" (#vx-layer) */
+
+.vxa-open{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--glass);-webkit-backdrop-filter:blur(10px) saturate(1.3);backdrop-filter:blur(10px) saturate(1.3);animation:xFade .2s ease both}
+.vxa-open-box{display:flex;flex-direction:column;align-items:center;gap:14px;max-width:380px;text-align:center;color:var(--fg)}
+.vxa-open-av{position:relative;display:inline-flex;border-radius:50%;animation:xPopIn .5s var(--spring) both}
+.vxa-open-av::before,.vxa-open-av::after{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid var(--acc);animation:xRipple 1.6s var(--ease) infinite}
+.vxa-open-av::after{animation-delay:.8s}
+.vxa-open-box b{font-size:20px;font-weight:700;line-height:1.3}
+.vxa-open-sub{display:inline-flex;align-items:center;gap:6px;font-size:15px;color:var(--mut)}
+.vxa-dots{display:inline-flex;gap:7px;margin-top:2px}
+.vxa-dots i{width:9px;height:9px;border-radius:5px;background:var(--acc);animation:xPulse 1s ease-in-out infinite}
+.vxa-dots i:nth-child(2){animation-delay:.15s}
+.vxa-dots i:nth-child(3){animation-delay:.3s}
+
+@media (prefers-reduced-motion:reduce){
+  .vxa-intro,.vxa-now,.vxa-rec-i,.vxa-card,.vxa-open,.vxa-open-av,.vxa-dots i{animation:none}
+  .vxa-open-av::before,.vxa-open-av::after{animation:none;display:none}
+}

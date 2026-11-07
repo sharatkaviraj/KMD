@@ -87,6 +87,9 @@ export async function runAssistTask<K extends AssistTaskId>(
   const feature = spec.feature;
 
   if (!isAssistConfigured()) return { ok: false, problem: "off" };
+  // Never on somebody else's behalf: while an administrator sees One as a
+  // chosen person (D-544) the helper would spend, log and draft as them.
+  if (staff.viewedBy) return { ok: false, problem: "denied" };
   if (!canAny(staff, FEATURE_PERMISSIONS[feature])) return { ok: false, problem: "denied" };
 
   const settings = await getAssistSettings().catch(() => null);

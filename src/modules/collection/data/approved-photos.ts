@@ -1,6 +1,6 @@
 import "server-only";
 import { assertStaff } from "@/platform/auth/current-staff";
-import { can } from "@/platform/auth/permissions";
+import { can, type PermissionSubject } from "@/platform/auth/permissions";
 import { createClient } from "@/platform/supabase/server";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchInChunks } from "@/platform/helpers/chunk";
@@ -66,7 +66,15 @@ export async function approvedStudentPhotos(ids: readonly string[]): Promise<Map
 
 /** Self or current staff directory permission, before service-role reads. */
 export async function approvedStaffPhotos(ids: readonly string[]): Promise<Map<string, string>> {
-  const actor = await assertStaff();
+  return staffPhotosFor(await assertStaff(), ids);
+}
+
+/**
+ * The same, for a reader the caller has already verified — the view-as picker
+ * (D-544), which asks as the administrator actually signed in, not as the
+ * person they may be looking at.
+ */
+export async function staffPhotosFor(actor: PermissionSubject & { id: string }, ids: readonly string[]): Promise<Map<string, string>> {
   const wanted = [...new Set(ids)];
   if (wanted.some(id => id !== actor.id) && !can(actor, "staff:view")) throw new Error("not_permitted");
   if (!wanted.length) return new Map();

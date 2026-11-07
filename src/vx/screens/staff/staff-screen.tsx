@@ -691,6 +691,12 @@ function ProfilePanel({
           {mayEditPhoto ? <span><ProfilePhotoControl sheet credential={{ kind: "staff", id: row.id }} language={language} /></span> : null}
         </span>
       </div>
+      {isAdmin && !isMe && row.isActive && row.role !== "admin" ? (
+        // Their own screens with their real data, look-only (D-544).
+        <Btn href={`/view-as?who=${row.id}`} icon="eye" variant="soft" full>
+          {tx(p(`See One as ${who}`, `${who} की नज़र से One देखें`))}
+        </Btn>
+      ) : null}
       <div className="card" style={{ ...S.col, padding: "2px 16px" }}>
         {facts.map((f, i) => (
           <div key={f.icon} style={{ ...S.row, gap: 10, padding: "10px 0", borderTop: i ? "1px solid var(--bd)" : 0 }}>

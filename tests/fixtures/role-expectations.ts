@@ -450,6 +450,12 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "Building archives and running restore drills is the school record owner's; the administrator holds it (P11).",
   },
   {
+    route: "/view-as",
+    allow: ["admin"],
+    because:
+      "Seeing One as a chosen member of staff, with their real data, is the owner's request for the administrator only (7 Nov 2026, D-544); it is a 404 for everybody else and for a Smoke Lab account.",
+  },
+  {
     route: "/jobs",
     allow: ["admin"],
     because: "PLAN §3 gives the admin failed jobs; nobody else needs the console.",

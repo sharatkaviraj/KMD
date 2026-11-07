@@ -42,7 +42,7 @@ with
     'fees_bridge_routes','fees_bridge_route_sync','transport_drivers','transport_trips','transport_trip_stops',
     'message_test_recipients','migration_id_map','migration_runs','migration_watermarks','one_owned_fee_settings',
     'role_permission_changes','runtime_flags','school_settings_history','staff_authority_changes','staff_notice_prefs',
-    'staff_photos','staff_send_pace','staff_ui_preferences','tail_receipts_review',
+    'staff_photos','staff_send_pace','staff_ui_preferences','tail_receipts_review','view_as_log',
     'ai_connections','ai_oauth_clients','ai_oauth_codes','ai_tokens','ai_tool_calls',
     'ai_jobs','builtin_ai_settings','builtin_ai_provider_status','assist_log','assist_drafts','cover_reports','data_replica','drive_folders','drive_object_copies','drive_snapshots','external_student_ids','job_runs',
     'qa_dayrun_accounts','qa_dayrun_pairs','qa_dayrun_runs','qa_dayrun_sessions','qa_runs','qa_undo','rate_limits',

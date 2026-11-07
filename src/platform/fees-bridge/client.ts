@@ -37,7 +37,11 @@ async function credentials(staff: CurrentStaff, sessionLabel?: string) {
   // The source independently validates this exact token and its explicit actor grant.
   const {data,error} = await client.auth.getSession();
   const token = data.session?.access_token;
-  if (error || !token || data.session?.user.id !== staff.userId) {
+  // The token is always the signed-in person's own. While an administrator
+  // sees One as somebody else (D-544) that is the administrator, and Fees
+  // answers their reads; One then shows only what the chosen person may see.
+  const signedIn = staff.viewedBy?.userId ?? staff.userId;
+  if (error || !token || data.session?.user.id !== signedIn) {
     throw new FeesBridgeError("unauthorized", "Sign in again to use the live Fees connection.");
   }
   return {token,key:process.env.FEES_BRIDGE_KEY?.trim() ?? "",origin:feesBridgeOrigin()};
