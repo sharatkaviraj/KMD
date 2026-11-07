@@ -28,30 +28,24 @@ const modeName = (mode: string): Pair => MODE_NAMES[mode.toLowerCase()] ?? { en:
 
 type Pace = { percent: number; shouldPercent: number; behind: number };
 
+/**
+ * One arrangement, sized by the section's own width (`tdm` in today.css), not
+ * the window's: the chart beside the year's pace and how they pay, the class
+ * table under both; from 900px down the chart takes the whole width with the
+ * two small cards side by side under it. Beside the pending table, how they
+ * pay used to stretch to the table's height, ~650px of card around one line
+ * (desk check, 7 Nov).
+ */
 export function DeskMoney({ money, pace, today, noHeat }: { money: TodayMoneyView; pace: Pace | null; today: string; noHeat: boolean }) {
   return (
-    <>
-      {noHeat ? (
-        <div className="td-two">
-          <MoneyTaken money={money} today={today} />
-          <div className="td-stack">
-            {pace ? <PaceCard money={money} pace={pace} today={today} /> : null}
-            <HowTheyPay money={money} />
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="td-two">
-            <MoneyTaken money={money} today={today} />
-            {pace ? <PaceCard money={money} pace={pace} today={today} /> : <HowTheyPay money={money} />}
-          </div>
-          <div className={pace ? "td-two" : undefined}>
-            <PendingHeat money={money} today={today} />
-            {pace ? <HowTheyPay money={money} /> : null}
-          </div>
-        </>
-      )}
-    </>
+    <div className="tdm">
+      <MoneyTaken money={money} today={today} />
+      <div className="tdm-side">
+        {pace ? <PaceCard money={money} pace={pace} today={today} /> : null}
+        <HowTheyPay money={money} />
+      </div>
+      {noHeat ? null : <PendingHeat money={money} today={today} />}
+    </div>
   );
 }
 
@@ -81,7 +75,8 @@ function MoneyTaken({ money, today }: { money: TodayMoneyView; today: string }) 
           />
         ) : null}
       </div>
-      <div style={{ position: "relative", height: 210, marginLeft: 48 }}>
+      {/* The chart takes whatever height its row gives the card, never less than 210px. */}
+      <div style={{ position: "relative", flex: "1 0 210px", minHeight: 210, marginLeft: 48 }}>
         {chart.grid.map((g) => (
           <span key={g.at}>
             <span aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: `${g.at}%`, borderTop: "1px dashed var(--bd)" }} />
@@ -127,7 +122,7 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
     .filter((row) => row.total > 0);
   const max = Math.max(1, ...rows.flatMap((row) => row.cells));
   return (
-    <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .15s var(--ease) both" }}>
+    <section className="card tdm-heat" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .15s var(--ease) both" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.pendingByClass)}</h3>
         <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.pendingByClassSub)}</span>
@@ -184,17 +179,30 @@ function HowTheyPay({ money }: { money: TodayMoneyView }) {
     return { key: m.mode, label: tx(modeName(m.mode)), color: MODE_COLORS[i % MODE_COLORS.length], pct: Math.round(frac * 100), amount: m.amount, dash: `${Math.max(0, len - 2).toFixed(1)} ${C.toFixed(1)}`, off: (-before).toFixed(1) };
   });
   return (
-    <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .2s var(--ease) both" }}>
+    <section className="card tdm-pay" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .2s var(--ease) both" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.howTheyPay)}</h3>
         <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(TD.howTheyPaySub)}</span>
       </div>
       {total <= 0 ? (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(T.nothingTakenToday)}</p>
+        // An empty ring where the slices will be, the same size as a full one, so the card neither
+        // reads as broken nor jumps when the first receipt of the day comes in.
+        <div className="tdp-body">
+          <div className="tdp-ring">
+            <svg viewBox="0 0 150 150" aria-hidden="true">
+              <circle cx="75" cy="75" r="56" style={{ fill: "none", stroke: "var(--s3)", strokeWidth: 20, strokeDasharray: "5 7" }} />
+            </svg>
+            <span className="num" aria-hidden="true" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "var(--mut)" }}>{rupeesShort(0)}</span>
+          </div>
+          <p style={{ flex: 1, minWidth: 150, margin: 0, fontSize: 13, lineHeight: 1.45, color: "var(--mut)" }}>
+            <b style={{ display: "block", color: "var(--fg)", fontSize: 14, marginBottom: 2 }}>{tx(T.nothingTakenToday)}</b>
+            {tx(TD.modesAppear)}
+          </p>
+        </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <div style={{ position: "relative", width: 150, height: 150, flex: "none" }}>
-            <svg className="td-donut" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true" style={{ transform: "rotate(-90deg)", animation: "xSpin .8s var(--ease) both" }}>
+        <div className="tdp-body">
+          <div className="tdp-ring">
+            <svg className="td-donut" viewBox="0 0 150 150" aria-hidden="true" style={{ transform: "rotate(-90deg)", animation: "xSpin .8s var(--ease) both" }}>
               {segs.map((g) => (
                 <circle key={g.key} className="seg" cx="75" cy="75" r="56" style={{ fill: "none", stroke: g.color, strokeWidth: 20, strokeDasharray: g.dash, strokeDashoffset: g.off }}>
                   <title>{`${g.label} · ${g.pct}% · ${rupees(g.amount)}`}</title>
@@ -236,6 +244,17 @@ function PaceCard({ money, pace, today }: { money: TodayMoneyView; pace: { perce
         <span>{tx(T.shouldBe(pace.shouldPercent))}</span>
       </div>
       <PaceWords pace={pace} today={today} size={12} />
+      {/* Two figures at the card's foot, so beside How they pay it ends in numbers, not a gap. */}
+      <dl className="tdm-figs">
+        <div>
+          <dt>{tx(TD.stillToCome)}</dt>
+          <dd className="num">{rupeesShort(Math.max(0, money.expected - money.collected))}</dd>
+        </div>
+        <div>
+          <dt>{tx(TD.dueByToday)}</dt>
+          <dd className="num">{rupeesShort(money.dueSoFar)}</dd>
+        </div>
+      </dl>
     </section>
   );
 }

@@ -63,6 +63,9 @@ const go = (s: SettingsState) => (s === "home" ? "/settings" : `/settings?s=${s}
 const SETTINGS_CSS = `
 .vx .st-dirty{bottom:0;margin:16px -28px 0}
 @container vx (max-width:899px){.vx .st-dirty{bottom:calc(76px + env(safe-area-inset-bottom));margin:16px -16px 0;z-index:45}}
+.vx .st-pc{container:stc/inline-size}
+@container stc (max-width:959px){.vx .st-profile{grid-template-columns:minmax(0,1fr) 300px!important}.vx .st-profile .g2{grid-template-columns:minmax(0,1fr)!important}}
+@container stc (max-width:639px){.vx .st-profile{grid-template-columns:minmax(0,1fr)!important}.vx .st-profile>aside{position:static!important}}
 `;
 
 type Tone = "acc" | "info" | "ok" | "warn" | "mut" | "soft";
@@ -369,7 +372,8 @@ export function SettingsScreen({ data, state, ai = null, aiView = "used" }: { da
             {nav}
           </nav>
           <section className={`unstick${state === "home" ? " hide-m" : ""}`} style={{ position: "relative", minWidth: 0, minHeight: "calc(100dvh - 64px)", borderLeft: "1px solid var(--bd)", borderTop: 0 }}>
-            <div className="pad" style={{ padding: "22px 28px 40px" }}>{content}</div>
+            {/* The panel sizes its own contents (st-pc): a 1366px laptop leaves it about 760px. */}
+            <div className="pad st-pc" style={{ padding: "22px 28px 40px" }}>{content}</div>
           </section>
         </div>
       </div>
@@ -414,7 +418,10 @@ function SchoolProfileForm({ initial, changedAt, changedBy, pending, onSave }: {
 
   return (
     <>
-      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 20, alignItems: "start" }}>
+      {/* Beside the live receipt the form's pairs stack one under the other once the panel is under
+          960px wide: side by side on a 1366px laptop they cut the school's name to "Shri Veer Patta Sr. S"
+          and the Upload buttons in half (desk check, 7 Nov). Under 640px the receipt moves below. */}
+      <div className="stack st-profile" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 20, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           <div style={box}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>

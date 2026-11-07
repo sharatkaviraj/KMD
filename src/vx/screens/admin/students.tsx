@@ -486,9 +486,12 @@ export function StudentsScreen(props: StudentsProps) {
         { key: "details", label: tx(ST.colDetails) },
         { key: "act", label: "" },
       ];
+  // Every column can give some width back, so the table fits whatever a desk leaves it: the old fixed
+  // minimums summed to 1,078px and cut the Call / WhatsApp / Collect buttons off on a 1366px laptop and
+  // half of them at 1100px (desk check, 7 Nov). From 1,100px wide they are the design's widths again.
   const tracks = fees
-    ? "52px minmax(230px,2.2fr) minmax(130px,1.2fr) 96px 130px 130px minmax(150px,1.3fr) 136px"
-    : "52px minmax(230px,2.2fr) minmax(130px,1.2fr) minmax(130px,1fr) minmax(200px,2fr) 96px";
+    ? "48px minmax(180px,2.2fr) minmax(84px,1.2fr) minmax(72px,96px) minmax(88px,130px) minmax(88px,130px) minmax(100px,1.3fr) 120px"
+    : "48px minmax(180px,2.2fr) minmax(84px,1.2fr) minmax(110px,1fr) minmax(160px,2fr) 96px";
 
   const headCell = (c: Col): ReactNode => {
     const mode = c.sort ? modeOf(c.sort) : null;
@@ -826,8 +829,8 @@ export function StudentsScreen(props: StudentsProps) {
 
           {/* Row clicks are delegated here; the keyboard path is each row's name link. */}
           <div className="only-d card stu-card" onClick={onListClick}>
-            <div style={{ overflowX: "auto" }}>
-              <div role="table" aria-label={tx(T.students)} style={{ minWidth: 900 }}>
+            <div className="stu-scroll">
+              <div role="table" aria-label={tx(T.students)} style={{ minWidth: 780 }}>
                 <div role="row" className="stu-head" style={{ gridTemplateColumns: tracks }}>
                   <span role="columnheader" style={{ display: "flex", justifyContent: "center" }}>
                     <Tick on={allOn} some={someOn} label={tx(T.selectAll)} onToggle={() => setPicked(allOn ? new Set() : new Set(rows.map((row) => row.id)))} />

@@ -333,7 +333,8 @@ export function TodayScreen(props: TodayProps) {
           <TodayBrief facts={briefFacts} style={{ padding: "16px 18px 0" }} />
         </div>
 
-        {/* The school day and action queue share the first row. Fee analysis follows both. */}
+        {/* The school day and action queue share the first row. On a desk the fee analysis follows
+            the teaching cards in the wide column while the rail runs beside both. */}
         <div className="td-grid">
           <div className="td-wide td-stack only-d">
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
@@ -355,7 +356,7 @@ export function TodayScreen(props: TodayProps) {
             {closed ? <ClosedBanner closed={closed} today={props.today} /> : null}
             <DeskKpis {...props} avgDelta={avg?.deltaPct ?? null} />
           </div>
-          <div className="td-stack">
+          <div className="td-stack td-main">
             {scheduleCard}
             {exceptionsCard}
             {/* A desk keeps the day's small widgets under the teaching cards, beside the rail. */}
@@ -366,7 +367,8 @@ export function TodayScreen(props: TodayProps) {
               </div>
             ) : null}
           </div>
-          <aside className="td-stack">
+          {/* On a desk the rail runs down beside the teaching cards and the money below them (today.css). */}
+          <aside className="td-stack td-rail">
             <div className="only-d td-stack">
               {inbox ? <RailNeeds inbox={inbox} awaiting={awaiting} incomplete={inboxIncomplete} /> : null}
               <DeskQuick actions={props.actions} />
@@ -382,11 +384,11 @@ export function TodayScreen(props: TodayProps) {
               <TodayBrief facts={briefFacts} />
             </div>
           </aside>
-          <div className="td-wide td-stack">
+          <div className="td-stack td-main">
             {props.notice ? <div className="only-d">{props.notice}</div> : null}
             {moneyNote}
             {money ? (
-              <section aria-label={tx(TD.financeToday)} className="only-d td-stack">
+              <section aria-label={tx(TD.financeToday)} className="only-d td-stack td-fees">
                 <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(TD.financeToday)}</h2>
                 <DeskMoney money={money} pace={pace} today={props.today} noHeat={noHeat} />
               </section>

@@ -3,9 +3,9 @@
 import Image from "next/image";
 import { schoolBrand } from "@/platform/config/school-brand";
 import Link from "next/link";
-import { NavLink } from "@/ui/shell/nav-link";
+import ScreenLink from "@/ui/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransition } from "react";
+import { Suspense, use, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useTheme } from "next-themes";
 
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
@@ -96,6 +96,8 @@ export function VxSidebar({
   const active = activeKey(groups, pathname, search);
   const nav = useRef<HTMLElement>(null);
   const pill = useRef<HTMLSpanElement>(null);
+  // Whether the menu runs on above or below what shows: an admin's menu is taller than a 768px laptop.
+  const [edge, setEdge] = useState({ above: false, below: false });
 
   // The highlight slides from the last page's item to this one. Until it has
   // been placed once, the active item draws its own highlight (`.sidei.on`).
@@ -118,7 +120,49 @@ export function VxSidebar({
       void mark.offsetHeight;
       mark.style.transition = "";
     }
+    // The open page's item stays in view: Settings, Staff or Timetable sat below a laptop's fold
+    // with nothing showing where the reader was (desk check, 7 Nov). Only the menu scrolls, never
+    // the page, and only when the item is out of sight (40px kept clear for the "More" hint).
+    const top = on.offsetTop;
+    const bottom = top + on.offsetHeight;
+    if (top < host.scrollTop || bottom > host.scrollTop + host.clientHeight - 40) {
+      const still = first || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      host.scrollTo({ top: Math.max(0, top - (host.clientHeight - on.offsetHeight) / 2), behavior: still ? "auto" : "smooth" });
+    }
   }, [active, collapsed, previewing, groups, teacherSized]);
+
+  useEffect(() => {
+    const host = nav.current;
+    if (!host) return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const above = host.scrollTop > 4;
+      const below = host.scrollTop + host.clientHeight < host.scrollHeight - 4;
+      setEdge((was) => (was.above === above && was.below === below ? was : { above, below }));
+    };
+    const soon = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    measure();
+    host.addEventListener("scroll", soon, { passive: true });
+    const sizes = new ResizeObserver(soon);
+    sizes.observe(host);
+    for (const child of Array.from(host.children)) sizes.observe(child);
+    return () => {
+      host.removeEventListener("scroll", soon);
+      sizes.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [collapsed, groups, teacherSized, previewMenus.length]);
+
+  const more = () => {
+    const host = nav.current;
+    if (!host) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    host.scrollBy({ top: Math.round(host.clientHeight * 0.7), behavior: still ? "auto" : "smooth" });
+  };
+  const moreLabel = tx({ en: "More below", hi: "नीचे और भी" });
 
   const toggle = () => {
     try {
@@ -160,6 +204,7 @@ export function VxSidebar({
         </button>
       </div>
 
+      <div className="vx-side-navwrap" data-above={edge.above ? "" : undefined} data-below={edge.below ? "" : undefined}>
       <nav ref={nav} className="scroll" style={{ position: "relative", flex: 1, minHeight: 0, padding: "2px 12px 8px", scrollbarWidth: "none" }}>
         <span ref={pill} aria-hidden="true" className="vx-side-pill" style={{ height: itemH }} />
         {groups.map((g, gi) => (
@@ -179,18 +224,21 @@ export function VxSidebar({
               const on = n.key === active && !previewing;
               const hi = teacherSized ? sub(n.label) : null;
               return (
-                <NavLink
+                // A desk's menu waits for intent like every screen link (D-439): it fetches a page when the
+                // pointer rests on its item or the keyboard reaches it, not all thirty-odd on every load.
+                <ScreenLink
                   key={n.key}
                   href={n.href}
                   className={`tap sidei${on ? " on" : ""}`}
                   aria-current={on ? "page" : undefined}
                   title={collapsed ? tx(n.label) : undefined}
-                  style={{ position: "relative", height: itemH, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, fontSize: teacherSized ? 15 : 14, justifyContent: collapsed ? "center" : undefined }}
+                  style={{ position: "relative", minHeight: itemH, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: collapsed ? "0 12px" : "4px 12px", borderRadius: 11, fontSize: teacherSized ? 15 : 14, justifyContent: collapsed ? "center" : undefined }}
                 >
                   <Ic n={n.icon} size={19} />
                   {collapsed ? null : (
                     <span style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-                      <span className="clip">{tx(n.label)}</span>
+                      {/* A long name ("Cover for absent teachers") takes a second line rather than losing its end. */}
+                      <span className="vx-side-label">{tx(n.label)}</span>
                       {hi ? <span style={{ fontSize: 11, color: "var(--navm)", fontWeight: 500 }}>{hi}</span> : null}
                     </span>
                   )}
@@ -199,7 +247,7 @@ export function VxSidebar({
                       <NavBadge badges={badges} k={n.badge} dot={collapsed} />
                     </Suspense>
                   ) : null}
-                </NavLink>
+                </ScreenLink>
               );
             })}
           </div>
@@ -219,6 +267,12 @@ export function VxSidebar({
           </div>
         ) : null}
       </nav>
+        {/* For the mouse: the keyboard brings each item into view by itself. */}
+        <button type="button" className="tap vx-side-more" tabIndex={-1} aria-hidden="true" title={moreLabel} onClick={more}>
+          {collapsed ? null : <span>{moreLabel}</span>}
+          <Ic n="chevDown" size={14} />
+        </button>
+      </div>
 
       <div style={{ flex: "none", padding: "10px 12px 0", borderTop: "1px solid var(--navb)" }}>
         <Link href={me.href} className="tap sidei" title={collapsed ? me.name : undefined} style={{ display: "flex", alignItems: "center", gap: 10, height: 52, padding: "0 6px", borderRadius: 12, justifyContent: collapsed ? "center" : undefined }}>
