@@ -113,7 +113,7 @@ const T = {
   master: p("Master data", "मूल डेटा"),
   integrations: p("Integrations", "जुड़ी सेवाएँ"),
   ai: p("AI helper", "AI सहायक"),
-  aiSub: p("Claude drafts, staff decide · switch, budget, usage", "Claude लिखता है, स्टाफ़ तय करता है · स्विच, बजट, उपयोग"),
+  aiSub: p("AI drafts, staff decide · switch, budget, usage", "AI लिखता है, स्टाफ़ तय करता है · स्विच, बजट, उपयोग"),
   glossary: p("Glossary", "शब्दकोश"),
   glossarySub: p("Plain meanings · English + हिंदी", "आसान अर्थ · English + हिंदी"),
   about: p("About", "ऐप के बारे में"),
