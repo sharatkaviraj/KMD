@@ -38,7 +38,7 @@
 /* ---- Today (TchHome) --------------------------------------------------------- */
 .vx .tc-hero,.vxt .tc-hero{position:relative;overflow:hidden;padding:24px;gap:10px;display:flex;flex-direction:column;background:var(--pri);color:var(--prifg);border-color:transparent}
 .vx .tc-big,.vxt .tc-big{height:60px;padding:0 26px;border-radius:18px;font-size:18px;font-weight:700;gap:10px;background:var(--prifg);color:var(--pri)}
-/* A button that asks to be tapped (D-535): a ring grows off it and fades, four times, then rests. The button itself
+/* A button that asks to be tapped (D-539): a ring grows off it and fades, four times, then rests. The button itself
    used to fade to 55% every 2.4 s, which on a phone reads as switched off. --call is the ring's colour: the hero's
    own foreground unless the button sits on a card. Pseudo-elements escape the reduced-motion rule in vx.css. */
 :where(.vx,.vxt) .tc-call{position:relative}

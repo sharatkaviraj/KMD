@@ -75,7 +75,7 @@ describe("a marks paper on My tasks says which exam it is (D-527)", () => {
   });
 });
 
-describe("a paper's class is found by id and named from the class list (D-534)", () => {
+describe("a paper's class is found by id and named from the class list (D-538)", () => {
   // Papers keep the label they were made with ("11 Arts"); the class list says
   // "Class 11 Arts". Matching by label left every Class 11 and 12 card on My
   // subjects reading "No paper yet" beside a paper that was there.

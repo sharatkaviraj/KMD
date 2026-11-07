@@ -146,7 +146,7 @@ export async function listTeacherTasks(office=false, opts:{now?:Date;only?:TaskK
     if(wants("marks")){
     // Each paper carries its exam and the exam office's "marks due" day, so two open
     // exams no longer read as the same "Class 1 · EVS" twice (D-527).
-    // Classes by the class list's names ("Class 11 Arts"), not the label a paper was made with ("11 Arts"), as on every teacher screen (D-534).
+    // Classes by the class list's names ("Class 11 Arts"), not the label a paper was made with ("11 Arts"), as on every teacher screen (D-538).
     const [assignments,papers,labels]=await Promise.all([
       fetchAllRows<{class_id:string;subject_id:string}>((from,to)=>db.from("teaching_assignments").select("class_id,subject_id").eq("session_label",session).eq("staff_profile_id",actor.id).order("id").range(from,to),"teaching assignments"),
       fetchAllRows<PaperSource&{id:string;assessment_id:string;class_id:string;subject_id:string;entry_status:string}>((from,to)=>db.from("assessment_subjects").select("id,assessment_id,class_id,subject_id,class_label,subject_code,entry_status,assessments!inner(session_label,status,label_en,label_hi,starts_on)").eq("assessments.session_label",session).eq("assessments.status","open").order("id").range(from,to),"assigned marks"),

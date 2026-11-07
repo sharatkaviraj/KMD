@@ -104,12 +104,12 @@ do ("अंक · कक्षा 1 · पर्यावरण"), and the list 
 classes in school order. It used to read "Class 1 · EVS" once per open exam
 with nothing to tell them apart. Built beside the teacher-data PR 301, which
 merged first, without touching its lines. Test: `tests/teacher-tasks-exam-name.test.ts`.
-**D-534:** the live check as QA teacher 2 found every Class 11 and 12 card
+**D-538:** the live check as QA teacher 2 found every Class 11 and 12 card
 on My subjects saying "No paper yet" beside a paper that existed: papers keep
 the label they were made with ("11 Arts"), the class list says "Class 11
 Arts", and the card matched them as text. Cards now find their paper by class
 id, and links and My tasks name classes from the class list.
-**D-535:** Today's "Mark attendance" button faded to half every 2.4 s,
+**D-539:** Today's "Mark attendance" button faded to half every 2.4 s,
 which on a phone looks switched off. It now stays solid and a ring grows
 off it and fades, four times, then rests (none with reduced motion). The
 help pictures of the button do the same. Test:

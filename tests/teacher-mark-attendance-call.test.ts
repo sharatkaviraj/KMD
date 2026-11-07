@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 /*
  * Today's "Mark attendance" button on a 360 px phone (polish thread,
- * 7 Nov 2026, D-535).
+ * 7 Nov 2026, D-539).
  *
  * To draw the eye, the button faded to 55% every 2.4 s. On a phone that reads
  * as a button switched off, and the fade also overrode the dimming a tapped
@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 const read = (rel: string) => readFileSync(path.resolve(process.cwd(), rel), "utf8");
 const css = read("src/vx/screens/teach/ui/tch.css");
 
-describe("Mark attendance asks to be tapped without looking switched off (D-535)", () => {
+describe("Mark attendance asks to be tapped without looking switched off (D-539)", () => {
   it("never fades the button itself", () => {
     const big = css.match(/\.vx \.tc-big,\.vxt \.tc-big\{[^}]*\}/)?.[0] ?? "";
     expect(big).toContain("background:var(--prifg)");
