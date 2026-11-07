@@ -21,6 +21,9 @@ Follow-up (same day): the first live file showed a few ids still inside
 values (class ids in a JSON audience, "withdrawn:<id>", an upload's id); they
 now become names or are left out. The decision numbers moved from D-482/D-483
 to D-484/D-485 because the Hindi dates change took D-482 at the same time.
+Merged as PRs 262 and 264 (`08523aa`). Checked live with the QA admin on
+TEST-2026-27: on BrowserStack a real Galaxy M32 (about 20 s) and Windows 11
+Chrome both made and saved the 3.9 MB, 77-sheet file; a teacher is refused.
 
 ## Every screen on a real phone and desktop — 7 November 2026
 
