@@ -7,6 +7,35 @@
 .vx-side .vx-side-pill{position:absolute;left:12px;right:12px;top:0;border-radius:11px;background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);opacity:0;pointer-events:none;transition:transform .42s var(--spring),height .3s var(--ease),opacity .2s ease}
 .vx-side nav[data-pill] .sidei.on{background:transparent;box-shadow:none;animation:none}
 
+/* A long item name wraps to a second line instead of losing its end. */
+.vx-side .vx-side-label{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.25;overflow-wrap:break-word}
+
+/*
+ * The menu scrolls with no scrollbar, so a laptop showed no sign that Settings,
+ * Staff or Timetable were below the fold (desk check, 7 Nov, 1366x768). Where
+ * the list runs on, it fades into the panel, and a small "More below" chip
+ * scrolls it on; the chip's arrow bobs twice. All of it is drawn from the
+ * menu's own scroll position (a scroll timeline), with no script: a menu that
+ * fits has no scroll range, its timeline is inactive and nothing shows. A
+ * browser without scroll timelines shows the plain menu, as before.
+ */
+.vx-side .vx-side-navwrap{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;timeline-scope:--vxside}
+.vx-side .vx-side-navwrap>nav{scroll-timeline:--vxside block;scroll-behavior:smooth}
+.vx-side .vx-side-navwrap::before,.vx-side .vx-side-navwrap::after{content:"";position:absolute;left:0;right:0;z-index:2;pointer-events:none;opacity:0}
+.vx-side .vx-side-navwrap::before{top:0;height:24px;background:linear-gradient(var(--nav),transparent)}
+.vx-side .vx-side-navwrap::after{bottom:0;height:56px;background:linear-gradient(transparent,var(--nav) 70%)}
+.vx-side .vx-side-more{position:absolute;left:50%;bottom:8px;z-index:3;display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;border-radius:14px;border:1px solid var(--navb);background:var(--navs);color:var(--navfg);font-size:12px;font-weight:600;white-space:nowrap;visibility:hidden;opacity:0;transform:translateX(-50%)}
+.vx-side.mini .vx-side-more{padding:0 7px}
+.vx-side .vx-side-more svg{animation:vxSideBob 1.1s var(--ease) .6s 2}
+.vx-side .vx-side-more:hover{background:var(--navb)}
+@supports (animation-timeline:scroll()){
+  .vx-side .vx-side-navwrap::before{animation:vxSideShow auto linear both;animation-timeline:--vxside;animation-range:0 24px}
+  .vx-side .vx-side-navwrap::after,.vx-side .vx-side-more{animation:vxSideHide auto linear both;animation-timeline:--vxside;animation-range:calc(100% - 32px) 100%}
+}
+@keyframes vxSideShow{from{opacity:0}to{opacity:1}}
+@keyframes vxSideHide{from{opacity:1;visibility:visible}to{opacity:0;visibility:hidden}}
+@keyframes vxSideBob{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+
 /* Collapse/expand: shown on hover or keyboard focus, so the frames read the same without it. */
 .vx-side .vx-collapse{position:absolute;top:11px;right:-13px;z-index:30;width:26px;height:26px;padding:0;border-radius:13px;border:1px solid var(--navb);background:var(--navs);color:var(--navfg);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s ease,transform .14s var(--ease)}
 .vx-side:hover .vx-collapse,.vx-side .vx-collapse:focus-visible{opacity:1}
@@ -21,4 +50,4 @@
 /* The desktop "New" menu drops in from its button (Desktop.dc.html vdPop). */
 @keyframes vxNewPop{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
 
-@media (prefers-reduced-motion:reduce){.vx-side .vx-side-pill{transition:none}}
+@media (prefers-reduced-motion:reduce){.vx-side .vx-side-pill{transition:none}.vx-side .vx-side-navwrap>nav{scroll-behavior:auto}.vx-side .vx-side-more svg{animation:none}}

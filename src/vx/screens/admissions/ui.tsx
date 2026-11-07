@@ -22,7 +22,7 @@ const BAR_CSS = `
 @container vx (max-width:899px){.pp-cols{grid-template-columns:minmax(0,1fr)}.pp-cols>.pp-off{display:none}}
 .pp-pcol{padding:10px;border-radius:18px;background:var(--s2);border:1px solid var(--bd);min-height:236px;display:flex;flex-direction:column;gap:8px}
 @container vx (max-width:899px){.pp-pcol{min-height:0}}
-.pp-rrow{display:grid;grid-template-columns:minmax(170px,2fr) 64px minmax(110px,1fr) 92px 92px 92px 20px;gap:8px;align-items:center;min-height:56px;padding:0 16px}
+.pp-rrow{display:grid;grid-template-columns:minmax(170px,2fr) minmax(96px,1.2fr) 84px 118px 118px 118px 20px;gap:8px;align-items:center;min-height:56px;padding:0 16px}
 @container vx (max-width:899px){.pp-rrow{grid-template-columns:auto auto auto 1fr;padding:12px 14px;gap:8px 6px}.pp-rrow>:first-child{grid-column:1/-1}}
 .pp-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
 .pp-names{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}

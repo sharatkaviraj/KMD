@@ -1,5 +1,32 @@
 # VPPS One — progress
 
+## One on a desk: every screen uses the width it is given — 7 November 2026
+
+Owner asked (7 Nov) for the desktop view of the whole app, everything changed
+so far included, to be optimized and tested, with creative touches, and
+deployed tonight. Branch `claude/project-thread-oio4yk`, D-528 to D-533.
+Every screen checked at 1920, 1366, 1100 and 1000 wide and on a 390 phone.
+**Done:** Today's Fees today starts under the teaching cards beside the rail
+(no more empty block), and the money cards arrange by their own width (an
+empty ring and a line of help in How they pay before the first receipt; the
+year's pace ends with "Still to come this year" and "Due by today"). The
+Students table fits 1366 and 1100 with its Call / WhatsApp / Collect buttons,
+its header sticky under the top bar. The desk side menu fades and offers
+"More below" when it runs past the fold, keeps the open screen's item in
+view, wraps long names, and fetches a screen only on intent. School
+settings' form stacks beside the receipt in a narrow panel. Admissions: SR on
+one line, document pills fit, pipeline buttons stay in their cards. A
+teacher's Notes has a big New note in the top card on a desk, and the
+floating button steps aside while it shows. Phone layouts unchanged. Main had
+about 30 bytes left under `/teach/attendance`'s first-load budget, so the
+menu's hint is CSS alone, and the money section's words and the "+ New"
+menu load with chunks only a desk asks for. Tests:
+`tests/mobile-ui/today-desktop-widgets.spec.ts` (5),
+`tests/intent-prefetch-link.test.tsx`; the whole suite passes except
+`tests/sentry-lite.test.ts` (a checkout under `/home/user`).
+**Remains:** Collect (`/payments`) keeps its narrow desk card; it is the
+money flow and was left as it is.
+
 ## Needs you · Teachers' work: collecting from teachers the Sampark way — 7 November 2026
 
 Owner asked (7 Nov) for the admin's Needs you, where work is given to
