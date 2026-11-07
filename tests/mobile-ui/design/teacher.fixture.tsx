@@ -285,6 +285,7 @@ function studentData(): StudentData {
       { code: "Sanskrit", label: { en: "Half-yearly", hi: "अर्धवार्षिक" }, value: null, max: 80, absent: false, pct: null },
     ],
     notes: [note(1, "Finds fractions hard; started practice sheets", ["studies"], "working", "Ms. Kavita Bhati", at("10:00", "2026-10-05"), "2026-10-12")],
+    sessionLabel: "2026-27",
   };
 }
 

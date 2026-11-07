@@ -154,6 +154,45 @@ export async function loadSignatureImage(): Promise<PdfImage | null> {
   }
 }
 
+let emblemCache: PdfImage | null = null;
+
+/**
+ * The school's crest — the rider over the open book — as the official
+ * letterhead carries it. Certificates set it at the head of the page and, very
+ * faint, behind the wording. Read into a Buffer for the same reasons as the
+ * logo; a missing file leaves the letterhead to the school's name.
+ */
+export async function loadEmblemImage(): Promise<PdfImage | null> {
+  if (emblemCache) return emblemCache;
+  try {
+    const data = await fs.readFile(path.join(process.cwd(), "public/branding/veer-patta-emblem.png"));
+    emblemCache = { data, format: "png" };
+    return emblemCache;
+  } catch {
+    return null;
+  }
+}
+
+let sealCache: PdfImage | null = null;
+
+/**
+ * The school's round seal, inked as a rubber stamp is (D-541): the school's
+ * name around the rim, "Amet (Rajsamand)" below, the crest in the middle, in
+ * stamp-pad violet and a little uneven at the edges. Printed only on a certificate that a
+ * person allowed to sign for the school prepared or approved; a missing file
+ * prints no seal rather than failing the document.
+ */
+export async function loadSealImage(): Promise<PdfImage | null> {
+  if (sealCache) return sealCache;
+  try {
+    const data = await fs.readFile(path.join(process.cwd(), "public/branding/school-seal.png"));
+    sealCache = { data, format: "png" };
+    return sealCache;
+  } catch {
+    return null;
+  }
+}
+
 export const pdfTokens = {
   ink: "#1f2937",
   inkStrong: "#111827",

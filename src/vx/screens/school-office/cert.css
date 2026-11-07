@@ -56,6 +56,27 @@
 .batch-progress{display:grid;gap:10px;padding:18px}
 .batch-list{display:grid;max-height:340px;overflow:auto}
 .batch-item{display:flex;justify-content:space-between;gap:10px;padding:9px 16px;border-top:1px solid var(--bd);font-size:13.5px;animation:xIn .25s var(--ease) both}
+/* Certificate requests (D-542): the teacher's cards and the approver's queue */
+.cert-req-list{display:grid}
+.cert-req{display:flex;flex-direction:column;gap:10px;padding:12px 0;border-top:1px solid var(--bd);animation:xIn .3s var(--ease) both}
+.cert-req:first-child{border-top:0;padding-top:2px}
+.cert-req-ic{flex:none;width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:var(--s2);color:var(--pri)}
+.cert-req-ic.warn{background:var(--warns);color:var(--warnfg)}
+.cert-req-ic.ok{background:var(--oks);color:var(--ok)}
+.cert-req-ic.bad{background:var(--bads);color:var(--bad)}
+.cert-req-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cert-req-actions.one{grid-template-columns:minmax(0,1fr)}
+.cert-req-actions .btn{min-height:48px}
+.cert-wait-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:6px;animation:xPulse 1.6s ease infinite}
+.cert-fly{display:flex;justify-content:center;padding:10px 0 4px}
+.cert-fly .cert-paper{animation:certFly 1.5s var(--ease) infinite}
+@keyframes certFly{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-2.5deg)}}
+.cert-check{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:13px;padding:10px 12px;border-radius:12px;background:var(--s2)}
+.cert-check dt{color:var(--mut)}
+.cert-check dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.cert-stamp-anim{position:relative;display:flex;justify-content:center;padding:6px 0}
+.cert-stamp-anim .seal{position:absolute;right:calc(50% - 86px);bottom:18px;width:58px;height:58px;border-radius:50%;border:2.5px solid #1F3C88;color:#1F3C88;display:flex;align-items:center;justify-content:center;font:700 7px/1.1 Georgia,serif;text-align:center;letter-spacing:.04em;opacity:0;animation:certStamp 1.6s var(--spring) .3s infinite}
+@keyframes certStamp{0%{opacity:0;transform:scale(1.8) rotate(-18deg)}35%{opacity:.92;transform:scale(.94) rotate(-8deg)}45%,85%{opacity:.92;transform:scale(1) rotate(-8deg)}100%{opacity:0;transform:scale(1) rotate(-8deg)}}
 /* Wording editor */
 .tpl-tabs{display:flex;gap:8px;flex-wrap:wrap}
 .tpl-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:18px;align-items:start}
@@ -76,6 +97,8 @@
 @media (max-width:380px){.cert-actions{grid-template-columns:minmax(0,1fr)}.cert-kinds{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){
   .cert-kind,.cert-q,.cert-paper,.cert-serial,.cert-blocker,.desk-kpi,.tray-row,.tray-bar,.batch-item,.cert-paper .cp-stamp,.cert-kind .cert-kind-tick{animation:none!important}
+  .cert-req,.cert-wait-dot,.cert-fly .cert-paper{animation:none!important}
+  .cert-stamp-anim .seal{animation:none!important;opacity:.92;transform:rotate(-8deg)}
   .cert-paper.busy .cp-line,.cert-paper.busy .cp-name,.cert-paper.busy .cp-title{animation:none!important}
   .tray-row.gone{display:none}
 }

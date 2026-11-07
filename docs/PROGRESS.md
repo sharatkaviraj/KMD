@@ -17,6 +17,31 @@ and checked). Tests: `tests/transport-board.test.ts` (19),
 **Remains:** the real year has no buses or drivers yet; the office adds them.
 A child's route is still changed in Fees.
 
+## Certificates on the letterhead, signed and sealed, and teachers' requests — 7 November 2026
+
+Owner asked (7 Nov) for the certificate letterhead to be redesigned from the
+school's own letterhead and certificates on Google Drive, the principal's
+signature from the receipts and a new school seal printed on certificates made
+by approved staff, and for a teacher's certificate to need an admin's approval,
+after which the teacher downloads it and sends it to the parent. Branch
+`claude/project-thread-m9wq3f`, D-540 to D-543. **Done:** the official
+letterhead on every certificate (crest, both names, trust, address, codes) as
+Certificate settings' defaults, with every line editable there; the receipts'
+signature and a new round seal printed by default; one A4 sheet always (three
+densities, page-counted in tests); `certificates:request` for teachers and
+`certificates:approve` for the admin; "Ask for a certificate" on a child's
+page; "Asked by teachers" at the top of School office and on the admin's
+Today; Approve and sign issues under the approver's name; the teacher's card
+on the child's page with Send to parent (the phone's share list) and Download,
+and her requests on Today, drawn on the server so the teacher's first screen
+carries no extra JavaScript (the /teach/attendance budget had only bytes to
+spare). Migrations `…_certificate_requests.sql` and
+`…_certificate_requests_role_permissions.sql`; PGlite test in CI. **Remains:**
+the principal's name is printed only once someone types it in Certificate
+settings; the five real certificates issued before today stay hand-signed;
+the letterhead's address (Opposite Mela Ground, 313330) differs from the
+receipts' (Amet-Kelwa Road, 313332) and the owner may want one of them changed.
+
 ## One on a desk: every screen uses the width it is given — 7 November 2026
 
 Owner asked (7 Nov) for the desktop view of the whole app, everything changed
@@ -169,6 +194,15 @@ which on a phone looks switched off. It now stays solid and a ring grows
 off it and fades, four times, then rests (none with reduced motion). The
 help pictures of the button do the same. Test:
 `tests/teacher-mark-attendance-call.test.ts`.
+**Live and on BrowserStack:** PR 304 went live at 17:51 UTC (`578a12e`).
+It was checked at 360 px as QA teacher and QA teacher 2, then on BrowserStack
+on a real Galaxy M32 (Chrome) and on Windows 11 Chrome, and every check
+passed. My tasks names each exam, with First formative first. Subjects read
+in Hindi. The Mark attendance button stays at full opacity, and its ring is
+gone after about 10 s. No Class 11 or 12 card says "No paper yet".
+"Attendance" fits under the centre tab, and nothing scrolls sideways.
+Still there: leftover `phoneops-20261011` test tasks show under their raw
+titles on QA teacher's To do list (TEST data only).
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 

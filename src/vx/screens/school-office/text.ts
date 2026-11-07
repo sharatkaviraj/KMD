@@ -66,3 +66,22 @@ export const LEAVING_REASONS: Pair[] = [
 export const PURPOSES: Pair[] = [p("Scholarship application", "छात्रवृत्ति आवेदन"), p("Bank account", "बैंक खाता"), p("Aadhaar update", "आधार अद्यतन"), p("Passport", "पासपोर्ट")];
 export const COLLECTORS: Pair[] = [p("Father", "पिता"), p("Mother", "माता"), p("Guardian", "अभिभावक"), p("Student", "विद्यार्थी")];
 export const CERTIFICATE_STATUS: Record<CertificateStatus, Pair> = { prepared: p("Awaiting signature", "हस्ताक्षर बाकी"), issued: p("Handed over", "सौंप दिया"), superseded: p("Superseded", "नई प्रति जारी"), cancelled: p("Cancelled", "रद्द") };
+
+/**
+ * A prepared document under the school's default carries the principal's
+ * printed signature and the seal already (D-541), so it is waiting to be
+ * handed over, not to be signed. Older hand-signed ones still read
+ * "Awaiting signature".
+ */
+export const SIGNED = {
+  ready: p("Ready to hand over", "सौंपने के लिए तैयार"),
+  note: p("Printed with the principal's signature and the school seal. Hand it over, then mark it handed over.", "प्रधानाचार्य के हस्ताक्षर और विद्यालय की मुहर छपी हुई है। सौंपें, फिर सौंपा दर्ज करें।"),
+  tray: p("Ready to hand over", "सौंपने के लिए तैयार"),
+  trayHint: p("These already carry the principal's signature and the school seal. Print, hand over, then mark them handed over together.", "इन पर प्रधानाचार्य के हस्ताक्षर और विद्यालय की मुहर पहले से है। प्रिंट करें, सौंपें, फिर सबको एक साथ सौंपा दर्ज करें।"),
+  handover: p("Mark handed over", "सौंपा दर्ज करें"),
+  badge: p("Signed", "हस्ताक्षरित"),
+  toHand: p("To hand over", "सौंपना बाकी"),
+};
+export function statusLabel(status: CertificateStatus, signed: boolean): Pair {
+  return status === "prepared" && signed ? SIGNED.ready : CERTIFICATE_STATUS[status];
+}

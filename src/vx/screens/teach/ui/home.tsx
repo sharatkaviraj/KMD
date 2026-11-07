@@ -124,6 +124,7 @@ export function TeachHome({
   school,
   officePhone,
   bolo,
+  certificates,
   allowed = { attendance: true, marks: true, notes: true },
 }: {
   data: HomeData;
@@ -135,6 +136,8 @@ export function TeachHome({
   /** The school office's number, for help's "Call the office"; none hides it. */
   officePhone?: string;
   bolo?: ReactNode;
+  /** The teacher's certificate requests (D-542); the card hides itself until there is one. */
+  certificates?: ReactNode;
   /** Office and coordinators can open this page too; their quick actions stop at what they may open. */
   allowed?: { attendance: boolean; marks: boolean; notes: boolean };
 }) {
@@ -1118,6 +1121,7 @@ export function TeachHome({
               {/* Bolo answers about a teacher's own classes, so a teacher with none is not offered it (teacher day, 6 Nov, teacher 19). */}
               {bolo && !data.unassigned ? <div style={{ order: 6 }}>{bolo}</div> : null}
               {tasksCard}
+              {certificates}
               {office}
               {quick}
               {links}

@@ -74,6 +74,18 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     ],
   },
   {
+    key: "certificates",
+    title: p("Certificates", "प्रमाण पत्र"),
+    note: p("Approving makes the certificate signed and sealed", "मंज़ूरी पर प्रमाण पत्र हस्ताक्षर व मुहर के साथ बनता है"),
+    items: [
+      I("certificates:view", "See certificates", "प्रमाण पत्र देखें", "Open the certificate register and its documents.", "प्रमाण पत्र रजिस्टर और दस्तावेज़ खोलें।"),
+      I("certificates:issue", "Make certificates", "प्रमाण पत्र बनाएँ", "Make study, character, birth-date and transfer certificates.", "अध्ययन, चरित्र, जन्मतिथि और टीसी बनाएँ।"),
+      I("certificates:request", "Ask for a certificate", "प्रमाण पत्र माँगें", "Ask for a certificate for a child in their own class.", "अपनी कक्षा के बच्चे के लिए प्रमाण पत्र माँगें।"),
+      I("certificates:approve", "Approve certificate requests", "प्रमाण पत्र अनुरोध मंज़ूर करें", "Approve a teacher's request; needs Make certificates too.", "अध्यापक का अनुरोध मंज़ूर करें; प्रमाण पत्र बनाने की अनुमति भी चाहिए।"),
+      I("certificates:manage", "Certificate wording & corrections", "प्रमाण पत्र शब्द व सुधार", "Change the wording and letterhead; correct or cancel a certificate.", "शब्द और लेटरहेड बदलें; प्रमाण पत्र सुधारें या रद्द करें।"),
+    ],
+  },
+  {
     key: "academics",
     title: p("Academics", "पढ़ाई"),
     items: [

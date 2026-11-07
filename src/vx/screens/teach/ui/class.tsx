@@ -20,6 +20,7 @@ import { dShort, dShortP, hm12, shortClass, andList } from "./fmt";
 import { DeskHelp, HelpIcon, LangSeg, TchTop } from "./shared";
 import { ChildSummary } from "@/vx/assist/summary-assist";
 import { sessionText } from "@/platform/helpers/session-text";
+import { StudentCertificateCardLazy } from "./certificates-lazy";
 
 /*
  * Teacher · My class & subjects (design TchClass). The class teacher's class
@@ -634,7 +635,7 @@ function masked(raw: string | null | undefined): string {
   return `${d.slice(0, 5)} ••${d.slice(7)}`;
 }
 
-export function TeachStudent({ data, initialTab, back }: { data: StudentData; initialTab: Tab; back: string }) {
+export function TeachStudent({ data, initialTab, back, canAskCertificate = false }: { data: StudentData; initialTab: Tab; back: string; canAskCertificate?: boolean }) {
   const { tx, sub, language } = useVx();
   const [tab, setTab] = useState<Tab>(initialTab === "attendance" && data.attendance.hidden ? "about" : initialTab);
   const [help, setHelp] = useState(false);
@@ -738,6 +739,7 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
               ))}
               <span className="tc-s">{tx(p("Numbers are partly hidden. The call goes from your own phone.", "नंबर आधे छिपे हैं। फ़ोन आपके अपने फ़ोन से जाता है।"))}</span>
             </div>
+            {canAskCertificate && data.sessionLabel ? <StudentCertificateCardLazy studentId={data.id} studentName={data.name} sessionLabel={data.sessionLabel} /> : null}
             <div className="tc-note" style={{ order: 9, background: "var(--s2)", color: "var(--mut)", fontSize: 13 }}>
               <Ic n="lock" style={{ marginTop: 1 }} />
               <span><b style={{ color: "var(--fg)" }}>{tx(p("Fee details are with the office.", "फ़ीस की जानकारी ऑफ़िस के पास है।"))}</b> {tx(p("If a parent asks about fees, please send them to the office desk.", "अगर माता-पिता फ़ीस पूछें, तो उन्हें ऑफ़िस भेजें।"))}</span>

@@ -148,6 +148,9 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "assessments:view",
     "marks:view",
     "marks:write",
+    // Asks for a certificate for a child in her own class; an approver
+    // signs it (D-542). Never `certificates:issue`.
+    "certificates:request",
   ],
 
   // `attendance:view` was here until R1.2. PLAN section 3 gives this role

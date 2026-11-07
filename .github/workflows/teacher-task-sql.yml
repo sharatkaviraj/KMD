@@ -29,6 +29,8 @@ jobs:
           node tests/sql/legacy-teacher-review.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
           node tests/sql/teacher-task-canonical-writers.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
           node tests/sql/teacher-task-credential-regressions.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+      - name: Exercise certificate requests (ask, approve and sign, decline, download)
+        run: node tests/sql/certificate-requests.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
   lock-order:
     runs-on: ubuntu-latest
     timeout-minutes: 5

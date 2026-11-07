@@ -13,6 +13,8 @@ import { certificateForViewer } from "@/modules/certificates/data/repo";
 import { IDENTITY_KEY } from "@/modules/certificates/data/identity";
 import { certificateKinds, templateSchema } from "@/modules/certificates/domain/certificate";
 import { certificateIdentitySchema, cleanIdentity, stampIdentity } from "@/modules/certificates/domain/identity";
+import { approveCertificateRequest, declineCertificateRequest } from "@/modules/certificates/data/requests";
+import { isSessionAccessDenied } from "@/platform/auth/test-session-policy";
 
 export async function generateCertificateAction(input: unknown) {
   await assertPermission("certificates:issue");
@@ -104,4 +106,32 @@ export async function saveCertificateIdentityAction(input: unknown) {
   revalidatePath("/school-office");
   revalidatePath("/school-office/template");
   return { ok: true };
+}
+
+/**
+ * A teacher's request (D-542): "Approve and sign" issues the document under
+ * the approver's name, signed and sealed, and the teacher can download it.
+ */
+export async function approveCertificateRequestAction(input: unknown) {
+  try {
+    await assertPermission("certificates:approve");
+    const result = await approveCertificateRequest(input);
+    if (result.ok) revalidatePath("/school-office");
+    return result;
+  } catch (error) {
+    const denied = isSessionAccessDenied(error) || (error instanceof Error && error.message.startsWith("Permission denied"));
+    return { ok: false as const, code: denied ? "forbidden" as const : "unavailable" as const };
+  }
+}
+
+export async function declineCertificateRequestAction(input: unknown) {
+  try {
+    await assertPermission("certificates:approve");
+    const result = await declineCertificateRequest(input);
+    if (result.ok) revalidatePath("/school-office");
+    return result;
+  } catch (error) {
+    const denied = isSessionAccessDenied(error) || (error instanceof Error && error.message.startsWith("Permission denied"));
+    return { ok: false as const, code: denied ? "forbidden" as const : "unavailable" as const };
+  }
 }

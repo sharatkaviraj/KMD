@@ -1,4 +1,5 @@
 import { requirePermission } from "@/platform/auth/current-staff";
+import { can } from "@/platform/auth/permissions";
 import { loadClass, loadStudent, loadSubject } from "@/vx/screens/teach/data";
 import { TeachClass, TeachStudent, TeachSubject } from "@/vx/screens/teach/ui/class";
 import { TeachEmpty } from "@/vx/screens/teach/ui/empty";
@@ -26,7 +27,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     const data = UUID.test(student) ? await loadStudent(staff, student) : null;
     if (!data) return <TeachEmpty kind="not-found" title={title} back="/teach/class" />;
     const tab = one(sp.tab);
-    return <TeachStudent data={data} initialTab={(TABS as readonly string[]).includes(tab ?? "") ? (tab as (typeof TABS)[number]) : "about"} back={`/teach/class?class=${data.classId}&view=roster`} />;
+    return <TeachStudent data={data} initialTab={(TABS as readonly string[]).includes(tab ?? "") ? (tab as (typeof TABS)[number]) : "about"} back={`/teach/class?class=${data.classId}&view=roster`} canAskCertificate={can(staff, "certificates:request")} />;
   }
 
   const subject = one(sp.subject);

@@ -1,6 +1,6 @@
 "use client";
 import Link from "@/ui/link";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { handOverManyAction } from "@/app/(app)/school-office/actions";
 import { useVx } from "@/vx/i18n";
@@ -9,16 +9,18 @@ import { dateLabel } from "@/vx/format";
 import { DataList } from "@/vx/ui/page";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Btn, EmptyState, Pill } from "@/vx/ui/primitives";
-import { certificateKinds, type CertificateIssue } from "@/modules/certificates/domain/certificate";
+import { certificateKinds, certificateSigned, type CertificateIssue } from "@/modules/certificates/domain/certificate";
 import type { DeskCounts } from "@/modules/certificates/data/repo";
 import { bundleHref } from "./artifact";
-import { CERTIFICATE_STATUS, COLLECTORS, KIND_LABELS, O } from "./text";
+import { CERTIFICATE_STATUS, COLLECTORS, KIND_LABELS, O, SIGNED, statusLabel } from "./text";
 import "./office.css";
 import "./cert.css";
 
-export function CertificateRegister({ rows, count, page, query, status, kind = "", studentId, sessionLabel, canManage, canGovernment, canIssue = false, unavailable, counts = null, tray = [] }: {
+export function CertificateRegister({ rows, count, page, query, status, kind = "", studentId, sessionLabel, canManage, canGovernment, canIssue = false, unavailable, counts = null, tray = [], requests = null }: {
   rows: CertificateIssue[]; count: number; page: number; query: string; status: string; kind?: string; studentId?: string; sessionLabel: string; canManage: boolean; canGovernment: boolean; canIssue?: boolean; unavailable: boolean;
   counts?: DeskCounts | null; tray?: CertificateIssue[];
+  /** Teachers' requests waiting for this approver (D-542), above everything else on the desk. */
+  requests?: ReactNode;
 }) {
   const { tx } = useVx();
   const href = (next: number) => { const sp = new URLSearchParams({ q: query, status, kind, page: String(next), ...(studentId ? { student: studentId } : {}) }); return `/school-office?${sp}`; };
@@ -34,10 +36,12 @@ export function CertificateRegister({ rows, count, page, query, status, kind = "
     </div>
 
     {counts ? <div className="desk-kpis">
-      {[[counts.today, O.today, ""], [counts.tray, O.awaiting, counts.tray ? "warn" : ""], [counts.handedThisMonth, O.handedMonth, ""], [counts.total, O.issuedTotal, ""]].map(([value, label, tone], index) =>
+      {[[counts.today, O.today, ""], [counts.tray, SIGNED.toHand, counts.tray ? "warn" : ""], [counts.handedThisMonth, O.handedMonth, ""], [counts.total, O.issuedTotal, ""]].map(([value, label, tone], index) =>
         // A tile that reads 0 is off the phone: four zero tiles filled the first screen (UX review 6 Nov 2026).
         <div key={index} className={`desk-kpi ${tone}${value === 0 ? " hide-m" : ""}`} style={{ animationDelay: `${index * 55}ms` }}><b className="num">{value as number}</b><span>{tx(label as typeof O.today)}</span></div>)}
     </div> : null}
+
+    {requests}
 
     {canIssue && tray.length ? <SigningTray tray={tray} /> : null}
 
@@ -55,7 +59,7 @@ export function CertificateRegister({ rows, count, page, query, status, kind = "
           { key: "kind", label: tx(O.kind), width: "minmax(0,.9fr)", cell: (row) => <span className="kind-pill">{tx(KIND_LABELS[row.kind ?? "study"])}</span> },
           { key: "serial", label: tx(O.number), width: "minmax(0,1.3fr)", cell: (row) => <span className="num" style={{ overflowWrap: "anywhere" }}>{row.serial}</span> },
           { key: "date", label: tx(O.prepared), width: "100px", cell: (row) => dateLabel(row.issued_at) },
-          { key: "status", label: tx(O.status), width: "minmax(0,1fr)", cell: (row) => <Pill tone={row.artifact_state !== "ready" ? "bad" : row.status === "prepared" ? "warn" : row.status === "issued" ? "ok" : "mut"}>{row.artifact_state !== "ready" ? tx(O.retry) : tx(CERTIFICATE_STATUS[row.status])}</Pill> },
+          { key: "status", label: tx(O.status), width: "minmax(0,1fr)", cell: (row) => <Pill tone={row.artifact_state !== "ready" ? "bad" : row.status === "prepared" ? "warn" : row.status === "issued" ? "ok" : "mut"}>{row.artifact_state !== "ready" ? tx(O.retry) : tx(statusLabel(row.status, certificateSigned(row.snapshot)))}</Pill> },
         ]} empty={<div style={{ padding: 25 }}><EmptyState icon="award" title={tx(O.empty)} body={tx(O.emptySub)} action={<Btn variant="pri" icon="search" href="/students">{tx(O.find)}</Btn>} /></div>} />}
     </div>
     {!unavailable && count > 0 ? <div className="office-tools" style={{ justifyContent: "space-between" }}><span style={{ fontSize: 13, color: "var(--mut)" }}>{(page - 1) * 30 + 1}–{Math.min(page * 30, count)} / {count}</span><span className="office-tools">{page > 1 ? <Btn href={href(page - 1)}>{tx(O.previous)}</Btn> : null}{page * 30 < count ? <Btn href={href(page + 1)}>{tx(O.next)}</Btn> : null}</span></div> : null}
@@ -75,6 +79,8 @@ function SigningTray({ tray }: { tray: CertificateIssue[] }) {
   const [closed, setClosed] = useState(false);
   const commands = useRef(new Map<string, string>());
   const visible = useMemo(() => tray.filter((row) => !gone.has(row.id)), [tray, gone]);
+  // Under the school's default every new document is already signed and sealed (D-541).
+  const allSigned = tray.length > 0 && tray.every((row) => certificateSigned(row.snapshot));
   const picked = visible.filter((row) => chosen.has(row.id));
   const toggle = (id: string) => setChosen((old) => { const next = new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; });
 
@@ -99,13 +105,14 @@ function SigningTray({ tray }: { tray: CertificateIssue[] }) {
   return <section className="card" aria-label={tx(O.tray)} style={{ overflow: "hidden", animation: visible.length ? "xRise .42s var(--ease) both" : "xOut .3s var(--ease) .2s forwards" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px", flexWrap: "wrap" }}>
       <span style={{ width: 40, height: 40, borderRadius: 13, background: "var(--warns)", color: "var(--warn)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Ic n="notePen" size={19} /></span>
-      <div style={{ flex: 1, minWidth: 200 }}><h2 className="serif" style={{ margin: 0, fontSize: 21 }}>{tx(O.tray)} <span className="num" style={{ color: "var(--warn)" }}>{visible.length}</span></h2><p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--mut)" }}>{tx(O.trayHint)}</p></div>
+      <div style={{ flex: 1, minWidth: 200 }}><h2 className="serif" style={{ margin: 0, fontSize: 21 }}>{tx(allSigned ? SIGNED.tray : O.tray)} <span className="num" style={{ color: "var(--warn)" }}>{visible.length}</span></h2><p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--mut)" }}>{tx(allSigned ? SIGNED.trayHint : O.trayHint)}</p></div>
       <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" style={{ width: 18, height: 18, accentColor: "var(--pri)" }} checked={picked.length === visible.length} onChange={(e) => setChosen(e.target.checked ? new Set(visible.map((row) => row.id)) : new Set())} />{tx(O.selectAll)}</label>
     </div>
     <div style={{ maxHeight: 360, overflow: "auto" }}>
       {tray.map((row, index) => <label key={row.id} className={`tray-row${gone.has(row.id) ? " gone" : ""}`} style={{ animationDelay: gone.has(row.id) ? "0ms" : `${Math.min(index, 12) * 30}ms`, cursor: "pointer" }}>
         <input type="checkbox" checked={chosen.has(row.id)} onChange={() => toggle(row.id)} />
         <span style={{ flex: 1, minWidth: 0 }}><strong style={{ display: "block", fontSize: 14, overflowWrap: "anywhere" }}>{row.snapshot.facts.studentName}</strong><span style={{ fontSize: 12, color: "var(--mut)" }}>{row.snapshot.facts.classLabel} · <span className="num">{row.serial}</span></span></span>
+        {!allSigned && certificateSigned(row.snapshot) ? <Pill tone="ok">{tx(SIGNED.badge)}</Pill> : null}
         <span className="kind-pill">{tx(KIND_LABELS[row.kind ?? "study"])}</span>
       </label>)}
     </div>
@@ -120,7 +127,7 @@ function SigningTray({ tray }: { tray: CertificateIssue[] }) {
         <div className="cert-chips">{COLLECTORS.map((pair) => <button key={pair.en} type="button" className="cert-chip" aria-pressed={collector === pair.en} onClick={() => setCollector(pair.en)}>{tx(pair)}</button>)}</div>
         <input className="inp" value={collector} maxLength={60} onChange={(e) => setCollector(e.target.value)} />
       </div>
-      <p className="cert-note" style={{ marginTop: 14 }}>{tx(O.manual)}</p>
+      <p className="cert-note" style={{ marginTop: 14 }}>{tx(allSigned ? SIGNED.note : O.manual)}</p>
     </Sheet>
   </section>;
 }

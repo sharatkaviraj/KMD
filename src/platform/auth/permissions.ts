@@ -74,6 +74,13 @@ export const staffPermissions = [
   "certificates:view",
   "certificates:issue",
   "certificates:manage",
+  // A teacher asks for a certificate for a child in her own class; an
+  // approver issues it signed and sealed, and she downloads it (D-542).
+  // Asking prepares nothing. Approving is the admin's until Staff -> Roles
+  // grants it; it also needs `certificates:issue`, because approving is
+  // issuing under the approver's own name.
+  "certificates:request",
+  "certificates:approve",
   "government:view",
   "government:export",
   "government:import",
@@ -277,6 +284,9 @@ const teacherPermissions: readonly StaffPermission[] = [
   "assessments:view",
   "marks:view",
   "marks:write",
+  // Asks the office for a study, character or date-of-birth certificate for
+  // a child in her own classes; never prepares or signs one (D-542).
+  "certificates:request",
 ];
 
 /**
