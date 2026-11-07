@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { AI_MAX_FILE_BYTES, AI_MAX_VOICE_SECONDS } from "@/lib/ai/media-limits";
+import { cue } from "@/ui/feedback/cue";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
@@ -43,8 +44,9 @@ export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
     return () => window.clearInterval(timer);
   }, [state]);
 
-  function buzz() {
-    try { navigator.vibrate?.(25); } catch { /* not on this phone */ }
+  /** Recording started or finished: the app's mic cues (D-497), on the person's own switches. */
+  function buzz(kind: "listen" | "stop") {
+    cue(kind);
   }
 
   function stop() {
@@ -91,7 +93,7 @@ export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
         const clip = new Blob(chunks, { type: (recorder.mimeType || mimeType).split(";")[0] });
         if (!failed && clip.size > 0 && clip.size <= AI_MAX_FILE_BYTES) {
           setState("idle");
-          buzz();
+          buzz("stop");
           onClip(clip);
         } else setState("failed");
       };
@@ -99,7 +101,7 @@ export function VoiceButton({ onClip }: { onClip: (clip: Blob) => void }) {
       capture.current = { recorder, stream: audio, timer: setTimeout(stop, AI_MAX_VOICE_SECONDS * 1_000) };
       setElapsed(0);
       setState("recording");
-      buzz();
+      buzz("listen");
     } catch {
       stream?.getTracks().forEach((track) => track.stop());
       if (alive.current && thisRequest === request.current) {

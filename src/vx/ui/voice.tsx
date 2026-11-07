@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
+import { cue } from "@/ui/feedback/cue";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
@@ -163,6 +164,7 @@ export function useSpeech(onText: (finalText: string) => void) {
       r.onerror = (e) => {
         if (QUIET.has(e.error)) return;
         wanted.current = false;
+        cue("warn");
         setError(e.error === "not-allowed" || e.error === "service-not-allowed" ? SAY.allowMic : SAY.notHeard);
       };
       r.onend = () => {
@@ -179,6 +181,8 @@ export function useSpeech(onText: (finalText: string) => void) {
         wanted.current = false;
         rec.current = null;
         setListening(false);
+        // The microphone closed by itself (silence): a falling blip says so (D-497).
+        cue("stop");
       };
       rec.current = r;
       r.start();
@@ -187,6 +191,8 @@ export function useSpeech(onText: (finalText: string) => void) {
     try {
       session();
       setListening(true);
+      // A rising blip and a buzz: "speak now" (D-497).
+      cue("listen");
     } catch {
       wanted.current = false;
       setError(SAY.notHeard);
@@ -204,6 +210,7 @@ export function useSpeech(onText: (finalText: string) => void) {
     commitNow.current = null;
     rec.current?.stop();
     setListening(false);
+    cue("stop");
   };
 
   /** `heard`: the stretch being heard now (subscribe with `useHeardText`, or read `heard.get()` in a handler before `stop()`). */

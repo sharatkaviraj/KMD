@@ -8,7 +8,9 @@ import { Ic, type IconName } from "@/vx/icons";
 import { Bi, useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
 import { BackLink } from "@/vx/ui/back-link";
+import { useHelpGlow } from "@/vx/ui/help-glow";
 import { LanguageControl } from "@/vx/ui/language";
+import { ListenButton } from "@/vx/ui/listen";
 import { Sheet } from "@/vx/ui/overlays";
 
 import "./teach.css";
@@ -131,9 +133,11 @@ export function LangSeg({ pill }: { pill?: boolean } = {}) {
 
 /** The phone bar's "?". */
 export function HelpIcon({ onClick, label }: { onClick: () => void; label: string }) {
+  const help = useHelpGlow();
   return (
     // The word beside the "?" — an icon alone said nothing to a teacher who reads only what is printed (UX review 6 Nov 2026).
-    <button type="button" className="tap btn ghost" onClick={onClick} style={{ color: "var(--fg)", gap: 4, paddingInline: 8, minWidth: 44 }}>
+    // On a new screen it ripples softly until opened once (D-497).
+    <button type="button" className={`tap btn ghost${help.glow ? " vx-help-new" : ""}`} onClick={() => { help.opened(); onClick(); }} style={{ color: "var(--fg)", gap: 4, paddingInline: 8, minWidth: 44 }}>
       <Ic n="help" size={22} />
       <span style={{ fontWeight: 700, fontSize: 14 }}>{label}</span>
     </button>
@@ -146,8 +150,9 @@ export function HelpIcon({ onClick, label }: { onClick: () => void; label: strin
  * a word on one screen, a bare "?" on the next and missing on Attendance).
  */
 export function DeskHelp({ onClick, label }: { onClick: () => void; label: string }) {
+  const help = useHelpGlow();
   return (
-    <button type="button" className="tap btn sec" onClick={onClick}>
+    <button type="button" className={`tap btn sec${help.glow ? " vx-help-new" : ""}`} onClick={() => { help.opened(); onClick(); }}>
       <Ic n="help" />
       {label}
     </button>
@@ -233,6 +238,9 @@ export type HelpStep = { title: Pair; body: Pair } & ({ pic: ReactNode; icon?: n
  */
 export function HelpSheet({ open, onClose, title, sub: subtitle, steps, phone }: { open: boolean; onClose: () => void; title: Pair; sub?: Pair; steps: HelpStep[]; phone?: string }) {
   const { tx, sub } = useVx();
+  // The step being read aloud by Listen (D-497), lit up so eyes can follow the voice.
+  const [reading, setReading] = useState<number | null>(null);
+  if (!open && reading !== null) setReading(null);
   const tel = phone ? phone.replace(/[^\d+]/g, "") : "";
   return (
     <Sheet
@@ -254,9 +262,15 @@ export function HelpSheet({ open, onClose, title, sub: subtitle, steps, phone }:
         </>
       }
     >
+      <ListenButton
+        lines={[tx(title), ...steps.map((s, i) => `${i + 1}. ${tx(s.title)}. ${tx(s.body)}`)]}
+        onLine={(i) => setReading(i === null || i === 0 ? null : i - 1)}
+        className="tap btn sec tc-bb"
+        style={{ marginBottom: 12 }}
+      />
       <ol className="tc-sb" style={{ listStyle: "none", margin: 0, padding: "4px 0 0" }}>
         {steps.map((s, i) => (
-          <li key={s.title.en} className="tc-in" style={{ display: "flex", gap: 14, alignItems: "stretch", animationDelay: `${i * 90}ms` }}>
+          <li key={s.title.en} className={`tc-in vx-step${reading === i ? " reading" : ""}`} style={{ display: "flex", gap: 14, alignItems: "stretch", animationDelay: `${i * 90}ms` }}>
             <div className="tc-pic" style={{ flex: "none", width: 128 }}>
               {s.icon ? (
                 <span className="tc-ib" style={{ width: 52, height: 52, borderRadius: 16, background: "var(--accs)", color: "var(--accfg)" }}><Ic n={s.icon} size={26} /></span>

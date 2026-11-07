@@ -1,5 +1,24 @@
 # VPPS One — progress
 
+## Felt and heard: haptics, short sounds and Listen — 7 November 2026
+
+Owner asked (7 Nov) for haptic feedback where it helps (not too much), sounds
+or voice where needed, and other touches that make One easy for non-technical
+teachers. Branch `claude/project-thread-v897y5`, D-497 to D-499. **Done:** one
+cue helper (`src/ui/feedback/cue.ts`) gives every result a short buzz and a
+quiet synthesised chime: saved, finished job, warning, failed, undo, mic
+on/off, AI ready. Every toast, save line, fee-kit toast and the old
+`triggerHaptic` go through it, so the whole app is covered without touching
+240 call sites; the register, Collect, marks, admissions, the Payment Desk and
+day close mark their finished jobs as "done". Nothing plays before the first
+touch, in the background, or twice for one save. Menu, Settings and the
+teacher's More hold the Sounds, Vibration (Android only) and Read aloud
+switches, kept on the device. Every Help sheet has a Listen button that reads
+the steps aloud in Hindi or English and lights the step it is on, and a
+screen's Help button ripples on the first three visits until it is opened.
+**Remains:** notes screens are the notes thread's (it imports the same
+helper); iPhones cannot vibrate from a web page, so they get the chime only.
+
 ## Free AI keys: the free models go first — 7 November 2026
 
 Owner asked (7 Nov) for the best models on the new NVIDIA and OpenRouter keys

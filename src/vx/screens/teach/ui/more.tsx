@@ -14,6 +14,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { agoP, initials, shortDayHi, timeHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
+import { FeedbackSwitches } from "@/vx/ui/feedback-switches";
 import { useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
@@ -718,6 +719,7 @@ export function TeachMore({
           </div>
         </div>
         {switchRow("dark", "moon", TS, p("Dark mode", "डार्क मोड"), p("डार्क मोड · easier on the eyes at night", "Dark mode · रात में आँखों को आराम"), dark, () => setTheme(dark ? "light" : "dark"))}
+        <FeedbackSwitches row={(r) => switchRow(r.key, r.icon, TI, r.title, r.sub, r.on, r.flip)} />
         {ALERTS.map((a) => switchRow(a.key, a.icon, a.tone, a.text, a.sub, alerts[a.key] !== false, () => toggleAlert(a.key, alerts[a.key] === false)))}
       </div>
       <Link href="/preferences/password?from=teach" className="tap btn sec tc-mbg tc-mw"><Ic n="lock" />{tx(p("Change password", "पासवर्ड बदलें"))}</Link>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
+import { cue } from "@/ui/feedback/cue";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
@@ -127,6 +128,18 @@ export function SaveStatus({
   const kind = state.kind;
   const acts = Boolean(onRetry || onUndo);
 
+  // Felt and heard when the answer comes (D-497): a change to saved or
+  // failed, never the state the line was first drawn in. `live` only, so a
+  // list row beside its detail does not cue twice.
+  const seen = useRef(kind);
+  useEffect(() => {
+    if (seen.current === kind) return;
+    seen.current = kind;
+    if (!live) return;
+    if (kind === "saved" || kind === "removed") cue("success");
+    else if (kind === "failed") cue("error");
+  }, [kind, live]);
+
   let line: string | null = null;
   let next: string | null = null;
   switch (state.kind) {
@@ -159,7 +172,7 @@ export function SaveStatus({
         </span>
         {/* The pressed button is replaced by the next state's words: focus stays on the line, not the page. */}
         {kind === "held" && onUndo ? (
-          <button type="button" className="tap vx-save-act" onClick={() => { box.current?.focus({ preventScroll: true }); onUndo(); }}>
+          <button type="button" className="tap vx-save-act" onClick={() => { box.current?.focus({ preventScroll: true }); cue("undo"); onUndo(); }}>
             {tx(w.undo)}
           </button>
         ) : null}

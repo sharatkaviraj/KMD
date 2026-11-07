@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { AlertTriangle, CheckCircle2, X, XCircle } from "lucide-react";
 
 import { cn } from "@/platform/utils";
+import { cue } from "@/ui/feedback/cue";
 
 /**
  * Semantic weight of a toast. "tone" rather than "variant" on purpose: the
@@ -138,6 +139,11 @@ export function ToastViewport() {
       setItems((current) => [...current, { ...detail, id }].slice(-MAX_VISIBLE));
 
       const tone = detail.tone ?? "neutral";
+      // The app's one feedback vocabulary (D-497): a buzz and a chime on the
+      // person's own switches; a neutral note stays silent.
+      if (tone === "success") cue("success");
+      else if (tone === "warning") cue("warn");
+      else if (tone === "danger") cue("error");
       scheduleDismiss(
         id,
         detail.durationMs ??

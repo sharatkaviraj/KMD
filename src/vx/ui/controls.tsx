@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
+import { cue } from "@/ui/feedback/cue";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
@@ -75,7 +76,7 @@ export function Seg<T extends string>({
     <div className="seg" role="radiogroup" aria-label={label} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0,1fr))`, ...style }}>
       <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${idx * 100}%)` }} />
       {options.map((o) => (
-        <button key={o.value} type="button" role="radio" aria-checked={o.value === value} className={o.value === value ? "on" : ""} onClick={() => onChange(o.value)} style={{ padding: "0 10px" }}>
+        <button key={o.value} type="button" role="radio" aria-checked={o.value === value} className={o.value === value ? "on" : ""} onClick={() => { if (o.value !== value) cue("tap"); onChange(o.value); }} style={{ padding: "0 10px" }}>
           {o.label}
         </button>
       ))}
@@ -85,7 +86,7 @@ export function Seg<T extends string>({
 
 export function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (next: boolean) => void; label: string; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} className={`tap sw${on ? " on" : ""}`} onClick={() => onChange(!on)} style={{ border: 0 }}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} className={`tap sw${on ? " on" : ""}`} onClick={() => { cue("tap"); onChange(!on); }} style={{ border: 0 }}>
       <span />
     </button>
   );
@@ -236,7 +237,7 @@ export function NumberPad({ onKey, extra }: { onKey: (key: string) => void; extr
           key={k}
           type="button"
           className="tap"
-          onClick={() => onKey(k)}
+          onClick={() => { cue("tap"); onKey(k); }}
           aria-label={k === "del" ? tx(SAY.del) : k === extra?.key && extra ? String(extra.key) : k}
           // Shorter keys on a short phone, so the whole pad fits above the bottom bar (smoke 20 Oct, 360x740).
           style={{ height: "clamp(44px, 7dvh, 56px)", borderRadius: 14, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 22, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}
