@@ -11,7 +11,14 @@ Password / School year); "Your shortcuts" with Change (a non-admin's defaults
 skip the bottom bar's screens); sticky group chips that light the group in
 view; every tile says what it opens, in coloured groups; Listen reads the page
 and lights each part; Sign out asks once. Tests: `tests/vx-menu-items.test.ts`.
-**Remains:** the teacher's More page is separate and unchanged.
+**Live** from 16:44 UTC (PR 298, merge 3ada532). BrowserStack: real Galaxy M32
+Chrome passed as QA admin (card, switches, shortcuts, Fees chip jump, sign-out
+sheet and Cancel). Windows 11 Chrome (2560x1600) drew the desk layout right
+but clicking "Records" lit "Studies": the chips' scrollspy band assumed the
+phone's header, and the smooth scroll overrode the tapped chip. Fixed in the
+follow-up PR (band measured from the sticky row; a tapped chip holds until a
+hand moves the page). **Remains:** the teacher's More page is separate and
+unchanged.
 
 ## The small things: faces, a year switch you can see, taps that answer — 7 November 2026
 
