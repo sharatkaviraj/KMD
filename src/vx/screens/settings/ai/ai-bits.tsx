@@ -17,53 +17,54 @@ import { providerName, W } from "./words";
 
 /** Each provider's colour: greens for the free ones, warm and cool for the paid. Both themes. */
 export const AI_CSS = `
-.vx .aip{--pv-nvidia-free:#3B8A1E;--pv-openrouter-free:#17876A;--pv-gemini-free:#5DA67B;--pv-anthropic:#C2602F;--pv-openai:#475867;--pv-gemini-paid:#2D5FC4;--pv-none:#9AAAB6}
-.dark .vx .aip,.vx.dark .aip{--pv-nvidia-free:#8FD46C;--pv-openrouter-free:#5FD1AE;--pv-gemini-free:#A8DDBC;--pv-anthropic:#F0A17A;--pv-openai:#B4C1CD;--pv-gemini-paid:#8FB0F5;--pv-none:#6E7F8C}
-.vx .aip-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:5px;border-radius:16px;background:var(--s2);border:1px solid var(--bd);position:sticky;top:72px;z-index:5}
-.vx .aip-tab{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:6px 8px;border:0;border-radius:12px;background:transparent;color:var(--mut);font-weight:600;font-size:14px;line-height:1.2;text-align:center;transition:background .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease)}
-.vx .aip-tab[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
-.vx .aip-tab[aria-selected=true] svg{color:var(--acc)}
-.vx .aip-view{animation:xIn .32s var(--ease) both}
-.vx .aip-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.vx .aip-stat{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:14px;background:var(--s2);min-width:0;animation:xPopIn .5s var(--ease) both}
-.vx .aip-stat b{font-size:26px;line-height:1.1;font-weight:800;letter-spacing:-.02em}
-.vx .aip-bar{display:flex;height:16px;border-radius:9px;overflow:hidden;background:var(--s3)}
-.vx .aip-bar>span{display:block;height:100%;transform-origin:left;animation:xGrowX .7s var(--ease) both}
-.vx .aip-bar>span+span{box-shadow:inset 2px 0 0 var(--card)}
-.vx .aip-days{display:flex;align-items:flex-end;gap:3px;height:132px;padding-top:6px}
-.vx .aip-day{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column-reverse;align-items:stretch;gap:1px;border:0;padding:0;background:transparent;border-radius:6px 6px 2px 2px;cursor:pointer;position:relative}
-.vx .aip-day>i{display:block;border-radius:3px;transform-origin:bottom;animation:xGrowY .6s var(--ease) both}
-.vx .aip-day.sel{outline:2px solid var(--acc);outline-offset:2px}
-.vx .aip-day.today::after{content:"";position:absolute;left:50%;bottom:-8px;width:5px;height:5px;margin-left:-2.5px;border-radius:9px;background:var(--acc)}
-.vx .aip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
-.vx .aip-job{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;width:100%;transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
-.vx .aip-job:hover{box-shadow:var(--shh)}
-.vx .aip-road{display:flex;flex-wrap:wrap;align-items:stretch;row-gap:12px;padding:6px 2px 10px}
-.vx .aip-arrow{flex:none;display:flex;align-items:center;justify-content:center;width:34px;color:var(--sub)}
-.vx .aip-st{position:relative;flex:1 0 150px;max-width:220px;display:flex;flex-direction:column;gap:6px;padding:12px 12px 12px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:transform .25s var(--ease),box-shadow .25s var(--ease),opacity .25s var(--ease)}
-.vx .aip-st::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:var(--pv)}
-.vx .aip-st.locked{background:repeating-linear-gradient(135deg,var(--s2) 0 8px,var(--card) 8px 16px);color:var(--mut)}
-.vx .aip-st.now{transform:scale(1.04);box-shadow:0 0 0 3px var(--acc),var(--shh);opacity:1}
-.vx .aip-st.past{opacity:.5}
-.vx .aip-models{display:flex;flex-direction:column;gap:1px;font-size:12px;color:var(--mut)}
-.vx .aip-no{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:10px;background:var(--s3);color:var(--fg);font-size:11px;font-weight:800}
-.vx .aip-st.now .aip-no{background:var(--acc);color:#fff}
-.vx .aip-ring{position:absolute;inset:-3px;border-radius:16px;border:2px solid var(--pv);pointer-events:none;animation:aipGlow 2.2s ease-out infinite}
+:is(.vx,.vxt) .aip{--pv-nvidia-free:#3B8A1E;--pv-openrouter-free:#17876A;--pv-gemini-free:#5DA67B;--pv-anthropic:#C2602F;--pv-openai:#475867;--pv-gemini-paid:#2D5FC4;--pv-none:#9AAAB6}
+.dark :is(.vx,.vxt) .aip,:is(.vx,.vxt).dark .aip{--pv-nvidia-free:#8FD46C;--pv-openrouter-free:#5FD1AE;--pv-gemini-free:#A8DDBC;--pv-anthropic:#F0A17A;--pv-openai:#B4C1CD;--pv-gemini-paid:#8FB0F5;--pv-none:#6E7F8C}
+:is(.vx,.vxt) .aip-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:5px;border-radius:16px;background:var(--s2);border:1px solid var(--bd);position:sticky;top:72px;z-index:5}
+:is(.vx,.vxt) .aip-tab{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:6px 8px;border:0;border-radius:12px;background:transparent;color:var(--mut);font-weight:600;font-size:14px;line-height:1.2;text-align:center;transition:background .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease)}
+:is(.vx,.vxt) .aip-tab[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
+:is(.vx,.vxt) .aip-tab[aria-selected=true] svg{color:var(--acc)}
+:is(.vx,.vxt) .aip-view{animation:xIn .32s var(--ease) both}
+:is(.vx,.vxt) .aip-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+:is(.vx,.vxt) .aip-stat{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:14px;background:var(--s2);min-width:0;animation:xPopIn .5s var(--ease) both}
+:is(.vx,.vxt) .aip-stat b{font-size:26px;line-height:1.1;font-weight:800;letter-spacing:-.02em}
+:is(.vx,.vxt) .aip-bar{display:flex;height:16px;border-radius:9px;overflow:hidden;background:var(--s3)}
+:is(.vx,.vxt) .aip-bar>span{display:block;height:100%;transform-origin:left;animation:xGrowX .7s var(--ease) both}
+:is(.vx,.vxt) .aip-bar>span+span{box-shadow:inset 2px 0 0 var(--card)}
+:is(.vx,.vxt) .aip-days{display:flex;align-items:flex-end;gap:3px;height:132px;padding-top:6px}
+:is(.vx,.vxt) .aip-day{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column-reverse;align-items:stretch;gap:1px;border:0;padding:0;background:transparent;border-radius:6px 6px 2px 2px;cursor:pointer;position:relative}
+:is(.vx,.vxt) .aip-day>i{display:block;border-radius:3px;transform-origin:bottom;animation:xGrowY .6s var(--ease) both}
+:is(.vx,.vxt) .aip-day.sel{outline:2px solid var(--acc);outline-offset:2px}
+:is(.vx,.vxt) .aip-day.today::after{content:"";position:absolute;left:50%;bottom:-8px;width:5px;height:5px;margin-left:-2.5px;border-radius:9px;background:var(--acc)}
+:is(.vx,.vxt) .aip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+:is(.vx,.vxt) .aip-job{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;width:100%;transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
+:is(.vx,.vxt) .aip-job:hover{box-shadow:var(--shh)}
+:is(.vx,.vxt) .aip-road{display:flex;flex-wrap:wrap;align-items:stretch;row-gap:12px;padding:6px 2px 10px}
+:is(.vx,.vxt) .aip-arrow{flex:none;display:flex;align-items:center;justify-content:center;width:34px;color:var(--sub);pointer-events:none}
+:is(.vx,.vxt) .aip-st{position:relative;flex:1 0 150px;max-width:220px;display:flex;flex-direction:column;gap:6px;padding:12px 12px 12px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:transform .25s var(--ease),box-shadow .25s var(--ease),opacity .25s var(--ease)}
+:is(.vx,.vxt) .aip-st::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:var(--pv)}
+:is(.vx,.vxt) .aip-st.locked{background:repeating-linear-gradient(135deg,var(--s2) 0 8px,var(--card) 8px 16px);color:var(--mut)}
+:is(.vx,.vxt) .aip-st.now{transform:scale(1.04);box-shadow:0 0 0 3px var(--acc),var(--shh);opacity:1}
+:is(.vx,.vxt) .aip-st.past{opacity:.5}
+:is(.vx,.vxt) .aip-models{display:flex;flex-direction:column;gap:1px;font-size:12px;color:var(--mut)}
+:is(.vx,.vxt) .aip-no{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:10px;background:var(--s3);color:var(--fg);font-size:11px;font-weight:800}
+:is(.vx,.vxt) .aip-st.now .aip-no{background:var(--acc);color:#fff}
+:is(.vx,.vxt) .aip-ring{position:absolute;inset:-3px;border-radius:16px;border:2px solid var(--pv);pointer-events:none;animation:aipGlow 2.2s ease-out infinite}
 @keyframes aipGlow{from{transform:scale(1);opacity:.7}to{transform:scale(1.07);opacity:0}}
-@media (prefers-reduced-motion:reduce){.vx .aip-ring{animation:none;opacity:.6}}
-.vx .aip-walker{display:inline-block;width:10px;height:10px;border-radius:9px;background:var(--acc);animation:xPulse 1s ease-in-out infinite}
-.vx .aip-trail{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
-.vx .aip-feed>li{animation:xIn .32s var(--ease) both}
+@media (prefers-reduced-motion:reduce){:is(.vx,.vxt) .aip-ring{animation:none;opacity:.6}}
+:is(.vx,.vxt) .aip-walker{display:inline-block;width:10px;height:10px;border-radius:9px;background:var(--acc);animation:xPulse 1s ease-in-out infinite}
+:is(.vx,.vxt) .aip-trail{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+:is(.vx,.vxt) .aip-feed>li{animation:xIn .32s var(--ease) both}
 @container vx (max-width:899px){
-.vx .aip-tabs{position:static;gap:4px;padding:4px}
-.vx .aip-tab{flex-direction:column;gap:3px;min-height:58px;font-size:12px;padding:6px 4px}
-.vx .aip-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
-.vx .aip-stat b{font-size:22px}
-.vx .aip-road{flex-direction:column;overflow:visible;padding:4px 0}
-.vx .aip-arrow{width:auto;height:26px;transform:rotate(90deg)}
-.vx .aip-st{flex:none;max-width:none;gap:4px;padding:10px 12px 10px 14px}
-.vx .aip-models{flex-direction:row;flex-wrap:wrap;column-gap:10px}
-.vx .aip-days{gap:2px;height:112px}
+:is(.vx,.vxt) .aip-tabs{position:static;gap:4px;padding:4px}
+:is(.vx,.vxt) .aip-tab{flex-direction:column;gap:3px;min-height:58px;font-size:12px;padding:6px 4px}
+:is(.vx,.vxt) .aip-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+:is(.vx,.vxt) .aip-stat b{font-size:22px}
+:is(.vx,.vxt) .aip-road{flex-direction:column;overflow:visible;padding:4px 0}
+:is(.vx,.vxt) .aip-arrow{width:auto;height:26px}
+:is(.vx,.vxt) .aip-arrow svg{transform:rotate(90deg)}
+:is(.vx,.vxt) .aip-st{flex:none;max-width:none;gap:4px;padding:10px 12px 10px 14px}
+:is(.vx,.vxt) .aip-models{flex-direction:row;flex-wrap:wrap;column-gap:10px}
+:is(.vx,.vxt) .aip-days{gap:2px;height:112px}
 }
 `;
 

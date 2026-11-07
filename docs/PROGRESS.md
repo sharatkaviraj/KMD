@@ -12,7 +12,16 @@ database function (`ai_overview`, migration `20261107100619`, applied) feeds
 it. `/settings/builtin-ai` redirects to its Cost view. The connector is now
 "Claude / ChatGPT connector" everywhere, with an explainer, a read-only list
 and this month's call counts.
-**Remains:** the BrowserStack phone and desktop check is recorded in the PR.
+Live 7 Nov 10:54 UTC (PR 288). Checked signed in as QA admin in a container
+browser (desktop and phone) and on BrowserStack (Galaxy M32 Chrome, Windows 11
+Chrome): four of five steps passed; the job and station sheets were unstyled,
+because sheets render in the overlay layer (`.vxt`) outside the page's `.aip`.
+Follow-up: the AI styles now apply in that layer and each sheet carries its
+own `.aip`; on a phone the arrows between stations no longer take taps meant
+for a station, and Show me / Listen scroll the lit station into view; a paid
+model with nothing spent shows ₹0, not "Free"; the connector's last "AI
+connection" wording now names the Claude / ChatGPT connector.
+**Remains:** nothing for this page.
 
 ## Felt and heard: haptics, short sounds and Listen — 7 November 2026
 
