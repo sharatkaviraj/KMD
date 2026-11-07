@@ -16,7 +16,7 @@ const SAY = {
     "AI writes first drafts — notes, notices, replies, remarks, plans — and staff decide. Nothing is saved or sent by AI, and every screen works the same with it off.",
     "AI पहला मसौदा लिखता है — नोट, सूचना, जवाब, टिप्पणी, योजना — और फ़ैसला स्टाफ़ करता है। AI न कुछ सहेजता है न भेजता है, और बंद होने पर हर स्क्रीन पहले जैसी चलती है।",
   ),
-  keyMissing: p("No AI provider configured. An administrator can connect Claude or Gemini Paid in the deployment settings.", "कोई AI सेवा नहीं जुड़ी है। व्यवस्थापक डिप्लॉयमेंट सेटिंग्स में Claude या Gemini Paid जोड़ सकते हैं।"),
+  keyMissing: p("No paid AI provider configured. An administrator can connect Claude, OpenAI or Gemini Paid in the deployment settings.", "कोई पेड AI सेवा नहीं जुड़ी है। व्यवस्थापक डिप्लॉयमेंट सेटिंग्स में Claude, OpenAI या Gemini Paid जोड़ सकते हैं।"),
   keyOk: p("An AI provider is configured", "एक AI सेवा जुड़ी है"),
   master: p("AI helper", "AI सहायक"),
   masterSub: p("Switch off to hide every AI button for everyone", "बंद करने पर सबके लिए हर AI बटन छिप जाएगा"),

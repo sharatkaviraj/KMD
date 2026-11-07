@@ -38,6 +38,13 @@ chain pills now wrap on a phone. **Surprised:** the helper spent $0.055 on
 staff's were mostly notes and the Today brief, which stay paid, so the saving
 grows only as staff use the open tasks. NVIDIA's free tier is a trial for
 testing, so its terms, not its price, are the limit to watch.
+**Checked live (08:08 UTC, deploy `dpl_77MBhC68…`):** as the QA teacher,
+`ask.answer` in English and Hindi and `note.polish` in Hindi were each written by
+`nvidia-free` (`assist_log.model` reads `private/nvidia/nemotron-3.5-super-120b-a12b`)
+in 2.4-3.7 s at $0; the Hindi came back in Devanagari. As the QA admin,
+Settings → AI helper shows "Free AI wrote 3 of 62 drafts", the saving and
+"NVIDIA Free 3", with no sideways scroll at 360, 390, 412, 1366 and 1920 px.
+Follow-up: the settings row said "Claude drafts"; it now says "AI drafts".
 
 ## Notes, card by card — 7 November 2026
 
