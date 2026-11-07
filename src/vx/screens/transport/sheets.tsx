@@ -244,7 +244,7 @@ export function TripSheet({
                     {index + 1}
                   </span>
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                    <strong className="clip" style={{ fontSize: 15 }}>{stop.known ? stop.name : tx(W.unnamed)}</strong>
+                    <strong style={{ fontSize: 15, lineHeight: 1.25, overflowWrap: "anywhere" }}>{stop.known ? stop.name : tx(W.unnamed)}</strong>
                     {stop.stopTime ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.stopAt(timeP(stop.stopTime)))}</span> : null}
                   </span>
                   <Pill tone={riders.length ? "info" : "mut"}>{tx(W.children(riders.length))}</Pill>

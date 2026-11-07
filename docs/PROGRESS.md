@@ -40,6 +40,14 @@ permissions (migrations `20261107165000` and `20261107165001`, applied 7 Nov
 and checked). Tests: `tests/transport-board.test.ts` (19),
 `tests/transport-actions.test.ts` (11), `tests/transport-screen.test.tsx` (5),
 `tests/sql/transport.mjs` (PGlite, its own CI job), roster-refresh test extended.
+**Live** from about 18:41 UTC 7 Nov (One PR 308, merge `8c41ced`). Checked live
+as the QA admin on TEST-2026-27, at phone and desk width: 18 children on 6
+routes, the "No Transport" row left out; a test bus with a new driver saved;
+the bus edited to carry 9 children over two stops, and its afternoon run made
+from it (1:40 pm, stops reversed); Routes, Bus times, Drivers and the sheets
+all right, no page errors. Follow-up: route and stop names wrap instead of
+being cut off, a route card's classes read "Class 5 (2) · Class 8 (1)" (the
+spaces between them had collapsed), and one line per bus on a route card.
 **Remains:** the real year has no buses or drivers yet; the office adds them.
 A child's route is still changed in Fees.
 
