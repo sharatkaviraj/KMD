@@ -19,13 +19,17 @@
 .stu-scroll{overflow-x:auto}
 .stu-head{display:grid;align-items:center;height:46px;padding:0 12px;border-bottom:1px solid var(--bd);background:var(--s2)}
 /*
- * A wide desk keeps the column names in view under the 64px top bar while a long
+ * On a desk the column names stay in view under the 64px top bar while a long
  * class scrolls past. That needs no scrolling box between the header and the page,
- * so from 1,100px of page (measured after large text's zoom, where the table's
- * 780px minimum always fits) the table clips instead of scrolling sideways; below
- * that it may still scroll sideways, and the header scrolls with the rows.
+ * so the table clips instead of scrolling sideways. The desk table shows only from
+ * 900px of page, and there its 780px of columns plus 80px of padding always fit:
+ * container queries measure the page in its own CSS pixels, so large text's zoom is
+ * already counted (measured live from 1000 to 1450 wide, large text off and on:
+ * nothing clipped, nothing needed to scroll). Add a column and that sum must still
+ * fit 900px. This was 1,100px until 7 Nov, which let the header scroll away on a
+ * 1280 screen beside the full side menu, the width of a 1080p laptop at 150%.
  */
-@container vx (min-width:1100px){
+@container vx (min-width:900px){
   .vx .stu-scroll{overflow-x:clip}
   .vx .stu-head{position:sticky;top:64px;z-index:3}
 }

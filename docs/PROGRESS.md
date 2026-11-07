@@ -26,6 +26,16 @@ menu load with chunks only a desk asks for. Tests:
 `tests/sentry-lite.test.ts` (a checkout under `/home/user`).
 **Remains:** Collect (`/payments`) keeps its narrow desk card; it is the
 money flow and was left as it is.
+**Live (same evening):** PR 305 merged as `4b89f0c4`, deployed 18:13 UTC.
+Checked on one.vpps.co.in in one browser at 1366, 1920, 1100 and a 390 phone
+(no sideways scroll, no page errors) and on BrowserStack: Windows 11 Chrome
+about 1250 wide (Today's money under the teaching cards, "+ New" with its
+hints, the menu's fade and "More below" chip, Students with every button in
+view, School settings, Admissions, Notes' top New note) and a real Galaxy M32
+(Today, Students and a teacher's Notes as before). The Windows check showed
+the Students column names scrolling away at 1250 beside the full side menu;
+a follow-up on the same branch makes them stick wherever the desk table
+shows (from 900px of page, D-529), which also covers a 1080p laptop at 150%.
 
 ## Needs you · Teachers' work: collecting from teachers the Sampark way — 7 November 2026
 
