@@ -15,8 +15,10 @@ densities, page-counted in tests); `certificates:request` for teachers and
 `certificates:approve` for the admin; "Ask for a certificate" on a child's
 page; "Asked by teachers" at the top of School office and on the admin's
 Today; Approve and sign issues under the approver's name; the teacher's card
-on the child's page and on Today with Send to parent (the phone's share list)
-and Download. Migrations `…_certificate_requests.sql` and
+on the child's page with Send to parent (the phone's share list) and Download,
+and her requests on Today, drawn on the server so the teacher's first screen
+carries no extra JavaScript (the /teach/attendance budget had only bytes to
+spare). Migrations `…_certificate_requests.sql` and
 `…_certificate_requests_role_permissions.sql`; PGlite test in CI. **Remains:**
 the principal's name is printed only once someone types it in Certificate
 settings; the five real certificates issued before today stay hand-signed;

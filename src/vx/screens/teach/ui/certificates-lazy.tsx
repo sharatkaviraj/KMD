@@ -2,13 +2,11 @@
 import dynamic from "next/dynamic";
 
 /*
- * The teacher's certificate cards (D-542), loaded after the page has drawn.
- * Both read their requests after the first paint anyway, and on Today the
- * card hides itself until a teacher has asked for something, so neither
- * belongs in the JavaScript every teacher's screen starts with.
+ * The certificate card on a child's page (D-542), loaded after the page has
+ * drawn: it reads its requests after the first paint anyway, so it does not
+ * belong in the JavaScript the child's page starts with. Today's card of the
+ * teacher's own requests is drawn on the server (certificates-today.tsx).
  */
-
-export const MyCertificateRequestsLazy = dynamic(() => import("./certificates").then((m) => m.MyCertificateRequests), { ssr: false });
 
 export const StudentCertificateCardLazy = dynamic(() => import("./certificates").then((m) => m.StudentCertificateCard), {
   ssr: false,

@@ -5,10 +5,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * The asker's certificate requests: `?scope=mine&session=` for Today, or
- * `?scope=student&session=&student=` for one child, with the documents the
- * request sheet may offer. Read in the browser after the page has drawn, so
- * a slow read never holds up the teacher's screen.
+ * The asker's certificate requests for one child
+ * (`?scope=student&session=&student=`), with the documents the request sheet
+ * may offer, or all of her own (`?scope=mine&session=`; Today draws that list
+ * on the server). Read in the browser after the page has drawn, so a slow
+ * read never holds up the teacher's screen.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);

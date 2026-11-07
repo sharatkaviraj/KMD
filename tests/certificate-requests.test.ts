@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   approvalCommandSeed, requestCreateSchema, requestDeclineSchema, requestErrorCode, requestListSchema, requestStage, uuidFromDigest,
@@ -64,5 +66,22 @@ describe("approving twice", () => {
     expect(id(student, command)).toBe(first);
     expect(id(student, student)).not.toBe(first);
     expect(id(command, command)).not.toBe(first);
+  });
+});
+
+describe("the teacher's screens stay light", () => {
+  // /teach and /teach/attendance count every byte of client JavaScript the
+  // Today page brings, and their budget had only bytes to spare (7 Nov).
+  const source = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
+  it("draws Today's list of requests on the server, with no client code of its own", () => {
+    const card = source("src/vx/screens/teach/ui/certificates-today.tsx");
+    expect(card).not.toMatch(/^\s*["']use client["']/);
+    expect(card).toContain("listCertificateRequests(\"mine\"");
+    const today = source("src/app/(app)/teach/page.tsx");
+    expect(today).toContain("MyCertificateRequestsToday");
+    expect(today).not.toContain("certificates-lazy");
+  });
+  it("loads the child's card only after the page has drawn", () => {
+    expect(source("src/vx/screens/teach/ui/certificates-lazy.tsx")).toMatch(/dynamic\(\(\) => import\("\.\/certificates"\)[\s\S]*ssr: false/);
   });
 });

@@ -15,9 +15,11 @@ import "@/vx/screens/school-office/cert.css";
 
 /*
  * A teacher's certificate requests (D-542): the card on a child's page with
- * "Ask for a certificate", and the card on Today that appears once she has
- * asked for one. Both read after the page has drawn, so they never slow the
- * screen down; the sheet itself loads only when it is opened.
+ * "Ask for a certificate", what was asked for this child, and Download and
+ * Send to parent once it is signed. It reads after the page has drawn, so it
+ * never slows the screen down; the sheet itself loads only when it is opened.
+ * Today's list of her requests is drawn on the server (certificates-today.tsx)
+ * and opens this card.
  */
 
 const AskCertificateSheet = dynamic(() => import("./certificate-ask").then((m) => m.AskCertificateSheet), { ssr: false });
@@ -93,7 +95,7 @@ async function shareRequest(requestId: string, serial: string): Promise<"shared"
   }
 }
 
-function RequestRow({ row, showChild, index, onChanged }: { row: CertificateRequestRow; showChild: boolean; index: number; onChanged: () => void }) {
+function RequestRow({ row, index, onChanged }: { row: CertificateRequestRow; index: number; onChanged: () => void }) {
   const { tx } = useVx();
   const toast = useToast();
   const [busy, setBusy] = useState<"download" | "share" | "withdraw" | null>(null);
@@ -132,8 +134,7 @@ function RequestRow({ row, showChild, index, onChanged }: { row: CertificateRequ
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
       <span className={`cert-req-ic ${look.tone}`} aria-hidden="true"><Ic n={stage === "ready" ? "checkCircle" : KIND_ICONS[row.kind]} size={19} /></span>
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-        <strong style={{ fontSize: 15, overflowWrap: "anywhere" }}>{showChild ? row.studentName : tx(KIND_LABELS[row.kind])}</strong>
-        {showChild ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(KIND_LABELS[row.kind])} · {row.classLabel}</span> : null}
+        <strong style={{ fontSize: 15, overflowWrap: "anywhere" }}>{tx(KIND_LABELS[row.kind])}</strong>
         {detail ? <span className={stage === "ready" ? "num" : undefined} style={{ fontSize: 12.5, color: stage === "declined" ? "var(--bad)" : "var(--mut)", overflowWrap: "anywhere" }}>{detail}</span> : null}
       </span>
       <Pill tone={look.tone}>{stage === "waiting" ? <span className="cert-wait-dot" aria-hidden="true" /> : null}{tx(look.label)}</Pill>
@@ -164,28 +165,8 @@ export function StudentCertificateCard({ studentId, studentName, sessionLabel }:
     {!rows.length ? <span className="tc-s" style={{ lineHeight: 1.5 }}>{tx(R.cardHint)}</span> : null}
     {failed ? <div role="alert" className="cert-note" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ flex: 1 }}>{tx(R.loadFailed)}</span><Btn icon="refresh" onClick={reload}>{tx(R.retry)}</Btn></div>
       : data === null ? <span role="status" className="cert-busy-text" style={{ textAlign: "left" }}>{tx(R.loading)}</span>
-      : rows.length ? <div className="cert-req-list">{rows.map((row, index) => <RequestRow key={row.id} row={row} showChild={false} index={index} onChanged={reload} />)}</div> : null}
+      : rows.length ? <div className="cert-req-list">{rows.map((row, index) => <RequestRow key={row.id} row={row} index={index} onChanged={reload} />)}</div> : null}
     <Btn variant={hasReady ? "sec" : "pri"} big full icon="award" disabled={data === null && !failed} onClick={() => { setOpened(true); setOpen(true); }}>{tx(rows.length ? R.askAnother : R.ask)}</Btn>
     {opened ? <AskCertificateSheet open={open} onClose={() => setOpen(false)} onSent={reload} studentId={studentId} studentName={studentName} sessionLabel={sessionLabel} kinds={data?.kinds ?? []} /> : null}
-  </div>;
-}
-
-/** On Today, once a teacher has asked: what is waiting, and what is ready to send. Hidden when there is nothing. */
-export function MyCertificateRequests({ sessionLabel }: { sessionLabel: string }) {
-  const { tx, sub } = useVx();
-  const { data, reload } = useRequests(new URLSearchParams({ scope: "mine", session: sessionLabel }).toString());
-  const rows = data?.rows ?? [];
-  if (!rows.length) return null;
-  const ready = rows.filter((row) => requestStage(row) === "ready").length;
-  return <div className="card tc-card cert-card" style={{ order: ready ? 2 : 3 }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <span className="cert-req-ic ok" style={{ background: ready ? "var(--oks)" : "var(--accs)", color: ready ? "var(--ok)" : "var(--accfg)" }} aria-hidden="true"><Ic n="award" size={19} /></span>
-      <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <span className="tc-p" style={{ fontWeight: 700 }}>{tx(R.mine)}</span>
-        {sub(R.mine) ? <span className="tc-s">{sub(R.mine)}</span> : null}
-      </span>
-      {ready ? <Pill tone="ok">{ready} · {tx(STAGE.ready.label)}</Pill> : null}
-    </div>
-    <div className="cert-req-list">{rows.slice(0, 6).map((row, index) => <RequestRow key={row.id} row={row} showChild index={index} onChanged={reload} />)}</div>
   </div>;
 }

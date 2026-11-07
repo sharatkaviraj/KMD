@@ -22,6 +22,8 @@ export const R = {
   already: p("This certificate was already asked for. It is waiting for approval.", "यह प्रमाण पत्र पहले ही माँगा जा चुका है। मंज़ूरी बाकी है।"),
   done: p("Done", "हो गया"),
   mine: p("My certificate requests", "मेरे माँगे प्रमाण पत्र"),
+  openReady: p("Ready: open to download or send to the parent", "तैयार: डाउनलोड करने या अभिभावक को भेजने के लिए खोलें"),
+  moreOnChildPage: (n: number): Pair => p(`${n} more: each one is on that child's page`, `${n} और: हर एक उस बच्चे के पेज पर है`),
   asked: p("Asked", "माँगा"),
   withdraw: p("Cancel request", "अनुरोध रद्द करें"),
   withdrawn: p("Request cancelled", "अनुरोध रद्द हुआ"),
