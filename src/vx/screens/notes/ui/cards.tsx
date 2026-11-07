@@ -14,6 +14,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { reducedMotion, slideIn, slideOut } from "@/vx/screens/collect/motion";
 import { p, type Pair } from "@/vx/text";
+import { Face } from "@/vx/ui/face";
 import { useToast } from "@/vx/ui/overlays";
 import { appendSpoken, useHeardText } from "@/vx/ui/voice";
 
@@ -412,12 +413,13 @@ function Two({ t }: { t: Pair }) {
   );
 }
 
-function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+/** The child's photo, or the initials in the child's own colour (owner, 7 Nov: the photo was missing while writing). */
+function Avatar({ name, photo, size = 44 }: { name: string; photo?: string | null; size?: number }) {
   const [bg, fg] = nameTone(name);
   return (
-    <span className="nc-av" style={{ width: size, height: size, fontSize: Math.round(size / 3), background: bg, color: fg }} aria-hidden="true">
+    <Face photo={photo} className="nc-av" style={{ width: size, height: size, fontSize: Math.round(size / 3), background: bg, color: fg }}>
       {ini(name)}
-    </span>
+    </Face>
   );
 }
 
@@ -427,7 +429,7 @@ function KidHead({ kid, ct, mine, big, onChange }: { kid: ChildChoice; ct: strin
   const meta = [kid.classLabel, kid.rollNo ? tx(p(`roll ${kid.rollNo}`, `रोल ${kid.rollNo}`)) : null, kid.hint ? tx(kid.hint) : null, mine ? tx(p("your class", "आपकी कक्षा")) : ct ? tx(p(`class teacher ${ct}`, `कक्षा अध्यापक ${ct}`)) : null].filter(Boolean).join(" · ");
   return (
     <div className="nc-ch nc-kidhead">
-      <Avatar name={kid.name} size={big ? 46 : 38} />
+      <Avatar name={kid.name} photo={kid.photo} size={big ? 46 : 38} />
       <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
         <span className={`nc-name${big ? " big" : ""}`} data-title>{kid.name}</span>
         <span className="nc-meta">{meta}</span>
@@ -850,15 +852,18 @@ function ChildCard({ c, kids, notes, viewer, initialClass, onPick, onDone }: Car
     if (e.key === "Enter" && first) onPick(first.id);
   };
 
+  // With a photo in the circle, the roll number moves under the name.
+  const rowMeta = (kid: ChildChoice, cls?: boolean) =>
+    [cls ? kid.classLabel : null, kid.photo && kid.rollNo ? tx(p(`roll ${kid.rollNo}`, `रोल ${kid.rollNo}`)) : null, kid.hint ? tx(kid.hint) : null].filter(Boolean).join(" · ");
   const row = (kid: ChildChoice, key: string, opts: { cls?: boolean; recent?: boolean } = {}) => (
     <li key={key}>
       <button type="button" className={`tap nc-kidrow${opts.recent ? " recent" : ""}`} onClick={() => onPick(kid.id)} aria-label={`${kid.name}, ${kid.classLabel}${kid.rollNo ? `, roll ${kid.rollNo}` : ""}`}>
-        <span className="r" aria-hidden="true">
+        <Face photo={kid.photo} className="r">
           {opts.recent ? <Ic n="clock" size={15} /> : (kid.rollNo ?? ini(kid.name))}
-        </span>
+        </Face>
         <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
           <span className="n">{kid.name}</span>
-          {opts.cls || kid.hint ? <span className="c">{[opts.cls ? kid.classLabel : null, kid.hint ? tx(kid.hint) : null].filter(Boolean).join(" · ")}</span> : null}
+          {rowMeta(kid, opts.cls) ? <span className="c">{rowMeta(kid, opts.cls)}</span> : null}
         </span>
         <Ic n="chevRight" size={18} />
       </button>
@@ -1095,7 +1100,7 @@ function ListenCard({ c }: { c: Composer }) {
   return (
     <>
       <div className="nc-ch nc-kidhead">
-        <Avatar name={kid.name} size={38} />
+        <Avatar name={kid.name} photo={kid.photo} size={38} />
         <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
           <span className="nc-name">{kid.name}</span>
           <span className="nc-meta">{kid.classLabel}</span>
@@ -1218,7 +1223,7 @@ function CheckCard(props: CheckProps) {
           <p className="nc-quote"><span>“{excerpt(text, 120)}”</span></p>
           {named.map((n) => (
             <button key={n.id} type="button" className="tap nc-pickrow" onClick={() => props.onMove(n.id)}>
-              <Avatar name={n.name} size={36} />
+              <Avatar name={n.name} photo={n.photo} size={36} />
               <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
                 <b className="nc-pn">{n.name}</b>
                 <span className="nc-meta">{n.classLabel}{n.rollNo ? ` · ${tx(p(`roll ${n.rollNo}`, `रोल ${n.rollNo}`))}` : ""}</span>
@@ -1227,7 +1232,7 @@ function CheckCard(props: CheckProps) {
             </button>
           ))}
           <button type="button" className="tap nc-pickrow keep" onClick={props.onKeep}>
-            <Avatar name={kid.name} size={36} />
+            <Avatar name={kid.name} photo={kid.photo} size={36} />
             <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
               <b className="nc-pn">{kid.name}</b>
               <span className="nc-meta">{tx(p("Keep it on this child", "इसी बच्चे पर रखें"))}</span>
@@ -1612,6 +1617,7 @@ function savedNoteOf(props: CardsProps): BoardNote | null {
     id: savedId,
     studentId: k?.id ?? null,
     studentName: k?.name ?? "",
+    studentPhoto: k?.photo ?? null,
     classId: k?.classId ?? null,
     classLabel: k?.classLabel ?? "—",
     body: c.saved ?? c.body,
@@ -1662,7 +1668,10 @@ function SavedCard(props: CardsProps & { onAgain: () => void; onNew: () => void 
         </svg>
         <span className="nc-c" style={{ minWidth: 0 }}>
           <h2 className="nc-h2" data-title>{both(p("Saved", "सहेजा गया"))}</h2>
-          <span className="nc-meta">{note.studentName ? `${note.studentName} · ${note.classLabel}` : note.classLabel}</span>
+          <span className="nc-meta nc-savedkid">
+            {note.studentName ? <Avatar name={note.studentName} photo={note.studentPhoto ?? props.c.child?.photo} size={24} /> : null}
+            <span>{note.studentName ? `${note.studentName} · ${note.classLabel}` : note.classLabel}</span>
+          </span>
         </span>
       </div>
       <div className="nc-body">
@@ -1775,7 +1784,7 @@ function Context({ c, notes, people, viewer, board }: CardsProps) {
       <div className="nc-cbox">
         <h4>{tx(p("This child", "यह बच्चा"))}</h4>
         <div className="nc-f" style={{ gap: 10 }}>
-          <Avatar name={child.name} size={40} />
+          <Avatar name={child.name} photo={child.photo} size={40} />
           <span className="nc-c" style={{ minWidth: 0 }}>
             <b className="nc-e">{child.name}</b>
             <span className="nc-meta">{[child.classLabel, ct ? tx(p(`class teacher ${ct}`, `कक्षा अध्यापक ${ct}`)) : null].filter(Boolean).join(" · ")}</span>

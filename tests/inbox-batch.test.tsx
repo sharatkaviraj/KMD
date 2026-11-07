@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ leave: vi.fn(), refresh: vi.fn() }));
 vi.mock("@/app/(app)/timetable/vx-actions", () => ({ decideLeaveAction: state.leave }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: state.refresh, push: vi.fn() }) }));
-vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en }) }));
 
 import { batchGroupOf, batchSummary, groupSelection } from "@/vx/screens/admin/inbox-batch-logic";

@@ -130,7 +130,7 @@ export async function placePhoto(input: {
   contentType: string;
   width: number | null;
   height: number | null;
-  source: "camera" | "file" | "folder";
+  source: "camera" | "file" | "folder" | "fees";
   sourceRef: string | null;
   expectedCurrent: string | null;
   actorStaffId: string;

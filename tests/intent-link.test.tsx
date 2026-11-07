@@ -3,7 +3,7 @@ import * as React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-vi.mock("next/link",()=>({default:({prefetch,children,...props}:React.ComponentProps<"a">&{prefetch:boolean|null})=><a {...props} data-prefetch={String(prefetch)}>{children}</a>}));
+vi.mock("next/link",()=>({useLinkStatus:()=>({pending:false}),default:({prefetch,children,...props}:React.ComponentProps<"a">&{prefetch:boolean|null})=><a {...props} data-prefetch={String(prefetch)}>{children}</a>}));
 import { IntentLink } from "@/vx/ui/intent-link";
 let host:HTMLDivElement,root:Root;
 beforeEach(async()=>{vi.useFakeTimers();vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);host=document.createElement("div");document.body.append(host);root=createRoot(host);await act(async()=>root.render(<IntentLink href="/students/synthetic">Synthetic child</IntentLink>));});

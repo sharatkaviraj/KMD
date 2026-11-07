@@ -64,7 +64,7 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
     }
     const facts = mayRead ? await childFacts(studentId).catch(() => null) : null;
     const classId = kid?.classId ?? seen?.classId ?? null;
-    scope = { studentId, name, classLabel: kid?.classLabel ?? seen?.classLabel ?? null, classId, sr: facts?.sr ?? null, father: facts?.father ?? null, profile: mayRead };
+    scope = { studentId, name, classLabel: kid?.classLabel ?? seen?.classLabel ?? null, classId, sr: facts?.sr ?? null, father: facts?.father ?? null, profile: mayRead, photo: kid?.photo ?? seen?.studentPhoto ?? null };
   }
 
   let focus: NotesFocus = null;

@@ -1,5 +1,25 @@
 # VPPS One — progress
 
+## The small things: faces, a year switch you can see, taps that answer — 7 November 2026
+
+Owner asked (7 Nov) for a thorough pass over One for non-technical teachers,
+starting from two examples on the real year: no photo while writing a note,
+and no animation when switching the year. Branch `claude/project-thread-6smwbz`,
+D-511 to D-516. **Done:** the child's face on every note screen (`Face`); the
+real year's photos copied from Fees into One by an admin's "Refresh roster
+now" (batched, with a bar; source `fees`); the identity views follow the
+nightly roster (26 h, which had been refusing real-year saves between
+copies); one migration, `20261107142035`, applied to One's database with the
+owner's go-ahead. Every `@/ui/link` dims while its page loads, the top bar is
+3 px, a tapped tab lights at once, and "Opening…" shows above the tabs for a
+page slower than 450 ms. The year switch shows "Opening 2026-27…" and then
+"Now showing 2026-27". Smaller fixes on Messages, Calendar, Settings and the
+notes board (D-516). Tests: `tests/fees-photo-copy.test.ts` (13); the whole
+suite passes except `tests/sentry-lite.test.ts`, which fails only in a
+checkout under `/home/user` (the path contains "user").
+**Remains:** teachers see real-year photos after the first "Refresh roster
+now" by an admin; the copy is not automatic (owner's choice).
+
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
 Owner asked (7 Nov) why the phone Today in the real session looked different

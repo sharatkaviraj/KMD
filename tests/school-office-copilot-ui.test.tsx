@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ mark: vi.fn(), write: vi.fn() }));
 vi.mock("@/app/(app)/school-office/returns/actions", () => ({ markCopilotRowAction: mock.mark }));
-vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ language: "en", tx: (p: { en: string } | string) => typeof p === "string" ? p : p.en, sub: () => null }) }));
 import { PortalCopilot } from "@/vx/screens/school-office/copilot";
 

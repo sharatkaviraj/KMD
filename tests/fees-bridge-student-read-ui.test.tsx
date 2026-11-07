@@ -2,7 +2,7 @@ import * as React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {describe,expect,it,vi} from "vitest";
 import {bridgeWorkspaceFixture} from "./fixtures/bridge-student-workspace";
-vi.mock("next/link",()=>({default:({children,href}:{children:React.ReactNode;href:string})=><a href={href}>{children}</a>}));
+vi.mock("next/link",()=>({useLinkStatus:()=>({pending:false}),default:({children,href}:{children:React.ReactNode;href:string})=><a href={href}>{children}</a>}));
 vi.mock("@/vx/i18n",()=>({useVx:()=>({tx:(value:{en:string})=>value.en})}));
 import {SourceStudentInfo,SourceFeeDetails,SourceFamilyHistory,SourcePages} from "@/vx/screens/admin/student360-source";
 describe("native student source read views",()=>{

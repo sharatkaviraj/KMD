@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ stored: new Map<string, unknown>(), save: vi.fn(), check: vi.fn(), toast: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 vi.mock("@/platform/drafts/use-durable-draft", () => ({ useOnline: () => true }));
 vi.mock("@/platform/drafts/store", () => ({
   loadDraft: async (key: string) => state.stored.get(key) ?? null,

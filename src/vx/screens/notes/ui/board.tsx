@@ -8,6 +8,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
+import { Face } from "@/vx/ui/face";
 import { Sheet } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
@@ -74,14 +75,14 @@ function rangeLabel(from: string, to: string): string {
 
 function KpiTile({ label, value, sub, icon, bg, fg, tone, on, onPick, delay }: { label: string; value: number; sub: string; icon: IconName; bg: string; fg: string; tone: string; on: boolean; onPick: () => void; delay: number }) {
   return (
-    <button type="button" className="tap card rise nx-c" aria-pressed={on} onClick={onPick} style={{ padding: "14px 16px", gap: 2, textAlign: "left", color: "var(--fg)", borderColor: on ? "var(--acc)" : "var(--bd)", boxShadow: on ? "0 0 0 1px var(--acc), var(--sh)" : "var(--sh)", animationDelay: `${delay}ms`, font: "inherit" }}>
+    <button type="button" className="tap card rise nx-c nx-kpi" aria-pressed={on} onClick={onPick} style={{ padding: "14px 16px", gap: 2, textAlign: "left", color: "var(--fg)", borderColor: on ? "var(--acc)" : "var(--bd)", boxShadow: on ? "0 0 0 1px var(--acc), var(--sh)" : "var(--sh)", animationDelay: `${delay}ms`, font: "inherit" }}>
       <span className="nx-f" style={{ justifyContent: "space-between" }}>
-        <span className="nx-m" style={{ fontWeight: 600 }}>{label}</span>
-        <span className="nx-ib" style={{ width: 30, height: 30, borderRadius: 10, background: bg, color: fg }}>
+        <span className="nx-m nx-kpi-l" style={{ fontWeight: 600 }}>{label}</span>
+        <span className="nx-ib hide-m" style={{ width: 30, height: 30, borderRadius: 10, background: bg, color: fg }}>
           <Ic n={icon} size={16} />
         </span>
       </span>
-      <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, color: tone }}>{value}</span>
+      <span className="num nx-kpi-v" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, color: tone }}>{value}</span>
       <span className="nx-m hide-m">{sub}</span>
     </button>
   );
@@ -102,7 +103,7 @@ function BoardCard({ note, plan, today, href, selected, delay, viewerId }: { not
   return (
     <Link href={href} scroll={false} className="tap card nx-nc" aria-current={selected ? "true" : undefined} style={{ borderColor: selected ? "var(--acc)" : "var(--bd)", background: selected ? "var(--accs)" : "var(--card)", animationDelay: `${delay}ms` }}>
       <span className="nx-f" style={{ gap: 10, width: "100%" }}>
-        <span className="nx-ib" style={{ borderRadius: 19, background: look.bg, color: look.fg }}>{words.initials(note)}</span>
+        <Face photo={note.studentPhoto} className="nx-ib" style={{ borderRadius: 19, background: look.bg, color: look.fg }}>{words.initials(note)}</Face>
         <span className="nx-c" style={{ flex: 1 }}>
           <span className="nx-b nx-e" style={{ fontSize: 15 }}>{words.name(note)}</span>
           <span className="nx-m nx-e">{[note.classLabel, hint, note.writtenByName, rel ? tx(rel) : null].filter(Boolean).join(" · ")}</span>
@@ -312,7 +313,9 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
           {tx(p("Add a note", "नोट लिखें"))}
         </button>
       ) : null}
-      <div className="g4" style={{ display: "grid", gridTemplateColumns: `repeat(${open ? 2 : 4},minmax(0,1fr))`, gap: 12 }}>
+      {/* On a phone the four counts sit in one short row and are the tabs themselves, so the
+          notes start on the first screen (smoke 7 Nov 2026: the first note was below the fold). */}
+      <div className={open ? "g4" : "nx-kpis"} style={{ display: "grid", gridTemplateColumns: `repeat(${open ? 2 : 4},minmax(0,1fr))`, gap: 12 }}>
         <KpiTile label={tx(p("Needs action", "कार्रवाई ज़रूरी"))} value={kpis.needsAction} sub={tx(p("Due now, or nobody has picked them up", "समय हो गया, या किसी ने नहीं उठाए"))} icon="flag" bg="var(--warns)" fg="var(--warnfg)" tone={kpis.needsAction ? "var(--warnfg)" : "var(--fg)"} on={tab === "action"} onPick={() => setTab("action")} delay={0} />
         {/* The tile counts what its tab lists (smoke 20 Oct: 7 on one, 4 on the other). */}
         <KpiTile label={tx(p("Follow-ups open", "फिर देखने वाले नोट"))} value={counts.followups} sub={tx(p(`${kpis.dueThisWeek} due this week · ${rangeLabel(props.today, weekEndOf(props.today))}`, `इस हफ़्ते ${kpis.dueThisWeek} · ${rangeLabel(props.today, weekEndOf(props.today))}`))} icon="calendar" bg="var(--infos)" fg="var(--info)" tone="var(--fg)" on={tab === "followups"} onPick={() => setTab("followups")} delay={28} />
@@ -365,7 +368,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
       <div className="nx-f" style={{ gap: 10, flexWrap: "wrap" }}>
         <Seg<BoardTab>
           label="Board"
-          className="mfull"
+          className="mfull hide-m"
           style={{ width: 520, maxWidth: "100%" }}
           value={tab}
           onChange={setTab}
@@ -612,7 +615,7 @@ function StudentPage({
   return (
     <div className="nx-c" style={{ gap: 16, animation: "xPush .36s var(--ease) both" }}>
       <div className="card nx-f" style={{ padding: "16px 18px", gap: 16, flexWrap: "wrap" }}>
-        <span className="nx-ib" style={{ width: 60, height: 60, borderRadius: 30, fontSize: 20, background: "var(--accs)", color: "var(--accfg)" }}>{ini(name)}</span>
+        <Face photo={scope.photo} className="nx-ib" style={{ width: 60, height: 60, borderRadius: 30, fontSize: 20, background: "var(--accs)", color: "var(--accfg)" }}>{ini(name)}</Face>
         <span className="nx-c" style={{ flex: 1, minWidth: 200, gap: 4 }}>
           <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{name}</span>
           {line ? <span className="nx-m" style={{ fontSize: 13 }}>{line}</span> : null}

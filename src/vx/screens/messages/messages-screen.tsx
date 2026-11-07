@@ -140,7 +140,12 @@ const CSS = `
  .vx .mx-ph{width:100%;border-width:0;border-radius:18px;box-shadow:none}
  .vx .mx-sb{bottom:calc(76px + env(safe-area-inset-bottom));z-index:45}
  .vx .mx-first{order:-1}
- .vx .mx-tabs .seg>button{white-space:nowrap;padding:0 4px!important;font-size:12.5px;letter-spacing:-.01em}
+ /* Five tabs did not fit one row on a phone ("Replies (2) Formats" ran together, Staff was cut off; smoke 7 Nov 2026).
+    On a phone they are big separate buttons that wrap to a second row, so every one is whole and readable. */
+ .vx .mx-tabs .seg{display:flex;flex-wrap:wrap;gap:8px;padding:0;background:transparent}
+ .vx .mx-tabs .seg>.thumb{display:none}
+ .vx .mx-tabs .seg>button{flex:1 1 auto;height:42px;padding:0 16px!important;border-radius:21px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:14px;font-weight:600;white-space:nowrap;transition:background-color .18s ease,color .18s ease,border-color .18s ease}
+ .vx .mx-tabs .seg>button.on{background:var(--pri);border-color:var(--pri);color:var(--prifg);font-weight:700}
 }
 `;
 
@@ -301,8 +306,10 @@ export function MessagesScreen({ data, state, outbox, outboxCount, staffLog = nu
         </span>
       }
       mAction={
-        <Link href={href({ compose: true })} className="tap btn pri" aria-label={tx(p("New notice", "नई सूचना"))} style={{ width: 44, height: 44, padding: 0, borderRadius: 22 }}>
-          <Ic n="plus" size={22} />
+        // A word beside the "+" (smoke 7 Nov 2026): a bare "+" told a new teacher nothing.
+        <Link href={href({ compose: true })} className="tap btn pri" style={{ height: 44, padding: "0 16px 0 12px", borderRadius: 22, gap: 6, fontSize: 15 }}>
+          <Ic n="plus" size={20} />
+          {tx(p("New", "नई"))}
         </Link>
       }
     />
@@ -415,7 +422,8 @@ function SentLog({ data, outboxCount }: { data: MessagesData; outboxCount: numbe
       </div>
       {week.length ? <LogGroup title={p("This week", "इस हफ़्ते")} rows={week} /> : null}
       {earlier.length ? <LogGroup title={p("Earlier", "पहले")} rows={earlier} /> : null}
-      {notSent.length ? <LogGroup title={p("Not sent yet · waiting in To send, or nobody to reach", "अभी नहीं भेजे · भेजने की सूची में, या भेजने को कोई नहीं")} rows={notSent} /> : null}
+      {/* Each row already says why (waiting in To send, or nobody to reach); the heading only names the group (smoke 7 Nov 2026). */}
+      {notSent.length ? <LogGroup title={p("Not sent yet", "अभी नहीं भेजे")} rows={notSent} /> : null}
       {shown.length === 0 ? (
         <div className="card fadein" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
           <span style={h15}>{data.campaigns.length ? tx(p("No messages match", "कोई संदेश नहीं मिला")) : tx(p("No notices yet", "अभी कोई सूचना नहीं"))}</span>

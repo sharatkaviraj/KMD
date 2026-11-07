@@ -29,6 +29,9 @@
 .nc .nc-e{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .nc .nc-hi{display:block;font-size:.8em;font-weight:500;opacity:.82;line-height:1.25}
 .nc .nc-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
+/* The saved card names the child with the child's face beside the name (7 Nov 2026). */
+.nc .nc-meta.nc-savedkid{display:flex;align-items:center;gap:6px;min-width:0}
+.nc .nc-meta.nc-savedkid>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nc .nc-pulse{animation:xPulse 1.1s ease-in-out infinite}
 
 /* ---- the steps above a phone's card: where the teacher is, and what is left ---------------- */

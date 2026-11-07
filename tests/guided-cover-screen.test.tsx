@@ -17,6 +17,7 @@ vi.mock("@/app/(app)/substitutions/guided-actions", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: actions.push, replace: actions.replace, refresh: actions.refresh }) }));
 vi.mock("next/link", () => ({
+  useLinkStatus: () => ({ pending: false }),
   default: ({ href, children, prefetch, ...rest }: { href: string; children: React.ReactNode; prefetch?: unknown }) => {
     void prefetch;
     return <a href={href} {...rest}>{children}</a>;

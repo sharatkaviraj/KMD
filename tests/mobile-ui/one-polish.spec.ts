@@ -88,6 +88,18 @@ test("picker switches once, clears stale filters, and Back dismisses it", async 
   expect(await page.locator("body").getAttribute("data-switch-count")).toBe("1");
 });
 
+test("a year switch names the year it opened, then gets out of the way", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/one-polish.html");
+  await page.locator(".vx-sessionbar-m button").click();
+  await page.getByRole("dialog").getByRole("button", { name: /TEST-2026-27/ }).click();
+  // D-515: the switch is seen ("Now showing …" once the year has arrived), never a silent jump.
+  const landed = page.locator('[data-session-switch-card="landed"]');
+  await expect(landed).toContainText("Now showing TEST-2026-27");
+  await expect(landed).toBeHidden({ timeout: 4_000 });
+  await expect(page.locator('[data-session-switch-card]')).toHaveCount(0);
+});
+
 test("roster details and ledger explanation keep exact evidence and links available", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/one-polish.html");

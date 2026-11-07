@@ -251,7 +251,8 @@ export function SettingsScreen({ data, state, ai = null, aiView = "used" }: { da
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(item.title)}</span>
                     <span className="clip" style={{ fontSize: 12, color: item.subTone ?? "var(--mut)" }}>{item.sub}</span>
                   </span>
-                  <Ic n={item.href ? "arrowRight" : item.s === "about" ? "refresh" : "chevRight"} size={18} style={{ color: "var(--sub)" }} />
+                  {/* One mark for "opens something" on every row: › (smoke 7 Nov 2026 found › and → mixed in one list). */}
+                  <Ic n={item.s === "about" ? "refresh" : "chevRight"} size={18} style={{ color: "var(--sub)" }} />
                 </>
               );
               const st: CSSProperties = { ...rowStyle, animation: `xIn .32s var(--ease) ${Math.min(gi * 3 + i, 14) * 28}ms both` };
@@ -282,7 +283,7 @@ export function SettingsScreen({ data, state, ai = null, aiView = "used" }: { da
                 <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{tx(c.label)}</span>
                 <span className="clip" style={m12}>{c.sub}</span>
               </span>
-              <Ic n="arrowRight" size={16} style={{ color: "var(--sub)" }} />
+              <Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />
             </Link>
           ))}
         </div>

@@ -72,6 +72,7 @@ vi.mock("@/modules/staff/data/staff-repo", () => ({
 }));
 vi.mock("@/platform/i18n/page-title", () => ({ pageTitle: async () => "Timetable" }));
 vi.mock("next/link", () => ({
+  useLinkStatus: () => ({ pending: false }),
   default: ({ children, ...props }: React.ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 vi.mock("@/modules/timetable/ui/timetable-views", () => ({

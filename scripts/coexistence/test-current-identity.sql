@@ -47,7 +47,7 @@ begin
     or not exists(select 1 from vppsone.fees_identity_students where id=student) then raise exception 'left student action/history separation failed'; end if;
   proofs:=proofs+1;
   update vppsone.fees_bridge_students set status='active',fields=fields||'{"status":"active"}'::jsonb where id=student;
-  update vppsone.fees_bridge_state set last_checked_at=clock_timestamp()-interval '6 minutes';
+  update vppsone.fees_bridge_state set last_checked_at=clock_timestamp()-interval '27 hours';
   begin
     perform vppsone.assert_fees_bridge_roster_current(array[student],class_a,'2026-27');
     raise exception 'stale roster accepted';

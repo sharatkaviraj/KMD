@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, use, useEffect, useState, useSyncExternalStore } from "react";
+import { Suspense, use, useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
 
 import { LazyQuickCover, LazyQuickCoverRow, type QuickCoverTool } from "@/lib/ai/ui/lazy-quick-cover";
 
@@ -44,6 +44,9 @@ export function activeTab(tabs: readonly BottomTab[], pathname: string): string 
 
 type RouterPrefetchOptions = NonNullable<Parameters<ReturnType<typeof useRouter>["prefetch"]>[1]>;
 
+/** How long a tapped tab stays lit if its page never arrives. */
+const TAP_HOLD_MS = 8000;
+
 /** Mark attendance, from a teacher's Today during the marking hours. */
 const REGISTER = "/teach/attendance";
 
@@ -84,7 +87,29 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
   const { tx } = useVx();
   const [quick, setQuick] = useState(false);
   const [tool, setTool] = useState<QuickCoverTool | null>(null);
-  const active = activeTab(tabs, pathname);
+  const [tapped, setTapped] = useState<{ href: string; from: string } | null>(null);
+  const tapTimer = useRef<number | null>(null);
+  useEffect(() => () => { if (tapTimer.current !== null) window.clearTimeout(tapTimer.current); }, []);
+  // The tapped tab lights at once, not when its page arrives a second or two
+  // later (owner's smoke, 7 Nov 2026: "the tab moves late"). The address
+  // catching up hands the highlight back to the route, and so does a tap that
+  // went nowhere, after a few seconds.
+  const active = tapped && tapped.from === pathname ? tapped.href : activeTab(tabs, pathname);
+  // Once the page has moved on, the tap is spent: Back to where it was tapped
+  // must not light it again.
+  useEffect(() => {
+    if (!tapped || tapped.from === pathname) return;
+    const spent = window.setTimeout(() => setTapped(null), 0);
+    return () => window.clearTimeout(spent);
+  }, [tapped, pathname]);
+  const lightNow = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    // A tap that opens a new tab, or that something else took, goes nowhere here.
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (href === active) return;
+    setTapped({ href, from: pathname });
+    if (tapTimer.current !== null) window.clearTimeout(tapTimer.current);
+    tapTimer.current = window.setTimeout(() => setTapped(null), TAP_HOLD_MS);
+  };
   useRegisterWarmup(tabs, pathname);
   // The classic receipt detail supplies its own fixed phone action bar and
   // return link. A second bar covers its Print A4 control. Keep list routes
@@ -112,6 +137,7 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
               key={n.key}
               href={n.href}
               className="tap"
+              onClick={(event) => lightNow(event, n.href)}
               aria-current={active === n.href ? "page" : undefined}
               style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, color: active === n.href ? "var(--pri)" : "var(--mut)", fontWeight: active === n.href ? 700 : 500 }}
             >

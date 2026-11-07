@@ -5,7 +5,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-vi.mock("next/link",()=>({default:React.forwardRef<HTMLAnchorElement,React.ComponentProps<"a">&{prefetch?:boolean|null}>(function MockLink({prefetch,children,...props},ref){return <a ref={ref} {...props} data-prefetch={String(prefetch)}>{children}</a>;})}));
+vi.mock("next/link",()=>({useLinkStatus:()=>({pending:false}),default:React.forwardRef<HTMLAnchorElement,React.ComponentProps<"a">&{prefetch?:boolean|null}>(function MockLink({prefetch,children,...props},ref){return <a ref={ref} {...props} data-prefetch={String(prefetch)}>{children}</a>;})}));
 import Link from "@/ui/link";
 
 /* D-439: a screen link fetches nothing until someone means to open it. Calendar used to prefetch 53 pages on open. */

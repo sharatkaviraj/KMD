@@ -12,7 +12,7 @@ import { draftPageData, draftSummary } from "./payment-draft.fixture";
 import * as m from "@/messages/pairs";
 
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
-vi.mock("next/link", () => ({ default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }), usePathname: () => "/fees/payments" }));
 vi.mock("@/platform/locale/language-provider", () => ({ useLang: () => ({ locale: "en" }) }));
 const control = vi.hoisted(() => ({ holds: [] as Array<() => void>, delayed: false, fail: false, delayClear: false }));

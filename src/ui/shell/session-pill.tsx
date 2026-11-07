@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/ui/primitives/dropdown-menu";
+import { cue } from "@/ui/feedback/cue";
 import { toast } from "@/ui/primitives/toast";
 import {
   isTestAcademicSessionLabel,
@@ -178,7 +179,7 @@ export function SessionPill({
   const [sessions, setSessions] = useState<AvailableSessionRow[]>(initialSessions);
   const [isSwitching, setIsSwitching] = useState(false);
   const [isRefreshing, startNavTransition] = useTransition();
-  const { setIsSwitching: setGlobalSessionSwitching } = useSessionSwitching();
+  const { setIsSwitching: setGlobalSessionSwitching, setTarget: setSwitchTarget } = useSessionSwitching();
   // A `?session=` this viewer may not open is ignored by the server (Phase 3:
   // a test account asking for 2026-27 is shown TEST-2026-27). The pill must
   // not print it either, or a test account reads "2026-27" over TEST data. So
@@ -317,6 +318,8 @@ export function SessionPill({
 
     setOptimisticLabel(label);
     setIsSwitching(true);
+    setSwitchTarget?.(label);
+    cue("tap");
     setOpen(false);
     // Warm the destination while the cookie write is in flight, so serialising
     // the two below costs the round trip and not the render.
@@ -342,6 +345,7 @@ export function SessionPill({
         if (result.success) {
           const confirmedHref = buildSessionSwitchHref(pathname, searchParams, result.sessionLabel);
           sessionSyncGuard.label = result.sessionLabel;
+          setSwitchTarget?.(result.sessionLabel);
           startNavTransition(() => {
             router.replace(confirmedHref, { scroll: false });
           });
@@ -351,6 +355,7 @@ export function SessionPill({
           // Silently reverting was the bug: the label snapped back to the old
           // session with no explanation, which reads as the pill ignoring you.
           sessionSyncGuard.label = null;
+          setSwitchTarget?.(null);
           setOptimisticLabel(null);
           toast({
             title: "Could not switch session",
@@ -360,6 +365,7 @@ export function SessionPill({
         }
       } catch (error) {
         sessionSyncGuard.label = null;
+        setSwitchTarget?.(null);
         setOptimisticLabel(null);
         toast({
           title: "Could not switch session",

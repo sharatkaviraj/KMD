@@ -11,7 +11,7 @@ const nav = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn(
 const actions = vi.hoisted(() => ({ reverseReceiptAction: vi.fn(), declineReversalRequestAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => nav }));
 vi.mock("@/app/(app)/receipts/actions", () => actions);
-vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _p, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...rest}>{children}</a> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ href, children, prefetch: _p, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...rest}>{children}</a> }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string } | string) => (typeof p === "string" ? p : p.en), sub: () => null }) }));
 vi.mock("@/vx/ui/overlays", () => ({
   Sheet: ({ open, title, children, footer }: { open: boolean; title: string; children: React.ReactNode; footer?: React.ReactNode }) =>
