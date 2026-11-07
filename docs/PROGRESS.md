@@ -85,6 +85,11 @@ view, School settings, Admissions, Notes' top New note) and a real Galaxy M32
 the Students column names scrolling away at 1250 beside the full side menu;
 a follow-up on the same branch makes them stick wherever the desk table
 shows (from 900px of page, D-529), which also covers a 1080p laptop at 150%.
+That is PR 310, merged as `043de750` and live at 18:33 UTC. On the live site
+from 1000 to 1366 wide, large text off and on, the column names stay at 64px
+(72px with large text) and no cell is cut off; BrowserStack passed on Windows
+11 Chrome about 1250 wide (names in view while scrolled, no sideways scroll)
+and on a real Galaxy M32 (the phone list unchanged). Nothing remains here.
 
 ## Needs you · Teachers' work: collecting from teachers the Sampark way — 7 November 2026
 
