@@ -127,8 +127,8 @@ export function RouteSheet({
                   >
                     <TimeBox shift={visit.shift} time={visit.stopTime ?? visit.startsAt} />
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                      <strong className="clip" style={{ fontSize: 16 }}>{visit.busName}</strong>
-                      <span className="clip" style={{ fontSize: 14, color: visit.driver ? "var(--mut)" : "var(--warnfg)", fontWeight: visit.driver ? 400 : 600 }}>
+                      <strong style={{ fontSize: 16, lineHeight: 1.25, overflowWrap: "anywhere" }}>{visit.busName}</strong>
+                      <span style={{ fontSize: 14, lineHeight: 1.35, overflowWrap: "anywhere", color: visit.driver ? "var(--mut)" : "var(--warnfg)", fontWeight: visit.driver ? 400 : 600 }}>
                         {tx(W.shift[visit.shift])} · {visit.driver ? `${tx(W.driver)}: ${visit.driver.name}` : tx(W.noDriver)}
                       </span>
                     </span>

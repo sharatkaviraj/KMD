@@ -314,6 +314,7 @@ export function SearchBox({
         id={id}
         name={name}
         type="search"
+        className="vx-search"
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}

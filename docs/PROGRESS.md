@@ -47,7 +47,14 @@ the bus edited to carry 9 children over two stops, and its afternoon run made
 from it (1:40 pm, stops reversed); Routes, Bus times, Drivers and the sheets
 all right, no page errors. Follow-up: route and stop names wrap instead of
 being cut off, a route card's classes read "Class 5 (2) · Class 8 (1)" (the
-spaces between them had collapsed), and one line per bus on a route card.
+spaces between them had collapsed), and one line per bus on a route card
+(PR 315). BrowserStack, real Galaxy M32 (Android Chrome) and Windows 11 Chrome,
+18:53 to 19:02 UTC: all six steps passed (tiles, a route's sheet, Bus times,
+Drivers, search, the Add a bus form), no sideways scroll on the phone. From
+its notes: search boxes show one clear button (Chrome's own is hidden, every
+`SearchBox`), the route sheet's "Morning · Driver: …" line wraps, "Routes in
+use" has a line under it like the other tiles, and the time hint says to tap
+the box.
 **Remains:** the real year has no buses or drivers yet; the office adds them.
 A child's route is still changed in Fees.
 

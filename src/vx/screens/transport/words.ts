@@ -30,6 +30,8 @@ export const W = {
   },
   kpiSub: {
     riders: (n: number) => p(`${n} of them on a route below`, `इनमें से ${n} नीचे के रूट पर`),
+    routes: (quiet: number) =>
+      quiet ? p(`${quiet} more with no children`, `${quiet} और रूट पर कोई बच्चा नहीं`) : p("With children on them", "जिन पर बच्चे हैं"),
     trips: (m: number, a: number) => p(`${m} morning · ${a} afternoon`, `${m} सुबह · ${a} दोपहर`),
     tripsNone: p("None added yet", "अभी कोई नहीं जोड़ा"),
     drivers: (n: number) => p(`${n} without a bus`, `${n} के पास कोई बस नहीं`),
@@ -141,7 +143,7 @@ export const W = {
   editorSub: p("One bus run at one time of day.", "दिन के एक समय का एक फेरा।"),
   when: p("When does it run?", "यह कब चलती है?"),
   leavesAt: p("Leaves school / first stop at", "स्कूल या पहले रूट से निकलने का समय"),
-  leavesHint: p("For example 07:05", "जैसे 07:05"),
+  leavesHint: p("Tap the box and pick the time, for example 7:05 am", "बॉक्स दबाकर समय चुनें, जैसे सुबह 7:05"),
   busName: p("Bus name", "बस का नाम"),
   busNameHint: p("What staff call it: Bus 1, Big bus, Van…", "स्टाफ़ इसे जो कहता है: बस 1, बड़ी बस, वैन…"),
   busNameExample: p("Bus 1", "बस 1"),
