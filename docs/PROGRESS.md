@@ -69,8 +69,12 @@ about 90 dates printed outside any pair now go through it too (PR 261; the
 fee collector's Today and the classic Payment Desk followed). Re-checked live
 on BrowserStack, Galaxy M32 (office) and Windows Chrome (teacher): passed. Books
 (cheques, UPI, refunds, requests and their sheets and messages) now reads in
-Hindi too (D-489). Still English on purpose: parent WhatsApp text and the
-amount in words on the bank slip.
+Hindi too (D-489; BrowserStack Galaxy M32 and Windows Chrome passed). Still
+English on purpose: parent WhatsApp text and the amount in words on the bank
+slip. The "At the bank" hint named the newest slip row (DS-0001, an April
+deposit entered late, its cheque long cleared) instead of the slip whose
+cheques were listed; it now names the latest deposit that still has a cheque
+at the bank (`slipStillAtBank`).
 
 ## Language choice on Add staff — 7 November 2026
 

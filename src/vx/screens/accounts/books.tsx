@@ -22,7 +22,7 @@ import {
 } from "@/app/(app)/accounts/books/actions";
 import type { AccRequestRow, BooksData, ChequeRow, UpiLineRow } from "@/modules/finance-controls/vx/types";
 import { chequeDetailsDraft, withDeskChequeDetails } from "@/modules/finance-controls/vx/domain/cheque-receipt";
-import { nextSlipNumber } from "@/modules/finance-controls/vx/domain/books";
+import { nextSlipNumber, slipStillAtBank } from "@/modules/finance-controls/vx/domain/books";
 import { agoP, amountInWords, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -326,7 +326,7 @@ function ChequesPane({
   const inTab = (c: ChequeRow, t: ChequeTab) => (t === "to_deposit" ? waitingForBank(c) : c.status === t);
   const rows = data.cheques.filter((c) => inTab(c, tab));
   const count = (t: ChequeTab) => data.cheques.filter((c) => inTab(c, t)).length;
-  const lastSlip = data.slips[0];
+  const lastSlip = slipStillAtBank(data.slips, data.cheques);
   const hint = tx(
     tab === "to_deposit"
       ? p("Tick the cheques going to the bank. A post-dated cheque waits for its date.", "बैंक जाने वाले चेक चुनें। आगे की तारीख वाला चेक अपनी तारीख तक रुकता है।")

@@ -9,6 +9,7 @@ import {
   nextSlipNumber,
   parseUpiStatement,
   requestStatus,
+  slipStillAtBank,
   suggestUpiMatches,
   upiLineState,
   usualDayTotal,
@@ -38,6 +39,25 @@ describe("cheques", () => {
   it("numbers slips after the highest one used", () => {
     expect(nextSlipNumber([])).toBe("DS-0001");
     expect(nextSlipNumber(["DS-0002", "DS-0010", "other"])).toBe("DS-0011");
+  });
+
+  it("names the latest slip that still has a cheque at the bank", () => {
+    // Newest row first, as the data layer orders them: DS-0001 was entered
+    // last but for an April deposit, and its cheque has since cleared.
+    const slips = [
+      { slipNo: "DS-0001", depositedOn: "2026-04-03" },
+      { slipNo: "DS-2026-001", depositedOn: "2026-09-06" },
+      { slipNo: "DS-0000", depositedOn: "2026-08-01" },
+    ];
+    const cheques = [
+      { status: "cleared" as const, slipNo: "DS-0001" },
+      { status: "deposited" as const, slipNo: "DS-2026-001" },
+      { status: "deposited" as const, slipNo: "DS-0000" },
+      { status: "to_deposit" as const, slipNo: null },
+    ];
+    expect(slipStillAtBank(slips, cheques)?.slipNo).toBe("DS-2026-001");
+    expect(slipStillAtBank(slips, cheques.filter((c) => c.status !== "deposited"))).toBeNull();
+    expect(slipStillAtBank([], cheques)).toBeNull();
   });
 });
 

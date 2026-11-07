@@ -57,6 +57,25 @@ export function nextSlipNumber(existing: readonly string[]): string {
   return `DS-${String(max + 1).padStart(4, "0")}`;
 }
 
+/**
+ * The slip the "At the bank" hint names: the latest deposit among the slips
+ * that still have a cheque at the bank. Not simply the newest slip row — that
+ * one's cheques may all have cleared already, and a slip entered late for an
+ * old deposit is the newest row but not the latest deposit.
+ */
+export function slipStillAtBank<S extends { slipNo: string; depositedOn: string }>(
+  slips: readonly S[],
+  cheques: readonly { status: ChequeStatus; slipNo: string | null }[],
+): S | null {
+  const atBank = new Set(cheques.filter((c) => c.status === "deposited" && c.slipNo).map((c) => c.slipNo));
+  let best: S | null = null;
+  for (const slip of slips) {
+    if (!atBank.has(slip.slipNo)) continue;
+    if (!best || slip.depositedOn > best.depositedOn) best = slip;
+  }
+  return best;
+}
+
 export type UpiStatementLine = {
   txnAt: string;
   amount: number;
