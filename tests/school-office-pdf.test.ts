@@ -108,6 +108,18 @@ describe("the signed letterhead (D-540, D-541)", () => {
     expect(test).not.toContain("Scan to verify");
     expect(test).not.toContain("scan the code");
   }, 30000);
+
+  it("prints the receipts' address on the letterhead, as the owner chose", async () => {
+    const text = pdfText(await renderCertificatePdf({
+      serial: "TEST/VPPS/STUDY/TEST-2026-27/0003", issuedAt: "2026-11-07T06:00:00Z", issuedOn: "2026-11-07", isTest: true,
+      school: signedSchool, template: defaultStudyTemplate, kind: "study", facts: { ...facts, studentName: "Synthetic Scholar" },
+    }));
+    // A receipt says "Amet-Kelwa Road, Amet, 313332"; the letterhead adds the district.
+    expect(text).toContain("Amet-Kelwa Road, Amet, District Rajsamand (Raj.)");
+    expect(text).toContain("313332");
+    expect(text).not.toContain("Mela Ground");
+    expect(text).not.toContain("313330");
+  }, 30000);
 });
 
 describe("one A4 sheet, always (D-543)", () => {

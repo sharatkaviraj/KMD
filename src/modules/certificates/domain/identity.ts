@@ -17,7 +17,10 @@ const code = (fallback = "") => z.string().trim().max(40).regex(/^[A-Za-z0-9/ .-
 export const OFFICIAL_LETTERHEAD = {
   nameHi: "श्री वीर पत्ता सीनियर सैकण्डरी स्कूल",
   trust: "Rani Heer Kanwar Educational Trust",
-  address: "Opposite Mela Ground, Amet, District Rajsamand (Raj.) – 313330",
+  // The receipts' address (Fees prints "Amet-Kelwa Road, Amet, 313332"), with
+  // the letterhead's district: the owner chose it over the Drive letterhead's
+  // "Opposite Mela Ground … 313330" (7 Nov 2026, D-540).
+  address: "Amet-Kelwa Road, Amet, District Rajsamand (Raj.) – 313332",
   phone: "02908-294164",
   // The school mailbox every receipt already prints.
   email: "info@vpps.co.in",
