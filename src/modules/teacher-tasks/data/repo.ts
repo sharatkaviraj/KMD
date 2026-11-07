@@ -19,8 +19,10 @@ import { academicDraftScope, collectionDraftScope } from "./draft-scope";
 import { attendanceCalendar } from "@/modules/attendance/data/attendance-repo";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 
-export type TaskRow = { id:string; session_label:string; kind:TaskKind; request_id:string|null; paper_id:string|null; class_id:string|null; day:string|null; scope:TaskScope; assigned_staff_id:string; title:string; due_date:string|null; revoked_at:string|null; opened_at:string|null };
+export type TaskRow = { id:string; session_label:string; kind:TaskKind; request_id:string|null; paper_id:string|null; class_id:string|null; day:string|null; scope:TaskScope; assigned_staff_id:string; title:string; due_date:string|null; revoked_at:string|null; opened_at:string|null; created_at?:string|null };
 const COLUMNS="id,session_label,kind,request_id,paper_id,class_id,day,scope,assigned_staff_id,title,due_date,revoked_at,opened_at";
+/** Lists also read when each task was made: the office groups one "Give work" back together by it (D-520). */
+const LIST_COLUMNS="id,session_label,kind,request_id,paper_id,class_id,day,scope,assigned_staff_id,title,due_date,revoked_at,opened_at,created_at";
 export type AcademicWork = { kind:"marks"|"attendance"; taskId:string; draftScope:string; session:string; paperId:string|null; classId:string|null; day:string|null; revision:number; submitted:boolean; max:number; step:number; allowExempt:boolean; rows:{id:string;name:string;state:string;value:number|null}[] };
 export type TaskWork = { task:TaskRow; language:Language; collection?:{request:CollectionRequest;roll:RollRow[];draftScope:string}; academic?:AcademicWork };
 
@@ -95,7 +97,7 @@ export async function loadTaskWork(auth:TaskCredential):Promise<TaskWork|null> {
 
 async function summary(t:TaskRow, office:boolean):Promise<TaskSummary> {
   const db=createAdminClient();
-  let state:TaskSummary["state"]="waiting", expected=0,answered=0,rejected=0;
+  let state:TaskSummary["state"]="waiting", expected=0,answered=0,rejected=0,approved=0,students=0;
   if(t.kind==="collection") {
     const [members,fields,answers]=await Promise.all([
       db.from("collection_request_members").select("student_id",{count:"exact",head:true}).eq("request_id",t.request_id!),
@@ -103,7 +105,7 @@ async function summary(t:TaskRow, office:boolean):Promise<TaskSummary> {
       fetchAllRows<{status:string}>((from,to)=>db.from("collection_submissions").select("status").eq("request_id",t.request_id!).order("id").range(from,to),"task progress"),
     ]);
     if(members.error||fields.error) throw new Error("progress_unavailable");
-    expected=(members.count??0)*(fields.count??0);answered=answers.length;rejected=answers.filter(a=>a.status==="rejected").length;
+    expected=(members.count??0)*(fields.count??0);answered=answers.length;rejected=answers.filter(a=>a.status==="rejected").length;approved=answers.filter(a=>a.status==="accepted").length;students=members.count??0;
     state=taskProgress({kind:"collection",expected,answered,approved:answers.filter(a=>a.status==="accepted").length,rejected:answers.filter(a=>a.status==="rejected").length});
   } else if(t.kind==="marks") {
     const r=await db.from("assessment_subjects").select("entry_status").eq("id",t.paper_id!).single<{entry_status:string}>();if(r.error)throw new Error("progress_unavailable");state=taskProgress({kind:"marks",submitted:r.data.entry_status==="submitted"});
@@ -114,7 +116,7 @@ async function summary(t:TaskRow, office:boolean):Promise<TaskSummary> {
   if(access.error)throw new Error("authority_unavailable");
   if(t.revoked_at)state="revoked";else if(!access.data)state="to-assign";
   const staff=await db.from("staff_profiles").select("display_name").eq("id",t.assigned_staff_id).maybeSingle<{display_name:string}>();
-  return {id:t.id,kind:t.kind,title:t.title,sourceKey:t.kind==="collection"?`collection:${t.request_id}`:t.kind==="marks"?`marks:${t.paper_id}`:`attendance:${t.session_label}:${t.class_id}:${t.day}`,teacherId:t.assigned_staff_id,teacherName:staff.data?.display_name??null,dueDate:t.due_date,state,expected,answered,rejected,href:office?`/inbox?task=${t.id}`:`/teach/tasks/${t.id}`,openedAt:t.opened_at};
+  return {id:t.id,kind:t.kind,title:t.title,sourceKey:t.kind==="collection"?`collection:${t.request_id}`:t.kind==="marks"?`marks:${t.paper_id}`:`attendance:${t.session_label}:${t.class_id}:${t.day}`,teacherId:t.assigned_staff_id,teacherName:staff.data?.display_name??null,dueDate:t.due_date,state,expected,answered,rejected,href:office?`/inbox?task=${t.id}`:`/teach/tasks/${t.id}`,openedAt:t.opened_at,...(office?{approved,students,createdAt:t.created_at??null,scope:t.scope,classId:t.class_id}:{})};
 }
 /**
  * A teacher's (or the office's) task list. `now` is the reader's school clock
@@ -128,7 +130,7 @@ export async function listTeacherTasks(office=false, opts:{now?:Date;only?:TaskK
   const actor=office?await assertPermission("collection:manage"):await assertStaff();
   const session=await resolveSessionLabel();if(!session)return [];
   const db=createAdminClient();
-  const rows=await fetchAllRows<TaskRow>((from,to)=>{let q=db.from("teacher_tasks").select(COLUMNS).eq("session_label",session);if(!office)q=q.eq("assigned_staff_id",actor.id);if(opts.only)q=q.in("kind",opts.only);return q.order("created_at",{ascending:false}).order("id").range(from,to);},"teacher tasks");
+  const rows=await fetchAllRows<TaskRow>((from,to)=>{let q=db.from("teacher_tasks").select(LIST_COLUMNS).eq("session_label",session);if(!office)q=q.eq("assigned_staff_id",actor.id);if(opts.only)q=q.in("kind",opts.only);return q.order("created_at",{ascending:false}).order("id").range(from,to);},"teacher tasks");
   const tasks=await mapConcurrently(rows,4,t=>summary(t,office));
   if(!office) {
     // Existing requests/papers/registers remain canonical and appear without minting tokens.
