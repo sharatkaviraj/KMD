@@ -64,7 +64,7 @@ inside `after()`, "Unable to load school defaults" on every visit); it is a
 server action the page starts now (D-481). Windows 11 Chrome on BrowserStack:
 admin and teacher screens render correctly. A real iPhone 15 re-check passed.
 Hindi screens printed English dates ("Sat 7 Nov", "10 Oct", "1:40 am");
-the Hindi line now says them in Hindi wherever they were built (D-484), and
+the Hindi line now says them in Hindi wherever they were built (D-488), and
 about 90 dates printed outside any pair now go through it too (PR 261; the
 fee collector's Today and the classic Payment Desk followed). Re-checked live
 on BrowserStack, Galaxy M32 (office) and Windows Chrome (teacher): passed. Still
