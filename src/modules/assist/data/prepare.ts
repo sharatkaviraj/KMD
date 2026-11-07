@@ -94,7 +94,7 @@ export async function prepareCoverPlans(opts: { day: string; dutyIds?: readonly 
       subject: duty.subject_code ? (subjectName.get(duty.subject_code) ?? duty.subject_code).slice(0, 80) : null,
       minutes: minutesBetween(bell?.starts, bell?.ends),
       language: language.get(duty.covering_staff_id) ?? "hi",
-    }).catch(() => null);
+    }, { testMaterial: isTestSessionLabel(duty.session_label) }).catch(() => null);
     if (!result?.ok) {
       summary.failed += 1;
       // Switched off or out of budget: the rest would be refused the same way.
@@ -182,7 +182,7 @@ export async function prepareClassDigests(opts: { sessionLabel: string; day: str
         text: n.body.trim().slice(0, 2000),
       })),
       names: [...new Set([...names.values()].map((c) => String(c.fullName ?? "").slice(0, 120)).filter(Boolean))].slice(0, 60),
-    }).catch(() => null);
+    }, { testMaterial: isTestSessionLabel(opts.sessionLabel) }).catch(() => null);
     if (!result?.ok) {
       summary.failed += 1;
       if (result && (result.problem === "off" || result.problem === "budget")) break;

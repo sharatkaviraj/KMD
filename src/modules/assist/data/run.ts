@@ -3,7 +3,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 
-import { freeGeminiConfig, nvidiaConfig, openAiKey, openRouterConfig, paidGeminiConfig } from "@/lib/ai/config";
+import { freeGeminiConfig, nvidiaConfig, nvidiaGuidedJson, openAiKey, openRouterConfig, paidGeminiConfig } from "@/lib/ai/config";
 import { oneInstructions, type OneWorkflow } from "@/lib/ai/one-knowledge";
 import { freeKeyBlocked, saveStatuses, statusRow } from "@/lib/ai/provider-status";
 import { failureOf, type FailureProblem } from "@/lib/ai/router";
@@ -13,8 +13,20 @@ import { groupsFor } from "@/vx/nav";
 
 import { costUsd } from "../domain/cost";
 import { dailyCapFor, FEATURE_PERMISSIONS, type AssistOutcome, type AssistProblem } from "../domain/features";
+import { readsAsHindi } from "../domain/hindi-check";
 import { hasStrayToken, maskPersonal, restoreDeep } from "../domain/redact";
-import { assistChain, CHAIN_DEADLINE_MS, FREE_PROVIDERS, type AssistStage, type AvailableKeys } from "../domain/routes";
+import {
+  assistChain,
+  CHAIN_DEADLINE_MS,
+  FREE_PROVIDERS,
+  FREE_SHARE_MS,
+  hasFreeStage,
+  MIN_FREE_STAGE_MS,
+  restAfter,
+  TASK_TIER,
+  type AssistStage,
+  type AvailableKeys,
+} from "../domain/routes";
 import {
   ASSIST_TASKS,
   SHARED_RULES,
@@ -24,6 +36,7 @@ import {
   type TaskSpec,
 } from "../domain/tasks";
 import { chatDraft } from "./chat-draft";
+import { isResting, rest } from "./free-rest";
 import { geminiDraft } from "./gemini-draft";
 import { budgetState, writeLog } from "./log";
 import { openaiDraft, type StageReply } from "./openai-draft";
@@ -59,6 +72,11 @@ export function availableKeys(env: Readonly<Record<string, string | undefined>> 
  * its validated input, with personal details masked, and the answer is
  * parsed against the task's schema and cleaned against the input before the
  * screen sees it.
+ *
+ * A test account's drafts are TEST material: its children are the masked
+ * replica's invented people, so every text task may start on the free models
+ * (D-401, D-496). Once the month's budget is spent, a task that has a free
+ * stage still runs, on the free models only.
  */
 export async function runAssistTask<K extends AssistTaskId>(
   staff: CurrentStaff,
@@ -74,10 +92,14 @@ export async function runAssistTask<K extends AssistTaskId>(
   const settings = await getAssistSettings().catch(() => null);
   if (!settings?.enabled || settings.disabledFeatures.includes(feature)) return { ok: false, problem: "off" };
 
+  const testMaterial = staff.isTestAccount === true;
   const budget = await budgetState(staff.id).catch(() => null);
   // A budget that cannot be read is treated as spent: the cap is the only thing between a loop and the bill.
   if (!budget) return { ok: false, problem: "failed" };
-  if (budget.spentUsd >= settings.monthlyBudgetUsd) return { ok: false, problem: "budget" };
+  // Spent: only a task with a free stage goes on, and `draftThroughChain` starts no paid one.
+  if (budget.spentUsd >= settings.monthlyBudgetUsd && !hasFreeStage(taskId, availableKeys(), process.env, { testMaterial })) {
+    return { ok: false, problem: "budget" };
+  }
   if (budget.staffToday >= dailyCapFor(settings.dailyCapPerStaff, staff)) return { ok: false, problem: "daily_cap" };
 
   const parsed = spec.input.safeParse(rawInput);
@@ -100,7 +122,7 @@ export async function runAssistTask<K extends AssistTaskId>(
     }
   }
 
-  return draftThroughChain(staff.id, taskId, spec, input, settings, budget.spentUsd, permittedHrefs);
+  return draftThroughChain(staff.id, taskId, spec, input, settings, budget.spentUsd, { permittedHrefs, testMaterial });
 }
 
 /**
@@ -108,22 +130,27 @@ export async function runAssistTask<K extends AssistTaskId>(
  * for a duty, a class's week of notes. The caller has already decided who it
  * is for and that they may see it; this keeps the admin's switches and the
  * month's budget, but not the person's daily cap — they did not press a button.
+ * `testMaterial` is the caller's word that the draft is about a TEST session.
  */
 export async function prepareAssistDraft<K extends AssistTaskId>(
   staffProfileId: string,
   taskId: K,
   rawInput: unknown,
+  options: { testMaterial?: boolean } = {},
 ): Promise<AssistOutcome<TaskOutput<K>>> {
   const spec = ASSIST_TASKS[taskId] as unknown as TaskSpec<unknown, TaskOutput<K>>;
+  const testMaterial = options.testMaterial === true;
   if (!isAssistConfigured()) return { ok: false, problem: "off" };
   const settings = await getAssistSettings().catch(() => null);
   if (!settings?.enabled || settings.disabledFeatures.includes(spec.feature)) return { ok: false, problem: "off" };
   const budget = await budgetState(staffProfileId).catch(() => null);
   if (!budget) return { ok: false, problem: "failed" };
-  if (budget.spentUsd >= settings.monthlyBudgetUsd) return { ok: false, problem: "budget" };
+  if (budget.spentUsd >= settings.monthlyBudgetUsd && !hasFreeStage(taskId, availableKeys(), process.env, { testMaterial })) {
+    return { ok: false, problem: "budget" };
+  }
   const parsed = spec.input.safeParse(rawInput);
   if (!parsed.success) return { ok: false, problem: "invalid" };
-  return draftThroughChain(staffProfileId, taskId, spec, parsed.data, settings, budget.spentUsd);
+  return draftThroughChain(staffProfileId, taskId, spec, parsed.data, settings, budget.spentUsd, { testMaterial });
 }
 
 type Ask = {
@@ -169,6 +196,9 @@ async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promis
       return chatDraft({
         url: "https://integrate.api.nvidia.com/v1/chat/completions", apiKey: config.apiKey, model: config.model,
         instructions: ask.instructions, text: ask.text, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
+        jsonSchema: nvidiaGuidedJson(config.model),
+        // Thinking off: Nemotron spent 9-12 s and sometimes every token thinking about a 40-minute cover plan (D-496).
+        extra: { chat_template_kwargs: { enable_thinking: false, thinking: false } },
       });
     }
     case "openrouter-free": {
@@ -177,9 +207,13 @@ async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promis
       return chatDraft({
         url: "https://openrouter.ai/api/v1/chat/completions", apiKey: config.apiKey, model: config.models[0], models: config.models,
         instructions: ask.instructions, text: ask.text, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
-        jsonMode: true, headers: { "X-Title": "VPPS One" },
-        // Never a paid model: OpenRouter refuses any route that would charge (owner, 7 Nov 2026).
-        extra: { provider: { max_price: { prompt: 0, completion: 0, request: 0, image: 0 } } },
+        jsonSchema: true, headers: { "X-Title": "VPPS One" },
+        extra: {
+          // Never a paid model: OpenRouter refuses any route that would charge (owner, 7 Nov 2026).
+          provider: { max_price: { prompt: 0, completion: 0, request: 0, image: 0 } },
+          // Thinking off, as for NVIDIA (D-496); none of the default models insists on it.
+          reasoning: { effort: "none" },
+        },
       });
     }
     case "anthropic":
@@ -214,8 +248,9 @@ async function draftThroughChain<K extends AssistTaskId>(
   input: unknown,
   settings: AssistSettings,
   spentUsd: number,
-  permittedHrefs?: string[],
+  options: { permittedHrefs?: string[]; testMaterial?: boolean } = {},
 ): Promise<AssistOutcome<TaskOutput<K>>> {
+  const { permittedHrefs, testMaterial = false } = options;
   const feature = spec.feature;
   const masked = maskPersonal(spec.prompt(input), spec.names?.(input) ?? []);
   const workflow = feature as OneWorkflow;
@@ -225,12 +260,13 @@ async function draftThroughChain<K extends AssistTaskId>(
     image: spec.image?.(input) ?? null,
     spec: spec as TaskSpec<unknown, unknown>,
   };
-  const stages = assistChain(taskId, availableKeys(), process.env);
+  const stages = assistChain(taskId, availableKeys(), process.env, { testMaterial });
 
   let model = stages[0]?.model ?? "none";
+  let provider = stages[0]?.provider ?? null;
   let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, spend = 0;
   const log = (outcome: "drafted" | "refused" | "failed") =>
-    writeLog({ staffProfileId, feature, task: taskId, model, outcome, inputTokens, outputTokens, cacheReadTokens, costUsd: Math.round(spend * 1_000_000) / 1_000_000 });
+    writeLog({ staffProfileId, feature, task: taskId, model, provider, outcome, inputTokens, outputTokens, cacheReadTokens, costUsd: Math.round(spend * 1_000_000) / 1_000_000 });
 
   const finish = (candidate: unknown) => {
     const output = spec.output.safeParse(candidate);
@@ -246,31 +282,43 @@ async function draftThroughChain<K extends AssistTaskId>(
 
   if (!stages.length) return { ok: false, problem: "off" };
   const started = Date.now();
+  // The free stages share one allowance, so a paid model always has time left to answer (D-496).
+  let freeLeft = FREE_SHARE_MS[TASK_TIER[taskId]];
   let busy = false;
   for (const stage of stages) {
     const left = CHAIN_DEADLINE_MS - (Date.now() - started);
     if (left < 6_000) break;
-    const free = stage.provider === "gemini-free";
+    const free = FREE_PROVIDERS.has(stage.provider);
+    const geminiFree = stage.provider === "gemini-free";
     // Charge everything already spent to this draft, and start no further paid call once at the cap.
-    if (!FREE_PROVIDERS.has(stage.provider) && spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
-    if (free && (await freeKeyBlocked())) continue;
+    if (!free && spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
+    if (free && (freeLeft < MIN_FREE_STAGE_MS || isResting(stage.provider))) continue;
+    if (geminiFree && (await freeKeyBlocked())) continue;
+    const stageStarted = Date.now();
+    const allowed = Math.min(stage.timeoutMs, left - 2_000, free ? freeLeft : Infinity);
     try {
-      const reply = await runStage(stage, ask, Math.min(stage.timeoutMs, left - 2_000));
+      const reply = await runStage(stage, ask, allowed);
       // OpenRouter names the free model that actually answered; the log keeps it.
       model = reply.model ?? stage.model;
+      provider = stage.provider;
       inputTokens += reply.input;
       outputTokens += reply.output;
       cacheReadTokens += reply.cacheRead;
       spend += reply.costUsd;
-      if (free) void saveStatuses([statusRow("gemini-free", { outcome: "ok", model: stage.model }, new Date())]);
+      if (geminiFree) void saveStatuses([statusRow("gemini-free", { outcome: "ok", model: stage.model }, new Date())]);
       if (reply.refused) return reject("refused");
       const finished = finish(reply.candidate);
-      if (finished) return { ok: true, value: finished, logId: await log("drafted") };
+      // A free model's Hindi is checked too: one answered a Hindi brief in English (D-496).
+      if (finished && (!free || readsAsHindi(finished, input))) return { ok: true, value: finished, logId: await log("drafted") };
       // An answer that does not fit the task: the next model may do better.
     } catch (error) {
       const failure = failureOf(error);
       if (BUSY.includes(failure.problem) || error instanceof Anthropic.APIConnectionError) busy = true;
-      if (free) void saveStatuses([statusRow("gemini-free", { outcome: "unavailable", model: stage.model, ...failure }, new Date())]);
+      // A stage cut short by the time left is not the provider's fault; a full-length timeout is.
+      if (free && !(failure.problem === "timeout" && allowed < stage.timeoutMs)) rest(stage.provider, restAfter(failure.problem));
+      if (geminiFree) void saveStatuses([statusRow("gemini-free", { outcome: "unavailable", model: stage.model, ...failure }, new Date())]);
+    } finally {
+      if (free) freeLeft -= Date.now() - stageStarted;
     }
   }
   return reject(busy ? "busy" : "failed");

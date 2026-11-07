@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { ASSIST_MODELS } from "@/modules/assist/domain/features";
-import { assistChain, describeChains, OPEN_TASKS, TASK_TIER, tierModels, type AvailableKeys } from "@/modules/assist/domain/routes";
+import {
+  assistChain,
+  CHAIN_DEADLINE_MS,
+  describeChains,
+  FREE_PROVIDERS,
+  FREE_SHARE_MS,
+  OPEN_TASKS,
+  TASK_TIER,
+  tierModels,
+  type AvailableKeys,
+} from "@/modules/assist/domain/routes";
 import { ASSIST_TASKS, type AssistTaskId } from "@/modules/assist/domain/tasks";
 
 /* D-416, D-417: which model writes each draft, and who takes over. Pure; no key value is read. */
@@ -50,7 +60,12 @@ describe("assistChain", () => {
 
   it("fits each chain inside the browser's wait", () => {
     for (const task of ids) {
-      expect(assistChain(task, all).reduce((sum, s) => sum + s.timeoutMs, 0)).toBeLessThanOrEqual(75_000);
+      const stages = assistChain(task, all, {}, { testMaterial: true });
+      const paid = stages.filter((s) => !FREE_PROVIDERS.has(s.provider));
+      // The paid models alone fit the browser's 75 s, as before the free ones joined.
+      expect(paid.reduce((sum, s) => sum + s.timeoutMs, 0)).toBeLessThanOrEqual(75_000);
+      // However slowly the free models fail, the first paid model still gets all its time, with room after it.
+      expect(FREE_SHARE_MS[TASK_TIER[task]] + (paid[0]?.timeoutMs ?? 0)).toBeLessThanOrEqual(CHAIN_DEADLINE_MS - 6_000);
     }
   });
 });
@@ -68,7 +83,13 @@ describe("tierModels", () => {
     expect(tierModels({ VPPSONE_ASSIST_CLAUDE_QUICK: "claude haiku; drop" }).quick.claude).toBe(ASSIST_MODELS.quick);
   });
 
-  it("describes one chain per tier for the settings page", () => {
-    expect(Object.keys(describeChains(all))).toEqual(["quick", "writing", "careful"]);
+  it("describes the open chain and one paid chain per tier for the settings page (D-496)", () => {
+    const chains = describeChains(all);
+    expect(Object.keys(chains)).toEqual(["open", "quick", "writing", "careful"]);
+    expect(chains.open[0].provider).toBe("gemini-free");
+    for (const tier of ["quick", "writing", "careful"] as const) {
+      expect(chains[tier].some((s) => FREE_PROVIDERS.has(s.provider))).toBe(false);
+      expect(chains[tier][0].model).toBe(ASSIST_MODELS[tier]);
+    }
   });
 });

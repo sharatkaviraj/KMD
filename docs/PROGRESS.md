@@ -1,5 +1,25 @@
 # VPPS One — progress
 
+## Free AI keys: the free models go first — 7 November 2026
+
+Owner asked (7 Nov) for the best models on the new NVIDIA and OpenRouter keys
+and the Gemini Free key, and for One to use them first to cut AI costs, the
+paid models as the fallback. Branch `claude/project-thread-946cvd`, PR 279,
+D-496 (after D-490). **Done:** measured One's own tasks on every free model that
+answered; Nemotron 3.5 Super VL with thinking off and guided JSON passed 10 of
+11 in 1-4 s (with thinking on it took 9-12 s, past its 7 s stage). The free models now write a class's results and notices to all parents
+or staff as well as the old open tasks, and every text task of a test account;
+a photographed admission form never goes to them. They share 20-24 s, rest
+after a failure, must answer Hindi in Hindi, and keep working once the paid
+budget is spent. `assist_log.provider` applied on wtgx as `20261107075126`
+(function granted to service_role only, checked); Settings → AI helper shows
+the free share, drafts per free provider and the estimated saving, and its
+chain pills now wrap on a phone. **Surprised:** the helper spent $0.055 on
+61 drafts in the 30 days to 7 Nov; 43 were test accounts' (now free), and real
+staff's were mostly notes and the Today brief, which stay paid, so the saving
+grows only as staff use the open tasks. NVIDIA's free tier is a trial for
+testing, so its terms, not its price, are the limit to watch.
+
 ## Notes, card by card — 7 November 2026
 
 Owner asked (7 Nov) that writing a note stop hiding behind scrolls: card by
