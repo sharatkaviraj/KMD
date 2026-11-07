@@ -77,8 +77,8 @@ export function PersonBanner({
     leave(async () => {
       const href = await endViewAsPersonAction();
       cue("done");
+      // The action has already redrawn the frame as the administrator; one push, no second load.
       router.push(href);
-      router.refresh();
     });
   };
 

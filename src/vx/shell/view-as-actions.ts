@@ -16,6 +16,8 @@ import type { Localized } from "@/platform/i18n/language";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import { mayViewAs } from "@/platform/auth/view-as-subject";
+import { resolveStaffRole } from "@/platform/auth/permissions";
+import { personHome } from "@/vx/home-redirect";
 import { MENU_HOME, ROLE_PREVIEW_MENUS, type DesignMenu } from "@/vx/nav";
 import { VIEW_AS_COOKIE } from "@/vx/view-as";
 
@@ -100,9 +102,9 @@ export async function startViewAsPersonAction(subjectId: string): Promise<ViewAs
   // cannot see: on a Preview or local build every account is a test account.
   const { data: subject } = await createAdminClient()
     .from("staff_profiles")
-    .select("id, role, is_active, is_test_account")
+    .select("id, role, is_active, is_test_account, preferred_start")
     .eq("id", subjectId)
-    .maybeSingle<{ id: string; role: string | null; is_active: boolean; is_test_account: boolean | null }>();
+    .maybeSingle<{ id: string; role: string | null; is_active: boolean; is_test_account: boolean | null; preferred_start: string | null }>();
   if (!subject || !subject.is_active) return { ok: false, message: REFUSED.inactive };
   if (!mayViewAs(actor, subject)) {
     return { ok: false, message: actor.isTestAccount && subject.is_test_account !== true ? REFUSED.test : REFUSED.admin };
@@ -125,7 +127,9 @@ export async function startViewAsPersonAction(subjectId: string): Promise<ViewAs
     maxAge: VIEW_AS_PERSON_MAX_AGE,
   });
   revalidatePath("/", "layout");
-  return { ok: true, href: "/" };
+  // Straight to the screen their own One opens on: by way of `/` the router
+  // renders a screen only to be sent on from it.
+  return { ok: true, href: personHome({ role: resolveStaffRole(subject.role), preferredStart: subject.preferred_start }) };
 }
 
 /** Stop seeing One as somebody else and go back to the administrator's own screens. */

@@ -234,8 +234,9 @@ export function ViewAsScreen({ people, recent, current, focus }: ViewAsScreenPro
       const result = await startViewAsPersonAction(person.id).catch(() => null);
       if (result?.ok) {
         cue("ready");
+        // The action already redrew the frame as the person (revalidatePath);
+        // a refresh on top of the push would load the screen a second time.
         router.push(result.href);
-        router.refresh();
         return;
       }
       const message = result ? result.message : p("Could not open One as that person. Check the connection and try again.", "उस व्यक्ति की तरह One नहीं खुल सका। कनेक्शन देखकर फिर कोशिश करें।");
@@ -254,7 +255,6 @@ export function ViewAsScreen({ people, recent, current, focus }: ViewAsScreenPro
       const href = await endViewAsPersonAction();
       cue("done");
       router.push(href);
-      router.refresh();
     });
   };
 

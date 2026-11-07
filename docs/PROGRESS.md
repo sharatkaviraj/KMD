@@ -25,6 +25,19 @@ uses that shared chunk whole instead of splitting it (a page that took only
 Listen and `cue` cost every route about 0.8 KB). Two builds of identical code
 differ by up to about 150 bytes (server-action ids are random per build), so
 read one measurement with that margin.
+**Live** from about 19:01 UTC 7 Nov (One PR 314, merge `df19a5f`). Checked
+live as the QA admin, at phone width: the picker lists the 40 test accounts
+(a test administrator sees only those); seeing One as "Test teacher Ravina"
+shows her menu in Hindi, the amber banner and frame; a POST while looking is
+refused with 403 and the Hindi and English sentence; Change person to the QA
+accountant, then Back to my view; `vppsone.view_as_log` rows written and closed;
+no server errors. **Follow-up:** opening a person took 6 to 8 seconds, because
+the picker sent the router to `/` (which renders only to redirect a teacher to
+`/teach`) and then refreshed on top of the push, so the screen loaded three
+times and an empty page flashed. The start action now returns the person's own
+first screen (`personHome()` in `src/vx/home-redirect.ts`, the same rule as `/`)
+and the picker and banner push once without the extra refresh: the action's
+`revalidatePath` already redraws the frame as the new person.
 
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 

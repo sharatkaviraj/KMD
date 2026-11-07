@@ -1,6 +1,6 @@
 import { resolveStart } from "@/platform/config/start";
 import type { StaffRole } from "@/platform/auth/permissions";
-import { MENU_HOME, type DesignMenu } from "@/vx/nav";
+import { designMenuFor, MENU_HOME, type DesignMenu } from "@/vx/nav";
 
 /**
  * Where `/` sends this viewer, or null when `/` is their own screen (Today).
@@ -24,4 +24,13 @@ export function rootRedirectFor(viewer: {
 /** What the home hint should say: never while previewing, whose `/` is the admin's own. */
 export function homeHintFor(viewer: Parameters<typeof rootRedirectFor>[0]): string | null {
   return viewer.previewing ? null : rootRedirectFor(viewer);
+}
+
+/**
+ * The screen a person's own One opens on: what `/` would send them to, or `/`
+ * itself when that is their screen. "See One as a person" goes straight there
+ * (D-544), because going to `/` first renders a screen only to leave it.
+ */
+export function personHome(staff: { role: StaffRole; preferredStart: string | null }): string {
+  return rootRedirectFor({ menu: designMenuFor(staff.role), previewing: null, staff }) ?? "/";
 }
