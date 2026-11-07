@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { LANGUAGE_CHOICES, type Pair } from "@/vx/text";
+import { FeedbackSwitches } from "@/vx/ui/feedback-switches";
 import { LanguageChoices } from "@/vx/ui/language";
 import { Sheet } from "@/vx/ui/overlays";
 
@@ -31,7 +32,8 @@ function Track({ on }: { on: boolean }) {
 const rowStyle = { width: "100%", minHeight: 56, display: "flex", alignItems: "center", gap: 12, padding: "0 16px", border: 0, borderTop: "1px solid var(--bd)", background: "transparent", color: "var(--fg)", textAlign: "left" } as const;
 
 /**
- * Dark mode, and the reader's language — the rows under the person's name.
+ * Dark mode, the reader's language, and Sounds / Vibration / Read aloud
+ * (D-497) — the rows under the person's name.
  * The language row opens all three choices (English, हिंदी, both): the old
  * "Hindi labels" switch wrote only "both" or "en", so a Hindi-only reader
  * who touched it lost "hi" (smoke 20 Oct, dev.groups[10]).
@@ -58,6 +60,18 @@ export function MenuToggles() {
         </span>
         <Ic n="chevRight" />
       </button>
+      <FeedbackSwitches
+        row={(r) => (
+          <button key={r.key} type="button" role="switch" aria-checked={r.on} className="tap" onClick={r.flip} style={rowStyle}>
+            <Ic n={r.icon} />
+            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{tx(r.title)}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(r.sub)}</span>
+            </span>
+            <Track on={r.on} />
+          </button>
+        )}
+      />
       <Sheet open={langOpen} onClose={() => setLangOpen(false)} title={tx({ en: "Language", hi: "भाषा" })} icon="globe">
         <LanguageChoices onDone={() => setLangOpen(false)} />
       </Sheet>

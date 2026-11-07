@@ -101,7 +101,7 @@ export function ClosePanel(props: DeskProps) {
         setError(res.error);
         return;
       }
-      toast.show({ text: tx(W.closeDone) });
+      toast.show({ text: tx(W.closeDone), cue: "done" });
       router.refresh();
     });
   }

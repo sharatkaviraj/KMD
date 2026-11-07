@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { admitAction, checkDuplicateAction, searchFamiliesAction, type DuplicateHit } from "@/app/(app)/admissions/actions";
+import { cue } from "@/ui/feedback/cue";
 import { rupees, dateLabel, dayMonth, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -310,6 +311,8 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
     // The child is admitted but the fee rows did not build: say so rather than
     // let the office find "no fee record" at the Payment Desk later.
     if (res.duesWarning) toast.show({ text: tx(p("Admitted, but the fees did not set up. Open the child's Fees tab and rebuild dues.", "दाखिला हो गया, पर फीस नहीं बनी। बच्चे का फीस टैब खोलकर बकाया फिर से बनाएँ।")), tone: "bad" });
+    // A child admitted: the "done" tune as the welcome page opens (D-497).
+    else cue("done");
     router.push(`/admissions/new?done=${res.studentId}`);
   }
 

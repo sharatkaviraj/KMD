@@ -16,8 +16,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { cue, feedbackReady, primeFeedback, type CueKind } from "@/ui/feedback/cue";
+import { readFeedbackPrefs } from "@/ui/feedback/prefs";
+import { speakLine } from "@/ui/feedback/speak";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
+import { useHelpGlow } from "@/vx/ui/help-glow";
+import { ListenButton } from "@/vx/ui/listen";
 import { p } from "@/vx/text";
 
 const SAY = {
@@ -313,9 +318,22 @@ type ToastInput = {
   undoLabel?: string;
   action?: { label: string; onClick: () => void };
   ms?: number;
+  /**
+   * The feel and sound with it (D-497, `@/ui/feedback/cue`). By default the
+   * tone decides: ok → success, bad → error, info → a light tap. Pass "done"
+   * for a finished job (register saved, payment posted), or false for none.
+   */
+  cue?: CueKind | false;
 };
 
 type ToastItem = ToastInput & { id: number };
+
+/** The cue a toast carries when the caller does not name one. */
+export function toastCue(t: Pick<ToastInput, "tone" | "cue">): CueKind | null {
+  if (t.cue === false) return null;
+  if (t.cue) return t.cue;
+  return t.tone === "bad" ? "error" : t.tone === "info" ? "tap" : "success";
+}
 
 const ToastContext = createContext<{ show: (t: ToastInput) => void } | null>(null);
 
@@ -327,11 +345,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const dismiss = useCallback((id: number) => setItems((all) => all.filter((t) => t.id !== id)), []);
 
+  // Cues wait for the person's first touch (D-497); the shell's provider starts listening for it.
+  useEffect(() => primeFeedback(), []);
+
   const show = useCallback((t: ToastInput) => {
     seq.current += 1;
     const id = seq.current;
     setItems((all) => [...all.slice(-1), { ...t, id }]);
     window.setTimeout(() => dismiss(id), t.ms ?? (t.undo ? 6000 : 4500));
+    const kind = toastCue(t);
+    if (kind) cue(kind);
+    // Read aloud, when the person switched it on: the words, never a sound on page load.
+    if (typeof t.text === "string" && readFeedbackPrefs().speak && feedbackReady()) speakLine(t.text);
   }, [dismiss]);
 
   const value = useMemo(() => ({ show }), [show]);
@@ -343,14 +368,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ? createPortal(
             <div className="toastwrap" aria-live="polite" role="status">
               {items.slice(-1).map((t) => (
-                <div key={t.id} className="toast">
-                  <Ic n={t.tone === "bad" ? "alert" : t.tone === "info" ? "info" : "checkCircle"} size={18} style={{ color: t.tone === "bad" ? "#F27E7E" : "var(--tacc)" }} />
+                <div key={t.id} className={`toast${t.tone === "bad" ? " bad" : ""}`}>
+                  <span className="toast-ic" aria-hidden="true">
+                    <Ic n={t.tone === "bad" ? "alert" : t.tone === "info" ? "info" : "checkCircle"} size={18} style={{ color: t.tone === "bad" ? "#F27E7E" : "var(--tacc)" }} />
+                  </span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500 }}>{t.text}</span>
                   {t.undo ? (
                     <button
                       type="button"
                       onClick={async () => {
                         dismiss(t.id);
+                        cue("undo");
                         await t.undo?.();
                       }}
                     >
@@ -386,16 +414,20 @@ export function useToast() {
 /** "?" on every screen: three picture steps (RULES G). */
 export function HelpButton({ title, steps, style }: { title: string; steps: { icon: IconName; title: string; body: string }[]; style?: CSSProperties }) {
   const [open, setOpen] = useState(false);
+  const [reading, setReading] = useState<number | null>(null);
   const { tx } = useVx();
+  const help = useHelpGlow();
   return (
     <>
-      <button type="button" className="tap icon-btn" aria-label={tx(SAY.help(title))} onClick={() => setOpen(true)} style={style}>
+      <button type="button" className={`tap icon-btn${help.glow ? " vx-help-new" : ""}`} aria-label={tx(SAY.help(title))} onClick={() => { help.opened(); setOpen(true); }} style={style}>
         <Ic n="help" size={20} />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={title} icon="help" footer={<button type="button" className="tap btn pri" style={{ flex: 1 }} onClick={() => setOpen(false)}>{tx(SAY.gotIt)}</button>}>
+      <Sheet open={open} onClose={() => { setOpen(false); setReading(null); }} title={title} icon="help" footer={<button type="button" className="tap btn pri" style={{ flex: 1 }} onClick={() => { setOpen(false); setReading(null); }}>{tx(SAY.gotIt)}</button>}>
+        {/* Listen (D-497): the steps read aloud, the one being read lit up. */}
+        <ListenButton lines={[title, ...steps.map((s, i) => `${i + 1}. ${s.title}. ${s.body}`)]} onLine={(i) => setReading(i === null || i === 0 ? null : i - 1)} style={{ marginBottom: 12 }} />
         <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           {steps.map((s, i) => (
-            <li key={s.title} className="fadein" style={{ display: "flex", gap: 14, alignItems: "flex-start", animationDelay: `${i * 80}ms` }}>
+            <li key={s.title} className={`fadein vx-step${reading === i ? " reading" : ""}`} style={{ display: "flex", gap: 14, alignItems: "flex-start", animationDelay: `${i * 80}ms` }}>
               <span style={{ flex: "none", width: 56, height: 56, borderRadius: 16, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                 <Ic n={s.icon} size={26} />
                 <span className="num" style={{ position: "absolute", top: -6, left: -6, width: 22, height: 22, borderRadius: 11, background: "var(--pri)", color: "var(--prifg)", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>

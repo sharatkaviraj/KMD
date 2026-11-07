@@ -47,6 +47,7 @@ import { collectReference, collectRemarks, nextReason, type WaiverReason } from 
 import type { CollectDues, CollectPost, CollectStudentRow, LikelyRow, Prepared, SavedReceipt } from "@/modules/collect/domain/types";
 import { orderForSettlement } from "@/modules/payments/vx/domain/desk";
 import { flat, type Localized } from "@/platform/i18n/language";
+import { cue } from "@/ui/feedback/cue";
 import { schoolToday } from "@/vx/format";
 
 import { AmountCard } from "./cards/amount";
@@ -528,6 +529,7 @@ function CollectApp(props: CollectProps) {
     go("who");
   }
   function pick(row: CollectStudentRow, all: boolean) {
+    cue("select");
     resetMoney();
     setPrimaryId(row.id);
     setFam([row.id]);
@@ -538,6 +540,7 @@ function CollectApp(props: CollectProps) {
     go("dues", { text: row.name, from: "who" });
   }
   function toggleSibling(id: string) {
+    cue("select");
     setFam(famShown.includes(id) ? famShown.filter((x) => x !== id) : [...famShown, id]);
     setWantAll(null);
     if (!dues[id] || dues[id].status === "error") loadDues(id);
@@ -546,6 +549,8 @@ function CollectApp(props: CollectProps) {
 
   // ── Amount ──
   function typeKey(key: string) {
+    // A keypad that clicks like the phone's own (D-497).
+    cue("tap");
     setRollFrom(null);
     if (isManual && focus) {
       setManual((m) => ({ ...m, [focus]: Number(typeDigit(String(m[focus] || ""), key) || 0) }));
@@ -705,10 +710,13 @@ function CollectApp(props: CollectProps) {
         persist(a);
         setAttempt(a);
         setSave({ phase: "uncertain", message: out.message });
+        cue("warn");
         return;
       }
       a = settle(a, id, { state: "refused", message: out.message });
       if (out.kind === "duplicate") {
+        // Possibly paid already: the stutter says "stop and look" (D-497).
+        cue("warn");
         persist(a);
         setAttempt(a);
         setAck({ daily: false, near: false });
@@ -725,6 +733,7 @@ function CollectApp(props: CollectProps) {
         setAttempt(a);
       }
       setSave({ phase: "refused", message: out.message, quoteChanged: out.quoteChanged });
+      cue("error");
       return;
     }
     if (!allSaved(a)) return;

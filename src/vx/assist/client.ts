@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import type { AssistDecision, AssistOutcome, AssistProblem } from "@/modules/assist/domain/features";
 import type { AssistTaskId, TaskInput, TaskOutput } from "@/modules/assist/domain/tasks";
+import { cue } from "@/ui/feedback/cue";
 import { p, type Pair } from "@/vx/text";
 
 const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
@@ -146,6 +147,8 @@ export function useAssistTask<K extends AssistTaskId>(task: K) {
       const result = await askAssist(task, input);
       if (mine !== ticket.current) return null;
       setState(result.ok ? { kind: "ready", value: result.value, logId: result.logId } : { kind: "problem", problem: result.problem });
+      // The AI has answered: a soft bell for someone who looked away while it was thinking (D-497).
+      cue(result.ok ? "ready" : "warn");
       return result;
     },
     [task, state.kind],

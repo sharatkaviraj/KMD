@@ -3,6 +3,7 @@
 import Link from "@/ui/link";
 import { useRef, useState, useTransition } from "react";
 
+import { cue } from "@/ui/feedback/cue";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
@@ -307,6 +308,8 @@ export function TeacherRemarks({
         setSavedText((s) => ({ ...s, [id]: value }));
         setRemarks((m) => ({ ...m, [id]: value }));
         ai.saved(id, value);
+        // One remark saved: a light tick, so a teacher moving child to child feels each one land (D-497).
+        cue("select");
         if (advance) next(id);
         else setEditing(false);
       } else toast.show({ text: tx(r && !r.ok ? r.message : p("Not saved – retry", "सहेजा नहीं – फिर कोशिश करें")), tone: "bad" });
@@ -322,7 +325,7 @@ export function TeacherRemarks({
   function next(fromId: string) {
     const i = kids.findIndex((c) => c.id === fromId);
     const after = [...kids.slice(i + 1), ...kids.slice(0, i)].find((c) => !savedIds.has(c.id) && c.id !== fromId);
-    if (!after && savedIds.size >= n) toast.show({ text: tx(p(`All ${n} remarks are done ✓`, `सभी ${n} टिप्पणियाँ पूरी ✓`)) });
+    if (!after && savedIds.size >= n) toast.show({ text: tx(p(`All ${n} remarks are done ✓`, `सभी ${n} टिप्पणियाँ पूरी ✓`)), cue: "done" });
     setCurrentId(after?.id ?? kids[Math.min(n - 1, i + 1)]?.id ?? null);
     setEditing(false);
   }

@@ -15,6 +15,7 @@ import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { Chip, Input, Seg, Textarea } from "@/vx/ui/controls";
+import { FeedbackSwitches } from "@/vx/ui/feedback-switches";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
@@ -610,6 +611,8 @@ function Prefs({ largeText, alerts, pending, onSave, onLanguage }: { largeText: 
           false,
         )}
         {switchRow("large", "type", "mut", p("Large text", "बड़े अक्षर"), p("Bigger letters and buttons, right away.", "बड़े अक्षर और बटन, तुरंत।"), largeText, () => onSave({ largeText: !largeText, alerts: on }))}
+        {/* Sounds, vibration, read aloud (D-497): kept on this device, so not behind the account's pending save. */}
+        <FeedbackSwitches row={(r) => switchRow(r.key, r.icon, "info", r.title, r.sub, r.on, r.flip)} />
         <div style={{ display: "flex", flexDirection: "column", padding: "16px 18px 6px", borderTop: "1px solid var(--bd)" }}>
           <span style={t15}>{tx(p("Alerts", "सूचनाएँ"))}</span>
           <span style={m12}>{tx(p("What you want to hear about. For your account only, never parents.", "आप किस बारे में जानना चाहते हैं। सिर्फ़ आपके खाते के लिए, अभिभावकों को कभी नहीं।"))}</span>

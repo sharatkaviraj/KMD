@@ -622,7 +622,7 @@ export function PaymentDesk({
       setTodayTotals((t) => t ? ({ count: t.count + 1, amount: t.amount + total }) : null);
     }
     restoredAttempt.current = false;
-    toast.show({ text: tx(W.savedToast(res.receiptNumber, rupees(total))) });
+    toast.show({ text: tx(W.savedToast(res.receiptNumber, rupees(total))), cue: "done" });
     if (res.settling && studentId) void settle({ receiptId: res.receiptId, receiptNumber: res.receiptNumber, studentId, sessionLabel: boot.sessionLabel });
   }
 
@@ -670,7 +670,7 @@ export function PaymentDesk({
     if (res.status === "saved") {
       if (selId !== pending.input.studentId) await selectStudent(pending.input.studentId);
       if (currentRecoveryScope.current !== scope) return;
-      toast.show({ text: tx(W.checkedSaved(res.receiptNumber)) });
+      toast.show({ text: tx(W.checkedSaved(res.receiptNumber)), cue: "done" });
       applySaved(res, postedAmount);
       return;
     }
@@ -678,7 +678,7 @@ export function PaymentDesk({
       // Keep the same request id: if the first save lands late after all, a
       // second press returns that receipt instead of writing another.
       setUncertain(null);
-      toast.show({ text: tx(W.checkedNotSaved), ms: 8000 });
+      toast.show({ text: tx(W.checkedNotSaved), ms: 8000, cue: "warn" });
       return;
     }
     setUncertain({ checking: false });

@@ -2,8 +2,8 @@
 
 import { Mic } from "lucide-react";
 
+import { cue } from "@/ui/feedback/cue";
 import { useVoiceSearch } from "@/ui/hooks/use-voice-search";
-import { useHaptics } from "@/ui/hooks/use-haptics";
 import { cn } from "@/platform/utils";
 
 /**
@@ -25,7 +25,6 @@ export function VoiceSearchButton({
   className?: string;
 }) {
   const { supported, listening, start } = useVoiceSearch(onTranscript);
-  const haptic = useHaptics();
 
   if (!supported) return null;
 
@@ -35,7 +34,8 @@ export function VoiceSearchButton({
       aria-label={listening ? listeningLabel : label}
       aria-pressed={listening}
       onClick={() => {
-        haptic("tap");
+        // "Speak now": the app's rising mic cue (D-497).
+        cue("listen");
         start();
       }}
       className={cn(

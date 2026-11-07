@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { draftKey, readDraft } from "@/platform/drafts/policy";
 import { loadDraft, removeDraft, saveDraft } from "@/platform/drafts/store";
 import { useOnline } from "@/platform/drafts/use-durable-draft";
-
+import { cue } from "@/ui/feedback/cue";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
@@ -350,6 +350,9 @@ export function MarksSheet({
         setBlocker(null);
         blocked.current = false;
         setWho([]);
+        // Sending the paper finishes the job: the "done" tune. Autosaved drafts stay silent (D-497).
+        if (payload.kind === "submit") cue("done");
+        else if (payload.kind === "correction") cue("success");
         if (payload.kind === "submit") {
           setUndoUntil(new Date(new Date(result.savedAt).getTime() + UNDO_MS).toISOString());
           setUndoDeadline(Date.now() + UNDO_MS);
@@ -384,6 +387,7 @@ export function MarksSheet({
         if (!(await clearRecovery())) { command.current = payload; setPendingCommand(true); setPendingKind(payload.kind); }
       } else {
         if (definite) await keepRecovery(null);
+        cue("error");
         setStatus(result && !result.ok && result.reason === "stale" ? "stale" : "error");
         setBlocker(null);
         blocked.current = false;
@@ -406,6 +410,7 @@ export function MarksSheet({
    */
   function stopOnMisfits(bad: string[], snapshot: Record<string, Cell>, kind: "draft" | "submit" | "correction"): boolean {
     if (bad.length === 0) return false;
+    cue("warn");
     blocked.current = true;
     const first = bad[0];
     const firstName = byId.get(first)?.name ?? "—";
@@ -538,7 +543,9 @@ export function MarksSheet({
     const read = readTyped(text, paper.maxMarks, paper.markStep);
     if (read.kind === "bad") {
       // "85" of 80 or "6o": kept in the box in red, said beside the child,
-      // and the child's mark is not touched (smoke 20 Oct, group 2).
+      // and the child's mark is not touched (smoke 20 Oct, group 2). A
+      // stutter under the thumb says so before the eye finds the red (D-497).
+      cue("warn");
       hold(id, text);
       return;
     }
@@ -680,6 +687,7 @@ export function MarksSheet({
       // A box with a slip in it is never sent as something else.
       const slips = heldIds(order, texts, paper.maxMarks, paper.markStep);
       if (slips.length) {
+        cue("warn");
         setStatus("blocked");
         setBlocker(p(`Not sent – ${slips.length} ${slips.length === 1 ? "mark needs" : "marks need"} fixing`, `नहीं भेजा – ${slips.length} अंक ठीक करने हैं`));
         setMessage(p("Fix these marks first; nothing has been sent:", "पहले ये अंक ठीक करें; कुछ नहीं भेजा गया:"));

@@ -9,6 +9,7 @@ import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { draftKey } from "@/platform/drafts/policy";
 import { loadDraft, removeDraft, saveDraft } from "@/platform/drafts/store";
 import { useOnline } from "@/platform/drafts/use-durable-draft";
+import { cue } from "@/ui/feedback/cue";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { initials } from "@/vx/format";
@@ -389,6 +390,8 @@ export function TeachAttend({
     if (!editing) return;
     rememberChanges([id]);
     const next = { ...latest.current, [id]: to(latest.current[id]) };
+    // Felt under the thumb (D-497): a firmer tick when a child is marked away, a light one back to present.
+    cue(next[id] === "present" ? "tap" : "select");
     latest.current = next;
     setMarks(next);
     keep(next);
@@ -436,7 +439,8 @@ export function TeachAttend({
       scrollTop();
       const at = timeP(res.receipt.savedAt);
       // One toast: the queue warning already says the attendance was saved.
-      toast.show(res.queueWarning ? { text: tx(res.queueWarning), tone: "bad" } : { text: tx(p(`Saved at ${at.en}. The office can see it now.`, `${at.hi} बजे सेव हुई। ऑफ़िस अब देख सकता है।`)) });
+      // The register is the day's first finished job: the "done" tune, not the plain saved chime (D-497).
+      toast.show(res.queueWarning ? { text: tx(res.queueWarning), tone: "bad" } : { text: tx(p(`Saved at ${at.en}. The office can see it now.`, `${at.hi} बजे सेव हुई। ऑफ़िस अब देख सकता है।`)), cue: "done" });
       router.refresh();
     } else if (res.status !== "idle") {
       if (res.status !== "error") {
@@ -692,7 +696,7 @@ export function TeachAttend({
                     const names = andList(yesterdayIds.map((id) => nameOf.get(id) ?? ""));
                     const namesHi = andList(yesterdayIds.map((id) => nameOf.get(id) ?? ""), "और");
                     if (allYesterday) {
-                      toast.show({ text: tx(p(`${names} already marked Absent`, `${namesHi} पहले से अनुपस्थित`)) });
+                      toast.show({ text: tx(p(`${names} already marked Absent`, `${namesHi} पहले से अनुपस्थित`)), cue: "tap" });
                       return;
                     }
                     rememberChanges(ids);
@@ -700,7 +704,7 @@ export function TeachAttend({
                     latest.current = next;
                     setMarks(next);
                     keep(next);
-                    toast.show({ text: tx(p(`${names} marked Absent, like the last school day`, `${namesHi} को पिछले स्कूल दिन जैसा अनुपस्थित किया`)) });
+                    toast.show({ text: tx(p(`${names} marked Absent, like the last school day`, `${namesHi} को पिछले स्कूल दिन जैसा अनुपस्थित किया`)), cue: "select" });
                   }}
                   style={{ height: 42, padding: "0 16px", fontSize: 14 }}
                 >

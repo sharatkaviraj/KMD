@@ -6,6 +6,8 @@
  * motion gets short fades instead.
  */
 
+import { cue } from "@/ui/feedback/cue";
+
 export function reducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 }
@@ -101,11 +103,8 @@ export function stamp(seal: HTMLElement, ring: HTMLElement | null, card: HTMLEle
   );
   return new Promise((resolve) => {
     window.setTimeout(() => {
-      try {
-        navigator.vibrate?.([16, 40, 28]);
-      } catch {
-        /* no haptics */
-      }
+      // The seal lands: the app's "job done" buzz and three-note chime (D-497), on the person's switches.
+      cue("done");
       if (!rm && ring) ring.animate([{ transform: "scale(.7)", opacity: 0.55 }, { transform: "scale(1.45)", opacity: 0 }], { duration: 520, easing: "ease-out", fill: "both" });
       if (!rm && card) card.animate([{ transform: "translateY(0)" }, { transform: "translateY(3px)" }, { transform: "translateY(-1px)" }, { transform: "none" }], { duration: 200, easing: "ease-out" });
     }, rm ? 0 : 390);
@@ -142,6 +141,8 @@ export async function typeIn(el: HTMLElement, text: string, skip: () => boolean)
 
 /** A shake for an amount the ledger will not take. */
 export function shake(el: HTMLElement | null) {
+  // The amount was refused: felt as well as seen (D-497).
+  cue("warn");
   if (!el || reducedMotion()) return;
   el.animate(
     [{ transform: "none" }, { transform: "translateX(-7px)" }, { transform: "translateX(6px)" }, { transform: "translateX(-4px)" }, { transform: "translateX(2px)" }, { transform: "none" }],

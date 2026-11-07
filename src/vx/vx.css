@@ -83,6 +83,15 @@
 :where(.vx,.vxt) .toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
 :where(.vx,.vxt) .toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
 :where(.vx,.vxt) .toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+/* Feedback (D-497): the toast's tick pops in, a failure gives one small shake, a help step being read aloud is lit. */
+:where(.vx,.vxt) .toast-ic{display:inline-flex;flex:none;animation:xTick .45s .08s var(--spring) both}
+:where(.vx,.vxt) .toast.bad{animation:xToast .32s var(--spring) both,xShake .5s .34s both}
+:where(.vx,.vxt) .vx-step{border-radius:16px;transition:background-color .25s,box-shadow .25s}
+:where(.vx,.vxt) .vx-step.reading{background:var(--accs);box-shadow:0 0 0 6px var(--accs)}
+:where(.vx,.vxt) .vx-listening{animation:xPulse 1s ease-in-out infinite}
+:where(.vx,.vxt) .vx-help-new{position:relative;overflow:visible}
+:where(.vx,.vxt) .vx-help-new::after{content:"";position:absolute;inset:-2px;border-radius:inherit;border:2px solid var(--acc);pointer-events:none;opacity:0;animation:xHelpRing 1.4s .6s ease-out 3}
+@keyframes xHelpRing{from{transform:scale(1);opacity:.7}to{transform:scale(1.22,1.4);opacity:0}}
 @keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes xFade{from{opacity:0}to{opacity:1}}
 @keyframes xOut{from{opacity:1}to{opacity:0}}

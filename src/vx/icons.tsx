@@ -8,8 +8,8 @@ import {
   Keyboard, Landmark, Layers, LayoutGrid, Link, List, Lock, LogOut, Mail, MapPin,
   MessageCircle, Mic, Minus, Moon, PenLine, Percent, Phone, Pin, Plus, Printer,
   Repeat, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Sparkles, Star, Sun, Table,
-  Tag, Trash2, TrendingUp, TriangleAlert, Type, Undo2, Upload, User, UserPlus, Users, WifiOff, X,
-  Zap, createLucideIcon, type LucideIcon,
+  Tag, Trash2, TrendingUp, TriangleAlert, Type, Undo2, Upload, User, UserPlus, Users, Vibrate, Volume2,
+  VolumeX, WifiOff, X, Zap, createLucideIcon, type LucideIcon,
 } from "lucide-react";
 
 /** The design's own `IC.note` (Notes, TchNotes): a pen over two short lines. */
@@ -57,6 +57,8 @@ export const ICONS = {
   flask: FlaskConical, coffee: Coffee, heart: Heart, smile: Smile, keyboard: Keyboard,
   calMinus: CalendarMinus, eyeRole: Eye, arrowDown: ArrowDown,
   notePen: NotePen,
+  // Sounds, vibration and Listen (D-497).
+  volume: Volume2, volumeOff: VolumeX, vibrate: Vibrate,
   // The AI helper's mark (D-324): every button that asks Claude for a draft carries it.
   sparkle: Sparkles,
 } satisfies Record<string, LucideIcon>;
