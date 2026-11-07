@@ -731,7 +731,7 @@ const PHRASES: Pair[] = [
 /** What the composer keeps on this device: kept, not saved, and it says so. */
 function keptLine(at: number): Pair {
   const ago = agoP(new Date(at));
-  return p(`Kept on this device · ${ago.en} · not saved yet`, `इसी डिवाइस पर रखा है · ${ago.hi} · अभी सहेजा नहीं`);
+  return p(`Kept on this device · ${ago.en} · not saved yet`, `इसी डिवाइस पर रखा है · ${ago.hi} · सहेजना बाकी है`);
 }
 
 function WriteCard({ flow, c, ct, mine, keyboard, onNext, onOpenAction, base }: CardsProps & { ct: string | null; mine: boolean; keyboard: boolean; onNext: () => void }) {
