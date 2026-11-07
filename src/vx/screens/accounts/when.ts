@@ -44,6 +44,12 @@ export function whenOn(value: string, today: string): string {
   return day(value);
 }
 
+/** `whenOn` for the Hindi line: "कल" for yesterday; the rest is said in Hindi where the line is chosen. */
+export function whenOnHi(value: string, today: string): string {
+  const en = whenOn(value, today);
+  return en === "yesterday" ? "कल" : en;
+}
+
 /** Whole minutes from `value` to `now`, never negative. */
 export function minutesSince(value: string, now: Date = new Date()): number {
   return Math.max(0, Math.floor((now.getTime() - new Date(value).getTime()) / 60_000));

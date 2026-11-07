@@ -1825,7 +1825,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     schoolHour < 12 ? "goodMorning" : schoolHour < 17 ? "goodAfternoon" : "goodEvening";
   const mobileGreeting = tMobile(mobileGreetingKey, { name: mobileFirstName });
   const mobileInitials = staffInitials(staff.email);
-  // "07 Nov 2026" on a Hindi phone was English under a Hindi greeting (7 Nov 2026, D-482).
+  // "07 Nov 2026" on a Hindi phone was English under a Hindi greeting (7 Nov 2026, D-484).
   const mobileDate = (await getLocale()) === "en" ? formatShortDate(new Date()) : hindiDates(formatShortDate(new Date()));
 
   timer.flush();

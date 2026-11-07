@@ -21,7 +21,7 @@ import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
 
 import { LangToggle } from "./lang-toggle";
-import { day, firstName, minutesSince, time12, timeLeft, whenOn } from "./when";
+import { day, firstName, minutesSince, time12, timeLeft, whenOn, whenOnHi } from "./when";
 import { sessionText } from "@/platform/helpers/session-text";
 
 type View = "home" | "menu" | "evening";
@@ -126,7 +126,7 @@ export function AccountsHome({
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const first = firstName(staffName);
-  const today = day(data.today);
+  const today = tx(day(data.today));
   const closed = data.closure?.status === "closed";
   const canAct = canCollect && !readOnly;
 
@@ -487,13 +487,13 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, no
               const tone = a.status === "approved" ? ["var(--oks)", "var(--ok)"] : a.status === "declined" ? ["var(--bads)", "var(--bad)"] : a.status === "withdrawn" ? ["var(--s3)", "var(--mut)"] : ["var(--warns)", "var(--warnfg)"];
               const st = tx(
                 a.status === "approved"
-                  ? p(`Approved${a.decidedByName ? ` by ${a.decidedByName}` : ""}${a.decidedAt ? ` · ${whenOn(a.decidedAt, data.today)}` : ""}`, `मंज़ूर${a.decidedByName ? ` · ${a.decidedByName}` : ""}${a.decidedAt ? ` · ${whenOn(a.decidedAt, data.today)}` : ""}`)
+                  ? p(`Approved${a.decidedByName ? ` by ${a.decidedByName}` : ""}${a.decidedAt ? ` · ${whenOn(a.decidedAt, data.today)}` : ""}`, `मंज़ूर${a.decidedByName ? ` · ${a.decidedByName}` : ""}${a.decidedAt ? ` · ${whenOnHi(a.decidedAt, data.today)}` : ""}`)
                   : a.status === "declined"
                     ? p(`Declined${a.decidedByName ? ` by ${a.decidedByName}` : ""}`, `नामंज़ूर${a.decidedByName ? ` · ${a.decidedByName}` : ""}`)
                     : a.status === "withdrawn"
                       ? p("Withdrawn", "वापस लिया")
                       : a.remindedAt
-                        ? p(`Waiting · reminded ${whenOn(a.remindedAt, data.today)}`, `बाकी · याद दिलाया ${whenOn(a.remindedAt, data.today)}`)
+                        ? p(`Waiting · reminded ${whenOn(a.remindedAt, data.today)}`, `बाकी · याद दिलाया ${whenOnHi(a.remindedAt, data.today)}`)
                         : p("Waiting for the admin", "एडमिन के पास बाकी"),
               );
               return (
@@ -501,7 +501,7 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, no
                   <span className="ac-av" style={{ width: 36, height: 36, borderRadius: 11, background: "var(--s2)", color: "var(--mut)" }}><Ic n={a.kind === "late_fee_waiver" ? "percent" : a.kind === "reversal" ? "undo" : a.kind === "refund" ? "swap" : "sliders"} /></span>
                   <span className="ac-c ac-1" style={{ gap: 2 }}>
                     <span className="ac-b">{a.title}{a.studentName ? ` · ${a.studentName}` : ""}</span>
-                    <span className="ac-m">{tx(p(`Asked ${whenOn(a.requestedAt, data.today)}${a.mine ? "" : ` by ${a.requestedByName}`}`, `माँगा ${whenOn(a.requestedAt, data.today)}${a.mine ? "" : ` · ${a.requestedByName}`}`))} · {a.reason}</span>
+                    <span className="ac-m">{tx(p(`Asked ${whenOn(a.requestedAt, data.today)}${a.mine ? "" : ` by ${a.requestedByName}`}`, `माँगा ${whenOnHi(a.requestedAt, data.today)}${a.mine ? "" : ` · ${a.requestedByName}`}`))} · {a.reason}</span>
                     <span className="ac-f ac-w" style={{ gap: 6, marginTop: 4 }}>
                       <span className="pill" style={{ height: 24, background: tone[0], color: tone[1], animation: "xPopIn .4s var(--spring) both" }}>{st}</span>
                       {a.mine && a.canRemind && canAct ? (

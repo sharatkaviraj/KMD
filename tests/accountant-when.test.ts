@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { day, dayRange, firstName, minutesSince, time12, timeLeft, whenOn } from "@/vx/screens/accounts/when";
+import { day, dayRange, firstName, minutesSince, time12, timeLeft, whenOn, whenOnHi } from "@/vx/screens/accounts/when";
+import { hindiDates } from "@/platform/i18n/hindi-dates";
 
 describe("the accountant's times, written as the design writes them", () => {
   it("writes a clock time with am/pm", () => {
@@ -16,6 +17,10 @@ describe("the accountant's times, written as the design writes them", () => {
     expect(whenOn("2026-10-08T09:40:00+05:30", "2026-10-08")).toBe("9:40 am");
     expect(whenOn("2026-10-07T16:05:00+05:30", "2026-10-08")).toBe("yesterday");
     expect(whenOn("2026-10-06T11:20:00+05:30", "2026-10-08")).toBe("Tue 6 Oct");
+    // The Hindi line: "कल", and a day or a time said in Hindi where the line is chosen.
+    expect(whenOnHi("2026-10-07T16:05:00+05:30", "2026-10-08")).toBe("कल");
+    expect(hindiDates(whenOnHi("2026-10-06T11:20:00+05:30", "2026-10-08"))).toBe("मंगल 6 अक्टूबर");
+    expect(hindiDates(whenOnHi("2026-10-08T09:40:00+05:30", "2026-10-08"))).toBe("सुबह 9:40");
   });
 
   it("joins a range inside one month and across two", () => {

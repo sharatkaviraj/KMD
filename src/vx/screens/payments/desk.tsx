@@ -876,7 +876,7 @@ export function PaymentDesk({
   }
 
   /* ---------- pieces ---------- */
-  const crumb = `${tx(W.money)} · ${tx(W.session)} ${sessionDash(boot.sessionLabel)} · ${shortDate(today)}`;
+  const crumb = `${tx(W.money)} · ${tx(W.session)} ${sessionDash(boot.sessionLabel)} · ${tx(shortDate(today))}`;
   const todayLine = todayTotals ? (
     <>
       {tx(W.todayPill)}: <b className="num">{rupees(todayTotals.amount)}</b> · {tx(W.receiptsN(todayTotals.count))}
@@ -1039,7 +1039,7 @@ export function PaymentDesk({
   const dateBad = Boolean(has("date-invalid") || has("date-future") || has("date-before-session"));
   const dateLine = dateBad
     ? problemText(has("date-invalid") ?? has("date-future") ?? has("date-before-session"), tx, boot.sessionStart)
-    : `${form.dateMode === "today" ? `${tx(W.today)} · ${shortDate(paymentDate)}` : `${shortDate(paymentDate)}${tx(form.dateMode === "yesterday" ? W.yesterdayTag : W.backDated)}`}${paymentDate !== today ? tx(W.lateWorkedOut) : ""}`;
+    : `${form.dateMode === "today" ? `${tx(W.today)} · ${tx(shortDate(paymentDate))}` : `${tx(shortDate(paymentDate))}${tx(form.dateMode === "yesterday" ? W.yesterdayTag : W.backDated)}`}${paymentDate !== today ? tx(W.lateWorkedOut) : ""}`;
   const amountShown = Number.isSafeInteger(amount) && amount > 0 && /^[\d,\s]+$/.test(form.amount.trim()) ? amount.toLocaleString("en-IN") : form.amount;
   const amountBad = Boolean(show("amount") || show("over"));
 
@@ -1105,7 +1105,7 @@ export function PaymentDesk({
           <div className="pd-bx" style={{ background: "var(--infos)", color: "var(--info)", fontSize: 13, fontWeight: 600 }}>
             <span>
               {tx(W.planMonthly)}: {rupees(student.repaymentPlan.monthlyAmount)} · {tx(W.planCatchUp)}: {rupees(student.repaymentPlan.catchUpAmount)} · {tx(W.planBalance)}: {rupees(student.repaymentPlan.remainingBalance)}
-              {student.repaymentPlan.nextDueDate ? ` · ${shortDate(student.repaymentPlan.nextDueDate)}` : ""}
+              {student.repaymentPlan.nextDueDate ? ` · ${tx(shortDate(student.repaymentPlan.nextDueDate))}` : ""}
             </span>
             {student.repaymentPlan.duesOutsidePlanAmount > 0 ? <span>{tx(W.planOutside)}: {rupees(student.repaymentPlan.duesOutsidePlanAmount)}</span> : null}
             {student.repaymentPlan.planReviewNeeded ? <span>{tx(W.planReview)}</span> : null}
@@ -1216,7 +1216,7 @@ export function PaymentDesk({
       <div className="pd-pbar glass">
         <span className="pd-c" style={{ flex: 1 }}>
           <span className="pd-m" style={{ fontWeight: 600 }}>
-            {Number.isFinite(amount) && amount > 0 ? `${tx(MODE_PAIR[form.mode])} · ${form.dateMode === "today" ? tx(W.today).toLowerCase() : dayMonth(paymentDate)}${lateTaken ? tx(W.inclLate) : ""}` : tx(W.amountReceived)}
+            {Number.isFinite(amount) && amount > 0 ? `${tx(MODE_PAIR[form.mode])} · ${form.dateMode === "today" ? tx(W.today).toLowerCase() : tx(dayMonth(paymentDate))}${lateTaken ? tx(W.inclLate) : ""}` : tx(W.amountReceived)}
           </span>
           <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{rupees(Number.isFinite(amount) ? amount : 0)}</span>
         </span>
@@ -1266,7 +1266,7 @@ export function PaymentDesk({
   /* ---------- page ---------- */
   const shownName = student?.name ?? boot.students.find((s) => s.id === selId)?.name ?? tx(W.title);
   const mTitle = saved ? tx(saved.removed ? W.removedTitle : W.saved) : selId ? shownName : tx(W.title);
-  const mSub = saved ? saved.receiptNumber : selId ? (student ? dotJoin(student.classLabel, srTag(student.sr)) : "") : `${shortDate(today)} · ${boot.me.name}`;
+  const mSub = saved ? saved.receiptNumber : selId ? (student ? dotJoin(student.classLabel, srTag(student.sr)) : "") : `${tx(shortDate(today))} · ${boot.me.name}`;
   const reviewOpen = Boolean(student) && reviewing && sheet === "" && !saved;
   const locked = saving || Boolean(attempt);
   // The phone's steps apply while one child's payment is being entered; a saved receipt is one screen.
@@ -1768,7 +1768,7 @@ function StudentCard({
         ) : (
           student.receipts.slice(0, 8).map((h) => (
             <div key={h.id} className="pd-f pd-j num" style={{ fontSize: 13, padding: "3px 0" }}>
-              <span className="pd-e">{h.receiptNumber} · {dayMonth(h.paymentDate)}{h.isReversed ? tx(W.histRemoved) : ""}</span>
+              <span className="pd-e">{h.receiptNumber} · {tx(dayMonth(h.paymentDate))}{h.isReversed ? tx(W.histRemoved) : ""}</span>
               <span className="pd-f">
                 <span className="pd-m">{MODE_TEXT[h.mode] ? tx(MODE_TEXT[h.mode]) : h.mode}</span>
                 <b style={{ textDecoration: h.isReversed ? "line-through" : "none" }}>{rupees(h.amount)}</b>
