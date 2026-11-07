@@ -13,6 +13,9 @@
 :where(.vx,.vxt) .tc-t{font-size:17px;font-weight:700;line-height:1.25}
 :where(.vx,.vxt) .tc-hi{font-size:13px;color:var(--mut)}
 :where(.vx,.vxt) .tc-el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Two lines, then "…": a child's full name or the top bar's line under the
+   title, which one line cut short on a 360 px phone (second pass, 7 Nov). */
+:where(.vx,.vxt) .tc-el2{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:break-word}
 :where(.vx,.vxt) .tc-ib{flex:none;display:flex;align-items:center;justify-content:center}
 :where(.vx,.vxt) .tc-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
 :where(.vx,.vxt) .tc-col{display:flex;flex-direction:column;gap:18px;min-width:0}
@@ -34,7 +37,14 @@
 
 /* ---- Today (TchHome) --------------------------------------------------------- */
 .vx .tc-hero,.vxt .tc-hero{position:relative;overflow:hidden;padding:24px;gap:10px;display:flex;flex-direction:column;background:var(--pri);color:var(--prifg);border-color:transparent}
-.vx .tc-big,.vxt .tc-big{height:60px;padding:0 26px;border-radius:18px;font-size:18px;font-weight:700;gap:10px;background:var(--prifg);color:var(--pri);animation:xPulse 2.4s ease infinite}
+.vx .tc-big,.vxt .tc-big{height:60px;padding:0 26px;border-radius:18px;font-size:18px;font-weight:700;gap:10px;background:var(--prifg);color:var(--pri)}
+/* A button that asks to be tapped (D-539): a ring grows off it and fades, four times, then rests. The button itself
+   used to fade to 55% every 2.4 s, which on a phone reads as switched off. --call is the ring's colour: the hero's
+   own foreground unless the button sits on a card. Pseudo-elements escape the reduced-motion rule in vx.css. */
+:where(.vx,.vxt) .tc-call{position:relative}
+:where(.vx,.vxt) .tc-call::after{content:"";position:absolute;inset:-3px;border-radius:inherit;border:2px solid var(--call,var(--prifg));pointer-events:none;opacity:0;animation:tcCall 2.4s ease-out 1s 4}
+@keyframes tcCall{0%{transform:scale(1);opacity:.7}70%,100%{transform:scale(1.05,1.22);opacity:0}}
+@media (prefers-reduced-motion:reduce){:where(.vx,.vxt) .tc-call::after{animation:none}}
 :where(.vx,.vxt) .tc-tl{display:grid;grid-template-columns:50px 18px minmax(0,1fr);gap:10px;animation:xIn .32s var(--ease) both}
 :where(.vx,.vxt) .tc-tlc{margin:4px 0;padding:10px 14px;border-radius:14px;display:flex;flex-direction:column;gap:8px;transition:background-color .3s ease,opacity .3s ease}
 :where(.vx,.vxt) .tc-kid{display:flex;gap:12px;padding:14px 0 4px;border-top:1px solid var(--bd);animation:xIn .32s var(--ease) both}

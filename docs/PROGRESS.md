@@ -1,5 +1,24 @@
 # VPPS One — progress
 
+## Needs you · Teachers' work: collecting from teachers the Sampark way — 7 November 2026
+
+Owner asked (7 Nov) for the admin's Needs you, where work is given to
+teachers, to be reworked so the office collects data from teachers quickly
+the Sampark way: links sent to teachers, missing data collected fast,
+deployed live. Branch `claude/project-thread-3kf2yi`, D-520 to D-523.
+**Done:** Needs you split into "To decide" and "Teachers' work"; the board
+with three next steps and every request grouped by teacher; a WhatsApp send
+list for links and reminders (one green button per teacher, the message
+typed in, the send noted through the existing delivery functions, nothing
+sent by the app); Ask teachers as four numbered questions with missing
+counts and a live "children · teachers" plan; changing a teacher re-checks
+in place and offers only teachers the server accepts. Tests:
+`tests/teacher-tasks-collect.test.ts` (23), `tests/teacher-task-send-queue.test.tsx` (4),
+`tests/teacher-task-collect-board.test.tsx` (4), recovery test repointed.
+**Remains:** a teacher's own per-teacher page that lists all their open links
+in one place, and automatic sending through a paid WhatsApp provider (needs
+the owner's go-ahead), were left for later.
+
 ## The Menu tab, redrawn with Settings first — 7 November 2026
 
 Owner asked (7 Nov) for the phone Menu tab to be redesigned: Settings quick to
@@ -69,6 +88,32 @@ menu with the page: हि gives "अभ्यास वर्ष", EN gives Eng
 language was put back to "en" afterwards. BrowserStack (real Galaxy M32
 Chrome and Windows 11 Chrome, QA admin, straight after sign-in): passed,
 both lines in both languages and `<html lang>` "hi".
+**Second pass (D-524 to D-526):** the teacher screens on a 360 px phone,
+live on TEST-2026-27, as QA teacher (Hindi) and QA teacher 2 (English), 15
+screens. Fixed: one name per subject in each language on Today, My class, My
+subjects, More and the profile (`subjectWords`; "ELGA" is no longer "Elga"
+anywhere, report cards included); a paper with every mark in but not sent
+says "Filled · not sent" on Today, My subjects and More, and the Marks tile
+counts it instead of "Nothing waiting"; "Attendance" fits the centre button;
+the top bar's line and a child's name in the register take two lines.
+Test: `tests/teacher-one-subject-name.test.ts`.
+Merged as PR 303 (`ef4a7b3`).
+**My tasks (D-527):** each marks paper names its exam and the exam office's
+"marks due" day under its title, says class and subject as the marks screens
+do ("अंक · कक्षा 1 · पर्यावरण"), and the list runs oldest exam first, then
+classes in school order. It used to read "Class 1 · EVS" once per open exam
+with nothing to tell them apart. Built beside the teacher-data PR 301, which
+merged first, without touching its lines. Test: `tests/teacher-tasks-exam-name.test.ts`.
+**D-538:** the live check as QA teacher 2 found every Class 11 and 12 card
+on My subjects saying "No paper yet" beside a paper that existed: papers keep
+the label they were made with ("11 Arts"), the class list says "Class 11
+Arts", and the card matched them as text. Cards now find their paper by class
+id, and links and My tasks name classes from the class list.
+**D-539:** Today's "Mark attendance" button faded to half every 2.4 s,
+which on a phone looks switched off. It now stays solid and a ring grows
+off it and fades, four times, then rests (none with reduced motion). The
+help pictures of the button do the same. Test:
+`tests/teacher-mark-attendance-call.test.ts`.
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 

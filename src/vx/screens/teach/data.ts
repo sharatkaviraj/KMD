@@ -39,6 +39,7 @@ import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetab
 import { schoolToday } from "@/vx/format";
 import { currentExam, enrolmentsFor, listExams, marksLinkUrl, papersOf, remarksFor, trackerFor, type Exam } from "@/vx/screens/exams/data";
 import { openExamsForMarks } from "@/vx/screens/exams/domain/current";
+import { subjectNamer, subjectWords } from "@/vx/screens/exams/domain/groups";
 import { noteViewer, notesForStudent, visibleNotes } from "@/vx/screens/notes/data";
 import { excerpt, noteSubject, type BoardNote } from "@/vx/screens/notes/domain/notes";
 import { addDays } from "@/vx/screens/academics/domain";
@@ -495,9 +496,9 @@ export async function loadHome(staff: CurrentStaff) {
       .maybeSingle<{ large_text: boolean }>()
       .then((r) => Boolean(r.data?.large_text), () => false),
   ]);
-  // Subject names for the day's rows ("Class 6 · Science"); the code when a subject has no name.
-  const subjectName = new Map(subjectList.map((s) => [s.code, s.nameEn || s.code]));
-  const subjectHi = new Map(subjectList.map((s) => [s.code, s.nameHi || s.nameEn || s.code]));
+  // Subject names for the day's rows ("Class 6 · Science"), one name per
+  // subject in each language, the one the marks cards use too (D-524).
+  const named = subjectNamer(subjectList);
   const schoolOpen = isSchoolOpen(today, calendar);
   // Why school is shut today, by name (smoke 20 Oct: "No school today" with no reason).
   const closed: ClosedWhy = closedWhy(today, schoolOpen, dayNames.get(today));
@@ -561,8 +562,8 @@ export async function loadHome(staff: CurrentStaff) {
     number: periodNumber(l.period),
     ...timeOf(schedule, l.period),
     subjectCode: l.subjectCode,
-    subjectName: subjectName.get(l.subjectCode) ?? l.subjectCode,
-    subjectHi: subjectHi.get(l.subjectCode) ?? l.subjectCode,
+    subjectName: named(l.subjectCode).en,
+    subjectHi: named(l.subjectCode).hi,
     classLabel: l.classes.map((c) => c.classLabel).join(" · "),
     classId: l.classId,
     combined: l.classes.length > 1,
@@ -580,8 +581,8 @@ export async function loadHome(staff: CurrentStaff) {
     ...timeOf(schedule, c.period),
     classLabels: c.classLabels.join(", "),
     subjectCode: c.subjectCode,
-    subjectName: subjectName.get(c.subjectCode) ?? c.subjectCode,
-    subjectHi: subjectHi.get(c.subjectCode) ?? subjectName.get(c.subjectCode) ?? c.subjectCode,
+    subjectName: named(c.subjectCode).en,
+    subjectHi: named(c.subjectCode).hi,
     forName: c.absentStaffIds.map((id) => names.get(id) ?? "—").join(", "),
     acknowledged: c.acknowledgedAt !== null,
     askedAt: c.createdAt,
@@ -594,8 +595,8 @@ export async function loadHome(staff: CurrentStaff) {
     number: periodNumber(c.period),
     starts: timeOf(schedule, c.period).starts,
     classLabels: c.classLabels.join(", "),
-    subjectName: subjectName.get(c.subjectCode) ?? c.subjectCode,
-    subjectHi: subjectHi.get(c.subjectCode) ?? subjectName.get(c.subjectCode) ?? c.subjectCode,
+    subjectName: named(c.subjectCode).en,
+    subjectHi: named(c.subjectCode).hi,
     why,
   }));
   const upcomingRows = upcoming.map((c) => toRow(c, c.day));
@@ -613,7 +614,7 @@ export async function loadHome(staff: CurrentStaff) {
     ? {
         day: next,
         first: first
-          ? { number: periodNumber(first.period), starts: timeOf(schedule, first.period).starts, classLabel: first.classes.map((c) => c.classLabel).join(" · "), subjectName: subjectName.get(first.subjectCode) ?? first.subjectCode, subjectHi: subjectHi.get(first.subjectCode) ?? first.subjectCode }
+          ? { number: periodNumber(first.period), starts: timeOf(schedule, first.period).starts, classLabel: first.classes.map((c) => c.classLabel).join(" · "), subjectName: named(first.subjectCode).en, subjectHi: named(first.subjectCode).hi }
           : null,
       }
     : null;
@@ -665,7 +666,7 @@ export async function loadHome(staff: CurrentStaff) {
           detail: joinPairs([
             c.reasons.includes("attendance") && c.attendancePct !== null ? p(`${Math.round(c.attendancePct)}% attendance`, `${Math.round(c.attendancePct)}% हाज़िरी`) : null,
             c.reasons.includes("marks") && c.lowestSubject
-              ? p(`${subjectName.get(c.lowestSubject.code) ?? c.lowestSubject.code} ${c.lowestSubject.pct}%`, `${subjectHi.get(c.lowestSubject.code) ?? c.lowestSubject.code} ${c.lowestSubject.pct}%`)
+              ? p(`${named(c.lowestSubject.code).en} ${c.lowestSubject.pct}%`, `${named(c.lowestSubject.code).hi} ${c.lowestSubject.pct}%`)
               : null,
             c.reasons.includes("notes") ? openNotesP(c.openNotes) : null,
           ]),
@@ -679,16 +680,20 @@ export async function loadHome(staff: CurrentStaff) {
   // "My subjects": each class-subject this teacher teaches, with its roll size.
   const subjectById = new Map(subjectList.map((s) => [s.id, s]));
   const subjects = linkSet.assigned
-    .map((a) => ({
-      classId: a.class_id,
-      classLabel: labels.get(a.class_id) ?? "—",
-      subjectId: a.subject_id,
-      code: subjectById.get(a.subject_id)?.code ?? null,
-      name: subjectById.get(a.subject_id)?.nameEn || subjectById.get(a.subject_id)?.code || "—",
-      nameHi: subjectById.get(a.subject_id)?.nameHi || subjectById.get(a.subject_id)?.nameEn || subjectById.get(a.subject_id)?.code || "—",
-      children: linkSet.sizes.get(a.class_id) ?? 0,
-      mine: held.includes(a.class_id),
-    }))
+    .map((a) => {
+      const s = subjectById.get(a.subject_id);
+      const words = s ? named(s.code) : { en: "—", hi: "—" };
+      return {
+        classId: a.class_id,
+        classLabel: labels.get(a.class_id) ?? "—",
+        subjectId: a.subject_id,
+        code: s?.code ?? null,
+        name: words.en,
+        nameHi: words.hi,
+        children: linkSet.sizes.get(a.class_id) ?? 0,
+        mine: held.includes(a.class_id),
+      };
+    })
     .sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || a.name.localeCompare(b.name));
   const mine = (n: BoardNote) => n.followUpStaffId === staff.id || (n.followUpStaffId === null && n.writtenBy === staff.id);
   const followUpsDue = myNotes.filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= today && mine(n)).length;
@@ -943,9 +948,14 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
   const rank = rankOf(labels);
   const assigned = assignedRes.data;
   const codeOf = new Map(subjects.map((s) => [s.id, s.code]));
-  const nameOf = new Map(subjects.map((s) => [s.id, s.nameEn || s.code]));
+  // One name per subject in each language, as Today and the marks cards say it (D-524).
+  const named = subjectNamer(subjects);
   const mySubjects = (assigned ?? [])
-    .map((a) => ({ classId: a.class_id, classLabel: labels.get(a.class_id) ?? "—", subjectId: a.subject_id, code: codeOf.get(a.subject_id) ?? "—", name: nameOf.get(a.subject_id) ?? "—", periods: a.periods_per_week ?? 0 }))
+    .map((a) => {
+      const code = codeOf.get(a.subject_id);
+      const words = code ? named(code) : { en: "—", hi: "—" };
+      return { classId: a.class_id, classLabel: labels.get(a.class_id) ?? "—", subjectId: a.subject_id, code: code ?? "—", name: words.en, nameHi: words.hi, periods: a.periods_per_week ?? 0 };
+    })
     .sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || a.code.localeCompare(b.code));
   const subjectCards = mySubjects.map((s) => ({ ...s, children: linkSet.sizes.get(s.classId) ?? 0, held: held.includes(s.classId) }));
 
@@ -969,14 +979,13 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
   const totals = seesAttendance && reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
 
   // The class's own timetable today (every teacher's periods in it), when one is published and runs today.
-  let timetable: { period: number; number: number; starts: string; ends: string; subjectName: string; teacher: string; mine: boolean }[] = [];
+  let timetable: { period: number; number: number; starts: string; ends: string; subjectName: string; subjectHi: string; teacher: string; mine: boolean }[] = [];
   const header = runs ? matchDayHeader(headers, today) : null;
   if (header) {
     const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
-    const byCode = new Map(subjects.map((s) => [s.code, s.nameEn || s.code]));
     timetable = allSlots
       .filter((x) => x.classId === classId && x.day === header)
-      .map((x) => ({ period: x.period, number: periodNumber(x.period), ...timeOf(schedule, x.period), subjectName: byCode.get(x.subjectCode) ?? x.subjectCode, teacher: x.teacherShortName ?? "", mine: x.staffProfileId === staff.id }))
+      .map((x) => ({ period: x.period, number: periodNumber(x.period), ...timeOf(schedule, x.period), subjectName: named(x.subjectCode).en, subjectHi: named(x.subjectCode).hi, teacher: x.teacherShortName ?? "", mine: x.staffProfileId === staff.id }))
       .sort((a, b) => a.period - b.period);
   }
   return {
@@ -1084,6 +1093,14 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
 
 export type MarksLink = {
   paperId: string;
+  /**
+   * The paper's class. A subject card finds its paper by this, never by the
+   * label: papers keep the label they were made with ("11 Arts") while the
+   * class list says "Class 11 Arts", so every Class 11 and 12 card read
+   * "No paper yet" beside a paper that was there (D-538).
+   */
+  classId: string;
+  /** The class's name as every other teacher screen says it (the class list, with the school's own names). */
   classLabel: string;
   subjectCode: string;
   exam: string;
@@ -1152,7 +1169,8 @@ export async function marksLinks(
       const token = tokens.get(exam.id);
       return {
         paperId: p.paperId,
-        classLabel: p.classLabel || (labels.get(p.classId) ?? "—"),
+        classId: p.classId,
+        classLabel: labels.get(p.classId) ?? (p.classLabel || "—"),
         subjectCode: p.subjectCode,
         exam: exam.labelEn || exam.code,
         examHi: exam.labelHi || exam.labelEn || exam.code,
@@ -1215,8 +1233,8 @@ export async function loadMore(staff: CurrentStaff) {
     links,
     week: week.map((s) => ({ day: s.day, period: s.period, number: periodNumber(s.period), classLabel: s.classLabel, subjectCode: s.subjectCode, ...timeOf(schedule, s.period) })),
     periodTimes: schedule.periods.map((p) => ({ number: periodNumber(p.index), starts: p.starts, ends: p.ends })),
-    /** Subject names by code, so the timetable never shows a bare "ELGA" when the school named it. */
-    subjectNames: Object.fromEntries(subjects.map((s) => [s.code, { en: s.nameEn || s.code, hi: s.nameHi || s.nameEn || s.code }])) as Record<string, { en: string; hi: string }>,
+    /** Each subject's one name in each language by code (D-524), so More says it as Today and the marks cards do. */
+    subjectNames: Object.fromEntries(subjects.map((s) => [s.code, subjectWords(s.code, { en: s.nameEn, hi: s.nameHi })])) as Record<string, { en: string; hi: string }>,
     profile: {
       name: staff.displayName,
       /** The name staff call her by, so Today and More greet her the same way. */

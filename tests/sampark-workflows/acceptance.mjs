@@ -46,13 +46,15 @@ try {
     await button("Send through AiSensy").click();await expect(page.getByText(/No teacher work remains pending/).first()).toBeVisible();
     await go("students");await expect(page.getByText("QA-001").filter({visible:true}).first()).toBeVisible();await shot("students-no-photo");
     await page.getByRole("button",{name:"Assign work (2)",exact:true}).click();
-    await expect(page.getByText("Selected: 2",{exact:true})).toBeVisible();await expect(page.getByLabel("Student photograph",{exact:true})).toBeChecked();
-    await page.getByRole("combobox",{name:/^Assign work/}).selectOption("common");await page.getByRole("combobox",{name:/^Choose/}).selectOption("60000000-0000-4000-8000-000000000010");
-    await button("Preview recipients and list").click();await page.getByRole("combobox",{name:/^Choose/}).selectOption("60000000-0000-4000-8000-000000000011");
-    await expect(button("Assign this work")).toHaveCount(0);await button("Preview recipients and list").click();await shot("common-task-preview");
-    await page.evaluate(()=>window.acceptance.outcome="unknown");await button("Assign this work").click();
+    // Ask teachers is four questions since D-522: what, which children, who fills it in, by when.
+    await expect(page.getByText("The 2 children you picked",{exact:true})).toBeVisible();await expect(page.getByRole("checkbox",{name:/^Student photograph/})).toBeChecked();
+    await page.getByRole("radio",{name:/^One teacher for all/}).check();await page.getByRole("combobox",{name:"Pick the teacher"}).selectOption("60000000-0000-4000-8000-000000000010");
+    // Changing the teacher re-checks the list in place; "Give work" waits for it.
+    await button("See who gets it").click();await button("Change").click();await page.getByRole("combobox",{name:/^Choose/}).selectOption("60000000-0000-4000-8000-000000000011");
+    await expect.poll(()=>page.evaluate(()=>window.acceptance.calls.filter(c=>c.kind==="preview").length)).toBe(2);await expect(button("Give work to 1 teacher")).toBeEnabled();await shot("common-task-preview");
+    await page.evaluate(()=>window.acceptance.outcome="unknown");await button("Give work to 1 teacher").click();
     const firstCreate=await page.evaluate(()=>window.acceptance.calls.find(c=>c.kind==="create"));await page.evaluate(()=>window.acceptance.outcome="ok");
-    await button("Assign this work").dblclick();await expect(button("Assign this work")).toBeDisabled();
+    await button("Give work to 1 teacher").dblclick();await expect(page.getByText("Work given to 1 teacher")).toBeVisible();await expect(button("Give work to 1 teacher")).toHaveCount(0);
     const creates=await page.evaluate(()=>window.acceptance.calls.filter(c=>c.kind==="create"));assert.equal(creates.length,2);assert.deepEqual(creates[1],firstCreate);
     await go("profile");await shot("student-profile-pending");await button("Change photograph").click();
     const image=await sharp({create:{width:900,height:1200,channels:3,background:"#81cfd1"}}).jpeg().toBuffer();

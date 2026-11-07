@@ -8,14 +8,14 @@ import { useState, type ReactNode } from "react";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { dayMonth, initials, shortDayHi } from "@/vx/format";
-import { subjectPair } from "@/vx/screens/exams/domain/groups";
+import { subjectPair, subjectWords } from "@/vx/screens/exams/domain/groups";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
 import type { ClassData, MarksLink, StudentData, SubjectData } from "../data";
 import { ATTENTION_RULES, genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
-import { closedTitle, examWord } from "../domain/today";
+import { classSubject, closedTitle, examWord, linkStanding } from "../domain/today";
 import { dShort, dShortP, hm12, shortClass, andList } from "./fmt";
 import { DeskHelp, HelpIcon, LangSeg, TchTop } from "./shared";
 import { ChildSummary } from "@/vx/assist/summary-assist";
@@ -179,7 +179,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
   if (!isClass) {
     return (
       <VxPage label="My subjects" className="tc">
-        <ClassTop crumb={tx(p("Teacher · my subjects", "अध्यापक · मेरे विषय"))} title={tx(p("My subjects", "मेरे विषय"))} mTitle={tx(p("My subjects", "मेरे विषय"))} mSub={subjectsLine(data.mySubjects)} onHelp={() => setHelp(true)} />
+        <ClassTop crumb={tx(p("Teacher · my subjects", "अध्यापक · मेरे विषय"))} title={tx(p("My subjects", "मेरे विषय"))} mTitle={tx(p("My subjects", "मेरे विषय"))} mSub={tx(subjectsLine(data.mySubjects))} onHelp={() => setHelp(true)} />
         <main>{subjectsView}</main>
         <ClassHelp open={help} onClose={() => setHelp(false)} steps={SUBJECT_HELP} />
       </VxPage>
@@ -210,7 +210,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
       const gap = (Number(x.starts.slice(0, 2)) * 60 + Number(x.starts.slice(3))) - (Number(prev.ends.slice(0, 2)) * 60 + Number(prev.ends.slice(3)));
       ttRows.push({ key: `b${i}`, no: "", time: hm12(prev.ends), subj: tx(p("Break", "छुट्टी")), who: tx(p(`${gap} minutes`, `${gap} मिनट`)), kind: "break" });
     }
-    ttRows.push({ key: `p${x.period}-${x.subjectName}`, no: `P${x.number}`, time: hm12(x.starts), subj: x.subjectName, who: x.mine ? tx(p("You", "आप")) : x.teacher, kind: phases[i] === "done" ? "done" : phases[i] === "now" ? "now" : x.mine ? "me" : "" });
+    ttRows.push({ key: `p${x.period}-${x.subjectName}`, no: `P${x.number}`, time: hm12(x.starts), subj: tx(p(x.subjectName, x.subjectHi)), who: x.mine ? tx(p("You", "आप")) : x.teacher, kind: phases[i] === "done" ? "done" : phases[i] === "now" ? "now" : x.mine ? "me" : "" });
   });
   const stack = data.children.slice(0, 7);
 
@@ -308,7 +308,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
             return (
               <Link key={s.subjectId} href={`/teach/class?subject=${data.classId}.${s.subjectId}`} className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 6, color: "inherit", animationDelay: `${j * 70}ms` }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="tc-el" style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{s.code} <span className="tc-s">· {tx(s.paperLabel)}</span></span>
+                  <span className="tc-el" style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{tx(subjectWords(s.code))} <span className="tc-s">· {tx(s.paperLabel)}</span></span>
                   <span className="tc-s num" style={{ color: full ? V("ok") : V("warnfg") }}>{full ? tx(p(`${n} of ${n} ✓`, `${n} में से ${n} ✓`)) : tx(p(`${s.marked} of ${n} entered`, `${n} में से ${s.marked}`))}</span>
                   <span className="num" style={{ width: 46, textAlign: "right", fontSize: 14, fontWeight: 700 }}>{s.average === null ? "—" : `${pct}%`}</span>
                 </span>
@@ -453,7 +453,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
     view === "roster"
       ? { crumb: tx(p("My class › Children", "मेरी कक्षा › बच्चे")), title: tx(p(`${classLabel} · all children`, `${classLabel} · सभी बच्चे`)), mTitle: tx(p(`Children · ${classLabel}`, `बच्चे · ${classLabel}`)), mSub: tx(p(`${shown.length} shown`, `${shown.length} दिखाए`)) }
       : view === "subjects"
-        ? { crumb: tx(p("Teacher · my subjects", "अध्यापक · मेरे विषय")), title: tx(p("My subjects", "मेरे विषय")), mTitle: tx(p("My subjects", "मेरे विषय")), mSub: subjectsLine(data.mySubjects) }
+        ? { crumb: tx(p("Teacher · my subjects", "अध्यापक · मेरे विषय")), title: tx(p("My subjects", "मेरे विषय")), mTitle: tx(p("My subjects", "मेरे विषय")), mSub: tx(subjectsLine(data.mySubjects)) }
         : { crumb: tx(p(`Teacher · session ${sessionText(data.sessionLabel)}`, `अध्यापक · सत्र ${data.sessionLabel}`)), title: tx(p(`My class · ${classLabel}`, `मेरी कक्षा · ${classLabel}`)), mTitle: tx(p("My class", "मेरी कक्षा")), mSub: tx(p(`${classLabel} · ${n} children`, `${classLabel} · ${n} बच्चे`)) };
 
   return (
@@ -468,11 +468,18 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
   );
 }
 
-/** "Science · Classes 6, 7, 8". */
-function subjectsLine(list: { name: string; classLabel: string }[]): string {
-  const names = [...new Set(list.map((s) => s.name))].join(", ");
-  const classes = [...new Set(list.map((s) => shortClass(s.classLabel)))].join(", ");
-  return classes ? `${names} · Classes ${classes}` : names;
+/**
+ * "4 subjects · 5 classes" / "4 विषय · 5 कक्षाएँ" under the title. The names
+ * themselves are the first line of the page, in full; listed up here they ran
+ * off a phone's top bar as "ELGA, EVS, Mathematics, …" (second pass, 7 Nov).
+ */
+function subjectsLine(list: { name: string; classLabel: string }[]): Pair {
+  const subjects = new Set(list.map((s) => s.name)).size;
+  const classes = new Set(list.map((s) => s.classLabel)).size;
+  return p(
+    `${subjects} ${subjects === 1 ? "subject" : "subjects"} · ${classes} ${classes === 1 ? "class" : "classes"}`,
+    `${subjects} विषय · ${classes} ${classes === 1 ? "कक्षा" : "कक्षाएँ"}`,
+  );
 }
 
 function addDaysIso(day: string, n: number): string {
@@ -525,22 +532,28 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
   return (
     <div className="pad" style={{ padding: "16px 28px 40px", display: "flex", flexDirection: "column", gap: 16 }}>
       <span style={{ fontSize: 14, color: "var(--mut)" }}>
-        {names.map((nm) => tx(p(`${nm} for Classes ${andList(mySubjects.filter((s) => s.name === nm).map((s) => shortClass(s.classLabel)))}`, `${nm} — कक्षा ${andList(mySubjects.filter((s) => s.name === nm).map((s) => shortClass(s.classLabel)), "और")}`))).join(" · ")}
+        {names.map((nm) => {
+          const of = mySubjects.filter((s) => s.name === nm);
+          return tx(p(`${nm} for Classes ${andList(of.map((s) => shortClass(s.classLabel)))}`, `${of[0]?.nameHi ?? nm} — कक्षा ${andList(of.map((s) => shortClass(s.classLabel)), "और")}`));
+        }).join(" · ")}
         {/* No second weekly count here: "Planned: 92 class-periods" beside More's
             "44 periods a week" read as two loads for one teacher (UX review 6 Nov
             2026). The timetable's count, on More, is the one she sees. */}
       </span>
       <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
         {mySubjects.map((s, i) => {
-          const link = links.find((l) => l.classLabel === s.classLabel && (l.subjectCode === s.code || l.subjectCode === s.name));
+          const link = links.find((l) => l.classId === s.classId && [s.code, s.name].some((c) => c.toLowerCase() === l.subjectCode.toLowerCase()));
           const entered = link?.entered ?? 0;
           const total = link?.total ?? s.children;
+          const standing = link ? linkStanding(link) : null;
           const st = !link
             ? [tx(p("No paper yet", "अभी कोई पेपर नहीं")), V("bds"), V("mut")]
-            : link.submitted && entered < total
+            : standing === "sentBlank"
               ? [tx(p(`Sent · ${total - entered} blank`, `भेजे · ${total - entered} खाली`)), V("warn"), V("warnfg")]
-              : link.submitted
+              : standing === "sent"
               ? [tx(p("All entered · sent", "सब भरे · भेजे")), V("ok"), V("ok")]
+              : standing === "filled"
+              ? [tx(p("All entered · not sent", "सब भरे · भेजे नहीं")), V("warn"), V("warnfg")]
               : entered
                 ? [tx(p("In progress", "जारी")), V("acc"), V("warnfg")]
                 : [tx(p("Not started", "शुरू नहीं")), V("bds"), V("bad")];
@@ -549,7 +562,7 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span className="tc-ic" style={{ width: 48, height: 48, background: "var(--accs)", color: "var(--accfg)" }}><Ic n={subjectIcon(s.name)} size={24} /></span>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: 16, fontWeight: 700 }}>{s.classLabel} {s.name}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(classSubject(s.classLabel, p(s.name, s.nameHi)))}</span>
                   <span className="tc-s">{tx(p(`${s.children} children${s.held ? " · class teacher you" : ""}`, `${s.children} बच्चे${s.held ? " · कक्षा अध्यापक आप" : ""}`))}</span>
                 </span>
                 {s.held ? <span className="pill" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>{tx(p("My class", "मेरी कक्षा"))}</span> : null}
@@ -578,8 +591,8 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
           {links.map((l) => (
             <div key={l.paperId} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 0", borderTop: "1px solid var(--bd)" }}>
               <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>{l.classLabel} · {tx(subjectPair(l.subjectCode))} · {tx(examWord(l.exam, l.examHi))}</span>
-                <span className="num" style={{ fontSize: 12, fontWeight: 600, color: l.submitted ? (l.entered < l.total ? V("warnfg") : V("ok")) : l.entered ? V("warnfg") : V("bad") }}>{l.submitted ? (l.entered < l.total ? tx(p(`${l.entered} of ${l.total} sent · ${l.total - l.entered} blank — tell the exam office`, `${l.total} में से ${l.entered} भेजे · ${l.total - l.entered} खाली — परीक्षा प्रभारी को बताएँ`)) : tx(p(`${l.total} of ${l.total} · sent`, `${l.total} में से ${l.total} · भेजे`))) : l.entered ? tx(p(`${l.entered} of ${l.total} · in progress`, `${l.total} में से ${l.entered} · जारी`)) : tx(p(`0 of ${l.total} · not started`, `${l.total} में से 0 · शुरू नहीं`))}</span>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>{tx(classSubject(l.classLabel, subjectPair(l.subjectCode)))} · {tx(examWord(l.exam, l.examHi))}</span>
+                <span className="num" style={{ fontSize: 12, fontWeight: 600, color: l.submitted ? (l.entered < l.total ? V("warnfg") : V("ok")) : l.entered ? V("warnfg") : V("bad") }}>{l.submitted ? (l.entered < l.total ? tx(p(`${l.entered} of ${l.total} sent · ${l.total - l.entered} blank — tell the exam office`, `${l.total} में से ${l.entered} भेजे · ${l.total - l.entered} खाली — परीक्षा प्रभारी को बताएँ`)) : tx(p(`${l.total} of ${l.total} · sent`, `${l.total} में से ${l.total} · भेजे`))) : linkStanding(l) === "filled" ? tx(p(`${l.total} of ${l.total} · not sent yet`, `${l.total} में से ${l.total} · अभी भेजे नहीं`)) : l.entered ? tx(p(`${l.entered} of ${l.total} · in progress`, `${l.total} में से ${l.entered} · जारी`)) : tx(p(`0 of ${l.total} · not started`, `${l.total} में से 0 · शुरू नहीं`))}</span>
               </span>
               <a href={l.url ?? `/teach/marks?paper=${l.paperId}`} className="tap btn soft">{tx(p("Open", "खोलें"))}</a>
               {l.url ? (

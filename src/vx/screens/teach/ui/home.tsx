@@ -17,7 +17,7 @@ import { answerCoverVx, cancelLeaveVx, noticeSeenVx, queueBirthdayWishVx, setTex
 import type { HomeData } from "../data";
 import { birthdayWish, periodPhases, type AttentionReason, type PeriodPhase } from "../domain/teach";
 import { subjectPair } from "@/vx/screens/exams/domain/groups";
-import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveNow, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, registerOnLeaveLine, teacherKind, type TeacherKind } from "../domain/today";
+import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveNow, leaveState, LEAVE_STATE_TEXT, linkStanding, mayCancelLeave, registerOnLeaveLine, teacherKind, type TeacherKind } from "../domain/today";
 import { ampm, andList, callName, dLongP, dShort, dShortP, greetingPair, hm12, shortClass, whenSent } from "./fmt";
 import { LazyCoverAssist, ReadyForYou } from "@/vx/assist/lazy-ready";
 import { LazyAwayReports, LazyCoverReportForm } from "./lazy-cover-report";
@@ -444,7 +444,7 @@ export function TeachHome({
       ) : null}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
         {allowed.attendance ? (
-          <Link href={attendHref} className="tap btn tc-big">
+          <Link href={attendHref} className="tap btn tc-big tc-call">
             <Ic n="calCheck" size={22} />
             {tx(p("Mark attendance", "हाज़िरी लगाएँ"))}
             {sub(p("Mark attendance", "हाज़िरी लगाएँ")) ? <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.7 }}>{sub(p("Mark attendance", "हाज़िरी लगाएँ"))}</span> : null}
@@ -976,8 +976,17 @@ export function TeachHome({
   );
 
   /* ---------------------------------------------------- marks links */
-  const look = (entered: number, total: number): [string, string, string] =>
-    total > 0 && entered >= total ? [V("ok"), tx(p(`All ${total} done ✓`, `सभी ${total} पूरे ✓`)), V("ok")] : entered > 0 ? [V("acc"), tx(p(`${entered} of ${total} done`, `${total} में से ${entered} पूरे`)), V("accfg")] : [V("bds"), tx(p("Not started", "शुरू नहीं")), V("mut")];
+  // A paper with every mark in is not done until it is sent (second pass, 7 Nov).
+  const look = (l: { entered: number; total: number; submitted: boolean }): [string, string, string] => {
+    const blank = Math.max(0, l.total - l.entered);
+    switch (linkStanding(l)) {
+      case "sent": return [V("ok"), tx(p(`All ${l.total} sent ✓`, `सभी ${l.total} भेजे ✓`)), V("ok")];
+      case "sentBlank": return [V("warn"), tx(p(`Sent · ${blank} blank`, `भेजे · ${blank} खाली`)), V("warnfg")];
+      case "filled": return [V("warn"), tx(p("Filled · not sent", "भरे · भेजे नहीं")), V("warnfg")];
+      case "started": return [V("acc"), tx(p(`${l.entered} of ${l.total} done`, `${l.total} में से ${l.entered} पूरे`)), V("accfg")];
+      default: return [V("bds"), tx(p("Not started", "शुरू नहीं")), V("mut")];
+    }
+  };
   const oneSubject = new Set(data.links.map((l) => l.subjectCode)).size <= 1;
   const firstLink = data.links[0];
   const links = data.links.length ? (
@@ -993,9 +1002,9 @@ export function TeachHome({
       ) : null}
       <div className="tc-lk">
         {data.links.map((l, i) => {
-          const k = look(l.entered, l.total);
+          const k = look(l);
           return (
-            <button key={l.paperId} type="button" className="tap lift tc-lt" onClick={() => { setLinkId(l.paperId); setSheet("link"); }} aria-label={`${l.classLabel} ${l.subjectCode} marks link, ${k[1]}`}>
+            <button key={l.paperId} type="button" className="tap lift tc-lt" onClick={() => { setLinkId(l.paperId); setSheet("link"); }} aria-label={`${tx(classSubject(l.classLabel, subjectPair(l.subjectCode)))} · ${tx(p("marks link", "अंक लिंक"))}, ${k[1]}`}>
               <LinkRing entered={l.entered} total={l.total} tone={k[0]} mid={`${l.entered}/${l.total}`} delay={200 + i * 120} />
               <span className="tc-p" style={{ fontWeight: 700 }}>{oneSubject ? tx(classWord(l.classLabel)) : tx(classSubject(l.classLabel, subjectPair(l.subjectCode)))}</span>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: k[2] }}>{k[1]}</span>
@@ -1041,7 +1050,7 @@ export function TeachHome({
     return m ? data.nowMinutes >= Number(m[1]) * 60 + Number(m[2]) : false;
   };
   const link = data.links.find((l) => l.paperId === linkId) ?? firstLink ?? null;
-  const lk = link ? look(link.entered, link.total) : null;
+  const lk = link ? look(link) : null;
   const leftCount = link ? Math.max(0, link.total - link.entered) : 0;
   const copy = async (text: string) => {
     try {
@@ -1273,7 +1282,7 @@ export function TeachHome({
             <div className="tc-bar"><span style={{ width: `${link.total ? Math.round((link.entered / link.total) * 100) : 0}%`, background: lk[0] }} /></div>
             <a href={link.url ?? `/teach/marks?paper=${link.paperId}`} className="tap btn pri tc-bb">
               <Ic n="link" />
-              {link.total > 0 && link.entered >= link.total ? tx(p("Open to check marks", "अंक जाँचने के लिए खोलें")) : link.entered ? tx(p(`Open and continue · ${leftCount} left`, `खोलें और जारी रखें · ${leftCount} बाकी`)) : tx(p("Open and start", "खोलें और शुरू करें"))}
+              {linkStanding(link) === "filled" ? tx(p("Open, check and send", "खोलें, जाँचें और भेजें")) : link.total > 0 && link.entered >= link.total ? tx(p("Open to check marks", "अंक जाँचने के लिए खोलें")) : link.entered ? tx(p(`Open and continue · ${leftCount} left`, `खोलें और जारी रखें · ${leftCount} बाकी`)) : tx(p("Open and start", "खोलें और शुरू करें"))}
             </a>
             {link.url ? (
               <>

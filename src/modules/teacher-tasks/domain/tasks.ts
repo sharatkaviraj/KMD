@@ -60,7 +60,9 @@ export function taskProgress(source: { kind: "collection"; expected: number; ans
 export function mayWorkTask(task: { teacherId: string; revoked: boolean; scope: TaskScope }, owner: TaskOwner): boolean {
   return !task.revoked && task.teacherId === owner.id && ownsScope(owner, task.scope);
 }
-export type TaskSummary = { id: string; sourceKey: string; kind: TaskKind; title: string; teacherId: string | null; teacherName: string | null; dueDate: string | null; state: TaskState; expected: number; answered: number; rejected?: number; href: string; openedAt: string | null };
+export type TaskSummary = { id: string; sourceKey: string; kind: TaskKind; title: string; teacherId: string | null; teacherName: string | null; dueDate: string | null; state: TaskState; expected: number; answered: number; rejected?: number; href: string; openedAt: string | null;
+  /** The office's own read adds these (D-520): which press of "Give work" made it, and for which children. */
+  approved?: number; createdAt?: string | null; students?: number; scope?: TaskScope; classId?: string | null };
 export function mergeTaskSummaries<T extends { sourceKey: string; state?: string }>(rows: readonly T[]): T[] {
   const sources = new Map<string,T>();
   for (const row of rows) {

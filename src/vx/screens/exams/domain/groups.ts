@@ -94,3 +94,52 @@ export function subjectPair(code: string): Pair {
   const en = subjectName(code);
   return hi ? { en, hi } : { en };
 }
+
+/** Written in Hindi: a name somebody typed in Devanagari, not English copied across. */
+const DEVANAGARI = /[ऀ-ॿ]/;
+
+/** What the school typed on a subject's record, when anything was typed. */
+export type TypedSubject = { en?: string | null; hi?: string | null };
+
+/**
+ * A subject's one name in both languages, the same on every screen a teacher
+ * opens (D-524): "Maths" / "गणित", "ELGA" / "अंग्रेज़ी भाषा", "Social Sci." /
+ * "सामाजिक विज्ञान".
+ *
+ * The subject list carries an English copy as most subjects' Hindi name, and
+ * Today read it while the marks cards read the word list, so one lesson was
+ * "कक्षा 1 · ELGA" on Today and "कक्षा 1 · अंग्रेज़ी भाषा" on its marks card,
+ * and Today said "Mathematics" where Marks said "Maths". So: English is the
+ * code as a person says it (`subjectName`), what the marks, exam and report
+ * screens say; a name typed on the record is used only when that rule has
+ * nothing better than the code itself (a subject the rule was never told
+ * about). Hindi is the word list's, then a name typed in Hindi, then the
+ * English; for a subject named by what was typed, its typed Hindi comes first.
+ */
+export function subjectWords(code: string, typed?: TypedSubject | null): { en: string; hi: string } {
+  const c = code.trim();
+  const ruled = subjectName(c);
+  const typedEn = typed?.en?.trim() ?? "";
+  const own = ruled === c && typedEn !== "" && typedEn.toLowerCase() !== c.toLowerCase() ? typedEn : null;
+  const en = own ?? ruled;
+  const typedHi = typed?.hi?.trim() ?? "";
+  const hindi = DEVANAGARI.test(typedHi) ? typedHi : null;
+  const listed = (word: string) => SUBJECT_HI[word.trim().toLowerCase()] ?? null;
+  const hi = own ? (listed(own) ?? hindi ?? listed(c) ?? en) : (listed(c) ?? hindi ?? en);
+  return { en, hi };
+}
+
+/**
+ * `subjectWords` for any code, read against the subject list. Codes match
+ * without case, so the timetable's "Maths" finds the list's "MATHS" and is
+ * named exactly as the marks screens name it.
+ */
+export function subjectNamer(
+  list: readonly { code: string; nameEn?: string | null; nameHi?: string | null }[],
+): (code: string) => { en: string; hi: string } {
+  const byCode = new Map(list.map((s) => [s.code.trim().toLowerCase(), s]));
+  return (code) => {
+    const s = byCode.get(code.trim().toLowerCase());
+    return subjectWords(s?.code ?? code, s ? { en: s.nameEn, hi: s.nameHi } : null);
+  };
+}
