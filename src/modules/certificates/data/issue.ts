@@ -6,7 +6,6 @@ import { can } from "@/platform/auth/permissions";
 import { schoolProfile } from "@/platform/config/school";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { getSiteUrl } from "@/platform/env";
-import { loadSignatureImage } from "@/platform/pdf/document-kit";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { cleanProfile } from "@/vx/screens/settings/domain/settings";
@@ -17,7 +16,14 @@ import { CERTIFICATES_BUCKET, currentCertificateTemplate } from "./repo";
 import { IDENTITY_KEY } from "./identity";
 import { recordCertificateAttention, clearCertificateAttention } from "./attention";
 
-/** The letterhead and signatory to freeze into a new issue, read at reservation time. */
+/**
+ * The letterhead and signatory to freeze into a new issue, read at reservation
+ * time. The letterhead lines come from Certificate settings, whose defaults are
+ * the school's official letterhead (D-540); the name and logo stay with
+ * Settings → School profile. Under the school's default policy the snapshot
+ * names the receipts' signature and the school seal (D-541) rather than
+ * embedding them: the renderer reads both files.
+ */
 async function schoolForSnapshot(db: ReturnType<typeof createAdminClient>): Promise<CertificateSchool> {
   const [profile, identityRow] = await Promise.all([
     db.from("school_settings").select("value").eq("key", "profile").maybeSingle(),
@@ -26,16 +32,16 @@ async function schoolForSnapshot(db: ReturnType<typeof createAdminClient>): Prom
   if (profile.error || identityRow.error) throw new Error("School letterhead unavailable");
   const school = cleanProfile(profile.data?.value, { nameEn: schoolProfile.name, nameHi: "", address: schoolProfile.address, phone: schoolProfile.phone, affiliation: "", footer: "", logo: null, signature: null });
   const identity = cleanIdentity(identityRow.data?.value);
-  let signature: string | null = null;
-  if (identity.signaturePolicy === "facsimile") {
-    const file = school.signature ? null : await loadSignatureImage();
-    signature = school.signature ?? (file ? `data:image/png;base64,${Buffer.from(file.data).toString("base64")}` : null);
-  }
+  const signed = identity.signaturePolicy === "facsimile";
   return {
-    name: school.nameEn, nameHi: school.nameHi, address: school.address, phone: school.phone, email: schoolProfile.email, logo: school.logo, affiliation: school.affiliation,
+    name: school.nameEn, nameHi: identity.nameHi || school.nameHi, address: identity.address || school.address, phone: identity.phone || school.phone,
+    email: identity.email || schoolProfile.email, website: identity.website, logo: school.logo, affiliation: school.affiliation,
     place: identity.place, udiseCode: identity.udiseCode, pspCode: identity.pspCode, recognitionNo: identity.recognitionNo,
+    registrationNo: identity.registrationNo, recognisedBy: identity.recognisedBy, trust: identity.trust,
     principalName: identity.principalName, principalDesignation: identity.principalDesignation, principalDesignationHi: identity.principalDesignationHi,
-    signaturePolicy: signature ? "facsimile" : "manual", signature, layout: identity.layout, offsetX: identity.offsetX, offsetY: identity.offsetY,
+    signaturePolicy: signed ? "facsimile" : "manual", signature: null,
+    ...(signed ? { signatureAsset: "principal-2026" as const, seal: "school-seal-2026" as const } : {}),
+    layout: identity.layout, offsetX: identity.offsetX, offsetY: identity.offsetY,
     verifyBase: getSiteUrl(),
   };
 }

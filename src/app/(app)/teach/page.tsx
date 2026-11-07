@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { builtinAiSession } from "@/lib/ai/access";
 import { builtinAiPilot } from "@/lib/ai/config";
 import { LazyBoloPanel } from "@/lib/ai/ui/lazy-bolo-panel";
@@ -8,6 +9,7 @@ import { loadHome } from "@/vx/screens/teach/data";
 import { TeachEmpty } from "@/vx/screens/teach/ui/empty";
 import { TeachHome } from "@/vx/screens/teach/ui/home";
 import { previewRefusal } from "@/vx/screens/exams/guards";
+import { MyCertificateRequestsToday } from "@/vx/screens/teach/ui/certificates-today";
 
 export const runtime = "nodejs";
 
@@ -31,6 +33,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       school={schoolProfile.shortName}
       officePhone={schoolProfile.officePhone}
       bolo={voiceAvailable ? <LazyBoloPanel /> : undefined}
+      certificates={data.sessionLabel && can(staff, "certificates:request") ? <Suspense fallback={null}><MyCertificateRequestsToday sessionLabel={data.sessionLabel} language={staff.language} /></Suspense> : undefined}
       allowed={{ attendance: can(staff, "attendance:mark"), marks: can(staff, "marks:write"), notes: can(staff, "notes:write") }}
     />
   );

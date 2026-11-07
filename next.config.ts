@@ -39,10 +39,13 @@ const nextConfig: NextConfig = {
       "./node_modules/pdfkit/js/standard-fonts/**/*.cjs",
       // document-kit.tsx reads these off disk with process.cwd(). On Vercel
       // public/ is served by the CDN and is not in the function unless traced:
-      // the Devanagari faces for every PDF, the crest and the signature.
+      // the Devanagari faces for every PDF, the crest, the signature and the seal.
       "./public/fonts/*.ttf",
       "./public/branding/icon-192.png",
       "./public/branding/authorised-signature.png",
+      // Certificates: the crest at the head of the page and the school seal.
+      "./public/branding/veer-patta-emblem.png",
+      "./public/branding/school-seal.png",
     ],
   },
 

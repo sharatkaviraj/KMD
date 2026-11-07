@@ -43,41 +43,68 @@ export function CertificateSettings({ templates, identity, schoolName }: { templ
   </div>;
 }
 
+type IdentityText = "principalName" | "principalDesignation" | "principalDesignationHi" | "place" | "udiseCode" | "pspCode" | "recognitionNo"
+  | "registrationNo" | "recognisedBy" | "trust" | "nameHi" | "address" | "phone" | "email" | "website";
+
+/**
+ * The school's details as every new certificate prints them (D-540, D-541):
+ * the letterhead's lines, who signs, and whether the principal's signature and
+ * the school seal are printed. The defaults are the official letterhead and
+ * the printed signature; a line saved empty is left off the page.
+ */
 function IdentityForm({ identity }: { identity: CertificateIdentity }) {
   const { tx } = useVx(); const router = useRouter(); const toast = useToast();
   const [value, setValue] = useState(identity); const [busy, setBusy] = useState(false);
-  const field = (key: "principalName" | "principalDesignation" | "principalDesignationHi" | "place" | "udiseCode" | "pspCode" | "recognitionNo", label: ReturnType<typeof p>, max = 80) =>
-    <label className="field"><span>{tx(label)}</span><input className="inp" value={value[key]} maxLength={max} onChange={(e) => setValue({ ...value, [key]: e.target.value })} /></label>;
+  const field = (key: IdentityText, label: ReturnType<typeof p>, max = 80, wide = false) =>
+    <label className="field" style={wide ? { gridColumn: "1 / -1" } : undefined}><span>{tx(label)}</span><input className="inp" value={value[key]} maxLength={max} onChange={(e) => setValue({ ...value, [key]: e.target.value })} /></label>;
+  const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 } as const;
   async function save(e: React.FormEvent) {
     e.preventDefault(); if (busy) return; setBusy(true);
     try { const result = await saveCertificateIdentityAction(value); toast.show({ text: tx(result.ok ? O.saved : O.saveFailed), tone: result.ok ? "ok" : "bad" }); if (result.ok) router.refresh(); }
     catch { toast.show({ text: tx(O.saveFailed), tone: "bad" }); } finally { setBusy(false); }
   }
   return <form className="office-form card" onSubmit={save} style={{ padding: 22 }}>
-    <div className="office-note">{tx(p("These details print on every certificate prepared from now on. Documents already prepared keep what they were printed with. The school name, address and logo come from Settings → School profile.", "ये विवरण अब से बनने वाले हर प्रमाण पत्र पर छपेंगे। पहले बने प्रमाण पत्र वैसे ही रहेंगे। विद्यालय का नाम, पता और लोगो सेटिंग्स → विद्यालय प्रोफ़ाइल से आते हैं।"))}</div>
-    <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
-      {field("principalName", p("Principal's name (printed under the signature)", "प्रधानाचार्य का नाम (हस्ताक्षर के नीचे)"))}
-      {field("place", p("Place", "स्थान"), 60)}
-      {field("principalDesignation", p("Designation (English)", "पद (अंग्रेज़ी)"), 60)}
-      {field("principalDesignationHi", p("Designation (Hindi)", "पद (हिंदी)"), 60)}
-      {field("udiseCode", p("UDISE code", "यूडाइस कोड"), 40)}
-      {field("recognitionNo", p("Recognition number", "मान्यता क्रमांक"), 40)}
-      {field("pspCode", p("PSP school code (optional)", "पीएसपी विद्यालय कोड (वैकल्पिक)"), 40)}
-    </div>
+    <div className="office-note">{tx(p("These details print on every certificate prepared from now on. Documents already prepared keep what they were printed with. The school's English name and logo come from Settings → School profile.", "ये विवरण अब से बनने वाले हर प्रमाण पत्र पर छपेंगे। पहले बने प्रमाण पत्र वैसे ही रहेंगे। विद्यालय का अंग्रेज़ी नाम और लोगो सेटिंग्स → विद्यालय प्रोफ़ाइल से आते हैं।"))}</div>
+    <fieldset className="card" style={{ padding: 16, border: "1px solid var(--bd)", display: "grid", gap: 12 }}>
+      <legend style={{ fontWeight: 700, padding: "0 6px" }}>{tx(p("Letterhead", "लेटरहेड"))}</legend>
+      <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("As on the school's official letterhead. Leave a line empty to leave it off.", "विद्यालय के आधिकारिक लेटरहेड जैसा। कोई पंक्ति खाली छोड़ें तो वह नहीं छपेगी।"))}</span>
+      <div style={grid}>
+        {field("nameHi", p("School name in Hindi", "विद्यालय का नाम (हिंदी)"), 100, true)}
+        {field("trust", p("Operated by (trust)", "संचालक (ट्रस्ट)"), 100)}
+        {field("recognisedBy", p("Recognised by", "मान्यता देने वाला"), 80)}
+        {field("address", p("Address", "पता"), 160, true)}
+        {field("phone", p("Phone", "फ़ोन"), 40)}
+        {field("email", p("Email", "ईमेल"), 80)}
+        {field("website", p("Website", "वेबसाइट"), 80)}
+        {field("registrationNo", p("Registration number", "पंजीयन क्रमांक"), 40)}
+        {field("recognitionNo", p("Recognition number", "मान्यता क्रमांक"), 40)}
+        {field("udiseCode", p("UDISE code", "यूडाइस कोड"), 40)}
+        {field("pspCode", p("PSP school code (optional)", "पीएसपी विद्यालय कोड (वैकल्पिक)"), 40)}
+      </div>
+    </fieldset>
+    <fieldset className="card" style={{ padding: 16, border: "1px solid var(--bd)", display: "grid", gap: 12 }}>
+      <legend style={{ fontWeight: 700, padding: "0 6px" }}>{tx(p("Who signs", "हस्ताक्षरकर्ता"))}</legend>
+      <div style={grid}>
+        {field("principalName", p("Principal's name (printed under the signature)", "प्रधानाचार्य का नाम (हस्ताक्षर के नीचे)"))}
+        {field("place", p("Place", "स्थान"), 60)}
+        {field("principalDesignation", p("Designation (English)", "पद (अंग्रेज़ी)"), 60)}
+        {field("principalDesignationHi", p("Designation (Hindi)", "पद (हिंदी)"), 60)}
+      </div>
+    </fieldset>
     <fieldset className="card" style={{ padding: 16, border: "1px solid var(--bd)", display: "grid", gap: 10 }}>
-      <legend style={{ fontWeight: 700, padding: "0 6px" }}>{tx(p("Signature on the certificate", "प्रमाण पत्र पर हस्ताक्षर"))}</legend>
-      {(["manual", "facsimile"] as const).map((policy) => <label key={policy} style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+      <legend style={{ fontWeight: 700, padding: "0 6px" }}>{tx(p("Signature and seal on the certificate", "प्रमाण पत्र पर हस्ताक्षर और मुहर"))}</legend>
+      {(["facsimile", "manual"] as const).map((policy) => <label key={policy} style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
         <input type="radio" name="sig" checked={value.signaturePolicy === policy} onChange={() => setValue({ ...value, signaturePolicy: policy })} style={{ marginTop: 4, width: 18, height: 18, accentColor: "var(--pri)" }} />
-        <span><strong>{tx(policy === "manual" ? p("Signed by hand (recommended)", "हाथ से हस्ताक्षर (सुझावित)") : p("Print the principal's authorised signature", "प्रधानाचार्य के अधिकृत हस्ताक्षर छापें"))}</strong>
-          <span style={{ display: "block", fontSize: 13, color: "var(--mut)" }}>{tx(policy === "manual" ? p("A clean signature line. Sign and stamp each print.", "हस्ताक्षर की साफ़ पंक्ति। हर प्रति पर हस्ताक्षर व मुहर लगाएँ।") : p("Only if the principal has allowed it. One records who turned this on and when.", "केवल प्रधानाचार्य की अनुमति पर। किसने और कब चालू किया, यह दर्ज रहेगा।"))}</span></span>
+        <span><strong>{tx(policy === "facsimile" ? p("Print the principal's signature and the school seal", "प्रधानाचार्य के हस्ताक्षर और विद्यालय की मुहर छापें") : p("Sign and stamp by hand", "हाथ से हस्ताक्षर व मुहर"))}</strong>
+          <span style={{ display: "block", fontSize: 13, color: "var(--mut)" }}>{tx(policy === "facsimile" ? p("The signature from the receipts and the school seal print on every certificate the office makes or an admin approves. A teacher's request needs an admin's approval first.", "रसीदों वाले हस्ताक्षर और विद्यालय की मुहर हर उस प्रमाण पत्र पर छपेंगे जो कार्यालय बनाए या प्रशासक मंज़ूर करे। अध्यापक के अनुरोध पर पहले प्रशासक की मंज़ूरी चाहिए।") : p("A clean signature line and an empty seal circle. Sign and stamp each print.", "हस्ताक्षर की साफ़ पंक्ति और मुहर का खाली घेरा। हर प्रति पर हस्ताक्षर व मुहर लगाएँ।"))}</span></span>
       </label>)}
-      {value.signaturePolicy === "facsimile" && value.facsimileEnabledAt ? <Pill tone="info">{tx(p("Allowed on", "अनुमति तिथि"))} {value.facsimileEnabledAt.slice(0, 10)}</Pill> : null}
+      {value.signaturePolicy === "facsimile" && value.facsimileEnabledAt ? <Pill tone="info">{tx(p("Turned on", "चालू किया"))} {value.facsimileEnabledAt.slice(0, 10)}</Pill> : null}
     </fieldset>
     <fieldset className="card" style={{ padding: 16, border: "1px solid var(--bd)", display: "grid", gap: 10 }}>
       <legend style={{ fontWeight: 700, padding: "0 6px" }}>{tx(p("Paper", "कागज़"))}</legend>
       {(["classic", "preprinted"] as const).map((layout) => <label key={layout} style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
         <input type="radio" name="layout" checked={value.layout === layout} onChange={() => setValue({ ...value, layout })} style={{ width: 18, height: 18, accentColor: "var(--pri)" }} />
-        <span>{tx(layout === "classic" ? p("Plain A4: One prints the border, letterhead and seal circle", "सादा A4: बॉर्डर, लेटरहेड और मुहर का घेरा वन छापेगा") : p("Pre-printed certificate forms: print only the wording", "पहले से छपे प्रमाण पत्र फ़ॉर्म: केवल पाठ छापें"))}</span>
+        <span>{tx(layout === "classic" ? p("Plain A4: One prints the border and the letterhead", "सादा A4: बॉर्डर और लेटरहेड वन छापेगा") : p("Pre-printed certificate forms: print only the wording", "पहले से छपे प्रमाण पत्र फ़ॉर्म: केवल पाठ छापें"))}</span>
       </label>)}
       {value.layout === "preprinted" ? <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {(["offsetX", "offsetY"] as const).map((key) => <label key={key} className="field"><span>{tx(key === "offsetX" ? p("Move right (mm)", "दाएँ खिसकाएँ (मिमी)") : p("Move down (mm)", "नीचे खिसकाएँ (मिमी)"))}</span><input className="inp" type="number" min={-20} max={20} step={0.5} value={value[key]} onChange={(e) => setValue({ ...value, [key]: Math.max(-20, Math.min(20, Number(e.target.value) || 0)) })} /></label>)}

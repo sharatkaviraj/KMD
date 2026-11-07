@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SchoolOfficeAttention } from "@/vx/screens/school-office/attention";
+import { CertificateRequestsWaiting } from "@/vx/screens/school-office/requests-attention";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
@@ -150,7 +151,7 @@ export default async function TodayPage() {
     <VxPage label={lead(T.today, language)}>
       <TodayScreen
         notice={seesMoney && canonicalMoney ? <LedgerNotice language={language} /> : null}
-        officeWork={<Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>}
+        officeWork={<><Suspense fallback={null}><CertificateRequestsWaiting sessionLabel={sessionLabel} /></Suspense><Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense></>}
         firstName={staff.displayName.split(/\s+/)[0] ?? staff.displayName}
         greeting={greeting}
         dayLine={longDay(today)}

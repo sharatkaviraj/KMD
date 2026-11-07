@@ -1,20 +1,52 @@
 import { z } from "zod";
 
 /**
- * The school's certificate identity: who signs, where, under which codes, and
- * how the page is laid out. Entered once by a certificate manager and frozen
- * into every document prepared afterwards. School codes live here, never in a
- * student's external identifiers.
+ * The school's certificate identity: the letterhead, who signs, where, under
+ * which codes, and how the page is laid out. Entered once by a certificate
+ * manager and frozen into every document prepared afterwards. School codes
+ * live here, never in a student's external identifiers.
+ *
+ * The defaults are the school's official letterhead (Google Drive,
+ * `VPPS_Letterhead_Blank_A4.pdf`, August 2026; D-540), so a school that has
+ * never opened Certificate settings still prints its real letterhead. A
+ * manager can change any line; a line saved empty is left off the page.
  */
-const text = (max: number) => z.string().trim().max(max).refine((value) => !/[{}<>]/.test(value), "Unsafe text").default("");
-const code = z.string().trim().max(40).regex(/^[A-Za-z0-9/ .-]*$/, "Use letters, numbers and / - . only").default("");
+const text = (max: number, fallback = "") => z.string().trim().max(max).refine((value) => !/[{}<>]/.test(value), "Unsafe text").default(fallback);
+const code = (fallback = "") => z.string().trim().max(40).regex(/^[A-Za-z0-9/ .-]*$/, "Use letters, numbers and / - . only").default(fallback);
+
+export const OFFICIAL_LETTERHEAD = {
+  nameHi: "श्री वीर पत्ता सीनियर सैकण्डरी स्कूल",
+  trust: "Rani Heer Kanwar Educational Trust",
+  address: "Opposite Mela Ground, Amet, District Rajsamand (Raj.) – 313330",
+  phone: "02908-294164",
+  // The school mailbox every receipt already prints.
+  email: "info@vpps.co.in",
+  website: "www.vpps.co.in",
+  registrationNo: "90/UDAIPUR/89-90",
+  recognitionNo: "703/2014",
+  recognisedBy: "Government of Rajasthan",
+  udiseCode: "08250314903",
+  pspCode: "P24979",
+  place: "Amet",
+} as const;
 
 export const certificateIdentitySchema = z.object({
   principalName: text(80), principalDesignation: text(60).transform((value) => value || "Principal"),
   principalDesignationHi: text(60).transform((value) => value || "प्रधानाचार्य"),
-  place: text(60), udiseCode: code, pspCode: code, recognitionNo: code,
-  /** A facsimile is used only after a manager turns it on; owning an image is not authority. */
-  signaturePolicy: z.enum(["manual", "facsimile"]).default("manual"),
+  place: text(60, OFFICIAL_LETTERHEAD.place), udiseCode: code(OFFICIAL_LETTERHEAD.udiseCode), pspCode: code(OFFICIAL_LETTERHEAD.pspCode),
+  recognitionNo: code(OFFICIAL_LETTERHEAD.recognitionNo), registrationNo: code(OFFICIAL_LETTERHEAD.registrationNo),
+  recognisedBy: text(80, OFFICIAL_LETTERHEAD.recognisedBy), trust: text(100, OFFICIAL_LETTERHEAD.trust),
+  nameHi: text(100, OFFICIAL_LETTERHEAD.nameHi), address: text(160, OFFICIAL_LETTERHEAD.address),
+  phone: text(40, OFFICIAL_LETTERHEAD.phone), email: text(80, OFFICIAL_LETTERHEAD.email), website: text(80, OFFICIAL_LETTERHEAD.website),
+  /**
+   * `facsimile`: the principal's signature (the one on every receipt) and the
+   * school seal are printed on every certificate prepared or approved by
+   * someone allowed to issue them (owner's request, 7 Nov 2026; D-541).
+   * `manual`: a clean line and an empty seal circle, signed and stamped by
+   * hand. Turning the printed signature back on after that records who did
+   * it and when.
+   */
+  signaturePolicy: z.enum(["manual", "facsimile"]).default("facsimile"),
   facsimileEnabledBy: z.string().max(80).nullable().default(null), facsimileEnabledAt: z.string().max(40).nullable().default(null),
   layout: z.enum(["classic", "preprinted"]).default("classic"),
   /** Millimetres to nudge text onto a pre-printed form, from a calibration print. */
