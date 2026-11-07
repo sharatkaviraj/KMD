@@ -1,5 +1,22 @@
 # VPPS One — progress
 
+## Transport: the children on each route and each bus, and who drives — 7 November 2026
+
+Owner asked (7 Nov) to improve Transport: see the children on each route and
+at each time of day, give the routes drivers, know which driver goes where,
+and deploy live. Branch `claude/project-thread-4jp5n5`, D-550 to D-553.
+**Done:** `/transport` with Routes, Bus times and Drivers; a route's and a
+bus's sheet with the children by class and Call buttons; Add a bus and Add a
+driver (a new driver in the same Save, the afternoon run made from a morning
+one, routes in order with optional times); route names copied from Fees
+(schoolfees PR 151, merged) on the roster's rhythm; One's tables and two
+permissions (migrations `20261107165000` and `20261107165001`, applied 7 Nov
+and checked). Tests: `tests/transport-board.test.ts` (19),
+`tests/transport-actions.test.ts` (11), `tests/transport-screen.test.tsx` (5),
+`tests/sql/transport.mjs` (PGlite, its own CI job), roster-refresh test extended.
+**Remains:** the real year has no buses or drivers yet; the office adds them.
+A child's route is still changed in Fees.
+
 ## Certificates on the letterhead, signed and sealed, and teachers' requests — 7 November 2026
 
 Owner asked (7 Nov) for the certificate letterhead to be redesigned from the

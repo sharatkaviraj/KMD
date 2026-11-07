@@ -63,6 +63,8 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     title: p("Students", "विद्यार्थी"),
     items: [
       I("students:view", "View students", "विद्यार्थी देखें", "Search the whole school's student list.", "पूरे स्कूल की सूची में खोजें।"),
+      I("transport:view", "See transport", "परिवहन देखें", "See which children ride each bus route, the bus times and the drivers.", "कौन-से बच्चे किस रूट पर हैं, बस का समय और ड्राइवर देखें।"),
+      I("transport:manage", "Arrange buses & drivers", "बस व ड्राइवर तय करें", "Add drivers and set each bus's time and the villages it stops at.", "ड्राइवर जोड़ें, हर बस का समय और रुकने वाले गाँव तय करें।"),
       I("notes:view", "Read notes on children", "नोट्स पढ़ें", "See notes teachers wrote about a child.", "बच्चे पर लिखे नोट्स देखें।"),
       I("notes:write", "Write notes", "नोट्स लिखें", "Write or speak a note about a child.", "बच्चे पर नोट लिखें या बोलें।"),
       I("collection:view", "See details asked from parents", "माँगी जानकारी देखें", "Open what parents sent back on a link.", "अभिभावकों द्वारा भेजी जानकारी देखें।"),

@@ -621,6 +621,7 @@ function redesign(): RouteExpectation[] {
     row("/menu", EVERYONE, "The phone Menu tab: everything a role's bottom bar has no room for, filtered by the same permissions."),
     row("/", EVERYONE, "The doorway: the admin menu's Today, filtered by permission; every other menu is sent on to its own home."),
     row("/students/[id]", ["admin", "office"], "Student 360 is the Students list's detail, so it follows the list: admin and office (PLAN section 3)."),
+    row("/transport", ["admin", "office"], "Which children ride each bus route, the bus times and the drivers: the office runs the buses beside the roster (owner, 7 Nov 2026, D-550). Staff → Roles can give it to anyone else."),
     row("/inbox", ["admin", "office", "academic_coordinator"], "Needs you: the admin's queue of corrections, leave and approvals (design F01/D02)."),
     row("/attendance", ["admin", "office", "academic_coordinator"], "Whole-school attendance and marking on a teacher's behalf: the office's act, and the academic coordinator's attendance oversight (design AcadAttendance)."),
     row("/payments", ["admin", "accountant"], "Taking money is granted one person at a time through the accountant role, never by job title."),

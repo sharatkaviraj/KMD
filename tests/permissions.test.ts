@@ -65,6 +65,10 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // The searchable roster. PLAN section 3 puts Students on the admin and
     // office navigation and nowhere else.
     "students:view",
+    // Transport (D-550): who rides which route, the bus times and drivers.
+    // The office runs the buses with the admin, so it reads and edits them.
+    "transport:view",
+    "transport:manage",
     // Reads the fee screens. Deliberately NOT `fees:collect`: office staff
     // post payments in the fee app today, and folding that app in is the
     // moment to stop granting the power to take money by job title.

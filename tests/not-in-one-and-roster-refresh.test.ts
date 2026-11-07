@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ staff: vi.fn(), canonical: vi.fn(), preview: vi.fn(), state: vi.fn(), sync: vi.fn() }));
+const mocks = vi.hoisted(() => ({ staff: vi.fn(), canonical: vi.fn(), preview: vi.fn(), state: vi.fn(), sync: vi.fn(), routes: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/platform/auth/current-staff", () => ({ getCurrentStaff: mocks.staff }));
 vi.mock("@/platform/fees-bridge/policy", () => ({ usesCanonicalFees: mocks.canonical }));
 vi.mock("@/vx/view-as", () => ({ assertNotPreviewing: mocks.preview }));
 vi.mock("@/modules/coexistence/data/sync", () => ({ runFeesBridgeSync: mocks.sync }));
+vi.mock("@/modules/transport/data/routes", () => ({ refreshRouteCopy: mocks.routes }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: mocks.state }) }) }) }) }));
 
 import { cleanFromPath, notInOneHref } from "@/platform/fees-bridge/not-in-one";
@@ -45,12 +46,22 @@ describe("Refresh roster now", () => {
     mocks.staff.mockResolvedValue(admin); mocks.canonical.mockReturnValue(true); mocks.preview.mockResolvedValue(undefined);
     mocks.state.mockResolvedValue({ data: { last_checked_at: "2026-11-05T20:30:00Z", last_attempt_at: null }, error: null });
     mocks.sync.mockResolvedValue({ revision: 5, acknowledged: 2 });
+    mocks.routes.mockResolvedValue({ ok: true, count: 3 });
   });
   it("runs one unforced copy for a real admin", async () => {
     const response = await ask();
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, changed: true, busy: false });
     expect(mocks.sync).toHaveBeenCalledWith();
+  });
+  it("fetches the transport route names with it, and a failure there changes nothing", async () => {
+    await ask();
+    expect(mocks.routes).toHaveBeenCalledTimes(1);
+    expect(mocks.routes).toHaveBeenCalledWith({ force: true });
+    mocks.routes.mockRejectedValueOnce(new Error("transport_routes_unreachable"));
+    const response = await ask();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, changed: true, busy: false });
   });
   it("refuses another origin, other roles, test accounts and a preview", async () => {
     expect((await ask("https://evil.test")).status).toBe(403);
@@ -61,6 +72,7 @@ describe("Refresh roster now", () => {
     mocks.preview.mockRejectedValueOnce(new Error("previewing"));
     expect((await ask()).status).toBe(403);
     expect(mocks.sync).not.toHaveBeenCalled();
+    expect(mocks.routes).not.toHaveBeenCalled();
   });
   it("refuses within ten minutes of the last copy, without calling Fees", async () => {
     mocks.state.mockResolvedValue({ data: { last_checked_at: new Date(Date.now() - 60_000).toISOString(), last_attempt_at: null }, error: null });
@@ -68,6 +80,7 @@ describe("Refresh roster now", () => {
     expect(response.status).toBe(429);
     expect(await response.json()).toMatchObject({ code: "cooldown", waitMinutes: 9 });
     expect(mocks.sync).not.toHaveBeenCalled();
+    expect(mocks.routes).not.toHaveBeenCalled();
   });
   it("says when Fees could not be reached", async () => {
     mocks.sync.mockRejectedValue(new Error("bridge_source_503"));
