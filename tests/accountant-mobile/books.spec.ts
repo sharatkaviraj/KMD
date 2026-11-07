@@ -66,3 +66,23 @@ test("UPI guidance retains statement coverage check with zero unseen receipts an
   await page.goto("/?view=upi&unmatched=2");
   await expect(page.locator("body")).toContainText("2 UPI receipts still need a bank match. Review them");
 });
+
+// Staff are Hindi-first (7 Nov 2026): a Hindi reader's Books screen says every
+// label, button and hint in Hindi, and the longer lines still fit a 360px phone.
+const ENGLISH_LEFT: Record<string, string[]> = {
+  cheques: ["To deposit", "Deposited", "Cleared", "Bounced", "Status", "Amount", "Tick the cheques", "Add details"],
+  upi: ["matched", "Bank statement for", "New statement", "In the bank statement", "Needs you", "Matched", "UPI ref"],
+  refunds: ["Advances held", "can be refunded", "Request refund", "Refund requests", "No refund requests", "See all in My requests"],
+  requests: ["Waiting", "Decided", "Sent", "Reminded", "Withdraw", "Remind admin", "with the admin"],
+};
+for (const view of ["cheques", "upi", "refunds", "requests"]) {
+  test(`accountant ${view} reads in Hindi on a 360px phone`, async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto(`/?view=${view}&language=hi`);
+    await expect(page.getByRole("tablist", { name: "हिस्से" })).toBeVisible();
+    const body = page.locator("body");
+    for (const english of ENGLISH_LEFT[view]) await expect(body).not.toContainText(english);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    await page.screenshot({ path: `.playwright/phone-evidence/accountant-${view}-hi-360.png`, fullPage: true });
+  });
+}
