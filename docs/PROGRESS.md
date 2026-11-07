@@ -5,7 +5,7 @@
 Owner asked (7 Nov) for one AI page in Settings instead of three, the MCP
 connector on a page of its own and clearly named, and a clear picture of which
 model does what, how each job is routed and what it costs. Branch
-`claude/project-thread-b5tm9t`, D-501. **Done:** Settings → AI helper shows
+`claude/project-thread-b5tm9t`, D-501. **Done:** Settings → AI in One shows
 every AI job (written drafts, photos, voice) in four views: What AI did, How it
 works (animated roads with Show me and Listen), Cost and Switches; one
 database function (`ai_overview`, migration `20261107100619`, applied) feeds
