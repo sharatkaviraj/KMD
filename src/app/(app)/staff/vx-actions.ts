@@ -74,6 +74,8 @@ export async function addStaffAction(input: {
   role: string;
   phone: string;
   isTeaching: boolean;
+  /** The language the app opens in for them; the admin picks it on Add staff. */
+  preferredLanguage?: string;
 }): Promise<StaffActionResult> {
   const actor = await assertPermission("staff:manage");
   await assertNotPreviewing();
@@ -85,7 +87,7 @@ export async function addStaffAction(input: {
     phone: input.phone,
     whatsappPhone: input.phone,
     isTeaching: input.isTeaching,
-    preferredLanguage: "both",
+    preferredLanguage: input.preferredLanguage ?? "hi",
   });
   if (!parsed.success) {
     const first = parsed.error.issues[0];

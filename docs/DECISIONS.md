@@ -1,5 +1,11 @@
 # Decisions
 
+## Language chosen when an account is made — 7 November 2026
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-475 | **Add staff asks which language the app opens in: हिंदी, English or हिंदी + English (Hindi picked first)** | Janmejay, 7 Nov 2026: "it can ask when I create the account to open in Hindi or English". The vx Staff screen's `addStaffAction` used to save every new profile as `both` with no choice. It now takes the sheet's choice (`hi` when none is sent, the column's own default). Each option is written in its own language so it reads right whatever the admin's language is. The person can still change it later from the language switch or Preferences. Project agenda: `/mnt/project-files/agenda/project-agenda.md` |
+
 ## One without the Fees redirects — 6 November 2026
 
 Janmejay asked that One stop sending staff to the Fees app for anything, while Fees stays the money system and One reads from it behind the scenes. The plan ("One without the Fees redirects", Claude Doc) was approved in full, with deployment to live. Fees changes are additive (new read endpoints, no migration, no live-DB schema change).
