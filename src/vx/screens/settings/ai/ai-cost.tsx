@@ -102,14 +102,14 @@ export function CostView({ data }: { data: AiPageData }) {
                     </span>
                     <span className="num" style={{ textAlign: "right" }}>
                       <b style={{ display: "block", fontSize: 16, color: free ? "var(--ok)" : "var(--fg)" }}>{free && !m.costInr ? tx(W.freeCost) : inr(m.costInr)}</b>
-                      {m.answered && m.costInr ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{inr(m.costInr / m.answered)} {tx(W.perJob)}</span> : null}
+                      {(m.answered || m.heard) && m.costInr ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{inr(m.costInr / (m.answered || m.heard))} {tx(W.perJob)}</span> : null}
                     </span>
                   </span>
                   <div style={{ height: 6, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
                     <span style={{ display: "block", height: "100%", width: `${free ? 100 : Math.max(2, (m.costInr / most) * 100)}%`, background: free ? "var(--oks)" : pv(m.provider), transformOrigin: "left", animation: `xGrowX .7s var(--ease) ${i * 35}ms both` }} />
                   </div>
                   <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>
-                    {tx(W.answered(m.answered))} · {tx(W.triesN(m.tries))}
+                    {tx(m.heard ? W.heard(m.heard) : W.answered(m.answered))} · {tx(W.triesN(m.tries))}
                   </span>
                 </li>
               );

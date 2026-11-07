@@ -184,6 +184,32 @@ describe("buildOverview", () => {
     expect(o.tasks.find((t) => t.task === "marks-photo")?.failed).toBe(1);
   });
 
+  it("counts a listening model's good tries as heard, never as 0 answered", () => {
+    const listen = buildOverview(
+      {
+        ...EMPTY_RAW,
+        builtin: [{ task: "voice", model: "claude-haiku-5-5", provider: "anthropic", status: "applied", edited: false, test: false, n: 2, cost_inr: 0.4 }],
+        tries: [
+          { task: "voice", provider: "openai", model: "gpt-transcribe", outcome: "ok", n: 2, cost_inr: 0.1 },
+          { task: "voice", provider: "openai", model: "gpt-transcribe", outcome: "unavailable", n: 1, cost_inr: 0 },
+          { task: "voice", provider: "anthropic", model: "claude-haiku-5-5", outcome: "ok", n: 2, cost_inr: 0.3 },
+        ],
+      },
+      { inrPerUsd: 90, from: "2026-11-01", today: "2026-11-03" },
+    );
+    const ear = listen.models.find((m) => m.model === "gpt-transcribe")!;
+    expect([ear.answered, ear.heard, ear.tries]).toEqual([0, 2, 3]);
+    const claude = listen.models.find((m) => m.model === "claude-haiku-5-5")!;
+    expect([claude.answered, claude.heard]).toEqual([2, 0]);
+  });
+
+  it("says which count in a station's sheet is this road's and which is every road's", () => {
+    const flow = readFileSync("src/vx/screens/settings/ai/ai-flow.tsx", "utf8");
+    expect(flow).toContain("here={stationCount(open.station, counts[open.lane])}");
+    expect(flow).toContain("W.onThisRoad(here)");
+    expect(flow).toContain("W.everyRoad");
+  });
+
   it("fills every day of the month so far, free and paid apart", () => {
     expect(o.days.map((d) => d.day)).toEqual(["2026-11-01", "2026-11-02", "2026-11-03"]);
     expect(o.days[1]).toEqual({ day: "2026-11-02", free: 5, paid: 12 });

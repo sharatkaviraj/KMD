@@ -203,13 +203,14 @@ export function FlowView({ lanes, overview }: { lanes: Lane[]; overview: Overvie
         icon="sparkle"
       >
         {/* The sheet renders in the overlay layer, outside the page's `.aip`: it carries its own. */}
-        {open ? <div className="aip"><StationDetail station={open.station} lanes={lanes} overview={overview} /></div> : null}
+        {open ? <div className="aip"><StationDetail station={open.station} here={stationCount(open.station, counts[open.lane])} lanes={lanes} overview={overview} /></div> : null}
       </Sheet>
     </div>
   );
 }
 
-function StationDetail({ station, lanes, overview }: { station: Station; lanes: Lane[]; overview: Overview | null }) {
+/** `here` is this road's count; the model rows below it are every road's, and say so. */
+function StationDetail({ station, here, lanes, overview }: { station: Station; here: number; lanes: Lane[]; overview: Overview | null }) {
   const { tx } = useVx();
   const providers = [station.provider, ...(station.partner ? [station.partner.provider] : [])];
   const models = (overview?.models ?? []).filter((m) => m.provider && providers.includes(m.provider));
@@ -232,13 +233,17 @@ function StationDetail({ station, lanes, overview }: { station: Station; lanes: 
         </span>
       ) : null}
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <span className="sech">{tx(W.models)} · {tx(W.thisMonth)}</span>
-        {(models.length ? models : station.models.map((m) => ({ provider: station.provider, model: m, answered: 0, tries: 0, costInr: 0 }))).map((m) => (
+        <span style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, background: "color-mix(in srgb, var(--acc) 10%, transparent)", fontSize: 14, fontWeight: 700 }}>
+          <Ic n="check" size={16} style={{ color: "var(--acc)" }} />
+          {tx(W.onThisRoad(here))}
+        </span>
+        <span className="sech">{tx(W.models)} · {tx(W.everyRoad)}</span>
+        {(models.length ? models : station.models.map((m) => ({ provider: station.provider, model: m, answered: 0, heard: 0, tries: 0, costInr: 0 }))).map((m) => (
           <div key={`${m.provider}-${m.model}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: "var(--s2)" }}>
             <Dot provider={m.provider} size={10} />
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: 14, fontWeight: 600 }}>{modelName(m.model)}</span>
-              <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.answered(m.answered))} · {tx(W.triesN(m.tries))}</span>
+              <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(m.heard ? W.heard(m.heard) : W.answered(m.answered))} · {tx(W.triesN(m.tries))}</span>
             </span>
             <span className="num" style={{ fontWeight: 700, color: isFreeProvider(m.provider) ? "var(--ok)" : undefined }}>{isFreeProvider(m.provider) && !m.costInr ? tx(W.freeCost) : inr(m.costInr)}</span>
           </div>
