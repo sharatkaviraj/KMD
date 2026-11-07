@@ -105,6 +105,11 @@ describe("comingUp", () => {
     ]);
   });
 
+  it("draws an exam event as an exam", () => {
+    const exam = [{ title: "Unit Test 2", titleHi: null, startsOn: "2026-12-07", endsOn: "2026-12-12", kind: "exam" }];
+    expect(comingUp("2026-11-07", [], exam, 42)).toEqual([{ from: "2026-12-07", to: "2026-12-12", kind: "exam", en: "Unit Test 2", hi: null, inDays: 30 }]);
+  });
+
   it("leaves out the spell already running today: the closed banner says it", () => {
     expect(comingUp("2026-11-07", rows, events).map((c) => c.en)).toEqual(["PTM", "Unit Test"]);
   });

@@ -234,7 +234,8 @@ export function birthdayDates(today: string, from = 2, to = 24): string[] {
 
 export type CalendarKind = "instructional" | "holiday" | "exam" | "event" | "vacation";
 export type CalendarRow = { day: string; kind: CalendarKind; en: string | null; hi: string | null };
-export type EventRow = { title: string; titleHi: string | null; startsOn: string; endsOn: string };
+/** A calendar event; `kind` as stored ("exam", "ptm", "event", …), an exam drawn as one. */
+export type EventRow = { title: string; titleHi: string | null; startsOn: string; endsOn: string; kind?: string };
 export type ComingItem = { from: string; to: string; kind: "holiday" | "vacation" | "exam" | "event"; en: string; hi: string | null; inDays: number };
 
 const addDays = (day: string, n: number) => iso(new Date(at(day).getTime() + n * 86_400_000));
@@ -293,7 +294,7 @@ export function comingUp(today: string, rows: readonly CalendarRow[], events: re
   const ahead = spells.filter((s) => s.from > today);
   const happenings: ComingItem[] = events
     .filter((e) => e.endsOn >= today && e.startsOn <= last && e.startsOn > today)
-    .map((e) => ({ from: e.startsOn, to: e.endsOn < e.startsOn ? e.startsOn : e.endsOn, kind: "event" as const, en: e.title, hi: e.titleHi, inDays: daysBetween(today, e.startsOn) }));
+    .map((e) => ({ from: e.startsOn, to: e.endsOn < e.startsOn ? e.startsOn : e.endsOn, kind: e.kind === "exam" ? ("exam" as const) : ("event" as const), en: e.title, hi: e.titleHi, inDays: daysBetween(today, e.startsOn) }));
   return [...ahead, ...happenings].sort((a, b) => a.from.localeCompare(b.from) || a.en.localeCompare(b.en)).slice(0, max);
 }
 

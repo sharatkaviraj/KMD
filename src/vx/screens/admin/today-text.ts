@@ -63,7 +63,7 @@ export const TD = {
   birthdaysSub: (n: number): Pair => p(`${n} child${n === 1 ? "" : "ren"} · wish them at assembly`, `${n} बच्चे · प्रार्थना सभा में बधाई दें`),
   moreBirthdays: (n: number): Pair => p(`+${n} more`, `+${n} और`),
   comingUp: p("Coming up", "आने वाले दिन"),
-  comingSub: p("The next three weeks on the school calendar", "स्कूल कैलेंडर पर अगले तीन हफ़्ते"),
+  comingSub: p("The next six weeks on the school calendar", "स्कूल कैलेंडर पर अगले छह हफ़्ते"),
   openCalendar: p("Calendar", "कैलेंडर"),
   inDays: (n: number): Pair => (n <= 1 ? p("Tomorrow", "कल") : p(`In ${n} days`, `${n} दिन में`)),
   comingKind: {

@@ -23,8 +23,8 @@ import { birthdayDates, closedSpell, comingUp, type BirthdayChild, type Calendar
 
 /** How far ahead the closed banner looks for the day school opens again. */
 const CLOSED_LOOK_AHEAD = 40;
-/** How far ahead "Coming up" looks. */
-const COMING_WITHIN = 21;
+/** How far ahead "Coming up" looks: six weeks, so the next exams show while there is time to plan for them. */
+const COMING_WITHIN = 42;
 
 async function calendarAhead(sessionLabel: string, today: string): Promise<CalendarRow[]> {
   const { data, error } = await createAdminClient()
@@ -32,7 +32,7 @@ async function calendarAhead(sessionLabel: string, today: string): Promise<Calen
     .select("day, kind, label_en, label_hi")
     .eq("session_label", sessionLabel)
     .gte("day", today)
-    .lte("day", addDays(today, CLOSED_LOOK_AHEAD))
+    .lte("day", addDays(today, Math.max(CLOSED_LOOK_AHEAD, COMING_WITHIN)))
     .order("day")
     .returns<{ day: string; kind: CalendarRow["kind"]; label_en: string | null; label_hi: string | null }[]>();
   if (error) throw new Error(`Could not read the calendar: ${error.message}`);
@@ -43,16 +43,16 @@ async function eventsAhead(sessionLabel: string, today: string): Promise<EventRo
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("calendar_events")
-    .select("title, title_hi, starts_on, ends_on")
+    .select("title, title_hi, starts_on, ends_on, kind")
     .eq("session_label", sessionLabel)
     .is("cancelled_at", null)
     .gte("ends_on", today)
     .lte("starts_on", addDays(today, COMING_WITHIN))
     .order("starts_on")
     .limit(20)
-    .returns<{ title: string; title_hi: string | null; starts_on: string; ends_on: string }[]>();
+    .returns<{ title: string; title_hi: string | null; starts_on: string; ends_on: string; kind: string }[]>();
   if (error) throw new Error(`Could not read the calendar events: ${error.message}`);
-  return data.map((row) => ({ title: row.title, titleHi: row.title_hi, startsOn: row.starts_on, endsOn: row.ends_on }));
+  return data.map((row) => ({ title: row.title, titleHi: row.title_hi, startsOn: row.starts_on, endsOn: row.ends_on, kind: row.kind }));
 }
 
 /**

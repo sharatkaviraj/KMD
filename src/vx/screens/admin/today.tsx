@@ -1662,7 +1662,7 @@ function daysUntil(today: string, day: string): number {
   return Math.round((new Date(`${day}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86_400_000);
 }
 
-/** What the next three weeks hold: holidays, breaks, exams and events, each with its date on a small calendar leaf. */
+/** What the next six weeks hold: holidays, breaks, exams and events, each with its date on a small calendar leaf. */
 function ComingWidget({ items }: { items: readonly ComingItem[] }) {
   const { tx } = useVx();
   return (
