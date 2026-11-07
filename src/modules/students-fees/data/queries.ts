@@ -1286,7 +1286,9 @@ export async function getStudentMasterFieldsByIds(
 
   const supabase = await getCacheSafeClient();
   // Chunked so a whole-school export does not build one enormous `in` list.
-  const chunkSize = 500;
+  // 500 was too many: with this select the URL passed the guard's 12,000
+  // characters at ~530 children and the defaulters PDF answered 500 (7 Nov).
+  const chunkSize = IN_FILTER_CHUNK_SIZE;
 
   for (let start = 0; start < studentIds.length; start += chunkSize) {
     const chunk = studentIds.slice(start, start + chunkSize);
