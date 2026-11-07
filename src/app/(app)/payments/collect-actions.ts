@@ -96,7 +96,8 @@ function savedFrom(result: BridgePostedPayment): SavedReceipt {
     remaining: result.remainingBalance,
     // One draws a single-mode Fees receipt itself (`/receipts/[no]`); a split one
     // is not in its receipt template yet, so Print opens Fees' own print page.
-    printHref: split ? result.printUrl : sourceReceiptHref(result.receiptNumber, result.receiptId, result.sessionLabel),
+    // `print=1`: Print means print — the page opens the print dialog itself.
+    printHref: split ? result.printUrl : `${sourceReceiptHref(result.receiptNumber, result.receiptId, result.sessionLabel)}&print=1`,
     printExternal: split,
   };
 }

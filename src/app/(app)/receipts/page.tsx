@@ -30,6 +30,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Pro
     if (!data) return <DayBookUnavailable language={staff.language} sessionLabel={session} />;
     return <DayBook data={data} language={staff.language} canSeeClose={data.dayCloseVisible && feePermissionsFor(staff.role).includes("finance:view")} />;
   }
-  const props = await loadReceiptsDesk(staff, search);
+  const { paperDetail: _paper, ...props } = await loadReceiptsDesk(staff, search);
+  void _paper;
   return <ReceiptsDesk {...props} />;
 }

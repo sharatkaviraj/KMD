@@ -35,7 +35,7 @@ function paperOf(detail: BridgeReceiptDetail["detail"]) {
  * (`mayReverse`: the role holds `payments:reverse_any`, whether or not One's
  * writes are open). Every fact stays below under one fold.
  */
-export function CanonicalReceipt({ receipt, language, canPrint = false, canReverse = false, mayReverse = canReverse }: { receipt: BridgeReceiptDetail; language: Language; canPrint?: boolean; canReverse?: boolean; mayReverse?: boolean }) {
+export function CanonicalReceipt({ receipt, language, canPrint = false, canReverse = false, mayReverse = canReverse, autoPrint = false }: { receipt: BridgeReceiptDetail; language: Language; canPrint?: boolean; canReverse?: boolean; mayReverse?: boolean; autoPrint?: boolean }) {
   const d = receipt.detail;
   const t = (en: string, hi: string) => lead({ en, hi }, language);
   const back = `/students/${receipt.studentId}?tab=fees`;
@@ -45,16 +45,27 @@ export function CanonicalReceipt({ receipt, language, canPrint = false, canRever
   const exit = feesReceiptExit({ canPrint, canReverseHere: canReverse, mayReverse, isVoided: Boolean(d.isVoided) });
   const paper = paperOf(d);
   const pdfHref = `/api/fees-bridge/receipts/${receipt.receiptId}/pdf?${new URLSearchParams({ session: receipt.sessionLabel })}`;
+  const printLabel = t("Print A4", "A4 पर प्रिंट करें");
+  const busyLabel = t("Getting the sheet ready…", "पन्ना तैयार हो रहा है…");
+  const pdfLabel = t("Download PDF", "PDF डाउनलोड करें");
   const printing = canPrint && paper ? <>
-    <PrintButton label={t("Print", "प्रिंट करें")} />
-    <Btn icon="download" href={pdfHref}>{t("Download PDF", "PDF डाउनलोड करें")}</Btn>
+    <PrintButton label={printLabel} busyLabel={busyLabel} />
+    <Btn icon="download" href={pdfHref} prefetch={false}>{pdfLabel}</Btn>
   </> : null;
   return <VxPage label={t("Fee receipt", "शुल्क रसीद")}>
     <TopBar title={d.receiptNumber} crumb={t("Fee receipt", "शुल्क रसीद")} mBack={back} mSub={d.studentFullName}
       actions={<span className="print:hidden" style={{ display: "flex", gap: 8 }}>{printing}<Btn href={back}>{t("Student record", "विद्यार्थी विवरण")}</Btn></span>} />
     <Section><div data-student-source-section="receipt" style={{ display: "contents" }}>
-      {paper ? <div className="vx-receipt-paper"><BridgeReceiptPaper receipt={paper} /></div> : null}
-      {paper ? <div className="print:hidden only-m" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{printing}</div> : null}
+      {/* On a phone the two things to do with a receipt come first, big, above
+          the paper — not under a receipt two screens long. */}
+      {printing ? <div className="print:hidden only-m" style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+          <PrintButton label={printLabel} busyLabel={busyLabel} big full />
+          <Btn icon="download" href={pdfHref} prefetch={false} big full>{pdfLabel}</Btn>
+        </div>
+        <span style={{ fontSize: 13, color: "var(--mut)", textAlign: "center" }}>{t("Prints on one A4 sheet, just as it looks here.", "एक A4 पन्ने पर, जैसी यहाँ दिखती है वैसी ही छपेगी।")}</span>
+      </div> : null}
+      {paper ? <div className="vx-receipt-paper"><BridgeReceiptPaper receipt={paper} autoPrint={autoPrint && canPrint} /></div> : null}
       <details className="print:hidden vx-receipt-more" open={!paper}>
         <summary>{t("All receipt details", "रसीद का पूरा विवरण")}</summary>
         <div style={{ display: "grid", gap: 16, marginTop: 12 }}>

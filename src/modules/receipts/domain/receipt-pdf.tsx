@@ -101,168 +101,184 @@ const L = {
   },
 } as const;
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 24,
-    fontSize: 9,
-    color: pdfTokens.ink,
-    fontFamily: "Helvetica",
-    backgroundColor: pdfTokens.paper,
-  },
-  /** Receipt no · session · date, monospace between dashed rules — a ledger line. */
-  metaBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomWidth: 0.5,
-    borderBottomColor: pdfTokens.rule,
-    borderStyle: "dashed",
-    paddingVertical: 5,
-    fontFamily: "Courier",
-    fontSize: 8.5,
-  },
+/**
+ * One receipt, one sheet of A4 (owner, 7 Nov 2026: "printed in single sheet
+ * only"). Every receipt is first set at the ordinary spacing; one that still
+ * runs over — eight instalment lines, a previous-year balance, three discount
+ * policies — is set again `dense`: the same sections and figures, tighter.
+ */
+function sheetStyles(dense: boolean) {
+  const v = (normal: number, tight: number) => (dense ? tight : normal);
+  return StyleSheet.create({
+    page: {
+      paddingTop: v(24, 18),
+      paddingHorizontal: 24,
+      // Clear of the fixed footer line at the foot of the sheet.
+      paddingBottom: v(32, 28),
+      fontSize: v(9, 8),
+      color: pdfTokens.ink,
+      fontFamily: "Helvetica",
+      backgroundColor: pdfTokens.paper,
+    },
+    /** Receipt no · session · date, monospace between dashed rules — a ledger line. */
+    metaBar: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      borderBottomWidth: 0.5,
+      borderBottomColor: pdfTokens.rule,
+      borderStyle: "dashed",
+      paddingVertical: v(5, 3),
+      fontFamily: "Courier",
+      fontSize: 8.5,
+    },
 
-  /** Four across, as the desktop app lays it out. */
-  metaGrid: { flexDirection: "row", marginTop: 9, gap: 10 },
-  metaCell: { flex: 1, paddingLeft: 7, borderLeftWidth: 1, borderLeftColor: pdfTokens.rule },
-  /** The student is the subject of the document, so it carries the one saffron. */
-  metaCellLead: { borderLeftWidth: 2, borderLeftColor: pdfTokens.accent },
-  metaLabel: {
-    fontSize: 6.5,
-    color: pdfTokens.muted,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 0.7,
-  },
-  metaLabelHi: { fontSize: 6.5, color: pdfTokens.muted, fontFamily: HI_FONT },
-  metaValue: { fontSize: 10, color: pdfTokens.inkStrong, marginTop: 2, fontFamily: "Helvetica-Bold" },
-  metaSub: { fontSize: 7.5, color: pdfTokens.muted, marginTop: 1 },
-  metaSubHi: { fontSize: 7.5, color: pdfTokens.muted, fontFamily: HI_FONT },
+    /** Four across, as the desktop app lays it out. */
+    metaGrid: { flexDirection: "row", marginTop: v(8, 5), gap: 10 },
+    metaCell: { flex: 1, paddingLeft: 7, borderLeftWidth: 1, borderLeftColor: pdfTokens.rule },
+    /** The student is the subject of the document, so it carries the one saffron. */
+    metaCellLead: { borderLeftWidth: 2, borderLeftColor: pdfTokens.accent },
+    metaValue: { fontSize: v(10, 9), color: pdfTokens.inkStrong, marginTop: 2, fontFamily: "Helvetica-Bold" },
+    metaSub: { fontSize: 7.5, color: pdfTokens.muted, marginTop: 1 },
+    metaSubHi: { fontSize: 7.5, color: pdfTokens.muted, fontFamily: HI_FONT },
 
-  hero: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: pdfTokens.success,
-    borderRadius: 5,
-    backgroundColor: pdfTokens.successBg,
-    padding: 9,
-  },
-  heroLabel: {
-    fontSize: 6.5,
-    color: pdfTokens.success,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 1,
-  },
-  heroLabelHi: { fontSize: 7, color: pdfTokens.success, fontFamily: HI_FONT },
-  heroAmount: {
-    fontSize: 24,
-    fontFamily: MONEY_FONT,
-    color: pdfTokens.success,
-    marginTop: 2,
-  },
-  heroWords: { fontSize: 7.5, color: pdfTokens.ink, marginTop: 3 },
-  heroWordsHi: { fontSize: 7.5, color: pdfTokens.ink, marginTop: 1, fontFamily: HI_FONT },
+    /** TOTAL PAID on the left, the amount in words on the right — the screen's hero, side by side. */
+    hero: {
+      marginTop: v(9, 6),
+      borderWidth: 1,
+      borderColor: pdfTokens.success,
+      borderRadius: 5,
+      backgroundColor: pdfTokens.successBg,
+      paddingVertical: v(8, 5),
+      paddingHorizontal: 10,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      gap: 12,
+    },
+    heroLabel: { fontSize: 6.5, color: pdfTokens.success, fontFamily: "Helvetica-Bold", letterSpacing: 1 },
+    heroLabelHi: { fontSize: 7, color: pdfTokens.success, fontFamily: HI_FONT },
+    heroAmount: { fontSize: v(22, 18), fontFamily: MONEY_FONT, color: pdfTokens.success, marginTop: 1 },
+    heroWords: { fontSize: 7.5, color: pdfTokens.ink, textAlign: "right" },
+    heroWordsHi: { fontSize: 7.5, color: pdfTokens.ink, marginTop: 1, fontFamily: HI_FONT, textAlign: "right" },
 
-  sectionTitle: {
-    fontSize: 8,
-    fontFamily: "Helvetica-Bold",
-    marginTop: 10,
-    color: pdfTokens.muted,
-    letterSpacing: 0.9,
-  },
-  sectionTitleHi: { fontSize: 7.5, fontFamily: HI_FONT, color: pdfTokens.muted, marginBottom: 4 },
+    /** "What this receipt paid / इस रसीद से भुगतान", on one line. */
+    sectionTitle: { flexDirection: "row", alignItems: "baseline", marginTop: v(9, 6), marginBottom: v(4, 2) },
+    sectionTitleEn: { fontSize: 8, fontFamily: "Helvetica-Bold", color: pdfTokens.muted, letterSpacing: 0.9 },
+    sectionTitleHi: { fontSize: 7.5, fontFamily: HI_FONT, color: pdfTokens.muted },
 
-  money: { fontFamily: MONEY_FONT },
-  moneyRight: { flex: 1, textAlign: "right", fontFamily: MONEY_FONT },
+    tableHeader: { paddingVertical: v(3, 2) },
+    tableRow: { paddingVertical: v(3, 1.5) },
 
-  totalRow: {
-    flexDirection: "row",
-    paddingVertical: 5,
-    paddingHorizontal: 4,
-    borderTopWidth: 1.5,
-    borderBottomWidth: 1.5,
-    borderColor: pdfTokens.inkStrong,
-  },
+    money: { fontFamily: MONEY_FONT },
+    moneyRight: { flex: 1, textAlign: "right", fontFamily: MONEY_FONT },
 
-  voidBanner: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: pdfTokens.danger,
-    borderRadius: 4,
-    backgroundColor: pdfTokens.dangerBg,
-    padding: 8,
-  },
-  voidBannerText: { color: pdfTokens.danger, fontFamily: "Helvetica-Bold", fontSize: 10 },
-  voidWatermark: {
-    position: "absolute",
-    top: 330,
-    left: 0,
-    right: 0,
-    textAlign: "center",
-    fontSize: 46,
-    fontFamily: "Helvetica-Bold",
-    color: "#f4cdc7",
-    letterSpacing: 8,
-  },
+    totalRow: {
+      flexDirection: "row",
+      paddingVertical: v(5, 3),
+      paddingHorizontal: 4,
+      borderTopWidth: 1.5,
+      borderBottomWidth: 1.5,
+      borderColor: pdfTokens.inkStrong,
+    },
+    note: { fontSize: 6.5, color: pdfTokens.muted, marginTop: v(3, 2) },
 
-  /**
-   * Four per row, as the desktop app lays them out.
-   *
-   * Measured rather than chosen: across 30 real receipts, two per row put 5 of
-   * them onto a second page, three per row put 3, and four puts 3 — all of
-   * which carry a previous-year balance and so have five tiles whatever the
-   * width. Four matches the app and costs nothing over three.
-   *
-   * The long "Previous year tuition balance from 2025-26" label wraps inside
-   * its tile at this width, which is why the tiles are a wrapping grid of fixed
-   * fractions rather than a flex row that would squash it.
-   */
-  tileGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 6, marginHorizontal: -3 },
-  tile: {
-    width: "25%",
-    paddingHorizontal: 3,
-    paddingBottom: 6,
-  },
-  tileInner: { borderWidth: 0.5, borderColor: pdfTokens.rule, borderRadius: 4, padding: 6 },
-  tileInnerPaid: { borderColor: pdfTokens.success, backgroundColor: pdfTokens.successBg },
-  tileLabel: { fontSize: 6.5, color: pdfTokens.muted, fontFamily: "Helvetica-Bold", letterSpacing: 0.5 },
-  tileValueRow: { flexDirection: "row", alignItems: "baseline", marginTop: 2 },
-  tileDate: { fontSize: 7, color: pdfTokens.muted, marginTop: 1 },
+    voidBanner: {
+      marginTop: v(9, 6),
+      borderWidth: 1,
+      borderColor: pdfTokens.danger,
+      borderRadius: 4,
+      backgroundColor: pdfTokens.dangerBg,
+      padding: v(8, 5),
+    },
+    voidBannerText: { color: pdfTokens.danger, fontFamily: "Helvetica-Bold", fontSize: 10 },
+    voidWatermark: {
+      position: "absolute",
+      top: 330,
+      left: 0,
+      right: 0,
+      textAlign: "center",
+      fontSize: 46,
+      fontFamily: "Helvetica-Bold",
+      color: "#f4cdc7",
+      letterSpacing: 8,
+    },
 
-  strip: {
-    marginTop: 4,
-    backgroundColor: pdfTokens.panel,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  stripRow: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap" },
+    /**
+     * Four per row, as the desktop app lays them out — five when there are
+     * five, so a student carrying a previous-year balance does not spend a
+     * whole second row on one tile. The long "Previous year tuition balance
+     * from 2025-26" label wraps inside its tile, which is why the tiles are a
+     * wrapping grid of fixed fractions rather than a flex row that would
+     * squash it.
+     */
+    tileGrid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -3 },
+    tile: { paddingHorizontal: 3, paddingBottom: v(5, 3) },
+    tileInner: { borderWidth: 0.5, borderColor: pdfTokens.rule, borderRadius: 4, paddingHorizontal: 6, paddingVertical: v(5, 3) },
+    tileInnerPaid: { borderColor: pdfTokens.success, backgroundColor: pdfTokens.successBg },
+    tileLabel: { fontSize: 6.5, color: pdfTokens.muted, fontFamily: "Helvetica-Bold", letterSpacing: 0.5 },
+    tileValueRow: { flexDirection: "row", alignItems: "baseline", marginTop: 2 },
+    tileDate: { fontSize: 7, color: pdfTokens.muted, marginTop: 1 },
 
-  /** react-pdf has no mask, so the tear line is a dotted rule rather than the
-   *  bitten-out half circles the screen draws. Same message, fewer tricks. */
-  perforation: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: pdfTokens.muted,
-    borderStyle: "dotted",
-  },
-  stub: {
-    marginTop: 8,
-    borderWidth: 0.8,
-    borderColor: pdfTokens.muted,
-    borderStyle: "dashed",
-    borderRadius: 4,
-    backgroundColor: pdfTokens.stub,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  stubRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+    strip: {
+      marginTop: v(3, 2),
+      backgroundColor: pdfTokens.panel,
+      paddingVertical: v(5, 4),
+      paddingHorizontal: 8,
+      borderRadius: 4,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      gap: 6,
+    },
+    stripRow: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap" },
+
+    /** react-pdf has no mask, so the tear line is a dotted rule rather than the
+     *  bitten-out half circles the screen draws. Same message, fewer tricks. */
+    perforation: {
+      marginTop: v(10, 6),
+      borderTopWidth: 1,
+      borderTopColor: pdfTokens.muted,
+      borderStyle: "dotted",
+    },
+    stub: {
+      marginTop: v(7, 5),
+      borderWidth: 0.8,
+      borderColor: pdfTokens.muted,
+      borderStyle: "dashed",
+      borderRadius: 4,
+      backgroundColor: pdfTokens.stub,
+      paddingHorizontal: 10,
+      paddingVertical: v(7, 5),
+    },
+    stubRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  });
+}
+
+type Sheet = ReturnType<typeof sheetStyles>;
+
+const labelStyles = StyleSheet.create({
+  en: { fontSize: 6.5, color: pdfTokens.muted, fontFamily: "Helvetica-Bold", letterSpacing: 0.7 },
+  hi: { fontSize: 6.5, color: pdfTokens.muted, fontFamily: HI_FONT },
 });
 
 function Label({ label }: { label: { en: string; hi: string } }) {
   return (
     <>
-      <Text style={styles.metaLabel}>{label.en}</Text>
-      <Text style={styles.metaLabelHi}>{label.hi}</Text>
+      <Text style={labelStyles.en}>{label.en}</Text>
+      <Text style={labelStyles.hi}>{label.hi}</Text>
     </>
+  );
+}
+
+function SectionTitle({ s, label }: { s: Sheet; label: { en: string; hi: string } }) {
+  return (
+    <View style={s.sectionTitle}>
+      <Text style={s.sectionTitleEn}>{label.en.toUpperCase()}</Text>
+      {/* A Text node's leading spaces are dropped when it is laid out, so the
+          gap before the slash is non-breaking. */}
+      <Text style={s.sectionTitleHi}>{`\u00A0\u00A0/\u00A0 ${label.hi}`}</Text>
+    </View>
   );
 }
 
@@ -295,7 +311,7 @@ function MoneyWithLabel({
       </Text>
       {labelHi ? (
         <Text style={{ fontSize: size, color: color ?? pdfTokens.muted, fontFamily: HI_FONT }}>
-          {` / ${labelHi}`}
+          {`\u00A0/ ${labelHi}`}
         </Text>
       ) : null}
       <Text style={{ fontSize: size, color: color ?? pdfTokens.muted }}>: </Text>
@@ -325,9 +341,34 @@ export type ReceiptPdfInput = {
   verifyUrl?: string | null;
 };
 
+/** Pages in a rendered PDF: one `/Type /Page` object each (`/Pages` is the tree, not a page). */
+export function pdfPageCount(pdf: Buffer): number {
+  return (pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length;
+}
+
 export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Buffer> {
   ensurePdfFontsRegistered();
   const [logo, signature] = await Promise.all([loadLogoImage(), loadSignatureImage()]);
+  const first = await renderToBuffer(<ReceiptPdfDocument receipt={receipt} logo={logo} signature={signature} dense={false} />);
+  if (pdfPageCount(first) <= 1) return first;
+  // Set tighter rather than let the stub fall onto a second sheet. Should a
+  // receipt ever outgrow even this, the stamps, signature and stub still move
+  // to page two together (`wrap={false}` below), never split.
+  return renderToBuffer(<ReceiptPdfDocument receipt={receipt} logo={logo} signature={signature} dense />);
+}
+
+function ReceiptPdfDocument({
+  receipt,
+  logo,
+  signature,
+  dense,
+}: {
+  receipt: ReceiptDetail;
+  logo: Awaited<ReturnType<typeof loadLogoImage>>;
+  signature: Awaited<ReturnType<typeof loadSignatureImage>>;
+  dense: boolean;
+}) {
+  const s = sheetStyles(dense);
 
   // Same arithmetic as receipt-document-v3: the effective breakdown wins, and
   // totalAmount is only the fallback. A receipt carrying an append-only
@@ -357,6 +398,9 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
     (row) => row.status !== "paid" && row.pending > 0,
   );
   const outstanding = Math.max(receipt.currentOutstanding, 0);
+  // Where this payment leaves the year, as the screen's hero says it.
+  const paidShare = receipt.totalDue > 0 ? Math.min(100, Math.round((receipt.totalPaidToDate / receipt.totalDue) * 100)) : null;
+  const tileWidth = `${100 / Math.min(Math.max(receipt.installmentStatus.length, 4), 5)}%`;
 
   const modeLabel = receipt.paymentMode.replace(/_/g, " ");
   // "Online" alone hid how the parent paid; the capture says, so print it.
@@ -368,10 +412,10 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
       : modeLabel.charAt(0).toUpperCase() + modeLabel.slice(1);
   const title = `${isVoided ? "REVERSED — " : ""}Receipt ${receipt.receiptNumber} — ${receipt.studentFullName}`;
 
-  return renderToBuffer(
+  return (
     <Document title={title} author={schoolProfile.name}>
-      <Page size="A4" style={styles.page}>
-        {isVoided ? <Text style={styles.voidWatermark} fixed>REVERSED</Text> : null}
+      <Page size="A4" style={s.page}>
+        {isVoided ? <Text style={s.voidWatermark} fixed>REVERSED</Text> : null}
 
         <ParentDocumentLetterhead
           docTitleEn={L.receipt.en}
@@ -379,15 +423,15 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
           logo={logo}
         />
 
-        <View style={styles.metaBar}>
+        <View style={s.metaBar}>
           <Text>{`${L.receiptNo.en} ${receipt.receiptNumber}`}</Text>
           <Text>{`${L.session.en} ${receipt.sessionLabel}`}</Text>
           <Text>{formatPdfDate(receipt.paymentDate)}</Text>
         </View>
 
         {isVoided ? (
-          <View style={styles.voidBanner}>
-            <Text style={styles.voidBannerText}>
+          <View style={s.voidBanner}>
+            <Text style={s.voidBannerText}>
               THIS RECEIPT HAS BEEN REVERSED IN FULL
             </Text>
             <Text style={{ fontSize: 8, color: pdfTokens.danger, marginTop: 2 }}>
@@ -397,51 +441,64 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
           </View>
         ) : null}
 
-        {/* Four across, which is the desktop app's `sm:grid-cols-4`. The phone
-            screenshot stacks them 2x2 because it is 390px wide; A4 is not, and
-            two rows here pushed the parent stub onto a second page. */}
-        <View style={styles.metaGrid}>
-          <View style={[styles.metaCell, styles.metaCellLead]}>
+        {/* Four across, which is the desktop app's four columns. The phone
+            stacks them 2x2 because it is 390px wide; A4 is not, and two rows
+            here pushed the parent stub onto a second page. */}
+        <View style={s.metaGrid}>
+          <View style={[s.metaCell, s.metaCellLead]}>
             <Label label={L.student} />
-            <Text style={styles.metaValue}>{receipt.studentFullName}</Text>
-            <Text style={styles.metaSub}>
+            <Text style={s.metaValue}>{receipt.studentFullName}</Text>
+            <Text style={s.metaSub}>
               {`${L.srNo.en} ${receipt.admissionNo}  ·  ${receipt.classLabel}`}
             </Text>
           </View>
-          <View style={styles.metaCell}>
+          <View style={s.metaCell}>
             <Label label={L.father} />
-            <Text style={styles.metaValue}>{receipt.fatherName || "—"}</Text>
+            <Text style={s.metaValue}>{receipt.fatherName || "—"}</Text>
             {receipt.fatherPhone ? (
-              <Text style={styles.metaSub}>{receipt.fatherPhone}</Text>
+              <Text style={s.metaSub}>{receipt.fatherPhone}</Text>
             ) : null}
           </View>
-          <View style={styles.metaCell}>
+          <View style={s.metaCell}>
             <Label label={L.date} />
-            <Text style={styles.metaValue}>{formatPdfDate(receipt.paymentDate)}</Text>
-            <Text style={styles.metaSub}>
+            <Text style={s.metaValue}>{formatPdfDate(receipt.paymentDate)}</Text>
+            <Text style={s.metaSub}>
               {`${L.receivedBy.en}: ${receipt.receivedBy || receipt.createdByName || "—"}`}
             </Text>
           </View>
-          <View style={styles.metaCell}>
+          <View style={s.metaCell}>
             <Label label={L.mode} />
-            <Text style={styles.metaValue}>{modeTitle}</Text>
-            <Text style={styles.metaSubHi}>{L.mode.hi}</Text>
+            <Text style={s.metaValue}>{modeTitle}</Text>
+            <Text style={s.metaSubHi}>{L.mode.hi}</Text>
           </View>
         </View>
 
-        <View style={styles.hero}>
-          <Text style={styles.heroLabel}>{L.totalPaid.en}</Text>
-          <Text style={styles.heroLabelHi}>{L.totalPaid.hi}</Text>
-          <Text style={styles.heroAmount}>{inr(totalPaid)}</Text>
-          <Text style={styles.heroWords}>
-            {`${L.amountInWords.en}: ${englishAmountWords(totalPaid, { style: "title" })} Rupees Only`}
-          </Text>
-          <Text style={styles.heroWordsHi}>{amountInWordsHindi(totalPaid)}</Text>
+        <View style={s.hero}>
+          <View>
+            <Text style={s.heroLabel}>{L.totalPaid.en}</Text>
+            <Text style={s.heroLabelHi}>{L.totalPaid.hi}</Text>
+            <Text style={s.heroAmount}>{inr(totalPaid)}</Text>
+          </View>
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
+            <Text style={s.heroWords}>
+              {`${L.amountInWords.en}: ${englishAmountWords(totalPaid, { style: "title" })} Rupees Only`}
+            </Text>
+            <Text style={s.heroWordsHi}>{amountInWordsHindi(totalPaid)}</Text>
+            {paidShare !== null ? (
+              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: 3 }}>
+                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: pdfTokens.success }}>
+                  {`${paidShare}% ${L.paidSoFar.en.toLowerCase()} — `}
+                </Text>
+                <Text style={{ fontSize: 7.5, fontFamily: MONEY_FONT, color: pdfTokens.success }}>
+                  {`${inr(receipt.totalPaidToDate)} / ${inr(receipt.totalDue)}`}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
-        <Text style={styles.sectionTitle}>{L.paidFor.en}</Text>
-        <Text style={styles.sectionTitleHi}>{L.paidFor.hi}</Text>
-        <View style={sharedStyles.tableHeader}>
+        <SectionTitle s={s} label={L.paidFor} />
+        <View style={[sharedStyles.tableHeader, s.tableHeader]}>
           <Th label={L.installment} />
           <Th label={L.dueDate} />
           <Th label={L.pendingBefore} right />
@@ -449,48 +506,51 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
           <Th label={L.pendingAfter} right />
         </View>
         {rows.map((row, index) => (
-          <View key={`${row.label}-${index}`} style={sharedStyles.tableRow}>
+          <View key={`${row.label}-${index}`} style={[sharedStyles.tableRow, s.tableRow]}>
             <Text style={sharedStyles.th}>{row.label}</Text>
             <Text style={sharedStyles.th}>{formatPdfDate(row.dueDate)}</Text>
-            <Text style={styles.moneyRight}>
+            <Text style={s.moneyRight}>
               {row.pendingBefore === null ? "—" : inr(row.pendingBefore)}
             </Text>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <Text style={styles.money}>{inr(row.paid)}</Text>
+              <Text style={s.money}>{inr(row.paid)}</Text>
               {row.adjustmentAmount ? (
                 <Text style={{ fontSize: 6.5, color: pdfTokens.muted }}>
                   {`adjustment ${row.adjustmentAmount > 0 ? "+" : "−"}`}
-                  <Text style={styles.money}>{inr(Math.abs(row.adjustmentAmount))}</Text>
+                  <Text style={s.money}>{inr(Math.abs(row.adjustmentAmount))}</Text>
                 </Text>
               ) : null}
             </View>
-            <Text style={styles.moneyRight}>
+            <Text style={s.moneyRight}>
               {row.pendingAfter === null ? "—" : inr(row.pendingAfter)}
             </Text>
           </View>
         ))}
-        <View style={styles.totalRow}>
+        <View style={s.totalRow}>
           <Text style={[sharedStyles.th, { fontFamily: "Helvetica-Bold", letterSpacing: 0.6 }]}>
             {L.total.en.toUpperCase()}
           </Text>
           <Text style={sharedStyles.th} />
           <Text style={sharedStyles.thRight} />
-          <Text style={[styles.moneyRight, { fontSize: 11, color: pdfTokens.inkStrong }]}>
+          <Text style={[s.moneyRight, { fontSize: v11(dense), color: pdfTokens.inkStrong }]}>
             {inr(totalPaid)}
           </Text>
-          <Text style={[styles.moneyRight, { color: pdfTokens.muted }]}>
+          <Text style={[s.moneyRight, { color: pdfTokens.muted }]}>
             {inr(Math.max(receipt.outstandingAfterReceipt, 0))}
           </Text>
         </View>
 
         {rows.some((row) => row.pendingBefore !== null || row.pendingAfter !== null) ? (
-          <Text style={{ fontSize: 6.5, color: pdfTokens.muted, marginTop: 3 }}>
-            {`${L.owedNote.en} ${L.owedNote.hi}`}
-          </Text>
+          // Two runs: Helvetica has no Devanagari, and one Text printed the
+          // Hindi half as mojibake.
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline" }}>
+            <Text style={s.note}>{`${L.owedNote.en}\u00A0`}</Text>
+            <Text style={[s.note, { fontFamily: HI_FONT }]}>{L.owedNote.hi}</Text>
+          </View>
         ) : null}
 
         {receipt.discountAmount > 0 || receipt.lateFeeAmount > 0 || receipt.lateFeeWaived > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 6, gap: 10 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: dense ? 3 : 5, gap: 10 }}>
             {receipt.discountAmount > 0 ? (
               <MoneyWithLabel labelEn="Discount applied" value={receipt.discountAmount} size={7.5} />
             ) : null}
@@ -508,9 +568,8 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
 
         {receipt.conventionalDiscountAssignments.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>{L.discountPolicies.en}</Text>
-            <Text style={styles.sectionTitleHi}>{L.discountPolicies.hi}</Text>
-            <View style={sharedStyles.tableHeader}>
+            <SectionTitle s={s} label={L.discountPolicies} />
+            <View style={[sharedStyles.tableHeader, s.tableHeader]}>
               <Th label={L.policy} />
               <Th label={L.tuitionBefore} right />
               <Th label={L.tuitionAfter} right />
@@ -520,11 +579,13 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
                 rule is that the lowest candidate tuition wins; showing only the
                 winner would hide what else was considered. */}
             {receipt.conventionalDiscountAssignments.map((policy) => (
-              <View key={policy.assignmentId} style={sharedStyles.tableRow}>
+              <View key={policy.assignmentId} style={[sharedStyles.tableRow, s.tableRow]}>
                 <Text style={sharedStyles.th}>{policy.policyDisplayName}</Text>
-                <Text style={styles.moneyRight}>{inr(policy.beforeTuitionAmount)}</Text>
-                <Text style={styles.moneyRight}>{inr(policy.resultingTuitionAmount)}</Text>
-                <View style={sharedStyles.thRight}>
+                <Text style={s.moneyRight}>{inr(policy.beforeTuitionAmount)}</Text>
+                <Text style={s.moneyRight}>{inr(policy.resultingTuitionAmount)}</Text>
+                {/* Under its "Applied" heading, at the right: the badge sets its
+                    own alignSelf, so the row places it. */}
+                <View style={{ flex: 1, flexDirection: "row", justifyContent: "flex-end" }}>
                   <Badge tone={policy.isWinningPolicy ? "success" : "neutral"}>
                     {policy.isWinningPolicy ? "Applied" : "Superseded"}
                   </Badge>
@@ -536,15 +597,14 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
 
         {receipt.installmentStatus.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>{L.yearAtGlance.en}</Text>
-            <Text style={styles.sectionTitleHi}>{L.yearAtGlance.hi}</Text>
-            <View style={styles.tileGrid}>
+            <SectionTitle s={s} label={L.yearAtGlance} />
+            <View style={s.tileGrid}>
               {receipt.installmentStatus.map((item) => {
                 const settled = item.status === "paid";
                 return (
-                  <View key={`${item.installmentNo}-${item.label}`} style={styles.tile}>
-                    <View style={[styles.tileInner, settled ? styles.tileInnerPaid : {}]}>
-                      <Text style={styles.tileLabel}>{item.label.toUpperCase()}</Text>
+                  <View key={`${item.installmentNo}-${item.label}`} style={[s.tile, { width: tileWidth }]}>
+                    <View style={[s.tileInner, settled ? s.tileInnerPaid : {}]}>
+                      <Text style={s.tileLabel}>{item.label.toUpperCase()}</Text>
                       {settled ? (
                         <Text
                           style={{
@@ -561,7 +621,7 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
                           {L.paidTick.en.toUpperCase()}
                         </Text>
                       ) : (
-                        <View style={styles.tileValueRow}>
+                        <View style={s.tileValueRow}>
                           <Text
                             style={{
                               fontSize: 11,
@@ -572,38 +632,38 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
                             {inr(item.pending)}
                           </Text>
                           <Text style={{ fontSize: 8, color: pdfTokens.muted }}>
-                            {` ${L.due.en}`}
+                            {`\u00A0${L.due.en}`}
                           </Text>
                         </View>
                       )}
-                      <Text style={styles.tileDate}>{formatPdfDate(item.dueDate)}</Text>
+                      <Text style={s.tileDate}>{formatPdfDate(item.dueDate)}</Text>
                     </View>
                   </View>
                 );
               })}
             </View>
-            <View style={styles.strip}>
-              <View style={styles.stripRow}>
+            {/* The screen's totals strip: expected and paid on the left, what is
+                still due on the right, on one line. */}
+            <View style={s.strip}>
+              <View style={s.stripRow}>
                 <MoneyWithLabel labelEn={L.totalExpected.en} value={receipt.totalDue} size={8} />
                 <Text style={{ fontSize: 8, color: pdfTokens.muted }}>{"   ·   "}</Text>
                 <MoneyWithLabel labelEn={L.paidSoFar.en} value={receipt.totalPaidToDate} size={8} />
               </View>
-              <View style={{ marginTop: 3 }}>
-                {outstanding > 0 ? (
-                  <MoneyWithLabel
-                    labelEn={L.balanceDue.en}
-                    labelHi={L.balanceDue.hi}
-                    value={outstanding}
-                    bold
-                    color={pdfTokens.warning}
-                    size={9}
-                  />
-                ) : (
-                  <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: pdfTokens.success }}>
-                    {L.allClear.en}
-                  </Text>
-                )}
-              </View>
+              {outstanding > 0 ? (
+                <MoneyWithLabel
+                  labelEn={L.balanceDue.en}
+                  labelHi={L.balanceDue.hi}
+                  value={outstanding}
+                  bold
+                  color={pdfTokens.warning}
+                  size={9}
+                />
+              ) : (
+                <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: pdfTokens.success }}>
+                  {L.allClear.en}
+                </Text>
+              )}
             </View>
           </>
         ) : null}
@@ -629,28 +689,28 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
           </Text>
         ) : null}
 
-        {/* Stamps, signature and stub travel together.
-            Most receipts fit one page; a student carrying a previous-year
-            balance has five year tiles and legitimately runs to two. What must
-            never happen either way is this block SPLITTING — a signature at the
-            foot of page one and a tear-off stub at the head of page two is two
-            broken halves rather than one document. `wrap={false}` moves the
-            whole block to the next page instead. */}
+        {/* Stamps, signature and stub travel together, and are never split —
+            a signature at the foot of page one and a tear-off stub at the head
+            of page two is two broken halves rather than one document. The
+            stamps sit over the statement, beside the signature, rather than on
+            a row of their own. */}
         <View wrap={false}>
-        <View style={{ flexDirection: "row", gap: 6, marginTop: 12 }}>
-          {isVoided ? <Badge tone="danger">REVERSED</Badge> : <Badge tone="success">PAID</Badge>}
-          {isYearClear ? <Badge tone="success">YEAR CLEARED</Badge> : null}
-        </View>
-
         <SignatureBlock
           signature={signature}
           statementEn={L.official.en}
           statementHi={L.official.hi}
+          tight
+          lead={
+            <View style={{ flexDirection: "row", gap: 6, marginBottom: 5 }}>
+              {isVoided ? <Badge tone="danger">REVERSED</Badge> : <Badge tone="success">PAID</Badge>}
+              {isYearClear ? <Badge tone="success">YEAR CLEARED</Badge> : null}
+            </View>
+          }
         />
 
-        <View style={styles.perforation} />
-        <View style={styles.stub}>
-          <View style={styles.stubRow}>
+        <View style={s.perforation} />
+        <View style={s.stub}>
+          <View style={s.stubRow}>
             <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: pdfTokens.inkStrong }}>
               {`${L.receiptNo.en} ${receipt.receiptNumber}`}
             </Text>
@@ -662,7 +722,7 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
               size={9}
             />
           </View>
-          <View style={[styles.stubRow, { marginTop: 3 }]}>
+          <View style={[s.stubRow, { marginTop: 3 }]}>
             <Text style={{ fontSize: 8, color: pdfTokens.muted }}>
               {`${receipt.studentFullName}  ·  ${receipt.classLabel}`}
             </Text>
@@ -682,16 +742,16 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
                 {inr(outstanding)}
               </Text>
               <Text style={{ fontSize: 8, color: pdfTokens.muted }}>
-                {` — kindly pay by ${formatPdfDate(nextDue.dueDate)}`}
+                {`\u00A0— kindly pay by ${formatPdfDate(nextDue.dueDate)}`}
               </Text>
             </View>
           ) : null}
-          <Text style={{ fontSize: 7.5, color: pdfTokens.muted, marginTop: 4 }}>
-            {L.keepRecords.en}
-          </Text>
-          <Text style={{ fontSize: 7.5, color: pdfTokens.muted, fontFamily: HI_FONT }}>
-            {L.keepRecords.hi}
-          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", marginTop: 4 }}>
+            <Text style={{ fontSize: 7.5, color: pdfTokens.muted }}>{`${L.keepRecords.en}  `}</Text>
+            <Text style={{ fontSize: 7.5, color: pdfTokens.muted, fontFamily: HI_FONT }}>
+              {L.keepRecords.hi}
+            </Text>
+          </View>
         </View>
         </View>
 
@@ -699,6 +759,11 @@ export async function renderReceiptPdf({ receipt }: ReceiptPdfInput): Promise<Bu
           {`${schoolProfile.name} · computer-generated receipt · ${receipt.receiptNumber}`}
         </Text>
       </Page>
-    </Document>,
+    </Document>
   );
+}
+
+/** The total's figure, a size smaller when the sheet is set tight. */
+function v11(dense: boolean): number {
+  return dense ? 10 : 11;
 }

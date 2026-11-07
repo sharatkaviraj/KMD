@@ -34,6 +34,10 @@ type ReceiptDocumentProps = {
    * simplified layout available for reprint parity.
    */
   layout?: "v2" | "v3";
+  /** V3 only: print this receipt alone on one A4 sheet (defaults to `embedPageStyles`). */
+  printSolo?: boolean;
+  /** V3 only: open the print dialog once the page is ready (`?print=1`). */
+  autoPrint?: boolean;
 };
 
 /**
@@ -47,6 +51,8 @@ export function ReceiptDocument({
   mode = "print",
   embedPageStyles = true,
   layout = "v3",
+  printSolo,
+  autoPrint,
 }: ReceiptDocumentProps) {
   if (layout === "v2") {
     return (
@@ -67,6 +73,8 @@ export function ReceiptDocument({
       className={className}
       mode={mode}
       embedPageStyles={embedPageStyles}
+      printSolo={printSolo}
+      autoPrint={autoPrint}
     />
   );
 }

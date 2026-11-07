@@ -1,5 +1,20 @@
 # VPPS One — progress
 
+## One receipt, everywhere, on one sheet — 7 November 2026
+
+Owner asked (7 Nov) for One's receipt to look like the Fees receipt preview
+wherever it is shown, and to print on a single A4 sheet looking the same.
+Branch `claude/project-thread-f7ft7x`, D-502 to D-505. **Done:** the receipt
+page, the receipts desk's side panel (now 520 px, with Print A4 and Download
+PDF above the paper) and the ported Fees receipt page all show the Fees A4
+receipt; the phone gets the whole receipt in two columns instead of the
+counter slip. Print A4 prints it alone, fitted to one sheet; Collect's and the
+payment desk's Print open the full receipt and print it. The PDF is one page
+(`tests/receipt-pdf-one-page.test.ts`). Checked in a container browser with
+synthetic receipts (`tests/mobile-ui/receipt-paper.html`, `?view=source|desk`,
+`&heavy=1`): phone, desktop, desk panel and Chrome's A4 print, one page each.
+**Remains:** a split-tender payment still prints from Fees' own print page.
+
 ## One AI page, and the connector on its own — 7 November 2026
 
 Owner asked (7 Nov) for one AI page in Settings instead of three, the MCP

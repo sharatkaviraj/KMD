@@ -10,6 +10,7 @@ import type { ReceiptDetail } from "@/modules/receipts/domain/types";
 import { cn } from "@/platform/utils";
 
 import { isYearCleared } from "@/modules/fees/domain/year-clear";
+import { ReceiptPrintFit } from "@/modules/receipts/ui/receipt-print-fit";
 import type {
   BilingualReceiptTranslator,
   ReceiptTranslator,
@@ -26,6 +27,23 @@ import type {
  * Fully bilingual like V2: every label renders English with Devanagari Hindi
  * underneath, because this is a parent-facing document. Figures and dates stay
  * in Latin digits. V2 remains available for reprints (`layout=v2`).
+ *
+ * In One it is the only receipt (owner, 7 Nov 2026: "make the receipt look like
+ * this throughout the app"): the receipt page on a phone and a desk, the
+ * receipts desk's side panel and the printed A4 sheet are this one render.
+ * Two things make that work:
+ *
+ *  - **It lays itself out by its own width, not the window's.** The 460 px
+ *    panel beside the receipts list sits in a 1366 px window; with the
+ *    window's breakpoints it squeezed four columns into the panel. Container
+ *    queries (`@container rcpt`) give the panel, the phone and Fees' phone
+ *    sheet the same two-column paper, and a desk or a sheet of A4 the four.
+ *  - **It prints on one sheet.** `@page` margin is 0 and the sheet carries its
+ *    own 10 mm, so the browser's URL-and-date header has nowhere to print;
+ *    print spacing is compact; and `receipt-print-fit` zooms an unusually long
+ *    receipt down just before printing rather than let its stub fall onto a
+ *    second page. `printSolo` (on by default) hides everything else on the
+ *    page while printing, so the app around the receipt never reaches paper.
  */
 
 const formatDate = (value: string) => formatMediumDate(value);
@@ -115,12 +133,180 @@ function statusTileTone(status: "paid" | "partial" | "overdue" | "pending") {
   return "border-border bg-surface-2 text-muted-foreground";
 }
 
+/** "Amet-Kelwa Road, Amet, 313332 · 7976199548 · info@vpps.co.in", as Fees prints it. */
+const contactLine = [schoolProfile.letterhead.address, schoolProfile.letterhead.phone, schoolProfile.letterhead.email]
+  .map((value) => value.trim())
+  .filter(Boolean)
+  .join(" · ");
+
+/** A4 with no browser margin: the sheet carries its own 10 mm (see RECEIPT_V3_STYLES). */
+const RECEIPT_V3_PAGE = `@page { size: A4; margin: 0; }`;
+
+/**
+ * The print spacing, written once and applied twice: to paper, and to the
+ * `.rcpt-measure` pass that `receipt-print-fit` lays out at A4 just before
+ * printing, so the height it measures is the height that prints.
+ */
+const printSpacing = (p: string) => `
+  ${p} { width: 210mm; max-width: none; padding: 10mm; zoom: var(--rcpt-fit, 1); }
+  ${p} .rcpt-head { padding: 0; }
+  ${p} .rcpt-head > div:first-child { padding-bottom: 6px; }
+  ${p} .rcpt-logo { width: 40px; height: 40px; margin-bottom: 2px; }
+  ${p} .rcpt-name { font-size: 19px; }
+  ${p} .rcpt-title { margin-top: 4px; }
+  ${p} .rcpt-numbers { padding-top: 5px; padding-bottom: 5px; }
+  ${p} .rcpt-body { padding: 6px 0 0; }
+  ${p} .rcpt-hero { margin-top: 8px; padding: 6px 14px; }
+  ${p} .rcpt-amount { font-size: 26px; }
+  ${p} .rcpt-sec { margin-top: 8px; }
+  ${p} .rcpt-sec > :nth-child(2) { margin-top: 4px; }
+  ${p} .rcpt-sec ul > li + li { margin-top: 4px; }
+  ${p} .rcpt-policy { padding-top: 3px; padding-bottom: 3px; }
+  ${p} .receipt-particulars th, ${p} .receipt-particulars td { padding-top: 2px; padding-bottom: 2px; line-height: 1.3; }
+  ${p} .rcpt-tiles > div { padding-top: 4px; padding-bottom: 4px; }
+  ${p} .rcpt-strip { margin-top: 4px; padding-top: 4px; padding-bottom: 4px; }
+  ${p} .rcpt-foot { margin-top: 10px; padding-top: 6px; }
+  ${p} .rcpt-stamps { display: flex; }
+  ${p} .rcpt-perf { margin-top: 8px; }
+  ${p} .rcpt-stub { padding: 6px 14px; }
+`;
+
+/**
+ * Printing one receipt alone: every element that neither is the receipt, nor
+ * holds it, nor sits inside it is hidden, and the ones that hold it become
+ * plain blocks with no padding, zoom or size containment of their own — the
+ * app's shell, sheets and side panels never reach the paper, whichever screen
+ * the receipt was printed from.
+ */
+const SOLO = ".receipt-print-page[data-receipt-solo]";
+const soloPrint = `
+  html:has(${SOLO}), body:has(${SOLO}) { margin: 0 !important; padding: 0 !important; background: #fffdf7 !important; }
+  body:has(${SOLO}) *:not(:has(${SOLO})):not(${SOLO}):not(${SOLO} *) { display: none !important; }
+  body:has(${SOLO}) *:has(${SOLO}) {
+    display: block !important; position: static !important; inset: auto !important;
+    margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+    box-shadow: none !important; background: transparent !important;
+    width: auto !important; max-width: none !important; min-width: 0 !important;
+    height: auto !important; max-height: none !important; min-height: 0 !important;
+    overflow: visible !important; transform: none !important; animation: none !important;
+    zoom: 1 !important; contain: none !important; container-type: normal !important;
+    filter: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  ${SOLO} { margin: 0 auto !important; animation: none !important; break-inside: avoid; page-break-inside: avoid; }
+`;
+
+const RECEIPT_V3_STYLES = `
+  .receipt-print-page {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    container: rcpt / inline-size;
+  }
+
+  /* Paper stock. The phone slip and this document are the same object to
+     a parent — one is handed over at the counter, the other comes out of
+     the printer — so they share the warm off-white the design uses for
+     receipt paper rather than the app's card white. */
+  .receipt-paper {
+    background: #fffdf7;
+  }
+
+  /* Its own width decides the layout (see the note at the top of the file):
+     two columns on a phone or in a side panel, four on a desk and on A4. */
+  .rcpt-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  .rcpt-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+  .rcpt-policy { display: grid; }
+  @container rcpt (min-width: 560px) {
+    .rcpt-head { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .rcpt-name { font-size: 1.375rem; }
+    .rcpt-body { padding: 1.25rem; }
+    .rcpt-hero { padding-left: 1.25rem; padding-right: 1.25rem; }
+    .rcpt-amount { font-size: 2.25rem; }
+    .rcpt-meta { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .rcpt-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .rcpt-policy { grid-template-columns: 1fr auto auto auto; column-gap: 1rem; align-items: center; }
+    .rcpt-stamps, .rcpt-wide-flex { display: flex; }
+  }
+
+  /* Dotted leaders. On the phone slip these run horizontally from a
+     particular to its amount, because that layout is two columns. This
+     document carries four — installment, pending before, paid, balance
+     after — which is more than a parent gets on the counter slip and
+     worth keeping. So the leader becomes the rule BETWEEN rows: same
+     dotted paper-ledger texture, without collapsing four columns into
+     two to chase the mock literally. */
+  .receipt-particulars tbody tr {
+    border-top: 1px dotted hsl(222 12% 74%) !important;
+  }
+  .receipt-particulars tbody tr.receipt-total-row {
+    border-top: 2px solid hsl(222 25% 14%) !important;
+    border-bottom: 2px solid hsl(222 25% 14%) !important;
+  }
+
+  /* The measuring pass: laid out at A4 width with the print spacing. */
+  ${printSpacing(".receipt-print-page.rcpt-measure")}
+  .receipt-print-page.rcpt-measure { position: absolute !important; left: 0; top: 0; visibility: hidden; }
+
+  @media print {
+    nav, aside, .no-print {
+      display: none !important;
+    }
+
+    .receipt-body {
+      margin: 0 auto;
+    }
+
+    ${printSpacing(SOLO)}
+    ${soloPrint}
+
+    /* On screen the ink band carries the hierarchy. On paper a
+       full-width near-black slab per receipt is just toner — and the
+       family batch reprint emits one per sibling page. Invert to paper
+       with a saffron rule; the header keeps its weight without the
+       flood fill. */
+    .receipt-ink-band {
+      background: #ffffff !important;
+      color: hsl(var(--foreground)) !important;
+      border-bottom: 2px solid hsl(var(--accent));
+      padding-bottom: 0.5rem;
+    }
+    .receipt-ink-band .receipt-ink-muted {
+      color: hsl(var(--muted-foreground)) !important;
+    }
+    /* Explicit text-nav-foreground children win over the band's
+       inherited colour, so restate them for paper. */
+    .receipt-ink-band .text-nav-foreground {
+      color: hsl(var(--foreground)) !important;
+    }
+    .receipt-ink-band .receipt-ink-logo {
+      border-color: hsl(var(--border)) !important;
+    }
+
+    .receipt-print-page table {
+      border-collapse: collapse;
+    }
+    .receipt-print-page th,
+    .receipt-print-page td {
+      padding-top: 0.2rem;
+      padding-bottom: 0.2rem;
+    }
+  }
+`;
+
 type ReceiptDocumentV3Props = {
   receipt: ReceiptDetail;
   t: BilingualReceiptTranslator;
   className?: string;
   mode?: "print" | "draft" | "saved";
   embedPageStyles?: boolean;
+  /**
+   * Print this receipt alone, on one A4 sheet: everything else on the page is
+   * hidden while printing and the sheet is fitted (see receipt-print-fit).
+   * Defaults to `embedPageStyles`, so a batch reprint that paginates several
+   * receipts itself keeps its own layout.
+   */
+  printSolo?: boolean;
+  /** Open the print dialog once the page is ready (`?print=1`). */
+  autoPrint?: boolean;
 };
 
 export function ReceiptDocumentV3({
@@ -129,6 +315,8 @@ export function ReceiptDocumentV3({
   className,
   mode = "print",
   embedPageStyles = true,
+  printSolo = embedPageStyles,
+  autoPrint = false,
 }: ReceiptDocumentV3Props) {
   const isDraft = mode === "draft";
 
@@ -161,87 +349,15 @@ export function ReceiptDocumentV3({
     <article
       className={`receipt-body receipt-print-page receipt-paper anim-slide-up relative mx-auto w-full max-w-5xl overflow-hidden rounded-lg border border-border text-foreground shadow-sm print:max-w-none print:rounded-none print:border-0 print:shadow-none ${className ?? ""}`.trim()}
       data-receipt-layout="v3"
+      data-receipt-solo={printSolo ? "" : undefined}
     >
-      <style>{`
-        ${embedPageStyles ? `@page {
-          size: A4;
-          margin: 12mm;
-        }` : ""}
-
-        .receipt-print-page {
-          print-color-adjust: exact;
-          -webkit-print-color-adjust: exact;
-        }
-
-        /* Paper stock. The phone slip and this document are the same object to
-           a parent — one is handed over at the counter, the other comes out of
-           the printer — so they share the warm off-white the design uses for
-           receipt paper rather than the app's card white. */
-        .receipt-paper {
-          background: #fffdf7;
-        }
-
-        /* Dotted leaders. On the phone slip these run horizontally from a
-           particular to its amount, because that layout is two columns. This
-           document carries four — installment, pending before, paid, balance
-           after — which is more than a parent gets on the counter slip and
-           worth keeping. So the leader becomes the rule BETWEEN rows: same
-           dotted paper-ledger texture, without collapsing four columns into
-           two to chase the mock literally. */
-        .receipt-particulars tbody tr {
-          border-top: 1px dotted hsl(222 12% 74%) !important;
-        }
-        .receipt-particulars tbody tr.receipt-total-row {
-          border-top: 2px solid hsl(222 25% 14%) !important;
-          border-bottom: 2px solid hsl(222 25% 14%) !important;
-        }
-
-        @media print {
-          nav, aside, .no-print {
-            display: none !important;
-          }
-
-          .receipt-body {
-            margin: 0 auto;
-          }
-
-          /* On screen the ink band carries the hierarchy. On paper a
-             full-width near-black slab per receipt is just toner — and the
-             family batch reprint emits one per sibling page. Invert to paper
-             with a saffron rule; the header keeps its weight without the
-             flood fill. */
-          .receipt-ink-band {
-            background: #ffffff !important;
-            color: hsl(var(--foreground)) !important;
-            border-bottom: 2px solid hsl(var(--accent));
-            padding-bottom: 0.5rem;
-          }
-          .receipt-ink-band .receipt-ink-muted {
-            color: hsl(var(--muted-foreground)) !important;
-          }
-          /* Explicit text-nav-foreground children win over the band's
-             inherited colour, so restate them for paper. */
-          .receipt-ink-band .text-nav-foreground {
-            color: hsl(var(--foreground)) !important;
-          }
-          .receipt-ink-band .receipt-ink-logo {
-            border-color: hsl(var(--border)) !important;
-          }
-
-          .receipt-print-page table {
-            border-collapse: collapse;
-          }
-          .receipt-print-page th,
-          .receipt-print-page td {
-            padding-top: 0.2rem;
-            padding-bottom: 0.2rem;
-          }
-        }
-      `}</style>
+      <style>{RECEIPT_V3_STYLES}</style>
+      {embedPageStyles ? <style>{RECEIPT_V3_PAGE}</style> : null}
+      {printSolo ? <ReceiptPrintFit autoPrint={autoPrint} /> : null}
 
       {isDraft ? (
         <div
-          className="pointer-events-none absolute inset-0 z-20 hidden items-center justify-center text-center text-5xl font-semibold uppercase text-foreground/10 sm:flex print:flex"
+          className="rcpt-wide-flex pointer-events-none absolute inset-0 z-20 hidden items-center justify-center text-center text-5xl font-semibold uppercase text-foreground/10 print:flex"
           aria-hidden="true"
         >
           {t.en("draftWatermark")}
@@ -262,33 +378,30 @@ export function ReceiptDocumentV3({
           printed as toner and, on a family batch reprint, once per sibling
           page. A centred letterhead over a double rule is what a fee slip
           actually looks like, and it costs nothing to print. */}
-      <header className="px-4 pt-5 sm:px-6">
+      <header className="rcpt-head px-4 pt-5">
         <div className="flex flex-col items-center border-b-2 border-[hsl(222_25%_14%)] pb-3 text-center">
           <Image
             src="/branding/veer-patta-school-logo.jpg"
             alt={`${schoolProfile.name} logo`}
             width={96}
             height={96}
-            className="mb-2 size-12 object-contain"
+            priority
+            className="rcpt-logo mb-2 size-14 object-contain"
           />
-          <h1 className="font-display text-lg font-bold leading-tight tracking-tight sm:text-xl">
+          <h1 className="rcpt-name font-display text-xl font-bold leading-tight tracking-tight">
             {schoolProfile.name}
           </h1>
-          {schoolProfile.address || schoolProfile.phone || schoolProfile.email ? (
-            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-              {[schoolProfile.address, schoolProfile.phone, schoolProfile.email]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
+          {contactLine ? (
+            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{contactLine}</p>
           ) : null}
-          <span className="mt-2.5 inline-block border border-[hsl(222_25%_14%)] px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.16em]">
+          <span className="rcpt-title mt-2.5 inline-block border border-[hsl(222_25%_14%)] px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.16em]">
             <BiKey t={t} k="feeReceiptHeading" />
           </span>
         </div>
 
         {/* Number / date row — monospace between dashed rules, so the two
             things a parent quotes back to the office read as a ledger line. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-dashed border-[hsl(222_12%_70%)] py-2.5 font-mono text-[11px]">
+        <div className="rcpt-numbers flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-dashed border-[hsl(222_12%_70%)] py-2.5 font-mono text-[11px]">
           <span>
             {t.en("receiptNo")} <b className="tracking-tight">{receipt.receiptNumber}</b>
           </span>
@@ -299,7 +412,7 @@ export function ReceiptDocumentV3({
         </div>
       </header>
 
-      <div className="p-3 sm:p-5 print:p-0 print:pt-3">
+      <div className="rcpt-body p-3 print:p-0 print:pt-3">
         {receipt.isVoided ? (
           <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive-soft px-4 py-2.5 text-sm text-destructive-soft-foreground">
             <p className="font-semibold">
@@ -309,7 +422,7 @@ export function ReceiptDocumentV3({
         ) : null}
 
         {/* 2. Four-column meta */}
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <section className="rcpt-meta">
           <div className="border-l-2 border-accent pl-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               <BiKey t={t} k="studentName" />
@@ -359,13 +472,13 @@ export function ReceiptDocumentV3({
         </section>
 
         {/* 3. Amount hero */}
-        <section className="mt-4 rounded-xl border border-success/30 bg-success-soft px-4 py-3.5 sm:px-5">
+        <section className="rcpt-hero mt-4 rounded-xl border border-success/30 bg-success-soft px-4 py-3.5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-success-soft-foreground/80">
                 <BiKey t={t} k="v2TotalPaid" hiClassName="text-success-soft-foreground/70" />
               </p>
-              <p className="font-display-money mt-0.5 text-3xl leading-tight text-success-soft-foreground sm:text-4xl">
+              <p className="rcpt-amount font-display-money mt-0.5 text-3xl leading-tight text-success-soft-foreground">
                 {formatInr(totalPaid)}
               </p>
             </div>
@@ -391,12 +504,21 @@ export function ReceiptDocumentV3({
         </section>
 
         {/* 4. What this receipt paid */}
-        <section className="mt-4">
+        <section className="rcpt-sec mt-4">
           <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <BiKey t={t} k="whatThisReceiptPaidHeading" />
           </h2>
           <div className="mt-2 overflow-hidden rounded-lg border border-border">
             <table className="receipt-particulars w-full table-fixed text-left text-xs">
+              {/* The instalment's name is the longest thing in the row
+                  ("Installment 1 (20-04-2026)"): four equal columns broke it
+                  over three lines on a phone. */}
+              <colgroup>
+                <col className="w-[34%]" />
+                <col className="w-[22%]" />
+                <col className="w-[22%]" />
+                <col className="w-[22%]" />
+              </colgroup>
               <thead className="bg-surface-2 text-[10px] uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-2.5 py-2">
@@ -476,7 +598,7 @@ export function ReceiptDocumentV3({
         {/* 4b. Conventional discount audit — same contract as V2: every
             considered policy renders, exactly one tagged Applied. */}
         {receipt.conventionalDiscountAssignments.length > 0 ? (
-          <section className="mt-4 rounded-lg border border-accent/25 bg-accent-soft/40 px-3 py-2">
+          <section className="rcpt-sec mt-4 rounded-lg border border-accent/25 bg-accent-soft/40 px-3 py-2">
             <h3 className="text-sm font-semibold text-foreground">
               <BiKey t={t} k="conventionalDiscountHeading" hiClassName="text-xs" />
             </h3>
@@ -485,7 +607,7 @@ export function ReceiptDocumentV3({
                 <li
                   key={row.policyCode}
                   className={cn(
-                    "grid gap-1 rounded-md border px-2.5 py-1.5 text-xs sm:grid-cols-[1fr_auto_auto_auto]",
+                    "rcpt-policy gap-1 rounded-md border px-2.5 py-1.5 text-xs",
                     row.isWinningPolicy
                       ? "border-accent/40 bg-card"
                       : "border-border bg-surface-2/40 opacity-80",
@@ -537,11 +659,11 @@ export function ReceiptDocumentV3({
 
         {/* 5. Year at a glance */}
         {receipt.installmentStatus.length > 0 ? (
-          <section className="mt-4">
+          <section className="rcpt-sec mt-4">
             <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               <BiKey t={t} k="installmentStatusHeading" />
             </h2>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rcpt-tiles mt-2">
               {receipt.installmentStatus.map((row) => (
                 <div
                   key={`status-${row.installmentNo}-${row.label}`}
@@ -559,7 +681,7 @@ export function ReceiptDocumentV3({
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-surface-2/60 px-3 py-2 text-[11px]">
+            <div className="rcpt-strip mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-surface-2/60 px-3 py-2 text-[11px]">
               <span className="text-muted-foreground">
                 {t.en("totalExpectedThisYear")}:{" "}
                 <span className="font-semibold tabular-nums text-foreground">
@@ -594,7 +716,7 @@ export function ReceiptDocumentV3({
              production was http://localhost:3000, so every QR ever printed
              pointed at nothing. A square that cannot work is worse than no
              square: it invites a parent to try. */}
-        <footer className="mt-5 flex items-end justify-between gap-4 border-t border-border pt-4">
+        <footer className="rcpt-foot mt-5 flex items-end justify-between gap-4 border-t border-border pt-4">
           <div className="flex items-center gap-3">
             <div className="max-w-[260px] text-[10px] leading-4 text-muted-foreground">
               <p>
@@ -607,7 +729,7 @@ export function ReceiptDocumentV3({
               it PAID as well would be the document contradicting itself in the
               parent's hand. */}
           {!receipt.isVoided ? (
-            <div className="hidden shrink-0 flex-col items-center gap-1 sm:flex print:flex">
+            <div className="rcpt-stamps hidden shrink-0 flex-col items-center gap-1 print:flex">
               <Stamp variant="paid" size="md" className="text-[13px]">
                 {t.en("paidStamp")}
               </Stamp>
@@ -651,7 +773,7 @@ export function ReceiptDocumentV3({
             band detaches even before anyone reads the label. */}
         <div
           aria-hidden="true"
-          className="mt-5 flex h-2.5 items-start justify-between overflow-hidden px-1"
+          className="rcpt-perf mt-5 flex h-2.5 items-start justify-between overflow-hidden px-1"
         >
           {Array.from({ length: 42 }, (_, index) => (
             <span
@@ -661,7 +783,7 @@ export function ReceiptDocumentV3({
           ))}
         </div>
 
-        <section className="rounded-b-lg border border-dashed border-border-strong bg-[hsl(44_30%_96%)] px-4 py-3">
+        <section className="rcpt-stub rounded-b-lg border border-dashed border-border-strong bg-[hsl(44_30%_96%)] px-4 py-3">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5 text-xs">
             <span className="font-semibold text-foreground">
               {t.en("receiptNo")} {receipt.receiptNumber}

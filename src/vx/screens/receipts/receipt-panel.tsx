@@ -17,6 +17,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Btn, Pill, WhatsAppPreview, type Tone } from "@/vx/ui/primitives";
 
 import { deskHref } from "./href";
+import { PrintButton } from "./print-button";
 import { deskDay, deskTime } from "./look";
 import type { DeskProps, HistoryEvent, SelectedReceipt } from "./types";
 import { fill, receiptModeWord, REASON_SUB, REASON_WORD, SHARE_FOOTER, shareLines, W } from "./words";
@@ -38,8 +39,8 @@ function inWords(n: number): string {
 
 const HISTORY_DOT: Record<HistoryEvent["kind"], string> = { posted: "var(--acc)", asked: "var(--warn)", sent: "var(--ok)", read: "var(--ok)", reversed: "var(--bad)" };
 
-export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
-  const { receipt: r, perms, anchor, today, span } = props;
+export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt; paper?: React.ReactNode }) {
+  const { receipt: r, perms, anchor, today, span, paper } = props;
   const { tx, sub } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -161,6 +162,8 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         <Btn variant="ghost" icon="x" href={deskHref(base, {})} ariaLabel={tx(W.closeReceipt)} style={{ width: 36, height: 36, padding: 0 }} />
       </div>
 
+      {/* Only a page without the full receipt detail still draws this small card. */}
+      {paper ? null : (
       <div className="card" style={{ position: "relative", padding: "20px 20px 16px", display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 12, borderBottom: "1.5px dashed var(--bds)" }}>
           <Crest size={42} radius={12} still />
@@ -212,6 +215,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
           </span>
         ) : null}
       </div>
+      )}
 
       {reversedLine ? <Pill tone="bad" icon="undo" style={{ height: "auto", minHeight: 26, padding: "4px 10px", whiteSpace: "normal" }}><span id="rc-reversed-on">{reversedLine}</span></Pill> : null}
       {r.pendingRequest && !r.isReversed ? (
@@ -223,7 +227,19 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
       {!r.isReversed ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <Btn variant="pri" icon="send" onClick={() => setSheet("send")} style={{ height: 46 }}>{sendLabel}</Btn>
-          {tools ? (
+          {paper ? (
+            <>
+              {/* The receipt is on screen, so Print A4 prints it here, on one
+                  sheet — no new tab, no PDF viewer in between. */}
+              {perms.print ? (
+                <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                  <PrintButton variant="sec" label={tx(W.printA4)} busyLabel={tx(W.printBusy)} style={{ height: 46 }} />
+                  <Btn variant="sec" icon="download" href={pdf} target="_blank" prefetch={false} style={{ height: 46 }}>{tx(W.downloadPdf)}</Btn>
+                </div>
+              ) : null}
+              {canAskReverse ? <Btn variant="sec" icon="undo" onClick={() => setSheet("reverse")} style={{ color: "var(--bad)" }}>{tx(W.reverse)}</Btn> : null}
+            </>
+          ) : tools ? (
             <div className="g3" style={{ display: "grid", gridTemplateColumns: `repeat(${tools}, minmax(0, 1fr))`, gap: 8 }}>
               {/* Print and PDF were two buttons to the same PDF (accountant, UI). */}
               {perms.print ? <Btn variant="sec" icon="printer" href={pdf} target="_blank" prefetch={false}>{tx(W.printPdf)}</Btn> : null}
@@ -232,6 +248,10 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
           ) : null}
         </div>
       ) : null}
+
+      {/* The receipt itself: the Fees receipt, as it prints (owner, 7 Nov
+          2026), under the buttons that act on it. */}
+      {paper ? <div className="vx-receipt-paper">{paper}</div> : null}
 
       <div className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column" }}>
         <h2 className="sech" style={{ marginBottom: 8 }}>{tx(W.history)}</h2>
