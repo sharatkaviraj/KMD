@@ -92,9 +92,9 @@ function home(state: "home" | "later"): HomeData {
       { classId: C8, classLabel: "Class 8", subjectId: SCI, code: "SCI", name: "Science", nameHi: "विज्ञान", children: 28, mine: false },
     ],
     links: [
-      { paperId: id(306), classLabel: "Class 6", subjectCode: "Science", exam: "Half-yearly", entered: 31, total: 31, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
-      { paperId: id(307), classLabel: "Class 7", subjectCode: "Science", exam: "Half-yearly", entered: 12, total: 27, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
-      { paperId: id(308), classLabel: "Class 8", subjectCode: "Science", exam: "Half-yearly", entered: 0, total: 28, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
+      { paperId: id(306), classId: C6, classLabel: "Class 6", subjectCode: "Science", exam: "Half-yearly", entered: 31, total: 31, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
+      { paperId: id(307), classId: C7, classLabel: "Class 7", subjectCode: "Science", exam: "Half-yearly", entered: 12, total: 27, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
+      { paperId: id(308), classId: C8, classLabel: "Class 8", subjectCode: "Science", exam: "Half-yearly", entered: 0, total: 28, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
     ],
     canMark: true,
     staffId: id(900),
