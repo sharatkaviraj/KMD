@@ -54,6 +54,12 @@ const MODEL_NAMES: Record<string, string> = {
   "openrouter/free": "OpenRouter's pick",
 };
 
+/** Models that only listen: they hand a voice note to the next model as text. */
+const LISTENING_MODELS = new Set(["gpt-transcribe"]);
+export function isListeningModel(model: string | null | undefined): boolean {
+  return !!model && LISTENING_MODELS.has(model);
+}
+
 const cap = (word: string) => (word ? word[0].toUpperCase() + word.slice(1) : word);
 
 /** A model id as a person reads it: "Claude Haiku 5.5", "Nemotron 3.5 Super", "Gemini 3.5 Flash-Lite". */
@@ -143,7 +149,12 @@ export type TaskRow = {
   /** Who answered, most first. */
   providers: Slice[];
 };
-export type ModelRow = { provider: AiProvider | null; model: string; answered: number; tries: number; costInr: number };
+/**
+ * `answered` counts jobs this model finished. A listening model never finishes a
+ * job: it turns a voice note into text for the next model, so its good tries are
+ * counted as `heard` instead, and it would otherwise read "0 answered".
+ */
+export type ModelRow = { provider: AiProvider | null; model: string; answered: number; heard: number; tries: number; costInr: number };
 export type DayRow = { day: string; free: number; paid: number };
 export type Step = { provider: AiProvider | null; model: string | null; ok: boolean; problem: string | null };
 export type RecentJob = { at: string; task: string; kind: JobKind; provider: AiProvider | null; model: string | null; result: JobResult; costInr: number; test: boolean; who: string | null; trail: Step[] };
@@ -229,7 +240,7 @@ export function buildOverview(
   const model = (p: AiProvider | null, m: string | null) => {
     const key = `${p ?? "?"}|${m ?? "?"}`;
     let row = byModel.get(key);
-    if (!row) byModel.set(key, (row = { provider: p, model: m ?? "—", answered: 0, tries: 0, costInr: 0 }));
+    if (!row) byModel.set(key, (row = { provider: p, model: m ?? "—", answered: 0, heard: 0, tries: 0, costInr: 0 }));
     return row;
   };
 
@@ -300,6 +311,7 @@ export function buildOverview(
     const m = model(p, t.model);
     m.tries += t.n;
     m.costInr += inr;
+    if (t.outcome === "ok" && isListeningModel(t.model)) m.heard += t.n;
   }
 
   const days = new Map(daysFrom(opts.from, opts.today).map((d) => [d, { day: d, free: 0, paid: 0 }]));

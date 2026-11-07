@@ -20,7 +20,14 @@ Follow-up: the AI styles now apply in that layer and each sheet carries its
 own `.aip`; on a phone the arrows between stations no longer take taps meant
 for a station, and Show me / Listen scroll the lit station into view; a paid
 model with nothing spent shows ₹0, not "Free"; the connector's last "AI
-connection" wording now names the Claude / ChatGPT connector.
+connection" wording now names the Claude / ChatGPT connector. Live 11:21 UTC
+(PR 289); BrowserStack recheck on Galaxy M32 passed all four steps, desktop
+Chrome too (the Windows session could not be signed in from that thread).
+Second follow-up from that recheck: the voice listener (GPT Transcribe) never
+finishes a job, so it read "0 answered · 12 tries"; its good tries now count
+as "Heard 12 voice notes". A station's sheet now opens with this road's count
+and labels the model rows "all roads together", because NVIDIA Free read
+"Answered 2" on the station and "13 answered" in its sheet.
 **Remains:** nothing for this page.
 
 ## Felt and heard: haptics, short sounds and Listen — 7 November 2026

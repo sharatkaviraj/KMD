@@ -246,6 +246,8 @@ export const W = {
   answeredHere: (n: number) => p(`Answered ${n} this month`, `इस महीने ${n} जवाब`),
   stepNo: (n: number) => p(`Tries ${n === 1 ? "first" : `number ${n}`}`, `${n === 1 ? "सबसे पहले" : `${n}वें नंबर पर`} कोशिश`),
   models: p("Models", "मॉडल"),
+  onThisRoad: (n: number) => p(`On this road: ${n} answered this month`, `इस रास्ते पर: इस महीने ${n} जवाब`),
+  everyRoad: p("all roads together, this month", "सभी रास्ते मिलाकर, इस महीने"),
   usedFor: p("Used for", "किसके लिए"),
 
   // Cost
@@ -261,6 +263,7 @@ export const W = {
   byModel: p("Cost by model", "मॉडल के हिसाब से खर्च"),
   byModelSub: p("Every try costs, even when the next AI ends up answering.", "हर कोशिश का खर्च होता है, भले जवाब अगला AI दे।"),
   answered: (n: number) => p(`${n} answered`, `${n} जवाब`),
+  heard: (n: number) => p(`Heard ${n} voice ${n === 1 ? "note" : "notes"}`, `${n} आवाज़ें सुनीं`),
   triesN: (n: number) => p(`${n} ${n === 1 ? "try" : "tries"}`, `${n} कोशिश`),
   freeCost: p("Free", "मुफ़्त"),
   keys: p("Photo & voice keys", "फ़ोटो व आवाज़ की कुंजियाँ"),
