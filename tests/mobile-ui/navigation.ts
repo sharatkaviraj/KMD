@@ -15,3 +15,7 @@ export function useRouter() { return {
   prefetch: () => {},
 }; }
 export function useLinkStatus() { return { pending: false }; }
+// Server-side helpers some screens import transitively; a fixture never calls them.
+export function redirect(href: string): never { throw new Error(`redirect ${href}`); }
+export function notFound(): never { throw new Error("notFound"); }
+export const RedirectType = { push: "push", replace: "replace" } as const;

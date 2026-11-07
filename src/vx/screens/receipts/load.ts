@@ -11,6 +11,8 @@ import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { schoolToday } from "@/vx/format";
 
 import { listCloseEvents, pendingReversalRequest, pendingReversalsBySession, staffNamesForUsers } from "./data";
+import type { ReceiptDetail } from "@/modules/receipts/domain/types";
+
 import type { DeskProps, DeskRow, HistoryEvent, SelectedReceipt } from "./types";
 
 type Search = Record<string, string | string[] | undefined>;
@@ -18,7 +20,7 @@ type Search = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 /** Everything /receipts and /receipts/[receiptNumber] draw, from the URL. */
-export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, receiptNumber?: string): Promise<DeskProps> {
+export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, receiptNumber?: string): Promise<DeskProps & { paperDetail: ReceiptDetail | null }> {
   const today = schoolToday();
   const dateParam = one(search.date);
   const anchor = isIsoDate(dateParam) && dateParam <= today ? dateParam : today;
@@ -141,5 +143,8 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
     ),
     initial: { mode: one(search.mode), staff: one(search.staff), query: one(search.q) },
     perms,
+    // The whole receipt, for the paper the page draws on the server. Never
+    // handed to the desk itself: it stays out of the browser's props.
+    paperDetail: selectedRaw?.detail ?? null,
   };
 }

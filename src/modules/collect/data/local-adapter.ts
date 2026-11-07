@@ -40,7 +40,7 @@ export function localAdapter(info: MoneyPortInfo, roll: readonly DeskListStudent
       receiptId: input.receiptId, receiptNumber: input.receiptNumber, studentId: input.studentId, amount: input.amount,
       paymentDate: input.paymentDate, paymentMode: input.mode, tenders: null, receivedBy: info.staffName,
       lateFeeWaived: input.waived, remaining: input.remaining,
-      printHref: `/receipts/${encodeURIComponent(input.receiptNumber)}`, printExternal: false,
+      printHref: `/receipts/${encodeURIComponent(input.receiptNumber)}?print=1`, printExternal: false,
     };
   }
 

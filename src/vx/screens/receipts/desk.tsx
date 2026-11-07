@@ -106,7 +106,8 @@ export function DeskEmpty({ icon, title, body, action }: { icon: "receipt" | "se
   );
 }
 
-export function ReceiptsDesk(props: DeskProps) {
+/** `paper`: the receipt as Fees prints it, drawn on the server (`/receipts/[number]`). */
+export function ReceiptsDesk(props: DeskProps & { paper?: ReactNode }) {
   const { rows, anchor, today, span, view, selected, closeEvent, perms, sessionLabel } = props;
   const { tx } = useVx();
   const router = useRouter();
@@ -295,7 +296,7 @@ export function ReceiptsDesk(props: DeskProps) {
         {isClose ? (
           <ClosePanel {...props} />
         ) : (
-          <div className="stack" style={{ display: "grid", gridTemplateColumns: selected ? "minmax(0, 1fr) 460px" : "minmax(0, 1fr)", alignItems: "start", minHeight: "100%" }}>
+          <div className="stack" style={{ display: "grid", gridTemplateColumns: selected ? `minmax(0, 1fr) ${props.paper ? 520 : 460}px` : "minmax(0, 1fr)", alignItems: "start", minHeight: "100%" }}>
             {list}
             {selected ? (
               <aside className="unstick" style={{ position: "sticky", top: 64, height: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--bg)", animation: "xPush .36s var(--ease) both" }}>

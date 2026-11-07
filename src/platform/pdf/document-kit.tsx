@@ -318,7 +318,8 @@ export function ParentDocumentLetterhead({
   docTitleHi: string;
   logo?: PdfImage | null;
 }) {
-  const meta = [schoolProfile.address, schoolProfile.phone, schoolProfile.email]
+  // The parent's copy carries the same contact line as the receipt on screen.
+  const meta = [schoolProfile.letterhead.address, schoolProfile.letterhead.phone, schoolProfile.letterhead.email]
     .map((value) => value?.trim())
     .filter(Boolean)
     .join("  ·  ");
@@ -376,12 +377,18 @@ export function SignatureBlock({
   statementHi,
   captionEn = "AUTHORISED SIGNATURE",
   captionHi = "अधिकृत हस्ताक्षर",
+  lead,
+  tight = false,
 }: {
   signature?: PdfImage | null;
   statementEn?: string;
   statementHi?: string;
   captionEn?: string;
   captionHi?: string;
+  /** Above the statement, e.g. the receipt's PAID stamp, so it costs no row of its own. */
+  lead?: React.ReactNode;
+  /** Less space above the rule, for a document that must end on page one. */
+  tight?: boolean;
 }) {
   return (
     <View
@@ -389,14 +396,15 @@ export function SignatureBlock({
         flexDirection: "row",
         alignItems: "flex-end",
         justifyContent: "space-between",
-        marginTop: 16,
-        paddingTop: 10,
+        marginTop: tight ? 8 : 16,
+        paddingTop: tight ? 6 : 10,
         borderTopWidth: 0.5,
         borderTopColor: pdfTokens.rule,
         gap: 16,
       }}
     >
       <View style={{ flex: 1 }}>
+        {lead}
         {statementEn ? (
           <Text style={{ fontSize: 7.5, color: pdfTokens.muted }}>{statementEn}</Text>
         ) : null}

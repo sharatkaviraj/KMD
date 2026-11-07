@@ -2056,7 +2056,7 @@ function SavedPanel({
             </>
           ) : null}
           <div className="pd-tiles">
-            <Btn variant="sec" icon="printer" href={receiptHref}>{tx(W.print)}</Btn>
+            <Btn variant="sec" icon="printer" href={`${receiptHref}?print=1`}>{tx(W.print)}</Btn>
             <Btn variant="sec" icon="download" href={`/fees/receipts/${saved.receiptId}/pdf`} target="_blank" prefetch={false}>{tx(W.pdf)}</Btn>
           </div>
           <Btn variant="sec" icon="plus" full onClick={onNew} style={{ height: 48 }}>{tx(W.newPayment)}</Btn>

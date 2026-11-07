@@ -3,6 +3,8 @@ import { notFound, redirect, RedirectType } from "next/navigation";
 import { normalizedReceiptUrl } from "@/modules/receipts/vx/domain/reverse-sheet";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { ReceiptsDesk } from "@/vx/screens/receipts/desk";
+import { ReceiptDocument } from "@/modules/receipts/ui/receipt-document";
+import { createBilingualReceiptTranslator } from "@/platform/i18n/bilingual-receipt";
 import { loadReceiptsDesk } from "@/vx/screens/receipts/load";
 import { assertReceiptVisible, notFoundUnlessVisible } from "@/platform/auth/test-session-access";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
@@ -50,6 +52,10 @@ export default async function ReceiptPage({
   const requestedSession = typeof search.session === "string" ? search.session : null;
   const cookieSession = await getViewSessionCookie();
   const session = requestedSession ?? cookieSession;
+  // `?print=1` (Print from Collect or the desk): the page opens the print
+  // dialog itself once the receipt is ready, and a redirect keeps asking for it.
+  const autoPrint = search.print === "1";
+  const keepPrint = (href: string) => (autoPrint ? `${href}${href.includes("?") ? "&" : "?"}print=1` : href);
   if (usesCanonicalFees(staff, session)) {
     // A display number alone must never choose an unrelated local receipt.
     // Every refusal below explains itself rather than ending in a 404 (F02).
@@ -82,7 +88,7 @@ export default async function ReceiptPage({
       let found;
       try { found = await ask((sessionLabel) => lookupBridgeReceipt(number, sessionLabel).catch(askNextYear)); }
       catch (error) { return unavailable(error instanceof StopAsking ? error.reason : "error"); }
-      if (found) redirect(sourceReceiptHref(found.value.receiptNumber, found.value.receiptId, found.sessionLabel), RedirectType.replace);
+      if (found) redirect(keepPrint(sourceReceiptHref(found.value.receiptNumber, found.value.receiptId, found.sessionLabel)), RedirectType.replace);
       return unavailable("missing_link");
     }
 
@@ -101,12 +107,12 @@ export default async function ReceiptPage({
     // Refused and missing read alike, so the page never confirms a refused receipt exists.
     if (!read) return unavailable("unreadable");
     // Found under another year (or the link named none): the address says which, so it can be shared.
-    if (read.sessionLabel !== requestedSession) redirect(sourceReceiptHref(number, receiptId, read.sessionLabel), RedirectType.replace);
+    if (read.sessionLabel !== requestedSession) redirect(keepPrint(sourceReceiptHref(number, receiptId, read.sessionLabel)), RedirectType.replace);
     const feeRole = feePermissionsFor(staff.role);
     const mayReverse = feeRole.includes("payments:reverse_any");
-    return <CanonicalReceipt receipt={read.value} language={staff.language} canPrint={feeRole.includes("receipts:print")} canReverse={feesBridgeWritesEnabled() && mayReverse} mayReverse={mayReverse} />;
+    return <CanonicalReceipt receipt={read.value} language={staff.language} canPrint={feeRole.includes("receipts:print")} canReverse={feesBridgeWritesEnabled() && mayReverse} mayReverse={mayReverse} autoPrint={autoPrint} />;
   }
-  const props = await loadReceiptsDesk(staff, search, decodeURIComponent(receiptNumber));
+  const { paperDetail, ...props } = await loadReceiptsDesk(staff, search, decodeURIComponent(receiptNumber));
   if (!props.selected) notFound();
   // A receipt number is global; its student decides who may open it (Phase 3).
   const selectedNumber = props.selected.receiptNumber;
@@ -116,5 +122,10 @@ export default async function ReceiptPage({
   // so a reload or a shared link shows the Reversed state, not the sheet (B08).
   const normalized = normalizedReceiptUrl(`/receipts/${encodeURIComponent(props.selected.receiptNumber)}`, search, props.sheet);
   if (normalized) redirect(normalized, RedirectType.replace);
-  return <ReceiptsDesk {...props} />;
+  // The receipt itself, as Fees prints it, beside the list (owner, 7 Nov 2026).
+  // Drawn here on the server, so the receipt template never ships to the browser.
+  const paper = paperDetail ? (
+    <ReceiptDocument receipt={paperDetail} t={createBilingualReceiptTranslator()} autoPrint={autoPrint && props.perms.print} />
+  ) : null;
+  return <ReceiptsDesk {...props} paper={paper} />;
 }

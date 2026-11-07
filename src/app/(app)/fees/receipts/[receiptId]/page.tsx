@@ -3,7 +3,6 @@ import Link from "@/ui/link";
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/ui/shell/page-header";
-import { MobilePrintedReceipt } from "@/modules/payments/ui/mobile-printed-receipt";
 import { MobileReceiptActionBar } from "@/modules/receipts/ui/mobile-receipt-action-bar";
 import { ReceiptDocument } from "@/modules/receipts/ui/receipt-document";
 import { ReceiptPrintActions } from "@/modules/receipts/ui/receipt-print-actions";
@@ -154,33 +153,12 @@ export default async function ReceiptDetailPage({ params, searchParams }: Receip
         className="no-print"
       />
 
-      {/* Phone: the same paper slip the counter just printed (mobile v2).
-          A reprint should look like the thing being reprinted — an A4
-          document scaled onto a 375px screen read as a different document
-          from the original. The A4 render stays for tablet, desktop and
-          every print path. */}
-      {/* Bottom padding clears the fixed action bar below, so the last line of
-          the slip is never sitting underneath it. */}
-      <div
-        className="md:hidden print:hidden"
-        style={{ paddingBottom: "calc(var(--mobile-safe-area-bottom, 0px) + 6rem)" }}
-      >
-        <MobilePrintedReceipt
-          receiptNumber={receipt.receiptNumber}
-          studentFullName={receipt.studentFullName}
-          fatherName={receipt.fatherName}
-          admissionNo={receipt.admissionNo}
-          classLabel={receipt.classLabel}
-          amountReceived={receipt.totalAmount}
-          paymentDate={receipt.paymentDate}
-          paymentModeLabel={receipt.paymentMode}
-          receivedBy={receipt.receivedBy ?? receipt.createdByName ?? ""}
-          remainingBalance={receipt.outstandingAfterReceipt}
-          isVoided={receipt.isVoided}
-        />
-      </div>
-
-      <div className="hidden md:block print:block">
+      {/* One receipt on every width (owner, 7 Nov 2026: "make the receipt
+          look like this throughout the app"). The phone used to get the short
+          counter slip instead; the receipt lays itself out by its own width,
+          so a phone gets the same document in two columns. Bottom padding on
+          a phone clears the fixed action bar below. */}
+      <div className="max-md:pb-[calc(var(--mobile-safe-area-bottom,0px)+6rem)] print:pb-0">
         <ReceiptDocument
           receipt={receipt}
           t={createBilingualReceiptTranslator()}
@@ -188,9 +166,7 @@ export default async function ReceiptDetailPage({ params, searchParams }: Receip
         />
       </div>
 
-      {/* Mounted OUTSIDE the `hidden md:block` document above, which is a
-          display:none subtree on a phone — anything interactive placed inside
-          it is unreachable. */}
+      {/* The phone's actions, fixed at the bottom of the screen. */}
       <MobileReceiptActionBar
         receipt={receipt}
         canPrintReceipts={canPrintReceipts}

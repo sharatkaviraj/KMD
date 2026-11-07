@@ -17,6 +17,17 @@ export const schoolProfile = {
   // `modules/whatsapp/domain/campaign-bodies*.ts`). Receipts and certificates
   // keep `phone`, which stays empty until the owner sets it.
   officePhone: process.env.NEXT_PUBLIC_SCHOOL_PHONE?.trim() || "9352205884",
+  // The contact line under the school name on a parent's receipt and PDF.
+  // Fees prints it from its own NEXT_PUBLIC_SCHOOL_* variables, which One's
+  // deployment does not carry, so One's receipt came out without it. These
+  // defaults are the line Fees prints on every receipt today (Fees receipt
+  // SVP20261105-0004, 7 Nov 2026), so a receipt from either app reads the same.
+  // The env variables above still win where they are set.
+  letterhead: {
+    address: process.env.NEXT_PUBLIC_SCHOOL_ADDRESS?.trim() || "Amet-Kelwa Road, Amet, 313332",
+    phone: process.env.NEXT_PUBLIC_SCHOOL_PHONE?.trim() || "7976199548",
+    email: process.env.NEXT_PUBLIC_SCHOOL_EMAIL?.trim() || "info@vpps.co.in",
+  },
   appMode: process.env.APP_MODE?.trim() || "production",
   adminOnly: true,
   receiptPrefix: "SVP",
