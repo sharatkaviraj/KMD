@@ -5,6 +5,7 @@ import { TodayScreen } from "@/vx/screens/admin/today";
 import { ToastProvider } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 import { QUICK_ACTIONS } from "@/vx/nav";
+import { moneyFromLedger, type TodayGlance } from "@/vx/screens/admin/today-logic";
 import "../../src/vx/vx.css";
 
 /* Test data only: classes, subjects and teachers are invented. */
@@ -49,6 +50,25 @@ export function TodayFixture({ language }: { language: Language }) {
   const inboxMissing = (params.get("missing") ?? "").split(",").filter(Boolean);
   const todayMissing = (params.get("unread") ?? "").split(",").filter(Boolean);
   const role = params.get("desk");
+  // 7 Nov 2026 widgets: `closed=1` (a named break), `ledger=1` (the real session's money from Fees).
+  const closedDay = params.get("closed") === "1";
+  const fromLedger = params.get("ledger") === "1";
+  const glance: TodayGlance = {
+    closed: closedDay ? { en: "Test break", hi: "टेस्ट अवकाश", sunday: false, reopens: "2026-10-15" } : null,
+    coming: [
+      { from: "2026-10-20", to: "2026-10-20", kind: "holiday", en: "Test holiday", hi: "टेस्ट छुट्टी", inDays: 8 },
+      { from: "2026-10-26", to: "2026-10-31", kind: "exam", en: "Test unit exams", hi: "टेस्ट परीक्षा", inDays: 14 },
+    ],
+    birthdays: [
+      { id: "00000000-0000-4000-8000-000000000b01", name: "Test Child One", classLabel: "3" },
+      { id: "00000000-0000-4000-8000-000000000b02", name: "Test Child Two", classLabel: "6A" },
+    ],
+  };
+  const ledgerMoney = moneyFromLedger({
+    total: 12800, count: 7, asOf: "2026-10-12T05:40:00Z",
+    byMode: [{ mode: "upi", label: "UPI", amount: 9800, count: 5 }, { mode: "cash", label: "Cash", amount: 3000, count: 2 }],
+    session: { expected: 180000, collected: 131000, dueSoFar: 150000, followUps: 6, recentDays: [{ date: "2026-10-10", amount: 9000 }] },
+  }, "2026-10-12");
   const actions = role === "admin" ? QUICK_ACTIONS.filter((action) => ["mark", "cover", "note", "certificate"].includes(action.key))
     : role === "office" ? QUICK_ACTIONS.filter((action) => action.key === "mark") : [];
   const [h, m] = at.split(":").map(Number);
@@ -76,19 +96,20 @@ export function TodayFixture({ language }: { language: Language }) {
             dayLine="Monday, 12 October"
             status={{ en: "Period 4 running", hi: "पीरियड 4 चल रहा है" }}
             today="2026-10-12"
-            money={role === "admin" ? {
+            glance={glance}
+            money={fromLedger ? ledgerMoney : role === "admin" ? {
               today: 12800, receiptsToday: 7, days: [{ date: "2026-10-12", amount: 12800 }],
               modes: [{ mode: "upi", amount: 9800, receipts: 5 }, { mode: "cash", amount: 3000, receipts: 2 }],
               matrix: [], installments: [], expected: 180000, collected: 131000, dueSoFar: 150000, followUps: 6,
             } : null}
             moneyFailed={false}
-            attendance={{ marked: 18, total: 22, percent: 91, schoolOpen: true }}
+            attendance={{ marked: 18, total: 22, percent: 91, schoolOpen: !closedDay }}
             staffAway={2}
             cover={{ missed: 0, needed: 2, arranged: 1 }}
             inbox={[]}
             inboxMissing={inboxMissing}
             todayMissing={todayMissing}
-            timeline={[
+            timeline={closedDay ? [] : [
               { time: "07:45", title: { en: "First bell" }, sub: { en: "Period 1 starts" }, state: "done" },
               { time: "08:25", title: { en: "Attendance closes" }, sub: { en: "4 not marked yet" }, state: "alert" },
               { time: "10:25", title: { en: "Period 4 · 6B MATH" }, sub: { en: "Needs a substitute" }, state: "now" },

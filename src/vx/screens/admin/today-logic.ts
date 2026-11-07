@@ -158,3 +158,163 @@ export function dueColumns(
       return { key, label: month, title: `${key}${due ? ` (${month})` : ""}`, carry: false };
     });
 }
+
+/* ------------------------------------------------ money from the Fees ledger */
+
+/** Fees' own "Today" plus its session figures (`/summary/today`, 7 Nov 2026). */
+export type LedgerSummary = {
+  total: number;
+  count: number;
+  byMode: { mode: string; label: string; amount: number; count: number }[];
+  asOf: string;
+  session?: { expected: number; collected: number; dueSoFar: number; followUps: number; recentDays: { date: string; amount: number }[] } | null;
+};
+
+/** How many recent collection days Fees sends; a full list may not reach back a whole month. */
+export const LEDGER_TREND_DAYS = 14;
+
+/**
+ * The real session's money, drawn with the same cards as the rehearsal
+ * session's: Fees' Today and session figures in the shape One's own reader
+ * gives. No class table (Fees does not send one), and the day series is only
+ * known back to its earliest day when the list was full (`knownFrom`), so no
+ * chart claims a nought it was never told. Null without session figures.
+ */
+export function moneyFromLedger(ledger: LedgerSummary, today: string) {
+  const session = ledger.session;
+  if (!session) return null;
+  const days = session.recentDays.filter((d) => d.date !== today).concat(ledger.total > 0 ? [{ date: today, amount: ledger.total }] : []);
+  const known = [...session.recentDays].sort((a, b) => a.date.localeCompare(b.date));
+  return {
+    today: ledger.total,
+    receiptsToday: ledger.count,
+    days,
+    modes: ledger.byMode.map((m) => ({ mode: m.mode, amount: m.amount, receipts: m.count })),
+    matrix: [] as { classLabel: string; cells: Record<string, number>; total: number }[],
+    installments: [] as string[],
+    expected: session.expected,
+    collected: session.collected,
+    dueSoFar: session.dueSoFar,
+    followUps: session.followUps,
+    source: "fees" as const,
+    asOf: ledger.asOf,
+    knownFrom: known.length >= LEDGER_TREND_DAYS ? known[0].date : null,
+  };
+}
+
+/**
+ * How many days back a day chart may reach (at most `max`): all of them,
+ * unless the series is only known from a later day.
+ */
+export function knownSpan(today: string, knownFrom: string | null | undefined, max = 30): number {
+  if (!knownFrom) return max;
+  const days = Math.round((at(today).getTime() - at(knownFrom).getTime()) / 86_400_000) + 1;
+  return Math.max(1, Math.min(max, days));
+}
+
+/* --------------------------------------------------------------- birthdays */
+
+/**
+ * The dates of birth that fall on `today` for children aged `from`–`to`, so
+ * the read can ask for exactly those (`date_of_birth in (…)`) instead of the
+ * whole roll. A 29 February birthday is kept on 28 February in other years.
+ */
+export function birthdayDates(today: string, from = 2, to = 24): string[] {
+  const [y, m, d] = today.split("-").map(Number);
+  const leap = (year: number) => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const out: string[] = [];
+  for (let year = y - to; year <= y - from; year += 1) {
+    out.push(`${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    if (m === 2 && d === 28 && !leap(y) && leap(year)) out.push(`${year}-02-29`);
+  }
+  return out;
+}
+
+/* ----------------------------------------------------- calendar: coming up */
+
+export type CalendarKind = "instructional" | "holiday" | "exam" | "event" | "vacation";
+export type CalendarRow = { day: string; kind: CalendarKind; en: string | null; hi: string | null };
+export type EventRow = { title: string; titleHi: string | null; startsOn: string; endsOn: string };
+export type ComingItem = { from: string; to: string; kind: "holiday" | "vacation" | "exam" | "event"; en: string; hi: string | null; inDays: number };
+
+const addDays = (day: string, n: number) => iso(new Date(at(day).getTime() + n * 86_400_000));
+const daysBetween = (a: string, b: string) => Math.round((at(b).getTime() - at(a).getTime()) / 86_400_000);
+const isSunday = (day: string) => at(day).getUTCDay() === 0;
+
+/** Open on a day: the calendar when it says, otherwise every day but Sunday (`isSchoolOpen`). */
+function openOn(day: string, byDay: Map<string, CalendarRow>): boolean {
+  const row = byDay.get(day);
+  if (row) return row.kind !== "holiday" && row.kind !== "vacation";
+  return !isSunday(day);
+}
+
+/**
+ * When school is closed today: why (the calendar's name for the day, or
+ * Sunday), and the next day it opens, looking a little over a month ahead.
+ * Null on an open day.
+ */
+export function closedSpell(today: string, rows: readonly CalendarRow[], lookAhead = 40): { en: string | null; hi: string | null; sunday: boolean; reopens: string | null } | null {
+  const byDay = new Map(rows.map((r) => [r.day, r]));
+  if (openOn(today, byDay)) return null;
+  const row = byDay.get(today);
+  let reopens: string | null = null;
+  for (let i = 1; i <= lookAhead; i += 1) {
+    const day = addDays(today, i);
+    if (openOn(day, byDay)) {
+      reopens = day;
+      break;
+    }
+  }
+  return { en: row?.en ?? null, hi: row?.hi ?? null, sunday: !row && isSunday(today), reopens };
+}
+
+/**
+ * What is coming on the school calendar in the next `within` days: named
+ * closures and exam days (consecutive days with one name read as one item,
+ * "Diwali break · 9–12 Nov") and calendar events. A spell already running
+ * today is the closed banner's, not this list's. Soonest first, at most `max`.
+ */
+export function comingUp(today: string, rows: readonly CalendarRow[], events: readonly EventRow[], within = 21, max = 3): ComingItem[] {
+  const last = addDays(today, within);
+  const named = [...rows]
+    .filter((r) => r.kind !== "instructional" && r.kind !== "event" && r.day >= today && r.day <= last)
+    .sort((a, b) => a.day.localeCompare(b.day));
+  const spells: ComingItem[] = [];
+  for (const r of named) {
+    const prev = spells[spells.length - 1];
+    const label = r.en?.trim() || (r.kind === "exam" ? "Exam" : r.kind === "vacation" ? "Vacation" : "Holiday");
+    // Sundays inside a break carry no row; a gap of up to two days still joins the spell.
+    if (prev && prev.kind === r.kind && prev.en === label && daysBetween(prev.to, r.day) <= 2) {
+      prev.to = r.day;
+      continue;
+    }
+    spells.push({ from: r.day, to: r.day, kind: r.kind as ComingItem["kind"], en: label, hi: r.hi?.trim() || null, inDays: daysBetween(today, r.day) });
+  }
+  const ahead = spells.filter((s) => s.from > today);
+  const happenings: ComingItem[] = events
+    .filter((e) => e.endsOn >= today && e.startsOn <= last && e.startsOn > today)
+    .map((e) => ({ from: e.startsOn, to: e.endsOn < e.startsOn ? e.startsOn : e.endsOn, kind: "event" as const, en: e.title, hi: e.titleHi, inDays: daysBetween(today, e.startsOn) }));
+  return [...ahead, ...happenings].sort((a, b) => a.from.localeCompare(b.from) || a.en.localeCompare(b.en)).slice(0, max);
+}
+
+/* ------------------------------------------------------ Today at a glance */
+
+/** A child whose birthday is today, for the "Birthdays today" widget. */
+export type BirthdayChild = { id: string; name: string; classLabel: string | null };
+
+/**
+ * The small widgets around the school day (7 Nov 2026): why school is closed
+ * and when it opens, what is coming on the calendar, and today's birthdays.
+ * Each is null when it was not read for this reader or the read failed, so a
+ * widget is left out rather than drawn empty.
+ */
+export type TodayGlance = {
+  closed: ReturnType<typeof closedSpell>;
+  coming: ComingItem[] | null;
+  birthdays: BirthdayChild[] | null;
+};
+
+/** "Asha Sharma" → "Asha": the widget names a child the way staff say it. */
+export function firstName(full: string): string {
+  return full.trim().split(/\s+/)[0] ?? full;
+}

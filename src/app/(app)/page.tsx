@@ -14,7 +14,8 @@ import { boardSummary, runningPeriod, schoolMinutes, sortInbox } from "@/vx/scre
 import { loadInbox, loadToday, moneyRequestsFor, promisedToday, weekAttendance } from "@/vx/screens/admin/data";
 import { T } from "@/vx/screens/admin/text";
 import { TodayScreen, type TodayProps } from "@/vx/screens/admin/today";
-import { dayPercent } from "@/vx/screens/admin/today-logic";
+import { dayPercent, moneyFromLedger, type LedgerSummary } from "@/vx/screens/admin/today-logic";
+import { loadGlance } from "@/vx/screens/admin/glance-data";
 import { TD } from "@/vx/screens/admin/today-text";
 import { lead } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
@@ -76,11 +77,17 @@ export default async function TodayPage() {
   // Only for a role whose Fees counterpart sees the Dashboard; a Fees refusal hides the card rather than failing it.
   const feesToday = seesMoney && canonicalMoney && feesBridgeOfficeReads() && feePermissionsFor(staff.role).includes("dashboard:view")
     ? getBridgeTodaySummary(sessionLabel).then(
-        (s) => ({ total: s.totalCollected, count: s.receiptCount, byMode: s.byMode.map((m) => ({ label: m.paymentModeLabel, amount: m.amount, count: m.receiptCount })), asOf: s.asOf }),
+        (s): LedgerSummary => ({
+          total: s.totalCollected,
+          count: s.receiptCount,
+          byMode: s.byMode.map((m) => ({ mode: m.paymentMode, label: m.paymentModeLabel, amount: m.amount, count: m.receiptCount })),
+          asOf: s.asOf,
+          session: s.session ?? null,
+        }),
         (error: unknown) => (error instanceof FeesBridgeError && error.code === "forbidden" ? null : ("failed" as const)),
       )
     : Promise.resolve(null);
-  const [facts, fees, inbox, week, ledgerToday] = await Promise.all([
+  const [facts, fees, inbox, week, ledgerToday, glance, promisedReal] = await Promise.all([
     loadToday(staff, sessionLabel, today, minutes),
     seesMoney && !canonicalMoney
       ? todayMoney(today)
@@ -93,9 +100,16 @@ export default async function TodayPage() {
       : Promise.resolve(null),
     can(staff, "attendance:view") && readsEveryClass(staff) ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
     feesToday,
+    loadGlance(staff, sessionLabel, today),
+    // Promises are One's own call log, so the real session counts them as the rehearsal does.
+    seesMoney && canonicalMoney ? promisedToday(sessionLabel, today).catch(() => null) : Promise.resolve(null),
   ]);
-  const money = fees?.figures ?? null;
-  const promised = fees?.promised ?? null;
+  // The real session draws the same cards as the rehearsal session: Fees' own
+  // figures in the shape One's reader gives (7 Nov 2026). Without its session
+  // figures (an older Fees) Today keeps the plain ledger tile.
+  const ledgerMoney = ledgerToday && ledgerToday !== "failed" ? moneyFromLedger(ledgerToday, today) : null;
+  const money = fees?.figures ?? ledgerMoney;
+  const promised = fees?.promised ?? (ledgerMoney ? promisedReal : null);
 
   const board = facts.board;
   const summary = board ? boardSummary(board.rows, board.halfDayCredit) : null;
@@ -104,7 +118,9 @@ export default async function TodayPage() {
   const status = !board
     ? null
     : !board.schoolOpen
-      ? T.schoolClosed
+      ? glance.closed && !glance.closed.sunday && glance.closed.en
+        ? { en: glance.closed.en, hi: glance.closed.hi ?? glance.closed.en }
+        : T.schoolClosed
       : running
         ? running.state === "running"
           ? T.periodRunning(running.number)
@@ -143,7 +159,8 @@ export default async function TodayPage() {
         // Under the Fees connection the local money read is never attempted, so its
         // absence is not a failure (review T02): the ledger notice says where the figures live.
         moneyFailed={seesMoney && !canonicalMoney && money === null}
-        ledgerToday={ledgerToday}
+        ledgerToday={ledgerMoney ? null : ledgerToday}
+        glance={glance}
         attendance={board && summary ? { marked: summary.marked, total: summary.total, percent: summary.percent, schoolOpen: board.schoolOpen } : null}
         staffAway={facts.staffAway}
         cover={facts.cover}

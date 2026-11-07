@@ -55,6 +55,28 @@ export const TD = {
 
   /* -------------------------------------------------------------- money */
   financeToday: p("Fees today", "आज की फ़ीस"),
+  feesThisSession: p("Fees this session", "इस सत्र की फ़ीस"),
+  asOf: (at: string): Pair => p(`as of ${at}`, `${at} तक`),
+
+  /* ------------------------------------------- the small widgets (7 Nov 2026) */
+  birthdaysToday: p("Birthdays today", "आज जन्मदिन"),
+  birthdaysSub: (n: number): Pair => p(`${n} child${n === 1 ? "" : "ren"} · wish them at assembly`, `${n} बच्चे · प्रार्थना सभा में बधाई दें`),
+  moreBirthdays: (n: number): Pair => p(`+${n} more`, `+${n} और`),
+  comingUp: p("Coming up", "आने वाले दिन"),
+  comingSub: p("The next three weeks on the school calendar", "स्कूल कैलेंडर पर अगले तीन हफ़्ते"),
+  openCalendar: p("Calendar", "कैलेंडर"),
+  inDays: (n: number): Pair => (n <= 1 ? p("Tomorrow", "कल") : p(`In ${n} days`, `${n} दिन में`)),
+  comingKind: {
+    holiday: p("Holiday", "छुट्टी"),
+    vacation: p("School closed", "स्कूल बंद"),
+    exam: p("Exams", "परीक्षा"),
+    event: p("Event", "कार्यक्रम"),
+  } as Record<"holiday" | "vacation" | "exam" | "event", Pair>,
+  closedToday: p("School is closed today", "आज स्कूल बंद है"),
+  sundayClosed: p("Sunday — no school today", "रविवार — आज स्कूल नहीं"),
+  opensAgain: (day: string, n: number): Pair =>
+    n <= 1 ? p(`School opens tomorrow, ${day}`, `स्कूल कल, ${day} को खुलेगा`) : p(`School opens ${day} · in ${n} days`, `स्कूल ${day} को खुलेगा · ${n} दिन में`),
+  closedRest: p("Fees, notes and messages still work here as usual.", "फ़ीस, नोट्स और संदेश यहाँ पहले की तरह चलते रहेंगे।"),
 
   /* ------------------------------------------- the design's frames (F01, Desktop) */
   searchEverything: p("Search everything", "सब कुछ खोजें"),

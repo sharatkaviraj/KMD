@@ -15,6 +15,15 @@ export const bridgeTodaySummarySchema = z.object({
   totalCollected: amount,
   receiptCount: count,
   byMode: z.array(z.object({ paymentMode: text, paymentModeLabel: text, amount, receiptCount: count })),
+  // The Dashboard's session figures from the same call (schoolfees #150, 7 Nov 2026).
+  // Optional: a Fees deployment from before it sends none, and Today then leaves the cards out.
+  session: z.object({
+    expected: amount,
+    collected: amount,
+    dueSoFar: amount,
+    followUps: count,
+    recentDays: z.array(z.object({ date: text, amount })),
+  }).nullable().optional(),
 });
 export type BridgeTodaySummary = z.infer<typeof bridgeTodaySummarySchema>;
 
