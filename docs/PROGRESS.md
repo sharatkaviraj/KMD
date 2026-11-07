@@ -4,8 +4,8 @@
 
 Owner asked (7 Nov) for the best models on the new NVIDIA and OpenRouter keys
 and the Gemini Free key, and for One to use them first to cut AI costs, the
-paid models as the fallback. Branch `claude/project-thread-946cvd`, D-496
-(after D-490). **Done:** measured One's own tasks on every free model that
+paid models as the fallback. Branch `claude/project-thread-946cvd`, PR 279,
+D-496 (after D-490). **Done:** measured One's own tasks on every free model that
 answered; Nemotron 3.5 Super VL with thinking off and guided JSON passed 10 of
 11 in 1-4 s (with thinking on it took 9-12 s, past its 7 s stage). The free models now write a class's results and notices to all parents
 or staff as well as the old open tasks, and every text task of a test account;
