@@ -27,7 +27,9 @@ vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => {
     };
     return query;
   }
-  return { from, schema: () => ({ from }) };
+  // A function's rows come from the fixture table of the same name.
+  const rpc = (name: string) => from(name);
+  return { from, rpc, schema: () => ({ from, rpc }) };
 } }));
 
 import { classDetail, classMarks, classResults, studentDetail, type Ctx, type Exam } from "@/vx/screens/academics/data";
