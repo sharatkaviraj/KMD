@@ -4,6 +4,8 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "@/messages/en.json";
 import hi from "@/messages/hi.json";
 import { LanguageProvider } from "@/platform/i18n/use-language";
+import { bilingualCatalog } from "@/platform/i18n/bilingual-catalog";
+import { shellMessages } from "@/platform/i18n/shell-messages";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
 import { RosterStatusView } from "@/platform/fees-bridge/roster-status-view";
 import { MobileSessionPill } from "@/ui/shell/mobile-session-pill";
@@ -22,7 +24,11 @@ import "../../src/vx/vx.css";
 import "../../src/vx/shell/session-controls.css";
 
 const params = new URLSearchParams(location.search);
-const language = params.get("locale") === "hi" ? "hi" : "en";
+// `both` is a reader of both languages: One's pairs in both, and the shell catalogue the
+// root layout sends them (the bilingual one, cut to the shell) under next-intl's `hi`.
+const reader = params.get("locale") === "both" ? "both" : params.get("locale") === "hi" ? "hi" : "en";
+const language = reader === "en" ? "en" : "hi";
+const messages = reader === "both" ? shellMessages(bilingualCatalog(en, hi)) : language === "hi" ? hi : en;
 document.documentElement.lang = language;
 if (params.get("theme") === "dark") document.documentElement.classList.add("dark");
 const currentLabel = params.get("label") ?? "2026-27";
@@ -45,13 +51,13 @@ const allowAll = () => true;
 function Fixture() {
   const [sheet, setSheet] = useState(false);
   const isTest = currentLabel.startsWith("TEST");
-  return <NextIntlClientProvider locale={language} messages={language === "hi" ? hi : en}>
-    <LanguageProvider language={language}><SessionSwitchingProvider><ToastProvider>
+  return <NextIntlClientProvider locale={language} messages={messages}>
+    <LanguageProvider language={reader}><SessionSwitchingProvider><ToastProvider>
       <div className="vxt vx-shell">
         <VxSidebar groups={groupsFor("admin", allowAll)} home="/" roleLine="Synthetic admin" me={{ initials: "QA", name: "Synthetic admin", sub: "QA", href: "/settings", color: "#81DAE4" }} badges={badges} teacherSized={false} previewMenus={[]} previewing={null} />
         <div className="vx-content">
           <div className="vx-workspace-bar">
-            <RosterStatusView language={language} status={params.has("stale") ? "stale" : params.get("status") === "error" ? "error" : params.get("status") === "pending" ? "not_ready" : "ready"} checkedAt="2026-11-02T11:30:00.000Z" />
+            <RosterStatusView language={reader} status={params.has("stale") ? "stale" : params.get("status") === "error" ? "error" : params.get("status") === "pending" ? "not_ready" : "ready"} checkedAt="2026-11-02T11:30:00.000Z" />
             <div className="vx-sessionbar" data-test-session={isTest ? "true" : undefined}>
               <div className="vx-sessionbar-d"><Suspense fallback={<ShellSessionPillSkeleton currentLabel={currentLabel} isTest={isTest} appearance="one" />}><CataloguePill /></Suspense></div>
               <div className="vx-sessionbar-m"><Suspense fallback={<ShellSessionPillSkeleton currentLabel={currentLabel} isTest={isTest} appearance="one" />}><CataloguePill mobile /></Suspense></div>
@@ -61,7 +67,7 @@ function Fixture() {
             <VxPage label="Synthetic UI acceptance">
               {params.has("list") ? <><TopBar title="Students" mSub="Synthetic roster" mAction={<button className="tap icon-btn" aria-label="Open sheet" onClick={() => setSheet(true)}>+</button>} />
                 <DataList rows={Array.from({length: 30}, (_, i) => ({ id: String(i), name: `Synthetic student ${i + 1}` }))} rowKey={row => row.id} columns={[{ key: "name", label: "Student", cell: row => row.name }]} /></> :
-                <TodayScreen firstName="Test" greeting={{ en: "Good morning", hi: "सुप्रभात" }} dayLine="Monday, 2 November" today="2026-11-02" status={null} money={null} moneyFailed={false} attendance={{marked: 0, total: 19, percent: null, schoolOpen: true}} staffAway={0} cover={null} inbox={[]} timeline={[]} schedule={null} scheduleFailed={false} exceptions={{notMarked: [], cover: []}} support={null} actions={[]} links={{collect: false, reports: false, attendance: true, substitutions: true, review: false, timetable: false}} unavailable={false} roleLine={{en: "Admin", hi: "प्रशासक"}} me={{initials: "QA", href: "/settings"}} notice={<LedgerNotice language={language} />} />}
+                <TodayScreen firstName="Test" greeting={{ en: "Good morning", hi: "सुप्रभात" }} dayLine="Monday, 2 November" today="2026-11-02" status={null} money={null} moneyFailed={false} attendance={{marked: 0, total: 19, percent: null, schoolOpen: true}} staffAway={0} cover={null} inbox={[]} timeline={[]} schedule={null} scheduleFailed={false} exceptions={{notMarked: [], cover: []}} support={null} actions={[]} links={{collect: false, reports: false, attendance: true, substitutions: true, review: false, timetable: false}} unavailable={false} roleLine={{en: "Admin", hi: "प्रशासक"}} me={{initials: "QA", href: "/settings"}} notice={<LedgerNotice language={reader} />} />}
             </VxPage>
           </main>
         </div>

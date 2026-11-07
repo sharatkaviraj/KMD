@@ -2132,7 +2132,7 @@
     "sessionsRetry": "फिर कोशिश करें",
     "sessionGroupActive": "वर्तमान",
     "sessionGroupOther": "अन्य शैक्षणिक वर्ष",
-    "sessionGroupTest": "अभ्यास वर्ष (केवल परीक्षण डेटा)",
+    "sessionGroupTest": "अभ्यास वर्ष",
     "sessionTestBadge": "परीक्षण",
     "sessionSwitchFailed": "सत्र नहीं बदल सके",
     "sessionSwitchFailedDescription": "{label} नहीं खुल सका। आप अभी भी {currentLabel} में हैं।"
