@@ -2,7 +2,7 @@ import type { DesignView } from "../design.fixture";
 import { views as adminViews } from "./admin.fixture";
 import { menuGroups } from "@/app/(app)/menu/menu-items";
 import { MenuScreen } from "@/app/(app)/menu/menu-screen";
-import { groupsFor, PREVIEW_LABEL } from "@/vx/nav";
+import { bottomFor, groupsFor, PREVIEW_LABEL } from "@/vx/nav";
 import { StudentsScreen, type StudentListRow, type StudentsProps } from "@/vx/screens/admin/students";
 import type { StudentFacts } from "@/vx/screens/admin/students-logic";
 import { QuickActions } from "@/vx/shell/bottom-bar";
@@ -163,6 +163,7 @@ function MenuFrame() {
         initials="JS"
         sub="Admin · every workspace"
         groups={menuGroups("admin", () => true)}
+        schoolSettings
         previews={[
           { key: "teacher", label: PREVIEW_LABEL.teacher, icon: "grad" },
           { key: "accountant", label: PREVIEW_LABEL.accountant, icon: "rupee" },
@@ -175,8 +176,27 @@ function MenuFrame() {
   );
 }
 
+/** The accountant's Menu: one "Your work" group, and My settings instead of the school's (D-519). */
+function AccountantMenuFrame() {
+  return (
+    <VxPage>
+      <MenuScreen
+        menu="accountant"
+        name="Ms. Neelam Sharma"
+        initials="NS"
+        sub="Accountant"
+        groups={menuGroups("accountant", () => true)}
+        onBar={bottomFor("accountant", () => true).map((t) => t.href)}
+        previews={[]}
+        previewing={null}
+      />
+    </VxPage>
+  );
+}
+
 export const views: Record<string, DesignView> = {
   "F13-Menu": { render: () => <MenuFrame />, path: "/menu" },
+  "F13-Menu-Accountant": { render: () => <AccountantMenuFrame />, path: "/menu", menu: "accountant" },
   "F03-QuickActions": { render: () => <QuickFrame />, path: "/" },
   "F05-Students": { render: () => <StudentsFrame />, path: "/students" },
   "D01-Students": { render: () => <StudentsFrame picked={PICKED} />, path: "/students" },

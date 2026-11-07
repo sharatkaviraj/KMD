@@ -2,82 +2,137 @@
 
 import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 
 import { logoutAction } from "@/app/login/actions";
+import { cue } from "@/ui/feedback/cue";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import type { DesignMenu } from "@/vx/nav";
-import { MenuToggles, PinnedRow, usePins } from "@/vx/shell/menu-prefs";
+import { greetingPair } from "@/vx/screens/teach/ui/fmt";
+import { QuickSwitches, Shortcuts, usePins } from "@/vx/shell/menu-prefs";
 import { openSearch } from "@/vx/shell/top-actions";
 import { setViewAsAction } from "@/vx/shell/view-as-actions";
-import type { Pair } from "@/vx/text";
+import { p, type Pair } from "@/vx/text";
+import { ListenButton } from "@/vx/ui/listen";
+import { Confirm } from "@/vx/ui/overlays";
 import { TopBar } from "@/vx/ui/page";
+import { Avatar } from "@/vx/ui/primitives";
 
-import { pinnedTiles, type MenuGroup } from "./menu-items";
+import { pinnedTiles, settingsLinks, type MenuGroup, type MenuTile } from "./menu-items";
+import "./menu.css";
 
 export type MenuScreenProps = {
   menu: DesignMenu;
   name: string;
   initials: string;
+  /** The person's approved photo, when there is one. */
+  photo?: string | null;
   /** "Admin · every workspace", "Accountant". */
   sub: string;
   groups: MenuGroup[];
+  /** What the phone's bottom bar already opens, so default shortcuts are something else. */
+  onBar?: string[];
+  /** May open the school's Settings (`settings:manage`): the big button goes there. */
+  schoolSettings?: boolean;
   /** "See the app as" — the admin only (UI-12, read-only). */
   previews: { key: string; label: Pair; icon: IconName }[];
   previewing: string | null;
 };
 
-const ACCOUNT: { title: Pair; tiles: { key: string; label: Pair; icon: IconName; href: string }[] } = {
-  title: { en: "My account", hi: "मेरा खाता" },
-  tiles: [
-    { key: "language", label: { en: "Language and start screen", hi: "भाषा और पहली स्क्रीन" }, icon: "globe", href: "/preferences" },
-    { key: "password", label: { en: "Change password", hi: "पासवर्ड बदलें" }, icon: "key", href: "/preferences/password" },
-    { key: "session", label: { en: "Session", hi: "सत्र" }, icon: "calendar", href: "/preferences/session" },
-  ],
+const M = {
+  menu: p("Menu", "मेनू"),
+  search: p("Find a student, receipt or page…", "विद्यार्थी, रसीद या पेज खोजें…"),
+  settings: p("Settings", "सेटिंग्स"),
+  schoolSettings: p("School settings", "स्कूल की सेटिंग्स"),
+  schoolSettingsSub: p("School name, certificates, parents' messages, backups, AI", "स्कूल का नाम, प्रमाण पत्र, अभिभावक संदेश, बैकअप, AI"),
+  mySettings: p("My settings", "मेरी सेटिंग्स"),
+  mySettingsSub: p("Photo, language, first screen, WhatsApp", "फ़ोटो, भाषा, पहली स्क्रीन, व्हाट्सऐप"),
+  mine: p("My settings", "मेरी सेटिंग्स"),
+  password: p("Password", "पासवर्ड"),
+  year: p("School year", "सत्र"),
+  jump: p("Jump to a group", "किसी समूह पर जाएँ"),
+  seeAs: p("See One as…", "One को ऐसे देखें…"),
+  seeAsHint: p("What they see. Nothing changes.", "उन्हें क्या दिखता है। कुछ नहीं बदलता।"),
+  signOut: p("Sign out", "साइन आउट"),
+  signOutQ: p("Sign out of One?", "One से साइन आउट करें?"),
+  signOutBody: p("You will need your password to come back in.", "वापस आने के लिए आपको अपना पासवर्ड चाहिए होगा।"),
+  foot: p("VPPS One · staff workspace", "VPPS One · स्टाफ़ कार्यक्षेत्र"),
 };
 
-const tileStyle = { display: "flex", alignItems: "center", gap: 10, minHeight: 58, padding: "8px 10px", borderRadius: 16, background: "var(--card)", border: "1px solid var(--bd)", color: "var(--fg)", textAlign: "left" } as const;
+/** What Listen reads, and the part of the page each line lights (null lights nothing). */
+const GUIDE: { line: Pair; part: string | null }[] = [
+  { line: p("This is the Menu. Every page you can open is here.", "यह मेनू है। आप जो भी पेज खोल सकते हैं, सब यहाँ है।"), part: null },
+  { line: p("At the top are your settings. One tap switches dark mode, language or sounds.", "सबसे ऊपर आपकी सेटिंग्स हैं। एक टैप से डार्क मोड, भाषा या आवाज़ बदलें।"), part: "menu-settings" },
+  { line: p("These four big buttons are your shortcuts. Tap Change to choose your own.", "ये चार बड़े बटन आपके शॉर्टकट हैं। अपने चुनने के लिए ‘बदलें’ दबाएँ।"), part: "menu-shortcuts" },
+  { line: p("Below, pages are in groups. Tap a group's name to jump straight to it.", "नीचे पेज समूहों में हैं। किसी समूह के नाम पर टैप करें, सीधे वहाँ पहुँचें।"), part: "menu-jump" },
+  { line: p("Every button says, under its name, what it opens.", "हर बटन के नाम के नीचे लिखा है कि वह क्या खोलता है।"), part: "menu-groups" },
+  { line: p("Sign out is at the very bottom.", "साइन आउट सबसे नीचे है।"), part: "menu-signout" },
+];
 
-function TileIcon({ icon }: { icon: IconName }) {
-  return (
-    <span aria-hidden="true" style={{ flex: "none", width: 36, height: 36, borderRadius: 11, background: "var(--s2)", color: "var(--pri)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <Ic n={icon} size={18} />
-    </span>
-  );
+const noSubscribe = () => () => {};
+
+/** Minutes past midnight in the school's time, or -1 before the page is live (the server cannot know the hour). */
+function schoolMinutes(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+  const h = Number(parts.find((x) => x.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((x) => x.type === "minute")?.value ?? 0);
+  return h * 60 + m;
 }
 
-function GroupHead({ title }: { title: Pair }) {
-  const { tx, sub } = useVx();
-  const second = sub(title);
-  return (
-    <h2 className="sech" style={{ gridColumn: "1 / -1", padding: "14px 2px 2px" }}>
-      {tx(title)}
-      {second ? <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500 }}> · {second}</span> : null}
-    </h2>
-  );
+function reduceMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 }
 
-function TileText({ label }: { label: Pair }) {
+/** A label, and the Hindi under it for a reader of both. */
+function Words({ label, cls }: { label: Pair; cls?: string }) {
   const { tx, sub } = useVx();
   const second = sub(label);
   return (
-    <span style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-      <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25 }}>{tx(label)}</span>
-      {second ? <span style={{ fontSize: 12, color: "var(--mut)", lineHeight: 1.35 }}>{second}</span> : null}
-    </span>
+    <>
+      <b className={cls}>{tx(label)}</b>
+      {second ? <span className="vxm-l2" lang="hi">{second}</span> : null}
+    </>
   );
 }
 
-function PreviewTile({ menu, label, icon, on }: { menu: string; label: Pair; icon: IconName; on: boolean }) {
+/** One screen as a big tile: its icon in the group's colour, its name, and what it opens. */
+function Tile({ tile, index }: { tile: MenuTile; index: number }) {
+  const { tx } = useVx();
+  return (
+    <Link href={tile.href} className="tap lift vxm-tile" style={{ ["--i" as string]: index }}>
+      <span className="vxm-ic" aria-hidden="true"><Ic n={tile.icon} size={21} /></span>
+      <Words label={tile.label} />
+      {tile.hint ? <span className="vxm-hint">{tx(tile.hint)}</span> : null}
+    </Link>
+  );
+}
+
+function GroupHead({ title, icon }: { title: Pair; icon: IconName }) {
+  const { tx, sub } = useVx();
+  const second = sub(title);
+  return (
+    <div className="vxm-gh">
+      <span aria-hidden="true"><Ic n={icon} size={19} /></span>
+      <h2>
+        {tx(title)}
+        {second ? <small lang="hi">{second}</small> : null}
+      </h2>
+    </div>
+  );
+}
+
+function PreviewTile({ menu, label, icon, on, index }: { menu: string; label: Pair; icon: IconName; on: boolean; index: number }) {
+  const { tx } = useVx();
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
     <button
       type="button"
-      className="tap"
+      className="tap lift vxm-tile"
       aria-current={on ? "page" : undefined}
       disabled={pending}
+      style={{ ["--i" as string]: index }}
       onClick={() =>
         start(async () => {
           const href = await setViewAsAction(menu);
@@ -85,86 +140,230 @@ function PreviewTile({ menu, label, icon, on }: { menu: string; label: Pair; ico
           router.refresh();
         })
       }
-      style={{ ...tileStyle, borderColor: on ? "var(--acc)" : "var(--bd)" }}
     >
-      <TileIcon icon={pending ? "refresh" : icon} />
-      <TileText label={label} />
+      <span className="vxm-ic" aria-hidden="true"><Ic n={pending ? "refresh" : icon} size={21} className={pending ? "spin" : undefined} /></span>
+      <Words label={label} />
+      <span className="vxm-hint">{tx(M.seeAsHint)}</span>
     </button>
   );
 }
 
 /**
- * The phone Menu (F13-Menu): the title, a search field that opens Ctrl K,
- * the person with Dark mode and Hindi labels, four pinned tiles, then every
- * screen this reader may open as two-column tiles grouped as the design
- * groups them, the account pages and Sign out. On a desk it is reached from
- * the person at the foot of the sidebar and draws the same, under a top bar.
+ * The group chips that stay at the top while the page scrolls: a tap jumps to
+ * the group, and the chip of the group in view is lit, so the long list
+ * always says where in it you are.
+ */
+function JumpChips({ groups, extra }: { groups: { id: string; short: Pair; icon: IconName; tone: string }[]; extra?: { id: string; short: Pair; icon: IconName; tone: string } | null }) {
+  const { tx } = useVx();
+  const all = extra ? [...groups, extra] : groups;
+  const [active, setActive] = useState<string | null>(null);
+  const row = useRef<HTMLDivElement>(null);
+  const ids = all.map((g) => g.id).join(",");
+
+  useEffect(() => {
+    const els = ids.split(",").map((id) => document.getElementById(`menu-${id}`)).filter((x): x is HTMLElement => Boolean(x));
+    if (!els.length || typeof IntersectionObserver === "undefined") return;
+    const seen = new Map<string, boolean>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) seen.set(e.target.id.replace(/^menu-/, ""), e.isIntersecting);
+        const first = ids.split(",").find((id) => seen.get(id));
+        setActive(first ?? null);
+      },
+      // The band just under the sticky chips: the group whose top half is there is "here".
+      { rootMargin: "-80px 0px -55% 0px" },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [ids]);
+
+  // Keep the lit chip in sight in the sideways row, without moving the page.
+  useEffect(() => {
+    const box = row.current;
+    const chip = active ? box?.querySelector<HTMLElement>(`[data-g="${active}"]`) : null;
+    if (!box || !chip) return;
+    const left = chip.offsetLeft - 18;
+    if (chip.offsetLeft < box.scrollLeft || chip.offsetLeft + chip.offsetWidth > box.scrollLeft + box.clientWidth) {
+      box.scrollTo({ left: Math.max(0, left), behavior: reduceMotion() ? "auto" : "smooth" });
+    }
+  }, [active]);
+
+  const go = (id: string) => {
+    cue("select");
+    setActive(id);
+    document.getElementById(`menu-${id}`)?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+  };
+
+  return (
+    <nav ref={row} id="menu-jump" className="vxm-jump vx-step" aria-label={tx(M.jump)}>
+      {all.map((g) => (
+        <button key={g.id} type="button" data-g={g.id} data-tone={g.tone} className={`tap vxm-chip${active === g.id ? " on" : ""}`} aria-current={active === g.id ? "true" : undefined} onClick={() => go(g.id)}>
+          <span aria-hidden="true"><Ic n={g.icon} size={15} /></span>
+          {tx(g.short)}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function SignOut() {
+  const { tx } = useVx();
+  const [ask, setAsk] = useState(false);
+  const [leaving, start] = useTransition();
+  return (
+    <>
+      <button type="button" className="tap vxm-out" onClick={() => { cue("tap"); setAsk(true); }}>
+        <Ic n="logout" size={20} /> {tx(M.signOut)}
+      </button>
+      <Confirm
+        open={ask}
+        onClose={() => setAsk(false)}
+        onConfirm={() => start(async () => { await logoutAction(); })}
+        title={tx(M.signOutQ)}
+        body={tx(M.signOutBody)}
+        confirmLabel={tx(M.signOut)}
+        danger
+        busy={leaving}
+        icon="logout"
+      />
+    </>
+  );
+}
+
+/**
+ * The phone Menu (F13-Menu, redrawn D-519 for staff who are new to apps):
+ *
+ * 1. Menu, with Listen, which reads out what is where and lights each part.
+ * 2. Search.
+ * 3. Settings, first: the person, five quick switches with their state in
+ *    words, and one big button to all settings (the school's for an admin,
+ *    their own for everyone else) with My settings, Password and School year.
+ * 4. Their four shortcuts, with Change.
+ * 5. Group chips that stay on top and jump down the page.
+ * 6. Every screen they may open, as a big tile that says what it opens, in
+ *    coloured groups.
+ * 7. "See One as…" for the admin, then Sign out, which asks once.
+ *
+ * On a desk it is reached from the person at the foot of the sidebar and
+ * draws the same, under a top bar.
  */
 export function MenuScreen(props: MenuScreenProps) {
   const { tx } = useVx();
   const pins = usePins();
-  const pinned = pinnedTiles(props.groups, pins, props.menu);
+  const pinned = pinnedTiles(props.groups, pins, props.menu, props.onBar);
   const all = props.groups.flatMap((g) => g.tiles);
   // A pinned tile is not drawn a second time below: the admin's four pins were
   // the whole Daily group, so the same tiles showed twice (UX review 6 Nov 2026).
   const pinnedKeys = new Set(pinned.map((x) => x.key));
   const groups = props.groups.map((g) => ({ ...g, tiles: g.tiles.filter((x) => !pinnedKeys.has(x.key)) })).filter((g) => g.tiles.length > 0);
+  const links = settingsLinks(Boolean(props.schoolSettings));
+  const minutes = useSyncExternalStore(noSubscribe, schoolMinutes, () => -1);
+  const [reading, setReading] = useState<string | null>(null);
+  const previewGroup = props.previews.length ? { id: "seeas", short: p("See as", "ऐसे देखें"), icon: "eye" as IconName, tone: "preview" } : null;
+  const chips = groups.length + (previewGroup ? 1 : 0) > 1;
 
+  const guide = GUIDE.filter((g) => g.part !== "menu-jump" || chips);
+  const lines = guide.map((g) => tx(g.line));
+  const onLine = (i: number | null) => {
+    const part = i === null ? null : (guide[i]?.part ?? null);
+    setReading(part);
+    if (part) document.getElementById(part)?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "center" });
+  };
+  const lit = (id: string) => `vx-step${reading === id ? " reading" : ""}`;
+
+  let n = 0;
   return (
     <>
       <div className="only-d" style={{ display: "contents" }}>
-        <TopBar title={tx({ en: "Menu", hi: "मेनू" })} />
+        <TopBar title={tx(M.menu)} actions={<ListenButton lines={lines} onLine={onLine} className="tap btn soft" style={{ height: 40, borderRadius: 20, padding: "0 16px" }} />} />
       </div>
       <main>
-        <div className="vx-menu" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
-          <h1 className="serif only-m" style={{ margin: 0, fontSize: 30, fontWeight: 600 }}>{tx({ en: "Menu", hi: "मेनू" })}</h1>
-          <button type="button" className="tap" onClick={openSearch} style={{ height: 48, borderRadius: 24, background: "var(--card)", border: "1px solid var(--bds)", color: "var(--mut)", display: "flex", alignItems: "center", gap: 10, padding: "0 16px", fontSize: 15, textAlign: "left" }}>
+        <div className="vx-menu vxm">
+          <div className="vxm-head only-m">
+            <h1 className="serif">{tx(M.menu)}</h1>
+            <div className="vxm-listen">
+              <ListenButton lines={lines} onLine={onLine} className="tap btn soft" style={{ height: 44, borderRadius: 22, padding: "0 16px" }} />
+            </div>
+          </div>
+          <button type="button" className="tap vxm-search" onClick={openSearch}>
             <Ic n="search" />
-            {tx({ en: "Search students, receipts, pages…", hi: "विद्यार्थी, रसीदें, पेज खोजें…" })}
+            <span>{tx(M.search)}</span>
           </button>
 
-          <div className="card" style={{ overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
-              <span aria-hidden="true" style={{ flex: "none", width: 48, height: 48, borderRadius: 24, background: "var(--pri)", color: "var(--prifg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700 }}>{props.initials}</span>
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <span className="clip" style={{ fontSize: 16, fontWeight: 700 }}>{props.name}</span>
-                <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{props.sub}</span>
+          <section id="menu-settings" aria-labelledby="menu-settings-h" className={`card vxm-set ${lit("menu-settings")}`}>
+            <h2 id="menu-settings-h" className="vxm-set-h">
+              <Ic n="settings" size={16} /> {tx(M.settings)}
+            </h2>
+            <div className="vxm-me">
+              <Avatar text={props.initials} photo={props.photo} size={52} seed={props.name} />
+              <span className="vxm-me-t">
+                {minutes >= 0 ? <span className="vxm-greet">{tx(greetingPair(minutes))}</span> : null}
+                <span className="vxm-name">{props.name}</span>
+                <span className="vxm-role">{props.sub}</span>
               </span>
             </div>
-            <MenuToggles />
-          </div>
-
-          {pinned.length ? <PinnedRow pinned={pinned} all={all} /> : null}
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-            {groups.map((g) => [
-              <GroupHead key={`h-${g.title.en}`} title={g.title} />,
-              ...g.tiles.map((x) => (
-                <Link key={x.key} href={x.href} className="tap" style={tileStyle}>
-                  <TileIcon icon={x.icon} />
-                  <TileText label={x.label} />
+            <QuickSwitches />
+            <Link href={links.school ?? links.mine} className="tap vxm-go">
+              <span className="vxm-go-ic" aria-hidden="true"><Ic n={links.school ? "settings" : "user"} size={22} /></span>
+              <span className="vxm-go-t">
+                <b>{tx(links.school ? M.schoolSettings : M.mySettings)}</b>
+                <span>{tx(links.school ? M.schoolSettingsSub : M.mySettingsSub)}</span>
+              </span>
+              <Ic n="chevRight" size={20} />
+            </Link>
+            <div className={`vxm-mini${links.school ? "" : " two"}`}>
+              {links.school ? (
+                <Link href={links.mine} className="tap">
+                  <span aria-hidden="true"><Ic n="user" size={20} /></span>
+                  {tx(M.mine)}
                 </Link>
-              )),
-            ])}
-            {props.previews.length ? <GroupHead title={{ en: "See the app as", hi: "दूसरे रूप में देखें" }} /> : null}
-            {props.previews.map((m) => (
-              <PreviewTile key={m.key} menu={m.key} label={m.label} icon={m.icon} on={props.previewing === m.key} />
-            ))}
-            <GroupHead title={ACCOUNT.title} />
-            {ACCOUNT.tiles.map((x) => (
-              <Link key={x.key} href={x.href} className="tap" style={tileStyle}>
-                <TileIcon icon={x.icon} />
-                <TileText label={x.label} />
+              ) : null}
+              <Link href={links.password} className="tap">
+                <span aria-hidden="true"><Ic n="key" size={20} /></span>
+                {tx(M.password)}
               </Link>
+              <Link href={links.year} className="tap">
+                <span aria-hidden="true"><Ic n="calendar" size={20} /></span>
+                {tx(M.year)}
+              </Link>
+            </div>
+          </section>
+
+          {pinned.length ? (
+            <section id="menu-shortcuts" className={lit("menu-shortcuts")}>
+              <Shortcuts pinned={pinned} all={all} />
+            </section>
+          ) : null}
+
+          {chips ? <JumpChips groups={groups} extra={previewGroup} /> : null}
+
+          <div id="menu-groups" className={lit("menu-groups")} style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            {groups.map((g) => (
+              <section key={g.id} id={`menu-${g.id}`} data-tone={g.tone} className="vxm-group" aria-label={tx(g.title)}>
+                <GroupHead title={g.title} icon={g.icon} />
+                <div className="vxm-tiles">
+                  {g.tiles.map((x) => (
+                    <Tile key={x.key} tile={x} index={n++} />
+                  ))}
+                </div>
+              </section>
             ))}
+            {previewGroup ? (
+              <section id="menu-seeas" data-tone="preview" className="vxm-group" aria-label={tx(M.seeAs)}>
+                <GroupHead title={M.seeAs} icon="eye" />
+                <div className="vxm-tiles">
+                  {props.previews.map((m) => (
+                    <PreviewTile key={m.key} menu={m.key} label={m.label} icon={m.icon} on={props.previewing === m.key} index={n++} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
 
-          <form action={logoutAction} style={{ marginTop: 10, display: "flex" }}>
-            <button type="submit" className="tap btn sec" style={{ flex: 1, color: "var(--bad)" }}>
-              <Ic n="logout" size={18} /> {tx({ en: "Sign out", hi: "साइन आउट" })}
-            </button>
-          </form>
-          <span style={{ textAlign: "center", fontSize: 12, color: "var(--sub)" }}>{tx({ en: "VPPS One · staff workspace", hi: "VPPS One · स्टाफ़ कार्यक्षेत्र" })}</span>
+          <div id="menu-signout" className={lit("menu-signout")} style={{ marginTop: 6 }}>
+            <SignOut />
+          </div>
+          <span className="vxm-foot">{tx(M.foot)}</span>
         </div>
       </main>
     </>
