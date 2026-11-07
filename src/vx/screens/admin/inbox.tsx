@@ -76,8 +76,10 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
 type Beacon = InboxBeacon;
 type Held = PendingInboxDecision & { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; sending: boolean; flushing: boolean };
 
-export function InboxScreen({ items, initial, previewing, unavailable, scope, taskPanel, taskActions, taskDetail }: {
+export function InboxScreen({ items, initial, previewing, unavailable, scope, taskPanel, taskActions, taskDetail, views }: {
   items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean; scope: InboxScope;
+  /** The two halves of Needs you (D-520): decisions here, teachers' work beside them. */
+  views?: ReactNode;
   /** Teacher work: below the queue, never above the title. */
   taskPanel?: ReactNode;
   /** The desk's top-bar buttons; the phone carries them in `taskPanel`. */
@@ -400,6 +402,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   const desk = (
     <div className="only-d" style={{ display: "grid", gridTemplateColumns: "400px minmax(0, 1fr)", minHeight: "calc(100dvh - 64px)" }}>
       <div style={{ minWidth: 0, borderRight: "1px solid var(--bd)", display: "flex", flexDirection: "column" }}>
+        {views ? <div style={{ padding: "14px 16px 0" }}>{views}</div> : null}
         <div className="glass" role="group" aria-label={tx(TO.filterByType)} style={{ position: "sticky", top: 64, zIndex: 2, padding: "16px 16px 12px", display: "flex", flexWrap: "wrap", gap: 6, borderBottom: "1px solid var(--bd)" }}>
           {chips}
           <span style={{ marginLeft: "auto" }}>{batch}</span>
@@ -455,6 +458,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
           <h1 className="serif" style={{ margin: 0, fontSize: 30, fontWeight: 600 }}>{tx(T.needsYou)}</h1>
           <span className="num clip" style={{ fontSize: 13, color: "var(--mut)" }}>{waiting}</span>
         </div>
+        {views}
         <div className="hs" role="group" aria-label={tx(TO.filterByType)} style={{ display: "flex", gap: 8, margin: "0 -18px", padding: "0 18px 2px" }}>
           {chips}
         </div>

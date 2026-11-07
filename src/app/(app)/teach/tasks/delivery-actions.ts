@@ -7,6 +7,8 @@ import { getSiteUrl } from "@/platform/env";
 import { taskDeliveryAvailability } from "@/modules/collection/data/message-provider";
 import { dispatchTeacherTaskMessage } from "@/modules/collection/data/messages-repo";
 import type { DeliveryPreview, DeliveryResult } from "@/modules/teacher-tasks/domain/delivery";
+import { collectToday, loadSendQueue, recordTaskSent, type RecordResult } from "@/modules/teacher-tasks/data/collect";
+import type { SendEntry, SendKind } from "@/modules/teacher-tasks/domain/send-queue";
 
 const uuid = /^[0-9a-f-]{36}$/i;
 export async function previewTaskDeliveryAction(id: string, kind: "initial" | "reminder"): Promise<DeliveryPreview | Extract<DeliveryResult,{ok:false}>> {
@@ -42,4 +44,21 @@ export async function reconcileTaskDeliveryAction(id:string,attempt:string|null,
   if(!uuid.test(id)||(attempt!==null&&!/^attempt:[0-9a-f-]{36}$/i.test(attempt))||!["accepted","not_sent"].includes(resolution)||note.trim().length<5||note.length>500)return false;
   const {data,error}=await createAdminClient().rpc("reconcile_teacher_task_delivery",{p_actor:actor.id,p_id:id,p_attempt:attempt,p_resolution:resolution,p_note:note.trim()});
   revalidatePath("/inbox");return !error&&data===true;
+}
+
+/**
+ * The send list (D-521): each picked teacher's message and link, read when the
+ * office opens the list rather than carried in the page. Reads only.
+ */
+export async function taskSendQueueAction(kind: SendKind, ids: string[]): Promise<{ ok: true; today: string; entries: SendEntry[] } | { ok: false }> {
+  await assertPermission("collection:manage");
+  if ((kind !== "initial" && kind !== "reminder") || !Array.isArray(ids) || ids.length > 200 || ids.some((id) => typeof id !== "string" || !uuid.test(id))) return { ok: false };
+  try { return { ok: true, today: collectToday(), entries: await loadSendQueue(kind, ids) }; }
+  catch { return { ok: false }; }
+}
+
+/** The office opened WhatsApp for this teacher: the same record "Prepare WhatsApp link" writes. */
+export async function recordTaskSentAction(id: string, kind: SendKind): Promise<RecordResult> {
+  await assertPermission("collection:manage"); await assertNotPreviewing();
+  return recordTaskSent(id, kind);
 }

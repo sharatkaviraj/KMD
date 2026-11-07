@@ -7,6 +7,7 @@ import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet"
 import { ManageTask } from "@/modules/teacher-tasks/ui/manage-task";
 import { ms } from "@/messages/setup";
 import { PLAIN } from "@/modules/teacher-tasks/ui/plain";
+import { CW } from "@/modules/teacher-tasks/ui/collect-words";
 const calls=vi.hoisted(()=>({create:vi.fn(),delegate:vi.fn(),refresh:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:calls.refresh,push:vi.fn()})}));
 vi.mock("next/link",()=>({useLinkStatus:()=>({pending:false}),default:({children,href}:{children:React.ReactNode;href:string})=><a href={href}>{children}</a>}));
@@ -28,8 +29,9 @@ async function click(label:string){
 it("links a refused create to the existing task and provides explicit list delegation",async()=>{
   calls.create.mockResolvedValue({ok:false,reason:"scope_changed",taskId:"existing-task"});
   await act(async()=>root.render(<AssignmentLauncher language="en" selectedIds={["child"]}/>));
-  await click(ms.taskAssign.en);await click(ms.taskPreview.en);await click(ms.taskCreate.en);
-  expect(host.querySelector("a")?.getAttribute("href")).toBe("/inbox?task=existing-task");
+  // Ask teachers is four questions now (D-522): "See who gets it", then "Give work to N teachers".
+  await click(ms.taskAssign.en);await click(CW.seeWho.en);await click("Give work");
+  expect(host.querySelector("a")?.getAttribute("href")).toBe("/inbox?view=collect&task=existing-task");
   expect(host.textContent).toContain(ms.taskScopeChanged.en);
   expect(host.textContent).not.toContain(PLAIN.created.en);
   await act(async()=>root.render(<ManageTask id="existing-task" language="en" collection/>));
