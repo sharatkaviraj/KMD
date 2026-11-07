@@ -355,6 +355,19 @@ const kbUp = () => getKeyboardOffset() > 120;
 const ROOM: Record<NoteCardName, number> = { child: 330, write: 240, check: 400, saved: 380 };
 
 /**
+ * Cards that cut nothing on purpose (the child and words cards cut their own
+ * lists, useFit). If their content is taller than the card, from the AI's
+ * offers or large text, a row would be hidden ("Tell parents" was, on a
+ * 360×640 phone, 7 Nov): the card is squeezed, and if that is not enough it
+ * is drawn at its own height and the page scrolls.
+ */
+const WHOLE: ReadonlySet<NoteCardName> = new Set<NoteCardName>(["check", "saved"]);
+const spills = (el: HTMLElement) => {
+  const body = el.querySelector<HTMLElement>(".nc-card:not(.leaving) .nc-body");
+  return body !== null && body.scrollHeight - body.clientHeight > 1;
+};
+
+/**
  * The cards' height: from the frame's top to the tab bar, or to the
  * keyboard while it is up. Divided by the page's zoom (large text, 1.125),
  * which a pixel height inside it is multiplied by. Measured again whenever
@@ -367,6 +380,9 @@ function useFrame(root: RefObject<HTMLDivElement | null>, card: NoteCardName) {
     const el = root.current;
     if (!el) return undefined;
     let frame = 0;
+    // The room, and the view on the card, at which its content still spilled when squeezed. Drawn at
+    // its own height there, the card cannot be measured for a spill, so it stays so until either moves.
+    let spilled: { room: number; sub: string | null } | null = null;
     const size = () => {
       const rect = el.getBoundingClientRect();
       const zoom = el.offsetWidth > 0 && rect.width / el.offsetWidth > 0.5 ? rect.width / el.offsetWidth : 1;
@@ -375,9 +391,21 @@ function useFrame(root: RefObject<HTMLDivElement | null>, card: NoteCardName) {
       const bar = document.querySelector<HTMLElement>(".vx-bottom");
       const barH = bar && getComputedStyle(bar).display !== "none" ? bar.getBoundingClientRect().height : 0;
       const room = Math.floor((view - top - barH) / zoom);
-      el.toggleAttribute("data-short", room < ROOM[card]);
+      const sub = el.getAttribute("data-sub");
       el.style.setProperty("--nc-h", `${Math.max(ROOM[card], room)}px`);
       el.style.setProperty("--nc-bar", `${Math.ceil(barH / zoom)}px`);
+      el.removeAttribute("data-squeeze");
+      if (room < ROOM[card] || (spilled !== null && spilled.sub === sub && room <= spilled.room)) {
+        el.setAttribute("data-short", "");
+        return;
+      }
+      el.removeAttribute("data-short");
+      if (!WHOLE.has(card) || !spills(el)) return;
+      el.setAttribute("data-squeeze", "");
+      if (!spills(el)) return;
+      el.removeAttribute("data-squeeze");
+      el.setAttribute("data-short", "");
+      spilled = { room, sub };
     };
     const later = () => {
       cancelAnimationFrame(frame);
@@ -391,9 +419,13 @@ function useFrame(root: RefObject<HTMLDivElement | null>, card: NoteCardName) {
     // wraps grows the page. Either moves the cards without resizing the window.
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(later);
     for (const box of [document.body, el.closest(".vx-main"), el.closest(".vx-page")]) if (box) ro?.observe(box);
+    // What a card holds changes without any size changing (the AI's sort and offers arrive): look again.
+    const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(later);
+    mo?.observe(el, { childList: true, subtree: true, characterData: true });
     return () => {
       cancelAnimationFrame(frame);
       ro?.disconnect();
+      mo?.disconnect();
       window.removeEventListener("resize", later);
       window.visualViewport?.removeEventListener("resize", later);
     };
@@ -1351,38 +1383,42 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
     <>
       <KidHead kid={kid} ct={ct} mine={mine} onChange={() => flow.go("child")} />
       <div className="nc-body">
-        {/* The words themselves are the way back to them: one tap anywhere on them. */}
-        <button type="button" className="tap nc-words" onClick={() => flow.go("write")}>
-          <span className="nc-wt">{text}</span>
-          <span className="nc-wedit">
-            <Ic n="edit" size={15} />
-            {tx(p("Edit", "बदलें"))}
-          </span>
-        </button>
-        {sorter.tidy || canTranslate ? (
-          <div className="nc-wacts">
-            {sorter.tidy ? (
-              <button type="button" className="tap nc-tidy" onClick={() => flow.openSub("tidy")}>
-                <Ic n="sparkle" size={16} />
-                <span className="nc-e" style={{ flex: 1 }}>{tx(p("Clearer wording is ready", "साफ़ शब्दों में तैयार है"))}</span>
-                <b>{tx(p("See", "देखें"))}</b>
-              </button>
-            ) : null}
-            {canTranslate ? (
-              <button
-                type="button"
-                className="tap nc-tr"
-                onClick={() => {
-                  translator.run();
-                  flow.openSub("translate");
-                }}
-              >
-                <Ic n="globe" size={16} />
-                {tx(translateTarget(text) === "en" ? p("In English", "अंग्रेज़ी में") : p("In Hindi", "हिंदी में"))}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+        {/* The words and the AI's offers: side by side when the card is squeezed (useFrame). */}
+        <div className="nc-wtop">
+          {/* The words themselves are the way back to them: one tap anywhere on them. */}
+          <button type="button" className="tap nc-words" onClick={() => flow.go("write")}>
+            <span className="nc-wt">{text}</span>
+            <span className="nc-wedit">
+              <Ic n="edit" size={15} />
+              {tx(p("Edit", "बदलें"))}
+            </span>
+          </button>
+          {sorter.tidy || canTranslate ? (
+            <div className="nc-wacts">
+              {sorter.tidy ? (
+                <button type="button" className="tap nc-tidy" aria-label={tx(p("Clearer wording is ready · See", "साफ़ शब्दों में तैयार है · देखें"))} onClick={() => flow.openSub("tidy")}>
+                  <Ic n="sparkle" size={16} />
+                  <span className="nc-e" style={{ flex: 1 }}>{tx(p("Clearer wording is ready", "साफ़ शब्दों में तैयार है"))}</span>
+                  <b>{tx(p("See", "देखें"))}</b>
+                </button>
+              ) : null}
+              {canTranslate ? (
+                <button
+                  type="button"
+                  className="tap nc-tr"
+                  aria-label={tx(translateTarget(text) === "en" ? p("In English", "अंग्रेज़ी में") : p("In Hindi", "हिंदी में"))}
+                  onClick={() => {
+                    translator.run();
+                    flow.openSub("translate");
+                  }}
+                >
+                  <Ic n="globe" size={16} />
+                  <span>{tx(translateTarget(text) === "en" ? p("In English", "अंग्रेज़ी में") : p("In Hindi", "हिंदी में"))}</span>
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         {row("kinds", c.tags[0] ? look[c.tags[0]].icon : "tag", c.tags[0] ? [look[c.tags[0]].bg, look[c.tags[0]].fg] : ["var(--s2)", "var(--mut)"], p("About", "किस बारे में"), kindVal, mark("tags"))}
         {row("follow", "calendar", c.follow ? ["var(--warns)", "var(--warnfg)"] : ["var(--s2)", "var(--mut)"], p("Follow-up", "फिर देखना"), followVal, mark("follow"))}
         {row("readers", c.visibility === "private" ? "lock" : "users", ["var(--infos)", "var(--info)"], p("Who can read it", "कौन पढ़ सकता है"), readVal)}

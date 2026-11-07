@@ -143,6 +143,7 @@
 .nc .nc-words{flex:none;display:flex;align-items:flex-start;gap:8px;width:100%;padding:10px 8px 10px 14px;border:0;border-radius:16px;background:var(--s2);color:var(--fg);text-align:left}
 .nc .nc-wt{flex:1;min-width:0;font-size:15px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .nc .nc-wedit{flex:none;display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:10px;border:1px solid var(--bds);background:var(--card);color:var(--acc);font-size:12.5px;font-weight:700}
+.nc .nc-wtop{flex:none;display:flex;flex-direction:column;gap:inherit;min-width:0}
 .nc .nc-wacts{flex:none;display:flex;gap:8px;min-width:0}
 .nc .nc-tidy{flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 14px;border-radius:14px;border:1.5px dashed var(--acc);background:var(--accs);color:var(--accfg);font-size:13.5px;font-weight:600;text-align:left}
 .nc .nc-tidy b{font-weight:800}
@@ -156,7 +157,7 @@
 /* A value says all of itself on two lines ("Admin and class teacher only"), one when the card is tight. */
 .nc .nc-row .val{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
 /* The AI mark sits beside the row's label, so a row the AI filled is no taller than one it did not. */
-.nc .nc-aim{color:var(--acc);vertical-align:-2px;margin-left:5px}
+.nc .nc-aim{display:inline-block;color:var(--acc);vertical-align:-2px;margin-left:5px}
 .nc .nc-ai{flex:none;display:flex;align-items:flex-start;gap:6px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:auto}
 .nc .nc-ai>svg{margin-top:1px}
 .nc .nc-ai.ai{color:var(--accfg)}
@@ -260,8 +261,18 @@
   .nc .nc-ai:not(.busy){display:none}
   .nc .nc-quote>span{-webkit-line-clamp:2}
   .nc .nc-tidy{min-height:40px;padding-top:4px;padding-bottom:4px}
+  .nc .nc-tr{min-height:40px}
+  .nc .nc-body{gap:6px;padding-bottom:6px}
   .nc .nc-wa .nx-wb>p{-webkit-line-clamp:2}
 }
+
+/* ---- squeezed: the check card's own content did not fit (the AI's offers, large text) ---- */
+/* useFrame sets it only after measuring a spill: the offers fold into buttons beside the words. */
+.nc[data-squeeze] .nc-wtop{flex-direction:row;align-items:stretch}
+.nc[data-squeeze] .nc-wtop>.nc-words{flex:1;min-width:0}
+.nc[data-squeeze] .nc-wacts{flex:none}
+.nc[data-squeeze] .nc-tidy,.nc[data-squeeze] .nc-tr{flex:none;width:44px;min-height:44px;padding:0;justify-content:center}
+.nc[data-squeeze] .nc-tidy>:not(svg),.nc[data-squeeze] .nc-tr>:not(svg){display:none}
 
 /* ---- too little room for a whole card: drawn at its own height, and the page scrolls ---- */
 .nc[data-short]{height:auto;min-height:0;overflow:visible;display:block;padding-bottom:calc(var(--nc-bar,0px) + 8px)}
