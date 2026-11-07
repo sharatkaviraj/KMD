@@ -444,7 +444,7 @@ export function TeachHome({
       ) : null}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
         {allowed.attendance ? (
-          <Link href={attendHref} className="tap btn tc-big">
+          <Link href={attendHref} className="tap btn tc-big tc-call">
             <Ic n="calCheck" size={22} />
             {tx(p("Mark attendance", "हाज़िरी लगाएँ"))}
             {sub(p("Mark attendance", "हाज़िरी लगाएँ")) ? <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.7 }}>{sub(p("Mark attendance", "हाज़िरी लगाएँ"))}</span> : null}

@@ -312,11 +312,11 @@ export function HelpPic({ kind }: { kind: "mark" | "seen" | "take" | "tap" | "sa
       return (
         <div style={{ width: "100%", height: "100%", padding: 10, display: "flex", flexDirection: "column", gap: 6, borderRadius: 10, background: "var(--pri)", color: "var(--prifg)" }}>
           <span className="tc-sk" style={{ width: "60%", background: "currentColor", opacity: 0.5 }} />
-          <span className="tc-ib" style={{ marginTop: "auto", height: 26, borderRadius: 9, background: "var(--prifg)", color: "var(--pri)", fontSize: 11, fontWeight: 700, animation: "xPulse 2.4s ease infinite" }}>{w("Mark attendance", "हाज़िरी लगाएँ")}</span>
+          <span className="tc-ib tc-call" style={{ marginTop: "auto", height: 26, borderRadius: 9, background: "var(--prifg)", color: "var(--pri)", fontSize: 11, fontWeight: 700 }}>{w("Mark attendance", "हाज़िरी लगाएँ")}</span>
         </div>
       );
     case "seen":
-      return box("var(--card)", <><span className="tc-sk" style={{ width: "80%" }} /><span className="tc-sk" style={{ width: "55%" }} /><span className="tc-ib" style={{ height: 26, borderRadius: 9, background: "var(--pri)", color: "var(--prifg)", fontSize: 11, fontWeight: 700, animation: "xPulse 2.4s ease infinite" }}>{w("I have read it", "पढ़ लिया")}</span></>);
+      return box("var(--card)", <><span className="tc-sk" style={{ width: "80%" }} /><span className="tc-sk" style={{ width: "55%" }} /><span className="tc-ib tc-call" style={{ height: 26, borderRadius: 9, background: "var(--pri)", color: "var(--prifg)", fontSize: 11, fontWeight: 700, "--call": "var(--pri)" } as CSSProperties}>{w("I have read it", "पढ़ लिया")}</span></>);
     case "take":
       return box(
         "var(--warns)",

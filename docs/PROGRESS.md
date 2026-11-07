@@ -109,6 +109,11 @@ on My subjects saying "No paper yet" beside a paper that existed: papers keep
 the label they were made with ("11 Arts"), the class list says "Class 11
 Arts", and the card matched them as text. Cards now find their paper by class
 id, and links and My tasks name classes from the class list.
+**D-535:** Today's "Mark attendance" button faded to half every 2.4 s,
+which on a phone looks switched off. It now stays solid and a ring grows
+off it and fades, four times, then rests (none with reduced motion). The
+help pictures of the button do the same. Test:
+`tests/teacher-mark-attendance-call.test.ts`.
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
