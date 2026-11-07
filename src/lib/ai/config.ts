@@ -95,6 +95,42 @@ export function freeGeminiConfig(env: Env = process.env) {
   }
 }
 
+/**
+ * OpenRouter, free models only (owner, 7 Nov 2026). The account holds $10 of
+ * credit solely to lift the free-model limit to 1,000 requests a day; it must
+ * never pay for a model. So every model named here must end in `:free` (or be
+ * OpenRouter's own free router), and each request also carries a zero
+ * `max_price` (`chat-draft.ts`). Up to three models, tried in order by OpenRouter.
+ */
+export const OPENROUTER_DEFAULT_MODELS = ["nvidia/nemotron-3.5-lightning:free", "google/gemma-4-31b-it:free", "openrouter/free"] as const;
+const FREE_OPENROUTER_MODEL = /^(?:openrouter\/free|[a-z0-9][a-z0-9._-]{0,40}\/[a-z0-9][a-z0-9._-]{0,80}:free)$/u;
+
+export function isFreeOpenRouterModel(id: string): boolean {
+  return FREE_OPENROUTER_MODEL.test(id);
+}
+
+export function openRouterConfig(env: Env = process.env): { apiKey: string; models: string[] } | null {
+  const apiKey = env.OPENROUTER_API_KEY?.trim();
+  if (!apiKey) return null;
+  const listed = (env.VPPSONE_OPENROUTER_MODELS ?? "").split(",").map((m) => m.trim().toLowerCase()).filter(Boolean);
+  const models = [...new Set(listed.length ? listed : OPENROUTER_DEFAULT_MODELS)].filter(isFreeOpenRouterModel).slice(0, 3);
+  return models.length ? { apiKey, models } : null;
+}
+
+/**
+ * NVIDIA's free API catalogue (build.nvidia.com), Moonshot's Kimi by default.
+ * Vercel holds the key as `NVIDIA_KIMI_API_KEY`; `NVIDIA_API_KEY` is an alias.
+ */
+export const NVIDIA_DEFAULT_MODEL = "moonshotai/kimi-k2.6";
+const NVIDIA_MODEL = /^[a-z0-9][a-z0-9._-]{0,40}\/[a-z0-9][a-z0-9._-]{0,80}$/u;
+
+export function nvidiaConfig(env: Env = process.env): { apiKey: string; model: string } | null {
+  const apiKey = env.NVIDIA_KIMI_API_KEY?.trim() || env.NVIDIA_API_KEY?.trim();
+  if (!apiKey) return null;
+  const model = env.VPPSONE_NVIDIA_MODEL?.trim().toLowerCase() || NVIDIA_DEFAULT_MODEL;
+  return { apiKey, model: NVIDIA_MODEL.test(model) ? model : NVIDIA_DEFAULT_MODEL };
+}
+
 /** The OpenAI API Platform key (the plan's monthly credits). Vercel's name first, then the usual alias. */
 export function openAiKey(env: Env = process.env): string | undefined {
   return env.OPEN_AI_API_KEY?.trim() || env.OPENAI_API_KEY?.trim() || undefined;

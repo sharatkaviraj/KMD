@@ -3,7 +3,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 
-import { freeGeminiConfig, openAiKey, paidGeminiConfig } from "@/lib/ai/config";
+import { freeGeminiConfig, nvidiaConfig, openAiKey, openRouterConfig, paidGeminiConfig } from "@/lib/ai/config";
 import { oneInstructions, type OneWorkflow } from "@/lib/ai/one-knowledge";
 import { freeKeyBlocked, saveStatuses, statusRow } from "@/lib/ai/provider-status";
 import { failureOf, type FailureProblem } from "@/lib/ai/router";
@@ -14,7 +14,7 @@ import { groupsFor } from "@/vx/nav";
 import { costUsd } from "../domain/cost";
 import { dailyCapFor, FEATURE_PERMISSIONS, type AssistOutcome, type AssistProblem } from "../domain/features";
 import { hasStrayToken, maskPersonal, restoreDeep } from "../domain/redact";
-import { assistChain, CHAIN_DEADLINE_MS, type AssistStage, type AvailableKeys } from "../domain/routes";
+import { assistChain, CHAIN_DEADLINE_MS, FREE_PROVIDERS, type AssistStage, type AvailableKeys } from "../domain/routes";
 import {
   ASSIST_TASKS,
   SHARED_RULES,
@@ -23,6 +23,7 @@ import {
   type TaskOutput,
   type TaskSpec,
 } from "../domain/tasks";
+import { chatDraft } from "./chat-draft";
 import { geminiDraft } from "./gemini-draft";
 import { budgetState, writeLog } from "./log";
 import { openaiDraft, type StageReply } from "./openai-draft";
@@ -44,6 +45,8 @@ export function availableKeys(env: Readonly<Record<string, string | undefined>> 
     openai: Boolean(openAiKey(env)),
     geminiPaidModel: paidGeminiConfig(env)?.model ?? null,
     geminiFreeModel: freeGeminiConfig(env)?.model ?? null,
+    nvidiaModel: nvidiaConfig(env)?.model ?? null,
+    openRouterModel: openRouterConfig(env)?.models[0] ?? null,
   };
 }
 
@@ -158,8 +161,27 @@ async function claudeStage(stage: AssistStage, ask: Ask, timeoutMs: number): Pro
   };
 }
 
-async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promise<StageReply> {
+async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promise<StageReply & { model?: string }> {
   switch (stage.provider) {
+    case "nvidia-free": {
+      const config = nvidiaConfig();
+      if (!config) throw Object.assign(new Error("NVIDIA key missing"), { status: 401 });
+      return chatDraft({
+        url: "https://integrate.api.nvidia.com/v1/chat/completions", apiKey: config.apiKey, model: config.model,
+        instructions: ask.instructions, text: ask.text, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
+      });
+    }
+    case "openrouter-free": {
+      const config = openRouterConfig();
+      if (!config) throw Object.assign(new Error("OpenRouter key missing"), { status: 401 });
+      return chatDraft({
+        url: "https://openrouter.ai/api/v1/chat/completions", apiKey: config.apiKey, model: config.models[0], models: config.models,
+        instructions: ask.instructions, text: ask.text, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
+        jsonMode: true, headers: { "X-Title": "VPPS One" },
+        // Never a paid model: OpenRouter refuses any route that would charge (owner, 7 Nov 2026).
+        extra: { provider: { max_price: { prompt: 0, completion: 0, request: 0, image: 0 } } },
+      });
+    }
     case "anthropic":
       return claudeStage(stage, ask, timeoutMs);
     case "openai":
@@ -230,11 +252,12 @@ async function draftThroughChain<K extends AssistTaskId>(
     if (left < 6_000) break;
     const free = stage.provider === "gemini-free";
     // Charge everything already spent to this draft, and start no further paid call once at the cap.
-    if (!free && spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
+    if (!FREE_PROVIDERS.has(stage.provider) && spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
     if (free && (await freeKeyBlocked())) continue;
     try {
       const reply = await runStage(stage, ask, Math.min(stage.timeoutMs, left - 2_000));
-      model = stage.model;
+      // OpenRouter names the free model that actually answered; the log keeps it.
+      model = reply.model ?? stage.model;
       inputTokens += reply.input;
       outputTokens += reply.output;
       cacheReadTokens += reply.cacheRead;

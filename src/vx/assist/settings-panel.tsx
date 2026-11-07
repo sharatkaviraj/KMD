@@ -50,6 +50,8 @@ const PROVIDER_NAME: Record<AssistProvider, string> = {
   openai: "OpenAI",
   "gemini-paid": "Gemini",
   "gemini-free": "Gemini Free",
+  "nvidia-free": "NVIDIA Free",
+  "openrouter-free": "OpenRouter Free",
 };
 
 /**

@@ -21,7 +21,10 @@ import type { AssistTaskId } from "./tasks";
  * photograph never goes to the free key, masked or not.
  */
 
-export type AssistProvider = "gemini-free" | "anthropic" | "openai" | "gemini-paid";
+export type AssistProvider = "nvidia-free" | "openrouter-free" | "gemini-free" | "anthropic" | "openai" | "gemini-paid";
+
+/** Providers that cost nothing: they skip the budget check, and see open tasks only (D-417, D-490). */
+export const FREE_PROVIDERS: ReadonlySet<AssistProvider> = new Set<AssistProvider>(["nvidia-free", "openrouter-free", "gemini-free"]);
 
 export type AssistStage = { provider: AssistProvider; model: string; timeoutMs: number };
 
@@ -70,7 +73,10 @@ export const OPENAI_MODELS: Record<AssistTier, string> = {
  * Opus reading a dozen remarks or a photograph needs the longest.
  */
 const TIMEOUT_MS: Record<AssistProvider, Record<AssistTier, number>> = {
-  "gemini-free": { quick: 10_000, writing: 10_000, careful: 10_000 },
+  // The three free stages share the 21 s the paid chain leaves inside the browser's wait.
+  "nvidia-free": { quick: 7_000, writing: 7_000, careful: 7_000 },
+  "openrouter-free": { quick: 6_000, writing: 6_000, careful: 6_000 },
+  "gemini-free": { quick: 8_000, writing: 8_000, careful: 8_000 },
   anthropic: { quick: 22_000, writing: 24_000, careful: 34_000 },
   openai: { quick: 16_000, writing: 18_000, careful: 18_000 },
   "gemini-paid": { quick: 16_000, writing: 18_000, careful: 18_000 },
@@ -84,6 +90,10 @@ export type AvailableKeys = {
   openai: boolean;
   geminiPaidModel: string | null;
   geminiFreeModel: string | null;
+  /** NVIDIA's free API model (Kimi by default), or null without the key. */
+  nvidiaModel?: string | null;
+  /** OpenRouter's first free model, or null without the key. */
+  openRouterModel?: string | null;
 };
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -122,7 +132,14 @@ export function assistChain(task: AssistTaskId, keys: AvailableKeys, env: Env = 
   const claude = keys.anthropic ? [stage("anthropic", models.claude)] : [];
   const openai = keys.openai ? [stage("openai", models.openai)] : [];
   const paid = keys.geminiPaidModel ? [stage("gemini-paid", keys.geminiPaidModel)] : [];
-  const free = keys.geminiFreeModel && tier === "quick" && OPEN_TASKS.has(task) ? [stage("gemini-free", keys.geminiFreeModel)] : [];
+  // Free tiers may keep what they are sent, so only an open quick task reaches them (D-401, D-417, D-490):
+  // NVIDIA's Kimi first, then OpenRouter's free models, then Gemini Free.
+  const open = tier === "quick" && OPEN_TASKS.has(task);
+  const free = open ? [
+    ...(keys.nvidiaModel ? [stage("nvidia-free", keys.nvidiaModel)] : []),
+    ...(keys.openRouterModel ? [stage("openrouter-free", keys.openRouterModel)] : []),
+    ...(keys.geminiFreeModel ? [stage("gemini-free", keys.geminiFreeModel)] : []),
+  ] : [];
 
   // Gemini reads handwritten Devanagari well; for a form photo it is the first fallback.
   if (task === "form.read") return [...claude, ...paid, ...openai];
