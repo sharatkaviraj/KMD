@@ -29,6 +29,9 @@ describe("one authoritative financial backend",()=>{
   it("delegates whole unsupported financial paths without forwarding input queries",()=>{
     expect(feesDestination("/fees/receipts/abc","2026-27")).toBe("https://fees.vpps.co.in/protected/receipts/abc?session=2026-27");
     expect(feesDestination("/reports","2026-27")).toBeNull();
+    // The AI report is One's own screen; other Fees report pages still land on "Not in One yet".
+    expect(feesDestination("/reports/ai","2026-27")).toBeNull();
+    expect(feesDestination("/reports/ledger","2026-27")).toBe("https://fees.vpps.co.in/protected/reports?session=2026-27");
     expect(feesDestination("/fees-other")).toBeNull();
     expect(feesDestination("/payments")).toBeNull();
     expect(feesDestination("/students")).toBeNull();

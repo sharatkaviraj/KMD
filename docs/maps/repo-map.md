@@ -107,6 +107,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 |---|---|---|---|
 | `academics` | One | domain, data, ui | — |
 | `activity` | ported from Fees | data | The audit feed: who did what, when, and to which record. |
+| `ai-report` | One | domain, data | One file with everything One and Fees hold for a session, to give to an AI assistant. |
 | `archives` | One | domain, data, ui | — |
 | `assessments` | One | domain, data, ui | — |
 | `assist` | One | domain, data | — |

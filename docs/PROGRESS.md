@@ -1,5 +1,23 @@
 # VPPS One — progress
 
+## One AI report for the whole year — 7 November 2026
+
+Owner asked (7 Nov) for one master report instead of many: a file with
+everything One and Fees hold for a session, photographs included, to give to
+ChatGPT and ask for any report. Branch `claude/project-thread-v4b26m`.
+**Done:** Reports → AI report (`/reports/ai`, banner on the Reports hub and a
+menu entry) builds one Excel workbook (One's sheets, then Fees' AI context
+sheets as `Fees …`), or a .zip with `photos/`, `photos/index.csv` and a
+read-me, joined on the device from three routes that each stay under Vercel's
+4.5 MB (D-482). Fees serves the year's workbook and photographs through two
+read-only bridge reads (schoolfees PR 149, merged). `reports:ai` is the
+admin's alone until Staff → Roles grants it; every sheet still needs the
+permission that shows it on screen, notes pass `canSeeNote`, a real year
+without the live connection gets no money sheets, and every part taken is
+logged as `ai_report` (D-483; migrations `20261107045006`, `20261107045020`,
+applied). **Remains:** the photographs and live money come only for the real
+year, so QA accounts (TEST years only) see One's rehearsal copy and no photos.
+
 ## Every screen on a real phone and desktop — 7 November 2026
 
 Owner asked whether anyone had seen One's screens on BrowserStack, phone and

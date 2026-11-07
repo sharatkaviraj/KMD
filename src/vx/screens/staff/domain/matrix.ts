@@ -90,6 +90,7 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       I("academics:view", "See classes & subjects", "कक्षाएँ व विषय देखें", "Open master data: classes, subjects, calendar.", "मास्टर डेटा देखें।"),
       I("academics:manage", "Change classes & subjects", "कक्षाएँ व विषय बदलें", "Edit master data and the calendar.", "मास्टर डेटा और कैलेंडर बदलें।"),
       I("reports:view", "See academic reports", "रिपोर्ट देखें", "Open academic reports and exports.", "शैक्षणिक रिपोर्ट देखें।"),
+      I("reports:ai", "Download the AI report", "AI रिपोर्ट डाउनलोड करें", "One file of the whole year (One, Fees, photos) to give to ChatGPT. Holds Aadhaar, phones and notes.", "पूरे साल की एक फ़ाइल (One, फीस, फ़ोटो) ChatGPT के लिए। इसमें आधार, फ़ोन और नोट्स हैं।"),
     ],
   },
   {

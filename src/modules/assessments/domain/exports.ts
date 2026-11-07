@@ -7,7 +7,7 @@ import { t, type Localized } from "@/platform/i18n/language";
  * without pulling the card-building arithmetic in with it.
  */
 
-export const exportKinds = ["marks", "attendance", "report_cards", "students", "round"] as const;
+export const exportKinds = ["marks", "attendance", "report_cards", "students", "round", "ai_report"] as const;
 export type ExportKind = (typeof exportKinds)[number];
 
 export const exportKindLabels: Record<ExportKind, Localized> = {
@@ -16,4 +16,6 @@ export const exportKindLabels: Record<ExportKind, Localized> = {
   report_cards: t("प्रगति पत्र", "Report cards"),
   students: t("बच्चों की सूची", "Students"),
   round: t("जानकारी का दौर", "Collection round"),
+  // The whole-year file for ChatGPT (Reports → AI report, 7 Nov 2026).
+  ai_report: t("AI रिपोर्ट", "AI report"),
 };

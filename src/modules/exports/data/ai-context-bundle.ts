@@ -62,7 +62,17 @@ function todayIsoIst() {
   }).format(new Date());
 }
 
-export async function aiContextBundleResponse(filename: string, sessionLabel: string) {
+/**
+ * `compression` deflates the workbook's parts. Off for the Exports download,
+ * as it always was; One's AI report asks for it (src/modules/ai-report), as
+ * Fees' own copy does for the bridge, because the workbook must fit one
+ * response.
+ */
+export async function aiContextBundleResponse(
+  filename: string,
+  sessionLabel: string,
+  options: { compression?: boolean } = {},
+) {
   const XLSX = await import("xlsx");
 
   // Source the roster from the workbook financials view (ALL statuses, not
@@ -1482,7 +1492,11 @@ export async function aiContextBundleResponse(filename: string, sessionLabel: st
     "Sessions",
   );
 
-  const data = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const data = XLSX.write(workbook, {
+    type: "buffer",
+    bookType: "xlsx",
+    compression: options.compression === true,
+  }) as Buffer;
 
   return new Response(new Uint8Array(data), {
     headers: {

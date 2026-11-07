@@ -45,6 +45,8 @@ const T = {
   print: p("Print", "प्रिंट"),
   export: p("Export", "निर्यात"),
   send: p("Send to class teachers", "कक्षा अध्यापकों को भेजें"),
+  ai: p("AI report: the whole year in one file", "AI रिपोर्ट: पूरा साल एक फ़ाइल में"),
+  aiSub: p("Students, fees, attendance, marks, notes and photos, ready to give to ChatGPT for any report.", "विद्यार्थी, फीस, हाज़िरी, अंक, नोट्स और फ़ोटो; ChatGPT को देकर कोई भी रिपोर्ट बनवाएँ।"),
 };
 
 /** Words for the due rule, which every money screen shares (fees/domain/due-rule.ts). */
@@ -103,6 +105,9 @@ function usePins(): [string[], (key: string) => void] {
  */
 const DetailedReports = createContext(true);
 
+/** Whether this reader may take the AI report (`reports:ai`), shown as a banner on the hub. */
+const AiReportOpen = createContext(false);
+
 /** "Live from Fees" when the figures were read from Fees itself (7 Nov 2026). */
 const ReportsNotice = createContext<ReactNode>(null);
 function LiveNotice() {
@@ -116,6 +121,7 @@ export function Reports({
   initialLeft,
   readOnly,
   detailed = true,
+  aiReport = false,
   notice = null,
 }: {
   data: ReportsPageData;
@@ -123,6 +129,7 @@ export function Reports({
   initialLeft: boolean;
   readOnly: boolean;
   detailed?: boolean;
+  aiReport?: boolean;
   notice?: ReactNode;
 }) {
   const [sheet, setSheetState] = useState<ReportsSheet>(initialSheet);
@@ -137,7 +144,9 @@ export function Reports({
 
   return (
     <DetailedReports value={detailed}>
-      <ReportsNotice value={notice}>{reportView(data, sheet, setSheet, close, initialLeft, readOnly)}</ReportsNotice>
+      <AiReportOpen value={aiReport}>
+        <ReportsNotice value={notice}>{reportView(data, sheet, setSheet, close, initialLeft, readOnly)}</ReportsNotice>
+      </AiReportOpen>
     </DetailedReports>
   );
 }
@@ -266,6 +275,7 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
       ]
     : [];
   const detailed = use(DetailedReports);
+  const aiReport = use(AiReportOpen);
   const needle = q.trim().toLowerCase();
   const shown = cards.filter((c) => detailed || c.key !== "all").filter((c) => !needle || `${c.title.en} ${c.title.hi} ${c.sub}`.toLowerCase().includes(needle));
   const pinned = pins.map((k) => cards.find((c) => c.key === k)).filter((c): c is HubCard => Boolean(c) && (detailed || c!.key !== "all"));
@@ -325,6 +335,7 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
           <Ic n="search" />
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(T.find)} aria-label={tx(T.find)} style={{ flex: 1, minWidth: 0, height: 40, border: 0, outline: "none", background: "transparent", color: "var(--fg)", fontSize: 16 }} />
         </label>
+        {aiReport ? <AiReportBanner /> : null}
         {pinned.length && !needle ? (
           <div className="rp-c" style={{ gap: 8 }}>
             <span className="sech">{tx(T.pinned)}</span>
@@ -360,6 +371,23 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
       <ExportSheet data={data} open={sheet === "export"} onClose={close} />
       <NewScheduleSheet open={sheet === "newsch"} onClose={close} readOnly={readOnly} />
     </VxPage>
+  );
+}
+
+/** The AI report (7 Nov 2026): every record of the year in one file for ChatGPT, one tap from the hub. */
+function AiReportBanner() {
+  const { tx } = useVx();
+  return (
+    <Link href="/reports/ai" className="tap card lift rp-f rp-xi" style={{ gap: 14, padding: "14px 16px", color: "var(--fg)", background: "var(--accs)", borderColor: "var(--acc)" }}>
+      <span className="rp-ib rp-t36" style={{ background: "var(--card)", color: "var(--accfg)" }}>
+        <Ic n="database" />
+      </span>
+      <span className="rp-c" style={{ flex: 1, minWidth: 0 }}>
+        <span className="rp-tt">{tx(T.ai)}</span>
+        <span className="rp-m" style={{ color: "var(--fg)" }}>{tx(T.aiSub)}</span>
+      </span>
+      <Ic n="chevRight" />
+    </Link>
   );
 }
 

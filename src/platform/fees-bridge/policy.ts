@@ -91,6 +91,9 @@ export function delegatedFeesPath(pathname: string, env: Environment = process.e
   // Reports is One's own screen and reads Fees itself (7 Nov 2026). Its only
   // writes are One's own report schedules, so it is not a read-only route.
   if (pathname === "/reports") return null;
+  // The AI report (7 Nov 2026) is One's own screen too: One's records and,
+  // through the bridge, Fees' own AI workbook. Read-only.
+  if (pathname === "/reports/ai") return null;
   // These are One-owned homes/CRM. Their source-data adapters keep them here.
   if(pathname==="/accounts" || pathname==="/admissions" || pathname==="/admissions/seats")return null;
   // The single-receipt page validates number + source UUID + session and is

@@ -5,6 +5,7 @@ import { getReportsPageData } from "@/modules/reports/vx/reports-page-data";
 import type { CollectionPreset, ReportsSheet, ReportsView } from "@/modules/reports/vx/types";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
+import { can } from "@/platform/auth/permissions";
 import { schoolProfile } from "@/platform/config/school";
 import { schoolToday } from "@/vx/format";
 import { listCloseEvents } from "@/vx/screens/receipts/data";
@@ -83,6 +84,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       initialLeft={one(sp.left) === "1"}
       readOnly={Boolean(previewing)}
       detailed={detailed}
+      aiReport={can(staff, "reports:ai")}
       notice={data.liveAsOf ? <LiveFromFees asOf={data.liveAsOf} /> : null}
     />
   );
