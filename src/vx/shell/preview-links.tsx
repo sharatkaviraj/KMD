@@ -57,10 +57,9 @@ function PreviewLink({ menu, label, icon, collapsed, on }: { menu: string; label
         start(async () => {
           if (menu === "person") return router.push("/view-as");
           const href = await setViewAsAction(menu);
-          // The action already redrew the frame as the role (revalidatePath), so one
-          // push, no refresh on top; and from the top, where its banner is (D-544).
-          window.scrollTo(0, 0);
-          router.push(href, { scroll: false });
+          // The action already redrew the frame as the role (revalidatePath): one
+          // push, no refresh on top to load the screen twice (D-544).
+          router.push(href);
         })
       }
       // `position: relative` like every other menu line: the sliding highlight is

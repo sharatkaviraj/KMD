@@ -32,9 +32,8 @@ export function PreviewBanner({ label }: { label: Pair }) {
           start(async () => {
             const href = await clearViewAsAction();
             // The action already redrew the frame as the admin's own (revalidatePath):
-            // one push, no refresh on top, from the top of the page (D-544).
-            window.scrollTo(0, 0);
-            router.push(href, { scroll: false });
+            // one push, no refresh on top to load the screen twice (D-544).
+            router.push(href);
           })
         }
         style={{ border: 0, borderRadius: 10, padding: "6px 12px", background: "var(--card)", color: "var(--fg)", fontWeight: 700, fontSize: 13 }}

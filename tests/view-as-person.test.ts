@@ -372,7 +372,7 @@ describe("moving into and out of a view", () => {
     return code.slice(at, code.indexOf("\n", code.indexOf("\n", push) + 1));
   };
 
-  it("pushes once, from the top: the action has already redrawn the frame", () => {
+  it("pushes once: the action has already redrawn the frame", () => {
     const handlers: [string, string][] = [
       ["src/vx/screens/view-as/view-as-screen.tsx", "startViewAsPersonAction"],
       ["src/vx/screens/view-as/view-as-screen.tsx", "endViewAsPersonAction"],
@@ -382,10 +382,22 @@ describe("moving into and out of a view", () => {
       ["src/vx/shell/preview-banner.tsx", "clearViewAsAction"],
     ];
     for (const [path, action] of handlers) {
+      expect(afterAction(src(path), action), `${path} ${action}`).not.toContain("router.refresh()");
+    }
+  });
+
+  it("opens and leaves a person at the very top, where their banner is", () => {
+    // The person banner is not sticky: left to itself the router scrolled the
+    // new screen's own top into view and hid it (the role banner is sticky).
+    const handlers: [string, string][] = [
+      ["src/vx/screens/view-as/view-as-screen.tsx", "startViewAsPersonAction"],
+      ["src/vx/screens/view-as/view-as-screen.tsx", "endViewAsPersonAction"],
+      ["src/vx/shell/person-banner.tsx", "endViewAsPersonAction"],
+    ];
+    for (const [path, action] of handlers) {
       const handler = afterAction(src(path), action);
       expect(handler, `${path} ${action}`).toContain("window.scrollTo(0, 0);");
       expect(handler, `${path} ${action}`).toMatch(/router\.push\([^\n]*, \{ scroll: false \}\);/);
-      expect(handler, `${path} ${action}`).not.toContain("router.refresh()");
     }
   });
 

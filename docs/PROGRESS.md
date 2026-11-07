@@ -53,8 +53,9 @@ to my view; Windows 11 Chrome — sidebar Choose a person, See as QA Accountant
 found the sidebar's sliding highlight drawn over "Choose a person" while the
 picker was open (the highlight is positioned; that line was not, unlike every
 other menu line). **Fixed** with `position: relative`; and "See the app as" a
-role (sidebar, Menu tiles, its banner) now also pushes once from the top
-without a refresh, and its banner reads in the admin's language.
+role (sidebar, Menu tiles, its banner) now also pushes once without a refresh
+(its banner is sticky, so the router's own scroll keeps it in view), and that
+banner reads in the admin's language.
 
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 

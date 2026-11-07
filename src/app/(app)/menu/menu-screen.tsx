@@ -152,9 +152,8 @@ function PreviewTile({ menu, label, icon, on, index }: { menu: string; label: Pa
         start(async () => {
           const href = await setViewAsAction(menu);
           // The action already redrew the frame as the role (revalidatePath): one
-          // push, no refresh on top, from the top where its banner is (D-544).
-          window.scrollTo(0, 0);
-          router.push(href, { scroll: false });
+          // push, no refresh on top to load the screen twice (D-544).
+          router.push(href);
         })
       }
     >
