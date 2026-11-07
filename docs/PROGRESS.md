@@ -13,6 +13,15 @@ payment desk's Print open the full receipt and print it. The PDF is one page
 (`tests/receipt-pdf-one-page.test.ts`). Checked in a container browser with
 synthetic receipts (`tests/mobile-ui/receipt-paper.html`, `?view=source|desk`,
 `&heavy=1`): phone, desktop, desk panel and Chrome's A4 print, one page each.
+Live 7 Nov 12:50 UTC (PR 292). Checked live as QA admin on TEST receipt
+SVP20260516-0001: phone and desk render it, Print A4 and `?print=1` both call
+print, the print fits at 0.901 on one page, the PDF is one page. BrowserStack:
+Galaxy M32 (Chrome) shows it in two columns and Android's print preview reads
+1/1; Windows 11 Chrome shows four columns with the PAID stamp and Chrome's
+print preview reads "1 sheet of paper", A4, the receipt alone. Tapping Print
+over WebDriver blocks the driver on both (the print dialog is modal), so the
+previews were read from the session videos. A TEST-session sheet keeps the
+magenta TEST frame; the real session has none.
 **Remains:** a split-tender payment still prints from Fees' own print page.
 
 ## One AI page, and the connector on its own — 7 November 2026
