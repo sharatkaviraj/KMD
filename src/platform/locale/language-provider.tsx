@@ -69,6 +69,35 @@ export function LanguageProvider({
   const [loadedCatalogs, setLoadedCatalogs] =
     useState<LanguageCatalogs>(catalogs);
 
+  /*
+   * The server's language wins whenever the server says it again.
+   *
+   * This provider lives in the root layout, which a soft navigation never
+   * remounts: it only hands it new props. Signing in (a server action that
+   * redirects) and the EN | हि switch (`router.refresh()`) both do exactly
+   * that, with the account's language, and state seeded from the first props
+   * ignored them. So the year picker, the session card and every other shell
+   * label kept the signed-out English until a reload, while the One screens
+   * around them were already bilingual (BrowserStack, 7 Nov 2026).
+   *
+   * `catalogs` gets a new identity only when the root layout is rendered
+   * again on the server, so an ordinary navigation does not reset a choice
+   * made on this page.
+   */
+  const [fromServer, setFromServer] = useState(catalogs);
+  if (fromServer !== catalogs) {
+    setFromServer(catalogs);
+    setLocaleState(initialLocale);
+    setLoadedCatalogs(catalogs);
+  }
+
+  // `<html lang>` follows too. The root layout sets it while the page is
+  // parsed, and after that nothing did: React leaves an attribute alone when
+  // its prop is unchanged, and the inline script only ever runs once.
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   const setLocale = useCallback(
     (next: AppLocale) => {
       if (next === locale) return;

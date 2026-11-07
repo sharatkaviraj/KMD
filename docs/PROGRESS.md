@@ -27,6 +27,19 @@ BrowserStack (real Galaxy M32 Chrome and Windows 11 Chrome): all passed but
 the year picker's words, which D-517 fixes (desk heading still "Test / UAT /
 DEMO", phone sheet Hindi-only for a both-languages reader). Same branch,
 restarted from main after the merge.
+**D-517 live:** merged as PR 296 (`bf71816`), on one.vpps.co.in from 15:56
+UTC. Checked live as QA admin (reads both languages) in a container browser:
+the desk menu's heading reads "Practice years · अभ्यास वर्ष", the phone
+sheet's the same, and the row badge "TEST · परीक्षण"; nothing says "Test /
+UAT / DEMO" or "Other production" any more.
+BrowserStack re-check of D-517 (real Galaxy M32 Chrome and Windows 11
+Chrome, QA admin): passed. It found one more thing: straight after sign-in,
+before any reload, the shell's words were English for a reader of both
+languages and `<html lang>` stayed "en". **D-518** makes the root layout's
+fee language provider follow the locale and catalogue the server sends again
+after sign-in and after the EN | हि switch (it had kept its first props as
+state); the real /login signs in the same way, so it is covered too. Test:
+`tests/shell-language-follows-server.test.tsx` (5).
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
