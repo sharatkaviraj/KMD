@@ -148,6 +148,9 @@ const SUBJECT_NAMES: Record<string, string> = {
   SST: "Social Sci.",
   EVS: "EVS",
   "Eng Lit": "English Lit.",
+  // An acronym the school says as letters; the capitals rule below made it
+  // "Elga", a word nobody at the school uses (D-524).
+  ELGA: "ELGA",
 };
 
 /** The timetable's subject code as a person says it. */

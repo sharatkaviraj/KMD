@@ -123,12 +123,12 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
             n.href === "#quick" ? (
               <button key={n.key} type="button" className="tap vx-center" aria-label={tx(n.label)} onClick={() => setQuick(true)} style={CENTER_STYLE}>
                 <CenterBlob icon={n.icon} />
-                <span className="clip vx-tab-label" aria-hidden="true" style={{ maxWidth: "100%", color: "var(--pri)", fontWeight: 700 }}>{tx(n.short ?? n.label)}</span>
+                <span className="clip vx-tab-label" aria-hidden="true" style={CENTER_LABEL}>{tx(n.short ?? n.label)}</span>
               </button>
             ) : (
               <IntentLink feedback key={n.key} href={n.href} className="tap vx-center" aria-label={tx(n.label)} style={CENTER_STYLE}>
                 <CenterBlob icon={n.icon} />
-                <span className="clip vx-tab-label" aria-hidden="true" style={{ maxWidth: "100%", color: "var(--pri)", fontWeight: 700 }}>{tx(n.short ?? n.label)}</span>
+                <span className="clip vx-tab-label" aria-hidden="true" style={CENTER_LABEL}>{tx(n.short ?? n.label)}</span>
               </IntentLink>
             )
           ) : (
@@ -167,6 +167,13 @@ export function VxBottomBar({ tabs, badges, coverAi = false }: {
  * what is written on it (UX review, 6 Nov 2026).
  */
 const CENTER_STYLE = { border: 0, background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 3 } as const;
+/**
+ * The centre word may run a little into its neighbours' columns, whose own
+ * words are short and centred ("Class", "Notes"): "Attendance" needs about
+ * 76 px and a column on a 360 px phone has 70, so it read "Attendan…"
+ * (second pass, 7 Nov). Centred in a column flexbox, it grows on both sides.
+ */
+const CENTER_LABEL = { maxWidth: "calc(100% + 24px)", color: "var(--pri)", fontWeight: 700 } as const;
 
 function CenterBlob({ icon }: { icon: IconName }) {
   return (
