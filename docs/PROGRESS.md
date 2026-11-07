@@ -16,9 +16,11 @@ Fees home showed two session pickers (D-480); Fee setup said "Inst 4–4".
 **Not fixable with QA accounts:** the roster status and "Refresh roster now"
 show only for real staff on the real session, and Dues/Fee setup/Reports
 show One's TEST copy rather than "Live from Fees" for test accounts.
-**Remains:** `/fees/dashboard`'s background dues preparation calls
-`cookies()` inside `after()` and logs "Unable to load school defaults";
-dates on Hindi screens still read "Wed 14 Oct".
+Fees home's background dues preparation never ran in One (`cookies()`
+inside `after()`, "Unable to load school defaults" on every visit); it is a
+server action the page starts now (D-481). Windows 11 Chrome on BrowserStack:
+admin and teacher screens render correctly. **Remains:** dates on Hindi
+screens still read "Wed 14 Oct".
 
 ## Language choice on Add staff — 7 November 2026
 

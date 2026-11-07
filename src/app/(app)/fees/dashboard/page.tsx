@@ -67,7 +67,6 @@ import { Section } from "@/ui/primitives/section";
 import {
   getDashboardAboveFoldData,
   getDashboardPageData,
-  scheduleDashboardAutoPrepare,
   type DashboardAlert,
   type DashboardCurrentInstallment,
 } from "@/modules/dashboard/data/queries";
@@ -86,6 +85,9 @@ import { staffDisplayName, staffInitials } from "@/platform/helpers/staff-name";
 import { appendSessionParam } from "@/platform/navigation/session-href";
 import { ServerTimer } from "@/platform/observability/timing";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
+import { currentFeeWritesMode } from "@/modules/fees/platform/supabase/write-guard";
+import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
+import { AutoPrepareDues } from "./auto-prepare-dues";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import {
   hasStaffPermission,
@@ -1510,15 +1512,21 @@ async function DashboardBelowFold({
     }
   })();
 
-  scheduleDashboardAutoPrepare({
-    canAutoPrepareDues,
-    sessionLabel,
-    health: data.systemSyncHealth,
-  });
-  const autoPrepareCount =
-    canAutoPrepareDues && data.systemSyncHealth
-      ? (data.systemSyncHealth.studentsMissingInstallments?.length ?? 0)
-      : 0;
+  // Dues for students the health check found without any are prepared by the
+  // page's client once it is on screen (AutoPrepareDues), not in `after()`:
+  // the fee reads ask the cookie who is reading, which `after()` refuses
+  // during a render. Only where the write can land, so the notice below never
+  // promises work the fee-writes switch would refuse (a real session while
+  // writes are test-only, which is always under coexistence).
+  const canWriteThisSession =
+    canAutoPrepareDues &&
+    (isTestAcademicSessionLabel(sessionLabel) || (await currentFeeWritesMode()) === "open");
+  const autoPrepareIds = canWriteThisSession
+    ? (data.systemSyncHealth?.studentsMissingInstallments ?? [])
+        .map((student) => student.studentId)
+        .filter((studentId): studentId is string => Boolean(studentId))
+    : [];
+  const autoPrepareCount = autoPrepareIds.length;
   // Same source the desktop banner uses; shown regardless of write permission
   // because reading "these students are missing from every total" matters to
   // anyone looking at the numbers.
@@ -1534,6 +1542,7 @@ async function DashboardBelowFold({
 
   return (
     <>
+      {autoPrepareIds.length > 0 ? <AutoPrepareDues sessionLabel={sessionLabel} studentIds={autoPrepareIds} /> : null}
       {/* Phone below-fold: the selected analytics board.
           The data-integrity warnings stay ABOVE it and outside the board — a
           student with no fee ledger is invisible in every pending total, so
