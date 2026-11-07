@@ -53,10 +53,12 @@ function subscribeCollapse(cb: () => void) {
 
 const noSubscribe = () => () => {};
 
-export type PreviewMenu = { key: string; label: Pair; icon: "grad" | "rupee" | "trend" | "award" };
-
-/** The first line under "See the app as": a real person's One, not a role's sample (D-544). */
-const CHOOSE_PERSON: Pair = { en: "Choose a person", hi: "व्यक्ति चुनें" };
+/**
+ * A line under "See the app as": a role's sample menu, or — key `person`,
+ * first and admin-only — "Choose a person", which opens the picker for one
+ * real member of staff's own One (D-544).
+ */
+export type PreviewMenu = { key: string; label: Pair; icon: "grad" | "rupee" | "trend" | "award" | "users" };
 
 /**
  * The desktop sidebar, as the design's shared `XSide.dc.html` draws it for
@@ -232,18 +234,8 @@ export function VxSidebar({
                 {tx({ en: "See the app as", hi: "दूसरे रूप में देखें" })}
               </div>
             )}
-            <Link
-              href="/view-as"
-              className={`tap sidei${pathname === "/view-as" ? " on" : ""}`}
-              aria-current={pathname === "/view-as" ? "page" : undefined}
-              title={collapsed ? tx(CHOOSE_PERSON) : undefined}
-              style={{ width: "100%", height: 38, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, fontSize: 14, justifyContent: collapsed ? "center" : undefined }}
-            >
-              <Ic n="users" size={19} />
-              {collapsed ? null : <span className="clip" style={{ flex: 1 }}>{tx(CHOOSE_PERSON)}</span>}
-            </Link>
             {previewMenus.map((m) => (
-              <PreviewLink key={m.key} menu={m.key} label={tx(m.label)} icon={m.icon} collapsed={collapsed} on={previewing === m.key} />
+              <PreviewLink key={m.key} menu={m.key} label={tx(m.label)} icon={m.icon} collapsed={collapsed} on={m.key === "person" ? pathname === "/view-as" : previewing === m.key} />
             ))}
           </div>
         ) : null}
@@ -300,6 +292,7 @@ function PreviewLink({ menu, label, icon, collapsed, on }: { menu: string; label
       disabled={pending}
       onClick={() =>
         start(async () => {
+          if (menu === "person") return router.push("/view-as");
           const href = await setViewAsAction(menu);
           router.push(href);
           router.refresh();

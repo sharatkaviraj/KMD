@@ -36,17 +36,17 @@ import { homeHintFor } from "@/vx/home-redirect";
 
 import { VxBottomBar } from "./bottom-bar";
 import { HomeHint } from "./home-hint";
-import { LazyPersonBanner, LazySearchPalette } from "./lazy";
+import { LazyPersonBanner, LazyPersonFrame, LazySearchPalette } from "./lazy";
 import { OpeningNote } from "./opening-note";
 import type { PaletteItem } from "./palette";
-import { PersonFrame } from "./person-frame";
 import { PreviewBanner } from "./preview-banner";
 import { SessionBar } from "./session-bar";
 import { menuRoleLabel, ROLE_SUB } from "./role-line";
-import { VxSidebar, type Badges } from "./sidebar";
+import { VxSidebar, type Badges, type PreviewMenu } from "./sidebar";
 import { sessionText } from "@/platform/helpers/session-text";
 
 const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", exam: "award" } as const;
+const CHOOSE_PERSON = { en: "Choose a person", hi: "व्यक्ति चुनें" };
 
 /**
  * Where the person at the foot of the sidebar leads: their own settings, as
@@ -188,9 +188,13 @@ export async function VxShell({
     href: meHref(staff.role, settings),
     color: avatarColor(staff.displayName),
   };
-  const previewMenus =
+  const previewMenus: PreviewMenu[] =
     staff.role === "admin"
-      ? ROLE_PREVIEW_MENUS.filter((m): m is Exclude<typeof m, "admin"> => m !== "admin").map((m) => ({ key: m, label: PREVIEW_LABEL[m], icon: PREVIEW_ICON[m] }))
+      ? [
+          // One real member of staff's own One first, then the roles' samples (D-544).
+          ...(staff.smokeLab ? [] : [{ key: "person", label: CHOOSE_PERSON, icon: "users" as const }]),
+          ...ROLE_PREVIEW_MENUS.filter((m): m is Exclude<typeof m, "admin"> => m !== "admin").map((m) => ({ key: m, label: PREVIEW_LABEL[m], icon: PREVIEW_ICON[m] })),
+        ]
       : [];
 
   const palette: PaletteItem[] = groups.flatMap((g) =>
@@ -259,7 +263,7 @@ export async function VxShell({
         <UpdateBanner />
         <SessionExpiredSheet />
         <div id="vx-layer" className="vxt vx-layer" />
-        {viewer.person ? <PersonFrame /> : null}
+        {viewer.person ? <LazyPersonFrame /> : null}
         </AssistProvider>
       </ToastProvider>
     </SessionSwitchingProvider>

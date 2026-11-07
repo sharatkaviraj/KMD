@@ -26,5 +26,6 @@
   .vxp-lang{flex:none;width:auto}
 }
 
+.vxp-frame{position:fixed;inset:0;z-index:70;pointer-events:none;border:3px solid #D9902F}
 @media print{.vxp,.vxp-frame{display:none!important}}
 @media (prefers-reduced-motion:reduce){.vxp{animation:none}}

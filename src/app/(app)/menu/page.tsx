@@ -60,7 +60,7 @@ export default async function MenuPage() {
         onBar={onBar}
         schoolSettings={allowed("settings:manage")}
         previews={previews}
-        personPicker={staff.role === "admin"}
+        personPicker={staff.role === "admin" && !staff.smokeLab}
         previewing={previewing}
       />
     </VxPage>

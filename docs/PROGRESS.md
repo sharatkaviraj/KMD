@@ -1,5 +1,22 @@
 # VPPS One — progress
 
+## See One as a chosen person — 7 November 2026
+
+Owner asked (7 Nov) for the administrator to choose a particular teacher,
+academic coordinator or accountant and see One exactly as that person sees
+it, with their real data, admin only; deployed live with any migration.
+Branch `claude/project-thread-mvgbby`, D-544. **Done:** migration
+`20261107164847_view_as_person` (the grant and its log, `view_as_begin()` /
+`view_as_end()`, and reads answered as the chosen person in a read-only
+transaction), applied to One's database; the request drawn as the chosen
+person (menu, start screen, classes, tasks, language); every save refused at
+five layers; the picker at `/view-as` (search, groups, recently seen, opening
+animation, Listen); an amber banner with Change person and Back to my view,
+and a frame round the page; entry points on the Menu, the sidebar and a
+Staff profile. Tests: `tests/view-as-person.test.ts` (30), plus the guard,
+navigation, role and quarantine lists; the whole suite passes except
+`tests/sentry-lite.test.ts` (fails only in a checkout under `/home/user`).
+
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 
 Owner asked (7 Nov) to improve Transport: see the children on each route and

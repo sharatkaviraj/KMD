@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import type { Language } from "@/platform/i18n/language";
+import { VIEW_AS_DOCUMENT_FLAG } from "@/platform/supabase/view-as-browser";
 import { cue } from "@/ui/feedback/cue";
 import Link from "@/ui/link";
 import { Ic } from "@/vx/icons";
@@ -111,4 +112,20 @@ export function PersonBanner({
       </div>
     </div>
   );
+}
+
+/**
+ * An amber edge round the whole screen while the view is on, so a scrolled
+ * page still says so. It also tells the browser's own data clients that the
+ * view is on, so an upload straight from the phone is refused too
+ * (`platform/supabase/view-as-browser.ts`). Drawn outside `.vx`, whose
+ * container query would otherwise hold a fixed element inside it.
+ */
+export function PersonFrame() {
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute(VIEW_AS_DOCUMENT_FLAG, "1");
+    return () => root.removeAttribute(VIEW_AS_DOCUMENT_FLAG);
+  }, []);
+  return <div className="vxp-frame" aria-hidden="true" />;
 }

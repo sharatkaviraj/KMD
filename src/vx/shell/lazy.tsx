@@ -10,8 +10,10 @@ import dynamic from "next/dynamic";
 export const LazySearchPalette = dynamic(() => import("./palette").then((m) => m.SearchPalette), { ssr: false });
 
 /**
- * "You are seeing One as…" (D-544) is drawn only while an administrator looks
- * at One as somebody else, so its code is fetched then and nobody else
- * downloads it. Still rendered on the server, so it is there at first paint.
+ * "You are seeing One as…" and the amber frame (D-544) are drawn only while
+ * an administrator looks at One as somebody else, so their code is fetched
+ * then and nobody else downloads it. Still rendered on the server, so both
+ * are there at first paint.
  */
 export const LazyPersonBanner = dynamic(() => import("./person-banner").then((m) => m.PersonBanner));
+export const LazyPersonFrame = dynamic(() => import("./person-banner").then((m) => m.PersonFrame));
