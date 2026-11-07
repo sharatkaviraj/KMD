@@ -79,8 +79,6 @@ export const TD = {
   searchEverything: p("Search everything", "सब कुछ खोजें"),
   searchPlaceholder: p("Search students, receipts, pages…", "विद्यार्थी, रसीदें, पेज खोजें…"),
   account: p("Your account and settings", "आपका खाता और सेटिंग्स"),
-  newMenu: p("New", "नया"),
-  sessionLine: (role: Pair, session: string): Pair => p(`${role.en} · Session ${session}`, `${role.hi ?? role.en} · सत्र ${session}`),
   feesCollectedToday: p("Fees collected today", "आज जमा फ़ीस"),
   otherModes: p("Other", "अन्य"),
   receiptsLine: (n: number): Pair => p(`${n} receipt${n === 1 ? "" : "s"}`, `${n} रसीद`),
@@ -105,15 +103,6 @@ export const TD = {
   ] as readonly Pair[],
   /** The design's names for the quick actions on a phone (the "+ New" menu keeps the full names). */
   quickShort: { mark: p("Attendance", "हाज़िरी") } as Partial<Record<string, Pair>>,
-  /** What each "+ New" item opens, under its name (Desktop.dc.html `newItems`). */
-  quickSub: {
-    collect: p("Opens the Payment Desk", "फ़ीस काउंटर खुलता है"),
-    mark: p("Any class, today", "कोई भी कक्षा, आज"),
-    notice: p("WhatsApp to parents or staff", "अभिभावकों या स्टाफ़ को WhatsApp"),
-    admit: p("New admission", "नया प्रवेश"),
-    cover: p("Cover an absent teacher", "अनुपस्थित शिक्षक की व्यवस्था"),
-    note: p("A note on a child", "किसी बच्चे पर नोट"),
-  } as Partial<Record<string, Pair>>,
   modeName: {
     upi: p("UPI", "UPI"),
     cash: p("Cash", "नकद"),
