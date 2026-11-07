@@ -114,11 +114,12 @@ export function FlowView({ lanes, overview }: { lanes: Lane[]; overview: Overvie
                         >
                           {busiest === i && !s.locked && lit === null ? <span className="aip-ring" aria-hidden="true" /> : null}
                           <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <span className="aip-no num" aria-hidden="true" title={tx(W.stepNo(i + 1))}>{i + 1}</span>
                             <Dot provider={s.provider} size={11} />
                             <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700 }}>{stationName(s)}</span>
                             {s.locked ? <Ic n="lock" size={15} /> : <PayTag provider={s.provider} />}
                           </span>
-                          <span style={{ display: "flex", flexDirection: "column", gap: 1, fontSize: 12, color: "var(--mut)" }}>
+                          <span className="aip-models">
                             {s.partner ? (
                               <>
                                 <span>{modelName(s.models[0])} · {tx(W.listens)}</span>

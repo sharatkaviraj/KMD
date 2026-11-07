@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -20,6 +19,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
 
+import { AiPage } from "./ai/ai-page";
 import type { AiView } from "./ai/words";
 import type { SettingsData } from "./data";
 import { ParentSwitchesPanel, parentSwitchesSummary } from "./parent-switches-panel";
@@ -114,7 +114,7 @@ const T = {
   backups: p("Backups & archive", "बैकअप और संग्रह"),
   master: p("Master data", "मूल डेटा"),
   integrations: p("Integrations", "जुड़ी सेवाएँ"),
-  ai: p("AI helper", "AI सहायक"),
+  ai: p("AI in One", "One में AI"),
   aiSub: p("Drafts, photos and voice · what each AI did and cost", "मसौदे, फ़ोटो और आवाज़ · किस AI ने क्या किया, कितना खर्च"),
   glossary: p("Glossary", "शब्दकोश"),
   glossarySub: p("Plain meanings · English + हिंदी", "आसान अर्थ · English + हिंदी"),
@@ -126,9 +126,6 @@ const T = {
 };
 
 type NavItem = { s: SettingsState | "about" | "users" | "ai-connection"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
-
-/* The AI page loads only when it is opened. */
-const AiPage = dynamic(() => import("./ai/ai-page").then((m) => m.AiPage));
 
 export function SettingsScreen({ data, state, ai = null, aiView = "used" }: { data: SettingsData; state: SettingsState; ai?: AiPageData | null; aiView?: AiView }) {
   const { tx, language } = useVx();
@@ -258,7 +255,7 @@ export function SettingsScreen({ data, state, ai = null, aiView = "used" }: { da
                 </>
               );
               const st: CSSProperties = { ...rowStyle, animation: `xIn .32s var(--ease) ${Math.min(gi * 3 + i, 14) * 28}ms both` };
-              if (item.href) return <Link key={item.s} href={item.href} className="tap row" style={st}>{inner}</Link>;
+              if (item.href) return <Link key={item.href} href={item.href} className="tap row" style={st}>{inner}</Link>;
               if (item.s === "about") return <button key={item.s} type="button" className="tap row" style={{ ...st, background: "transparent" }} onClick={() => void checkUpdates()}>{inner}</button>;
               const on = isOn(item.s);
               return (

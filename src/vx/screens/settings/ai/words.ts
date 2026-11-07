@@ -244,6 +244,7 @@ export const W = {
   ),
   jobsOnRoad: p("Jobs on this road", "इस रास्ते के काम"),
   answeredHere: (n: number) => p(`Answered ${n} this month`, `इस महीने ${n} जवाब`),
+  stepNo: (n: number) => p(`Tries ${n === 1 ? "first" : `number ${n}`}`, `${n === 1 ? "सबसे पहले" : `${n}वें नंबर पर`} कोशिश`),
   models: p("Models", "मॉडल"),
   usedFor: p("Used for", "किसके लिए"),
 

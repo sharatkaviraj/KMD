@@ -38,14 +38,19 @@ export const AI_CSS = `
 .vx .aip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .vx .aip-job{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;width:100%;transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
 .vx .aip-job:hover{box-shadow:var(--shh)}
-.vx .aip-road{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:6px 2px 10px;scrollbar-width:thin}
+.vx .aip-road{display:flex;flex-wrap:wrap;align-items:stretch;row-gap:12px;padding:6px 2px 10px}
 .vx .aip-arrow{flex:none;display:flex;align-items:center;justify-content:center;width:34px;color:var(--sub)}
-.vx .aip-st{position:relative;flex:1 0 168px;max-width:240px;display:flex;flex-direction:column;gap:6px;padding:12px 12px 12px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:transform .25s var(--ease),box-shadow .25s var(--ease),opacity .25s var(--ease)}
+.vx .aip-st{position:relative;flex:1 0 150px;max-width:220px;display:flex;flex-direction:column;gap:6px;padding:12px 12px 12px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:transform .25s var(--ease),box-shadow .25s var(--ease),opacity .25s var(--ease)}
 .vx .aip-st::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:var(--pv)}
 .vx .aip-st.locked{background:repeating-linear-gradient(135deg,var(--s2) 0 8px,var(--card) 8px 16px);color:var(--mut)}
 .vx .aip-st.now{transform:scale(1.04);box-shadow:0 0 0 3px var(--acc),var(--shh);opacity:1}
 .vx .aip-st.past{opacity:.5}
-.vx .aip-ring{position:absolute;inset:-3px;border-radius:16px;border:2px solid var(--pv);pointer-events:none;animation:xRipple 2.2s ease-out infinite}
+.vx .aip-models{display:flex;flex-direction:column;gap:1px;font-size:12px;color:var(--mut)}
+.vx .aip-no{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:10px;background:var(--s3);color:var(--fg);font-size:11px;font-weight:800}
+.vx .aip-st.now .aip-no{background:var(--acc);color:#fff}
+.vx .aip-ring{position:absolute;inset:-3px;border-radius:16px;border:2px solid var(--pv);pointer-events:none;animation:aipGlow 2.2s ease-out infinite}
+@keyframes aipGlow{from{transform:scale(1);opacity:.7}to{transform:scale(1.07);opacity:0}}
+@media (prefers-reduced-motion:reduce){.vx .aip-ring{animation:none;opacity:.6}}
 .vx .aip-walker{display:inline-block;width:10px;height:10px;border-radius:9px;background:var(--acc);animation:xPulse 1s ease-in-out infinite}
 .vx .aip-trail{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
 .vx .aip-feed>li{animation:xIn .32s var(--ease) both}
@@ -56,7 +61,8 @@ export const AI_CSS = `
 .vx .aip-stat b{font-size:22px}
 .vx .aip-road{flex-direction:column;overflow:visible;padding:4px 0}
 .vx .aip-arrow{width:auto;height:26px;transform:rotate(90deg)}
-.vx .aip-st{flex:none;max-width:none}
+.vx .aip-st{flex:none;max-width:none;gap:4px;padding:10px 12px 10px 14px}
+.vx .aip-models{flex-direction:row;flex-wrap:wrap;column-gap:10px}
 .vx .aip-days{gap:2px;height:112px}
 }
 `;
@@ -97,11 +103,14 @@ export function ModelChip({ provider, model, failed, note }: { provider: AiProvi
     <span
       className="pill num"
       title={providerName(provider)}
-      style={{ height: "auto", minHeight: 24, padding: "3px 9px", gap: 6, fontSize: 12, whiteSpace: "normal", overflowWrap: "anywhere", background: failed ? "var(--bads)" : "var(--s2)", color: failed ? "var(--bad)" : "var(--fg)", textDecoration: failed ? "line-through" : undefined, textDecorationColor: "color-mix(in srgb, var(--bad) 50%, transparent)" }}
+      style={{ height: "auto", minHeight: 24, padding: "3px 9px", columnGap: 6, rowGap: 0, flexWrap: "wrap", fontSize: 12, whiteSpace: "normal", background: failed ? "var(--bads)" : "var(--s2)", color: failed ? "var(--bad)" : "var(--fg)" }}
     >
       <Dot provider={provider} size={8} />
-      {model ? modelName(model) : providerName(provider)}
-      {note ? <span style={{ textDecoration: "none", fontWeight: 600 }}>· {note}</span> : null}
+      {/* Only the name is struck through: the reason beside it is meant to be read. */}
+      <span style={failed ? { textDecoration: "line-through", textDecorationColor: "color-mix(in srgb, var(--bad) 55%, transparent)" } : undefined}>
+        {model ? modelName(model) : providerName(provider)}
+      </span>
+      {note ? <span style={{ fontWeight: 600 }}>· {note}</span> : null}
     </span>
   );
 }
