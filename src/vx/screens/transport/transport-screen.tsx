@@ -208,7 +208,7 @@ export function TransportScreen(props: Props) {
 
         <Grid cols={4}>
           <Kpi icon="users" label={tx(W.kpi.riders)} value={board.totals.riders} sub={tx(W.kpiSub.riders(board.totals.riders))} />
-          <Kpi icon="mapPin" label={tx(W.kpi.routes)} value={board.totals.routes} delay={40} />
+          <Kpi icon="mapPin" label={tx(W.kpi.routes)} value={board.totals.routes} sub={tx(W.kpiSub.routes(board.quietRoutes))} delay={40} />
           <Kpi
             icon="bus"
             label={tx(W.kpi.trips)}

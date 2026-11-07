@@ -109,6 +109,9 @@ describe("Transport screen", () => {
     expect(text).toContain("Route Beta");
     expect(text).not.toContain("No Transport");
     expect(text).toContain("Children on buses");
+    expect(text).toContain("With children on them");
+    // Each class with its count in brackets: spaces between them collapsed into "Class 3 · 2 Class 5 · 1".
+    expect(text).toContain("Class 3 (2)");
     // Route Beta has children and no bus yet: it says so.
     expect(text).toContain("No morning bus yet");
   });
