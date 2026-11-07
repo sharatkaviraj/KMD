@@ -151,7 +151,14 @@ export function feedbackReady(): boolean {
 
 /** True on a phone that can vibrate from a web page (Android Chrome; never an iPhone). */
 export function canVibrate(): boolean {
-  return typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+  if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return false;
+  // Desktop Chrome has navigator.vibrate too and it does nothing: offer the
+  // switch only where the main pointer is a finger.
+  try {
+    return window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
 }
 
 /**
