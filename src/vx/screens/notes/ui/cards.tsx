@@ -2,11 +2,10 @@
 
 import "./cards.css";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import type { AssistProblem } from "@/modules/assist/domain/features";
 import { translateTarget } from "@/modules/assist/domain/text";
-import { getKeyboardOffset, subscribeKeyboardOffset } from "@/ui/system/keyboard-offset-store";
 import { askAssist, DRAFT_NOTE, PRIVACY_NOTE, PROBLEM_TEXT, reportDecision } from "@/vx/assist/client";
 import { useAssistOffers } from "@/vx/assist/context";
 import { agoP, dayMonth, dayMonthHi, shortDayHi } from "@/vx/format";
@@ -34,6 +33,7 @@ import {
   type NoteTag,
 } from "../domain/notes";
 import { COST, readersLine, SaveBarLine, type Composer } from "./compose";
+import { useFrame } from "./frame";
 import { BOARD_TAG, day, ini, nameTone, TEACH_TAG, useBoth, WaBubble, type HelpStep, type TagLook } from "./look";
 import type { ClientViewer } from "./parts";
 
@@ -341,96 +341,6 @@ function useCardMotion(flow: NoteFlow) {
   }, [card, sub, move]);
 
   return { ghosts, hold };
-}
-
-/* ------------------------------------------------------------- the frame */
-
-const kbUp = () => getKeyboardOffset() > 120;
-
-/**
- * The least room each card is drawn in as one card. Below it (a phone on its
- * side, a small phone with the keyboard up) the card is drawn at its own
- * height and the page scrolls, instead of a card that cuts off its own Save.
- */
-const ROOM: Record<NoteCardName, number> = { child: 330, write: 240, check: 400, saved: 380 };
-
-/**
- * Cards that cut nothing on purpose (the child and words cards cut their own
- * lists, useFit). If their content is taller than the card, from the AI's
- * offers or large text, a row would be hidden ("Tell parents" was, on a
- * 360×640 phone, 7 Nov): the card is squeezed, and if that is not enough it
- * is drawn at its own height and the page scrolls.
- */
-const WHOLE: ReadonlySet<NoteCardName> = new Set<NoteCardName>(["check", "saved"]);
-const spills = (el: HTMLElement) => {
-  const body = el.querySelector<HTMLElement>(".nc-card:not(.leaving) .nc-body");
-  return body !== null && body.scrollHeight - body.clientHeight > 1;
-};
-
-/**
- * The cards' height: from the frame's top to the tab bar, or to the
- * keyboard while it is up. Divided by the page's zoom (large text, 1.125),
- * which a pixel height inside it is multiplied by. Measured again whenever
- * anything above the cards changes height without the window changing: the
- * offline banner arriving pushed Save under the tab bar (7 Nov, phone test).
- */
-function useFrame(root: RefObject<HTMLDivElement | null>, card: NoteCardName) {
-  const keyboard = useSyncExternalStore(subscribeKeyboardOffset, kbUp, () => false);
-  useLayoutEffect(() => {
-    const el = root.current;
-    if (!el) return undefined;
-    let frame = 0;
-    // The room, and the view on the card, at which its content still spilled when squeezed. Drawn at
-    // its own height there, the card cannot be measured for a spill, so it stays so until either moves.
-    let spilled: { room: number; sub: string | null } | null = null;
-    const size = () => {
-      const rect = el.getBoundingClientRect();
-      const zoom = el.offsetWidth > 0 && rect.width / el.offsetWidth > 0.5 ? rect.width / el.offsetWidth : 1;
-      const top = rect.top + window.scrollY;
-      const view = window.visualViewport?.height ?? window.innerHeight;
-      const bar = document.querySelector<HTMLElement>(".vx-bottom");
-      const barH = bar && getComputedStyle(bar).display !== "none" ? bar.getBoundingClientRect().height : 0;
-      const room = Math.floor((view - top - barH) / zoom);
-      const sub = el.getAttribute("data-sub");
-      el.style.setProperty("--nc-h", `${Math.max(ROOM[card], room)}px`);
-      el.style.setProperty("--nc-bar", `${Math.ceil(barH / zoom)}px`);
-      el.removeAttribute("data-squeeze");
-      if (room < ROOM[card] || (spilled !== null && spilled.sub === sub && room <= spilled.room)) {
-        el.setAttribute("data-short", "");
-        return;
-      }
-      el.removeAttribute("data-short");
-      if (!WHOLE.has(card) || !spills(el)) return;
-      el.setAttribute("data-squeeze", "");
-      if (!spills(el)) return;
-      el.removeAttribute("data-squeeze");
-      el.setAttribute("data-short", "");
-      spilled = { room, sub };
-    };
-    const later = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(size);
-    };
-    size();
-    later();
-    window.addEventListener("resize", later);
-    window.visualViewport?.addEventListener("resize", later);
-    // A banner above the page (offline, preview) takes room from the shell's main; a top bar that
-    // wraps grows the page. Either moves the cards without resizing the window.
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(later);
-    for (const box of [document.body, el.closest(".vx-main"), el.closest(".vx-page")]) if (box) ro?.observe(box);
-    // What a card holds changes without any size changing (the AI's sort and offers arrive): look again.
-    const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(later);
-    mo?.observe(el, { childList: true, subtree: true, characterData: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      ro?.disconnect();
-      mo?.disconnect();
-      window.removeEventListener("resize", later);
-      window.visualViewport?.removeEventListener("resize", later);
-    };
-  }, [root, keyboard, card]);
-  return keyboard;
 }
 
 /**
@@ -821,7 +731,7 @@ const PHRASES: Pair[] = [
 /** What the composer keeps on this device: kept, not saved, and it says so. */
 function keptLine(at: number): Pair {
   const ago = agoP(new Date(at));
-  return p(`Kept on this device · ${ago.en} · not saved yet`, `इसी फ़ोन पर रखा है · ${ago.hi} · अभी सहेजा नहीं`);
+  return p(`Kept on this device · ${ago.en} · not saved yet`, `इसी डिवाइस पर रखा है · ${ago.hi} · अभी सहेजा नहीं`);
 }
 
 function WriteCard({ flow, c, ct, mine, keyboard, onNext, onOpenAction, base }: CardsProps & { ct: string | null; mine: boolean; keyboard: boolean; onNext: () => void }) {

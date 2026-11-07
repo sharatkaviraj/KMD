@@ -16,7 +16,18 @@ scroll. **Surprised:** the offline banner pushed Save under the tab bar on a
 small phone until the cards re-measured on a size change; "call the mother"
 was being filed as a family note; the decision numbers moved twice (D-482/483,
 then D-484/485) because other changes on the same day took them first.
-**Remains:** the BrowserStack pass on live.
+Follow-ups the same morning, from live runs as the QA teachers: PR 268 (the
+AI's mark beside the row's label, a clean saved quote, no doubled Hindi word),
+PR 270 (the check card never hides a row: the AI's offers fold beside the
+words when room is short), and a third that moves the frame into `frame.ts`:
+on a screen about 600px tall the card now gives way one step more (the AI's
+"reading" line goes, the words keep one line) instead of dropping to its own
+height and staying there after the AI answered; the Hindi draft line says
+डिवाइस like the English. BrowserStack on 270 (7 Nov): Galaxy M32 (Hindi),
+iPhone 15 (English) and Windows Chrome passed child → words → check → save →
+undo, with no test note left behind. **Remains:** iOS 15 Safari has no
+container queries, which breaks the whole app's layout there, not only notes
+(reported separately, 7 Nov).
 
 ## One AI report for the whole year — 7 November 2026
 

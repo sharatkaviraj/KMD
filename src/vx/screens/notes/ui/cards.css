@@ -273,9 +273,16 @@
 .nc[data-squeeze] .nc-wacts{flex:none}
 .nc[data-squeeze] .nc-tidy,.nc[data-squeeze] .nc-tr{flex:none;width:44px;min-height:44px;padding:0;justify-content:center}
 .nc[data-squeeze] .nc-tidy>:not(svg),.nc[data-squeeze] .nc-tr>:not(svg){display:none}
+/* Tight, the next step: the AI's line under the rows gives its room too (while the AI reads the note, */
+/* that line alone dropped a 360x600 card to its own height, 7 Nov, live), and the words keep one line: */
+/* they are on the card before, and one tap on them goes back there. */
+.nc[data-squeeze=tight] .nc-ai{display:none}
+.nc[data-squeeze=tight] .nc-wt{-webkit-line-clamp:1}
 
 /* ---- too little room for a whole card: drawn at its own height, and the page scrolls ---- */
-.nc[data-short]{height:auto;min-height:0;overflow:visible;display:block;padding-bottom:calc(var(--nc-bar,0px) + 8px)}
+/* flow-root keeps the card's top margin inside the frame, so the frame's top (and the room useFrame */
+/* reads from it) is the same drawn either way; as a block it read 6px less while short. */
+.nc[data-short]{height:auto;min-height:0;overflow:visible;display:flow-root;padding-bottom:calc(var(--nc-bar,0px) + 8px)}
 .nc[data-short] .nc-rail,.nc[data-short] .nc-ctx,.nc[data-short] .nc-ghosts{display:none}
 .nc[data-short] .nc-card{position:relative;inset:auto;margin:6px auto 8px;width:min(580px,100%);height:auto;container-type:normal}
 .nc[data-short] .nc-body{flex:none;overflow:visible}
