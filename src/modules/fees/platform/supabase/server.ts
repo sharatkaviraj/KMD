@@ -6,6 +6,8 @@ import { getFeeSchema, getRequiredEnvVar, getServerSupabaseUrl } from "@/platfor
 
 import { createFeeWriteGuardedFetch } from "./write-guard";
 import { createProjectionFetch } from "@/platform/fees-bridge/projection-fetch";
+import { VIEW_AS_PERSON_COOKIE } from "@/platform/auth/view-as-cookie";
+import { createViewAsGuardedFetch } from "@/platform/supabase/view-as-guard";
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -44,8 +46,14 @@ export async function createFeeClient(cookieStore?: CookieStore) {
       },
       db: { schema: getFeeSchema() },
       // The fee writes switch (D-345, D-346): the same one check as the admin
-      // client, so a write as the signed-in user cannot go round it.
-      global: { fetch: createFeeWriteGuardedFetch(createProjectionFetch()) },
+      // client, so a write as the signed-in user cannot go round it. Outside
+      // it, the view-as lock (D-544, view-as-guard.ts).
+      global: {
+        fetch: createViewAsGuardedFetch(createFeeWriteGuardedFetch(createProjectionFetch()), {
+          cookie: () => resolvedCookieStore.get(VIEW_AS_PERSON_COOKIE)?.value,
+          drawAsChosen: true,
+        }),
+      },
     },
   );
 }

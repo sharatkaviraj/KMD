@@ -12,7 +12,7 @@ import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, EmptyState } from "@/vx/ui/primitives";
-import { getViewer } from "@/vx/view-as";
+import { getViewer, rolePreviewOf } from "@/vx/view-as";
 import { listTeacherTasks } from "@/modules/teacher-tasks/data/repo";
 import { collectToday, loadCollectBoard } from "@/modules/teacher-tasks/data/collect";
 import { collectCounts, type BoardTask } from "@/modules/teacher-tasks/domain/collect";
@@ -38,7 +38,8 @@ export const metadata = { title: "Needs you" };
  */
 export default async function InboxPage(props: PageProps<"/inbox">) {
   const staff = await requirePermission("attendance:correct", "/inbox");
-  const { previewing } = await getViewer();
+  const viewer = await getViewer();
+  const { previewing } = viewer;
   const params = await props.searchParams;
   const item = typeof params.item === "string" ? params.item : null;
   const sessionLabel = await resolveSessionLabel();
@@ -64,7 +65,8 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
   const today = collectToday();
   const counts = board ? collectCounts(board, today) : null;
   const selectedTask = typeof params.task === "string" && tasks?.some(t => t.id === params.task) ? params.task : null;
-  const delivery = selectedTask && !previewing ? await loadTaskDelivery(selectedTask).catch(()=>null) : null;
+  // A role preview has no tasks of its own; seeing One as a person reads theirs (D-544).
+  const delivery = selectedTask && !rolePreviewOf(viewer) ? await loadTaskDelivery(selectedTask).catch(()=>null) : null;
 
   const reviewPhotos = staff.role === "admin";
   const chosen = selectedTask ? tasks?.find(t => t.id === selectedTask) : undefined;

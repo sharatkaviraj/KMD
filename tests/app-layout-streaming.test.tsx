@@ -4,7 +4,7 @@ import { expect, it, vi } from "vitest";
 
 const state=vi.hoisted(()=>({health:vi.fn()}));
 vi.mock("server-only",()=>({}));
-vi.mock("@/vx/view-as",()=>({getViewer:async()=>({staff:{id:"synthetic-admin",role:"admin",language:"en"},previewing:null}),PREVIEW_ROLE:{},previewPermissions:async()=>new Set()}));
+vi.mock("@/vx/view-as",()=>({getViewer:async()=>({staff:{id:"synthetic-admin",role:"admin",language:"en"},previewing:null,person:null}),rolePreviewOf:(viewer:{previewing:string|null;person:unknown})=>viewer.person?null:viewer.previewing,PREVIEW_ROLE:{},previewPermissions:async()=>new Set()}));
 vi.mock("@/platform/auth/permissions",()=>({can:()=>true}));
 vi.mock("@/platform/auth/test-session-policy",()=>({canSwitchSessions:()=>true,isTestSessionLabel:()=>false}));
 vi.mock("@/platform/deployment/confinement",()=>({isConfinedDeployment:()=>false}));

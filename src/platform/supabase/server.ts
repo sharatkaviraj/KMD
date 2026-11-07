@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 
 import { getRequiredEnvVar, getServerSupabaseUrl, VPPSONE_SCHEMA } from "@/platform/env";
 import { createProjectionFetch } from "@/platform/fees-bridge/projection-fetch";
+import { VIEW_AS_PERSON_COOKIE } from "@/platform/auth/view-as-cookie";
+import { createViewAsGuardedFetch } from "@/platform/supabase/view-as-guard";
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -40,7 +42,14 @@ export async function createClient(cookieStore?: CookieStore) {
         },
       },
       db: { schema: VPPSONE_SCHEMA },
-      global: { fetch: createProjectionFetch() },
+      // While an administrator sees One as a chosen person (D-544), reads
+      // are drawn as that person and every save is refused. See view-as-guard.ts.
+      global: {
+        fetch: createViewAsGuardedFetch(createProjectionFetch(), {
+          cookie: () => resolvedCookieStore.get(VIEW_AS_PERSON_COOKIE)?.value,
+          drawAsChosen: true,
+        }),
+      },
     },
   );
 }

@@ -19,13 +19,14 @@ import { lead } from "@/vx/text";
 import { NavTrail } from "@/vx/ui/back-link";
 import { avatarColor } from "@/vx/ui/primitives";
 import { ToastProvider } from "@/vx/ui/overlays";
-import { previewPermissions, type Viewer } from "@/vx/view-as";
+import { previewPermissions, rolePreviewOf, type Viewer } from "@/vx/view-as";
 import { OfflineBanner } from "@/vx/screens/system/offline-banner";
 import { SessionExpiredSheet } from "@/vx/screens/system/session-expired";
 import { UpdateBanner } from "@/vx/screens/system/update-banner";
 import type { SessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import { testSessionMessages } from "@/messages/setup";
 import { flat } from "@/platform/i18n/language";
+import { LanguageProvider } from "@/platform/i18n/use-language";
 
 import { AssistProvider } from "@/vx/assist/context";
 import { coverPhotoEnabled } from "@/lib/ai/access";
@@ -35,9 +36,10 @@ import { homeHintFor } from "@/vx/home-redirect";
 
 import { VxBottomBar } from "./bottom-bar";
 import { HomeHint } from "./home-hint";
-import { LazySearchPalette } from "./lazy";
+import { LazyPersonBanner, LazySearchPalette } from "./lazy";
 import { OpeningNote } from "./opening-note";
 import type { PaletteItem } from "./palette";
+import { PersonFrame } from "./person-frame";
 import { PreviewBanner } from "./preview-banner";
 import { SessionBar } from "./session-bar";
 import { menuRoleLabel, ROLE_SUB } from "./role-line";
@@ -63,7 +65,8 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
     can(viewer.staff, "fees:view") && sessionLabel ? getDuesBadgeCount(sessionLabel) : null,
     // The admin queue, counted from the same reads the Needs you page uses —
     // in the same request on Today and Needs you, so it is free there (perf fixes 1, 2).
-    !viewer.previewing && can(viewer.staff, "attendance:correct") && sessionLabel
+    // Seeing One as a person counts theirs; a role preview has no queue (D-544).
+    !rolePreviewOf(viewer) && can(viewer.staff, "attendance:correct") && sessionLabel
       ? schoolNow(viewer.staff)
           // The badge reads the reader's clock, as Needs you itself does, so a
           // lab seat never sees a count the list disagrees with (smoke 20 Oct).
@@ -143,19 +146,25 @@ export async function VxShell({
   children: ReactNode;
 }) {
   const { staff, menu, previewing } = viewer;
+  // A role preview draws that role's sample permissions; seeing One as a
+  // person draws the person's own, which are real (D-544).
+  const rolePreview = rolePreviewOf(viewer);
   // Every read at once: every full page load waits on this frame, and these
   // four used to run as three waves (6 Nov 2026, docs/ui/PERFORMANCE.md).
-  const previewPermsRead = previewing ? previewPermissions(previewing) : Promise.resolve(null);
+  const previewPermsRead = rolePreview ? previewPermissions(rolePreview) : Promise.resolve(null);
   const [previewPerms, large, assist, portrait, teacherHasClass] = await Promise.all([
     previewPermsRead,
     prefersLargeText(staff.id).catch(() => false),
     // The AI helper's features for this person (D-324), when a provider is configured.
-    previewPermsRead
-      .then((perms) => assistFeaturesFor(staff, perms ? (p: StaffPermission) => perms.has(p) : undefined))
-      .catch(() => []),
+    // None while seeing One as somebody else: it would ask, and spend, as them (D-544).
+    viewer.person
+      ? Promise.resolve([])
+      : previewPermsRead
+          .then((perms) => assistFeaturesFor(staff, perms ? (p: StaffPermission) => perms.has(p) : undefined))
+          .catch(() => []),
     approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
     // A failed read keeps the attendance button: the old behaviour, never a missing one.
-    menu === "teacher" && !previewing && sessionLabel ? teachesAClass(staff.id, sessionLabel).catch(() => true) : true,
+    menu === "teacher" && !rolePreview && sessionLabel ? teachesAClass(staff.id, sessionLabel).catch(() => true) : true,
   ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
 
@@ -169,7 +178,7 @@ export async function VxShell({
 
   // A rehearsal session says so on the role line, which is where the session is named now.
   const testMark = sessionIsTest && !/test/i.test(sessionLabel) ? " · test" : "";
-  const roleLine = `${menuRoleLabel(menu, staff.role, previewing).en}${sessionLabel ? ` · ${sessionText(sessionLabel)}${testMark}` : ""}`;
+  const roleLine = `${menuRoleLabel(menu, staff.role, rolePreview).en}${sessionLabel ? ` · ${sessionText(sessionLabel)}${testMark}` : ""}`;
   const settings = can(staff, "settings:manage");
   const me = {
     photo: portrait.get(staff.id) ?? null,
@@ -210,12 +219,27 @@ export async function VxShell({
             badges={badges}
             teacherSized={menu === "teacher"}
             previewMenus={previewMenus}
-            previewing={previewing}
+            previewing={rolePreview}
           />
           <div className="vx-content">
             <OfflineBanner />
             <SessionSwitchOverlayMount />
-            {previewing ? <PreviewBanner label={MENU_LABEL[previewing].en} /> : null}
+            {viewer.person ? (
+              // In the administrator's language, whatever the person reads in (D-544).
+              <LanguageProvider language={viewer.person.actor.language}>
+                <LazyPersonBanner
+                  name={staff.displayName}
+                  role={ROLE_SUB[staff.role]}
+                  photo={me.photo}
+                  initials={me.initials}
+                  shown={staff.language}
+                  own={staff.ownLanguage ?? staff.language}
+                  mine={viewer.person.actor.language}
+                />
+              </LanguageProvider>
+            ) : previewing ? (
+              <PreviewBanner label={MENU_LABEL[previewing].en} />
+            ) : null}
             {staff.confined ? (
               // A Preview or local deployment on the production database:
               // everybody is fenced to TEST here, an admin included (D-346).
@@ -235,6 +259,7 @@ export async function VxShell({
         <UpdateBanner />
         <SessionExpiredSheet />
         <div id="vx-layer" className="vxt vx-layer" />
+        {viewer.person ? <PersonFrame /> : null}
         </AssistProvider>
       </ToastProvider>
     </SessionSwitchingProvider>

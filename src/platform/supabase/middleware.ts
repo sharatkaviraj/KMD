@@ -7,6 +7,9 @@ import { cleanFromPath } from "@/platform/fees-bridge/not-in-one";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { HOME_HINT_COOKIE, followsHomeHint, readHomeHint } from "@/platform/auth/home-hint";
+import { VIEW_AS_PERSON_COOKIE } from "@/platform/auth/view-as-cookie";
+import { refusedWhileViewingAs, VIEW_AS_READ_ONLY, VIEW_AS_REFUSAL_CODE } from "@/platform/auth/view-as-requests";
+import { flat } from "@/platform/i18n/language";
 
 import {
   getRequiredEnvVar,
@@ -204,6 +207,21 @@ export async function updateSession(request: NextRequest) {
     url.search = "";
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
+  }
+
+  // An administrator seeing One as a chosen person (D-544) can look, not act.
+  // See `refusedWhileViewingAs` for what stops here and what refuses itself.
+  if (hasUser && refusedWhileViewingAs({
+    method: request.method,
+    pathname,
+    serverAction: request.headers.has("next-action"),
+    cookie: request.cookies.get(VIEW_AS_PERSON_COOKIE)?.value,
+    userId,
+  })) {
+    return NextResponse.json(
+      { error: flat(VIEW_AS_READ_ONLY, "both"), code: VIEW_AS_REFUSAL_CODE },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   // Opening the app on `/`: a person whose `/` only redirects goes straight

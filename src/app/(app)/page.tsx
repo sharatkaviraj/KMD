@@ -21,7 +21,7 @@ import { lead, p, type Pair } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { menuRoleLabel } from "@/vx/shell/role-line";
-import { getViewer } from "@/vx/view-as";
+import { getViewer, rolePreviewOf } from "@/vx/view-as";
 import { feesBridgeOfficeReads, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { getBridgeTodaySummary } from "@/platform/fees-bridge/client";
 import { FeesBridgeError } from "@/platform/fees-bridge/transport";
@@ -46,7 +46,10 @@ const sessionLine = (role: Pair, session: string): Pair => p(`${role.en} · Sess
  * money only with `fees:view`, the queue only with `attendance:correct`.
  */
 export default async function TodayPage() {
-  const { staff, menu, previewing } = await getViewer();
+  const viewer = await getViewer();
+  const { staff, menu } = viewer;
+  // Seeing One as a person opens where they open, their own start screen too (D-544).
+  const previewing = rolePreviewOf(viewer);
 
   // The proxy usually does this before rendering, from the shell's home hint;
   // this is the same rule for the first open and for a fresh browser.

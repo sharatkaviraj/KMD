@@ -18,6 +18,7 @@ import { staffWhatsappMessages } from "@/messages/setup";
 import { writeNoticePrefs, writeStaffConsent } from "@/modules/staff-notices/data/consent";
 import { STAFF_MESSAGE_KINDS } from "@/modules/staff-notices/domain/kinds";
 import { assertNotPreviewing } from "@/vx/view-as";
+import { VIEW_AS_LANGUAGE_COOKIE, VIEW_AS_PERSON_MAX_AGE } from "@/platform/auth/view-as-cookie";
 
 export type PreferencesState = {
   status: "idle" | "saved" | "error";
@@ -49,6 +50,15 @@ export async function saveLanguageAction(
 
   if (!isLanguage(chosen)) {
     return { status: "error", message: m.notSaved };
+  }
+
+  // An administrator seeing One as somebody else (D-544) switches the
+  // language of the view only: a cookie on their own browser, gone when the
+  // view ends. The chosen person's own setting is theirs and is not touched.
+  if (staff.viewedBy) {
+    (await cookies()).set({ name: VIEW_AS_LANGUAGE_COOKIE, value: chosen, path: "/", httpOnly: true, sameSite: "lax", maxAge: VIEW_AS_PERSON_MAX_AGE });
+    revalidatePath("/", "layout");
+    return { status: "saved", message: null };
   }
 
   const { error } = await createAdminClient()

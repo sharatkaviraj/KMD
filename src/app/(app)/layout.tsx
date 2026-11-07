@@ -10,7 +10,7 @@ import { readDeploymentEnvironment } from "@/platform/deployment/marker";
 import { getAppMode } from "@/platform/env";
 import { LanguageProvider } from "@/platform/i18n/use-language";
 import { VxShell } from "@/vx/shell/shell";
-import { getViewer, PREVIEW_ROLE, previewPermissions } from "@/vx/view-as";
+import { getViewer, PREVIEW_ROLE, previewPermissions, rolePreviewOf } from "@/vx/view-as";
 import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { RosterStatus } from "@/platform/fees-bridge/roster-status";
 
@@ -36,7 +36,10 @@ export const runtime = "nodejs";
  */
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const viewer = await getViewer();
-  const { staff, previewing } = viewer;
+  const { staff } = viewer;
+  // A role preview stands in for a role; seeing One as a person is that
+  // person, with their own role, sessions and pill (D-544).
+  const previewing = rolePreviewOf(viewer);
   const financeEnabled = can(staff, "fees:view");
   /*
    * Nothing below waits on anything it does not need. The shell (and with it

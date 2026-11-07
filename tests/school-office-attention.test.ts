@@ -7,7 +7,11 @@ import { defaultStudyTemplate, type CertificateFacts } from "@/modules/certifica
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), viewer: vi.fn(), previewGuard: vi.fn(), confined: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({ rpc: mocks.rpc }) }));
-vi.mock("@/vx/view-as", () => ({ getViewer: mocks.viewer, assertNotPreviewing: mocks.previewGuard }));
+vi.mock("@/vx/view-as", () => ({
+  getViewer: mocks.viewer,
+  assertNotPreviewing: mocks.previewGuard,
+  rolePreviewOf: (viewer: { previewing: string | null; person?: unknown }) => (viewer.person ? null : viewer.previewing),
+}));
 vi.mock("@/platform/deployment/confinement", () => ({ isConfinedDeployment: mocks.confined }));
 
 import { certificateAttentionItems, returnAttentionItems, loadSchoolOfficeAttention, recordCertificateAttention, clearCertificateAttention } from "@/modules/certificates/data/attention";

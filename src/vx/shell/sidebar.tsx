@@ -55,6 +55,9 @@ const noSubscribe = () => () => {};
 
 export type PreviewMenu = { key: string; label: Pair; icon: "grad" | "rupee" | "trend" | "award" };
 
+/** The first line under "See the app as": a real person's One, not a role's sample (D-544). */
+const CHOOSE_PERSON: Pair = { en: "Choose a person", hi: "व्यक्ति चुनें" };
+
 /**
  * The desktop sidebar, as the design's shared `XSide.dc.html` draws it for
  * every role: brand, grouped nav (Hindi beside a group's name when the reader
@@ -229,6 +232,16 @@ export function VxSidebar({
                 {tx({ en: "See the app as", hi: "दूसरे रूप में देखें" })}
               </div>
             )}
+            <Link
+              href="/view-as"
+              className={`tap sidei${pathname === "/view-as" ? " on" : ""}`}
+              aria-current={pathname === "/view-as" ? "page" : undefined}
+              title={collapsed ? tx(CHOOSE_PERSON) : undefined}
+              style={{ width: "100%", height: 38, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, fontSize: 14, justifyContent: collapsed ? "center" : undefined }}
+            >
+              <Ic n="users" size={19} />
+              {collapsed ? null : <span className="clip" style={{ flex: 1 }}>{tx(CHOOSE_PERSON)}</span>}
+            </Link>
             {previewMenus.map((m) => (
               <PreviewLink key={m.key} menu={m.key} label={tx(m.label)} icon={m.icon} collapsed={collapsed} on={previewing === m.key} />
             ))}

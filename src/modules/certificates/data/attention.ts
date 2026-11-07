@@ -4,7 +4,7 @@ import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { canAccessSession, isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { createAdminClient } from "@/platform/supabase/admin";
-import { assertNotPreviewing, getViewer } from "@/vx/view-as";
+import { assertNotPreviewing, getViewer, rolePreviewOf } from "@/vx/view-as";
 import { certificateFields, certificatePreflight, templateSchema, type CertificateBlocker, type CertificateCommand, type CertificateFacts, type CertificateTemplate } from "../domain/certificate";
 
 export type SchoolOfficeAttentionItem = {
@@ -86,10 +86,11 @@ export function returnAttentionItems(batches: readonly ReturnCandidate[]): Schoo
   });
 }
 
-/** Request-scoped server read. No GET writes, and no role-preview data. */
+/** Request-scoped server read. No GET writes, and no role-preview data; seeing One as a person reads theirs (D-544). */
 export async function loadSchoolOfficeAttention(sessionLabel: string) {
-  const { staff, previewing } = await getViewer();
-  if (previewing || !scopeAllowed(staff, sessionLabel)) return null;
+  const viewer = await getViewer();
+  const { staff } = viewer;
+  if (rolePreviewOf(viewer) || !scopeAllowed(staff, sessionLabel)) return null;
   const certificates = can(staff, "certificates:view"), government = can(staff, "government:view");
   if (!certificates && !government) return null;
   const result = { language: staff.language, items: [] as SchoolOfficeAttentionItem[], unavailable: false };

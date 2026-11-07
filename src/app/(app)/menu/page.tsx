@@ -4,7 +4,7 @@ import { initials } from "@/vx/format";
 import { bottomFor, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
 import { lead, type Pair } from "@/vx/text";
 import { VxPage } from "@/vx/ui/page";
-import { getViewer, previewPermissions } from "@/vx/view-as";
+import { getViewer, previewPermissions, rolePreviewOf } from "@/vx/view-as";
 
 import { menuGroups } from "./menu-items";
 import { MenuScreen } from "./menu-screen";
@@ -31,7 +31,10 @@ const ROLE_LINE: Record<StaffRole, Pair> = {
  * or, while the admin sees the app as another role, by that role's (UI-12).
  */
 export default async function MenuPage() {
-  const { staff, menu, previewing } = await getViewer();
+  const viewer = await getViewer();
+  const { staff, menu } = viewer;
+  // Seeing One as a person shows their own Menu, with their real permissions (D-544).
+  const previewing = rolePreviewOf(viewer);
   // The photo is the same one the sidebar shows; a failed read draws initials.
   const [perms, portraits] = await Promise.all([
     previewing ? previewPermissions(previewing) : Promise.resolve(null),
@@ -57,6 +60,7 @@ export default async function MenuPage() {
         onBar={onBar}
         schoolSettings={allowed("settings:manage")}
         previews={previews}
+        personPicker={staff.role === "admin"}
         previewing={previewing}
       />
     </VxPage>

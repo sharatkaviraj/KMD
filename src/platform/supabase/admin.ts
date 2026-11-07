@@ -9,6 +9,7 @@ import {
 } from "@/platform/env";
 import { createGuardedFetch } from "@/platform/supabase/guarded-fetch";
 import { createProjectionFetch } from "@/platform/fees-bridge/projection-fetch";
+import { createViewAsGuardedFetch } from "@/platform/supabase/view-as-guard";
 
 /**
  * The service-role client. It bypasses RLS, so every call site must already
@@ -46,8 +47,10 @@ export function createAdminClient() {
     {
       db: { schema: VPPSONE_SCHEMA },
       // Refuses an over-long PostgREST URL at once instead of stalling eight
-      // seconds and failing opaquely. See guarded-fetch.ts.
-      global: { fetch: createProjectionFetch(createGuardedFetch(), { privileged: true }) },
+      // seconds and failing opaquely. See guarded-fetch.ts. Outermost, no
+      // save while an administrator sees One as somebody else (D-544,
+      // view-as-guard.ts).
+      global: { fetch: createViewAsGuardedFetch(createProjectionFetch(createGuardedFetch(), { privileged: true })) },
       auth: {
         // No session to persist and nothing to refresh: this client is one
         // request long and is never a user.

@@ -37,6 +37,8 @@ export type MenuScreenProps = {
   schoolSettings?: boolean;
   /** "See the app as" — the admin only (UI-12, read-only). */
   previews: { key: string; label: Pair; icon: IconName }[];
+  /** "Choose a person": the admin sees One as one real member of staff (D-544). */
+  personPicker?: boolean;
   previewing: string | null;
 };
 
@@ -54,6 +56,8 @@ const M = {
   jump: p("Jump to a group", "किसी समूह पर जाएँ"),
   seeAs: p("See One as…", "One को ऐसे देखें…"),
   seeAsHint: p("What they see. Nothing changes.", "उन्हें क्या दिखता है। कुछ नहीं बदलता।"),
+  person: p("Choose a person", "व्यक्ति चुनें"),
+  personHint: p("One teacher's or accountant's own screens, with their real data. Look only.", "किसी एक अध्यापक या लेखाकार की अपनी स्क्रीन, असली डेटा के साथ। सिर्फ़ देखना।"),
   signOut: p("Sign out", "साइन आउट"),
   signOutQ: p("Sign out of One?", "One से साइन आउट करें?"),
   signOutBody: p("You will need your password to come back in.", "वापस आने के लिए आपको अपना पासवर्ड चाहिए होगा।"),
@@ -119,6 +123,17 @@ function GroupHead({ title, icon }: { title: Pair; icon: IconName }) {
         {second ? <small lang="hi">{second}</small> : null}
       </h2>
     </div>
+  );
+}
+
+function PersonTile({ index }: { index: number }) {
+  const { tx } = useVx();
+  return (
+    <Link href="/view-as" className="tap lift vxm-tile" style={{ ["--i" as string]: index }}>
+      <span className="vxm-ic" aria-hidden="true"><Ic n="users" size={21} /></span>
+      <Words label={M.person} />
+      <span className="vxm-hint">{tx(M.personHint)}</span>
+    </Link>
   );
 }
 
@@ -390,6 +405,7 @@ export function MenuScreen(props: MenuScreenProps) {
               <section id="menu-seeas" data-tone="preview" className="vxm-group" aria-label={tx(M.seeAs)}>
                 <GroupHead title={M.seeAs} icon="eye" />
                 <div className="vxm-tiles">
+                  {props.personPicker ? <PersonTile index={n++} /> : null}
                   {props.previews.map((m) => (
                     <PreviewTile key={m.key} menu={m.key} label={m.label} icon={m.icon} on={props.previewing === m.key} index={n++} />
                   ))}

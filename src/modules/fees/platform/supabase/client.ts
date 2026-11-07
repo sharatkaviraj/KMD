@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 import { FEE_SCHEMA, getRequiredEnvVar } from "@/platform/env";
+import { viewAsBrowserFetch } from "@/platform/supabase/view-as-browser";
 
 /**
  * The browser client, addressing the fee schema.
@@ -15,7 +16,9 @@ export function createFeeBrowserClient() {
   return createBrowserClient(
     getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
     getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
-    { db: { schema: FEE_SCHEMA } },
+    // Look-only while an administrator sees One as somebody (D-544): the
+    // browser's direct uploads (voice notes, photos) are refused then.
+    { db: { schema: FEE_SCHEMA }, global: { fetch: viewAsBrowserFetch } },
   );
 }
 
