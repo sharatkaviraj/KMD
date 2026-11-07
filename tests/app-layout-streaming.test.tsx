@@ -19,6 +19,8 @@ vi.mock("@/platform/fees-bridge/state",()=>({readFeesBridgeHealth:state.health})
 vi.mock("@/platform/i18n/use-language",()=>({LanguageProvider:()=>null}));
 vi.mock("@/vx/shell/shell",()=>({VxShell:()=>null}));
 vi.mock("@/modules/performance/ui/performance-reporter",()=>({PerformanceReporter:()=>null}));
+// The roster card's refresh button refreshes through the app router, which a bare server render does not mount.
+vi.mock("next/navigation",async(importOriginal)=>({...(await importOriginal<typeof import("next/navigation")>()),useRouter:()=>({refresh:()=>{}})}));
 
 import AppLayout from "@/app/(app)/layout";
 
