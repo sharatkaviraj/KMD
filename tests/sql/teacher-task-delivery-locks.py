@@ -46,6 +46,7 @@ with connect() as a, connect() as b, ThreadPoolExecutor(max_workers=1) as pool:
     for file in ['tests/sql/teacher-tasks-fixture.sql','tests/sql/teacher-task-delivery-fixture.sql',
                  'supabase/migrations/20261016070000_teacher_tasks.sql',
                  'supabase/migrations/20261016090000_teacher_task_delivery.sql',
+                 'supabase/migrations/20261107174655_task_delivery_queue_fix.sql',
                  'tests/sql/teacher-task-delivery-seed.sql']:
         a.execute((ROOT / file).read_text(encoding='utf-8'))
     p = preview(a)

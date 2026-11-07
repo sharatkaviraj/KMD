@@ -35,6 +35,17 @@ in place and offers only teachers the server accepts. Tests:
 **Remains:** a teacher's own per-teacher page that lists all their open links
 in one place, and automatic sending through a paid WhatsApp provider (needs
 the owner's go-ahead), were left for later.
+**Live check (same evening):** on a real Galaxy M32 and Windows Chrome the
+board, Ask teachers and the send list worked, but the phone showed "could not
+note it" after the green button. Cause: `queue_teacher_task_delivery` read a
+bare `snapshot`, which `message_sends` also has as a column since
+`20261004084641`, so no task delivery had ever been queued on live. Fixed by
+migration `20261107174655` (variables named through a block label; applied to
+One's database after a rolled-back dry run) and re-checked on the phone: the
+tap is noted and the board updates. The SQL fixture now carries live's
+`message_sends` columns so the test fails without the fix. Also: the Ask
+sheet's sticky footers paint the 12px under them, so the list no longer peeks
+out below Cancel.
 
 ## The Menu tab, redrawn with Settings first — 7 November 2026
 

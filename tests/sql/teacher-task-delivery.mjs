@@ -11,6 +11,9 @@ await db.exec(await read('./teacher-task-delivery-fixture.sql'));
 await db.exec(await read('../../supabase/migrations/20261016070000_teacher_tasks.sql'));
 const migration=await read('../../supabase/migrations/20261016090000_teacher_task_delivery.sql').catch(()=>null);
 if(migration)await db.exec(migration);
+// The fixture's message_sends carries live's own `snapshot` column, which the
+// queue once read as its variable; every queue failed until this fix.
+await db.exec(await read('../../supabase/migrations/20261107174655_task_delivery_queue_fix.sql'));
 const scalar=async(sql,args=[]) => (await db.query(sql,args)).rows[0].v;
 const id=n=>`10000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const [actor,teacher,child,field,request,task]=[1,2,3,4,5,6].map(id);
@@ -32,6 +35,19 @@ for(const language of ['en','hi','both']) {
     const queued=await queue(reviewed);
     assert.equal(await scalar('select t.code v from vppsone.message_sends s join vppsone.message_templates t on t.id=s.template_id where s.id=$1',[queued.id]),`vppsone_teacher_task${kind==='reminder'?'_reminder':''}_${language}_v1`);
   }
+}
+await db.exec('rollback');
+// The office's own send: prepare, queue, then a manual claim notes that WhatsApp
+// was opened for this teacher. This is the path the Teachers' work send list takes.
+await db.exec('begin');
+{
+  const queued=await queue(await preview());
+  assert.equal(queued.ok,true,'a reviewed delivery queues');
+  const manual=await scalar("select vppsone.claim_teacher_task_delivery($1,$2,'manual','manual',true) v",[actor,queued.id]);
+  assert.equal(manual.ok,true,'a manual WhatsApp send is noted');
+  assert.equal(await scalar('select task_delivery_state v from vppsone.message_sends where id=$1',[queued.id]),'manual_opened');
+  assert.equal(await scalar('select status::text v from vppsone.message_sends where id=$1',[queued.id]),'sent');
+  assert.equal((await scalar("select vppsone.claim_teacher_task_delivery($1,$2,'manual','manual',true) v",[actor,queued.id])).reason,'already_handled','a second tap is not a second send');
 }
 await db.exec('rollback');
 // A row queued before this guard existed still cannot claim a reserved campaign.
