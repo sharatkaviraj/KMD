@@ -85,11 +85,11 @@ the download passed; Android's share list never shows in a WebDriver
 screenshot, so the Send to parent tap was proved by its `download_requested`
 event. PRs 306, 311 and 313 merged; 313 live by 18:54 UTC, and a fresh TEST
 copy (`TEST/VPPS/STUDY/TEST-2026-27/0002`) then carried the new footer, with
-the waiting dot on the first line of its wrapped status. **Remains:**
-the principal's name is printed only once someone types it in Certificate
-settings; the five real certificates issued before today stay hand-signed;
-the letterhead's address (Opposite Mela Ground, 313330) differs from the
-receipts' (Amet-Kelwa Road, 313332) and the owner may want one of them changed.
+the waiting dot on the first line of its wrapped status. **Owner's answers
+(7 Nov):** certificates print the receipts' address (Amet-Kelwa Road … 313332,
+now the letterhead default), and the principal's name he gave is entered in
+Certificate settings (`vppsone.school_settings`, key `certificate_identity`).
+**Remains:** the five real certificates issued before today stay hand-signed.
 
 ## One on a desk: every screen uses the width it is given — 7 November 2026
 
