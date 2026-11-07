@@ -79,7 +79,13 @@ about 2 s, and the downloaded PDF (208 KB) is one A4 page with the letterhead,
 seal and signature. That check found a declined request listed above the
 signed one on Today; a signed copy now always comes first. It also found a
 TEST copy's footer asking the reader to scan a code that a TEST copy never
-carries; the footer now follows the QR. **Remains:**
+carries; the footer now follows the QR. **BrowserStack** (Galaxy M32 and
+Windows Chrome at 2560×1600): the ask, Approve and sign, both Today cards and
+the download passed; Android's share list never shows in a WebDriver
+screenshot, so the Send to parent tap was proved by its `download_requested`
+event. PRs 306, 311 and 313 merged; 313 live by 18:54 UTC, and a fresh TEST
+copy (`TEST/VPPS/STUDY/TEST-2026-27/0002`) then carried the new footer, with
+the waiting dot on the first line of its wrapped status. **Remains:**
 the principal's name is printed only once someone types it in Certificate
 settings; the five real certificates issued before today stay hand-signed;
 the letterhead's address (Opposite Mela Ground, 313330) differs from the
