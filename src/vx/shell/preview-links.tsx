@@ -57,11 +57,15 @@ function PreviewLink({ menu, label, icon, collapsed, on }: { menu: string; label
         start(async () => {
           if (menu === "person") return router.push("/view-as");
           const href = await setViewAsAction(menu);
+          // The action already redrew the frame as the role (revalidatePath): one
+          // push, no refresh on top to load the screen twice (D-544).
           router.push(href);
-          router.refresh();
         })
       }
-      style={{ width: "100%", height: 38, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, border: 0, background: on ? undefined : "transparent", fontSize: 14, justifyContent: collapsed ? "center" : undefined, textAlign: "left" }}
+      // `position: relative` like every other menu line: the sliding highlight is
+      // positioned, so it painted over a static line and hid "Choose a person"
+      // while the picker was open (BrowserStack, Windows Chrome, 7 Nov).
+      style={{ position: "relative", width: "100%", height: 38, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, border: 0, background: on ? undefined : "transparent", fontSize: 14, justifyContent: collapsed ? "center" : undefined, textAlign: "left" }}
     >
       <Ic n={pending ? "refresh" : icon} size={19} className={pending ? "spin" : undefined} />
       {collapsed ? null : <span className="clip" style={{ flex: 1 }}>{label}</span>}

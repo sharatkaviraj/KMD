@@ -151,8 +151,9 @@ function PreviewTile({ menu, label, icon, on, index }: { menu: string; label: Pa
       onClick={() =>
         start(async () => {
           const href = await setViewAsAction(menu);
+          // The action already redrew the frame as the role (revalidatePath): one
+          // push, no refresh on top to load the screen twice (D-544).
           router.push(href);
-          router.refresh();
         })
       }
     >
