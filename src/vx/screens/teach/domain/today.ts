@@ -5,6 +5,7 @@
  */
 
 import { p, type Pair } from "@/vx/text";
+import { subjectWords } from "@/vx/screens/exams/domain/groups";
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import { spanPeriods, type LeaveSpan } from "@/vx/screens/timetable/domain/timetable";
 
@@ -225,13 +226,19 @@ export function joinPairs(parts: readonly (Pair | null | undefined | false)[]): 
   return p(list.map((x) => x.en).join(" · "), list.map((x) => x.hi ?? x.en).join(" · "));
 }
 
-/** A subject in the reader's words: its name, never a bare code when a name exists. */
+/**
+ * A subject in the reader's words: the name the server worked out for it
+ * (`subjectWords`, D-524), never a bare code. A code the names were not given
+ * (the timetable's "Maths" beside the list's "MATHS") is matched without case,
+ * and one nobody named is named by the same rule.
+ */
 export function subjectWord(code: string, names: ReadonlyMap<string, { en: string; hi: string }>): Pair {
-  const n = names.get(code);
-  if (!n) return p(code, code);
-  const en = n.en.trim() || code;
-  const hi = n.hi.trim() || en;
-  return p(en, hi);
+  const key = code.trim().toLowerCase();
+  const n = names.get(code) ?? [...names.entries()].find(([k]) => k.trim().toLowerCase() === key)?.[1];
+  const en = n?.en.trim();
+  if (n && en) return p(en, n.hi.trim() || en);
+  const w = subjectWords(code);
+  return p(w.en, w.hi);
 }
 
 /* ------------------------------------------------------- who she is */
@@ -259,15 +266,34 @@ export function remarksLeft(cards: readonly { done: number; total: number }[]): 
 
 /**
  * The Marks tile's line. "Nothing waiting" only when there is truly nothing:
- * no paper to fill and no remark to write (smoke 20 Oct, 41 remarks hid
- * behind "Nothing waiting").
+ * no paper to fill, none filled and still to send, and no remark to write
+ * (smoke 20 Oct, 41 remarks hid behind "Nothing waiting"; second pass 7 Nov,
+ * a paper with every mark in but never sent read "Nothing waiting" too).
  */
-export function marksTileLine(firstOpen: { classLabel: string; entered: number; total: number } | null, remarks: number): Pair {
+export function marksTileLine(firstOpen: { classLabel: string; entered: number; total: number } | null, remarks: number, unsent = 0): Pair {
   const parts: Pair[] = [];
   if (firstOpen) parts.push(p(`${firstOpen.classLabel} · ${firstOpen.entered} of ${firstOpen.total} entered`, `${classesWord(firstOpen.classLabel).hi ?? firstOpen.classLabel} · ${firstOpen.total} में से ${firstOpen.entered} भरे`));
+  if (unsent > 0) parts.push(filledNotSent(unsent));
   if (remarks > 0) parts.push(p(`${remarks} report-card ${remarks === 1 ? "remark" : "remarks"} to write`, `${remarks} रिपोर्ट-कार्ड ${remarks === 1 ? "टिप्पणी" : "टिप्पणियाँ"} बाकी`));
   if (parts.length === 0) return p("Nothing waiting", "कुछ बाकी नहीं");
   return p(parts.map((x) => x.en).join(" · "), parts.map((x) => x.hi ?? x.en).join(" · "));
+}
+
+/** "1 paper filled, not sent" / "1 पेपर भरा, भेजा नहीं": every mark in, the paper not yet sent to the office. */
+export function filledNotSent(n: number): Pair {
+  return n === 1 ? p("1 paper filled, not sent", "1 पेपर भरा, भेजा नहीं") : p(`${n} papers filled, not sent`, `${n} पेपर भरे, भेजे नहीं`);
+}
+
+/**
+ * Where a marks link stands, in the words the class page uses too: a paper
+ * with every mark in is not "done" until it is sent (second pass 7 Nov:
+ * Today's link card said "All 5 done ✓" over a paper the office never got).
+ */
+export type LinkStanding = "sent" | "sentBlank" | "filled" | "started" | "none";
+export function linkStanding(link: { entered: number; total: number; submitted: boolean }): LinkStanding {
+  if (link.submitted) return link.entered >= link.total ? "sent" : "sentBlank";
+  if (link.total > 0 && link.entered >= link.total) return "filled";
+  return link.entered > 0 ? "started" : "none";
 }
 
 /* --------------------------------------------------------------- tasks */

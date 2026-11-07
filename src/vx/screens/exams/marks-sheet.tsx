@@ -1136,7 +1136,7 @@ export function MarksSheet({
     ];
     const cols = `36px minmax(0,1fr) 92px ${paper.allowExempt ? "110px" : "52px"}`;
     const colsM = `22px minmax(0,1fr) 70px ${paper.allowExempt ? "100px" : "48px"}`;
-    const title2 = `${paper.classLabel} ${paper.subjectCode} · ${tx(p("enter marks", "अंक भरें"))}`;
+    const title2 = `${title} · ${tx(p("enter marks", "अंक भरें"))}`;
     return (
       <VxPage>
         <style href="vx-marks-office" precedence="default">{`.xer{display:grid;grid-template-columns:${cols};gap:10px;align-items:center;min-height:58px;padding:6px 16px}.xer.xd+.xer.xd{border-top:1px solid var(--bd)}.xsave{bottom:12px}@container vx (max-width:899px){.xer{grid-template-columns:${colsM};padding:6px 12px}.xsave{bottom:calc(var(--vx-bottom-h) + 12px)}}`}</style>
@@ -1162,8 +1162,8 @@ export function MarksSheet({
               <Note icon="shield" tone="warn">
                 <b>{tx(p("Admin override.", "प्रशासक द्वारा।"))}</b>{" "}
                 {forTeacher
-                  ? tx(p(`You are entering ${paper.classLabel} ${paper.subjectCode} marks for ${forTeacher}. Each change is logged with your name.`, `आप ${forTeacher} की जगह ${paper.classLabel} ${paper.subjectCode} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))
-                  : tx(p(`You are entering ${paper.classLabel} ${paper.subjectCode} marks. Each change is logged with your name.`, `आप ${paper.classLabel} ${paper.subjectCode} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))}
+                  ? tx(p(`You are entering ${titlePair.en} marks for ${forTeacher}. Each change is logged with your name.`, `आप ${forTeacher} की जगह ${titlePair.hi} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))
+                  : tx(p(`You are entering ${titlePair.en} marks. Each change is logged with your name.`, `आप ${titlePair.hi} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))}
               </Note>
               ) : null}
               {banner}
