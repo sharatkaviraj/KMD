@@ -37,7 +37,11 @@ the picker sent the router to `/` (which renders only to redirect a teacher to
 times and an empty page flashed. The start action now returns the person's own
 first screen (`personHome()` in `src/vx/home-redirect.ts`, the same rule as `/`)
 and the picker and banner push once without the extra refresh: the action's
-`revalidatePath` already redraws the frame as the new person.
+`revalidatePath` already redraws the frame as the new person. They also start
+the new screen at the very top (`window.scrollTo(0, 0)` and `scroll: false`):
+left to itself the router scrolled the new screen's own top into view and hid
+the banner above it. On the branch preview the teacher's screen showed in 3.7
+seconds instead of 7.9, with one load.
 
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 

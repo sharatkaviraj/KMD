@@ -236,7 +236,11 @@ export function ViewAsScreen({ people, recent, current, focus }: ViewAsScreenPro
         cue("ready");
         // The action already redrew the frame as the person (revalidatePath);
         // a refresh on top of the push would load the screen a second time.
-        router.push(result.href);
+        // Arrive at the very top, where "You are seeing One as…" is: left to
+        // itself the router scrolls the new screen's own top into view, which
+        // puts that banner above the edge. The overlay hides the jump.
+        window.scrollTo(0, 0);
+        router.push(result.href, { scroll: false });
         return;
       }
       const message = result ? result.message : p("Could not open One as that person. Check the connection and try again.", "उस व्यक्ति की तरह One नहीं खुल सका। कनेक्शन देखकर फिर कोशिश करें।");
@@ -254,7 +258,8 @@ export function ViewAsScreen({ people, recent, current, focus }: ViewAsScreenPro
     leave(async () => {
       const href = await endViewAsPersonAction();
       cue("done");
-      router.push(href);
+      window.scrollTo(0, 0);
+      router.push(href, { scroll: false });
     });
   };
 
