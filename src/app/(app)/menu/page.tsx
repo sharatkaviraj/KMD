@@ -1,6 +1,7 @@
-import { can, type StaffRole } from "@/platform/auth/permissions";
+import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
+import { can, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
 import { initials } from "@/vx/format";
-import { PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
+import { bottomFor, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
 import { lead, type Pair } from "@/vx/text";
 import { VxPage } from "@/vx/ui/page";
 import { getViewer, previewPermissions } from "@/vx/view-as";
@@ -25,14 +26,20 @@ const ROLE_LINE: Record<StaffRole, Pair> = {
 };
 
 /**
- * The phone Menu tab (F13-Menu): everything the bottom bar has no room for,
- * filtered by the same permissions as the nav — or, while the admin sees the
- * app as another role, by that role's (UI-12).
+ * The phone Menu tab (F13-Menu, D-519): Settings first, then everything the
+ * bottom bar has no room for, filtered by the same permissions as the nav —
+ * or, while the admin sees the app as another role, by that role's (UI-12).
  */
 export default async function MenuPage() {
   const { staff, menu, previewing } = await getViewer();
-  const perms = previewing ? await previewPermissions(previewing) : null;
-  const groups = menuGroups(menu, (p) => (perms ? perms.has(p) : can(staff, p)));
+  // The photo is the same one the sidebar shows; a failed read draws initials.
+  const [perms, portraits] = await Promise.all([
+    previewing ? previewPermissions(previewing) : Promise.resolve(null),
+    approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
+  ]);
+  const allowed = (p: StaffPermission) => (perms ? perms.has(p) : can(staff, p));
+  const groups = menuGroups(menu, allowed);
+  const onBar = bottomFor(menu, allowed).map((t) => t.href);
   const previews =
     staff.role === "admin"
       ? ROLE_PREVIEW_MENUS.filter((m): m is Exclude<typeof m, "admin"> => m !== "admin").map((m) => ({ key: m, label: PREVIEW_LABEL[m], icon: PREVIEW_ICON[m] }))
@@ -44,8 +51,11 @@ export default async function MenuPage() {
         menu={menu}
         name={staff.displayName}
         initials={initials(staff.displayName)}
+        photo={portraits.get(staff.id) ?? null}
         sub={lead(ROLE_LINE[staff.role], staff.language)}
         groups={groups}
+        onBar={onBar}
+        schoolSettings={allowed("settings:manage")}
         previews={previews}
         previewing={previewing}
       />

@@ -1,5 +1,18 @@
 # VPPS One — progress
 
+## The Menu tab, redrawn with Settings first — 7 November 2026
+
+Owner asked (7 Nov) for the phone Menu tab to be redesigned: Settings quick to
+reach, clearer labels and buttons, creative touches so non-technical staff
+understand it and use it fast, deployed live. Branch
+`claude/project-thread-h2m3nx`, D-519. **Done:** Settings card first (quick
+switches with their state in words, one big Settings button, My settings /
+Password / School year); "Your shortcuts" with Change (a non-admin's defaults
+skip the bottom bar's screens); sticky group chips that light the group in
+view; every tile says what it opens, in coloured groups; Listen reads the page
+and lights each part; Sign out asks once. Tests: `tests/vx-menu-items.test.ts`.
+**Remains:** the teacher's More page is separate and unchanged.
+
 ## The small things: faces, a year switch you can see, taps that answer — 7 November 2026
 
 Owner asked (7 Nov) for a thorough pass over One for non-technical teachers,
