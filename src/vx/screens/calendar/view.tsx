@@ -57,7 +57,6 @@ export function CalendarView({ model, addInitial, officeDeadlines }: { model: Ca
     <VxPage>
       <Top c={c} w={w} />
       <main>
-        {officeDeadlines && (model.screen === "month" || model.screen === "agenda") ? <div className="pad" style={{ paddingBottom: 0 }}>{officeDeadlines}</div> : null}
         {c.head.top ? (
           <div className="only-m" style={{ padding: "14px 16px 0" }}>
             <ViewSeg c={c} w={w} />
@@ -65,6 +64,9 @@ export function CalendarView({ model, addInitial, officeDeadlines }: { model: Ca
         ) : null}
         {model.screen === "month" ? <MonthScreen m={model.month} w={w} /> : null}
         {model.screen === "agenda" ? <AgendaScreen a={model.agenda} w={w} /> : null}
+        {/* The board's deadlines come after the school's own calendar, not above it: the month is what a
+            teacher opens Calendar for (smoke 7 Nov 2026 found the exam office card filling the first screen). */}
+        {officeDeadlines && (model.screen === "month" || model.screen === "agenda") ? <div className="pad" style={{ paddingTop: 0 }}>{officeDeadlines}</div> : null}
         {model.screen === "holidays" ? <HolidaysScreen h={model.holidays} w={w} /> : null}
         {model.screen === "day" ? <DayScreen d={model.day} w={w} /> : null}
         {model.screen === "event" ? <EventScreen e={model.event} back={c.head.back?.href ?? "/calendar"} w={w} /> : null}
@@ -130,8 +132,10 @@ function Top({ c, w }: { c: Common; w: T }) {
   ) : null;
   const mAction = h.top ? (
     c.addHref ? (
-      <Link href={c.addHref} scroll={false} className="tap btn pri" aria-label={w.t(p("Add event", "कार्यक्रम जोड़ें"))} style={{ width: 44, height: 44, padding: 0, borderRadius: 22 }}>
-        <Ic n="plus" size={22} />
+      // A word beside the "+" (smoke 7 Nov 2026): a bare "+" told a new teacher nothing.
+      <Link href={c.addHref} scroll={false} className="tap btn pri" style={{ height: 44, padding: "0 16px 0 12px", borderRadius: 22, gap: 6, fontSize: 15 }}>
+        <Ic n="plus" size={20} />
+        {w.t(p("Add", "जोड़ें"))}
       </Link>
     ) : (
       <Help w={w} />

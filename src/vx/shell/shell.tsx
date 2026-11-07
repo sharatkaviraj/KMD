@@ -36,6 +36,7 @@ import { homeHintFor } from "@/vx/home-redirect";
 import { VxBottomBar } from "./bottom-bar";
 import { HomeHint } from "./home-hint";
 import { LazySearchPalette } from "./lazy";
+import { OpeningNote } from "./opening-note";
 import type { PaletteItem } from "./palette";
 import { PreviewBanner } from "./preview-banner";
 import { SessionBar } from "./session-bar";
@@ -193,6 +194,7 @@ export async function VxShell({
         <AssistProvider features={assist}>
         <Suspense fallback={null}>
           <RouteProgress />
+          <OpeningNote />
           <NavTrail />
           {fees ? <OfficeSyncListener sessionLabel={sessionLabel} /> : null}
         </Suspense>

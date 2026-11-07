@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ online: true, save: vi.fn(), check: vi.fn(), toast: vi.fn(),
   stored: new Map<string, unknown>(), storageFails: false, removals: [] as string[], restore: null as Promise<unknown> | null, restoreKey: "" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("next/link", () => ({ default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
 vi.mock("@/platform/drafts/use-durable-draft", () => ({ useOnline: () => state.online }));
 vi.mock("@/platform/drafts/store", () => ({
   loadDraft: async (key: string) => key===state.restoreKey && state.restore ? state.restore : state.stored.get(key) ?? null,

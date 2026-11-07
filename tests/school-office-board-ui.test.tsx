@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ candidate: vi.fn(), result: vi.fn(), readiness: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
 vi.mock("@/app/(app)/exam-office/board/actions", () => ({ saveBoardCycleAction: vi.fn(), saveBoardCandidateAction: mocks.candidate, saveBoardReadinessAction: mocks.readiness, saveOfficialResultAction: mocks.result }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
-vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (value: { en: string } | string) => typeof value === "string" ? value : value.en }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 import { CandidateEditor, ReadinessEditor, ResultEditor } from "@/vx/screens/board-office/forms";
 import { BoardWorkspace } from "@/vx/screens/board-office/workspace";

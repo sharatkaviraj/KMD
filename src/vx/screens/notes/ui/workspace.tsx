@@ -29,6 +29,8 @@ export type NotesScope = {
   sr?: string | null;
   father?: string | null;
   profile?: boolean;
+  /** The child's photo when this reader may see it (the face at the top of "All notes"). */
+  photo?: string | null;
 } | null;
 
 export type NotesProps = {

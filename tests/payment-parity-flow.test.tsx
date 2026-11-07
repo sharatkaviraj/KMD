@@ -7,7 +7,7 @@ import { boot, OTHER_ID, receipt, student, STUDENT_ID } from "./payment-parity.f
 
 const actions = vi.hoisted(() => ({ postDeskPaymentAction: vi.fn(), checkDeskPaymentAction: vi.fn(), loadStudentDeskAction: vi.fn(), loadReceiptAction: vi.fn(), loadDeskPreviewAction: vi.fn(), removePaymentAction: vi.fn(), sendReceiptWhatsappAction: vi.fn(), settleDeskSaveAction: vi.fn(), deskDayStateAction: vi.fn() }));
 vi.mock("@/app/(app)/payments/actions", () => actions);
-vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, ...p }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...p}>{children}</a> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ href, children, prefetch: _prefetch, ...p }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...p}>{children}</a> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn() }) }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string } | string) => typeof p === "string" ? p : p.en }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 import { PaymentDesk } from "@/vx/screens/payments/desk";

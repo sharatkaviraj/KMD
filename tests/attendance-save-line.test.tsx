@@ -11,7 +11,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
  */
 const state = vi.hoisted(() => ({ save: vi.fn(), check: vi.fn(), toast: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("next/link", () => ({ default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
+vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
 vi.mock("@/platform/drafts/use-durable-draft", () => ({ useOnline: () => true }));
 vi.mock("@/platform/drafts/store", () => ({ loadDraft: async () => null, saveDraft: async () => undefined, removeDraft: async () => undefined }));
 vi.mock("@/vx/screens/teach/actions", () => ({ saveRegisterVx: state.save, checkRegisterVx: state.check }));

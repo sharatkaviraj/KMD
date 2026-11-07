@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
+import { Face } from "@/vx/ui/face";
 import { Sheet } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
@@ -87,7 +88,7 @@ function TeachCard({ note, viewerId, today, href, due, ct, delay }: { note: Boar
         </span>
       ) : null}
       <span className="nx-f" style={{ gap: 10, width: "100%" }}>
-        <span className="nt-av" style={{ width: 40, height: 40, fontSize: 13, background: abg, color: afg }}>{words.initials(note)}</span>
+        <Face photo={note.studentPhoto} className="nt-av" style={{ width: 40, height: 40, fontSize: 13, background: abg, color: afg }}>{words.initials(note)}</Face>
         <span className="nx-c" style={{ flex: 1 }}>
           <span className="nx-e nt-f15" style={{ fontSize: 15, fontWeight: 700 }}>{words.name(note)}</span>
           {hint ? <span className="nt-hn">{hint}</span> : null}

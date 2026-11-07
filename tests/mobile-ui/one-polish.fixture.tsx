@@ -9,6 +9,7 @@ import { RosterStatusView } from "@/platform/fees-bridge/roster-status-view";
 import { MobileSessionPill } from "@/ui/shell/mobile-session-pill";
 import { SessionPill } from "@/ui/shell/session-pill";
 import { ShellSessionPillSkeleton } from "@/ui/shell/shell-session-pill";
+import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { LedgerNotice } from "@/vx/shell/ledger-notice";
 import { VxBottomBar } from "@/vx/shell/bottom-bar";
 import { VxSidebar } from "@/vx/shell/sidebar";
@@ -68,6 +69,7 @@ function Fixture() {
       </div>
       <Sheet open={sheet} onClose={() => setSheet(false)} title="Synthetic sheet"><input aria-label="Note" className="inp" /><button type="button">Done</button></Sheet>
       <div id="vx-layer" className="vxt vx-layer" />
+      <SessionSwitchOverlayMount />
     </ToastProvider></SessionSwitchingProvider></LanguageProvider>
   </NextIntlClientProvider>;
 }

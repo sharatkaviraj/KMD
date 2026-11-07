@@ -30,6 +30,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ back() {}, push() {}, refresh() {}, prefetch() {} }),
 }));
 vi.mock("next/link", () => ({
+  useLinkStatus: () => ({ pending: false }),
   default: ({ children, ...props }: React.ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 vi.mock("@/platform/auth/current-staff", async () => {

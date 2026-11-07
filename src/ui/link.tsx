@@ -1,7 +1,9 @@
 "use client";
 
 import NextLink from "next/link";
-import { forwardRef, useEffect, useRef, useState, type ComponentProps, type ComponentRef } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState, type ComponentProps, type ComponentRef } from "react";
+
+import { LinkPendingReporter } from "@/ui/shell/nav-link";
 
 /*
  * The link every vx screen uses (D-439). Next prefetches every link that
@@ -18,14 +20,24 @@ import { forwardRef, useEffect, useRef, useState, type ComponentProps, type Comp
  * `prefetch` still wins. The shell's own tabs keep Next's default. Since D-441 the
  * ported Fees screens and every other module use it too, which is why it
  * lives in `src/ui` rather than `src/vx`.
+ *
+ * And a tapped link answers at once (D-514): while its page is on the way it
+ * dims a little and the progress bar runs, then "Opening…" shows if the page
+ * is slow, the same as the shell's own tabs.
  */
 const REST_MS = 90;
 
 type Props = ComponentProps<typeof NextLink>;
 
-const Link = forwardRef<ComponentRef<typeof NextLink>, Props>(function Link({ prefetch, ...props }, ref) {
+const Link = forwardRef<ComponentRef<typeof NextLink>, Props>(function Link({ prefetch, children, ...props }, ref) {
   const [full, setFull] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchor = useRef<HTMLAnchorElement | null>(null);
+  const setAnchor = useCallback((node: HTMLAnchorElement | null) => {
+    anchor.current = node;
+    if (typeof ref === "function") ref(node);
+    else if (ref) ref.current = node;
+  }, [ref]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   const explicit = prefetch !== undefined && prefetch !== null;
   const now = () => { if (!explicit) setFull(true); };
@@ -39,7 +51,7 @@ const Link = forwardRef<ComponentRef<typeof NextLink>, Props>(function Link({ pr
   };
   return (
     <NextLink
-      ref={ref}
+      ref={setAnchor}
       {...props}
       prefetch={explicit ? prefetch : full}
       onTouchStart={(event) => { soon(); props.onTouchStart?.(event); }}
@@ -49,7 +61,10 @@ const Link = forwardRef<ComponentRef<typeof NextLink>, Props>(function Link({ pr
       onFocus={(event) => { now(); props.onFocus?.(event); }}
       onMouseEnter={(event) => { soon(); props.onMouseEnter?.(event); }}
       onMouseLeave={(event) => { cancel(); props.onMouseLeave?.(event); }}
-    />
+    >
+      {children}
+      <LinkPendingReporter anchor={anchor} />
+    </NextLink>
   );
 });
 

@@ -259,6 +259,8 @@ export type BoardNote = {
   studentName: string;
   /** "SR 1234 · father …" when another child of the class with notes shares the name. */
   studentHint?: Pair | null;
+  /** The child's approved photo for this reader, when there is one; the initials otherwise. */
+  studentPhoto?: string | null;
   classId: string | null;
   classLabel: string;
   body: string;

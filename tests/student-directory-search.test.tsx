@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 const state=vi.hoisted(()=>({replace:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({replace:state.replace,push:vi.fn()})}));
-vi.mock("next/link",()=>({default:({children,href}:React.ComponentProps<"a">)=><a href={href}>{children}</a>}));
+vi.mock("next/link",()=>({useLinkStatus:()=>({pending:false}),default:({children,href}:React.ComponentProps<"a">)=><a href={href}>{children}</a>}));
 vi.mock("@/vx/i18n",()=>({useVx:()=>({language:"en",tx:(pair:{en:string})=>pair.en})}));
 vi.mock("@/vx/shell/top-actions",()=>({NewMenu:()=>null,SearchTrigger:()=>null}));
 vi.mock("@/vx/ui/overlays",()=>({useToast:()=>({show:vi.fn()}),Sheet:()=>null}));

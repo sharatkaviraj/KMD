@@ -12,6 +12,7 @@ import {
 import { releaseAllSheetScrollLocks, Sheet } from "@/ui/primitives/sheet";
 import type { AvailableSessionRow } from "@/modules/fees/platform/session-context/available-sessions";
 import { useSessionSwitching } from "@/modules/fees/platform/session-context/switching-context";
+import { cue } from "@/ui/feedback/cue";
 import { toast } from "@/ui/primitives/toast";
 import { cn } from "@/platform/utils";
 import { dismissSheetHistoryForNavigation, Sheet as OneSheet } from "@/vx/ui/overlays";
@@ -54,7 +55,7 @@ export function MobileSessionPill({
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [isSwitching, setIsSwitching] = useState(false);
   const [isRefreshing, startNavTransition] = useTransition();
-  const { setIsSwitching: setGlobalSessionSwitching } = useSessionSwitching();
+  const { setIsSwitching: setGlobalSessionSwitching, setTarget: setSwitchTarget } = useSessionSwitching();
   // A `?session=` this viewer may not open is ignored by the server (Phase 3:
   // a test account asking for 2026-27 is shown TEST-2026-27). The pill must
   // not print it either, or a test account reads "2026-27" over TEST data. So
@@ -165,6 +166,8 @@ export function MobileSessionPill({
 
     setOptimisticLabel(label);
     setIsSwitching(true);
+    setSwitchTarget?.(label);
+    cue("tap");
     const sheetClosed = appearance === "one" ? dismissSheetHistoryForNavigation() : Promise.resolve();
     if (appearance !== "one") setOpen(false);
     releaseAllSheetScrollLocks();
@@ -187,6 +190,7 @@ export function MobileSessionPill({
         if (result.success) {
           const confirmedHref = buildSessionSwitchHref(pathname, searchParams, result.sessionLabel);
           sessionSyncGuard.label = result.sessionLabel;
+          setSwitchTarget?.(result.sessionLabel);
           startNavTransition(() => {
             router.replace(confirmedHref, { scroll: false });
           });
@@ -194,6 +198,7 @@ export function MobileSessionPill({
           // Same rule as the desktop pill: a silent revert reads as the pill
           // ignoring the tap.
           sessionSyncGuard.label = null;
+          setSwitchTarget?.(null);
           setOptimisticLabel(null);
           toast({
             title: t("sessionSwitchFailed"),
@@ -203,6 +208,7 @@ export function MobileSessionPill({
         }
       } catch {
         sessionSyncGuard.label = null;
+        setSwitchTarget?.(null);
         setOptimisticLabel(null);
         toast({
           title: t("sessionSwitchFailed"),
@@ -212,9 +218,13 @@ export function MobileSessionPill({
       } finally {
         // Cleared here rather than synchronously after startNavTransition:
         // React batches a set(true)/set(false) pair in one handler, so the old
-        // ordering meant isSwitching was never observably true.
+        // ordering meant isSwitching was never observably true. The shared
+        // "switching" flag is NOT cleared here: the effect above keeps it on
+        // while the new year's page is still on its way (`isRefreshing`).
+        // Clearing it here hid the switch card the moment the cookie was
+        // written, so on a phone the year changed with no animation at all
+        // (owner's smoke, 7 Nov 2026).
         setIsSwitching(false);
-        setGlobalSessionSwitching(false);
         releaseAllSheetScrollLocks();
       }
     })();

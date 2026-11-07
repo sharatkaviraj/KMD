@@ -131,6 +131,7 @@ async function enrich(rows: NoteRow[], sessionLabel: string): Promise<BoardNote[
       // record is gone: noteSubject() says which, in the reader's language.
       studentName: r.student_id ? (kids.get(r.student_id)?.fullName ?? "") : "",
       studentHint: r.student_id ? (apart.get(r.student_id) ?? null) : null,
+      studentPhoto: r.student_id ? (kids.get(r.student_id)?.photoPath ?? null) : null,
       classId: r.class_id,
       classLabel: r.class_id ? (labels.get(r.class_id) ?? "—") : "—",
       body: r.body,
@@ -410,8 +411,13 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
 
 /* ----------------------------------------------------- choosing a child */
 
-/** `hint`: SR number and father, only for a child who shares a name with another in her class. */
-export type ChildChoice = { id: string; name: string; classId: string; classLabel: string; rollNo?: string | null; hint?: Pair | null };
+/**
+ * `hint`: SR number and father, only for a child who shares a name with another in her class.
+ * `photo`: the child's approved photo for this reader, when there is one. It
+ * was read and then dropped here, so New note showed initials for children
+ * whose photos were uploaded (owner, 7 Nov 2026).
+ */
+export type ChildChoice = { id: string; name: string; classId: string; classLabel: string; rollNo?: string | null; hint?: Pair | null; photo?: string | null };
 
 /** The children a note may be about: the viewer's classes, or every class for the school-wide roles. */
 export async function childChoices(viewer: NoteViewer, sessionLabel: string): Promise<ChildChoice[]> {
@@ -426,7 +432,7 @@ export async function childChoices(viewer: NoteViewer, sessionLabel: string): Pr
     (k) => k.classId,
   );
   return enrolled
-    .map((e) => ({ id: e.studentId, name: kids.get(e.studentId)?.fullName ?? "—", classId: e.classId, classLabel: labels.get(e.classId) ?? "—", rollNo: e.rollNo, hint: apart.get(e.studentId) ?? null }))
+    .map((e) => ({ id: e.studentId, name: kids.get(e.studentId)?.fullName ?? "—", classId: e.classId, classLabel: labels.get(e.classId) ?? "—", rollNo: e.rollNo, hint: apart.get(e.studentId) ?? null, photo: kids.get(e.studentId)?.photoPath ?? null }))
     .sort((a, b) => (order.get(a.classId) ?? 0) - (order.get(b.classId) ?? 0) || a.name.localeCompare(b.name));
 }
 

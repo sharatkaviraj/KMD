@@ -9,7 +9,7 @@ import { ms } from "@/messages/setup";
 import { PLAIN } from "@/modules/teacher-tasks/ui/plain";
 const calls=vi.hoisted(()=>({create:vi.fn(),delegate:vi.fn(),refresh:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:calls.refresh,push:vi.fn()})}));
-vi.mock("next/link",()=>({default:({children,href}:{children:React.ReactNode;href:string})=><a href={href}>{children}</a>}));
+vi.mock("next/link",()=>({useLinkStatus:()=>({pending:false}),default:({children,href}:{children:React.ReactNode;href:string})=><a href={href}>{children}</a>}));
 vi.mock("@/vx/ui/overlays",()=>({Sheet:({children,open}:{children:React.ReactNode;open:boolean})=>open?<div>{children}</div>:null}));
 vi.mock("@/app/(app)/teach/tasks/actions",()=>({
   createTeacherTasksAction:calls.create,delegateTeacherTaskListAction:calls.delegate,

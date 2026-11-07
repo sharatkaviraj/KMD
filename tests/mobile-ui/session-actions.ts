@@ -11,6 +11,8 @@ export async function listAvailableSessionsAction() {
   return [{ id: "test", session_label: "TEST-2026-27", is_current: false, status: "active" }];
 }
 export async function setViewSessionAction(label: string) {
+  // `?slow-switch` holds the switch for a moment, so the "Opening …" card can be seen.
+  if (new URLSearchParams(location.search).has("slow-switch")) await new Promise((resolve) => setTimeout(resolve, 1200));
   window.dispatchEvent(new CustomEvent("qa:session-switch", { detail: label }));
   return { success: true as const, sessionLabel: label };
 }
