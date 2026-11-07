@@ -61,7 +61,13 @@ showed a role opening part-way down, live too: the router keeps the old scroll
 whenever the new screen's top is still on screen, and the banner pushes it into
 view, so the session bar, the header and Help sat above the fold. The role
 banner now scrolls to the top as it first appears (a layout effect, before
-paint).
+paint). **Live** from about 19:58 UTC (One PR 321, merge `c523a22`); on the
+preview it opened at `scrollY` 0 in 3.4 s, Back 3.0 s. **BrowserStack, live:**
+Windows 11 Chrome — sidebar Choose a person highlighted with its label visible,
+See the app as Teacher from the sidebar (banner, the teacher's menu), Back to
+admin; Galaxy M32 — Menu → Teacher from far down the Menu opens at the very top
+(banner, session bar, header with Help), Back to admin. Both passed. Screenshots
+in the project files, `view-as-2026-11-07/`. Nothing left open here.
 
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 
