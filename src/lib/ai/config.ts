@@ -118,10 +118,10 @@ export function openRouterConfig(env: Env = process.env): { apiKey: string; mode
 }
 
 /**
- * NVIDIA's free API catalogue (build.nvidia.com), Moonshot's Kimi by default.
+ * NVIDIA's free API catalogue (build.nvidia.com), Nemotron 3.5 Super VL by default (Kimi K2.6 answers 404 for this account, 7 Nov 2026).
  * Vercel holds the key as `NVIDIA_KIMI_API_KEY`; `NVIDIA_API_KEY` is an alias.
  */
-export const NVIDIA_DEFAULT_MODEL = "moonshotai/kimi-k2.6";
+export const NVIDIA_DEFAULT_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
 const NVIDIA_MODEL = /^[a-z0-9][a-z0-9._-]{0,40}\/[a-z0-9][a-z0-9._-]{0,80}$/u;
 
 export function nvidiaConfig(env: Env = process.env): { apiKey: string; model: string } | null {

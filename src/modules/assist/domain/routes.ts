@@ -90,7 +90,7 @@ export type AvailableKeys = {
   openai: boolean;
   geminiPaidModel: string | null;
   geminiFreeModel: string | null;
-  /** NVIDIA's free API model (Kimi by default), or null without the key. */
+  /** NVIDIA's free API model (Nemotron 3.5 Super VL by default), or null without the key. */
   nvidiaModel?: string | null;
   /** OpenRouter's first free model, or null without the key. */
   openRouterModel?: string | null;
@@ -133,7 +133,7 @@ export function assistChain(task: AssistTaskId, keys: AvailableKeys, env: Env = 
   const openai = keys.openai ? [stage("openai", models.openai)] : [];
   const paid = keys.geminiPaidModel ? [stage("gemini-paid", keys.geminiPaidModel)] : [];
   // Free tiers may keep what they are sent, so only an open quick task reaches them (D-401, D-417, D-490):
-  // NVIDIA's Kimi first, then OpenRouter's free models, then Gemini Free.
+  // NVIDIA's Nemotron first, then OpenRouter's free models, then Gemini Free.
   const open = tier === "quick" && OPEN_TASKS.has(task);
   const free = open ? [
     ...(keys.nvidiaModel ? [stage("nvidia-free", keys.nvidiaModel)] : []),

@@ -59,7 +59,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `NEXT_RUNTIME` | — | `src/instrumentation.ts` | — | — | Next.js (automatic) | automatic |
 | `NODE_ENV` | `src/app/(app)/fees/admin-tools/activity/error.tsx`, `src/app/(app)/fees/admin-tools/error.tsx` +18 | `src/app/protected/admin-tools/activity/error.tsx`, `src/app/protected/admin-tools/error.tsx` +14 | — | — | Next.js (automatic) | automatic |
 | `NVIDIA_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | optional alias if NVIDIA_KIMI_API_KEY is absent |
-| `NVIDIA_KIMI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | set — free NVIDIA API key (Kimi) for the AI helper's open tasks only (D-490) |
+| `NVIDIA_KIMI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | set — free NVIDIA API key for the AI helper's open tasks only (D-490) |
 | `ONE_BRIDGE_AUTH_ANON_KEY` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | One publishable API key | set on Fees production only to verify One access tokens; never a One service-role key |
 | `ONE_BRIDGE_AUTH_URL` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production; pinned One Auth project URL |
 | `ONE_BRIDGE_ENABLED` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production for coexistence; database read/command/sync gates remain independent |
@@ -114,7 +114,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `VPPSONE_CLAUDE_IMAGE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned image extraction model; defaults to Claude Sonnet 5.5 |
 | `VPPSONE_CLAUDE_VOICE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned voice understanding model; defaults to Claude Haiku 5.5 |
 | `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +4 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |
-| `VPPSONE_NVIDIA_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | optional — NVIDIA model (default moonshotai/kimi-k2.6) |
+| `VPPSONE_NVIDIA_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | optional — NVIDIA model (default nvidia/nemotron-3.5-super-vl-120b-a12b) |
 | `VPPSONE_OPENAI_TRANSCRIPTION_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | pinned voice transcription model; defaults to gpt-transcribe |
 | `VPPSONE_OPENROUTER_MODELS` | `src/lib/ai/config.ts` | — | — | — | owner | optional — up to three `:free` OpenRouter models, comma-separated |
 | `VPPSONE_SESSION_LABEL` | `src/modules/academics/data/academics-repo.ts` | — | — | — | owner | leave unset — the active session comes from app_settings (rule 3a) |

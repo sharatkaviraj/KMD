@@ -8,7 +8,7 @@ import { chatDraft, jsonFrom } from "@/modules/assist/data/chat-draft";
 import { assistChain, FREE_PROVIDERS, OPEN_TASKS, type AvailableKeys } from "@/modules/assist/domain/routes";
 import { ASSIST_TASKS, type AssistTaskId } from "@/modules/assist/domain/tasks";
 
-/* D-490: NVIDIA's free Kimi and OpenRouter's free models join the open quick tasks, never anything personal. */
+/* D-490: NVIDIA's free Nemotron and OpenRouter's free models join the open quick tasks, never anything personal. */
 
 const every: AvailableKeys = {
   anthropic: true, openai: true, geminiPaidModel: "gemini-3.5-flash-lite", geminiFreeModel: "gemini-3.5-flash-lite",
@@ -53,7 +53,7 @@ describe("openRouterConfig", () => {
 });
 
 describe("nvidiaConfig", () => {
-  it("reads Vercel's key name or the alias, with Kimi by default", () => {
+  it("reads Vercel's key name or the alias, with Nemotron by default", () => {
     expect(nvidiaConfig({})).toBeNull();
     expect(nvidiaConfig({ NVIDIA_KIMI_API_KEY: "k" })).toEqual({ apiKey: "k", model: NVIDIA_DEFAULT_MODEL });
     expect(nvidiaConfig({ NVIDIA_API_KEY: "k", VPPSONE_NVIDIA_MODEL: "x/y" })?.model).toBe("x/y");
