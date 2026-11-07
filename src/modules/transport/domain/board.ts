@@ -12,7 +12,7 @@
  *  - a DRIVER belongs to one session and drives any number of trips.
  *
  * A child rides every trip that stops at their route. So "who is on the 7:05
- * bus" is the children of its stops, and "which driver goes to Karera" is the
+ * bus" is the children of its stops, and "which driver goes to this village" is the
  * drivers of the trips that stop there. Nothing is stored twice.
  */
 
@@ -247,7 +247,7 @@ export function buildBoard(input: { routes: readonly RouteInfo[]; riders: readon
 
 /* ----------------------------------------------------------------- search */
 
-/** Lower-case, accents and extra spaces gone, so "karera " finds "Karera". */
+/** Lower-case, accents and extra spaces gone, so "route a " finds "Route A". */
 export function fold(text: string | null | undefined): string {
   return String(text ?? "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
@@ -258,7 +258,7 @@ export type BoardMatch = { cards: RouteCard[]; trips: TripView[]; drivers: Drive
  * What a search box finds: routes by name or code, buses by name, number or
  * time, drivers and helpers by name or phone, children by name or SR number.
  * A child found also brings their route, so the answer to "which bus does
- * Asha take" is one tap away.
+ * this child take" is one tap away.
  */
 export function searchBoard(board: Board, query: string): BoardMatch {
   const q = fold(query);
