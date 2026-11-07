@@ -17,7 +17,10 @@ view, wraps long names, and fetches a screen only on intent. School
 settings' form stacks beside the receipt in a narrow panel. Admissions: SR on
 one line, document pills fit, pipeline buttons stay in their cards. A
 teacher's Notes has a big New note in the top card on a desk, and the
-floating button steps aside while it shows. Phone layouts unchanged. Tests:
+floating button steps aside while it shows. Phone layouts unchanged. Main had
+about 30 bytes left under `/teach/attendance`'s first-load budget, so the
+menu's hint is CSS alone and the money section's words load with the desk's
+own chunk: the route is about 600 bytes lighter than main. Tests:
 `tests/mobile-ui/today-desktop-widgets.spec.ts` (5),
 `tests/intent-prefetch-link.test.tsx`; the whole suite passes except
 `tests/sentry-lite.test.ts` (a checkout under `/home/user`).

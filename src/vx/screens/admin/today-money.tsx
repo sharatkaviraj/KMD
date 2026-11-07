@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { rupees, rupeesShort } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
-import type { Pair } from "@/vx/text";
+import { p, type Pair } from "@/vx/text";
 import { Seg } from "@/vx/ui/controls";
 import { dailySeries } from "@/vx/screens/admin/logic";
 import { T } from "@/vx/screens/admin/text";
@@ -21,6 +21,24 @@ import type { TodayMoneyView } from "@/vx/screens/admin/today";
  */
 
 const MODE_COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--pri)"];
+
+/**
+ * Words only this section says. They live here rather than in `TD` so they ride
+ * in this chunk and not in the home page's, which every route counts against its
+ * first-load budget (D-510).
+ */
+const DM = {
+  avgPill: (v: string): Pair => p(`avg ${v}`, `औसत ${v}`),
+  nothingTaken: p("nothing taken", "कुछ जमा नहीं"),
+  sunday: p("Sunday", "रविवार"),
+  howTheyPaySub: p("Today · hover a slice", "आज · हिस्से पर रुकें"),
+  oldBalance: p("Old", "पुराना"),
+  total: p("Total", "कुल"),
+  nothingPastDue: p("No installment is past its due date yet.", "अभी कोई किस्त अपनी तारीख़ से आगे नहीं गई।"),
+  stillToCome: p("Still to come this year", "इस साल अभी आना बाकी"),
+  dueByToday: p("Due by today", "आज तक जमा होना था"),
+  modesAppear: p("Cash, UPI and cheques show here as the day's receipts come in.", "आज की रसीदें बनते ही नकद, UPI और चेक यहाँ दिखेंगे।"),
+};
 
 /** Payment modes by their stored code; an unknown code is shown as stored. */
 const MODE_NAMES: Partial<Record<string, Pair>> = TD.modeName;
@@ -86,12 +104,12 @@ function MoneyTaken({ money, today }: { money: TodayMoneyView; today: string }) 
         {chart.average > 0 ? (
           <>
             <span aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: `${chart.averageAt}%`, borderTop: "2px dashed var(--warn)", opacity: 0.8, transition: "bottom .5s var(--ease)" }} />
-            <span className="pill num" style={{ position: "absolute", right: 0, bottom: `${chart.averageAt}%`, transform: "translateY(-4px)", background: "var(--warns)", color: "var(--warnfg)", transition: "bottom .5s var(--ease)", zIndex: 1 }}>{tx(TD.avgPill(kfmt(chart.average)))}</span>
+            <span className="pill num" style={{ position: "absolute", right: 0, bottom: `${chart.averageAt}%`, transform: "translateY(-4px)", background: "var(--warns)", color: "var(--warnfg)", transition: "bottom .5s var(--ease)", zIndex: 1 }}>{tx(DM.avgPill(kfmt(chart.average)))}</span>
           </>
         ) : null}
         <div role="list" aria-label={tx(T.moneyTaken)} style={{ position: "absolute", inset: 0, display: "flex", alignItems: "stretch", gap: 3 }}>
           {chart.bars.map((b, i) => {
-            const tip = `${b.day} · ${b.amount > 0 ? rupees(b.amount) : b.sunday ? tx(TD.sunday) : tx(TD.nothingTaken)}`;
+            const tip = `${b.day} · ${b.amount > 0 ? rupees(b.amount) : b.sunday ? tx(DM.sunday) : tx(DM.nothingTaken)}`;
             return (
               // The last bars' tips open leftwards, so none runs past the card's edge.
               <div key={b.date} role="listitem" aria-label={tip} className={i >= chart.bars.length - 3 ? "td-bar end" : "td-bar"}>
@@ -128,7 +146,7 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
         <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.pendingByClassSub)}</span>
       </div>
       {cols.length === 0 || rows.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(TD.nothingPastDue)}</p>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(DM.nothingPastDue)}</p>
       ) : (
         // Each amount keeps room to be read ("₹1.3L", never "₹1.3" cut off); a narrow phone scrolls the table, not the page (smoke run, 20 Oct).
         <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
@@ -136,9 +154,9 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
           <div role="row" style={{ display: "contents" }}>
             <span role="columnheader" />
             {cols.map((c) => (
-              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center", whiteSpace: "nowrap", padding: "0 2px" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
+              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center", whiteSpace: "nowrap", padding: "0 2px" }}>{c.carry ? tx(DM.oldBalance) : c.label}</span>
             ))}
-            <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(TD.total)}</span>
+            <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(DM.total)}</span>
           </div>
           {rows.map((row, ri) => (
             <div key={row.label} role="row" style={{ display: "contents" }}>
@@ -182,7 +200,7 @@ function HowTheyPay({ money }: { money: TodayMoneyView }) {
     <section className="card tdm-pay" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .2s var(--ease) both" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.howTheyPay)}</h3>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(TD.howTheyPaySub)}</span>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(DM.howTheyPaySub)}</span>
       </div>
       {total <= 0 ? (
         // An empty ring where the slices will be, the same size as a full one, so the card neither
@@ -196,7 +214,7 @@ function HowTheyPay({ money }: { money: TodayMoneyView }) {
           </div>
           <p style={{ flex: 1, minWidth: 150, margin: 0, fontSize: 13, lineHeight: 1.45, color: "var(--mut)" }}>
             <b style={{ display: "block", color: "var(--fg)", fontSize: 14, marginBottom: 2 }}>{tx(T.nothingTakenToday)}</b>
-            {tx(TD.modesAppear)}
+            {tx(DM.modesAppear)}
           </p>
         </div>
       ) : (
@@ -247,11 +265,11 @@ function PaceCard({ money, pace, today }: { money: TodayMoneyView; pace: { perce
       {/* Two figures at the card's foot, so beside How they pay it ends in numbers, not a gap. */}
       <dl className="tdm-figs">
         <div>
-          <dt>{tx(TD.stillToCome)}</dt>
+          <dt>{tx(DM.stillToCome)}</dt>
           <dd className="num">{rupeesShort(Math.max(0, money.expected - money.collected))}</dd>
         </div>
         <div>
-          <dt>{tx(TD.dueByToday)}</dt>
+          <dt>{tx(DM.dueByToday)}</dt>
           <dd className="num">{rupeesShort(money.dueSoFar)}</dd>
         </div>
       </dl>
