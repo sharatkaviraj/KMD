@@ -158,24 +158,61 @@ function JumpChips({ groups, extra }: { groups: { id: string; short: Pair; icon:
   const all = extra ? [...groups, extra] : groups;
   const [active, setActive] = useState<string | null>(null);
   const row = useRef<HTMLDivElement>(null);
+  // The chip a tap chose. It stays lit until the reader scrolls by hand: the
+  // last groups cannot reach the top of a short page, and the smooth scroll
+  // passes other groups on the way (desk check, 7 Nov: Records tapped,
+  // Studies lit).
+  const held = useRef<string | null>(null);
+  const seen = useRef(new Map<string, boolean>());
+  // Where the sticky row ends: under the phone's top edge, the preview
+  // banner, or the desk's top bar.
+  const [band, setBand] = useState(80);
   const ids = all.map((g) => g.id).join(",");
+
+  useEffect(() => {
+    const measure = () => {
+      const box = row.current;
+      if (!box) return;
+      const top = Number.parseFloat(getComputedStyle(box).top) || 0;
+      setBand(Math.round(top + box.offsetHeight + 8));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   useEffect(() => {
     const els = ids.split(",").map((id) => document.getElementById(`menu-${id}`)).filter((x): x is HTMLElement => Boolean(x));
     if (!els.length || typeof IntersectionObserver === "undefined") return;
-    const seen = new Map<string, boolean>();
+    const pick = () => ids.split(",").find((id) => seen.current.get(id)) ?? null;
     const io = new IntersectionObserver(
       (entries) => {
-        for (const e of entries) seen.set(e.target.id.replace(/^menu-/, ""), e.isIntersecting);
-        const first = ids.split(",").find((id) => seen.get(id));
-        setActive(first ?? null);
+        for (const e of entries) seen.current.set(e.target.id.replace(/^menu-/, ""), e.isIntersecting);
+        if (!held.current) setActive(pick());
       },
       // The band just under the sticky chips: the group whose top half is there is "here".
-      { rootMargin: "-80px 0px -55% 0px" },
+      { rootMargin: `-${band}px 0px -55% 0px` },
     );
     els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [ids]);
+    // A hand on the page (finger, wheel, keys) lets go of the tapped chip.
+    // A touch or key on the chip row itself is a tap on a chip, which holds
+    // its own chip a moment later; letting go first would flicker.
+    const release = (e: Event) => {
+      if (!held.current || (e.target instanceof Element && e.target.closest("#menu-jump"))) return;
+      held.current = null;
+      setActive(pick());
+    };
+    const opts = { passive: true } as const;
+    window.addEventListener("touchstart", release, opts);
+    window.addEventListener("wheel", release, opts);
+    window.addEventListener("keydown", release);
+    return () => {
+      io.disconnect();
+      window.removeEventListener("touchstart", release);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("keydown", release);
+    };
+  }, [ids, band]);
 
   // Keep the lit chip in sight in the sideways row, without moving the page.
   useEffect(() => {
@@ -190,6 +227,7 @@ function JumpChips({ groups, extra }: { groups: { id: string; short: Pair; icon:
 
   const go = (id: string) => {
     cue("select");
+    held.current = id;
     setActive(id);
     document.getElementById(`menu-${id}`)?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
   };
