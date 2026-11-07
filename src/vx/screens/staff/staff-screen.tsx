@@ -1220,13 +1220,23 @@ function RoleSheet({ open, onClose, row, matrix, pending, onConfirm }: { open: b
   );
 }
 
-function AddStaffSheet({ open, onClose, isAdmin, pending, onSubmit }: { open: boolean; onClose: () => void; isAdmin: boolean; pending: boolean; onSubmit: (input: { displayName: string; shortName: string; role: string; phone: string; isTeaching: boolean }) => void }) {
+type StaffLanguage = "hi" | "en" | "both";
+
+/** Each choice is written in its own language, so it reads right whatever the admin's language is. */
+const STAFF_LANGUAGES: { value: StaffLanguage; label: string }[] = [
+  { value: "hi", label: "हिंदी" },
+  { value: "en", label: "English" },
+  { value: "both", label: "हिंदी + English" },
+];
+
+function AddStaffSheet({ open, onClose, isAdmin, pending, onSubmit }: { open: boolean; onClose: () => void; isAdmin: boolean; pending: boolean; onSubmit: (input: { displayName: string; shortName: string; role: string; phone: string; isTeaching: boolean; preferredLanguage: StaffLanguage }) => void }) {
   const { tx } = useVx();
   const [name, setName] = useState("");
   const [short, setShort] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("teacher");
   const [teaching, setTeaching] = useState(true);
+  const [language, setLanguage] = useState<StaffLanguage>("hi");
   const roles: StaffRole[] = isAdmin ? [...MATRIX_ROLES] : ["teacher", "view_only"];
   return (
     <Sheet
@@ -1234,7 +1244,7 @@ function AddStaffSheet({ open, onClose, isAdmin, pending, onSubmit }: { open: bo
       onClose={onClose}
       title={tx(p("Add staff", "स्टाफ़ जोड़ें"))}
       sub={tx(p("A profile first; a login only if they need one", "पहले प्रोफ़ाइल; लॉगिन सिर्फ़ ज़रूरत पर"))}
-      footer={<Foot sec={tx(p("Cancel", "रद्द करें"))} onSec={onClose} label={tx(p("Add", "जोड़ें"))} icon="check" disabled={pending || name.trim().length < 2 || short.trim().length < 2} onGo={() => onSubmit({ displayName: name, shortName: short, role, phone, isTeaching: teaching })} />}
+      footer={<Foot sec={tx(p("Cancel", "रद्द करें"))} onSec={onClose} label={tx(p("Add", "जोड़ें"))} icon="check" disabled={pending || name.trim().length < 2 || short.trim().length < 2} onGo={() => onSubmit({ displayName: name, shortName: short, role, phone, isTeaching: teaching, preferredLanguage: language })} />}
     >
       <div style={{ ...S.col, gap: 14, paddingTop: 4 }}>
         <Field label={tx(p("Full name", "पूरा नाम"))}><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tx(p("For example: Ms. Kiran Regar", "जैसे: Ms. Kiran Regar"))} /></Field>
@@ -1249,6 +1259,15 @@ function AddStaffSheet({ open, onClose, isAdmin, pending, onSubmit }: { open: bo
               <Chip key={r} on={role === r} onClick={() => setRole(r)}>{tx(ROLE_LABELS[r])}</Chip>
             ))}
           </ChipRow>
+        </div>
+        <div className="field">
+          <span>{tx(p("App language", "ऐप की भाषा"))}</span>
+          <ChipRow label={tx(p("App language", "ऐप की भाषा"))}>
+            {STAFF_LANGUAGES.map((l) => (
+              <Chip key={l.value} on={language === l.value} onClick={() => setLanguage(l.value)}>{l.label}</Chip>
+            ))}
+          </ChipRow>
+          <em style={{ fontStyle: "normal", fontSize: 12, color: "var(--mut)" }}>{tx(p("The app opens in this language for them. They can change it later.", "उनके लिए ऐप इसी भाषा में खुलेगा। वे बाद में बदल सकते हैं।"))}</em>
         </div>
         <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <span style={{ fontWeight: 600 }}>{tx(p("Teaches classes", "कक्षाएँ पढ़ाते हैं"))}</span>

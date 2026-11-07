@@ -1,5 +1,13 @@
 # VPPS One — progress
 
+## Language choice on Add staff — 7 November 2026
+
+Owner asked (7 Nov) that creating an account asks whether the app opens in
+Hindi or English. Branch `claude/project-thread-25gwfp`. **Done:** the Add staff
+sheet on `/staff` has an "App language" choice (हिंदी, English, हिंदी + English;
+Hindi first) and `addStaffAction` saves it instead of always `both` (D-475).
+No migration. **Remains:** nothing; existing accounts keep their language.
+
 ## Office roles school day in TEST — 6 November 2026
 
 Owner asked for agents replaying a whole school day as the academic
