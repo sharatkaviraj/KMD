@@ -100,6 +100,13 @@ export const TABLES = {
   fees_bridge_runs: { bucket: "K", why: "coexistence snapshot verification evidence" },
   fees_bridge_retired_students: { bucket: "K", why: "canonical retired identity for academic history" },
   fees_bridge_retired_classes: { bucket: "K", why: "canonical retired class for academic history" },
+  fees_bridge_routes: { bucket: "K", why: "canonical transport route names copied from Fees (D-550)" },
+  fees_bridge_route_sync: { bucket: "K", why: "when the transport route names were last copied from Fees" },
+  // Transport (D-550): post go-live, every row carries its own session label,
+  // so a TEST bus or driver is already in TEST-2026-27. Never relabelled.
+  transport_drivers: { bucket: "K", why: "post go-live drivers per session" },
+  transport_trips: { bucket: "K", why: "post go-live bus runs per session" },
+  transport_trip_stops: { bucket: "K", why: "post go-live bus run stops, with their trip" },
   // ---------------------------------------------------------------- A
   subjects: { bucket: "A", why: "subject master" },
   class_aliases: { bucket: "A", why: "timetable labels of the real classes" },

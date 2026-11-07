@@ -39,6 +39,7 @@ with
     'assist_settings','deployment','deployment_history','fee_role_map','file_storage_settings','file_storage_settings_history',
     'fees_bridge_state','fees_bridge_sessions','fees_bridge_classes','fees_bridge_students','fees_bridge_households',
     'fees_bridge_runs','fees_bridge_retired_students','fees_bridge_retired_classes',
+    'fees_bridge_routes','fees_bridge_route_sync','transport_drivers','transport_trips','transport_trip_stops',
     'message_test_recipients','migration_id_map','migration_runs','migration_watermarks','one_owned_fee_settings',
     'role_permission_changes','runtime_flags','school_settings_history','staff_authority_changes','staff_notice_prefs',
     'staff_photos','staff_send_pace','staff_ui_preferences','tail_receipts_review',

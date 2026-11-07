@@ -101,6 +101,12 @@ export const staffPermissions = [
   // classes on `/teach`, and the school roster is not hers to browse.
   "students:view",
 
+  // Transport (owner, 7 Nov 2026, D-550): which children ride each route, the
+  // bus times and the driver on each bus. Route names come from Fees; the
+  // drivers and trips are One's own. `manage` adds and edits them.
+  "transport:view",
+  "transport:manage",
+
   // The other two apps (R1.1).
   //
   // Not "may open School Fees" — nothing here can grant that, and the fee app
@@ -198,6 +204,8 @@ const officePermissions: readonly StaffPermission[] = [
   "reports:view",
   "apps:view",
   "students:view",
+  "transport:view",
+  "transport:manage",
   "messages:send",
   // Reads the fee screens, cannot take money. Office staff do post
   // payments in the fee app today, so this is a real reduction — and a
