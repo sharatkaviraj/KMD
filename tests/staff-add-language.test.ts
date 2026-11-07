@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-/* D-475: Add staff asks which language the app opens in (owner, 7 Nov 2026). */
+/* D-476: Add staff asks which language the app opens in (owner, 7 Nov 2026). */
 
 const action = readFileSync("src/app/(app)/staff/vx-actions.ts", "utf8");
 const screen = readFileSync("src/vx/screens/staff/staff-screen.tsx", "utf8");
@@ -19,5 +19,11 @@ describe("Add staff language choice", () => {
     expect(sheet).toContain('useState<StaffLanguage>("hi")');
     expect(sheet).toContain("preferredLanguage: language");
     expect(sheet).toContain("App language");
+  });
+
+  it("phones can open Add staff too, not only desktops", () => {
+    const phoneAction = screen.slice(screen.indexOf("mAction={"), screen.indexOf("/>", screen.indexOf("mAction={")));
+    expect(phoneAction).toContain('onClick={() => setSheet("add")}');
+    expect(phoneAction.indexOf("mayManage")).toBeLessThan(phoneAction.indexOf("isAdmin"));
   });
 });

@@ -319,7 +319,14 @@ export function StaffScreen({
         </span>
       }
       mAction={
-        isAdmin && !(isList && selected) ? (
+        // Phones get one header button. Adding a person comes first (the Add
+        // staff sheet is where their language is chosen, D-476); a new
+        // person's page then offers Create login, as every row without one does.
+        isList && selected ? undefined : mayManage ? (
+          <Btn variant="soft" icon="plus" style={{ height: 40, padding: "0 12px", fontSize: 13 }} onClick={() => setSheet("add")}>
+            {tx(p("Add staff", "स्टाफ़ जोड़ें"))}
+          </Btn>
+        ) : isAdmin ? (
           <Btn variant="soft" icon="userPlus" style={{ height: 40, padding: "0 12px", fontSize: 13 }} onClick={() => openFor("invite", rows.find((r) => r.isActive && !r.hasLogin)?.id ?? "")}>
             {tx(p("Add login", "लॉगिन जोड़ें"))}
           </Btn>
