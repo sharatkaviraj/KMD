@@ -19,6 +19,7 @@ import { MessagesScreen, type MessagesState } from "@/vx/screens/messages/messag
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 
 import type { DesignView } from "../design.fixture";
+import { aiSettingsData } from "./ai-settings";
 
 /*
  * Design fidelity views for Messages, Settings and Sign-in & app states
@@ -267,6 +268,11 @@ const settingsViews: Record<string, DesignView> = {
   "M-Settings-Integrations": settings("integrations"),
   "M-Settings-Glossary": settings("glossary"),
   "settings-session": settings("session"),
+  // Settings → AI helper (D-501): `&v=` is ignored here, so each view has its own entry.
+  "DX-Settings-AI": { render: () => <Layer><SettingsScreen data={settingsData} state="ai" ai={aiSettingsData} aiView="used" /></Layer>, path: "/settings" },
+  "DX-Settings-AI-How": { render: () => <Layer><SettingsScreen data={settingsData} state="ai" ai={aiSettingsData} aiView="how" /></Layer>, path: "/settings" },
+  "DX-Settings-AI-Cost": { render: () => <Layer><SettingsScreen data={settingsData} state="ai" ai={aiSettingsData} aiView="cost" /></Layer>, path: "/settings" },
+  "DX-Settings-AI-Switches": { render: () => <Layer><SettingsScreen data={settingsData} state="ai" ai={aiSettingsData} aiView="switches" /></Layer>, path: "/settings" },
 };
 
 /* ------------------------------------------------------------ Messages */

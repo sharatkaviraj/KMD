@@ -7,6 +7,7 @@ import { t } from "@/platform/i18n/language";
  * (D-229: module-level `t()` calls are not tree-shaken).
  */
 export const aiConnectionLink = {
-  title: t("AI सहायक कनेक्शन", "AI assistant connection"),
-  sub: t("Claude / ChatGPT: स्विच और कनेक्शन", "Claude / ChatGPT: switch and connections"),
+  // Named for what it is, so nobody mistakes it for the AI helper inside One (D-501).
+  title: t("Claude / ChatGPT कनेक्टर", "Claude / ChatGPT connector"),
+  sub: t("MCP · आपका अपना Claude One पढ़ता है · AI सहायक से अलग", "MCP · your own Claude reads One · not the AI helper"),
 } as const;

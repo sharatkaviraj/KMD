@@ -8,7 +8,7 @@ import { aiConnectionOwner, revokeAiConnection, setAiConnectionSwitch } from "@/
 import { assertNotPreviewing } from "@/vx/view-as";
 
 /*
- * Settings → AI assistant connection: the school's switch and Disconnect for
+ * Settings → Claude / ChatGPT connector: the school's switch and Disconnect for
  * any connection (owner decision D9). Every action: `settings:manage`, an
  * admin by role, not previewing another role, and never a test account —
  * the switch and other people's connections are the whole school's, and on a

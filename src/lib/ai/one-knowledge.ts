@@ -40,7 +40,7 @@ const GUIDE: Readonly<Record<string, string>> = {
   "/reports": "Fee reports: choose the relevant session and date range; check official totals in the ledger view.",
   "/messages": "Messages: choose the audience, review recipients and preview the notice. Creating a draft does not send it.",
   "/preferences": "Preferences: change personal display and language options; school-wide controls are in Settings.",
-  "/settings": "Settings: admins manage school-wide options, including Built-in AI. Staff do not enter model API keys in One.",
+  "/settings": "Settings: admins manage school-wide options. Settings → AI helper shows every AI job (drafts, photos, voice), what each model did and cost, and its switches; the Claude / ChatGPT connector is a separate page. Staff do not enter model API keys in One.",
 };
 
 export function oneInstructions(instructions: string, workflow?: OneWorkflow, permittedHrefs?: readonly string[]) {

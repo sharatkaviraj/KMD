@@ -5,6 +5,7 @@ import { connectionCardState, type CardState, type ConnectionListRow } from "@/m
 import { aiConnectionEligibility } from "@/modules/mcp/domain/eligibility";
 import { consentSubject, pageEndpoints } from "@/modules/mcp/data/authorize";
 import { listAiConnections, readAiConnectionSwitch } from "@/modules/mcp/data/connections";
+import { createAdminClient } from "@/platform/supabase/admin";
 
 /**
  * The signed-in person's card: null for someone who may not connect and never
@@ -37,4 +38,29 @@ export async function loadAiConnectionAdmin(): Promise<{
     pageEndpoints(),
   ]);
   return { switchState, rows, address: endpoints?.resource ?? null, now: Date.now() };
+}
+
+export type ToolMonth = { tool: string; ok: number; refused: number; failed: number };
+
+/**
+ * This month's tool calls, counted per tool and outcome, for the admin page
+ * (D-501). Only the counts: the log never holds a question or an answer.
+ * Null when it could not be read.
+ */
+export async function toolCallsSince(since: Date): Promise<ToolMonth[] | null> {
+  const { data, error } = await createAdminClient()
+    .from("ai_tool_calls")
+    .select("tool, outcome")
+    .gte("created_at", since.toISOString())
+    .limit(10_000);
+  if (error) return null;
+  const byTool = new Map<string, ToolMonth>();
+  for (const row of (data ?? []) as { tool: string; outcome: string }[]) {
+    let t = byTool.get(row.tool);
+    if (!t) byTool.set(row.tool, (t = { tool: row.tool, ok: 0, refused: 0, failed: 0 }));
+    if (row.outcome === "ok") t.ok += 1;
+    else if (row.outcome.startsWith("refused:")) t.refused += 1;
+    else t.failed += 1;
+  }
+  return [...byTool.values()].sort((a, b) => b.ok + b.refused + b.failed - (a.ok + a.refused + a.failed));
 }
