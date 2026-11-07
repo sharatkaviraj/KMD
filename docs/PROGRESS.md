@@ -9,14 +9,18 @@ ChatGPT and ask for any report. Branch `claude/project-thread-v4b26m`.
 menu entry) builds one Excel workbook (One's sheets, then Fees' AI context
 sheets as `Fees …`), or a .zip with `photos/`, `photos/index.csv` and a
 read-me, joined on the device from three routes that each stay under Vercel's
-4.5 MB (D-482). Fees serves the year's workbook and photographs through two
+4.5 MB (D-484). Fees serves the year's workbook and photographs through two
 read-only bridge reads (schoolfees PR 149, merged). `reports:ai` is the
 admin's alone until Staff → Roles grants it; every sheet still needs the
 permission that shows it on screen, notes pass `canSeeNote`, a real year
 without the live connection gets no money sheets, and every part taken is
-logged as `ai_report` (D-483; migrations `20261107045006`, `20261107045020`,
+logged as `ai_report` (D-485; migrations `20261107045006`, `20261107045020`,
 applied). **Remains:** the photographs and live money come only for the real
 year, so QA accounts (TEST years only) see One's rehearsal copy and no photos.
+Follow-up (same day): the first live file showed a few ids still inside
+values (class ids in a JSON audience, "withdrawn:<id>", an upload's id); they
+now become names or are left out. The decision numbers moved from D-482/D-483
+to D-484/D-485 because the Hindi dates change took D-482 at the same time.
 
 ## Every screen on a real phone and desktop — 7 November 2026
 
