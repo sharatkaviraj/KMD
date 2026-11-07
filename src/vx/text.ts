@@ -1,3 +1,4 @@
+import { hindiDates } from "@/platform/i18n/hindi-dates";
 import type { Language } from "@/platform/i18n/language";
 
 /**
@@ -19,14 +20,16 @@ import type { Language } from "@/platform/i18n/language";
 export type Pair = { en: string; hi?: string };
 
 export function lead(pair: Pair | string, language: Language): string {
-  if (typeof pair === "string") return pair;
-  return language === "hi" && pair.hi ? pair.hi : pair.en;
+  if (language !== "hi") return typeof pair === "string" ? pair : pair.en;
+  // A Hindi reader's line says its dates in Hindi too, whichever helper built
+  // them ("Sat 7 Nov" → "शनि 7 नवंबर"; `platform/i18n/hindi-dates.ts`).
+  return hindiDates(typeof pair === "string" ? pair : pair.hi || pair.en);
 }
 
 /** The second line under a key label: the Hindi, for a reader of both. */
 export function under(pair: Pair | string, language: Language): string | null {
   if (typeof pair === "string" || !pair.hi || pair.hi === pair.en) return null;
-  return language === "both" ? pair.hi : null;
+  return language === "both" ? hindiDates(pair.hi) : null;
 }
 
 /** Shorthand for writing a pair: `p("Today", "आज")`. */

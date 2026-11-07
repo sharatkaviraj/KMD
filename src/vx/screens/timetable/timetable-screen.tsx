@@ -1656,7 +1656,7 @@ function Leave({ data, pending, onDecide }: { data: TimetableData; pending: bool
           <Card key={l.id} style={{ padding: "14px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, animation: "xIn .3s var(--ease) both" }}>
             <Ava name={l.name} />
             <span style={{ flex: 1, minWidth: 210, display: "flex", flexDirection: "column" }}>
-              <span style={{ fontWeight: 600 }}>{l.name} · {dayRange(l.from, l.to)}</span>
+              <span style={{ fontWeight: 600 }}>{l.name} · {tx(dayRange(l.from, l.to))}</span>
               <span style={MUTED}>{sub(l, askedLine(l, data.today))}</span>
               {past ? (
                 <span style={{ fontSize: 13, color: "var(--warnfg)" }}>{say("These days have passed · record it as taken, or decline it", "ये दिन बीत चुके हैं · ली गई दर्ज करें, या अस्वीकार करें")}</span>
@@ -1693,7 +1693,7 @@ function Leave({ data, pending, onDecide }: { data: TimetableData; pending: bool
             <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : 0, ...rise(i) }}>
               <Ava name={l.name} />
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <span style={{ fontWeight: 600 }}>{l.name} · {dayRange(l.from, l.to)}</span>
+                <span style={{ fontWeight: 600 }}>{l.name} · {tx(dayRange(l.from, l.to))}</span>
                 <span style={MUTED}>{sub(l)}</span>
               </span>
               <span className="hide-m" style={MUTED}>

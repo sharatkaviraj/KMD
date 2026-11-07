@@ -394,6 +394,16 @@ export function whenLabel(iso: string | null, now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(then);
 }
 
+/** `whenLabel` in the reader's language: "आज 9:20", "कल", "3 दिन पहले"; a date is said in Hindi by `tx()`. */
+export function whenLabelP(iso: string | null, now: Date = new Date()): Pair {
+  const en = whenLabel(iso, now);
+  if (en === "Yesterday") return p(en, "कल");
+  const ago = /^(\d+) days ago$/.exec(en);
+  if (ago) return p(en, `${ago[1]} दिन पहले`);
+  if (en.startsWith("Today ")) return p(en, `आज ${en.slice(6)}`);
+  return p(en, en);
+}
+
 /**
  * When a cover item is for, not when it was recorded: Thursday's periods
  * arranged at 23:14 on Wednesday read "Today" on Thursday, never "Yesterday"

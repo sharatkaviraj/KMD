@@ -11,6 +11,8 @@
  * anywhere, including in a server action's error message.
  */
 
+import { hindiDates } from "./hindi-dates";
+
 export const languages = ["hi", "en", "both"] as const;
 
 export type Language = (typeof languages)[number];
@@ -60,7 +62,8 @@ export function resolveLanguage(value: unknown): Language {
  * beneath it — the shape the school already reads.
  */
 export function primary(text: Localized, language: Language): string {
-  return language === "en" ? text.en : text.hi;
+  // The Hindi line says its dates in Hindi too, whichever helper built them.
+  return language === "en" ? text.en : hindiDates(text.hi);
 }
 
 /** The secondary line, or null when this reader has asked for one language. */

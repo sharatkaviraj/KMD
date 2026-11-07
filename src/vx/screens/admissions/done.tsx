@@ -56,7 +56,7 @@ export function AdmissionDone({ info }: { info: DoneInfo }) {
 
   const sub = [
     tx(p(`Saved by ${firstName(info.savedBy)}`, `${firstName(info.savedBy)} ने सहेजा`)),
-    shortDay(info.savedAt ?? new Date()),
+    tx(shortDay(info.savedAt ?? new Date())),
     `${rupees(info.pendingToday)} ${tx(p("pending today", "आज बकाया"))}`,
     `${rupees(info.notDueYet)} ${tx(p("not due yet", "अभी देय नहीं"))}`,
   ].join(" · ") + (info.missingDocs.length ? ` · ${tx(p("still to collect", "अभी लेने हैं"))}: ${info.missingDocs.join(", ")}` : "");

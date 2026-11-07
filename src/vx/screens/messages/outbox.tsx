@@ -140,7 +140,7 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
             <Card key={b.id}>
               <CardHead
                 title={`${tx(TEMPLATE[b.template as keyof typeof TEMPLATE] ?? TEMPLATE.gentle)} · ${b.audienceLine || b.name}`}
-                sub={`${b.families} ${tx(p("families", "परिवार"))} · ${b.by} · ${tx(agoP(b.at))}${b.scheduledFor ? ` · ${tx(p("for", "के लिए"))} ${dateLabel(b.scheduledFor)} ${clock(b.scheduledFor)}` : ""}`}
+                sub={`${b.families} ${tx(p("families", "परिवार"))} · ${b.by} · ${tx(agoP(b.at))}${b.scheduledFor ? ` · ${tx(p("for", "के लिए"))} ${tx(dateLabel(b.scheduledFor))} ${clock(b.scheduledFor)}` : ""}`}
               />
               <p style={{ fontSize: 13, color: "var(--mut)", margin: "8px 0" }}>
                 {tx(p("Each family's amount is worked out again now, so a family that has paid since is left out. Late fee is never included.", "हर परिवार की राशि अभी फिर से निकाली जाएगी; जिसने भर दिया वह छूट जाएगा। विलंब शुल्क शामिल नहीं।"))}
@@ -192,7 +192,7 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
                   <div style={{ fontWeight: 600 }}>
                     {item.name}
                     {item.about ? <span style={{ color: "var(--mut)", fontWeight: 400 }}> · {item.about}</span> : null}
-                    {item.forDay ? <span style={{ color: "var(--mut)", fontWeight: 400 }}> · {dateLabel(item.forDay)}</span> : null}
+                    {item.forDay ? <span style={{ color: "var(--mut)", fontWeight: 400 }}> · {tx(dateLabel(item.forDay))}</span> : null}
                     {item.copies && item.copies > 1 ? <span style={{ color: "var(--warnfg)", fontWeight: 600, fontSize: 12 }}> · {tx(p(`queued ${item.copies} times`, `${item.copies} बार कतार में`))}</span> : null}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--mut)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={item.preview}>

@@ -50,7 +50,7 @@ export function StudentCertificateTools({ studentId, studentName = "", sessionLa
         <span className="cert-kind-ic" style={{ width: 34, height: 34, borderRadius: 10, background: "var(--s2)", color: "var(--pri)", display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Ic n="fileText" size={16} /></span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: 13.5 }}>{tx(KIND_LABELS[row.kind ?? "study"])}</strong>
-          <span className="num" style={{ fontSize: 12, color: "var(--mut)", overflowWrap: "anywhere" }}>{row.serial}{row.issuedAt ? ` · ${dateLabel(row.issuedAt)}` : ""}</span>
+          <span className="num" style={{ fontSize: 12, color: "var(--mut)", overflowWrap: "anywhere" }}>{row.serial}{row.issuedAt ? ` · ${tx(dateLabel(row.issuedAt))}` : ""}</span>
         </span>
         <Pill tone={row.status === "issued" ? "ok" : row.status === "prepared" ? "warn" : "mut"}>{tx(CERTIFICATE_STATUS[row.status])}</Pill>
       </a>)}</div>

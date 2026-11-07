@@ -124,12 +124,12 @@ export function ReceiptsDesk(props: DeskProps) {
   // The day toggle reads yesterday-as-one-day as its "Yesterday" option (smoke 21 Oct).
   const seg = daySeg(anchor, today, span);
   const isClose = view === "close";
-  const spanLabel = span === "today" ? (anchor === today ? tx(W.today) : deskDay(anchor)) : span === "yesterday" ? tx(W.yesterday) : tx(W.last3);
+  const spanLabel = span === "today" ? (anchor === today ? tx(W.today) : tx(deskDay(anchor))) : span === "yesterday" ? tx(W.yesterday) : tx(W.last3);
   const closeHref = deskHref(base, { view: "close" });
   const listHref = deskHref(base, {});
   const session = sessionText(sessionLabel);
   const dayBookHref = `/fees/finance-controls/export?date=${anchor}&session=${encodeURIComponent(sessionLabel)}`;
-  const kpiLabel = span === "today" ? (anchor === today ? tx(W.collectedToday) : `${tx(W.collected)} · ${deskDay(anchor)}`) : span === "yesterday" ? tx(W.collectedYesterday) : tx(W.last3);
+  const kpiLabel = span === "today" ? (anchor === today ? tx(W.collectedToday) : `${tx(W.collected)} · ${tx(deskDay(anchor))}`) : span === "yesterday" ? tx(W.collectedYesterday) : tx(W.last3);
   const query = filters.query;
   const setQuery = (q: string) => setFilters((f) => ({ ...f, query: q }));
   // Rows animate in one after another down the whole table, as in the design.
@@ -158,7 +158,7 @@ export function ReceiptsDesk(props: DeskProps) {
 
       {closeEvent ? (
         <Banner tone="ok" action={<Btn variant="ghost" href={closeHref}>{tx(W.seeClose)}</Btn>}>
-          {tx(W.dayClosed)} · {deskDay(anchor)} · {clock(closeEvent.createdAt)}
+          {tx(W.dayClosed)} · {tx(deskDay(anchor))} · {tx(clock(closeEvent.createdAt))}
           {closeEvent.actorName ? ` · ${closeEvent.actorName}` : ""}
         </Banner>
       ) : null}
@@ -176,8 +176,8 @@ export function ReceiptsDesk(props: DeskProps) {
           onChange={(v) => router.push(deskHref({ anchor: seg.anchor, today, span: v }, {}))}
           style={{ width: 300, maxWidth: "100%" }}
           options={[
-            { value: "today", label: seg.first ? deskDay(seg.first) : tx(W.today) },
-            { value: "yesterday", label: seg.second ? deskDay(seg.second) : tx(W.yesterday) },
+            { value: "today", label: seg.first ? tx(deskDay(seg.first)) : tx(W.today) },
+            { value: "yesterday", label: seg.second ? tx(deskDay(seg.second)) : tx(W.yesterday) },
             { value: "3d", label: tx(W.last3) },
           ]}
         />
@@ -207,7 +207,7 @@ export function ReceiptsDesk(props: DeskProps) {
           body={tx(W.emptyDayBody)}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-              {props.lastDate ? <Btn variant="sec" icon="history" className="wrap" href={deskHref({ ...base, anchor: props.lastDate, span: "today" }, {})}>{tx(W.lastDay)} · {deskDay(props.lastDate)}</Btn> : null}
+              {props.lastDate ? <Btn variant="sec" icon="history" className="wrap" href={deskHref({ ...base, anchor: props.lastDate, span: "today" }, {})}>{tx(W.lastDay)} · {tx(deskDay(props.lastDate))}</Btn> : null}
               {perms.collect ? <Btn variant="pri" icon="rupee" href="/payments">{tx(W.takeFee)}</Btn> : null}
             </div>
           }
@@ -266,7 +266,7 @@ export function ReceiptsDesk(props: DeskProps) {
   return (
     <VxPage>
       <TopBar
-        crumb={isClose ? `${tx(W.money)} · ${deskDay(anchor)}` : `${tx(W.crumb)} ${session}`}
+        crumb={isClose ? `${tx(W.money)} · ${tx(deskDay(anchor))}` : `${tx(W.crumb)} ${session}`}
         title={isClose ? tx(W.closeTitle) : tx(W.title)}
         mTitle={isClose ? tx(W.closeTitle) : selected ? selected.receiptNumber : tx(W.title)}
         mSub={isClose ? tx(W.closeSub) : selected ? selected.studentFullName : `${spanLabel} · ${rupees(summary.net)}`}
@@ -326,7 +326,7 @@ function DeskTableRow({ r, delay, tone, sel, href, narrow }: { r: DeskRow; delay
       style={{ width: "100%", display: "grid", gridTemplateColumns: narrow ? TRACKS_NARROW : TRACKS, gap: 8, alignItems: "center", minHeight: 56, padding: "0 16px", borderTop: "1px solid var(--bd)", color: "var(--fg)", opacity: r.isReversed ? 0.55 : 1, animation: `xIn .32s var(--ease) ${delay}ms both` }}
     >
       <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textDecoration: strike }}>{r.receiptNumber}</span>
-      {narrow ? null : <span role="cell" className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{deskTime(r.createdAt)}</span>}
+      {narrow ? null : <span role="cell" className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(deskTime(r.createdAt))}</span>}
       <span role="cell" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
         <span aria-hidden="true" className={narrow ? "hide-d" : undefined} style={{ flex: "none", width: 32, height: 32, borderRadius: 16, background: tone[0], color: tone[1], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>{nameInitials(r.studentFullName)}</span>
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -361,7 +361,7 @@ function DeskCardRow({ r, first, delay, href }: { r: DeskRow; first: boolean; de
       </span>
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{r.studentFullName}</span>
-        <span className="num clip" style={{ fontSize: 12, color: "var(--mut)" }}>{r.receiptNumber} · {r.classLabel} · {deskTime(r.createdAt)}</span>
+        <span className="num clip" style={{ fontSize: 12, color: "var(--mut)" }}>{r.receiptNumber} · {r.classLabel} · {tx(deskTime(r.createdAt))}</span>
       </span>
       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
         <span className="num" style={{ fontSize: 15, fontWeight: 700, textDecoration: r.isReversed ? "line-through" : "none" }}>{rupees(r.totalAmount)}</span>

@@ -6,6 +6,8 @@
  * tabular figures at the call site, and a negative is "−₹" with a real minus.
  */
 
+import { HI_MONTHS, HI_WEEKDAYS, HI_WEEKDAYS_SHORT, dayPeriodHi } from "@/platform/i18n/hindi-dates";
+
 const inr = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 const inr2 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
@@ -129,9 +131,6 @@ function schoolParts(value: string | Date): { weekday: string; day: number; mont
  * which is what a screen should use: the reader's language picks the line.
  */
 
-const HI_MONTHS = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"];
-const HI_WEEKDAYS = ["रविवार", "सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार"];
-const HI_WEEKDAYS_SHORT = ["रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"];
 const HI_WEEKDAY_LETTERS = ["र", "सो", "मं", "बु", "गु", "शु", "श"];
 const EN_WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const EN_WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -170,14 +169,8 @@ export function dateLabelHi(value: string | Date | null | undefined): string {
   return `${d.day} ${HI_MONTHS[d.month]} ${d.year}`;
 }
 
-/** The part of the day a Hindi speaker puts before the time. */
-export function dayPeriodHi(hour24: number): string {
-  if (hour24 < 4) return "रात";
-  if (hour24 < 12) return "सुबह";
-  if (hour24 < 16) return "दोपहर";
-  if (hour24 < 20) return "शाम";
-  return "रात";
-}
+/** The part of the day a Hindi speaker puts before the time (one definition, shared with `hindiDates`). */
+export { dayPeriodHi };
 
 /** Hours and minutes of a bell time "13:30" or of an instant, on the school's clock. */
 function hourMinute(value: string | Date): { h: number; m: number } | null {

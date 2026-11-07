@@ -148,7 +148,7 @@ function BoardCard({ note, plan, today, href, selected, delay, viewerId }: { not
             {note.replies}
           </span>
         ) : null}
-        <span className="nx-m num">{noteWhen(note.createdAt, today)}</span>
+        <span className="nx-m num">{tx(noteWhen(note.createdAt, today))}</span>
       </span>
     </Link>
   );
@@ -295,7 +295,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   } else if (screen === "student") {
     top = { crumb: `${boardTitle} · ${tx(p("one child", "एक बच्चा"))}`, title: kidName, mTitle: kidName, mSub: `${scope?.classLabel ?? ""} · ${tx(countP(kidNotes.length, "note", "notes", "नोट"))}`, dBack: { href: base }, mBack: { href: base }, add: props.viewer.canWrite };
   } else {
-    top = { crumb: `${tx(p("Academics", "शैक्षणिक"))} · ${me ?? day(props.today)}`, title: boardTitle, mTitle: boardTitle, mSub: tx(p(`${kpis.needsAction} need action · ${counts.followups} to follow up`, `${kpis.needsAction} पर कार्रवाई · ${counts.followups} फिर देखने हैं`)), dBack: null, mBack: { href: "/menu" }, add: props.viewer.canWrite };
+    top = { crumb: `${tx(p("Academics", "शैक्षणिक"))} · ${me ?? tx(day(props.today))}`, title: boardTitle, mTitle: boardTitle, mSub: tx(p(`${kpis.needsAction} need action · ${counts.followups} to follow up`, `${kpis.needsAction} पर कार्रवाई · ${counts.followups} फिर देखने हैं`)), dBack: null, mBack: { href: "/menu" }, add: props.viewer.canWrite };
   }
   if (open && screen !== "add") {
     top = { ...top, mTitle: tx(noteSubject(open.note)), mSub: `${open.note.classLabel} · ${tx(p(`note from ${open.note.writtenByName}`, `${open.note.writtenByName} का नोट`))}`, mBack: { href: home } };
@@ -690,7 +690,7 @@ function StudentPage({
                       <span className="nx-f" style={{ justifyContent: "space-between", width: "100%", gap: 10 }}>
                         <span className="nx-c">
                           <span className="nx-b">{n.writtenByName}{rel ? ` · ${tx(rel)}` : ""}</span>
-                          <span className="nx-m num">{noteWhen(n.createdAt, today)}</span>
+                          <span className="nx-m num">{tx(noteWhen(n.createdAt, today))}</span>
                         </span>
                         <StagePill stage={stage} />
                       </span>

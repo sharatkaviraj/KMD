@@ -252,7 +252,7 @@ export function AddEventForm({ model, rate, initial }: { model: AddModel; rate: 
                       <span>{tx(p("Starts at", "शुरू"))}</span>
                       <div className="cal-r cal-w" style={{ gap: 6 }}>
                         {START_TIMES.map((t) => (
-                          <ChipBtn key={t} on={startsAt === t} onClick={() => pickStart(t)}>{time12(t)}</ChipBtn>
+                          <ChipBtn key={t} on={startsAt === t} onClick={() => pickStart(t)}>{tx(time12(t))}</ChipBtn>
                         ))}
                       </div>
                     </div>

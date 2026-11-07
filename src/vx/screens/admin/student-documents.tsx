@@ -130,7 +130,7 @@ export function StudentDocuments({ documents, canManage, unavailable = false }: 
         : rows.length ? <ul className="sd-list">{rows.map(document => <li key={document.id} className="sd-item">
           <a href={`/documents/${document.id}`} target="_blank" rel="noopener noreferrer" className="sd-open tap" aria-label={`${tx(D.open)} ${document.kind}: ${document.fileName}`}>
             <span className="sd-icon"><Ic n="fileText" size={21} /></span>
-            <span className="sd-file"><strong>{document.kind}</strong><span className="sd-name">{document.fileName}</span><span className="sd-muted sd-meta">{document.size} · {dateLabel(document.createdAt)}</span></span>
+            <span className="sd-file"><strong>{document.kind}</strong><span className="sd-name">{document.fileName}</span><span className="sd-muted sd-meta">{document.size} · {tx(dateLabel(document.createdAt))}</span></span>
             <span className="sd-open-word">{tx(D.open)}<Ic n="chevRight" size={16} /></span>
           </a>
           {canManage ? <button type="button" className="tap sd-remove" aria-label={tx(p(`Remove ${document.fileName}`, `${document.fileName} हटाएँ`))} onClick={() => askRemove(document)}><Ic n="trash" size={18} /></button> : null}

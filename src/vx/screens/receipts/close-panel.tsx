@@ -134,7 +134,7 @@ export function ClosePanel(props: DeskProps) {
       <div className="pad" style={{ padding: "22px 28px 40px" }}>
         <div className="card fadein" style={{ maxWidth: 620, margin: "10px auto 0", padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
           <ClosedTick />
-          <h2 className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600 }}>{tx(W.dayClosed)} · {deskDay(e.paymentDate)}</h2>
+          <h2 className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600 }}>{tx(W.dayClosed)} · {tx(deskDay(e.paymentDate))}</h2>
           <span style={{ fontSize: 14, color: "var(--mut)" }}>
             {e.actorName ? tx(fill(W.closedBy, { name: e.actorName, time: clock(e.createdAt) })) : tx(fill(W.closedAtOnly, { time: clock(e.createdAt) }))} {tx(W.closeNoLock)}
           </span>
@@ -157,7 +157,7 @@ export function ClosePanel(props: DeskProps) {
           onClose={() => setReopenOpen(false)}
           icon="refresh"
           title={tx(W.reopenTitle)}
-          sub={longDay(anchor)}
+          sub={tx(longDay(anchor))}
           footer={
             <>
               <Btn variant="sec" full onClick={() => setReopenOpen(false)}>{tx(W.close)}</Btn>
@@ -213,7 +213,7 @@ export function ClosePanel(props: DeskProps) {
           <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(W.expects)}</h2>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>{deskDay(anchor)} · {tx(receiptCount(day.count))}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(deskDay(anchor))} · {tx(receiptCount(day.count))}</span>
             </div>
             {DESK_MODES.map((m, i) => {
                 const look = MODE_LOOK[m];

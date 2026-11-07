@@ -666,7 +666,7 @@ function ProfilePanel({
     ...events.slice(0, 6).map((e) => ({
       key: e.id,
       text: `${tx(e.text)}${e.actor ? ` · ${tx(p("by", "द्वारा"))} ${e.actor.split(" ")[0]}` : ""}`,
-      time: shortDay(e.at),
+      time: tx(shortDay(e.at)),
       dot: e.kind === "disabled" ? "var(--bad)" : e.kind === "enabled" ? "var(--ok)" : "var(--warn)",
     })),
     { key: "joined", text: tx(p("Added to the staff list", "स्टाफ़ सूची में जोड़े गए")), time: shortDay(row.joinedAt), dot: "var(--acc)" },
@@ -924,7 +924,7 @@ function RolesView({
             <div key={e.id} className="fadein" style={{ display: "grid", gridTemplateColumns: "12px minmax(0,1fr) auto", gap: 10, padding: "7px 0", animationDelay: `${i * 50}ms` }}>
               <span style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: e.kind === "disabled" ? "var(--bad)" : e.kind === "enabled" ? "var(--ok)" : "var(--acc)" }} />
               <span style={{ fontSize: 13 }}>{e.actor ? `${e.actor.split(" ")[0]} · ` : ""}{tx(e.text)}</span>
-              <span className="num" style={S.sub}>{shortDay(e.at)}</span>
+              <span className="num" style={S.sub}>{tx(shortDay(e.at))}</span>
             </div>
           ))}
         </div>
@@ -1080,7 +1080,7 @@ export function CreatedSheet({ open, onClose, created, onOpen }: { open: boolean
       open={open}
       onClose={onClose}
       title={created?.kind === "reset" ? tx(p("Password reset", "पासवर्ड बदला")) : tx(p("Login created", "लॉगिन बना"))}
-      sub={shortDay(new Date())}
+      sub={tx(shortDay(new Date()))}
       footer={<Foot sec={tx(p("Open profile", "प्रोफ़ाइल खोलें"))} onSec={onOpen} label={tx(p("Done", "हो गया"))} icon="check" onGo={onClose} />}
     >
       {created ? (

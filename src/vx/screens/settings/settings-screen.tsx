@@ -499,7 +499,7 @@ function SchoolProfileForm({ initial, changedAt, changedBy, pending, onSave }: {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span>{tx(p("Sample Student · Class 7", "नमूना विद्यार्थी · कक्षा 7"))}</span>
-              <span className="num">{shortDay(new Date())}</span>
+              <span className="num">{tx(shortDay(new Date()))}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--bd)" }}>
               {sample.map(([l, v, w]) => (
@@ -842,7 +842,7 @@ function Activity({ events }: { events: SettingsData["activity"] }) {
                           </div>
                         );
                       })}
-                      <span style={{ fontSize: 12, color: "var(--sub)" }}>{day3(e.at)} · {ampm(e.at)}</span>
+                      <span style={{ fontSize: 12, color: "var(--sub)" }}>{tx(day3(e.at))} · {tx(ampm(e.at))}</span>
                     </div>
                   ) : null}
                 </div>
@@ -989,7 +989,7 @@ function Backups({
         {data.backups.map((b, i) => (
           <div key={b.day} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto auto", gap: 12, alignItems: "center", padding: "10px 18px", borderTop: "1px solid var(--bd)", animation: `xIn .32s var(--ease) ${Math.min(i, 14) * 28}ms both` }}>
             <span style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span className="num" style={{ fontSize: 14, fontWeight: 600 }}>{day3(b.day)}</span>
+              <span className="num" style={{ fontSize: 14, fontWeight: 600 }}>{tx(day3(b.day))}</span>
               <span style={m12}>{tx(p(`Nightly · ${b.files} files`, `रात · ${b.files} फ़ाइलें`))}</span>
             </span>
             <span className="num" style={m13}>{bytesLabel(b.bytes)}</span>
@@ -1022,7 +1022,7 @@ function Backups({
                 <Radio on={on} />
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span className="num" style={{ fontSize: 14, fontWeight: 600 }}>{a.label}</span>
-                  <span style={m12}>{`${dateLabel(a.createdAt)} · ${bytesLabel(a.totalBytes)} · ${a.rowCount ?? 0} rows${a.lastDrill ? ` · last check ${a.lastDrill.ok ? "passed" : "failed"}` : ""}`}</span>
+                  <span style={m12}>{`${tx(dateLabel(a.createdAt))} · ${bytesLabel(a.totalBytes)} · ${a.rowCount ?? 0} rows${a.lastDrill ? ` · last check ${a.lastDrill.ok ? "passed" : "failed"}` : ""}`}</span>
                 </span>
               </button>
             );
@@ -1099,7 +1099,7 @@ function Master({ master }: { master: SettingsData["master"] }) {
           ? master.houses.map((h) => ({ key: h.name, title: h.name, sub: `${h.students} ${tx(p("students", "विद्यार्थी"))}` }))
           : tab === "modes"
             ? master.paymentModes.map((m) => ({ key: m.mode, title: m.mode.replace(/_/g, " "), sub: `${m.receipts} ${tx(p("receipts", "रसीदें"))}` }))
-            : master.holidays.map((h) => ({ key: h.day, title: h.label, sub: shortDay(h.day) }));
+            : master.holidays.map((h) => ({ key: h.day, title: h.label, sub: tx(shortDay(h.day)) }));
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 860 }}>
       <div className="hs" role="tablist" style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--bd)" }}>

@@ -87,7 +87,7 @@ function TeachCard({ note, viewerId, today, href, due, ct, delay }: { note: Boar
   const sub = [
     note.classLabel,
     mine ? tx(p("you", "आप")) : `${note.writtenByName}${note.authorRelation === "subject_teacher" ? `, ${tx(p("subject teacher", "विषय अध्यापक"))}` : note.authorRelation === "class_teacher" ? `, ${tx(p("class teacher", "कक्षा अध्यापक"))}` : ""}`,
-    day(note.createdAt),
+    tx(day(note.createdAt)),
     mine && note.authorRelation === "subject_teacher" && ct && note.visibility === "team" ? tx(p(`sent to ${ct}`, `${ct} को भेजा`)) : null,
   ]
     .filter(Boolean)

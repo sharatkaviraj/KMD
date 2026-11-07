@@ -358,7 +358,7 @@ function EditPanel(props: RecordProps & { left: boolean; onWithdraw: () => void 
                               ? tx(p(`Changed: ${h.changed.join(", ")}`, `बदला: ${h.changed.join(", ")}`))
                               : tx(p("Record updated", "रिकॉर्ड बदला"))}
                         </span>
-                        <span className="num" style={mut12}>{shortDay(h.at)} · {clock(h.at)}</span>
+                        <span className="num" style={mut12}>{tx(shortDay(h.at))} · {clock(h.at)}</span>
                       </span>
                     </div>
                   ))}
@@ -448,9 +448,9 @@ function WithdrawPanel(props: RecordProps & { onCancel: () => void }) {
     { k: TC_LINES.name, v: props.initial.fullName },
     { k: TC_LINES.father, v: props.initial.fatherName || "—" },
     { k: TC_LINES.cls, v: props.classLabel },
-    { k: TC_LINES.dob, v: props.initial.dob ? dateLabel(parseDob(props.initial.dob)) : "—" },
-    { k: TC_LINES.admitted, v: `SR ${props.sr}${props.admittedOn ? ` · ${dateLabel(props.admittedOn)}` : ""}` },
-    { k: TC_LINES.lastDay, v: dateLabel(leftOn) },
+    { k: TC_LINES.dob, v: props.initial.dob ? tx(dateLabel(parseDob(props.initial.dob))) : "—" },
+    { k: TC_LINES.admitted, v: `SR ${props.sr}${props.admittedOn ? ` · ${tx(dateLabel(props.admittedOn))}` : ""}` },
+    { k: TC_LINES.lastDay, v: tx(dateLabel(leftOn)) },
     { k: TC_LINES.reason, v: reason === "other" && !note.trim() ? "—" : `${reasonText.hi} · ${reasonText.en}` },
   ];
   const impact: { icon: IconName; bg: string; fg: string; text: string }[] = [

@@ -178,7 +178,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
           {/* An office placeholder ("PENDING-SR-6752") is not an SR to print (smoke 21 Oct). */}
           {shownSr(r.admissionNo) ? <Fact k={tx(W.classSr)} v={`${r.classLabel} · ${shownSr(r.admissionNo)}`} /> : <Fact k={tx(W.classOnly)} v={r.classLabel} />}
           <Fact k={tx(W.father)} v={r.fatherName ?? "—"} />
-          <Fact k={tx(W.dateTime)} v={`${deskDay(r.paymentDate)} · ${deskTime(r.createdAt)}`} />
+          <Fact k={tx(W.dateTime)} v={`${tx(deskDay(r.paymentDate))} · ${tx(deskTime(r.createdAt))}`} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--bd)" }}>
           {r.heads.map((h, i) => (
@@ -239,7 +239,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
           <div key={`${h.kind}-${h.at}-${i}`} style={{ display: "grid", gridTemplateColumns: "14px minmax(0, 1fr) auto", gap: 10, alignItems: "start", padding: "6px 0", animation: `xIn .3s var(--ease) ${i * 60}ms both` }}>
             <span aria-hidden="true" style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: HISTORY_DOT[h.kind] }} />
             <span style={{ fontSize: 13 }}>{historyText(h)}</span>
-            <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{h.at.slice(0, 10) === r.paymentDate ? deskTime(h.at) : `${deskDay(h.at)} · ${deskTime(h.at)}`}</span>
+            <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{h.at.slice(0, 10) === r.paymentDate ? tx(deskTime(h.at)) : `${tx(deskDay(h.at))} · ${tx(deskTime(h.at))}`}</span>
           </div>
         ))}
       </div>

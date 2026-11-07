@@ -484,7 +484,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
         {p.attendance.weeks.map((cell, i) => {
           const look = LOOK[cell.state];
           return (
-            <span key={cell.day} title={dateLabel(cell.day)} className="num" style={{ background: look.bg, color: look.fg, border: cell.day === p.today ? "2px solid var(--pri)" : look.bd, animationDelay: `${i * 18}ms` }}>
+            <span key={cell.day} title={tx(dateLabel(cell.day))} className="num" style={{ background: look.bg, color: look.fg, border: cell.day === p.today ? "2px solid var(--pri)" : look.bd, animationDelay: `${i * 18}ms` }}>
               {cell.label}
             </span>
           );
@@ -643,7 +643,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span style={{ fontSize: 15, fontWeight: 600 }}>{tx(h.label)}</span>
                   <span style={{ fontSize: 13, color: "var(--mut)", overflowWrap: "anywhere" }}>{h.from ?? "—"} → {h.to ?? "—"}</span>
-                  <span style={{ fontSize: 12, color: "var(--sub)" }}>{dateLabel(h.at)}{h.by ? ` · ${h.by}` : ""}</span>
+                  <span style={{ fontSize: 12, color: "var(--sub)" }}>{tx(dateLabel(h.at))}{h.by ? ` · ${h.by}` : ""}</span>
                 </span>
                 {h.blocked ? <Pill tone="warn">{tx(T.blocked)}</Pill> : null}
               </div>
@@ -952,7 +952,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
             return (
               <div key={row.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) 90px 100px minmax(0,1fr) 140px", gap: 10, alignItems: "center", padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : 0 }}>
                 <span style={{ fontSize: 14, fontWeight: 600 }}>{row.label}{row.carry ? <span style={{ display: "block", fontSize: 11.5, color: "var(--mut)", fontWeight: 500 }}>{tx(T.carryForward)}</span> : null}</span>
-                <span style={{ fontSize: 13, color: "var(--mut)" }}>{dayMonth(row.dueDate)}</span>
+                <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(dayMonth(row.dueDate))}</span>
                 <span className="num" style={{ fontSize: 14, textAlign: "right" }}>{rupees(row.base)}</span>
                 <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <span className="s360-bar8" style={{ height: 6 }}><span style={{ width: `${look.width.toFixed(0)}%`, background: look.status.bar, animationDelay: `${i * 80}ms` }} /></span>
@@ -996,7 +996,7 @@ function FeesTab({ p, money, summary, collectLabel, payHref }: { p: Student360Pr
                   <span className="num">{r.number}</span>
                   {r.reversed ? <Pill tone="bad">{tx(T.reversed)}</Pill> : null}
                 </span>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{dayMonth(r.date)} · {MODE_LABEL[r.mode] ?? r.mode}</span>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(dayMonth(r.date))} · {MODE_LABEL[r.mode] ?? r.mode}</span>
               </Link>
               <span className="num" style={{ fontSize: 15, fontWeight: 700, textDecoration: r.reversed ? "line-through" : undefined }}>{rupees(r.amount)}</span>
               {!r.reversed ? (
@@ -1065,7 +1065,7 @@ function AttendanceTab({ p }: { p: Student360Props }) {
             {month.cells.map((cell, i) => {
               const look = LOOK[cell.state];
               return (
-                <span key={cell.day ?? `b${i}`} title={cell.day ? dateLabel(cell.day) : undefined} className="num" style={{ background: look.bg, color: look.fg, border: cell.day === p.today ? "2px solid var(--pri)" : look.bd, animationDelay: `${i * 12}ms` }}>
+                <span key={cell.day ?? `b${i}`} title={cell.day ? tx(dateLabel(cell.day)) : undefined} className="num" style={{ background: look.bg, color: look.fg, border: cell.day === p.today ? "2px solid var(--pri)" : look.bd, animationDelay: `${i * 12}ms` }}>
                   {cell.label}
                 </span>
               );
@@ -1077,7 +1077,7 @@ function AttendanceTab({ p }: { p: Student360Props }) {
           <div className="s360-heat">
             {p.attendance.weeks.map((cell) => {
               const look = LOOK[cell.state];
-              return <span key={cell.day} title={dateLabel(cell.day)} className="num" style={{ background: look.bg, color: look.fg, border: look.bd }}>{cell.label}</span>;
+              return <span key={cell.day} title={tx(dateLabel(cell.day))} className="num" style={{ background: look.bg, color: look.fg, border: look.bd }}>{cell.label}</span>;
             })}
           </div>
         )}
@@ -1237,8 +1237,8 @@ function InfoTab({ p }: { p: Student360Props }) {
     [T.father, p.father],
     [T.mother, p.mother],
     [T.phone, p.phone],
-    [T.dob, p.dob ? dateLabel(p.dob) : null],
-    [T.joined, p.joined ? dateLabel(p.joined) : null],
+    [T.dob, p.dob ? tx(dateLabel(p.dob)) : null],
+    [T.joined, p.joined ? tx(dateLabel(p.joined)) : null],
     [T.route, p.route],
     [T.address, p.address],
     [T.status, p.status],

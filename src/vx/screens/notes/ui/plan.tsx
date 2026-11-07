@@ -371,7 +371,7 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base,
                   <span className="nx-hd" style={{ background: l.dot }} />
                   <span className="nx-c">
                     <span style={{ fontSize: 13 }}>{tx(l.text)}</span>
-                    {l.when ? <span className="num nx-m">{l.when}</span> : null}
+                    {l.when ? <span className="num nx-m">{tx(l.when)}</span> : null}
                   </span>
                 </div>
               ))}

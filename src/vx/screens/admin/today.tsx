@@ -346,7 +346,7 @@ export function TodayScreen(props: TodayProps) {
               <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--mut)" }}>
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, background: "var(--acc)", animation: "xPulse 2.2s infinite" }} />
-                  {props.dayLine}
+                  {tx(props.dayLine)}
                   {statusText}
                 </span>
                 <h2 className="serif" style={{ margin: 0, fontSize: 34, fontWeight: 600, lineHeight: 1.1 }}>{greeting}</h2>
@@ -627,7 +627,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
       <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--navm)" }}>
           <span aria-hidden="true" style={{ flex: "none", width: 8, height: 8, borderRadius: 4, background: HERO_TEAL, animation: "xPulse 2.2s infinite" }} />
-          {shortDay(props.today)}
+          {tx(shortDay(props.today))}
           {props.statusText}
         </span>
         <h1 className="serif" style={{ margin: 0, fontSize: 30, fontWeight: 600, lineHeight: 1.12, color: "var(--navfg)" }}>{props.hello}</h1>

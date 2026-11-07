@@ -255,13 +255,13 @@ export function DuesScreen(props: DuesProps) {
   function lastLine(f: DuesFamily): { text: string; when: string; tone: string } {
     const pv = latestPromise.get(f.key);
     const at = f.lastContact?.lastContactedAt ?? null;
-    if (pv && pv.state === "broken" && (!at || pv.createdAt >= at)) return { text: tx(W.promiseBroken), when: day(pv.promisedOn), tone: "var(--bad)" };
+    if (pv && pv.state === "broken" && (!at || pv.createdAt >= at)) return { text: tx(W.promiseBroken), when: tx(day(pv.promisedOn)), tone: "var(--bad)" };
     if (at) {
       const outcome = f.lastContact?.lastOutcome ?? null;
       const channel = f.lastContact?.lastChannel ?? null;
       const outcomeText = outcome ? tx(LOG_OUTCOME_WORD[outcome] ?? LOG_OUTCOME_WORD.other) : "";
       const text = channel && channel !== "call" ? `${tx(CHANNEL_WORD[channel] ?? CHANNEL_WORD.call)}${outcome && outcome !== "other" ? ` · ${outcomeText}` : ""}` : outcomeText || tx(CHANNEL_WORD.call);
-      return { text, when: day(at), tone: contactTone(outcome, channel) };
+      return { text, when: tx(day(at)), tone: contactTone(outcome, channel) };
     }
     return { text: tx(W.notCalled), when: tx(fill(W.dueSince, { date: dayMonth(addDays(today, -Math.max(0, f.days))) })), tone: "var(--sub)" };
   }
@@ -440,7 +440,7 @@ export function DuesScreen(props: DuesProps) {
           ? { bg: "var(--bads)", fg: "var(--bad)", text: (() => { const n = Math.max(1, -Math.round((new Date(`${pv.promisedOn}T12:00:00Z`).getTime() - new Date(`${today}T12:00:00Z`).getTime()) / 86_400_000)); return n === 1 ? tx(W.dayLate) : tx(fill(W.daysLate, { n })); })() }
           : pv.promisedOn === today
             ? { bg: "var(--infos)", fg: "var(--info)", text: pv.kind === "visit" ? tx(W.comingToday) : tx(W.due) }
-            : { bg: "var(--s2)", fg: "var(--mut)", text: pv.kind === "visit" ? tx(fill(W.visitOn, { date: day(pv.promisedOn) })) : day(pv.promisedOn) };
+            : { bg: "var(--s2)", fg: "var(--mut)", text: pv.kind === "visit" ? tx(fill(W.visitOn, { date: day(pv.promisedOn) })) : tx(day(pv.promisedOn)) };
     const made = `${tx(fill(W.made, { date: day(pv.createdAt) }))}${pv.by ? ` · ${pv.by}` : ""}`;
     const lineText = pv.kind === "visit" ? `${tx(W.visitWord)} · ${made}` : pv.state === "broken" ? `${tx(fill(W.wasDue, { date: day(pv.promisedOn) }))} · ${made}` : made;
     const fam = families.find((f) => f.key === pv.familyKey);
@@ -473,7 +473,7 @@ export function DuesScreen(props: DuesProps) {
   };
 
   const promiseBands: { key: string; dot: string; label: string; hint?: string; rows: PromiseView[] }[] = [
-    { key: "today", dot: "var(--info)", label: `${tx(W.pToday)} · ${day(today)}`, hint: `${keptToday} ${tx(W.keptSoFar)}`, rows: promToday },
+    { key: "today", dot: "var(--info)", label: `${tx(W.pToday)} · ${tx(day(today))}`, hint: `${keptToday} ${tx(W.keptSoFar)}`, rows: promToday },
     { key: "broken", dot: "var(--bad)", label: tx(W.pBroken), hint: tx(W.pBrokenSub), rows: promBroken },
     { key: "up", dot: "var(--sub)", label: tx(W.pUpcoming), hint: tx(W.pUpcomingSub), rows: promUpcoming },
     { key: "kept", dot: "var(--ok)", label: tx(W.pKept), rows: promKept },
@@ -508,7 +508,7 @@ export function DuesScreen(props: DuesProps) {
               sub={subParts.join(" · ")}
               amount={rupees(l.owed)}
               status={{ text: tx(STATUS_WORD[l.status] ?? W.status_left), bg: "var(--warns)", fg: "var(--warnfg)" }}
-              line={pending ? { dot: "var(--info)", text: `${tx(W.woPending)} · ${rupees(l.writeOff?.amount ?? 0)}${l.writeOff?.by ? ` · ${l.writeOff.by}` : ""}` } : { dot: "var(--sub)", text: l.lastPaymentDate ? `${tx(W.lastPaid)} · ${day(l.lastPaymentDate)}` : tx(W.notCalled) }}
+              line={pending ? { dot: "var(--info)", text: `${tx(W.woPending)} · ${rupees(l.writeOff?.amount ?? 0)}${l.writeOff?.by ? ` · ${l.writeOff.by}` : ""}` } : { dot: "var(--sub)", text: l.lastPaymentDate ? `${tx(W.lastPaid)} · ${tx(day(l.lastPaymentDate))}` : tx(W.notCalled) }}
               actions={
                 <>
                   {l.phone ? (
@@ -658,7 +658,7 @@ export function DuesScreen(props: DuesProps) {
         <Tile label={tx(W.pendingToday)} value={lakh(metrics.pendingToday)} sub={tx(metrics.leftStudents > 0 ? fill(W.kpiPendingSubLeft, { n: metrics.students, left: metrics.leftStudents, amt: lakh(metrics.notDueYet) }) : fill(W.kpiPendingSub, { n: metrics.students, amt: lakh(metrics.notDueYet) }))} delayMs={0} />
         <Tile label={tx(W.promisesToday)} value={metrics.promisesToday} sub={tx(fill(W.kpiPromSub, { amt: rupees(promToday.reduce((s, pv) => s + pv.amount, 0)), n: metrics.promisesKeptToday }))} delayMs={28} href={duesHref("prom")} deskOnly />
         <Tile label={tx(W.callsToday)} value={metrics.callsToday} unit={` ${tx(W.of)} ${callTarget}`} sub={tx(fill(W.leftToMake, { n: Math.max(0, callTarget - metrics.callsToday) }))} ring={Math.min(1, metrics.callsToday / callTarget)} delayMs={56} />
-        <Tile label={tx(W.collectedWeek)} value={lakh(metrics.collectedWeek)} sub={weekLine(today)} tone="var(--ok)" delayMs={84} deskOnly />
+        <Tile label={tx(W.collectedWeek)} value={lakh(metrics.collectedWeek)} sub={tx(weekLine(today))} tone="var(--ok)" delayMs={84} deskOnly />
       </Grid>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -692,7 +692,7 @@ export function DuesScreen(props: DuesProps) {
   return (
     <VxPage>
       <TopBar
-        crumb={`${tx(W.money)} · ${day(today)}`}
+        crumb={`${tx(W.money)} · ${tx(day(today))}`}
         title={tx(W.title)}
         mTitle={selected ? selected.fatherName : tx(W.title)}
         mSub={selected ? kidsShort(selected) : tx(fill(W.mSub, { amt: lakh(metrics.pendingToday), n: metrics.students }))}

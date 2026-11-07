@@ -91,7 +91,7 @@ export function StaffLog({ data, tabs }: { data: StaffLogData; tabs: ReactNode }
                       {row.test ? " · TEST" : ""}
                     </span>
                     <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                      {dateLabel(row.createdAt.slice(0, 10))} {clock(row.createdAt)}
+                      {tx(dateLabel(row.createdAt.slice(0, 10)))} {clock(row.createdAt)}
                       {row.lastTry ? ` · ${row.lastTry.transport} ${row.lastTry.to}` : ""}
                       {reason ? ` · ${tx(reason)}` : ""}
                     </span>

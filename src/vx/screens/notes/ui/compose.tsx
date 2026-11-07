@@ -1389,7 +1389,7 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
               </span>
               <div className="card nx-c" style={{ padding: "14px 16px", gap: 8, border: me ? "2px solid var(--acc)" : "1px solid var(--bd)", opacity: me ? 1 : 0.75, animation: me ? "xRise .6s .35s var(--ease) both" : "xIn .3s var(--ease) both" }}>
                 <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: me ? "var(--acc)" : "var(--mut)" }}>{me ? tx(p("Just now", "अभी")) : day(n.createdAt)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: me ? "var(--acc)" : "var(--mut)" }}>{me ? tx(p("Just now", "अभी")) : tx(day(n.createdAt))}</span>
                   <span style={{ flex: 1 }} />
                   {n.tags.map((t) => (
                     <span key={t} className="pill" style={{ background: TEACH_TAG[t].bg, color: TEACH_TAG[t].fg }}>{tx(TAG_TEXT[t])}</span>

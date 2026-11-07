@@ -242,7 +242,7 @@ function History({ items }: { items: { text: Pair; when: string; dot: string }[]
           <span className="nx-hd" style={{ background: l.dot }} />
           <span className="nx-c">
             <span style={{ fontSize: 13 }}>{tx(l.text)}</span>
-            {l.when ? <span className="num nx-m">{l.when}</span> : null}
+            {l.when ? <span className="num nx-m">{tx(l.when)}</span> : null}
           </span>
         </div>
       ))}
@@ -376,7 +376,7 @@ export function BoardNoteAside({
           </span>
         )}
         {mayEdit && !editing ? <EditButton onClick={() => setEditing(true)} /> : null}
-        <span className="nx-m">{[note.writtenByName, rel ? tx(rel) : null, noteWhen(note.createdAt, today)].filter(Boolean).join(" · ")}</span>
+        <span className="nx-m">{[note.writtenByName, rel ? tx(rel) : null, tx(noteWhen(note.createdAt, today))].filter(Boolean).join(" · ")}</span>
         <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
           {note.tags.map((t) => (
             <span key={t} className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: BOARD_TAG[t].bg, color: BOARD_TAG[t].fg }}>
@@ -485,7 +485,7 @@ export function BoardNoteAside({
       <div className="card nx-c" style={{ padding: "14px 16px", gap: 10 }}>
         <span className="sech">{tx(p("Replies", "जवाब"))} · {conversation.length}</span>
         {conversation.map((r) => (
-          <Bubble key={r.id} who={r.writtenByName} when={replyWhen(r.createdAt)} text={r.body} mine={r.writtenBy === viewer.id} />
+          <Bubble key={r.id} who={r.writtenByName} when={tx(replyWhen(r.createdAt))} text={r.body} mine={r.writtenBy === viewer.id} />
         ))}
         {conversation.length === 0 ? <span className="nx-m">{tx(p("No replies yet. Ask the teacher a question or say what you did.", "अभी कोई जवाब नहीं। अध्यापक से पूछें या बताएँ कि आपने क्या किया।"))}</span> : null}
         {reply.listening ? (
@@ -619,7 +619,7 @@ export function TeachNoteDetail({
               <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{words.name(note)}</span>
               {words.hint(note) ? <span className="nt-hn">{words.hint(note)}</span> : null}
               <span className="nx-m" style={{ fontSize: 12 }}>
-                {note.classLabel} · {mine ? tx(p(`written by you${rel ? ` (${rel.en.toLowerCase()})` : ""}`, "आपने लिखा")) : `${tx(p("from", "से"))} ${note.writtenByName}${rel ? ` (${tx(rel).toLowerCase()})` : ""}`} · {day(note.createdAt)}
+                {note.classLabel} · {mine ? tx(p(`written by you${rel ? ` (${rel.en.toLowerCase()})` : ""}`, "आपने लिखा")) : `${tx(p("from", "से"))} ${note.writtenByName}${rel ? ` (${tx(rel).toLowerCase()})` : ""}`} · {tx(day(note.createdAt))}
               </span>
             </span>
             {childHref ? (
@@ -715,7 +715,7 @@ export function TeachNoteDetail({
             {tx(p("Replies", "जवाब"))} {sub(p("Replies", "जवाब")) ? <span className="nt-hn">· {sub(p("Replies", "जवाब"))}</span> : null}
           </span>
           {conversation.map((r) => (
-            <Bubble key={r.id} teacher who={r.writtenBy === viewer.id ? `${r.writtenByName} (${tx(p("you", "आप"))})` : r.writtenByName} when={replyWhen(r.createdAt)} text={r.body} mine={r.writtenBy === viewer.id} />
+            <Bubble key={r.id} teacher who={r.writtenBy === viewer.id ? `${r.writtenByName} (${tx(p("you", "आप"))})` : r.writtenByName} when={tx(replyWhen(r.createdAt))} text={r.body} mine={r.writtenBy === viewer.id} />
           ))}
           {conversation.length === 0 ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(isSensitiveNote(note) ? p("No replies yet. The admin and class teacher can reply here.", "अभी कोई जवाब नहीं। प्रशासक और कक्षा अध्यापक यहाँ जवाब दे सकते हैं।") : p("No replies yet. The coordinator and class teacher can reply here.", "अभी कोई जवाब नहीं। समन्वयक और कक्षा अध्यापक यहाँ जवाब दे सकते हैं।"))}</span> : null}
           {reply.listening ? (

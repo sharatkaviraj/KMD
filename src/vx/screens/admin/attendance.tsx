@@ -277,7 +277,7 @@ export function AttendanceScreen({
     <>
       {/* The desk's bar; the phone draws the design's own bar and large title (above). */}
       <div className="only-d" style={{ display: "contents" }}>
-        <TopBar crumb={dayLine} title={tx(T.attendanceTitle)} />
+        <TopBar crumb={tx(dayLine)} title={tx(T.attendanceTitle)} />
       </div>
       <div className="vx-pmain">
         {desk}

@@ -465,8 +465,8 @@ function ExamList(props: ExamsProps & { href: Href; onRename?: () => void }) {
                             <span className="pill" style={{ background: "var(--s3)", color: "var(--fg)" }}>{tx(p("Marks entry closed", "अंक भरना बंद"))}</span>
                           )}
                           <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                            {exam.dates}
-                            {exam.dueLabel ? `${exam.dates ? " · " : ""}${tx(p("due", "अंतिम"))} ${exam.dueLabel}` : ""}
+                            {exam.dates ? tx(exam.dates) : null}
+                            {exam.dueLabel ? `${exam.dates ? " · " : ""}${tx(p("due", "अंतिम"))} ${tx(exam.dueLabel)}` : ""}
                           </span>
                         </div>
                         <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.1 }}>{tx(exam.name)}</span>
@@ -501,7 +501,7 @@ function ExamList(props: ExamsProps & { href: Href; onRename?: () => void }) {
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                       <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(t.name)}</span>
                       <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>
-                        {t.dates ? `${t.dates} · ` : ""}
+                        {t.dates ? `${tx(t.dates)} · ` : ""}
                         {tx(t.sub)}
                       </span>
                     </span>

@@ -586,7 +586,7 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
                   {plan.rows.map((r) => (
                     <div key={r.label + r.dueDate} style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
                       <span style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600 }}>{r.label}{r.dueDate ? ` · ${dayMonth(r.dueDate)}` : ""}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{r.label}{r.dueDate ? ` · ${tx(dayMonth(r.dueDate))}` : ""}</span>
                         {r.dueDate ? <span style={mut12}>{tx(p("Due", "देय"))} {dateLabel(r.dueDate)}</span> : null}
                       </span>
                       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
@@ -604,7 +604,7 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
                     <div style={{ display: "flex", flexDirection: "column", padding: "12px 14px", borderRadius: 14, background: "var(--s2)", color: "var(--fg)" }}>
                       <span style={{ ...mut12, fontWeight: 700 }}>{tx(p("Not due yet", "अभी देय नहीं"))}</span>
                       <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{rupees(plan.notDueYet)}</span>
-                      <span style={mut12}>{laterRows.filter((r) => r.dueDate).map((r) => dayMonth(r.dueDate)).join(", ") || "—"}</span>
+                      <span style={mut12}>{laterRows.filter((r) => r.dueDate).map((r) => tx(dayMonth(r.dueDate))).join(", ") || "—"}</span>
                     </div>
                   </div>
                   <span style={mut12}>

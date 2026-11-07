@@ -37,8 +37,10 @@ show One's TEST copy rather than "Live from Fees" for test accounts.
 Fees home's background dues preparation never ran in One (`cookies()`
 inside `after()`, "Unable to load school defaults" on every visit); it is a
 server action the page starts now (D-481). Windows 11 Chrome on BrowserStack:
-admin and teacher screens render correctly. **Remains:** dates on Hindi
-screens still read "Wed 14 Oct".
+admin and teacher screens render correctly. A real iPhone 15 re-check passed.
+Hindi screens printed English dates ("Sat 7 Nov", "10 Oct", "1:40 am");
+the Hindi line now says them in Hindi wherever they were built (D-482), and
+dates printed outside any pair move to the pair forms screen by screen.
 
 ## Language choice on Add staff — 7 November 2026
 

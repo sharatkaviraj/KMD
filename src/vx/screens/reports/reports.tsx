@@ -438,7 +438,7 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
       <TopBar
         crumb="Reports"
         title={tx(T.collection)}
-        mSub={`${c.preset === "month" || c.preset === "last" ? span : `${dayMonth(c.from)} – ${dayMonth(c.to)}`} · ${rupees(total.total)}`}
+        mSub={`${c.preset === "month" || c.preset === "last" ? span : `${tx(dayMonth(c.from))} – ${tx(dayMonth(c.to))}`} · ${rupees(total.total)}`}
         mBack="/reports"
         actions={
           <>
@@ -1071,7 +1071,7 @@ function DayBookView({ data, sheet, setSheet, close }: ViewProps) {
       <TopBar
         crumb="Reports"
         title={tx(T.daybook)}
-        mSub={`${shortDay(d.date)} · ${rupees(d.collected)}`}
+        mSub={`${tx(shortDay(d.date))} · ${rupees(d.collected)}`}
         mBack="/reports"
         actions={
           <>

@@ -461,7 +461,7 @@ function CampaignRow({ c, first, delay }: { c: CampaignView; first: boolean; del
       <Tile icon={KIND_ICONS[c.kind]} tone={tone} />
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
         <span className="clip" style={t14}>{c.title}</span>
-        <span className="clip" style={m12}>{c.audienceLabel} · {tx(p(`${c.recipientCount} ${c.recipientCount === 1 ? "person" : "people"}`, `${c.recipientCount} लोग`))} · {when(c.createdAt)}</span>
+        <span className="clip" style={m12}>{c.audienceLabel} · {tx(p(`${c.recipientCount} ${c.recipientCount === 1 ? "person" : "people"}`, `${c.recipientCount} लोग`))} · {tx(when(c.createdAt))}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="mx-bar" style={{ flex: 1 }}>
             <span style={{ width: `${(c.counts.sent / total) * 100}%`, background: "var(--ok)" }} />
@@ -510,7 +510,7 @@ function Detail({ campaign: c, recipients, pending, onResend, onStop }: { campai
   return (
     <VxPage>
       <style>{CSS}</style>
-      <TopBar crumb={tx(p("Messages", "संदेश"))} title={c.title} mSub={when(c.createdAt)} mBack="/messages" actions={<Btn variant="ghost" icon="chevLeft" href="/messages">{tx(p("Back to messages", "संदेशों पर वापस"))}</Btn>} />
+      <TopBar crumb={tx(p("Messages", "संदेश"))} title={c.title} mSub={tx(when(c.createdAt))} mBack="/messages" actions={<Btn variant="ghost" icon="chevLeft" href="/messages">{tx(p("Back to messages", "संदेशों पर वापस"))}</Btn>} />
       <div className="vx-pmain">
         <div className="pad mx-pg">
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.1fr)", gap: 18, alignItems: "start", maxWidth: 1180 }}>
@@ -521,7 +521,7 @@ function Detail({ campaign: c, recipients, pending, onResend, onStop }: { campai
                     <Ic n={KIND_ICONS[c.kind]} size={14} />
                     {tx(KIND_LABELS[c.kind])}
                   </span>
-                  <span className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s3)", color: "var(--mut)" }}>{when(c.createdAt)}</span>
+                  <span className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s3)", color: "var(--mut)" }}>{tx(when(c.createdAt))}</span>
                   {c.status === "cancelled" ? <span className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--bads)", color: "var(--bad)" }}>{tx(p("Stopped", "रोका गया"))}</span> : null}
                 </div>
                 <span style={{ ...serif22, fontSize: 24 }}>{c.title}</span>
@@ -1142,10 +1142,10 @@ function Replies({
   const replyWhen = (iso: string) => {
     const day = schoolToday(new Date(iso));
     const today = schoolToday();
-    if (day === today) return ampm(iso);
+    if (day === today) return tx(ampm(iso));
     const yesterday = new Date(`${today}T12:00:00+05:30`);
     yesterday.setDate(yesterday.getDate() - 1);
-    return day === schoolToday(yesterday) ? tx(p("Yesterday", "कल")) : day3(iso);
+    return day === schoolToday(yesterday) ? tx(p("Yesterday", "कल")) : tx(day3(iso));
   };
   const assigned = (r: ReplyView) => (r.assignedStaffId ? { text: nameOf.get(r.assignedStaffId) ?? tx(p("Assigned", "दिया गया")), ...TONE.acc } : { text: tx(p("Not assigned", "किसी को नहीं दिया")), ...TONE.warn });
 

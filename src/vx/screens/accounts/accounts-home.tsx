@@ -155,7 +155,7 @@ export function AccountsHome({
       ? { crumb: `${role} · ${tx(p("everything in one place", "सब कुछ एक जगह"))}`, title: tx(p("Menu", "मेन्यू")), mTitle: tx(p("Menu", "मेन्यू")), mSub: `${staffName} · ${role}` }
       : view === "evening"
         ? {
-            crumb: `${role} · ${today}${data.closure?.closedAt ? ` · ${time12(data.closure.closedAt)}` : ""}`,
+            crumb: `${role} · ${today}${data.closure?.closedAt ? ` · ${tx(time12(data.closure.closedAt))}` : ""}`,
             title: tx(p(`Good evening, ${first}`, `शुभ संध्या, ${first} जी`)),
             mTitle: closed ? tx(p("Evening · day closed", "शाम · दिन बंद")) : tx(p("Evening · not closed yet", "शाम · दिन बंद नहीं हुआ")),
             mSub: closed
@@ -665,7 +665,7 @@ function EveningView({ data, canReports }: { data: AccountsHomeData; canReports:
   const inBag = data.chequesForBank.filter((c) => bag.has(c.receiptId));
   const bagIds = inBag.map((c) => c.receiptId).join(",");
   const promised = data.tomorrowFollowUps.reduce((s, f) => s + f.pendingToday, 0);
-  const closedAt = data.closure?.closedAt ? time12(data.closure.closedAt) : null;
+  const closedAt = data.closure?.closedAt ? tx(time12(data.closure.closedAt)) : null;
   return (
     <Section style={{ maxWidth: 1120 }}>
       <Card className="ac-f ac-cd" style={{ gap: 18, padding: "20px 22px", flexWrap: "wrap" }}>

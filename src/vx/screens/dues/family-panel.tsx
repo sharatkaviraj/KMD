@@ -9,7 +9,7 @@ import { CALL_OUTCOMES, type CallOutcome, type DuesFamily } from "@/modules/defa
 import { addDays } from "@/modules/receipts/vx/domain/day-close";
 import { renderMessage } from "@/modules/whatsapp/vx/domain/reminders";
 import { shownSr } from "@/vx/domain/tell-apart";
-import { dateLabel, dayMonth, rupees } from "@/vx/format";
+import { dateLabel, dayMonthP, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { Chip, Field, Seg, Textarea } from "@/vx/ui/controls";
@@ -64,10 +64,10 @@ function InstTile({ i, tx }: { i: KidInstallment; tx: (p: { en: string; hi?: str
   const look = i.carry && !paid
     ? { bg: "var(--bads)", fg: "var(--bad)", icon: "alert" as const, text: tx(W.lastSession), sub: tx(fill(W.amtPending, { amt: rupees(i.pending) })) }
     : paid
-      ? { bg: "var(--oks)", fg: "var(--ok)", icon: "check" as const, text: tx(fill(W.instPaid, { label })), sub: i.amount ? rupees(i.amount) : dayMonth(i.dueDate) }
+      ? { bg: "var(--oks)", fg: "var(--ok)", icon: "check" as const, text: tx(fill(W.instPaid, { label })), sub: i.amount ? rupees(i.amount) : tx(dayMonthP(i.dueDate)) }
       : overdue
         ? { bg: "var(--warns)", fg: "var(--warnfg)", icon: "alert" as const, text: tx(fill(W.instPending, { label })), sub: rupees(i.pending) }
-        : { bg: "var(--s2)", fg: "var(--mut)", icon: "clock" as const, text: tx(fill(W.instNotDue, { label })), sub: `${rupees(i.pending || i.amount || 0)} · ${dayMonth(i.dueDate)}` };
+        : { bg: "var(--s2)", fg: "var(--mut)", icon: "clock" as const, text: tx(fill(W.instNotDue, { label })), sub: `${rupees(i.pending || i.amount || 0)} · ${tx(dayMonthP(i.dueDate))}` };
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 11, background: look.bg, color: look.fg, minWidth: 0 }}>
       <Ic n={look.icon} size={15} />
@@ -348,7 +348,7 @@ export function FamilyPanel(props: Props) {
                 <span style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: contactTone(c.outcome, c.channel) }} />
                 <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                   <span style={{ fontSize: 13 }}>{words.join(" · ")}</span>
-                  <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{day(c.at)}{f.kids.length > 1 ? ` · ${nameOf(c.studentId)}` : ""}</span>
+                  <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(day(c.at))}{f.kids.length > 1 ? ` · ${nameOf(c.studentId)}` : ""}</span>
                 </span>
               </div>
             );
@@ -390,7 +390,7 @@ export function FamilyPanel(props: Props) {
               <h3 className="sech" style={{ marginTop: 4 }}>{tx(outcome === "visit" ? W.whenCome : W.whenPay)}</h3>
               <div className="hs" role="group" style={{ display: "flex", gap: 6 }}>
                 {days.map((d, i) => (
-                  <Chip key={d} icon="calendar" on={promiseDay === d} onClick={() => setPromiseDay(d)}>{i === 0 ? tx(fill(W.tomorrowDay, { d: day(d) })) : day(d)}</Chip>
+                  <Chip key={d} icon="calendar" on={promiseDay === d} onClick={() => setPromiseDay(d)}>{i === 0 ? tx(fill(W.tomorrowDay, { d: day(d) })) : tx(day(d))}</Chip>
                 ))}
               </div>
             </div>
@@ -515,7 +515,7 @@ export function FamilyPanel(props: Props) {
               <h3 className="sech" style={{ marginTop: 4 }}>{tx(W.firstPart)}</h3>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {firstDays.map((d) => (
-                  <Chip key={d} on={planFirst === d} onClick={() => setPlanFirst(d)}>{day(d)}</Chip>
+                  <Chip key={d} on={planFirst === d} onClick={() => setPlanFirst(d)}>{tx(day(d))}</Chip>
                 ))}
               </div>
               {preview?.ok && preview.lateFeeWaived > 0 ? (
@@ -546,7 +546,7 @@ export function FamilyPanel(props: Props) {
                     <div key={`${x.dueDate}-${i}`} style={{ display: "grid", gridTemplateColumns: "62px minmax(0, 1fr) auto", gap: 10, alignItems: "center", padding: "5px 0", borderTop: i ? "1px solid var(--bd)" : 0, animation: `xIn .3s var(--ease) ${i * 50}ms both` }}>
                       <span className="pill" style={{ justifyContent: "center", background: "var(--s2)", color: "var(--mut)" }}>{tx(fill(W.partN, { n: i + 1 }))}</span>
                       <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                        <span className="num" style={{ fontSize: 14, fontWeight: 600 }}>{day(x.dueDate)}</span>
+                        <span className="num" style={{ fontSize: 14, fontWeight: 600 }}>{tx(day(x.dueDate))}</span>
                         <span style={{ fontSize: 11, color: "var(--sub)" }}>{tx(i ? W.sameDate : W.firstPartNote)}</span>
                       </span>
                       <span className="num" style={{ fontSize: 15, fontWeight: 700 }}>{rupees(x.amount)}</span>

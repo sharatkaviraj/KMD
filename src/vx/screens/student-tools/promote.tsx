@@ -186,7 +186,7 @@ export function PromoteFlow(props: PromoteProps) {
                   <path d="M30 49l12 12 24-26" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: "60", strokeDasharray: 60, animation: "xDraw .45s .5s var(--ease) both" }} />
                 </svg>
                 <span className="serif" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.25 }}>{tx(p(`${run.appliedCount} students moved to ${props.target}`, `${run.appliedCount} विद्यार्थी ${props.target} में पहुँचे`))}</span>
-                <span style={{ fontSize: 14, color: "var(--mut)" }}>{run.appliedAt ? dateLabel(run.appliedAt) : null}</span>
+                <span style={{ fontSize: 14, color: "var(--mut)" }}>{run.appliedAt ? tx(dateLabel(run.appliedAt)) : null}</span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
                   <span className="pill num" style={{ background: "var(--oks)", color: "var(--ok)" }}>{run.appliedCount} {tx(p("moved up", "आगे बढ़े"))}</span>
                   <span className="pill num" style={{ background: "var(--infos)", color: "var(--info)" }}>{run.graduatedCount} {tx(p("passed out", "उत्तीर्ण"))}</span>

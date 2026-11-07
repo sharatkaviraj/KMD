@@ -1,6 +1,6 @@
 import Link from "@/ui/link";
 import { Suspense } from "react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import {
   AlertTriangle,
   ArrowRight,
@@ -81,6 +81,7 @@ import type {
 } from "@/modules/dashboard/domain/summary";
 import { formatInr } from "@/platform/helpers/currency";
 import { formatShortDate, formatTimeIst } from "@/platform/helpers/date";
+import { hindiDates } from "@/platform/i18n/hindi-dates";
 import { staffDisplayName, staffInitials } from "@/platform/helpers/staff-name";
 import { appendSessionParam } from "@/platform/navigation/session-href";
 import { ServerTimer } from "@/platform/observability/timing";
@@ -1824,6 +1825,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     schoolHour < 12 ? "goodMorning" : schoolHour < 17 ? "goodAfternoon" : "goodEvening";
   const mobileGreeting = tMobile(mobileGreetingKey, { name: mobileFirstName });
   const mobileInitials = staffInitials(staff.email);
+  // "07 Nov 2026" on a Hindi phone was English under a Hindi greeting (7 Nov 2026, D-482).
+  const mobileDate = (await getLocale()) === "en" ? formatShortDate(new Date()) : hindiDates(formatShortDate(new Date()));
 
   timer.flush();
 
@@ -1970,7 +1973,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             canPostPayments={canPostPayments}
             canViewDefaulters={hasStaffPermission(staff, "defaulters:view")}
             greeting={mobileGreeting}
-            dateLine={`${formatShortDate(new Date())} · ${viewSession.sessionLabel}`}
+            dateLine={`${mobileDate} · ${viewSession.sessionLabel}`}
             staffInitials={mobileInitials}
             settingsHref={withSession("/fees/settings")}
             installmentSummary={aboveFold.installmentSummary}

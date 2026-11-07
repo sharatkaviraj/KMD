@@ -16,7 +16,7 @@ import { CouldNotRead } from "@/vx/ui/read-state";
 import { SAVE_IDLE, SAVE_WORDS, SaveStatus, type SaveState } from "@/vx/ui/save-status";
 import { InboxBatch } from "@/vx/screens/admin/inbox-batch";
 import { FeesRefundActions } from "@/vx/screens/receipts/office-command";
-import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
+import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabelP, type InboxType } from "@/vx/screens/admin/logic";
 import { TO } from "@/vx/screens/admin/ops-text";
 import { T } from "@/vx/screens/admin/text";
 import type { CoverCandidate, InboxItem } from "@/vx/screens/admin/types";
@@ -424,7 +424,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
                   >
                     <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%" }}>
                       <Tag item={item} size="s" />
-                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
+                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : tx(whenLabelP(item.at))}</span>
                     </span>
                     <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{tx(item.title)}</span>
                     {/* The waiting line takes the sub line's place, so the row does not grow; the page's live line says it aloud. */}
@@ -678,7 +678,7 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
     <article className={`card${waiting ? " vx-held" : ""}${leaving ? " vx-leave" : ""}`} style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, overflow: "hidden", animation: leaving ? undefined : `xRise .44s var(--ease) ${delay}ms both` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <Tag item={item} size="m" />
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : tx(whenLabelP(item.at))}</span>
       </div>
       <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.3 }}>{tx(item.title)}</h2>
       <p style={{ margin: 0, fontSize: 14, color: "var(--mut)", lineHeight: 1.45 }}>{tx(body)}</p>
@@ -752,7 +752,7 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
     <article className={waiting ? "vx-held" : undefined} style={{ maxWidth: 760, padding: "32px 40px 48px", display: "flex", flexDirection: "column", gap: 18, animation: "xIn .3s var(--ease) both" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Tag item={item} size="l" />
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
+        <span style={{ fontSize: 13, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : tx(whenLabelP(item.at))}</span>
       </div>
       <h2 className="serif" style={{ margin: 0, fontSize: 32, fontWeight: 600, lineHeight: 1.15 }}>{tx(item.title)}</h2>
       {item.body ? <p style={{ margin: 0, color: "var(--mut)", fontSize: 16, lineHeight: 1.6 }}>{tx(item.body)}</p> : null}

@@ -134,7 +134,7 @@ export function FamilyContactLog({ studentId, contacts, canLog, today, recoveryS
           <span style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", fontSize: 14 }}>
             <Pill tone={TONE[last.outcome]}>{tx(CONTACT_TEXT[last.outcome])}</Pill>
             {last.agreedOn ? <span>{tx(p(`on ${dayMonth(last.agreedOn)}`, `${dayMonth(last.agreedOn)} को`))}</span> : null}
-            <span style={{ color: "var(--mut)" }}>{last.by} · {dayMonth(last.at)}</span>
+            <span style={{ color: "var(--mut)" }}>{last.by} · {tx(dayMonth(last.at))}</span>
           </span>
         ) : (
           <span style={{ fontSize: 14, color: "var(--mut)" }}>{tx(p("None recorded this year", "इस वर्ष कोई दर्ज नहीं"))}</span>
