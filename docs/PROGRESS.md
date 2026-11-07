@@ -102,9 +102,9 @@ Merged as PR 303 (`ef4a7b3`).
 "marks due" day under its title, says class and subject as the marks screens
 do ("अंक · कक्षा 1 · पर्यावरण"), and the list runs oldest exam first, then
 classes in school order. It used to read "Class 1 · EVS" once per open exam
-with nothing to tell them apart. Built beside the teacher-data PR 301 without
-touching its lines. Test: `tests/teacher-tasks-exam-name.test.ts`.
-**D-528:** the live check as QA teacher 2 found every Class 11 and 12 card
+with nothing to tell them apart. Built beside the teacher-data PR 301, which
+merged first, without touching its lines. Test: `tests/teacher-tasks-exam-name.test.ts`.
+**D-534:** the live check as QA teacher 2 found every Class 11 and 12 card
 on My subjects saying "No paper yet" beside a paper that existed: papers keep
 the label they were made with ("11 Arts"), the class list says "Class 11
 Arts", and the card matched them as text. Cards now find their paper by class

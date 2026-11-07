@@ -1097,7 +1097,7 @@ export type MarksLink = {
    * The paper's class. A subject card finds its paper by this, never by the
    * label: papers keep the label they were made with ("11 Arts") while the
    * class list says "Class 11 Arts", so every Class 11 and 12 card read
-   * "No paper yet" beside a paper that was there (D-528).
+   * "No paper yet" beside a paper that was there (D-534).
    */
   classId: string;
   /** The class's name as every other teacher screen says it (the class list, with the school's own names). */
