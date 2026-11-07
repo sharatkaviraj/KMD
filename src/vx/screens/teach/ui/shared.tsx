@@ -114,7 +114,7 @@ export function TchTop({
           ))}
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", paddingLeft: mLead ? 4 : 0 }}>
           <span className="tc-el" style={{ fontSize: 17, fontWeight: 700 }}>{mTitle ?? title}</span>
-          {mSub ? <span className="tc-s tc-el">{mSub}</span> : null}
+          {mSub ? <span className="tc-s tc-el2">{mSub}</span> : null}
         </span>
         {mAction}
       </header>

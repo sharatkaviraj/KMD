@@ -106,7 +106,8 @@ describe("the notes under the card's table", () => {
   it("say what * means and why ELGA is out of 80, in both languages", () => {
     expect(cardNotes(card.rows)).toEqual([
       { en: "* Absent from a paper: it counts as 0 out of that paper's marks.", hi: "पेपर में अनुपस्थित: उस पेपर के अंक 0 गिने गए।" },
-      { en: "Elga is examined in Half yearly only, so it is out of 80.", hi: "अंग्रेज़ी भाषा की परीक्षा केवल अर्धवार्षिक में है, इसलिए पूर्णांक 80 है।" },
+      // "ELGA" as the school says it, not "Elga" (D-524).
+      { en: "ELGA is examined in Half yearly only, so it is out of 80.", hi: "अंग्रेज़ी भाषा की परीक्षा केवल अर्धवार्षिक में है, इसलिए पूर्णांक 80 है।" },
     ]);
   });
 

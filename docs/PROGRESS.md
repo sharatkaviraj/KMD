@@ -69,6 +69,18 @@ menu with the page: हि gives "अभ्यास वर्ष", EN gives Eng
 language was put back to "en" afterwards. BrowserStack (real Galaxy M32
 Chrome and Windows 11 Chrome, QA admin, straight after sign-in): passed,
 both lines in both languages and `<html lang>` "hi".
+**Second pass (D-524 to D-526):** the teacher screens on a 360 px phone,
+live on TEST-2026-27, as QA teacher (Hindi) and QA teacher 2 (English), 15
+screens. Fixed: one name per subject in each language on Today, My class, My
+subjects, More and the profile (`subjectWords`; "ELGA" is no longer "Elga"
+anywhere, report cards included); a paper with every mark in but not sent
+says "Filled · not sent" on Today, My subjects and More, and the Marks tile
+counts it instead of "Nothing waiting"; "Attendance" fits the centre button;
+the top bar's line and a child's name in the register take two lines.
+Test: `tests/teacher-one-subject-name.test.ts`.
+**Remains:** "My tasks" lists each marks paper as "Class 1 · EVS" with no
+exam name, once per open exam; it waits for the teacher-data thread's change
+to the same files (`teacher-tasks` repo and `TeacherWork`).
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 

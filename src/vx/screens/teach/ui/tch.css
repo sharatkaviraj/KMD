@@ -13,6 +13,9 @@
 :where(.vx,.vxt) .tc-t{font-size:17px;font-weight:700;line-height:1.25}
 :where(.vx,.vxt) .tc-hi{font-size:13px;color:var(--mut)}
 :where(.vx,.vxt) .tc-el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Two lines, then "…": a child's full name or the top bar's line under the
+   title, which one line cut short on a 360 px phone (second pass, 7 Nov). */
+:where(.vx,.vxt) .tc-el2{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:break-word}
 :where(.vx,.vxt) .tc-ib{flex:none;display:flex;align-items:center;justify-content:center}
 :where(.vx,.vxt) .tc-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
 :where(.vx,.vxt) .tc-col{display:flex;flex-direction:column;gap:18px;min-width:0}

@@ -590,7 +590,7 @@ export function TeachAttend({
           <span className="num" style={{ flex: "none", minWidth: 22, fontSize: 13, fontWeight: 700, textAlign: "right", color: "var(--mut)" }}>{num}</span>
           <span className="tc-av" style={{ width: 40, height: 40, fontSize: 13, background: tone[0], color: tone[1] }}>{initials(r.name)}</span>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-            <span className="tc-el" style={{ fontSize: 15, fontWeight: 600 }}>{r.name}</span>
+            <span className="tc-el2" style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.25 }}>{r.name}</span>
             {r.hint ? <span className="tc-el" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(r.hint)}</span> : null}
             <span className="only-d" style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: s === "P" && hint ? hint.color : lk.fg }}>{s === "P" && hint ? hint.text : tx(lk.t)}</span>
             {hint ? (
