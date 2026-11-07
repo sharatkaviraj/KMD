@@ -1,5 +1,24 @@
 # VPPS One — progress
 
+## Needs you · Teachers' work: collecting from teachers the Sampark way — 7 November 2026
+
+Owner asked (7 Nov) for the admin's Needs you, where work is given to
+teachers, to be reworked so the office collects data from teachers quickly
+the Sampark way: links sent to teachers, missing data collected fast,
+deployed live. Branch `claude/project-thread-3kf2yi`, D-520 to D-523.
+**Done:** Needs you split into "To decide" and "Teachers' work"; the board
+with three next steps and every request grouped by teacher; a WhatsApp send
+list for links and reminders (one green button per teacher, the message
+typed in, the send noted through the existing delivery functions, nothing
+sent by the app); Ask teachers as four numbered questions with missing
+counts and a live "children · teachers" plan; changing a teacher re-checks
+in place and offers only teachers the server accepts. Tests:
+`tests/teacher-tasks-collect.test.ts` (23), `tests/teacher-task-send-queue.test.tsx` (4),
+`tests/teacher-task-collect-board.test.tsx` (4), recovery test repointed.
+**Remains:** a teacher's own per-teacher page that lists all their open links
+in one place, and automatic sending through a paid WhatsApp provider (needs
+the owner's go-ahead), were left for later.
+
 ## The Menu tab, redrawn with Settings first — 7 November 2026
 
 Owner asked (7 Nov) for the phone Menu tab to be redesigned: Settings quick to
