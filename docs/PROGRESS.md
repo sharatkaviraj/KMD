@@ -5,8 +5,13 @@
 Owner asked (7 Nov) that creating an account asks whether the app opens in
 Hindi or English. Branch `claude/project-thread-25gwfp`. **Done:** the Add staff
 sheet on `/staff` has an "App language" choice (हिंदी, English, हिंदी + English;
-Hindi first) and `addStaffAction` saves it instead of always `both` (D-475).
+Hindi first) and `addStaffAction` saves it instead of always `both` (D-476).
 No migration. **Remains:** nothing; existing accounts keep their language.
+Follow-up (same day): the Add staff button only showed on desktop widths, so on
+a phone an admin could add a login but not a person. The phone header now shows
+"Add staff" for anyone who may manage staff (Add login for an admin who may not);
+a new person's page offers Create login. The decision number moved from D-475 to
+D-476 because the Reports change took D-475 first.
 
 ## Office roles school day in TEST — 6 November 2026
 
