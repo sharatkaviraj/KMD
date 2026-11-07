@@ -62,6 +62,9 @@ export const VERCEL_PRODUCTION = {
     // Pinned on 4 Nov 2026 after the production key check (D-415).
     "GEMINI_MODEL",
     "OPEN_AI_API_KEY",
+    // Free-tier AI keys for the AI helper's open tasks (D-490): NVIDIA set 6 Nov, OpenRouter 7 Nov 2026.
+    "NVIDIA_KIMI_API_KEY",
+    "OPENROUTER_API_KEY",
     // Built-in AI's switch (4 Nov 2026): `test`, then `live` (docs/ai/README.md).
     "VPPSONE_BUILTIN_AI",
     "CRON_SECRET",
@@ -205,6 +208,11 @@ export const ANNOTATIONS = {
   GEMINI_MODEL_PAID: [OWNER, "confined Gemini paid fallback; pinned model"],
   OPEN_AI_API_KEY: [OWNER, "set — server-only OpenAI transcription key for built-in AI voice"],
   OPENAI_API_KEY: [OWNER, "optional compatibility alias if OPEN_AI_API_KEY is absent"],
+  NVIDIA_KIMI_API_KEY: [OWNER, "set — free NVIDIA API key (Kimi) for the AI helper's open tasks only (D-490)"],
+  NVIDIA_API_KEY: [OWNER, "optional alias if NVIDIA_KIMI_API_KEY is absent"],
+  OPENROUTER_API_KEY: [OWNER, "set — OpenRouter key, `:free` models only, for the AI helper's open tasks (D-490)"],
+  VPPSONE_NVIDIA_MODEL: [OWNER, "optional — NVIDIA model (default moonshotai/kimi-k2.6)"],
+  VPPSONE_OPENROUTER_MODELS: [OWNER, "optional — up to three `:free` OpenRouter models, comma-separated"],
   VPPSONE_CLAUDE_IMAGE_MODEL: [OWNER, "pinned image extraction model; defaults to Claude Sonnet 5.5"],
   VPPSONE_CLAUDE_VOICE_MODEL: [OWNER, "pinned voice understanding model; defaults to Claude Haiku 5.5"],
   VPPSONE_OPENAI_TRANSCRIPTION_MODEL: [OWNER, "pinned voice transcription model; defaults to gpt-transcribe"],

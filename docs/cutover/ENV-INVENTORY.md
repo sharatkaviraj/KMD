@@ -6,7 +6,7 @@ Go-live Phase G (plan §9.3; critique1 B7). **Generated** by
 No value appears here or in the script.
 Coexistence supersedes the historical C5 provider-copy notes below: Fees retains Razorpay, fee messaging and financial jobs. Do not copy those secrets or activate competing One financial jobs for coexistence.
 
-- Code: static scan of each repo's app code (`src`, `next.config.ts`, `next.config.mjs`, `proxy.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) — One at this commit, the fees app at `fa87cae9` (read-only).
+- Code: static scan of each repo's app code (`src`, `next.config.ts`, `next.config.mjs`, `proxy.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) — One at this commit, the fees app at `unknown` (read-only).
   A name built at run time cannot be seen by the scan.
 - Vercel Production: name inventory refreshed on 1 Nov 2026 for the `vppsone` and `schoolfees` projects (names only).
 - Status: **set** = on One Production now; **add at C5/C6/C9** = the owner sets it on One Production at that cutover step (CUTOVER-RUNBOOK-2026-27.md);
@@ -58,6 +58,8 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `NEXT_PUBLIC_VERCEL_ENV` | — | `src/platform/observability/sentry-browser.ts` | — | — | Vercel (automatic) | fees only (its Sentry client); not read by One |
 | `NEXT_RUNTIME` | — | `src/instrumentation.ts` | — | — | Next.js (automatic) | automatic |
 | `NODE_ENV` | `src/app/(app)/fees/admin-tools/activity/error.tsx`, `src/app/(app)/fees/admin-tools/error.tsx` +18 | `src/app/protected/admin-tools/activity/error.tsx`, `src/app/protected/admin-tools/error.tsx` +14 | — | — | Next.js (automatic) | automatic |
+| `NVIDIA_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | optional alias if NVIDIA_KIMI_API_KEY is absent |
+| `NVIDIA_KIMI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | set — free NVIDIA API key (Kimi) for the AI helper's open tasks only (D-490) |
 | `ONE_BRIDGE_AUTH_ANON_KEY` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | One publishable API key | set on Fees production only to verify One access tokens; never a One service-role key |
 | `ONE_BRIDGE_AUTH_URL` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production; pinned One Auth project URL |
 | `ONE_BRIDGE_ENABLED` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | Fees deployment operator | set on Fees production for coexistence; database read/command/sync gates remain independent |
@@ -66,6 +68,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `ONLINE_PAYMENTS_CRON_SECRET` | `src/app/api/fees/cron/online-payments/route.ts` | `src/app/api/cron/online-payments/route.ts` | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_ONLINE_PAYMENTS_CRON_SECRET, checked in the database (RAZORPAY.md §5) |
 | `OPENAI_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | optional compatibility alias if OPEN_AI_API_KEY is absent |
 | `OPENAI_MODEL` | — | `src/platform/config/openai.ts` | — | — | fees | fees only; not read by One |
+| `OPENROUTER_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | set — OpenRouter key, `:free` models only, for the AI helper's open tasks (D-490) |
 | `OPEN_AI_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — server-only OpenAI transcription key for built-in AI voice |
 | `PERF_TIMING` | `src/platform/observability/timing.ts` | `src/platform/observability/timing.ts` | — | — | owner | leave unset (off) |
 | `PLAYWRIGHT_TEST_BASE_URL` | `src/platform/supabase/target-guard.ts` | — | — | — | test runner | tests only — never set on Vercel |
@@ -111,7 +114,9 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `VPPSONE_CLAUDE_IMAGE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned image extraction model; defaults to Claude Sonnet 5.5 |
 | `VPPSONE_CLAUDE_VOICE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned voice understanding model; defaults to Claude Haiku 5.5 |
 | `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +4 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |
+| `VPPSONE_NVIDIA_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | optional — NVIDIA model (default moonshotai/kimi-k2.6) |
 | `VPPSONE_OPENAI_TRANSCRIPTION_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | pinned voice transcription model; defaults to gpt-transcribe |
+| `VPPSONE_OPENROUTER_MODELS` | `src/lib/ai/config.ts` | — | — | — | owner | optional — up to three `:free` OpenRouter models, comma-separated |
 | `VPPSONE_SESSION_LABEL` | `src/modules/academics/data/academics-repo.ts` | — | — | — | owner | leave unset — the active session comes from app_settings (rule 3a) |
 | `VPPS_OBSERVABILITY_VERBOSE` | `src/platform/observability/log.ts` | `src/platform/observability/log.ts` | — | — | owner | leave unset (off) |
 | `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-scheduled-runs/route.ts` | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
