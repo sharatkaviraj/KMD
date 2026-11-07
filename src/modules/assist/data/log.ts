@@ -4,6 +4,7 @@ import { createAdminClient } from "@/platform/supabase/admin";
 
 import { dayStartIst, monthStartIst } from "../domain/cost";
 import type { AssistDecision, AssistFeature } from "../domain/features";
+import type { AssistProvider } from "../domain/routes";
 import {
   ASSIST_LOG_PURGE_BATCH,
   ASSIST_LOG_PURGE_MAX_BATCHES,
@@ -15,6 +16,8 @@ export type LogRow = {
   feature: AssistFeature;
   task: string;
   model: string;
+  /** The stage that wrote the draft, or the last one tried when none did (D-496). */
+  provider: AssistProvider | null;
   outcome: "drafted" | "refused" | "failed";
   inputTokens: number;
   outputTokens: number;
@@ -44,6 +47,7 @@ export async function writeLog(row: LogRow): Promise<string | null> {
       feature: row.feature,
       task: row.task,
       model: row.model,
+      provider: row.provider,
       outcome: row.outcome,
       input_tokens: row.inputTokens,
       output_tokens: row.outputTokens,
@@ -162,4 +166,30 @@ export async function usageSince(since: Date): Promise<{ features: FeatureUsage[
     })),
     staff: ((staff.data ?? []) as S[]).map((r) => ({ staffProfileId: r.staff_profile_id, uses: r.uses, costUsd: Number(r.cost_usd) })),
   };
+}
+
+export type ProviderUsage = {
+  provider: AssistProvider | null;
+  task: string;
+  drafts: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+};
+
+const PROVIDERS = new Set<string>(["nvidia-free", "openrouter-free", "gemini-free", "anthropic", "openai", "gemini-paid"]);
+
+/** Drafts per provider and task since a moment (D-496): what the free models wrote, and its tokens. */
+export async function usageByProvider(since: Date): Promise<ProviderUsage[]> {
+  const { data, error } = await createAdminClient().rpc("assist_usage_by_provider", { p_since: since.toISOString() });
+  if (error) throw new Error(error.message);
+  type R = { provider: string | null; task: string; drafts: number; input_tokens: number | string; output_tokens: number | string; cost_usd: number | string };
+  return ((data ?? []) as R[]).map((r) => ({
+    provider: r.provider && PROVIDERS.has(r.provider) ? (r.provider as AssistProvider) : null,
+    task: r.task,
+    drafts: Number(r.drafts),
+    inputTokens: Number(r.input_tokens),
+    outputTokens: Number(r.output_tokens),
+    costUsd: Number(r.cost_usd),
+  }));
 }

@@ -13,9 +13,15 @@ type ChatBody = {
 
 const count = (value: unknown) => (typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0);
 
-/** The JSON object in a reply that may wrap it in a code fence or a sentence. `undefined` when there is none. */
+/**
+ * The JSON object in a reply that may wrap it in a code fence or a sentence.
+ * `undefined` when there is none. Some free models think out loud inside a
+ * `<think>` block before answering; that is dropped first, so a brace in the
+ * reasoning is never taken for the answer.
+ */
 export function jsonFrom(text: string): unknown {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/iu, "").replace(/\s*```$/u, "");
+  const answer = text.replace(/<think>[\s\S]*?(?:<\/think>|$)/giu, "");
+  const trimmed = answer.trim().replace(/^```(?:json)?\s*/iu, "").replace(/\s*```$/u, "");
   try { return JSON.parse(trimmed); } catch { /* Look for the object inside. */ }
   const start = trimmed.indexOf("{");
   const end = trimmed.lastIndexOf("}");
@@ -47,6 +53,11 @@ export async function chatDraft(opts: {
   timeoutMs: number;
   /** Ask for `response_format: json_object`; off for endpoints that may reject it. */
   jsonMode?: boolean;
+  /**
+   * Send the task's schema as `response_format: json_schema`, so a model that
+   * supports it is held to the shape while it writes (D-496). Wins over `jsonMode`.
+   */
+  jsonSchema?: boolean;
   headers?: Record<string, string>;
   extra?: Record<string, unknown>;
   fetcher?: typeof fetch;
@@ -65,7 +76,9 @@ export async function chatDraft(opts: {
       max_tokens: opts.maxTokens,
       temperature: 0.3,
       stream: false,
-      ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
+      ...(opts.jsonSchema
+        ? { response_format: { type: "json_schema", json_schema: { name: "draft", schema, strict: true } } }
+        : opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
       ...opts.extra,
     }),
     signal: AbortSignal.timeout(opts.timeoutMs),

@@ -3,22 +3,23 @@ import "server-only";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 import { monthStartIst } from "../domain/cost";
-import type { AssistTier } from "../domain/features";
-import { describeChains, type AssistStage } from "../domain/routes";
-import { usageSince, type FeatureUsage } from "./log";
+import { freeUsageOf, type FreeUsage } from "../domain/free-usage";
+import { describeChains, type AssistStage, type ChainRow } from "../domain/routes";
+import { usageByProvider, usageSince, type FeatureUsage } from "./log";
 import { availableKeys } from "./run";
 import { getAssistSettings, isAssistConfigured, type AssistSettings } from "./settings";
 
 export type AssistPanelData = {
   /** The Claude Console key is in this deployment's environment. Its value is never read here. */
   configured: boolean;
-  /** Which model writes each tier's drafts, in order, on this deployment (D-416). */
-  chains: Record<AssistTier, AssistStage[]>;
+  /** Which model writes each kind of draft, in order, on this deployment (D-416, D-496). */
+  chains: Record<ChainRow, AssistStage[]>;
   settings: AssistSettings | null;
   month: {
     spentUsd: number;
     features: FeatureUsage[];
     staff: { name: string; uses: number; costUsd: number }[];
+    free: FreeUsage;
   } | null;
   /** Why the numbers could not be read, when they could not. */
   error: string | null;
@@ -29,7 +30,9 @@ export async function loadAssistPanel(now = new Date()): Promise<AssistPanelData
   const configured = isAssistConfigured();
   const chains = describeChains(availableKeys(), process.env);
   try {
-    const [settings, usage] = await Promise.all([getAssistSettings(), usageSince(monthStartIst(now))]);
+    const since = monthStartIst(now);
+    // The free share is a nicety: without it (an older database) the rest of the page still shows.
+    const [settings, usage, providers] = await Promise.all([getAssistSettings(), usageSince(since), usageByProvider(since).catch(() => [])]);
     const ids = usage.staff.map((s) => s.staffProfileId);
     const names = new Map<string, string>();
     if (ids.length) {
@@ -44,6 +47,7 @@ export async function loadAssistPanel(now = new Date()): Promise<AssistPanelData
         spentUsd: usage.features.reduce((sum, f) => sum + f.costUsd, 0),
         features: usage.features,
         staff: usage.staff.map((s) => ({ name: names.get(s.staffProfileId) ?? "—", uses: s.uses, costUsd: s.costUsd })),
+        free: freeUsageOf(providers, process.env),
       },
       error: null,
     };

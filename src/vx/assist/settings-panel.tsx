@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { dollars } from "@/modules/assist/domain/cost";
 import { assistFeatures, assistTiers, FEATURE_LABELS, featureTier, isAssistFeature, type AssistFeature } from "@/modules/assist/domain/features";
-import type { AssistProvider } from "@/modules/assist/domain/routes";
+import type { AssistProvider, ChainRow } from "@/modules/assist/domain/routes";
 import type { AssistPanelData } from "@/modules/assist/data/panel";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -21,17 +21,31 @@ const SAY = {
   master: p("AI helper", "AI सहायक"),
   masterSub: p("Switch off to hide every AI button for everyone", "बंद करने पर सबके लिए हर AI बटन छिप जाएगा"),
   budget: p("Monthly budget (US $)", "मासिक बजट (US $)"),
-  budgetHint: p("New AI drafts stop for the month when the estimate reaches this.", "अनुमान यहाँ तक पहुँचते ही इस महीने नए AI मसौदे रुक जाते हैं।"),
+  budgetHint: p(
+    "When the estimate reaches this, the paid AI stops for the month. The free AI keeps writing what it may.",
+    "अनुमान यहाँ तक पहुँचते ही इस महीने पेड AI रुक जाता है। मुफ़्त AI जो लिख सकता है, लिखता रहता है।",
+  ),
   cap: p("AI drafts per person per day", "हर व्यक्ति के रोज़ के AI मसौदे"),
   features: p("Features", "सुविधाएँ"),
   quick: p("Quick help", "तेज़ मदद"),
   writing: p("For parents", "अभिभावकों के लिए"),
   careful: p("Careful", "सावधानी से"),
+  open: p("Free first", "पहले मुफ़्त"),
   who: p("Which AI writes what", "कौन-सा AI क्या लिखता है"),
   whoSub: p("The first one writes; if it is busy or out of credit, the next takes over. Nobody has to choose.", "पहला लिखता है; वह व्यस्त हो या क्रेडिट ख़त्म हो तो अगला लिखता है। किसी को चुनना नहीं पड़ता।"),
-  quickSub: p("Tidy a note, translate, match columns, how-to, a cover activity", "नोट साफ़ करना, अनुवाद, कॉलम मिलान, कैसे करें, सब्स्टिट्यूट गतिविधि"),
-  writingSub: p("Notices, replies, call scripts, summaries, the Today brief", "सूचनाएँ, जवाब, कॉल स्क्रिप्ट, सारांश, आज का सार"),
-  carefulSub: p("Report-card remarks, results, reading an admission form", "रिपोर्ट कार्ड टिप्पणी, परिणाम, दाख़िला फ़ॉर्म पढ़ना"),
+  openSub: p(
+    "How-to answers, column matching, cover activities, message templates, notices to all parents or staff, class results. These name nobody, so the free AI writes them first.",
+    "कैसे करें के जवाब, कॉलम मिलान, सब्स्टिट्यूट गतिविधि, संदेश टेम्पलेट, सभी अभिभावकों या स्टाफ़ को सूचना, कक्षा परिणाम। इनमें किसी का नाम नहीं होता, इसलिए पहले मुफ़्त AI लिखता है।",
+  ),
+  quickSub: p("Tidy or sort a note, translate", "नोट साफ़ करना या छाँटना, अनुवाद"),
+  writingSub: p("Replies to parents, call scripts, a child's or a class's summary, the Today brief", "अभिभावकों को जवाब, कॉल स्क्रिप्ट, बच्चे या कक्षा का सारांश, आज का सार"),
+  carefulSub: p("Report-card remarks, reading an admission form", "रिपोर्ट कार्ड टिप्पणी, दाख़िला फ़ॉर्म पढ़ना"),
+  freeRule: p(
+    "The free AI never sees a child's, a family's or a parent's details, or any photo: free services may keep what they are sent. Test accounts start every written draft on the free AI, because their children are made up.",
+    "मुफ़्त AI को किसी बच्चे, परिवार या अभिभावक की जानकारी या कोई फ़ोटो कभी नहीं भेजी जाती: मुफ़्त सेवाएँ भेजी गई बातें रख सकती हैं। टेस्ट खाते हर लिखित मसौदा मुफ़्त AI से शुरू करते हैं, क्योंकि उनके बच्चे काल्पनिक हैं।",
+  ),
+  freeShare: (n: number, all: number, pct: number) => p(`Free AI wrote ${n} of ${all} drafts (${pct}%)`, `मुफ़्त AI ने ${all} में से ${n} मसौदे लिखे (${pct}%)`),
+  saved: (amount: string) => p(`About ${amount} saved against the paid AI (estimate)`, `पेड AI के मुक़ाबले लगभग ${amount} की बचत (अनुमान)`),
   none: p("No provider", "कोई सेवा नहीं"),
   save: p("Save", "सहेजें"),
   month: p("This month", "इस महीने"),
@@ -44,6 +58,8 @@ const SAY = {
   privacy: p("Only metadata is logged here (who, which feature, tokens, cost). What staff write is never stored by the helper.", "यहाँ केवल जानकारी दर्ज होती है (किसने, कौन-सी सुविधा, टोकन, लागत)। स्टाफ़ का लिखा सहायक कभी नहीं रखता।"),
   unreadable: p("The AI helper’s settings could not be read. Is the database update applied?", "AI सहायक की सेटिंग्स नहीं पढ़ी जा सकीं। क्या डेटाबेस अपडेट लगा है?"),
 };
+
+const CHAIN_ROWS: readonly ChainRow[] = ["open", ...assistTiers];
 
 const PROVIDER_NAME: Record<AssistProvider, string> = {
   anthropic: "Claude",
@@ -77,6 +93,7 @@ export function AssistSettingsPanel({
   const [off, setOff] = useState<AssistFeature[]>(s?.disabledFeatures ?? []);
 
   const usage = new Map((data.month?.features ?? []).map((f) => [f.feature, f]));
+  const free = data.month?.free ?? null;
   const budgetNumber = Number(budget);
   const spent = data.month?.spentUsd ?? 0;
   const share = budgetNumber > 0 ? Math.min(100, Math.round((spent / budgetNumber) * 100)) : 100;
@@ -160,6 +177,19 @@ export function AssistSettingsPanel({
             <div style={{ height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
               <span style={{ display: "block", height: "100%", width: `${share}%`, background: share >= 90 ? "var(--bad)" : share >= 70 ? "var(--warn)" : "var(--ok)" }} />
             </div>
+            {free && free.all ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span className="num" style={{ fontSize: 13, fontWeight: 600, color: free.drafts ? "var(--ok)" : "var(--fg)" }}>
+                  {tx(SAY.freeShare(free.drafts, free.all, Math.round((free.drafts / free.all) * 100)))}
+                </span>
+                {free.savedUsd > 0 ? <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.saved(dollars(free.savedUsd)))}</span> : null}
+                {free.providers.length ? (
+                  <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>
+                    {free.providers.map((row) => `${PROVIDER_NAME[row.provider]} ${row.drafts}`).join(" · ")}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             {data.month && data.month.staff.length ? (
               <>
                 <span className="sech">{tx(SAY.people)}</span>
@@ -182,15 +212,16 @@ export function AssistSettingsPanel({
           <div className="card" style={card}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(SAY.who)}</span>
             <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.whoSub)}</span>
-            {assistTiers.map((tier) => (
-              <div key={tier} style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
-                <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(SAY[tier])}</span>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY[`${tier}Sub`])}</span>
+            {CHAIN_ROWS.map((row) => (
+              <div key={row} style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(SAY[row])}</span>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY[`${row}Sub`])}</span>
                 <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-                  {data.chains[tier].length ? data.chains[tier].map((stage, i) => (
-                    <span key={`${stage.provider}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {data.chains[row].length ? data.chains[row].map((stage, i) => (
+                    <span key={`${stage.provider}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%", minWidth: 0 }}>
                       {i ? <Ic n="chevRight" size={14} style={{ color: "var(--mut)" }} /> : null}
-                      <span className="pill num" style={{ height: 24, padding: "0 9px", fontSize: 12, background: i ? "var(--s3)" : "var(--accs)", color: i ? "var(--fg)" : "var(--accfg)" }}>
+                      {/* Model ids run to 50 characters: the pill wraps rather than push a phone's page sideways. */}
+                      <span className="pill num" style={{ height: "auto", minHeight: 24, maxWidth: "100%", padding: "3px 9px", lineHeight: 1.35, whiteSpace: "normal", overflowWrap: "anywhere", fontSize: 12, background: i ? "var(--s3)" : "var(--accs)", color: i ? "var(--fg)" : "var(--accfg)" }}>
                         {PROVIDER_NAME[stage.provider]} · {stage.model}
                       </span>
                     </span>
@@ -198,6 +229,7 @@ export function AssistSettingsPanel({
                 </span>
               </div>
             ))}
+            <span style={{ fontSize: 12, color: "var(--mut)", paddingTop: 10, borderTop: "1px solid var(--bd)" }}>{tx(SAY.freeRule)}</span>
           </div>
         </>
       )}

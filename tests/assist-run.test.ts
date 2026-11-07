@@ -39,6 +39,7 @@ vi.mock("@anthropic-ai/sdk", () => {
   return { default: Anthropic };
 });
 
+import { clearRests } from "@/modules/assist/data/free-rest";
 import { runAssistTask } from "@/modules/assist/data/run";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 
@@ -67,6 +68,10 @@ beforeEach(() => {
   vi.stubEnv("GEMINI_API_KEY_FREE", "");
   vi.stubEnv("OPEN_AI_API_KEY", "");
   vi.stubEnv("OPENAI_API_KEY", "");
+  vi.stubEnv("NVIDIA_KIMI_API_KEY", "");
+  vi.stubEnv("NVIDIA_API_KEY", "");
+  vi.stubEnv("OPENROUTER_API_KEY", "");
+  clearRests();
   state.settings.mockResolvedValue(settings);
   state.budget.mockResolvedValue({ spentUsd: 1, staffToday: 0 });
   state.log.mockResolvedValue("22222222-2222-4222-8222-222222222222");
@@ -247,5 +252,84 @@ describe("runAssistTask asks Claude carefully", () => {
     const Anthropic = (await import("@anthropic-ai/sdk")).default as unknown as { RateLimitError: new () => Error };
     state.parse.mockRejectedValue(new Anthropic.RateLimitError());
     expect(await runAssistTask(teacher, "note.polish", note)).toEqual({ ok: false, problem: "busy" });
+  });
+});
+
+describe("the free models go first where they may (D-496)", () => {
+  const chat = (content: string) => Response.json({
+    model: "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    choices: [{ finish_reason: "stop", message: { content } }],
+    usage: { prompt_tokens: 900, completion_tokens: 120 },
+  });
+  const cover = { classLabel: "7-A", subject: "Maths", minutes: 40, language: "hi" };
+  const coverHi = { title: "कक्षा 7-A गणित", steps: [{ minutes: 40, text: "ब्लैकबोर्ड पर पाँच सवाल लिखें और हल करवाएँ।" }], tip: "शांति बनाए रखें।" };
+  const coverer: CurrentStaff = { ...teacher, permissions: ["substitutions:view"] };
+
+  beforeEach(() => {
+    vi.stubEnv("NVIDIA_KIMI_API_KEY", "qa-nvidia-test-key");
+  });
+
+  it("writes an open task on NVIDIA with thinking off, held to the schema, at no cost", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(chat(JSON.stringify(coverHi)));
+    vi.stubGlobal("fetch", fetch);
+    expect(await runAssistTask(coverer, "cover.plan", cover)).toMatchObject({ ok: true, value: { title: "कक्षा 7-A गणित" } });
+    expect(state.parse).not.toHaveBeenCalled();
+    const [url, request] = fetch.mock.calls[0];
+    expect(String(url)).toBe("https://integrate.api.nvidia.com/v1/chat/completions");
+    expect(new Headers(request?.headers).get("authorization")).toBe("Bearer qa-nvidia-test-key");
+    const body = JSON.parse(String(request?.body));
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: false, thinking: false });
+    expect(body.response_format.type).toBe("json_schema");
+    expect(state.log).toHaveBeenCalledWith(expect.objectContaining({ provider: "nvidia-free", outcome: "drafted", costUsd: 0 }));
+  });
+
+  it("keeps writing open tasks on the free models once the month's budget is spent, and nothing else", async () => {
+    state.budget.mockResolvedValue({ spentUsd: 25, staffToday: 0 });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(chat(JSON.stringify(coverHi))));
+    expect((await runAssistTask(coverer, "cover.plan", cover)).ok).toBe(true);
+    expect(await runAssistTask(teacher, "note.polish", note)).toEqual({ ok: false, problem: "budget" });
+    expect(state.parse).not.toHaveBeenCalled();
+  });
+
+  it("starts no paid model when the free ones fail after the budget is spent", async () => {
+    state.budget.mockResolvedValue({ spentUsd: 25, staffToday: 0 });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 503 })));
+    expect(await runAssistTask(coverer, "cover.plan", cover)).toEqual({ ok: false, problem: "budget" });
+    expect(state.parse).not.toHaveBeenCalled();
+  });
+
+  it("never sends a real teacher's note to a free model", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", usage, parsed_output: { text: "[[N1]] को भिन्न में दिक्कत है।", tags: ["studies"] } });
+    expect((await runAssistTask(teacher, "note.polish", note)).ok).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("starts a test account's note on the free models, still masked", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(chat('{"text":"[[N1]] को भिन्न में दिक्कत है।","tags":["studies"]}'));
+    vi.stubGlobal("fetch", fetch);
+    expect(await runAssistTask({ ...teacher, isTestAccount: true }, "note.polish", note)).toMatchObject({ ok: true, value: { text: "Qatest को भिन्न में दिक्कत है।" } });
+    expect(String(fetch.mock.calls[0][0])).toContain("integrate.api.nvidia.com");
+    expect(String(fetch.mock.calls[0][1]?.body)).not.toMatch(/Qatest|98765/);
+    expect(state.parse).not.toHaveBeenCalled();
+  });
+
+  it("passes a free answer in English for a Hindi request on to the next model", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(chat(JSON.stringify({ title: "Maths for 7-A", steps: [{ minutes: 40, text: "Write five sums on the board." }], tip: "Keep calm." }))));
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", usage, parsed_output: coverHi });
+    expect(await runAssistTask(coverer, "cover.plan", cover)).toMatchObject({ ok: true, value: { title: "कक्षा 7-A गणित" } });
+    expect(state.parse).toHaveBeenCalledOnce();
+    expect(state.log).toHaveBeenCalledWith(expect.objectContaining({ provider: "anthropic", model: "claude-haiku-5-5" }));
+  });
+
+  it("skips a free provider for a while after it runs out of quota", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async () => Response.json({ error: { code: "rate_limited" } }, { status: 429 }));
+    vi.stubGlobal("fetch", fetch);
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", usage, parsed_output: coverHi });
+    expect((await runAssistTask(coverer, "cover.plan", cover)).ok).toBe(true);
+    expect((await runAssistTask(coverer, "cover.plan", cover)).ok).toBe(true);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(state.parse).toHaveBeenCalledTimes(2);
   });
 });

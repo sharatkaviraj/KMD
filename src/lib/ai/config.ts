@@ -100,9 +100,16 @@ export function freeGeminiConfig(env: Env = process.env) {
  * credit solely to lift the free-model limit to 1,000 requests a day; it must
  * never pay for a model. So every model named here must end in `:free` (or be
  * OpenRouter's own free router), and each request also carries a zero
- * `max_price` (`chat-draft.ts`). Up to three models, tried in order by OpenRouter.
+ * `max_price` (`run.ts`). Up to three models, tried in order by OpenRouter.
+ *
+ * Nemotron 3.5 Super VL first: with thinking off it answered 10 of One's 11
+ * real tasks in 1-4 s on NVIDIA's own API (D-496). OpenRouter's account has its
+ * own limits with NVIDIA, so it still answers when ours are used up. Then
+ * Gemma 4 31B, which Google AI Studio serves: a different company's servers
+ * when NVIDIA's are down. Lightning is not here: it wrote Hinglish notes and
+ * English when asked for Hindi.
  */
-export const OPENROUTER_DEFAULT_MODELS = ["nvidia/nemotron-3.5-lightning:free", "google/gemma-4-31b-it:free", "openrouter/free"] as const;
+export const OPENROUTER_DEFAULT_MODELS = ["nvidia/nemotron-3.5-super-vl:free", "google/gemma-4-31b-it:free", "openrouter/free"] as const;
 const FREE_OPENROUTER_MODEL = /^(?:openrouter\/free|[a-z0-9][a-z0-9._-]{0,40}\/[a-z0-9][a-z0-9._-]{0,80}:free)$/u;
 
 export function isFreeOpenRouterModel(id: string): boolean {
@@ -123,6 +130,19 @@ export function openRouterConfig(env: Env = process.env): { apiKey: string; mode
  */
 export const NVIDIA_DEFAULT_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
 const NVIDIA_MODEL = /^[a-z0-9][a-z0-9._-]{0,40}\/[a-z0-9][a-z0-9._-]{0,80}$/u;
+
+/**
+ * NVIDIA models that keep to a JSON schema when the request carries one
+ * (guided decoding). Measured on One's own tasks, 7 Nov 2026 (D-496): Super VL
+ * answered 10 of 11 with it, and its call scripts stopped coming back with a
+ * paragraph where a list belongs. Nemotron 3 Ultra stalled with it until the
+ * token limit, so any other model gets the schema in its instructions only.
+ */
+const NVIDIA_GUIDED = /^nvidia\/nemotron-3\.5-super-vl(?:-|$)/u;
+
+export function nvidiaGuidedJson(model: string): boolean {
+  return NVIDIA_GUIDED.test(model);
+}
 
 export function nvidiaConfig(env: Env = process.env): { apiKey: string; model: string } | null {
   const apiKey = env.NVIDIA_KIMI_API_KEY?.trim() || env.NVIDIA_API_KEY?.trim();
