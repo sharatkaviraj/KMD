@@ -8,11 +8,10 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
-import { Sheet, useToast } from "@/vx/ui/overlays";
+import { Sheet } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
-import { undoNoteAction } from "../actions";
-import type { SupportPlan } from "../data";
+import type { ChildChoice, SupportPlan } from "../data";
 import {
   boardKpis,
   countP,
@@ -33,7 +32,8 @@ import {
   type BoardTab,
   type NoteTag,
 } from "../domain/notes";
-import { BoardCompose, useComposer } from "./compose";
+import { NOTE_CARD_HELP, NoteCards, noteCardTop, useNoteCards } from "./cards";
+import { useComposer, useUndo } from "./compose";
 import { BoardNoteAside } from "./detail";
 import { BOARD_TAG, day, followSoon, HelpSteps, ini, MIX_COLOR, NotesTop, noteWhen, relationText, replaceParams, Seg, StagePill, useBoth, useNoteWords, type HelpStep } from "./look";
 import { BoardPlan } from "./plan";
@@ -44,10 +44,10 @@ import { ClassDigest } from "@/vx/assist/summary-assist";
  * The notes board for the office and the coordinator (design `Notes`, and
  * `AD-Notes` for the academic menu): what needs action, follow-ups, support
  * plans, every note; one note beside the board; one child's page; adding a
- * note; a support plan. Every state is a URL.
+ * note, card by card (D-486); a support plan. Every state is a URL.
  */
 
-const HELP: Record<"board" | "student" | "add" | "plan", HelpStep[]> = {
+const HELP: Record<"board" | "student" | "plan", HelpStep[]> = {
   board: [
     { icon: "list", title: p("Pick a note", "नोट चुनें"), body: p("Read it and the replies.", "उसे और जवाब पढ़ें।") },
     { icon: "users", title: p("Give it to someone", "किसी को सौंपें"), body: p("Change the status or who follows up.", "स्थिति बदलें, या कौन फिर से देखेगा।") },
@@ -57,11 +57,6 @@ const HELP: Record<"board" | "student" | "add" | "plan", HelpStep[]> = {
     { icon: "clock", title: p("Whole story", "पूरी कहानी"), body: p("All teachers’ notes, newest first.", "सब अध्यापकों के नोट, नए पहले।") },
     { icon: "tag", title: p("Filter", "छाँटें"), body: p("Tap a tag to see only those.", "सिर्फ़ वही देखने के लिए टैग दबाएँ।") },
     { icon: "mic", title: p("Add a note", "नोट लिखें"), body: p("The class teacher sees it too.", "कक्षा अध्यापक भी देखेंगे।") },
-  ],
-  add: [
-    { icon: "mic", title: p("Tap and speak", "बोलकर लिखें"), body: p("Hindi or English, words appear live.", "हिंदी या अंग्रेज़ी, शब्द साथ-साथ दिखते हैं।") },
-    { icon: "edit", title: p("Check the words", "शब्द जाँचें"), body: p("Add tags and a follow-up.", "टैग जोड़ें, और कब फिर देखना है।") },
-    { icon: "check", title: p("Save", "सहेजें"), body: p("Teacher and office see it at once.", "अध्यापक और कार्यालय तुरंत देखते हैं।") },
   ],
   plan: [
     { icon: "check", title: p("Tick steps", "कदम पूरे करें"), body: p("The ring moves by itself.", "घेरा अपने-आप बढ़ता है।") },
@@ -180,7 +175,6 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   const { tx, language } = useVx();
   const both = useBoth();
   const router = useRouter();
-  const toast = useToast();
   const base = "/notes";
   const people = props.people ?? { classTeachers: {}, coordinator: null, admin: null };
   const scope = props.scope ?? null;
@@ -218,6 +212,10 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     // note's tag carried over (20-teacher day, 6 Nov). Speech still suggests one.
     ownerFor: (child) => (child && props.viewer.heldClassIds.includes(child.classId) ? "me" : "class_teacher"),
   });
+  const { undo, pending: undoing } = useUndo();
+  // The card on the screen (D-486), and the note it has just saved.
+  const flow = useNoteCards(composer, composer.child ? "write" : "child");
+  const [saved, setSaved] = useState<{ id: string; child: ChildChoice } | null>(null);
 
   const openAdd = () => {
     const kid = scope && props.kids.some((k) => k.id === scope.studentId) ? scope.studentId : open?.note.studentId && props.kids.some((k) => k.id === open.note.studentId) ? open.note.studentId : null;
@@ -225,17 +223,20 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     // to the next child. An unsaved one is still kept and comes back below.
     composer.reset(false);
     if (kid) composer.pickChild(kid);
-    // A note left unsaved for this child comes back (RULES G: forms keep their drafts).
+    // A note left unsaved for this child comes back (RULES G: forms keep their drafts), on its words.
     composer.restoreDraft(kid);
+    setSaved(null);
     setAdding(true);
+    flow.start(kid ? "write" : "child");
     replaceParams({ sheet: "add" });
   };
   const closeAdd = () => {
     if (composer.speech.listening) composer.speech.stop();
     setAdding(false);
+    setSaved(null);
     // The stored draft stays; only the open form is cleared.
     composer.reset(false);
-    replaceParams({ sheet: null, step: null });
+    replaceParams({ sheet: null, step: null, saved: null });
   };
   const setTab = (t: BoardTab) => {
     setTabState(t);
@@ -243,21 +244,16 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     if (open) router.push(t === "action" ? base : `${base}?tab=${t}`, { scroll: false });
   };
 
-  const saved = (id: string, child: { id: string; name: string }) => {
-    setAdding(false);
-    composer.reset(false);
-    router.push(`${base}?student=${child.id}&saved=${id}`, { scroll: false });
-    toast.show({
-      text: tx(p(`Note saved for ${child.name.split(" ")[0]}`, `${child.name.split(" ")[0]} के लिए नोट सहेजा`)),
-      undo: async () => {
-        const res = await undoNoteAction(id);
-        if (res.ok) {
-          toast.show({ text: tx(p("Note taken back — nothing was saved", "नोट वापस लिया — कुछ नहीं सहेजा गया")) });
-          router.push(`${base}?student=${child.id}`, { scroll: false });
-          router.refresh();
-        } else toast.show({ text: tx(res.error), tone: "bad" });
-      },
-    });
+  const onSaved = (id: string, child: ChildChoice) => {
+    setSaved({ id, child });
+    flow.go("saved");
+    router.refresh();
+  };
+  /** Done on the saved card: the child's page, with the new note marked. */
+  const doneSaved = () => {
+    const s = saved;
+    closeAdd();
+    if (s) router.push(`${base}?student=${s.child.id}&saved=${s.id}`, { scroll: false });
   };
 
   const planOf = (n: BoardNote) => (n.planId ? (props.plans.find((pl) => pl.id === n.planId) ?? null) : null);
@@ -284,8 +280,12 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   const kidName = scope?.name ?? tx(p("One child", "एक बच्चा"));
   const kidNotes = studentId ? props.notes.filter((n) => n.studentId === studentId) : [];
   if (screen === "add") {
-    const c = composer.child;
-    top = { crumb: boardTitle, title: tx(p("Add a note", "नोट लिखें")), mTitle: tx(p("Add a note", "नोट लिखें")), mSub: c ? `${c.name} · ${c.classLabel}` : undefined, dBack: { onClick: closeAdd }, mBack: { onClick: closeAdd }, add: false };
+    const t = noteCardTop(flow.card, composer.child ?? saved?.child ?? null);
+    const listening = composer.step === "listening";
+    const title = listening ? tx(p("Listening…", "सुन रहे हैं…")) : tx(t.title);
+    // Back leaves the note (its words are kept); while listening it only stops the mic.
+    const back = { onClick: listening ? () => composer.cancelListening("add") : flow.card === "saved" ? doneSaved : closeAdd };
+    top = { crumb: boardTitle, title, mTitle: title, mSub: t.sub ? tx(t.sub) : undefined, dBack: back, mBack: back, add: false };
   } else if (screen === "plan" && focus && (focus.kind === "plan" || focus.kind === "new-plan")) {
     const name = focus.kind === "plan" ? focus.plan.studentName : focus.note.studentName;
     const goal = focus.kind === "plan" ? focus.plan.goal : tx(p("New support plan", "नई सहायता योजना"));
@@ -450,7 +450,46 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
 
   let body: React.ReactNode = board;
   if (screen === "add") {
-    body = <BoardCompose c={composer} kids={props.kids} notes={props.notes} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} onSaved={saved} initialClass={props.initialClass} />;
+    body = (
+      <NoteCards
+        board
+        flow={flow}
+        c={composer}
+        kids={props.kids}
+        notes={props.notes}
+        viewer={props.viewer}
+        people={people}
+        today={props.today}
+        school={props.school}
+        base={base}
+        initialClass={props.initialClass}
+        savedId={saved?.id ?? null}
+        onSaved={onSaved}
+        undoing={undoing}
+        onUndo={() => {
+          if (!saved) return;
+          undo(saved.id, () => {
+            setSaved(null);
+            flow.go("check");
+            replaceParams({ saved: null });
+          });
+        }}
+        onPlan={() => {
+          if (!saved) return;
+          const s = saved;
+          setAdding(false);
+          setSaved(null);
+          composer.reset(false);
+          router.push(`${base}?student=${s.child.id}&note=${s.id}&view=plan`, { scroll: false });
+        }}
+        onDone={doneSaved}
+        onOpenAction={(href) => {
+          setAdding(false);
+          composer.reset(false);
+          router.push(href, { scroll: false });
+        }}
+      />
+    );
   } else if (screen === "plan" && focus && (focus.kind === "plan" || focus.kind === "new-plan")) {
     body = <BoardPlan plan={focus.kind === "plan" ? focus.plan : null} sourceBody={focus.kind === "plan" && focus.plan.noteId ? (props.notes.find((n) => n.id === focus.plan.noteId)?.body ?? null) : null} draftFor={focus.kind === "new-plan" ? focus.note : null} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} />;
   } else if (screen === "student" && scope) {
@@ -475,11 +514,12 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
         ) : undefined}
       />
       <main>
-        <div className="stack" style={{ display: "grid", gridTemplateColumns: open && screen !== "add" ? "minmax(0,1fr) 440px" : "minmax(0,1fr)", alignItems: "start" }}>
-          <section className={`pad${open && screen !== "add" ? " hide-m" : ""}`} style={{ padding: "22px 28px 40px", display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+        {screen === "add" ? body : (
+        <div className="stack" style={{ display: "grid", gridTemplateColumns: open ? "minmax(0,1fr) 440px" : "minmax(0,1fr)", alignItems: "start" }}>
+          <section className={`pad${open ? " hide-m" : ""}`} style={{ padding: "22px 28px 40px", display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
             {body}
           </section>
-          {open && screen !== "add" ? (
+          {open ? (
             <aside className="nx-aside" aria-label={tx(p("The note", "नोट"))}>
               <BoardNoteAside
                 note={open.note}
@@ -496,6 +536,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
             </aside>
           ) : null}
         </div>
+        )}
       </main>
       <Sheet
         open={help}
@@ -513,7 +554,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
         }
       >
         <div className="nx">
-          <HelpSteps steps={HELP[screen]} />
+          <HelpSteps steps={screen === "add" ? NOTE_CARD_HELP[flow.card] : HELP[screen]} />
         </div>
       </Sheet>
     </VxPage>

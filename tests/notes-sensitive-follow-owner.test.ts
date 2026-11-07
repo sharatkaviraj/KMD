@@ -24,7 +24,7 @@ describe("a health or family note is never followed up by the coordinator", () =
   it("is checked by the server and by both pickers", () => {
     const actions = readFileSync("src/vx/screens/notes/actions.ts", "utf8");
     expect(actions.match(/followOwnerAllowed\(/g)?.length).toBe(2);
-    expect(readFileSync("src/vx/screens/notes/ui/compose.tsx", "utf8").match(/followOwnerAllowed\(/g)?.length).toBe(2);
+    expect(readFileSync("src/vx/screens/notes/ui/cards.tsx", "utf8").match(/followOwnerAllowed\(/g)?.length).toBe(2);
     expect(readFileSync("src/vx/screens/notes/ui/detail.tsx", "utf8")).toContain("followOwnerAllowed(a.key, note)");
   });
 });

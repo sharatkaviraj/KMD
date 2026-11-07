@@ -92,6 +92,43 @@ Rewrite it as a clear, kind, factual note of one to three short sentences that a
   },
 });
 
+/**
+ * The card-by-card note's sort (D-487): when the teacher taps Next, what kind
+ * of note it is, whether someone should come back to it and when, and the
+ * same words written clearly. The screen shows all three on the check card,
+ * marked as the AI's, before anything is saved; the teacher can change any of
+ * them and Save never waits for this answer. The output has no optional
+ * fields, so the structured-output grammar stays small (D-414).
+ */
+export const NOTE_SORT_FOLLOW = ["none", "tomorrow", "next_monday", "one_week"] as const;
+
+const noteSort = task({
+  feature: "note",
+  effort: "low",
+  maxTokens: 1500,
+  input: z.object({
+    text: text(2000),
+    tags: z.array(z.object({ code: z.string().max(40), label: z.string().max(60) })).max(20),
+    childName: z.string().max(120).nullable(),
+    /** Other names the screen found in the words (a classmate, a Devanagari spelling), masked too. */
+    names: z.array(z.string().max(120)).max(12),
+    language: z.enum(["hi", "en", "both"]),
+  }),
+  output: z.object({ tags: z.array(z.string()), followUp: z.enum(NOTE_SORT_FOLLOW), tidy: z.string() }),
+  instructions: `Task: a teacher has quickly typed or spoken a note about one child. Sort it so the school app can file it, and offer clearer wording. The teacher checks your answer before saving.
+- tags: up to two codes from the list given that say what the note is about, the main one first. "health" is only for the child's body or illness (fever, pain, an injury, eyesight, seeming unwell). "family" is only for things at home or in the family (a death, an illness at home, parents apart, a new baby, trouble at home). Homework not done is "studies", not "family", even when it was meant to be done at home. A child being quiet, upset, rude or fighting is "behaviour". Choose none if nothing fits.
+- followUp: "none" when the teacher is only recording something. "tomorrow" when it must be looked at again the very next school day: a child who is hurt, unwell, very upset or in danger, or something the teacher says is urgent. "next_monday" when someone should act on it soon: call or meet the parents, check again, sort out a problem. "one_week" for something to watch over the coming week, such as slow progress or a change in mood. When in doubt between "none" and a follow-up, choose "none".
+- tidy: the same note as one to three short, clear sentences. Fix spelling, grammar, punctuation and the mistakes of voice typing, and remove filler words. Keep every fact and observation; add none; do not soften a real concern. Write it in the language given in write_in: "Hindi" means Devanagari Hindi; "the teacher's own language" means a Hindi note stays in Hindi (Hindi typed in Latin letters is written in Devanagari) and an English note stays in English. If the note is already clear and correct, return "".`,
+  prompt: (input) => fence({ note: input.text, tags: input.tags, write_in: input.language === "hi" ? "Hindi" : "the teacher's own language" }),
+  names: (input) => [...(input.childName ? [input.childName] : []), ...input.names],
+  finish: (output, input) => {
+    const allowed = new Set(input.tags.map((t) => t.code));
+    const tags = [...new Set(output.tags.filter((t) => allowed.has(t)))].slice(0, 2);
+    const tidy = clip(output.tidy.trim(), 2000);
+    return { tags, followUp: output.followUp, tidy };
+  },
+});
+
 /* -------------------------------------------------------------- translate */
 
 const translate = task({
@@ -591,6 +628,7 @@ const askAnswer = task({
 
 export const ASSIST_TASKS = {
   "note.polish": notePolish,
+  "note.sort": noteSort,
   "text.translate": translate,
   "message.write": messageWrite,
   "message.polish": messagePolish,

@@ -14,7 +14,8 @@ import type { ChildChoice } from "../data";
 import { shortDayHi } from "@/vx/format";
 
 import { countP, followUpDate, isMyFollowUp, noteStage, NOTE_TAGS, planProgressText, TAG_TEXT, teacherCounts, type BoardNote, type NoteTag } from "../domain/notes";
-import { TeachCompose, TeachListening, TeachSaved, useComposer, useUndo } from "./compose";
+import { NOTE_CARD_HELP, NoteCards, noteCardTop, useNoteCards } from "./cards";
+import { useComposer, useUndo } from "./compose";
 import { TeachNoteDetail } from "./detail";
 import { day, HelpSteps, nameTone, NotesTop, replaceParams, Seg, StagePill, TEACH_TAG, useBoth, useNoteWords, type HelpStep } from "./look";
 import { TeachPlan } from "./plan";
@@ -24,31 +25,16 @@ import { ClassDigest } from "@/vx/assist/summary-assist";
 /*
  * The teacher's notes (design `TchNotes`): her notes in three groups —
  * follow-ups due, open, the rest — and, each on a page of its own, a new
- * note (speak or type), listening, saved, one note, and a support plan.
+ * note (card by card, D-486), one note, and a support plan.
  */
 
-type Screen = "list" | "add" | "listening" | "saved" | "detail" | "plan";
+type Screen = "list" | "add" | "detail" | "plan";
 
-const HELP: Record<Screen, HelpStep[]> = {
+const HELP: Record<Exclude<Screen, "add">, HelpStep[]> = {
   list: [
     { icon: "bell", title: p("Follow-ups first", "पहले जिन्हें फिर देखना है"), body: p("Notes you must look at again are on top. Then open notes, then the rest.", "जिन नोट को आपको फिर देखना है वे ऊपर हैं। फिर खुले नोट, फिर बाकी।") },
     { icon: "filter", title: p("Filter", "छाँटें"), body: p("Tap a tag or a class to see only those notes.", "सिर्फ़ वही नोट देखने के लिए टैग या कक्षा दबाएँ।") },
-    { icon: "mic", title: p("Speak a note", "बोलकर नोट"), body: p("Tap the big “Speak a note” button and just talk.", "बड़ा “बोलकर लिखें” बटन दबाएँ और बोलें।") },
-  ],
-  add: [
-    { icon: "user", title: p("Pick the child", "बच्चा चुनें"), body: p("Tap a recent name, or pick the class and search.", "हाल का नाम दबाएँ, या कक्षा चुनकर खोजें।") },
-    { icon: "mic", title: p("Speak or type", "बोलें या लिखें"), body: p("Tap the mic and talk in Hindi or English. Or tap “Type instead”.", "माइक दबाकर हिंदी या अंग्रेज़ी में बोलें। या “लिखकर” दबाएँ।") },
-    { icon: "check", title: p("Choose and save", "चुनें और सहेजें"), body: p("Tags, follow-up day and who can see it are already filled. Change anything, then Save.", "टैग, फिर देखने का दिन और कौन देखेगा पहले से भरे हैं। कुछ भी बदलें, फिर सहेजें।") },
-  ],
-  listening: [
-    { icon: "mic", title: p("Just talk", "बस बोलें"), body: p("Speak normally. Your words appear as you speak.", "सामान्य बोलें। शब्द साथ-साथ दिखते हैं।") },
-    { icon: "globe", title: p("Change language", "भाषा बदलें"), body: p("Tap हिंदी or English.", "हिंदी या English दबाएँ।") },
-    { icon: "check", title: p("Tap Done", "हो गया दबाएँ"), body: p("You can fix any word before saving.", "सहेजने से पहले कोई भी शब्द ठीक कर सकते हैं।") },
-  ],
-  saved: [
-    { icon: "check", title: p("Saved", "सहेजा गया"), body: p("Your note is safe. You can see who can read it.", "आपका नोट सुरक्षित है। कौन पढ़ सकता है, दिखता है।") },
-    { icon: "undo", title: p("Changed your mind?", "मन बदला?"), body: p("Tap Undo to take it back.", "वापस लेने के लिए वापस लें दबाएँ।") },
-    { icon: "layers", title: p("Make a plan", "योजना बनाएँ"), body: p("A support plan turns the note into small steps.", "सहायता योजना नोट को छोटे कदमों में बदलती है।") },
+    { icon: "plus", title: p("New note", "नया नोट"), body: p("Tap the big “New note” button: pick the child, write or speak, check, save.", "बड़ा “नया नोट” बटन दबाएँ: बच्चा चुनें, लिखें या बोलें, जाँचें, सहेजें।") },
   ],
   detail: [
     { icon: "activity", title: p("Update the status", "स्थिति बदलें"), body: p("Tap Open, Working on it or Done.", "खुला, काम चल रहा या पूरा दबाएँ।") },
@@ -181,17 +167,21 @@ export function TeachNotes(props: NotesProps) {
     ownerFor: (child: ChildChoice | null) => (!child || props.viewer.heldClassIds.includes(child.classId) ? "me" : "class_teacher"),
   });
   const { undo, pending: undoing } = useUndo();
+  // The card on the screen (D-486): pick the child, write, check, saved.
+  const flow = useNoteCards(composer, savedId ? "saved" : composer.child ? "write" : "child");
 
-  const screen: Screen = adding ? (savedId ? "saved" : composer.step === "listening" ? "listening" : "add") : focus?.kind === "note" ? "detail" : focus?.kind === "plan" || focus?.kind === "new-plan" ? "plan" : "list";
+  const screen: Screen = adding ? "add" : focus?.kind === "note" ? "detail" : focus?.kind === "plan" || focus?.kind === "new-plan" ? "plan" : "list";
 
   const openAdd = () => {
     composer.reset(false);
     // Opened for one child (`?student=`), the note is about that child.
-    if (props.initialStudent && props.kids.some((k) => k.id === props.initialStudent)) composer.pickChild(props.initialStudent);
-    // A note left unsaved comes back (RULES G: forms keep their drafts).
-    composer.restoreDraft(props.initialStudent && props.kids.some((k) => k.id === props.initialStudent) ? props.initialStudent : null);
+    const kid = props.initialStudent && props.kids.some((k) => k.id === props.initialStudent) ? props.initialStudent : null;
+    if (kid) composer.pickChild(kid);
+    // A note left unsaved comes back (RULES G: forms keep their drafts), and opens on its words.
+    composer.restoreDraft(kid);
     setSavedId(null);
     setAdding(true);
+    flow.start(kid ? "write" : "child");
     replaceParams({ sheet: "add", step: null, saved: null });
   };
   const closeAdd = () => {
@@ -204,7 +194,7 @@ export function TeachNotes(props: NotesProps) {
   const onSaved = (id: string) => {
     setSavedId(id);
     // "saved" also stops the composer keeping a draft of a note that is now saved.
-    composer.setStep("saved");
+    flow.go("saved");
     replaceParams({ saved: id });
     router.refresh();
   };
@@ -232,17 +222,19 @@ export function TeachNotes(props: NotesProps) {
   ].filter((g) => g.notes.length);
 
   /* ---------------------------------------------------------- the header */
-  const kidLine = composer.child ? `${composer.child.name} · ${composer.child.classLabel}` : tx(p("Pick a child", "बच्चा चुनें"));
   let top: { crumb: string; title: string; mTitle: string; mSub?: string; back: { href: string } | { onClick: () => void } | null };
   const savedNote = savedId ? (props.notes.find((n) => n.id === savedId) ?? null) : null;
   if (screen === "add") {
-    const rev = composer.voice && composer.body.trim().length > 0;
-    const t = rev ? tx(p("Check and save", "जाँचें और सहेजें")) : tx(p("New note", "नया नोट"));
-    top = { crumb: tx(p("Notes › New note", "नोट्स › नया नोट")), title: t, mTitle: t, mSub: kidLine, back: { onClick: closeAdd } };
-  } else if (screen === "listening") {
-    top = { crumb: tx(p("Notes › New note", "नोट्स › नया नोट")), title: tx(p("Listening…", "सुन रहे हैं…")), mTitle: tx(p("Listening…", "सुन रहे हैं…")), mSub: both(p("Speak now", "बोलिए")), back: { onClick: () => composer.cancelListening(composer.body ? "review" : "add") } };
-  } else if (screen === "saved") {
-    top = { crumb: tx(p("Notes › Saved", "नोट्स › सहेजा")), title: tx(p("Note saved", "नोट सहेजा गया")), mTitle: tx(p("Note saved", "नोट सहेजा गया")), mSub: composer.child?.name ?? (savedNote ? words.name(savedNote) : undefined), back: { onClick: closeAdd } };
+    const t = noteCardTop(flow.card, composer.child ?? null);
+    const listening = composer.step === "listening";
+    top = {
+      crumb: flow.card === "saved" ? tx(p("Notes › Saved", "नोट्स › सहेजा")) : tx(p("Notes › New note", "नोट्स › नया नोट")),
+      title: listening ? tx(p("Listening…", "सुन रहे हैं…")) : tx(t.title),
+      mTitle: listening ? tx(p("Listening…", "सुन रहे हैं…")) : tx(t.title),
+      mSub: t.sub ? tx(t.sub) : flow.card === "saved" && savedNote ? words.name(savedNote) : undefined,
+      // Back leaves the note (its words are kept on the phone); while listening it only stops the mic.
+      back: { onClick: listening ? () => composer.cancelListening("add") : closeAdd },
+    };
   } else if (screen === "detail" && focus?.kind === "note") {
     const n = focus.note;
     const name = words.name(n);
@@ -259,60 +251,42 @@ export function TeachNotes(props: NotesProps) {
   /* ---------------------------------------------------------- the screens */
   let body: React.ReactNode;
   if (screen === "add") {
-    body = <TeachCompose c={composer} kids={props.kids} notes={props.notes} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} onSaved={(id) => onSaved(id)} initialClass={props.initialClass} />;
-  } else if (screen === "listening") {
-    body = <TeachListening c={composer} />;
-  } else if (screen === "saved" && savedId) {
-    const c = composer.child;
-    const date = composer.followOnDate;
-    const note: BoardNote = savedNote ?? {
-      id: savedId,
-      studentId: c?.id ?? null,
-      studentName: c?.name ?? "",
-      classId: c?.classId ?? null,
-      classLabel: c?.classLabel ?? "—",
-      body: composer.body,
-      tags: composer.tags,
-      source: composer.voice ? "voice" : "typed",
-      status: "open",
-      visibility: composer.visibility,
-      needsFollowUp: composer.follow,
-      followUpOn: composer.follow ? date : null,
-      followUpOwner: composer.follow ? composer.owner : null,
-      followUpStaffId: null,
-      followUpName: null,
-      tellParents: composer.tellParents && composer.visibility === "team" && props.viewer.parentNotes !== false,
-      writtenBy: props.viewer.id,
-      writtenByName: props.viewer.name,
-      authorRelation: null,
-      subjectCode: null,
-      createdAt: new Date().toISOString(),
-      replies: 0,
-      planId: null,
-    };
-    const timeline = savedNote ? props.notes : [note, ...props.notes];
     body = (
-      <TeachSaved
-        note={note}
-        notes={timeline}
+      <NoteCards
+        flow={flow}
+        c={composer}
+        kids={props.kids}
+        notes={props.notes}
         viewer={props.viewer}
         people={people}
-        pending={undoing}
-        onUndo={() =>
+        today={props.today}
+        school={props.school}
+        base={base}
+        initialClass={props.initialClass}
+        savedId={savedId}
+        onSaved={(id) => onSaved(id)}
+        undoing={undoing}
+        onUndo={() => {
+          if (!savedId) return;
           undo(savedId, () => {
             setSavedId(null);
-            composer.setStep("review");
+            flow.go("check");
             replaceParams({ saved: null });
-          })
-        }
+          });
+        }}
         onPlan={() => {
+          if (!savedId) return;
           setAdding(false);
           setSavedId(null);
           composer.reset(false);
           router.push(`${base}?note=${savedId}&view=plan`, { scroll: false });
         }}
         onDone={closeAdd}
-        onAnother={openAdd}
+        onOpenAction={(href) => {
+          setAdding(false);
+          composer.reset(false);
+          router.push(href, { scroll: false });
+        }}
       />
     );
   } else if (screen === "detail" && focus?.kind === "note") {
@@ -405,7 +379,7 @@ export function TeachNotes(props: NotesProps) {
                 ? tx(p("Notes are written about the children of your classes. When the office gives you a class or a period, its children appear here.", "नोट आपकी कक्षाओं के बच्चों पर लिखे जाते हैं। जब ऑफ़िस आपको कक्षा या पीरियड देगा, उसके बच्चे यहाँ दिखेंगे।"))
                 : filteredOut
                   ? tx(p("No note has this tag or class. Show all notes, or speak a new one.", "इस टैग या कक्षा का कोई नोट नहीं। सभी नोट देखें, या नया नोट बोलें।"))
-                  : tx(p("Tap “Speak a note” below to write your first note about a child.", "किसी बच्चे पर पहला नोट लिखने के लिए नीचे “बोलकर नोट” दबाएँ।"))}
+                  : tx(p("Tap “New note” below to write your first note about a child.", "किसी बच्चे पर पहला नोट लिखने के लिए नीचे “नया नोट” दबाएँ।"))}
             </span>
             {filteredOut ? (
               <button type="button" className="tap btn sec nt-big" onClick={() => { setFtag("all"); setFcls("all"); }}>{tx(p("Show all notes", "सभी नोट दिखाएँ"))}</button>
@@ -415,10 +389,10 @@ export function TeachNotes(props: NotesProps) {
         {props.viewer.canWrite && !noClass ? (
           <div className="nt-fabrow">
             <button type="button" className="tap btn pri nt-fab" onClick={openAdd}>
-              <Ic n="mic" size={24} />
+              <Ic n="edit" size={22} />
               <span className="nx-c" style={{ alignItems: "flex-start", lineHeight: 1.1 }}>
-                {tx(p("Speak a note", "बोलकर नोट"))}
-                {sub(p("Speak a note", "बोलकर लिखें")) ? <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>{sub(p("Speak a note", "बोलकर लिखें"))}</span> : null}
+                {tx(p("New note", "नया नोट"))}
+                {sub(p("New note", "नया नोट")) ? <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>{sub(p("New note", "नया नोट"))}</span> : null}
               </span>
             </button>
           </div>
@@ -443,7 +417,7 @@ export function TeachNotes(props: NotesProps) {
         }
       >
         <div className="nx">
-          <HelpSteps steps={HELP[screen]} />
+          <HelpSteps steps={screen === "add" ? NOTE_CARD_HELP[flow.card] : HELP[screen]} />
         </div>
       </Sheet>
     </VxPage>

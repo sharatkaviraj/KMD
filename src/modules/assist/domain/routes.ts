@@ -28,6 +28,7 @@ export type AssistStage = { provider: AssistProvider; model: string; timeoutMs: 
 /** The tier of every task. A feature's tasks can differ: a template draft is quick, a parent notice is writing. */
 export const TASK_TIER: Record<AssistTaskId, AssistTier> = {
   "note.polish": "quick",
+  "note.sort": "quick",
   "text.translate": "quick",
   "ask.answer": "quick",
   "columns.match": "quick",

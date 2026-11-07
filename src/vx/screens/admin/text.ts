@@ -421,7 +421,7 @@ export const T = {
   yearTotal: p("Year total", "साल का कुल"),
   attendanceLast4: p("Attendance · last 4 weeks", "हाज़िरी · पिछले 4 हफ़्ते"),
   notesFromTeachers: p("Notes from teachers", "शिक्षकों के नोट्स"),
-  speakNote: p("Speak a note", "नोट बोलें"),
+  speakNote: p("New note", "नया नोट"),
   allNotesSpeak: p("All notes · speak a note", "सभी नोट्स · नोट बोलें"),
   noNotesYet: p("No notes yet. Notes from calls and meetings show up here for every staff member who can see this student.", "अभी कोई नोट नहीं। कॉल और मुलाक़ात के नोट यहाँ उन सबको दिखते हैं जो इस विद्यार्थी को देख सकते हैं।"),
   moneyFootnote: p("Subject teachers see this page without money. Who sees what is set in Staff & roles.", "विषय शिक्षक यह पेज बिना फीस के देखते हैं। कौन क्या देखे, यह स्टाफ़ व भूमिकाएँ में तय होता है।"),

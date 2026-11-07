@@ -1,5 +1,23 @@
 # VPPS One — progress
 
+## Notes, card by card — 7 November 2026
+
+Owner asked (7 Nov) that writing a note stop hiding behind scrolls: card by
+card like Collect, quick for non-technical teachers, the right child clearly
+picked, and the built-in AI sorting the note. Branch
+`claude/project-thread-fsmfri`, PR 263. **Done:** "New note" opens four cards (child,
+words, check, saved) on the teacher's notes, a class's child sheet and the
+admin/coordinator notes board (D-486); the words are sorted on Next and then by
+`note.sort` on the quick AI chain, with health/family kept and names masked in
+both scripts (D-487). A note that names a classmate instead of the picked
+child asks which child it is about. Checked in the container at 360×640,
+375×667, 390×844 (en, hi, hi + en) and 1366×768: every card fits without a
+scroll. **Surprised:** the offline banner pushed Save under the tab bar on a
+small phone until the cards re-measured on a size change; "call the mother"
+was being filed as a family note; the decision numbers moved twice (D-482/483,
+then D-484/485) because other changes on the same day took them first.
+**Remains:** the BrowserStack pass on live.
+
 ## One AI report for the whole year — 7 November 2026
 
 Owner asked (7 Nov) for one master report instead of many: a file with

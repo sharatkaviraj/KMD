@@ -93,23 +93,64 @@ export const QUICK_PHRASES: Pair[] = [
 ];
 
 /**
- * Tags a note's words suggest (design TchNotes `KW`): the composer marks them
- * "✦ Suggested", and words that came from the voice pick them. Hindi and
- * English. Only a suggestion: the writer still chooses.
+ * Tags a note's words suggest (design TchNotes `KW`): the card that checks a
+ * note marks them "✦ From your words", and an AI sort, where the school has
+ * one, is laid over them (D-487). Hindi and English. Only a suggestion: the
+ * writer still chooses.
+ *
+ * English words match whole words, so "missing" is not "sing" and "support"
+ * is not "sport". Hindi words match anywhere in a word (Hindi joins its
+ * endings on), so the stems are chosen to be no part of a common word:
+ * "सिर" was dropped for "सिरदर्द" because it is the start of "सिर्फ़", and
+ * "घर" because homework is done at home. "माता-पिता" and "parents" are taken
+ * out before the family words are read: "talk to the parents" is a follow-up,
+ * not a note about the family.
  */
-const TAG_WORDS: Record<NoteTag, RegExp> = {
-  studies: /भिन्न|सवाल|गणित|पढ़|गृहकार्य|अभ्यास|fraction|math|homework|practice|marks|read|lab/i,
-  behaviour: /झगड़|चुप|शरारत|quiet|fight|rude|alone|talks/i,
-  health: /तबीयत|बुखार|सिर|दर्द|unwell|fever|headache|sick/i,
-  family: /घर|पिता|माता|दादी|परिवार|father|mother|family|grand/i,
-  talent: /चित्र|गाना|खेल|drawing|sing|sport|quiz|talent|excellent|very good/i,
-  attendance: /अनुपस्थित|छुट्टी|नहीं आ|absent|late|leave/i,
+const TAG_WORDS: Record<NoteTag, { hi: readonly string[]; en: RegExp }> = {
+  studies: {
+    hi: ["भिन्न", "सवाल", "गणित", "पढ़", "पढा", "पढ़ाई", "गृहकार्य", "होमवर्क", "अभ्यास", "कॉपी", "किताब", "परीक्षा", "पाठ", "पहाड़ा", "वर्तनी"],
+    en: /\b(fractions?|maths?|homework|practi[cs]e|marks|read|reads|reading|spellings?|notebooks?|copy|tests?|exams?|lessons?|lab|sums?|tables|syllabus|study|studies|learn|learns|learning|classwork|handwriting|grammar)\b/i,
+  },
+  behaviour: {
+    hi: ["झगड़", "झगडा", "मारपीट", "चुप", "शरारत", "बदतमीज़", "बदतमीज", "गुस्सा", "गाली", "अकेला", "अकेली", "ध्यान नहीं", "शोर", "नकल", "रोने"],
+    en: /\b(quiet|fight|fights|fighting|fought|rude|alone|talks|talking|hit|hits|hitting|bull(y|ies|ying)|angry|anger|cried|crying|cries|shy|disturbs?|disturbing|noisy|naughty|misbehav(e|es|ed|ing|iou?r)|cheat(s|ed|ing)?|copied|upset|withdrawn|lonely|attention|distracted)\b/i,
+  },
+  health: {
+    hi: ["तबीयत", "तबियत", "बुखार", "सिरदर्द", "सिर दर्द", "दर्द", "बीमार", "चोट", "उल्टी", "खांसी", "खाँसी", "जुकाम", "दवा", "डॉक्टर", "अस्पताल", "चश्म"],
+    en: /\b(unwell|fever|headaches?|sick|ill|illness|pain|hurt|injur(y|ed|ies)|vomit(s|ed|ing)?|cough(s|ing)?|cold|doctor|hospital|medicines?|spectacles|glasses|stomach|asthma|allerg(y|ic)|tooth|teeth|bleed(s|ing)?|fainted|dizzy|infection|wound)\b/i,
+  },
+  family: {
+    hi: ["पिता", "पापा", "माता", "मम्मी", "दादी", "दादा", "नानी", "नाना", "परिवार", "घरवाले", "शादी", "तलाक", "निधन", "गुज़र", "गुजर"],
+    en: /\b(father|mother|family|grand(mother|father|ma|pa|parents?)|siblings?|brother|sister|divorced?|wedding|passed away|died|death|guardian)\b/i,
+  },
+  talent: {
+    hi: ["चित्र", "ड्राइंग", "गाना", "गाती", "नृत्य", "डांस", "खेल में", "खेलकूद", "प्रतियोगिता", "इनाम", "पुरस्कार", "बहुत अच्छा", "बहुत अच्छी", "शाबाश", "प्रथम"],
+    en: /\b(drawing|draws|paint(s|ing)?|art|sing|sings|singing|songs?|danc(e|es|ing)|sports?|quiz|talent(ed)?|excellent|very good|won(?!['’]t)|wins|winner|prize|competition|first place|creative|brilliant|outstanding|poem|debate|music)\b/i,
+  },
+  attendance: {
+    hi: ["अनुपस्थित", "गैरहाज़िर", "गैरहाजिर", "छुट्टी", "नहीं आया", "नहीं आई", "नहीं आए", "नही आया", "नही आई", "देर से", "स्कूल नहीं"],
+    en: /\b(absent|absence|late|leave|holiday|bunk(s|ed|ing)?|skipped|did ?n[o']t come|not come|left early|came late)\b/i,
+  },
 };
 
+/**
+ * Who to talk to, not what the note is about: "माता-पिता", "parents", and a
+ * mother or father the teacher means to call, tell or meet ("call the
+ * mother", "पापा से बात करें"). A family tag keeps a note to the admin and
+ * the class teacher, so it is earned by the family's own news only.
+ */
+const PARENTS = /माता[\s-]*पिता|मम्मी[\s-]*पापा|माँ[\s-]*बाप|\bparents?\b/giu;
+const CONTACT_EN = /\b(call|phone|ring|tell|told|inform(ed)?|meet|met|message|ask|asked|talk(ed)? (to|with)|spoke (to|with)|speak (to|with)|send (a )?note to)\s+(the |his |her |their |to )?(mother|father|mum|mom|mummy|dad|daddy|papa|guardian)\b/gi;
+const CONTACT_HI = /(माँ|मां|माता|माताजी|पिता|पिताजी|पापा|मम्मी|अभिभावक)\s*(जी\s*)?(से|को)\s*(बात|फ़ोन|फोन|बता|बुला|मिल|सूचित|संदेश)/gu;
+
 export function suggestTags(text: string): NoteTag[] {
-  const t = text.trim();
+  const t = text.normalize("NFC").trim();
   if (!t) return [];
-  return NOTE_TAGS.filter((tag) => TAG_WORDS[tag].test(t));
+  return NOTE_TAGS.filter((tag) => {
+    const words = TAG_WORDS[tag];
+    const read = tag === "family" ? t.replace(PARENTS, " ").replace(CONTACT_EN, " ").replace(CONTACT_HI, " ") : t;
+    return words.en.test(read) || words.hi.some((w) => read.includes(w.normalize("NFC")));
+  });
 }
 
 /* -------------------------------------------------------------- follow-up */

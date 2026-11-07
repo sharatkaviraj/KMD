@@ -116,7 +116,7 @@ function ClassTop({ crumb, title, mTitle, mSub, back, speak, onHelp }: { crumb: 
         <>
           <LangSeg />
           <DeskHelp onClick={onHelp} label={helpLabel} />
-          {speak ? <Link href={speak} className="tap btn pri"><Ic n="mic" />{tx(p("Speak a note", "बोलकर नोट लिखें"))}</Link> : null}
+          {speak ? <Link href={speak} className="tap btn pri"><Ic n="edit" />{tx(p("New note", "नया नोट"))}</Link> : null}
         </>
       }
       mLead={backBtn ?? undefined}
@@ -816,7 +816,7 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
               <>
                 <div className="card tc-in" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12, alignItems: "center", textAlign: "center", background: "var(--accs)", borderColor: "transparent" }}>
                   <span style={{ fontSize: 15, fontWeight: 700, color: "var(--accfg)" }}>{tx(p(`Noticed something about ${first}?`, `${first} के बारे में कुछ देखा?`))}</span>
-                  <Link href={`/teach/notes?sheet=add&student=${data.id}`} className="tap btn pri tc-cbig"><Ic n="mic" size={22} />{tx(p("Speak a note", "बोलकर लिखें"))}{sub(p("Speak a note", "बोलकर लिखें")) ? ` · ${sub(p("Speak a note", "बोलकर लिखें"))}` : ""}</Link>
+                  <Link href={`/teach/notes?sheet=add&student=${data.id}`} className="tap btn pri tc-cbig"><Ic n="edit" size={22} />{tx(p("New note", "नया नोट"))}{sub(p("New note", "नया नोट")) ? ` · ${sub(p("New note", "नया नोट"))}` : ""}</Link>
                   <span className="tc-s">{tx(p("Speak in Hindi or English — the app writes it down.", "हिंदी या अंग्रेज़ी में बोलें — ऐप लिख देता है।"))}</span>
                 </div>
                 <ChildSummary
@@ -856,7 +856,7 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
         steps={[
           ["phone", p("Call or WhatsApp", "फ़ोन या व्हाट्सऐप"), p("The big buttons call the parent from your phone. Numbers stay partly hidden.", "बड़े बटन आपके फ़ोन से माता-पिता को फ़ोन करते हैं। नंबर आधे छिपे रहते हैं।")],
           ["grid", p("Use the tabs", "टैब इस्तेमाल करें"), p("About · Attendance · Marks · Notes.", "परिचय · हाज़िरी · अंक · नोट्स।")],
-          ["mic", p("Speak a note", "बोलकर नोट लिखें"), p("Say what you noticed. The app writes it down for you.", "जो देखा वह बोलें। ऐप लिख देता है।")],
+          ["edit", p("Write a note", "नोट लिखें"), p("Type or speak what you noticed. The app sorts it for you.", "जो देखा वह लिखें या बोलें। ऐप उसे छाँट देता है।")],
         ]}
       />
     </VxPage>

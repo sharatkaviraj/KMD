@@ -21,3 +21,11 @@ export const tellParentsAboutPlanAction = refuse;
 // Added for the 21 Oct smoke fixes: this fixture never exercises it.
 export const decideLeaveAction = refuse;
 export const removeStudentDocument = refuse;
+// The timetable screen's other actions, so a design view that bundles it still loads.
+export const coverAction = refuse;
+export const checkCoverAction = refuse;
+export const lateCoverAction = refuse;
+export const discardChangeAction = refuse;
+export const publishChangesAction = refuse;
+export const requestLeaveAction = refuse;
+export const saveChangeAction = refuse;

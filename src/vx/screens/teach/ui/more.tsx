@@ -804,11 +804,11 @@ const HELP: Record<HelpTopic, { icon: IconName; t: Pair; tone: Tone; href?: stri
     ],
   },
   note: {
-    icon: "mic", t: p("Speak a note", "बोलकर नोट लिखें"), tone: TI, href: "/teach/notes?sheet=add",
+    icon: "edit", t: p("Write a note", "नोट लिखें"), tone: TI, href: "/teach/notes?sheet=add",
     steps: [
-      step(p("Tap the mic", "माइक दबाएँ"), p("In Notes, tap the big round mic button.", "नोट्स में बड़ा गोल माइक बटन दबाएँ।"), <Mini rows={[{ t: "", tone: "mic" }]} />),
-      step(p("Speak in Hindi or English", "हिंदी या अंग्रेज़ी में बोलें"), p("Your words appear as you speak. Fix any word by typing.", "बोलते ही शब्द दिखते हैं। कोई शब्द टाइप करके ठीक करें।"), <Mini rows={[{ t: p("Riya finds fractions…", "रिया को भिन्न…") }, { t: p("started practice sheets|", "अभ्यास शुरू किया|"), tone: "soft", hl: true }]} />),
-      step(p("Save the note", "नोट सेव करें"), p("It reaches the class teacher by itself.", "यह अपने आप कक्षा अध्यापक तक पहुँचता है।"), <Mini rows={[{ t: p("Save note", "नोट सहेजें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+      step(p("Pick the child", "बच्चा चुनें"), p("In Notes, tap New note, then the child’s name. Type two letters to find a child.", "नोट्स में “नया नोट” दबाएँ, फिर बच्चे का नाम। बच्चा ढूँढने के लिए दो अक्षर लिखें।"), <Mini rows={[{ t: p("Riya · Aarav · Kabir", "रिया · आरव · कबीर"), hl: true }]} />),
+      step(p("Type or speak", "लिखें या बोलें"), p("A line or two in Hindi or English. Tap Speak to talk instead.", "हिंदी या अंग्रेज़ी में एक-दो लाइन। बोलना हो तो “बोलें” दबाएँ।"), <Mini rows={[{ t: p("Riya finds fractions…", "रिया को भिन्न…") }, { t: "", tone: "mic" }]} />),
+      step(p("Check and save", "जाँचें और सहेजें"), p("The app sorts the note for you. Check it and tap Save note.", "ऐप नोट को खुद छाँट देता है। जाँचें और “नोट सहेजें” दबाएँ।"), <Mini rows={[{ t: p("Save note", "नोट सहेजें"), tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],
   },
   link: {
