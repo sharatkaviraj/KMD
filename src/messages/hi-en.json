@@ -2132,7 +2132,7 @@
     "sessionsRetry": "फिर कोशिश करें / Try again",
     "sessionGroupActive": "वर्तमान / Active",
     "sessionGroupOther": "अन्य शैक्षणिक वर्ष / Other academic years",
-    "sessionGroupTest": "अभ्यास वर्ष (केवल परीक्षण डेटा) / Practice years (test data only)",
+    "sessionGroupTest": "अभ्यास वर्ष / Practice years",
     "sessionTestBadge": "परीक्षण / TEST",
     "sessionSwitchFailed": "सत्र नहीं बदल सके / Could not switch session",
     "sessionSwitchFailedDescription": "{label} नहीं खुल सका। आप अभी भी {currentLabel} में हैं। / {label} could not be opened. You are still on {currentLabel}."

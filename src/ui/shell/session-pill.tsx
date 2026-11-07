@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CalendarDays, Check, ChevronDown, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -125,7 +126,20 @@ export function buildSessionSwitchHref(
   return `${pathname}?${params.toString()}`;
 }
 
-export function groupSessions(sessions: AvailableSessionRow[]) {
+/**
+ * The catalogue key (MobileApp namespace) that names each group of years.
+ *
+ * Both pills say the heading through the catalogue rather than carrying a
+ * title of their own. The desktop menu used to print "Test / UAT / DEMO" and
+ * "Other production" — a developer's words, in English to every reader —
+ * while the phone sheet said "Practice years" (polish thread, 7 Nov 2026).
+ * A key cannot drift like that, and a reader of both languages gets both.
+ */
+export type SessionGroupKey = "sessionGroupActive" | "sessionGroupOther" | "sessionGroupTest";
+
+export function groupSessions(
+  sessions: AvailableSessionRow[],
+): { key: SessionGroupKey; rows: AvailableSessionRow[] }[] {
   const active = sessions.filter((session) => session.is_current);
   const activeIds = new Set(active.map((session) => session.id));
   const test = sessions.filter(
@@ -136,11 +150,13 @@ export function groupSessions(sessions: AvailableSessionRow[]) {
     (session) => !activeIds.has(session.id) && !testIds.has(session.id),
   );
 
-  return [
-    { title: "Active", rows: active },
-    { title: "Other production", rows: otherProduction },
-    { title: "Test / UAT / DEMO", rows: test },
-  ].filter((group) => group.rows.length > 0);
+  const groups: { key: SessionGroupKey; rows: AvailableSessionRow[] }[] = [
+    { key: "sessionGroupActive", rows: active },
+    { key: "sessionGroupOther", rows: otherProduction },
+    { key: "sessionGroupTest", rows: test },
+  ];
+
+  return groups.filter((group) => group.rows.length > 0);
 }
 
 export function syncTestSessionBodyAttribute(
@@ -171,6 +187,7 @@ export function SessionPill({
   showLive = true,
   appearance = "default",
 }: SessionPillProps) {
+  const t = useTranslations("MobileApp");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -358,8 +375,8 @@ export function SessionPill({
           setSwitchTarget?.(null);
           setOptimisticLabel(null);
           toast({
-            title: "Could not switch session",
-            description: `${label} could not be opened. You are still on ${currentLabel}.`,
+            title: t("sessionSwitchFailed"),
+            description: t("sessionSwitchFailedDescription", { label, currentLabel }),
             tone: "danger",
           });
         }
@@ -367,10 +384,10 @@ export function SessionPill({
         sessionSyncGuard.label = null;
         setSwitchTarget?.(null);
         setOptimisticLabel(null);
+        console.error("Failed to switch session", error);
         toast({
-          title: "Could not switch session",
-          description:
-            error instanceof Error ? error.message : `You are still on ${currentLabel}.`,
+          title: t("sessionSwitchFailed"),
+          description: t("sessionSwitchFailedDescription", { label, currentLabel }),
           tone: "danger",
         });
       } finally {
@@ -397,7 +414,7 @@ export function SessionPill({
               : "border-border bg-surface text-foreground hover:bg-surface-2"),
           isTransitioning && "opacity-75",
         )}
-        aria-label="Change academic session"
+        aria-label={t("sessionChangeAria", { label: displayLabel })}
         aria-busy={isTransitioning}
         data-test-session={displayIsTest ? "true" : undefined}
         data-live={displayIsLive ? "true" : undefined}
@@ -414,7 +431,7 @@ export function SessionPill({
         <span className={appearance === "one" ? "vx-session-name" : undefined}>{displayLabel}</span>
         {displayIsTest && appearance === "default" ? (
           <span className="rounded-full border border-fuchsia-300 bg-fuchsia-50 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700">
-            TEST
+            {t("sessionTestBadge")}
           </span>
         ) : null}
         {isTransitioning ? (
@@ -426,18 +443,18 @@ export function SessionPill({
       <DropdownMenuContent align="end" className={appearance === "one" ? "vxt vx-session-menu" : "w-64 p-2"}>
         {isTransitioning ? (
           <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
-            Changing to {displayLabel}...
+            {t("sessionChanging", { label: displayLabel })}
           </p>
         ) : null}
         {groups.length === 0 ? (
           <p className="px-2 py-2 text-xs text-muted-foreground">
-            Academic sessions are loading.
+            {t("sessionsLoading")}
           </p>
         ) : (
           groups.map((group) => (
-            <div key={group.title} className="space-y-1 py-1">
+            <div key={group.key} className="space-y-1 py-1" data-session-group={group.key}>
               <p className="px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
-                {group.title}
+                {t(group.key)}
               </p>
               {group.rows.map((session) => {
                 const selected = session.session_label === displayLabel;
@@ -462,7 +479,7 @@ export function SessionPill({
                       <span className={appearance === "one" ? "min-w-0 whitespace-normal break-words" : "truncate"}>{session.session_label}</span>
                       {rowIsTest ? (
                         <span className="rounded-full border border-fuchsia-300 px-1.5 py-0.5 text-[10px] font-semibold text-fuchsia-700">
-                          TEST
+                          {t("sessionTestBadge")}
                         </span>
                       ) : null}
                     </span>

@@ -101,6 +101,39 @@ test("a year switch names the year it opened, then gets out of the way", async (
   await expect(page.locator('[data-session-switch-card]')).toHaveCount(0);
 });
 
+const GROUPS_EN = ["Active", "Other academic years", "Practice years"];
+const GROUPS_BOTH = ["Active · वर्तमान", "Other academic years · अन्य शैक्षणिक वर्ष", "Practice years · अभ्यास वर्ष"];
+
+test("the desktop year menu names the test years the way the phone does", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/one-polish.html");
+  await page.locator(".vx-sessionbar-d button").click();
+  const menu = page.getByRole("menu");
+  await expect(menu.locator("[data-session-group] > p")).toHaveText(GROUPS_EN);
+  await expect(menu).not.toContainText("UAT");
+  await page.screenshot({path: test.info().outputPath("year-menu-desktop-en.png")});
+});
+
+test("a reader of both languages reads the year picker in both, on the phone and the desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/one-polish.html?locale=both");
+  await page.locator(".vx-sessionbar-m button").click();
+  const dialog = page.getByRole("dialog", { name: /Academic session · शैक्षणिक सत्र/ });
+  await expect(dialog.locator("[data-session-group] > p")).toHaveText(GROUPS_BOTH);
+  await expect(dialog).toContainText("TEST · परीक्षण");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  expect((await new AxeBuilder({ page }).include("#vx-layer").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  await page.screenshot({path: test.info().outputPath("year-sheet-phone-both.png")});
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.locator(".vx-sessionbar-d button").click();
+  const menu = page.getByRole("menu");
+  await expect(menu.locator("[data-session-group] > p")).toHaveText(GROUPS_BOTH);
+  await expect(menu).toContainText("TEST · परीक्षण");
+  await page.screenshot({path: test.info().outputPath("year-menu-desktop-both.png")});
+});
+
 test("roster details and ledger explanation keep exact evidence and links available", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/one-polish.html");

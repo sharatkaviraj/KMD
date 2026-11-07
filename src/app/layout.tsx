@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
-import { getLocale } from "next-intl/server";
+import { getLocale, getMessages } from "next-intl/server";
 import { shellMessages } from "@/platform/i18n/shell-messages";
 import { KeyboardOffsetProvider } from "@/ui/system/keyboard-offset-provider";
 import { ServiceWorkerRegistration } from "@/ui/system/service-worker-registration";
@@ -58,26 +58,6 @@ const fontDevanagari = localFont({
   display: "swap",
   weight: "400 700",
 });
-
-/**
- * Only the active locale's shell namespaces are shipped at the root. Fee routes
- * add their own complete catalogue beneath this provider.
- *
- * The three fee catalogues are 111 KB, 176 KB and 116 KB of JSON. Sending all
- * three to every reader was the fee app's biggest first-load win when it
- * stopped; a `switch` rather than a template literal is what lets the bundler
- * see that only one of the three is reachable per branch.
- */
-async function loadFeeMessages(locale: AppLocale): Promise<LanguageCatalogs> {
-  switch (locale) {
-    case "en":
-      return { en: shellMessages((await import("@/messages/en.json")).default) };
-    case "hi":
-      return { hi: shellMessages((await import("@/messages/hi.json")).default) };
-    case "hi-en":
-      return { "hi-en": shellMessages((await import("@/messages/hi-en.json")).default) };
-  }
-}
 
 export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
@@ -158,9 +138,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
  * this sits inside the boot boundary rather than above it.
  */
 async function LocaleRoot({ htmlLang, children }: { htmlLang: AppLocale; children: React.ReactNode }) {
-  const resolved = await getLocale();
+  const [resolved, messages] = await Promise.all([getLocale(), getMessages()]);
   const locale: AppLocale = isSupportedLocale(resolved) ? resolved : "hi";
-  const feeMessages = await loadFeeMessages(locale);
+  /*
+   * Only the active locale's shell namespaces are shipped at the root (the
+   * three fee catalogues are 111 KB, 176 KB and 116 KB of JSON); fee routes
+   * add their own complete catalogue beneath this provider.
+   *
+   * They are cut from the catalogue `i18n/request.ts` already built for this
+   * request, not from a fresh import of `hi.json`. For a reader of both
+   * languages that one is bilingual ("Academic session · शैक्षणिक सत्र",
+   * A-23), and the plain import showed them the year picker and the year
+   * switch card in Hindi alone while every One screen around them was in
+   * both (polish thread, 7 Nov 2026).
+   */
+  const feeMessages: LanguageCatalogs = { [locale]: shellMessages(messages) };
 
   return (
     <>

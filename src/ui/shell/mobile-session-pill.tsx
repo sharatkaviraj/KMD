@@ -253,11 +253,15 @@ export function MobileSessionPill({
         {appearance === "one" ? <CalendarDays className="vx-session-calendar" aria-hidden="true" /> : null}
         {/* A long label (`TEST-2026-27`) is set a size smaller so it stays on
             one line at 375px instead of breaking at its hyphen; it still wraps,
-            never truncates, if a longer one ever comes (One-only, Phase C). */}
+            never truncates, if a longer one ever comes (One-only, Phase C).
+            Not in One's appearance: `.vx-session-name` already sets it at 12px
+            on one line, and the tighter tracking made the real pill 3px
+            narrower than its loading placeholder, so it jumped as the year
+            list arrived. */}
         <span
           className={cn(
             appearance === "one" ? "vx-session-name" : "min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]",
-            displayLabel.length > 9 && "text-xs tracking-tight",
+            appearance !== "one" && displayLabel.length > 9 && "text-xs tracking-tight",
           )}
         >
           {displayLabel}
@@ -301,9 +305,9 @@ export function MobileSessionPill({
             </div>
           ) : (
             groups.map((group) => (
-              <section key={group.title} className="vx-session-group min-w-0 space-y-2">
+              <section key={group.key} className="vx-session-group min-w-0 space-y-2" data-session-group={group.key}>
                 <p className="break-words text-xs font-semibold leading-5 tracking-wide text-muted-foreground">
-                  {t(group.title === "Active" ? "sessionGroupActive" : group.title === "Other production" ? "sessionGroupOther" : "sessionGroupTest")}
+                  {t(group.key)}
                 </p>
                 <div className="vx-session-rows divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
                   {group.rows.map((session) => {

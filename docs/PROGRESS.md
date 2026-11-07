@@ -19,6 +19,14 @@ suite passes except `tests/sentry-lite.test.ts`, which fails only in a
 checkout under `/home/user` (the path contains "user").
 **Remains:** teachers see real-year photos after the first "Refresh roster
 now" by an admin; the copy is not automatic (owner's choice).
+**Live:** merged as PR 295 (`92036b2`), on one.vpps.co.in from 15:09 UTC.
+Checked live as QA admin and QA teacher in a container browser (a drawn test
+photo on one TEST child shows in New note on phone and desk; initials where
+there is none; tab lit within 0.12 s; "Opening…" on a slow page) and on
+BrowserStack (real Galaxy M32 Chrome and Windows 11 Chrome): all passed but
+the year picker's words, which D-517 fixes (desk heading still "Test / UAT /
+DEMO", phone sheet Hindi-only for a both-languages reader). Same branch,
+restarted from main after the merge.
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
