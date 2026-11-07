@@ -88,7 +88,9 @@
 .nx .nt-sbar{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 28px;border-top:1px solid var(--bd)}
 .nx .nt-sbar .nt-rt{min-width:200px}
 .nx .nt-fabrow{position:sticky;bottom:28px;height:0;display:flex;justify-content:flex-end;padding-right:28px;z-index:6;pointer-events:none}
-.nx .nt-fab{transform:translateY(-100%);height:60px;padding:0 24px 0 18px;border-radius:30px;font-size:16px;box-shadow:0 16px 30px -12px rgba(11,79,121,.7);pointer-events:auto}
+.nx .nt-fab{transform:translateY(-100%);height:60px;padding:0 24px 0 18px;border-radius:30px;font-size:16px;box-shadow:0 16px 30px -12px rgba(11,79,121,.7);pointer-events:auto;transition:opacity .2s ease,transform .2s var(--ease),visibility 0s}
+/* While the desk's own "New note" at the top is in view, the floating one steps aside (teacher.tsx). */
+.nx .nt-fab-away .nt-fab{opacity:0;visibility:hidden;transform:translateY(-80%) scale(.92);transition:opacity .2s ease,transform .2s var(--ease),visibility 0s linear .2s}
 /* A teacher page that fills the screen above the bars, so its save bar sits at the bottom. */
 .nx .nt-full{min-height:calc(100dvh - 64px)}
 .nx .nt-micbig{width:64px;height:64px;border-radius:32px;background:var(--pri);color:var(--prifg);display:flex;align-items:center;justify-content:center;box-shadow:0 14px 26px -12px rgba(11,79,121,.8)}

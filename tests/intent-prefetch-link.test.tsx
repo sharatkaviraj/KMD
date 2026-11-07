@@ -41,8 +41,19 @@ describe("vx Link", () => {
   });
 });
 
+describe("the desk side menu waits for intent too (D-530)", () => {
+  // Thirty-odd menu items prefetched on every desk page load; they now fetch when pointed at or focused.
+  it("draws its menu items with the intent link, not Next's default prefetch", () => {
+    const src = readFileSync(join(process.cwd(), "src/vx/shell/sidebar.tsx"), "utf8");
+    expect(src).toMatch(/import ScreenLink from "@\/ui\/link"/);
+    expect(src).toContain("<ScreenLink");
+    expect(src).not.toContain("<NavLink");
+  });
+});
+
 describe("every screen uses the intent link", () => {
-  // The shell's tabs keep Next's default prefetch (D-439); everything else waits for intent (D-441).
+  // The phone's tabs keep Next's default prefetch (D-439); everything else waits for intent (D-441),
+  // the desk side menu's items included (D-530; the sidebar still imports next/link for its brand links).
   const SHELL = new Set([
     "src/ui/link.tsx",
     "src/vx/ui/intent-link.tsx",

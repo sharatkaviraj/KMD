@@ -2,7 +2,7 @@
 
 import Link from "@/ui/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -173,6 +173,20 @@ export function TeachNotes(props: NotesProps) {
 
   const screen: Screen = adding ? "add" : focus?.kind === "note" ? "detail" : focus?.kind === "plan" || focus?.kind === "new-plan" ? "plan" : "list";
 
+  // A desk shows "New note" in the card at the top; the floating button only comes in once that one
+  // has scrolled away, so it no longer sits over the notes' corners (desk check, 7 Nov). A phone
+  // never shows the top one, so its floating button stays as it was.
+  const [topNewSeen, setTopNewSeen] = useState(false);
+  const watchTopNew = useCallback((el: HTMLButtonElement | null) => {
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setTopNewSeen(e.isIntersecting), { threshold: 0.5 });
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      setTopNewSeen(false);
+    };
+  }, []);
+
   const openAdd = () => {
     composer.reset(false);
     // Opened for one child (`?student=`), the note is about that child.
@@ -328,6 +342,15 @@ export function TeachNotes(props: NotesProps) {
               </span>
             ))}
           </span>}
+          {props.viewer.canWrite && !noClass ? (
+            <button ref={watchTopNew} type="button" className="tap btn pri only-d" onClick={openAdd} style={{ height: 52, padding: "0 22px 0 18px", borderRadius: 26, fontSize: 16, boxShadow: "0 12px 24px -14px rgba(11,79,121,.8)" }}>
+              <Ic n="edit" size={20} />
+              <span className="nx-c" style={{ alignItems: "flex-start", lineHeight: 1.1 }}>
+                {tx(p("New note", "नया नोट"))}
+                {sub(p("New note", "नया नोट")) ? <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>{sub(p("New note", "नया नोट"))}</span> : null}
+              </span>
+            </button>
+          ) : null}
         </div>
         {bare ? null : <div className="nx-c" style={{ gap: 10 }}>
           <div className="hs" role="group" aria-label="Tag" style={{ display: "flex", gap: 8 }}>
@@ -389,7 +412,7 @@ export function TeachNotes(props: NotesProps) {
           </div>
         ) : null}
         {props.viewer.canWrite && !noClass ? (
-          <div className="nt-fabrow">
+          <div className={`nt-fabrow${topNewSeen ? " nt-fab-away" : ""}`}>
             <button type="button" className="tap btn pri nt-fab" onClick={openAdd}>
               <Ic n="edit" size={22} />
               <span className="nx-c" style={{ alignItems: "flex-start", lineHeight: 1.1 }}>

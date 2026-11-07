@@ -16,8 +16,7 @@ import { T } from "@/vx/screens/admin/text";
 import { TodayScreen, type TodayProps } from "@/vx/screens/admin/today";
 import { dayPercent, moneyFromLedger, type LedgerSummary } from "@/vx/screens/admin/today-logic";
 import { loadGlance } from "@/vx/screens/admin/glance-data";
-import { TD } from "@/vx/screens/admin/today-text";
-import { lead } from "@/vx/text";
+import { lead, p, type Pair } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { menuRoleLabel } from "@/vx/shell/role-line";
@@ -32,6 +31,9 @@ import { sessionText } from "@/platform/helpers/session-text";
 export const runtime = "nodejs";
 
 export const metadata = { title: "Today" };
+
+/** "Admin · Session 2026-27" under the greeting. Said here, on the server, so it never ships to the browser. */
+const sessionLine = (role: Pair, session: string): Pair => p(`${role.en} · Session ${session}`, `${role.hi ?? role.en} · सत्र ${session}`);
 
 /**
  * `/` — the admin's Today (P5, design F01/Desktop).
@@ -182,7 +184,7 @@ export default async function TodayPage() {
           timetable: can(staff, "timetable:view"),
         }}
         unavailable={facts.unavailable.length > 0 || (inbox?.unavailable.length ?? 0) > 0}
-        roleLine={TD.sessionLine(menuRoleLabel(menu, staff.role, previewing), session)}
+        roleLine={sessionLine(menuRoleLabel(menu, staff.role, previewing), session)}
         me={{ initials: initials(staff.displayName), href: can(staff, "settings:manage") ? "/settings" : "/preferences" }}
         week={week ? week.map((row) => ({ day: row.day, percent: row.tally ? dayPercent(row.tally, credit) : null })) : null}
         promisedToday={promised}

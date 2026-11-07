@@ -167,7 +167,9 @@ export function AdmissionsBoard({
                 <Ic n="x" size={15} />
               </button>
             </span>
-            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+            {/* In a narrow column "9 days · call back" and the button take two lines rather than the button
+                hanging out of the card (desk check at 1000px, 7 Nov). */}
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
               {late && c.phone ? (
                 <a href={`tel:${c.phone}`} className="pill" style={pillStyle} title={maskPhone(c.phone)}>
                   {pill}
@@ -176,12 +178,12 @@ export function AdmissionsBoard({
                 <span className="pill" style={pillStyle}>{pill}</span>
               )}
               {stage === "form" ? (
-                <Btn variant="pri" href={`/admissions/new?enquiry=${c.id}`} style={{ height: 34, padding: "0 12px", fontSize: 12 }}>
+                <Btn variant="pri" href={`/admissions/new?enquiry=${c.id}`} style={{ height: 34, padding: "0 12px", fontSize: 12, marginLeft: "auto" }}>
                   {tx(p("Admit", "प्रवेश दें"))}
                   <Ic n="arrowRight" size={15} />
                 </Btn>
               ) : (
-                <Btn variant="soft" onClick={() => void move(c)} disabled={busy === c.id} style={{ height: 34, padding: "0 12px", fontSize: 12 }}>
+                <Btn variant="soft" onClick={() => void move(c)} disabled={busy === c.id} style={{ height: 34, padding: "0 12px", fontSize: 12, marginLeft: "auto" }}>
                   {tx(p("Move", "आगे"))}
                   <Ic n="arrowRight" size={15} />
                 </Btn>
@@ -312,7 +314,8 @@ export function AdmissionsBoard({
                     </span>
                   </span>
                 </span>
-                <span className="num only-d" style={{ fontSize: 13, fontWeight: 600 }}>SR {r.sr}</span>
+                {/* One line, cut with "…" if it must be: in 64px a TEST number ran down four lines (desk check, 7 Nov). */}
+                <span className="num only-d clip" title={`SR ${r.sr}`} style={{ fontSize: 13, fontWeight: 600 }}>SR {r.sr}</span>
                 <span className="num only-d" style={{ fontSize: 13 }}>{r.date}</span>
                 {DOC_PILLS.map((d) => {
                   const look = DOC_LOOK[r.docs[d.key]];
