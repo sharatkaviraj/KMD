@@ -80,6 +80,17 @@ const cardButton: CSSProperties = {
   lineHeight: "normal",
 };
 
+/** The classes on a route card: up to two lines; the route sheet lists every child. */
+const TWO_LINES: CSSProperties = {
+  fontSize: 13,
+  color: "var(--mut)",
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+  overflowWrap: "anywhere",
+};
+
 export function TransportScreen(props: Props) {
   const { tx } = useVx();
   const router = useRouter();
@@ -453,14 +464,17 @@ function RouteRow({ card, fleetReady, delay, onOpen }: { card: RouteCard; fleetR
   const morning = card.visits.filter((v) => v.shift === "morning");
   const afternoon = card.visits.filter((v) => v.shift === "afternoon");
   const other = card.visits.filter((v) => v.shift === "other");
-  const classes = card.classes.map((c) => `${c.label} · ${c.count}`).join("   ");
+  // "Class 5 (2) · Class 8 (1)". Spaces alone collapsed in HTML and the pairs
+  // ran together ("NUR · 1 Class 1 · 1"); the count in brackets matches the
+  // stop counts on Bus times.
+  const classes = card.classes.map((c) => `${c.label} (${c.count})`).join(" · ");
   return (
     <button type="button" className="card tap lift" onClick={onOpen} style={{ ...cardButton, animation: `xIn .32s var(--ease) ${delay}ms both` }}>
       <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         <IconTile icon="mapPin" tone="info" size={44} />
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
           <strong style={{ fontSize: 17, lineHeight: 1.25 }}>{card.known ? card.name : tx(W.unnamed)}</strong>
-          {classes ? <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{classes}</span> : null}
+          {classes ? <span style={TWO_LINES}>{classes}</span> : null}
         </span>
         <span style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
           <span className="num" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{card.riders.length}</span>
@@ -491,12 +505,15 @@ function VisitLine({ shift, visits, missing }: { shift: Shift; visits: RouteCard
     );
   }
   return (
-    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, minWidth: 0 }}>
-      <Ic n={SHIFT_ICON[shift]} size={15} style={{ flex: "none", color: "var(--mut)" }} />
-      <span className="clip" style={{ minWidth: 0 }}>
-        {visits
-          .map((v) => `${timeText(tx, v.stopTime ?? v.startsAt)} · ${v.busName} · ${v.driver ? v.driver.name : tx(W.noDriver)}`)
-          .join("  |  ")}
+    <span style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 14, minWidth: 0 }}>
+      <Ic n={SHIFT_ICON[shift]} size={15} style={{ flex: "none", color: "var(--mut)", marginTop: 2 }} />
+      {/* One line per bus, wrapping rather than cut off: two buses on one route used to share a clipped line. */}
+      <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2, lineHeight: 1.35, overflowWrap: "anywhere" }}>
+        {visits.map((v) => (
+          <span key={v.tripId}>
+            {`${timeText(tx, v.stopTime ?? v.startsAt)} · ${v.busName} · ${v.driver ? v.driver.name : tx(W.noDriver)}`}
+          </span>
+        ))}
       </span>
     </span>
   );
@@ -669,7 +686,7 @@ function DriversView(props: {
                   driver.trips.map((trip) => (
                     <button key={trip.id} type="button" className="tap" onClick={() => props.onOpenTrip(trip.id)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, minHeight: 40, minWidth: 0 }}>
                       <Ic n={SHIFT_ICON[trip.shift]} size={16} style={{ flex: "none", color: "var(--mut)" }} />
-                      <span className="clip" style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 14, lineHeight: 1.35, overflowWrap: "anywhere", padding: "4px 0" }}>
                         <strong>{timeText(tx, trip.startsAt)}</strong> · {trip.busName} · {trip.stopViews.map((s) => (s.known ? s.name : tx(W.unnamed))).join(", ")}
                       </span>
                       <Ic n="chevRight" size={16} style={{ flex: "none", color: "var(--mut)" }} />

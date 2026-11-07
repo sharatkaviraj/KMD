@@ -395,7 +395,7 @@ export function TripEditor(props: {
                     <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                       <span className="num" aria-hidden="true" style={NUMBER}>{index + 1}</span>
                       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                        <strong className="clip" style={{ fontSize: 16 }}>{name}</strong>
+                        <strong style={{ fontSize: 16, lineHeight: 1.25, overflowWrap: "anywhere" }}>{name}</strong>
                         <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.children(riders))}</span>
                       </span>
                       <IconButton icon="arrowUp" label={tx(W.moveUp(name))} disabled={index === 0} onClick={() => { cue("tap"); setStops(moveStop(draft.stops, index, -1)); }} />
@@ -456,8 +456,8 @@ export function TripEditor(props: {
                     >
                       <Ic n="plus" size={18} style={{ color: "var(--accfg)", flex: "none" }} />
                       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                        <span className="clip" style={{ fontWeight: 600 }}>{o.known ? o.name : tx(W.unnamed)}</span>
-                        {!o.known && o.name ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{o.name}</span> : null}
+                        <span style={{ fontWeight: 600, lineHeight: 1.25, overflowWrap: "anywhere" }}>{o.known ? o.name : tx(W.unnamed)}</span>
+                        {!o.known && o.name ? <span style={{ fontSize: 12, color: "var(--mut)", overflowWrap: "anywhere" }}>{o.name}</span> : null}
                       </span>
                       <Pill tone={o.riders ? "info" : "mut"}>{tx(W.children(o.riders))}</Pill>
                     </button>

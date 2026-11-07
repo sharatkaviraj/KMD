@@ -136,7 +136,7 @@ export type RouteCard = {
   known: boolean;
   code: string | null;
   riders: Rider[];
-  /** "Class 5 · 3" lines, in school order. */
+  /** Each class and how many of its children ride here, in school order (the card shows "Class 5 (3)"). */
   classes: { label: string; count: number }[];
   /** The trips that stop here, morning first. */
   visits: Visit[];
