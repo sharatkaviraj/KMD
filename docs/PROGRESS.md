@@ -43,7 +43,9 @@ teachers", Approve and sign made `TEST/VPPS/STUDY/TEST-2026-27/0001` in about
 4 s, a decline reached the teacher with its reason, her Today card drew in
 about 2 s, and the downloaded PDF (208 KB) is one A4 page with the letterhead,
 seal and signature. That check found a declined request listed above the
-signed one on Today; a signed copy now always comes first. **Remains:**
+signed one on Today; a signed copy now always comes first. It also found a
+TEST copy's footer asking the reader to scan a code that a TEST copy never
+carries; the footer now follows the QR. **Remains:**
 the principal's name is printed only once someone types it in Certificate
 settings; the five real certificates issued before today stay hand-signed;
 the letterhead's address (Opposite Mela Ground, 313330) differs from the

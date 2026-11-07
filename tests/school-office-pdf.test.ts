@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { inflateSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { pdfPageCount, renderCertificateBundle, renderCertificatePdf, renderStudyCertificatePdf, startingLevel } from "@/modules/certificates/ui/certificate-pdf";
@@ -28,6 +29,24 @@ async function keep(name: string, bytes: Buffer) {
   if (!directory) return;
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, name), bytes);
+}
+
+/** The words a PDF shows, read from its compressed content streams (react-pdf writes text as hex runs). */
+function pdfText(pdf: Buffer): string {
+  const raw = pdf.toString("latin1");
+  const runs: string[] = [];
+  for (const start of raw.matchAll(/stream\r?\n/g)) {
+    const from = (start.index ?? 0) + start[0].length;
+    const to = raw.indexOf("endstream", from);
+    if (to < 0) break;
+    let body: string;
+    try { body = inflateSync(pdf.subarray(from, to)).toString("latin1"); } catch { continue; }
+    for (const shown of body.matchAll(/\[(.*?)\]\s*TJ|<([0-9a-fA-F]*)>\s*Tj/g)) {
+      const parts = shown[1] !== undefined ? [...shown[1].matchAll(/<([0-9a-fA-F]*)>/g)].map((part) => part[1]) : [shown[2]];
+      runs.push(parts.map((hex) => hex.replace(/../g, (pair) => String.fromCharCode(parseInt(pair, 16)))).join(""));
+    }
+  }
+  return runs.join(" ");
 }
 
 function expectPdf(result: Buffer) {
@@ -74,6 +93,21 @@ describe("the signed letterhead (D-540, D-541)", () => {
     expect((result.toString("latin1").match(/\/Subtype \/Image/g) ?? []).length).toBeLessThanOrEqual(2);
     await keep("manual-study-en.pdf", result);
   }, 20000);
+
+  it("asks the reader to scan a code only when one is printed", async () => {
+    const base: CertificateSnapshot = {
+      serial: "VPPS/STUDY/2026-27/0008", issuedAt: "2026-11-07T06:00:00Z", issuedOn: "2026-11-07", isTest: false, verifyCode: "0123456789abcdef",
+      school: signedSchool, template: defaultStudyTemplate, kind: "study", facts: { ...facts, studentName: "Synthetic Scholar", sessionLabel: "2026-27" },
+    };
+    const real = pdfText(await renderCertificatePdf(base));
+    expect(real).toContain("Scan to verify");
+    expect(real).toContain("scan the code to confirm it is genuine");
+    // A TEST copy carries a verification code but never a QR, so its footer must not promise one.
+    const test = pdfText(await renderCertificatePdf({ ...base, serial: "TEST/VPPS/STUDY/TEST-2026-27/0002", isTest: true, facts: { ...base.facts, sessionLabel: "TEST-2026-27" } }));
+    expect(test).toContain("Issued from the school's records");
+    expect(test).not.toContain("Scan to verify");
+    expect(test).not.toContain("scan the code");
+  }, 30000);
 });
 
 describe("one A4 sheet, always (D-543)", () => {

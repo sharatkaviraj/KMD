@@ -68,7 +68,8 @@ export async function MyCertificateRequestsToday({ sessionLabel, language }: { s
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
               <strong style={{ fontSize: 15, overflowWrap: "anywhere" }}>{row.studentName}</strong>
               <span className="tc-s">{say(KIND_LABELS[row.kind])} · {row.classLabel}</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: stage === "ready" ? 700 : 500, color: stage === "ready" ? "var(--ok)" : stage === "declined" ? "var(--bad)" : "var(--mut)", overflowWrap: "anywhere" }}>
+              {/* Baseline, not centre: when the status wraps, the waiting dot stays on its first line. */}
+              <span style={{ display: "flex", alignItems: "baseline", gap: 6, fontSize: 13, fontWeight: stage === "ready" ? 700 : 500, color: stage === "ready" ? "var(--ok)" : stage === "declined" ? "var(--bad)" : "var(--mut)", overflowWrap: "anywhere" }}>
                 {stage === "waiting" ? <span aria-hidden="true" style={{ flex: "none", width: 7, height: 7, borderRadius: "50%", background: "currentColor", animation: "xPulse 1.6s ease infinite" }} /> : null}
                 {status}
               </span>
