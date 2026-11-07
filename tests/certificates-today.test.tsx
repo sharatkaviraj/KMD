@@ -67,6 +67,19 @@ describe("Today's certificate requests", () => {
     expect(html).not.toContain("/pdf");
   });
 
+  it("lists a signed copy first, whatever order the requests were answered in", async () => {
+    state.rows = [
+      row({ state: "declined", declineReason: "Already issued this session", decidedAt: "2026-11-07T12:00:00Z", studentName: "TEST Child Two", studentId: other }),
+      row({ id: "55555555-5555-4555-8555-555555555555", state: "waiting", studentName: "TEST Child Three" }),
+      row({ id: "66666666-6666-4666-8666-666666666666", state: "approved", issueReady: true, serial: "VPPS/SC/TEST/0002", decidedAt: "2026-11-07T11:00:00Z" }),
+    ];
+    const html = await render();
+    const at = (text: string) => html.indexOf(text);
+    expect(at("TEST Child One")).toBeGreaterThan(-1);
+    expect(at("TEST Child One")).toBeLessThan(at("TEST Child Three"));
+    expect(at("TEST Child Three")).toBeLessThan(at("TEST Child Two"));
+  });
+
   it("says why the office could not give one", async () => {
     state.rows = [row({ state: "declined", declineReason: "Details are not in the register yet", decidedAt: "2026-11-07T11:00:00Z" })];
     const html = await render();
