@@ -242,7 +242,7 @@ export async function VxShell({
                 />
               </LanguageProvider>
             ) : previewing ? (
-              <LazyPreviewBanner label={MENU_LABEL[previewing].en} />
+              <LazyPreviewBanner label={MENU_LABEL[previewing]} />
             ) : null}
             {staff.confined ? (
               // A Preview or local deployment on the production database:

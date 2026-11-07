@@ -151,8 +151,10 @@ function PreviewTile({ menu, label, icon, on, index }: { menu: string; label: Pa
       onClick={() =>
         start(async () => {
           const href = await setViewAsAction(menu);
-          router.push(href);
-          router.refresh();
+          // The action already redrew the frame as the role (revalidatePath): one
+          // push, no refresh on top, from the top where its banner is (D-544).
+          window.scrollTo(0, 0);
+          router.push(href, { scroll: false });
         })
       }
     >

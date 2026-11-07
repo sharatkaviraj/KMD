@@ -41,7 +41,20 @@ and the picker and banner push once without the extra refresh: the action's
 the new screen at the very top (`window.scrollTo(0, 0)` and `scroll: false`):
 left to itself the router scrolled the new screen's own top into view and hid
 the banner above it. On the branch preview the teacher's screen showed in 3.7
-seconds instead of 7.9, with one load.
+seconds instead of 7.9, with one load. **Live** from about 19:29 UTC (One PR
+318, merge `2a2072e`): on one.vpps.co.in at phone width the banner showed 2.3 s
+after the tap and the teacher's screen 4.0 s (7.9 before), one `GET /teach`,
+at `scrollY` 0; Back to my view 3.3 s. **BrowserStack, live:** real Samsung
+Galaxy M32 (Chrome) — picker, See as from far down the list landing at the top
+with the banner and amber edge, the teacher's Hindi tabs, the view's language
+switch (English + Hindi, the admin's own language untouched after Back), Back
+to my view; Windows 11 Chrome — sidebar Choose a person, See as QA Accountant
+(desk banner, edge, the accountant's menu), Back. Both passed. The desk check
+found the sidebar's sliding highlight drawn over "Choose a person" while the
+picker was open (the highlight is positioned; that line was not, unlike every
+other menu line). **Fixed** with `position: relative`; and "See the app as" a
+role (sidebar, Menu tiles, its banner) now also pushes once from the top
+without a refresh, and its banner reads in the admin's language.
 
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 

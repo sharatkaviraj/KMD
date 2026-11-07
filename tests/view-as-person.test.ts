@@ -360,3 +360,36 @@ describe("the browser clients' lock", () => {
     }
   });
 });
+
+describe("moving into and out of a view", () => {
+  const src = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
+  /** From the action's call to the line after the push that follows it. */
+  const afterAction = (code: string, action: string) => {
+    const at = code.indexOf(`await ${action}(`);
+    expect(at, action).toBeGreaterThan(-1);
+    const push = code.indexOf("router.push(", at);
+    expect(push, action).toBeGreaterThan(at);
+    return code.slice(at, code.indexOf("\n", code.indexOf("\n", push) + 1));
+  };
+
+  it("pushes once, from the top: the action has already redrawn the frame", () => {
+    const handlers: [string, string][] = [
+      ["src/vx/screens/view-as/view-as-screen.tsx", "startViewAsPersonAction"],
+      ["src/vx/screens/view-as/view-as-screen.tsx", "endViewAsPersonAction"],
+      ["src/vx/shell/person-banner.tsx", "endViewAsPersonAction"],
+      ["src/vx/shell/preview-links.tsx", "setViewAsAction"],
+      ["src/app/(app)/menu/menu-screen.tsx", "setViewAsAction"],
+      ["src/vx/shell/preview-banner.tsx", "clearViewAsAction"],
+    ];
+    for (const [path, action] of handlers) {
+      const handler = afterAction(src(path), action);
+      expect(handler, `${path} ${action}`).toContain("window.scrollTo(0, 0);");
+      expect(handler, `${path} ${action}`).toMatch(/router\.push\([^\n]*, \{ scroll: false \}\);/);
+      expect(handler, `${path} ${action}`).not.toContain("router.refresh()");
+    }
+  });
+
+  it("keeps the sidebar's See the app as lines above its sliding highlight", () => {
+    expect(src("src/vx/shell/preview-links.tsx")).toMatch(/style=\{\{ position: "relative",/);
+  });
+});
