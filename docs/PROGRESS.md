@@ -1,5 +1,25 @@
 # VPPS One — progress
 
+## The Menu tab, redrawn with Settings first — 7 November 2026
+
+Owner asked (7 Nov) for the phone Menu tab to be redesigned: Settings quick to
+reach, clearer labels and buttons, creative touches so non-technical staff
+understand it and use it fast, deployed live. Branch
+`claude/project-thread-h2m3nx`, D-519. **Done:** Settings card first (quick
+switches with their state in words, one big Settings button, My settings /
+Password / School year); "Your shortcuts" with Change (a non-admin's defaults
+skip the bottom bar's screens); sticky group chips that light the group in
+view; every tile says what it opens, in coloured groups; Listen reads the page
+and lights each part; Sign out asks once. Tests: `tests/vx-menu-items.test.ts`.
+**Live** from 16:44 UTC (PR 298, merge 3ada532). BrowserStack: real Galaxy M32
+Chrome passed as QA admin (card, switches, shortcuts, Fees chip jump, sign-out
+sheet and Cancel). Windows 11 Chrome (2560x1600) drew the desk layout right
+but clicking "Records" lit "Studies": the chips' scrollspy band assumed the
+phone's header, and the smooth scroll overrode the tapped chip. Fixed in the
+follow-up PR (band measured from the sticky row; a tapped chip holds until a
+hand moves the page). **Remains:** the teacher's More page is separate and
+unchanged.
+
 ## The small things: faces, a year switch you can see, taps that answer — 7 November 2026
 
 Owner asked (7 Nov) for a thorough pass over One for non-technical teachers,
@@ -27,6 +47,28 @@ BrowserStack (real Galaxy M32 Chrome and Windows 11 Chrome): all passed but
 the year picker's words, which D-517 fixes (desk heading still "Test / UAT /
 DEMO", phone sheet Hindi-only for a both-languages reader). Same branch,
 restarted from main after the merge.
+**D-517 live:** merged as PR 296 (`bf71816`), on one.vpps.co.in from 15:56
+UTC. Checked live as QA admin (reads both languages) in a container browser:
+the desk menu's heading reads "Practice years · अभ्यास वर्ष", the phone
+sheet's the same, and the row badge "TEST · परीक्षण"; nothing says "Test /
+UAT / DEMO" or "Other production" any more.
+BrowserStack re-check of D-517 (real Galaxy M32 Chrome and Windows 11
+Chrome, QA admin): passed. It found one more thing: straight after sign-in,
+before any reload, the shell's words were English for a reader of both
+languages and `<html lang>` stayed "en". **D-518** makes the root layout's
+fee language provider follow the locale and catalogue the server sends again
+after sign-in and after the EN | हि switch (it had kept its first props as
+state); the real /login signs in the same way, so it is covered too. Test:
+`tests/shell-language-follows-server.test.tsx` (5).
+**D-518 live:** merged as PR 297 (`e0712c7`), on one.vpps.co.in from 16:28
+UTC. Checked live in a container browser, desk and phone, straight after
+sign-in as QA admin with no reload: `<html lang>` "hi", the menu heading
+"Practice years · अभ्यास वर्ष" and the badge "TEST · परीक्षण". The EN | हि
+switch (QA academic, the coordinator screens carry it) now moves the year
+menu with the page: हि gives "अभ्यास वर्ष", EN gives English; the account's
+language was put back to "en" afterwards. BrowserStack (real Galaxy M32
+Chrome and Windows 11 Chrome, QA admin, straight after sign-in): passed,
+both lines in both languages and `<html lang>` "hi".
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
