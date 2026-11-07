@@ -149,6 +149,9 @@ export function useComposer(init: ComposerInit) {
   const [restoreTick, setRestoreTick] = useState(0);
   // A note left unsaved, offered with "Continue" rather than poured into the new note (7 Nov 2026).
   const [offer, setOffer] = useState<StoredDraft | null>(null);
+  // The words the last save sent: the AI's clear note, a translation or the teacher's own (D-500).
+  // The box keeps the teacher's own words, so Undo brings the check card back as it was.
+  const [saved, setSaved] = useState<string | null>(null);
   const [heard, setHeard] = useState("");
   const [append, setAppend] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -368,6 +371,7 @@ export function useComposer(init: ComposerInit) {
     setDraftAt(null);
     setRequestId("");
     setOffer(null);
+    setSaved(null);
   };
 
   /**
@@ -380,6 +384,8 @@ export function useComposer(init: ComposerInit) {
     setStepState("add");
     replaceParams({ step: null, saved: null });
     setStudentId("");
+    // The same note: the words that were saved, whichever of the choices they were.
+    if (saved) setBody(saved);
     setOwner(null);
     setTellParents(false);
     setError(null);
@@ -441,8 +447,9 @@ export function useComposer(init: ComposerInit) {
         if (res.ok && res.id) {
           writeDraft(init.viewer.id, null);
           setDraftAt(null);
-          // The note is now the words that were saved: the saved card shows them, and Undo brings them back.
-          setBody(text);
+          // The saved card shows the words that were saved. The box keeps the teacher's own words,
+          // so Undo returns to the check card as it was: the AI's note still ticked beside them.
+          setSaved(text);
           onSaved(res.id, child);
         } else if (!res.ok) setRefused(res.error);
       } catch {
@@ -473,7 +480,7 @@ export function useComposer(init: ComposerInit) {
     step, setStep, child, studentId, pickChild, tags, toggleTag, setTags, body, setBody, voice, mode, setMode, lang, switchLang,
     follow, setFollow, when, setWhen, followOn, setFollowOn, followOnDate, owner: ownerKey, setOwner, visibility, pickVisibility, tellParents, toggleTell,
     errField, setErrField, error, saveUncertain, pending, draftAt, listen, doneListening, cancelListening, heard, timer,
-    speech, addPhrase, reset, again, save, openAction, setError, checkDraft, continueDraft, dropDraft, keepDraft, offer, restoreTick,
+    speech, addPhrase, reset, again, save, saved, openAction, setError, checkDraft, continueDraft, dropDraft, keepDraft, offer, restoreTick,
     saveLine, saveWords, refused, testSession: init.testSession ?? false,
   };
 }

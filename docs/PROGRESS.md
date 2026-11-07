@@ -107,8 +107,21 @@ chips are 44 px tall on a phone (`.tap`), so a strip sized for two rows of
 smaller chips showed one; the design fixture's server actions are stubs, so
 its Save says "Not confirmed" and the saved card has its own view
 (`M-TchNotes-Saved`; the AI at work is `M-TchNotes-AI` and `DX-TchNotes-AI`,
-the class list `M-TchNotes-Pick`). **Remains:** BrowserStack on a real phone
-and a desktop after the deploy.
+the class list `M-TchNotes-Pick`). Live at 08:52 UTC. Checked live in a
+container browser (QA teacher at 360×640 in Hindi, QA admin at 1366×768):
+class list, unsaved note offered and continued, AI panel, the AI's note ticked
+in 1.2-2.7 s, Only me, Save, Undo, and no test note left in the database.
+BrowserStack (run by the haptics thread, 09:00 UTC, as the QA teacher): Galaxy
+M32 (Android 11 Chrome) and Windows 11 Chrome pass, nothing left behind.
+**Follow-up, PR 285:** the "Written by AI" and privacy line was squeezed to
+nothing on a 360 px phone and a 1280×720 desktop (a flex child that clips its
+own overflow can shrink to zero, so the card never said there was more); the
+card's parts no longer shrink and the body scrolls instead. Undo now returns
+to the check card as it was (the box keeps the teacher's own words; the saved
+card shows the saved ones), and a child without a roll number shows initials.
+**Remains:** the undo toast sits over Save for a few seconds on a phone (the
+app's toast position, not changed here). TEST classes have five or six
+children, so the list's inner scroll shows on live only in a short window.
 
 ## One AI report for the whole year — 7 November 2026
 

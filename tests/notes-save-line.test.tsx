@@ -92,3 +92,33 @@ it("a lost answer is not confirmed, offers no Try again, and blocks another save
   expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Try again")).toBe(false);
   expect([...host.querySelectorAll("button")].find((b) => b.textContent === "Save note")!.disabled).toBe(true);
 });
+
+/** The check card saves the words the teacher ticked: here, the AI's clear note over their own (D-500). */
+function Ticked({ onSaved }: { onSaved: () => void }) {
+  const c = useComposer({ kids: [kid], notes: [], viewer, initialStudent: kid.id, initialStep: "add", lang: "en-IN", today: "2026-11-03", tags: ["studies"], ownerFor: () => "me" });
+  return (
+    <div>
+      <button type="button" onClick={() => c.setBody("QA own words")}>type</button>
+      <button type="button" onClick={() => c.save(onSaved, "QA clear words")}>Save note</button>
+      <button type="button" onClick={() => c.again()}>Same note, another child</button>
+      <output data-body={c.body} data-saved={c.saved ?? ""} />
+    </div>
+  );
+}
+
+it("keeps the teacher's own words in the box after saving the AI's, so Undo comes back to the check card as it was", async () => {
+  state.create.mockResolvedValueOnce({ ok: true, id: "qa-note-3" });
+  const saved = vi.fn();
+  await act(async () => root.render(<Ticked onSaved={saved} />));
+  await click("type");
+  await click("Save note");
+  expect(state.create.mock.calls[0][0]).toMatchObject({ body: "QA clear words" });
+  expect(saved).toHaveBeenCalledWith("qa-note-3", kid);
+  const out = () => host.querySelector("output")!;
+  // The saved card shows what was saved; the box still holds what the teacher wrote.
+  expect(out().dataset.saved).toBe("QA clear words");
+  expect(out().dataset.body).toBe("QA own words");
+  // "Same note, another child" is the note that was saved.
+  await click("Same note, another child");
+  expect(out().dataset.body).toBe("QA clear words");
+});

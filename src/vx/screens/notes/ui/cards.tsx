@@ -854,7 +854,7 @@ function ChildCard({ c, kids, notes, viewer, initialClass, onPick, onDone }: Car
     <li key={key}>
       <button type="button" className={`tap nc-kidrow${opts.recent ? " recent" : ""}`} onClick={() => onPick(kid.id)} aria-label={`${kid.name}, ${kid.classLabel}${kid.rollNo ? `, roll ${kid.rollNo}` : ""}`}>
         <span className="r" aria-hidden="true">
-          {opts.recent ? <Ic n="clock" size={15} /> : (kid.rollNo ?? "·")}
+          {opts.recent ? <Ic n="clock" size={15} /> : (kid.rollNo ?? ini(kid.name))}
         </span>
         <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
           <span className="n">{kid.name}</span>
@@ -1614,7 +1614,7 @@ function savedNoteOf(props: CardsProps): BoardNote | null {
     studentName: k?.name ?? "",
     classId: k?.classId ?? null,
     classLabel: k?.classLabel ?? "—",
-    body: c.body,
+    body: c.saved ?? c.body,
     tags: c.tags,
     source: c.voice ? "voice" : "typed",
     status: "open",

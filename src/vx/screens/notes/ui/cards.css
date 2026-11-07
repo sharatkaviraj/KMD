@@ -70,6 +70,10 @@
 
 /* body and foot: the body scrolls between them when it holds more than fits */
 .nc .nc-body{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:10px 24px 12px;display:flex;flex-direction:column;gap:10px;position:relative}
+/* Nothing in a card is squeezed to fit: what does not fit scrolls, and the card says so (D-500). A line that
+   clips its own overflow would otherwise shrink to nothing: the AI and privacy line did on a 360px phone. The
+   parts meant to give way (the words box, the class list, the listening panel) say so with their own flex. */
+.nc .nc-body>*{flex-shrink:0}
 .nc .nc-foot{position:relative;flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--bd);min-width:0;background:var(--card)}
 .nc .nc-foot .btn{border-radius:15px;min-width:0}
 .nc .nc-foot .btn.pri{flex:1}
