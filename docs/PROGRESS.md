@@ -25,7 +25,8 @@ connection" wording now names the Claude / ChatGPT connector. Live 11:21 UTC
 Chrome too (the Windows session could not be signed in from that thread).
 Second follow-up from that recheck: the voice listener (GPT Transcribe) never
 finishes a job, so it read "0 answered · 12 tries"; its good tries now count
-as "Heard 12 voice notes". A station's sheet now opens with this road's count
+as heard, and live reads "Heard 7 voice notes · 12 tries" (the other five
+failed at no cost, three of them refused with a 403, and the next AI took over). A station's sheet now opens with this road's count
 and labels the model rows "all roads together", because NVIDIA Free read
 "Answered 2" on the station and "13 answered" in its sheet.
 **Remains:** nothing for this page.
