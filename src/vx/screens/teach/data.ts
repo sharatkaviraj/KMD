@@ -1093,6 +1093,14 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
 
 export type MarksLink = {
   paperId: string;
+  /**
+   * The paper's class. A subject card finds its paper by this, never by the
+   * label: papers keep the label they were made with ("11 Arts") while the
+   * class list says "Class 11 Arts", so every Class 11 and 12 card read
+   * "No paper yet" beside a paper that was there (D-528).
+   */
+  classId: string;
+  /** The class's name as every other teacher screen says it (the class list, with the school's own names). */
   classLabel: string;
   subjectCode: string;
   exam: string;
@@ -1161,7 +1169,8 @@ export async function marksLinks(
       const token = tokens.get(exam.id);
       return {
         paperId: p.paperId,
-        classLabel: p.classLabel || (labels.get(p.classId) ?? "—"),
+        classId: p.classId,
+        classLabel: labels.get(p.classId) ?? (p.classLabel || "—"),
         subjectCode: p.subjectCode,
         exam: exam.labelEn || exam.code,
         examHi: exam.labelHi || exam.labelEn || exam.code,

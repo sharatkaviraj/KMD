@@ -542,7 +542,7 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
       </span>
       <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
         {mySubjects.map((s, i) => {
-          const link = links.find((l) => l.classLabel === s.classLabel && [s.code, s.name].some((c) => c.toLowerCase() === l.subjectCode.toLowerCase()));
+          const link = links.find((l) => l.classId === s.classId && [s.code, s.name].some((c) => c.toLowerCase() === l.subjectCode.toLowerCase()));
           const entered = link?.entered ?? 0;
           const total = link?.total ?? s.children;
           const standing = link ? linkStanding(link) : null;

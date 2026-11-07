@@ -9,7 +9,7 @@ import { fetchInChunks, mapConcurrently } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { can } from "@/platform/auth/permissions";
 import { FEE_SCHEMA } from "@/platform/env";
-import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { resolveAssignedRequest, rollForRequest } from "@/modules/collection/data/requests-repo";
 import type { CollectionRequest, RollRow } from "@/modules/collection/domain/requests";
 import type { AttendanceStatus } from "@/modules/attendance/domain/attendance";
@@ -144,18 +144,20 @@ export async function listTeacherTasks(office=false, opts:{now?:Date;only?:TaskK
     if(wants("marks")){
     // Each paper carries its exam and the exam office's "marks due" day, so two open
     // exams no longer read as the same "Class 1 · EVS" twice (D-527).
-    const [assignments,papers]=await Promise.all([
+    // Classes by the class list's names ("Class 11 Arts"), not the label a paper was made with ("11 Arts"), as on every teacher screen (D-528).
+    const [assignments,papers,labels]=await Promise.all([
       fetchAllRows<{class_id:string;subject_id:string}>((from,to)=>db.from("teaching_assignments").select("class_id,subject_id").eq("session_label",session).eq("staff_profile_id",actor.id).order("id").range(from,to),"teaching assignments"),
       fetchAllRows<PaperSource&{id:string;assessment_id:string;class_id:string;subject_id:string;entry_status:string}>((from,to)=>db.from("assessment_subjects").select("id,assessment_id,class_id,subject_id,class_label,subject_code,entry_status,assessments!inner(session_label,status,label_en,label_hi,starts_on)").eq("assessments.session_label",session).eq("assessments.status","open").order("id").range(from,to),"assigned marks"),
+      classLabelMap(session).catch(()=>new Map<string,string>()),
     ]);
-    const mine=papers.filter(p=>can(actor,"marks:write")&&assignments.some(a=>a.class_id===p.class_id&&a.subject_id===p.subject_id)).map(p=>({p,paper:taskPaper(p)})).sort((a,b)=>paperOrder(a.paper,b.paper));
+    const mine=papers.filter(p=>can(actor,"marks:write")&&assignments.some(a=>a.class_id===p.class_id&&a.subject_id===p.subject_id)).map(p=>({p,paper:taskPaper({...p,class_label:labels.get(p.class_id)??p.class_label})})).sort((a,b)=>paperOrder(a.paper,b.paper));
     // By id, not embedded: exam_plans points at assessments twice (its exam and
     // `copied_from`), so an embed is ambiguous. A failed read only leaves a line
     // without its due day; it never hides a paper.
     const exams=[...new Set(mine.map(x=>x.p.assessment_id))];
     const plans=await fetchInChunks<{assessment_id:string;marks_due_on:string|null}>(exams,IN_FILTER_CHUNK_SIZE,chunk=>db.from("exam_plans").select("assessment_id,marks_due_on").in("assessment_id",chunk));
     const dueOn=new Map((plans.error?[]:plans.data).map(r=>[r.assessment_id,r.marks_due_on]));
-    for(const {p,paper} of mine) {const task:TeacherTaskSummary={id:`paper-${p.id}`,sourceKey:`marks:${p.id}`,kind:"marks",title:`${p.class_label} · ${p.subject_code}`,teacherId:actor.id,teacherName:actor.displayName,dueDate:dueOn.get(p.assessment_id)??null,state:taskProgress({kind:"marks",submitted:p.entry_status==="submitted"}),expected:0,answered:0,href:`/teach/marks?paper=${p.id}`,openedAt:null,paper};tasks.push(task);}
+    for(const {p,paper} of mine) {const task:TeacherTaskSummary={id:`paper-${p.id}`,sourceKey:`marks:${p.id}`,kind:"marks",title:`${paper.classLabel} · ${p.subject_code}`,teacherId:actor.id,teacherName:actor.displayName,dueDate:dueOn.get(p.assessment_id)??null,state:taskProgress({kind:"marks",submitted:p.entry_status==="submitted"}),expected:0,answered:0,href:`/teach/marks?paper=${p.id}`,openedAt:null,paper};tasks.push(task);}
     }
     if(wants("attendance")){
     const day=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata"}).format(opts.now??new Date());

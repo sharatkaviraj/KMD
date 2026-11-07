@@ -74,3 +74,27 @@ describe("a marks paper on My tasks says which exam it is (D-527)", () => {
     expect(ui).toContain("[office ? t.teacherName : null, examOf(t),");
   });
 });
+
+describe("a paper's class is found by id and named from the class list (D-528)", () => {
+  // Papers keep the label they were made with ("11 Arts"); the class list says
+  // "Class 11 Arts". Matching by label left every Class 11 and 12 card on My
+  // subjects reading "No paper yet" beside a paper that was there.
+  it("My subjects finds a card's paper by class id, not by label", () => {
+    const cls = read("src/vx/screens/teach/ui/class.tsx");
+    expect(cls).toContain("links.find((l) => l.classId === s.classId && ");
+    expect(cls).not.toContain("l.classLabel === s.classLabel");
+  });
+
+  it("a marks link carries its class id and the class list's name", () => {
+    const data = read("src/vx/screens/teach/data.ts");
+    expect(data).toContain("classId: p.classId,");
+    expect(data).toContain('classLabel: labels.get(p.classId) ?? (p.classLabel || "—"),');
+  });
+
+  it("My tasks names a paper's class from the class list too", () => {
+    const repo = read("src/modules/teacher-tasks/data/repo.ts");
+    expect(repo).toContain("classLabelMap(session).catch(()=>new Map<string,string>())");
+    expect(repo).toContain("taskPaper({...p,class_label:labels.get(p.class_id)??p.class_label})");
+    expect(paperTitle(paper("Class 11 Arts", "Hindi", "Half yearly", null))).toEqual({ en: "Class 11 Arts · Hindi", hi: "कक्षा 11 Arts · हिंदी" });
+  });
+});
