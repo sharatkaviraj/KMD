@@ -2,6 +2,7 @@
 
 import { Crest } from "@/vx/screens/system/brand";
 import Link from "@/ui/link";
+import dynamic from "next/dynamic";
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { periodNumber } from "@/modules/timetable/domain/periods";
@@ -16,10 +17,15 @@ import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
 import { coverStanding, foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { TD } from "@/vx/screens/admin/today-text";
-import { catchUp, dueColumns, firstName, kfmt, knownSpan, moneyChart, weekBars, type BirthdayChild, type ComingItem, type TodayGlance } from "@/vx/screens/admin/today-logic";
+import { firstName, knownSpan, weekBars, type BirthdayChild, type ComingItem, type TodayGlance } from "@/vx/screens/admin/today-logic";
 import type { InboxItem, TimelineItem } from "@/vx/screens/admin/types";
 import { TodayBrief, type BriefFact } from "@/vx/assist/brief-assist";
 import { ReadyForYou } from "@/vx/assist/lazy-ready";
+import "./today.css";
+import { PaceBar, PaceWords } from "@/vx/screens/admin/today-pace";
+
+/** The desk's money section, its own chunk: a phone never shows it (D-510). */
+const DeskMoney = dynamic(() => import("./today-money").then((m) => m.DeskMoney));
 
 export type TodayMoneyView = {
   today: number;
@@ -94,12 +100,6 @@ export type TodayProps = {
   glance?: TodayGlance | null;
 };
 
-const MODE_COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--pri)"];
-
-/** Payment modes by their stored code; an unknown code is shown as stored. */
-const MODE_NAMES: Partial<Record<string, Pair>> = TD.modeName;
-const modeName = (mode: string): Pair => MODE_NAMES[mode.toLowerCase()] ?? { en: mode };
-
 /** The design's tile colours by kind (`typeMeta`, and the correction's pencil). */
 const KIND_LOOK: Record<InboxItem["kind"], { icon: IconName; bg: string; fg: string }> = {
   not_marked: { icon: "calCheck", bg: "var(--warns)", fg: "var(--warnfg)" },
@@ -148,57 +148,6 @@ const WIDGET_TONE: Record<WidgetTone, { bg: string; fg: string }> = {
 /** The design's light teal on the navy hero; the same in both themes, as drawn. */
 const HERO_TEAL = "#81DAE4";
 const HERO_INK = "#082F49";
-
-/*
- * Layout rules the inline styles cannot say: the two-column desk becomes one
- * column under 985px of page (the design's 1060px window less its 76px icon
- * sidebar), the chart's hover tips, and the donut and heat cells' hover.
- */
-const CSS = `
-.vx .td-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:20px;padding:24px 28px 40px;align-items:start}
-.vx .td-wide{grid-column:1/-1}
-.vx .td-stack{display:flex;flex-direction:column;gap:16px;min-width:0}
-.vx .td-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:16px}
-.vx .td-two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
-.vx .td-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.vx .td-shortcut{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px;border:1px solid var(--bd);border-radius:12px;color:var(--fg);font-size:13px;font-weight:600;overflow-wrap:anywhere}
-.vx .td-shortcut:hover{background:var(--s2)}
-.vx .td-shortcut:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
-@container vx (max-width:984px){.vx .td-grid,.vx .td-two{grid-template-columns:minmax(0,1fr)}}
-@container vx (max-width:899px){.vx .td-grid{padding:16px 18px 0;gap:16px}}
-.vx .td-bar{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center}
-.vx .td-bar .fill{width:70%;border-radius:6px 6px 3px 3px;transform-origin:bottom;transition:height .55s var(--ease),filter .15s ease;animation:xGrowY .7s var(--ease) both}
-.vx .td-bar:hover .fill{filter:brightness(1.3)}
-.vx .td-bar .tip{position:absolute;left:50%;transform:translate(-50%,6px);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;background:var(--tbg);color:var(--tfg);font-size:12px;font-weight:600;padding:6px 9px;border-radius:9px;white-space:nowrap;z-index:3;box-shadow:var(--sh)}
-.vx .td-bar:hover .tip{opacity:1;transform:translate(-50%,0)}
-.vx .td-bar.end .tip{left:auto;right:0;transform:translate(0,6px)}
-.vx .td-bar.end:hover .tip{transform:none}
-.vx .td-donut .seg{transition:stroke-width .2s var(--ease),opacity .2s ease}
-.vx .td-donut:hover .seg{opacity:.4}
-.vx .td-donut .seg:hover{opacity:1;stroke-width:24}
-.vx .td-cell{transition:transform .15s var(--ease)}
-.vx .td-cell:hover{transform:scale(1.07);z-index:2}
-.vx .td-hero-card{min-width:0;overflow:hidden}
-@container vx (max-width:359px){.vx .td-ring svg{width:40px;height:40px}}
-.vx .td-widget{padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;animation:xRise .45s var(--ease) both}
-.vx .td-wicon{flex:none;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center}
-.vx .td-wicon.sm{width:30px;height:30px;border-radius:10px}
-.vx .td-wlink{flex:none;min-height:44px;margin:-10px -6px -10px 0;padding:0 6px 0 10px;display:inline-flex;align-items:center;gap:2px;color:var(--accfg);font-size:14px;font-weight:600;white-space:nowrap}
-.vx .td-wlist{list-style:none;margin:0 -16px -16px;padding:0}
-.vx .td-wlist>li{border-top:1px solid var(--bd)}
-.vx .td-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.vx .td-stat{padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0;color:var(--fg);min-height:124px}
-.vx .td-kids{display:flex;flex-wrap:wrap;gap:8px}
-.vx .td-kid{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 12px 4px 4px;border-radius:22px;background:var(--s2);color:var(--fg);max-width:100%}
-.vx .td-kid:hover{background:var(--s3)}
-.vx .td-kid .av{flex:none;width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;background:var(--warns);color:var(--warnfg)}
-.vx .td-cake{animation:tdWiggle 1.1s var(--ease) .5s 2 both;transform-origin:50% 80%}
-@keyframes tdWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}50%{transform:rotate(9deg)}75%{transform:rotate(-5deg)}}
-.vx .td-date{flex:none;width:52px;height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
-.vx .td-date b{font-size:20px}
-.vx .td-date span{font-size:11px;font-weight:600}
-.vx .td-mquick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-`;
 
 export function TodayScreen(props: TodayProps) {
   const { tx } = useVx();
@@ -360,7 +309,6 @@ export function TodayScreen(props: TodayProps) {
 
   return (
     <>
-      <style href="vx-today" precedence="default">{CSS}</style>
       <DeskTopBar crumb={props.dayLine} actions={props.actions} />
       <div className="vx-pmain">
         {props.unavailable ? (
@@ -440,26 +388,7 @@ export function TodayScreen(props: TodayProps) {
             {money ? (
               <section aria-label={tx(TD.financeToday)} className="only-d td-stack">
                 <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(TD.financeToday)}</h2>
-                {noHeat ? (
-                  <div className="td-two">
-                    <MoneyTaken money={money} today={props.today} />
-                    <div className="td-stack">
-                      {pace ? <PaceCard money={money} pace={pace} today={props.today} /> : null}
-                      <HowTheyPay money={money} />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="td-two">
-                      <MoneyTaken money={money} today={props.today} />
-                      {pace ? <PaceCard money={money} pace={pace} today={props.today} /> : <HowTheyPay money={money} />}
-                    </div>
-                    <div className={pace ? "td-two" : undefined}>
-                      <PendingHeat money={money} today={props.today} />
-                      {pace ? <HowTheyPay money={money} /> : null}
-                    </div>
-                  </>
-                )}
+                <DeskMoney money={money} pace={pace} today={props.today} noHeat={noHeat} />
               </section>
             ) : null}
           </div>
@@ -921,28 +850,6 @@ function PhoneQuick({ actions }: { actions: TodayProps["actions"] }) {
   );
 }
 
-function PaceBar({ pace }: { pace: { percent: number; shouldPercent: number } }) {
-  return (
-    <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pace.percent} style={{ position: "relative", height: 12, borderRadius: 6, background: "var(--s3)" }}>
-      <div style={{ height: 12, borderRadius: 6, width: `${Math.min(100, pace.percent)}%`, background: "var(--acc)", transformOrigin: "left", animation: "xGrowX .9s var(--ease) both", transition: "width .6s var(--ease)" }} />
-      <span aria-hidden="true" style={{ position: "absolute", top: -4, bottom: -4, left: `${Math.min(100, pace.shouldPercent)}%`, width: 2, borderRadius: 1, background: "var(--fg)" }} />
-    </div>
-  );
-}
-
-function PaceWords({ pace, today, size }: { pace: { behind: number }; today: string; size: number }) {
-  const { tx } = useVx();
-  const more = catchUp(pace.behind, today);
-  return (
-    <>
-      <span style={{ fontSize: 13, lineHeight: 1.45, fontWeight: 600, color: pace.behind > 0 ? "var(--warnfg)" : "var(--ok)" }}>
-        {pace.behind > 0 ? tx(T.behindBy(rupees(pace.behind))) : tx(T.onPace)}
-      </span>
-      {more ? <span style={{ fontSize: size, lineHeight: 1.5, color: "var(--mut)" }}>{tx(TD.catchUp(rupees(more.perDay), more.daysLeft, TD.month[more.month]))}</span> : null}
-    </>
-  );
-}
-
 function PhoneSession({
   money,
   pace,
@@ -1113,173 +1020,6 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
   );
 }
 
-function MoneyTaken({ money, today }: { money: TodayMoneyView; today: string }) {
-  const { tx } = useVx();
-  const [range, setRange] = useState<"14" | "30">("30");
-  // Fees sends its latest collection days only: a 30-day chart would draw noughts it was never told.
-  const span = knownSpan(today, money.knownFrom, 30);
-  const chart = moneyChart(dailySeries(money.days, today, Math.min(Number(range), span)), today);
-  return (
-    <section className="card" style={{ padding: "18px 20px 14px", display: "flex", flexDirection: "column", gap: 14, animation: "xRise .45s .1s var(--ease) both" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.moneyTaken)}</h3>
-          <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(T.moneyTakenSub(rupees(chart.average), rupees(chart.best), chart.emptyDays))}</span>
-        </div>
-        {span >= 30 ? (
-          <Seg
-            options={[
-              { value: "14", label: tx(T.days14) },
-              { value: "30", label: tx(T.days30) },
-            ]}
-            value={range}
-            onChange={setRange}
-            label={tx(T.moneyTaken)}
-            style={{ width: 148 }}
-          />
-        ) : null}
-      </div>
-      <div style={{ position: "relative", height: 210, marginLeft: 48 }}>
-        {chart.grid.map((g) => (
-          <span key={g.at}>
-            <span aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: `${g.at}%`, borderTop: "1px dashed var(--bd)" }} />
-            <span className="num" style={{ position: "absolute", left: -48, bottom: `${g.at}%`, transform: "translateY(50%)", fontSize: 11, color: "var(--sub)" }}>{g.label}</span>
-          </span>
-        ))}
-        {chart.average > 0 ? (
-          <>
-            <span aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: `${chart.averageAt}%`, borderTop: "2px dashed var(--warn)", opacity: 0.8, transition: "bottom .5s var(--ease)" }} />
-            <span className="pill num" style={{ position: "absolute", right: 0, bottom: `${chart.averageAt}%`, transform: "translateY(-4px)", background: "var(--warns)", color: "var(--warnfg)", transition: "bottom .5s var(--ease)", zIndex: 1 }}>{tx(TD.avgPill(kfmt(chart.average)))}</span>
-          </>
-        ) : null}
-        <div role="list" aria-label={tx(T.moneyTaken)} style={{ position: "absolute", inset: 0, display: "flex", alignItems: "stretch", gap: 3 }}>
-          {chart.bars.map((b, i) => {
-            const tip = `${b.day} · ${b.amount > 0 ? rupees(b.amount) : b.sunday ? tx(TD.sunday) : tx(TD.nothingTaken)}`;
-            return (
-              // The last bars' tips open leftwards, so none runs past the card's edge.
-              <div key={b.date} role="listitem" aria-label={tip} className={i >= chart.bars.length - 3 ? "td-bar end" : "td-bar"}>
-                <span className="tip" style={{ bottom: `calc(${b.height}% + 8px)` }}>{tip}</span>
-                <span className="fill" style={{ height: `${b.height}%`, background: b.isToday ? "var(--acc)" : b.amount > 0 ? "var(--pri)" : "var(--s3)", animationDelay: `${i * 18}ms` }} />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <div aria-hidden="true" style={{ display: "flex", gap: 3, marginLeft: 48 }}>
-        {chart.bars.map((b) => (
-          <span key={b.date} className="num" style={{ flex: 1, textAlign: "center", fontSize: 11, color: b.isToday ? "var(--fg)" : "var(--sub)", fontWeight: b.isToday ? 700 : 500, opacity: b.showLabel ? 1 : 0, whiteSpace: "nowrap" }}>
-            {b.isToday ? tx(T.today) : b.label}
-          </span>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PendingHeat({ money, today }: { money: TodayMoneyView; today: string }) {
-  const { tx } = useVx();
-  // Only what is already past due: an installment not due yet never joins "pending" (RULES B).
-  const cols = dueColumns(money.installments, money.dueDates, money.carryForward, today) ?? money.installments.map((key) => ({ key, label: key, title: key, carry: false }));
-  const rows = money.matrix
-    .map((row) => ({ label: row.classLabel, cells: cols.map((c) => row.cells[c.key] ?? 0), total: cols.reduce((s, c) => s + (row.cells[c.key] ?? 0), 0) }))
-    .filter((row) => row.total > 0);
-  const max = Math.max(1, ...rows.flatMap((row) => row.cells));
-  return (
-    <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .15s var(--ease) both" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.pendingByClass)}</h3>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.pendingByClassSub)}</span>
-      </div>
-      {cols.length === 0 || rows.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(TD.nothingPastDue)}</p>
-      ) : (
-        // Each amount keeps room to be read ("₹1.3L", never "₹1.3" cut off); a narrow phone scrolls the table, not the page (smoke run, 20 Oct).
-        <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
-        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `minmax(84px, 112px) repeat(${cols.length}, minmax(52px, 1fr)) minmax(56px, 76px)`, gap: 5, alignItems: "center", minWidth: 84 + cols.length * 57 + 61 }}>
-          <div role="row" style={{ display: "contents" }}>
-            <span role="columnheader" />
-            {cols.map((c) => (
-              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center", whiteSpace: "nowrap", padding: "0 2px" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
-            ))}
-            <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(TD.total)}</span>
-          </div>
-          {rows.map((row, ri) => (
-            <div key={row.label} role="row" style={{ display: "contents" }}>
-              <span role="rowheader" className="clip" style={{ fontSize: 13, fontWeight: 600 }}>{row.label}</span>
-              {row.cells.map((v, ci) => {
-                const a = v ? 0.12 + (0.8 * v) / max : 0.04;
-                return (
-                  <span
-                    key={cols[ci].key}
-                    role="cell"
-                    className="td-cell num"
-                    title={`${row.label} · ${cols[ci].title} · ${v ? rupees(v) : "—"}`}
-                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", whiteSpace: "nowrap", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
-                  >
-                    {kfmt(v)}
-                  </span>
-                );
-              })}
-              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{kfmt(row.total)}</span>
-            </div>
-          ))}
-        </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function HowTheyPay({ money }: { money: TodayMoneyView }) {
-  const { tx } = useVx();
-  const total = money.modes.reduce((s, m) => s + m.amount, 0);
-  const C = 2 * Math.PI * 56;
-  const segs = money.modes.map((m, i) => {
-    const frac = total > 0 ? m.amount / total : 0;
-    const len = frac * C;
-    // Where this slice starts: the length of every slice before it.
-    const before = total > 0 ? (money.modes.slice(0, i).reduce((s, x) => s + x.amount, 0) / total) * C : 0;
-    return { key: m.mode, label: tx(modeName(m.mode)), color: MODE_COLORS[i % MODE_COLORS.length], pct: Math.round(frac * 100), amount: m.amount, dash: `${Math.max(0, len - 2).toFixed(1)} ${C.toFixed(1)}`, off: (-before).toFixed(1) };
-  });
-  return (
-    <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .2s var(--ease) both" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.howTheyPay)}</h3>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(TD.howTheyPaySub)}</span>
-      </div>
-      {total <= 0 ? (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(T.nothingTakenToday)}</p>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <div style={{ position: "relative", width: 150, height: 150, flex: "none" }}>
-            <svg className="td-donut" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true" style={{ transform: "rotate(-90deg)", animation: "xSpin .8s var(--ease) both" }}>
-              {segs.map((g) => (
-                <circle key={g.key} className="seg" cx="75" cy="75" r="56" style={{ fill: "none", stroke: g.color, strokeWidth: 20, strokeDasharray: g.dash, strokeDashoffset: g.off }}>
-                  <title>{`${g.label} · ${g.pct}% · ${rupees(g.amount)}`}</title>
-                </circle>
-              ))}
-            </svg>
-            <span style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-              <span className="num" style={{ fontSize: 18, fontWeight: 700 }}>{rupeesShort(total)}</span>
-              <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx(T.collected)}</span>
-            </span>
-          </div>
-          <div style={{ flex: 1, minWidth: 150, display: "flex", flexDirection: "column", gap: 8 }}>
-            {segs.map((g) => (
-              <div key={g.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 3, background: g.color }} />
-                <span style={{ flex: 1 }}>{g.label}</span>
-                <span className="num" style={{ fontWeight: 700 }}>{g.pct}%</span>
-                <span className="num" style={{ color: "var(--mut)", width: 64, textAlign: "right" }}>{kfmt(g.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function DeskQuick({ actions }: { actions: TodayProps["actions"] }) {
   const shortcuts = ["mark", "cover", "note", "certificate", "collect", "admit", "notice"]
     .flatMap((key) => actions.filter((action) => action.key === key)).slice(0, 4);
@@ -1328,24 +1068,6 @@ function RailNeeds({ inbox, awaiting, incomplete }: { inbox: InboxItem[]; awaiti
       {incomplete ? (
         <div style={{ padding: "12px 18px 16px", borderTop: "1px solid var(--bd)" }}><CouldNotRead partial={awaiting > 0} /></div>
       ) : awaiting === 0 ? <div style={{ padding: "14px 18px 18px", fontSize: 13, color: "var(--mut)", borderTop: "1px solid var(--bd)" }}>{tx(TD.allClearRail)}</div> : null}
-    </section>
-  );
-}
-
-function PaceCard({ money, pace, today }: { money: TodayMoneyView; pace: { percent: number; shouldPercent: number; behind: number }; today: string }) {
-  const { tx } = useVx();
-  return (
-    <section className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10, animation: "xRise .45s .2s var(--ease) both" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.yearPace)}</h3>
-        <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.ofTotal(rupeesShort(money.collected), rupeesShort(money.expected)))}</span>
-      </div>
-      <PaceBar pace={pace} />
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, color: "var(--mut)" }}>
-        <span className="num">{tx(T.pctCollected(pace.percent))}</span>
-        <span>{tx(T.shouldBe(pace.shouldPercent))}</span>
-      </div>
-      <PaceWords pace={pace} today={today} size={12} />
     </section>
   );
 }

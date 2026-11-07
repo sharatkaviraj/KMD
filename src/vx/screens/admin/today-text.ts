@@ -41,16 +41,13 @@ export const TD = {
 
   /* ---------------------------------------------------- student support */
   support: p("Student support", "विद्यार्थी सहायता"),
-  needAction: (n: number): Pair => p(`${n} note${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} action`, `${n} नोट पर कार्रवाई चाहिए`),
   followUpsDue: (n: number): Pair => p(`${n} follow-up${n === 1 ? "" : "s"} due`, `${n} फ़ॉलो-अप बाकी`),
   nothingNeedsAction: p("Nothing needs action", "कुछ भी बाकी नहीं"),
-  openNotes: p("Open notes", "नोट खोलें"),
 
   /* ------------------------------------------------------------ approvals */
   approvals: p("Approvals", "मंज़ूरी"),
   dataChanges: (n: number): Pair => p(`${n} student-data change${n === 1 ? "" : "s"} waiting`, `विद्यार्थी जानकारी के ${n} बदलाव प्रतीक्षा में`),
   noDataChanges: p("No student-data changes waiting", "विद्यार्थी जानकारी का कोई बदलाव प्रतीक्षा में नहीं"),
-  reviewChanges: p("Review changes", "बदलाव देखें"),
   moreInInbox: (n: number): Pair => p(`${n} more in the inbox`, `इनबॉक्स में ${n} और`),
 
   /* -------------------------------------------------------------- money */
@@ -91,7 +88,6 @@ export const TD = {
     promised === null ? p("Pending fees, oldest first", "बकाया फ़ीस, सबसे पुरानी पहले") : p(`Pending fees, oldest first · ${promised} promised today`, `बकाया फ़ीस, सबसे पुरानी पहले · आज ${promised} का वादा`),
   promisedToPay: (n: number): Pair => p(`${n} promised to pay today`, `आज ${n} ने देने का वादा किया`),
   classesNotMarked: (n: number): Pair => p(`${n} class${n === 1 ? "" : "es"} not marked`, `${n} कक्षाएँ दर्ज नहीं`),
-  feesCollected: p("Fees collected", "जमा फ़ीस"),
   shouldBeByToday: (n: number): Pair => p(`Should be ${n}% by today`, `आज तक ${n}% होना चाहिए`),
   catchUp: (perDay: string, days: number, month: Pair): Pair =>
     p(`Clearing ${perDay} a day for the remaining ${days} days of ${month.en} closes this gap.`, `${month.hi ?? month.en} के बाकी ${days} दिनों में रोज़ ${perDay} आने से यह अंतर पूरा होगा।`),
