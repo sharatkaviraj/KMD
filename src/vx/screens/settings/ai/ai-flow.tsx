@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { busiestStation, laneCounts, stationCount, type Lane, type LaneId, type Station } from "@/modules/assist/domain/ai-map";
-import { modelName, type Overview } from "@/modules/assist/domain/overview";
+import { isFreeProvider, modelName, type Overview } from "@/modules/assist/domain/overview";
 import { cue } from "@/ui/feedback/cue";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -52,6 +52,19 @@ export function FlowView({ lanes, overview }: { lanes: Lane[]; overview: Overvie
     const t = window.setTimeout(() => setWalk({ lane: walk.lane, at: walk.at + 1 }), 1150);
     return () => window.clearTimeout(t);
   }, [walk, lanes]);
+
+  // On a phone the road is a column taller than the screen and its buttons sit
+  // below the last station: keep the lit station in view while it is walked or read.
+  const litMark = walk ?? spoken;
+  useEffect(() => {
+    if (!litMark) return;
+    const el = document.querySelector<HTMLElement>(`[data-station="${litMark.lane}-${litMark.at}"]`);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top >= 80 && r.bottom <= window.innerHeight - 90) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+  }, [litMark]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -108,6 +121,7 @@ export function FlowView({ lanes, overview }: { lanes: Lane[]; overview: Overvie
                         ) : null}
                         <button
                           type="button"
+                          data-station={`${lane.id}-${i}`}
                           className={`tap aip-st${s.locked ? " locked" : ""}${cls}`}
                           style={{ ["--pv" as string]: pv(s.provider) }}
                           onClick={() => { cue("tap"); setOpen({ station: s, lane: lane.id }); }}
@@ -188,7 +202,8 @@ export function FlowView({ lanes, overview }: { lanes: Lane[]; overview: Overvie
         sub={open ? tx(LANE_WORDS[open.lane].title) : undefined}
         icon="sparkle"
       >
-        {open ? <StationDetail station={open.station} lanes={lanes} overview={overview} /> : null}
+        {/* The sheet renders in the overlay layer, outside the page's `.aip`: it carries its own. */}
+        {open ? <div className="aip"><StationDetail station={open.station} lanes={lanes} overview={overview} /></div> : null}
       </Sheet>
     </div>
   );
@@ -225,7 +240,7 @@ function StationDetail({ station, lanes, overview }: { station: Station; lanes: 
               <span style={{ fontSize: 14, fontWeight: 600 }}>{modelName(m.model)}</span>
               <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.answered(m.answered))} · {tx(W.triesN(m.tries))}</span>
             </span>
-            <span className="num" style={{ fontWeight: 700 }}>{m.costInr ? inr(m.costInr) : tx(W.freeCost)}</span>
+            <span className="num" style={{ fontWeight: 700, color: isFreeProvider(m.provider) ? "var(--ok)" : undefined }}>{isFreeProvider(m.provider) && !m.costInr ? tx(W.freeCost) : inr(m.costInr)}</span>
           </div>
         ))}
       </section>

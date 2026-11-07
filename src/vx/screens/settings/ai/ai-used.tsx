@@ -69,7 +69,8 @@ export function UsedView({ overview, people, lanes }: { overview: Overview | nul
       ) : null}
 
       <Sheet open={task !== null} onClose={() => setTask(null)} title={task ? tx(taskWords(task.task).label) : undefined} sub={task ? tx(task.kind === "builtin" ? W.photoVoice : W.written) : undefined} icon={task ? taskWords(task.task).icon : undefined}>
-        {task ? <TaskDetail row={task} lanes={lanes} /> : null}
+        {/* The sheet renders in the overlay layer, outside the page's `.aip`: it carries its own. */}
+        {task ? <div className="aip"><TaskDetail row={task} lanes={lanes} /></div> : null}
       </Sheet>
     </div>
   );
