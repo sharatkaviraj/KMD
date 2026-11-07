@@ -53,6 +53,15 @@ fee language provider follow the locale and catalogue the server sends again
 after sign-in and after the EN | हि switch (it had kept its first props as
 state); the real /login signs in the same way, so it is covered too. Test:
 `tests/shell-language-follows-server.test.tsx` (5).
+**D-518 live:** merged as PR 297 (`e0712c7`), on one.vpps.co.in from 16:28
+UTC. Checked live in a container browser, desk and phone, straight after
+sign-in as QA admin with no reload: `<html lang>` "hi", the menu heading
+"Practice years · अभ्यास वर्ष" and the badge "TEST · परीक्षण". The EN | हि
+switch (QA academic, the coordinator screens carry it) now moves the year
+menu with the page: हि gives "अभ्यास वर्ष", EN gives English; the account's
+language was put back to "en" afterwards. BrowserStack (real Galaxy M32
+Chrome and Windows 11 Chrome, QA admin, straight after sign-in): passed,
+both lines in both languages and `<html lang>` "hi".
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
