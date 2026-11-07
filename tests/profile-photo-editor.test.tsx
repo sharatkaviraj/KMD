@@ -39,8 +39,8 @@ it("choosing and cancelling a preview never uploads or changes the official phot
 });
 it("only explicit Save sends the chosen photograph once", async () => {
   await render(); await choose(); expect(mocks.save).not.toHaveBeenCalled();
-  const save = [...host.querySelectorAll("button")].find(b => b.textContent === "Save photograph"); expect(save).toBeDefined();
-  await act(async () => save!.click()); expect(mocks.save).toHaveBeenCalledTimes(1);
+  // Save waits for the command to be kept on the phone first, so wait for that write as the other saves here do.
+  await click("Save photograph"); expect(mocks.save).toHaveBeenCalledTimes(1);
 });
 async function click(label: string) {
   const button = [...host.querySelectorAll("button")].find(b => b.textContent === label); expect(button,label).toBeDefined();

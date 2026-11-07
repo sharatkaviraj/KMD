@@ -1,5 +1,20 @@
 # VPPS One — progress
 
+## Today looks the same in the real year, with one widget style — 7 November 2026
+
+Owner asked (7 Nov) why the phone Today in the real session looked different
+from the TEST session, and for better, more regular widgets. Branch
+`claude/project-thread-hrx5zc`, D-506 to D-509, with schoolfees #150 (merged).
+**Done:** the real session now shows the same money cards as TEST (year pace,
+families to call, money chart) from Fees' own figures; no duplicate "Fees
+collected today" card; a closed day (the Diwali break) shows one clear tile
+with the day school opens; every card uses one widget head; new Birthdays
+today and Coming up widgets. Checked in a container browser with synthetic
+fixtures (`/?view=today&closed=1|ledger=1`, design `F01-TodayLive`,
+`F01-TodayClosed`, `F01-TodayLedgerOnly`) at 320/390 px and 1280/1366 px,
+light and dark, axe clean on the widgets.
+**Remains:** see the thread for the live and BrowserStack check.
+
 ## One receipt, everywhere, on one sheet — 7 November 2026
 
 Owner asked (7 Nov) for One's receipt to look like the Fees receipt preview

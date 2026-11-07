@@ -1,0 +1,53 @@
+/*
+ * The admin's Today (src/vx/screens/admin/today.tsx). Layout rules the inline
+ * styles cannot say: the two-column desk becomes one column under 985px of page
+ * (the design's 1060px window less its 76px icon sidebar), the widget cards, the
+ * chart's hover tips, and the donut and heat cells' hover.
+ *
+ * A stylesheet rather than a string in the component: as a string it was
+ * JavaScript, and the home page's chunk is counted in every route's bundle
+ * budget (scripts/performance-bundles.mjs).
+ */
+.vx .td-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:20px;padding:24px 28px 40px;align-items:start}
+.vx .td-wide{grid-column:1/-1}
+.vx .td-stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.vx .td-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:16px}
+.vx .td-two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.vx .td-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vx .td-shortcut{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px;border:1px solid var(--bd);border-radius:12px;color:var(--fg);font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.vx .td-shortcut:hover{background:var(--s2)}
+.vx .td-shortcut:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+@container vx (max-width:984px){.vx .td-grid,.vx .td-two{grid-template-columns:minmax(0,1fr)}}
+@container vx (max-width:899px){.vx .td-grid{padding:16px 18px 0;gap:16px}}
+.vx .td-bar{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.vx .td-bar .fill{width:70%;border-radius:6px 6px 3px 3px;transform-origin:bottom;transition:height .55s var(--ease),filter .15s ease;animation:xGrowY .7s var(--ease) both}
+.vx .td-bar:hover .fill{filter:brightness(1.3)}
+.vx .td-bar .tip{position:absolute;left:50%;transform:translate(-50%,6px);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;background:var(--tbg);color:var(--tfg);font-size:12px;font-weight:600;padding:6px 9px;border-radius:9px;white-space:nowrap;z-index:3;box-shadow:var(--sh)}
+.vx .td-bar:hover .tip{opacity:1;transform:translate(-50%,0)}
+.vx .td-bar.end .tip{left:auto;right:0;transform:translate(0,6px)}
+.vx .td-bar.end:hover .tip{transform:none}
+.vx .td-donut .seg{transition:stroke-width .2s var(--ease),opacity .2s ease}
+.vx .td-donut:hover .seg{opacity:.4}
+.vx .td-donut .seg:hover{opacity:1;stroke-width:24}
+.vx .td-cell{transition:transform .15s var(--ease)}
+.vx .td-cell:hover{transform:scale(1.07);z-index:2}
+.vx .td-hero-card{min-width:0;overflow:hidden}
+@container vx (max-width:359px){.vx .td-ring svg{width:40px;height:40px}}
+.vx .td-widget{padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;animation:xRise .45s var(--ease) both}
+.vx .td-wicon{flex:none;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.vx .td-wicon.sm{width:30px;height:30px;border-radius:10px}
+.vx .td-wlink{flex:none;min-height:44px;margin:-10px -6px -10px 0;padding:0 6px 0 10px;display:inline-flex;align-items:center;gap:2px;color:var(--accfg);font-size:14px;font-weight:600;white-space:nowrap}
+.vx .td-wlist{list-style:none;margin:0 -16px -16px;padding:0}
+.vx .td-wlist>li{border-top:1px solid var(--bd)}
+.vx .td-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.vx .td-stat{padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0;color:var(--fg);min-height:124px}
+.vx .td-kids{display:flex;flex-wrap:wrap;gap:8px}
+.vx .td-kid{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 12px 4px 4px;border-radius:22px;background:var(--s2);color:var(--fg);max-width:100%}
+.vx .td-kid:hover{background:var(--s3)}
+.vx .td-kid .av{flex:none;width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;background:var(--warns);color:var(--warnfg)}
+.vx .td-cake{animation:tdWiggle 1.1s var(--ease) .5s 2 both;transform-origin:50% 80%}
+@keyframes tdWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}50%{transform:rotate(9deg)}75%{transform:rotate(-5deg)}}
+.vx .td-date{flex:none;width:52px;height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+.vx .td-date b{font-size:20px}
+.vx .td-date span{font-size:11px;font-weight:600}
+.vx .td-mquick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}

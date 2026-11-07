@@ -2,25 +2,30 @@
 
 import { Crest } from "@/vx/screens/system/brand";
 import Link from "@/ui/link";
+import dynamic from "next/dynamic";
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import { rupees, rupeesShort, shortDay } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
-import type { Pair } from "@/vx/text";
+import { p, type Pair } from "@/vx/text";
 import { Seg } from "@/vx/ui/controls";
-import { Grid } from "@/vx/ui/page";
-import { Card, CardHead, IconTile, Kpi, Pill } from "@/vx/ui/primitives";
+import { Card, IconTile, Pill } from "@/vx/ui/primitives";
 import { CouldNotRead } from "@/vx/ui/read-state";
 import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
 import { coverStanding, foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { TD } from "@/vx/screens/admin/today-text";
-import { catchUp, dueColumns, kfmt, moneyChart, weekBars } from "@/vx/screens/admin/today-logic";
+import { firstName, knownSpan, weekBars, type BirthdayChild, type ComingItem, type TodayGlance } from "@/vx/screens/admin/today-logic";
 import type { InboxItem, TimelineItem } from "@/vx/screens/admin/types";
 import { TodayBrief, type BriefFact } from "@/vx/assist/brief-assist";
 import { ReadyForYou } from "@/vx/assist/lazy-ready";
+import "./today.css";
+import { PaceBar, PaceWords } from "@/vx/screens/admin/today-pace";
+
+/** The desk's money section, its own chunk: a phone never shows it (D-510). */
+const DeskMoney = dynamic(() => import("./today-money").then((m) => m.DeskMoney));
 
 export type TodayMoneyView = {
   today: number;
@@ -37,6 +42,12 @@ export type TodayMoneyView = {
   dueDates?: Record<string, string | null>;
   /** Labels that are a previous session's balance. */
   carryForward?: string[];
+  /** "fees": the real session's figures, read from the Fees ledger (`moneyFromLedger`). */
+  source?: "fees";
+  /** When Fees read them, for "as of 11:10". */
+  asOf?: string;
+  /** The day series is only known from this day on; a chart reaches no further back. */
+  knownFrom?: string | null;
 };
 
 /** The "+ New" menu's tile colours (`QUICK_ACTIONS` in `vx/nav.ts`). */
@@ -85,13 +96,9 @@ export type TodayProps = {
   week?: { day: string; percent: number | null }[] | null;
   /** Families who promised on a call to pay today; null when unknown. Money readers only. */
   promisedToday?: number | null;
+  /** Why school is closed, what is coming on the calendar, today's birthdays (7 Nov 2026). */
+  glance?: TodayGlance | null;
 };
-
-const MODE_COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--pri)"];
-
-/** Payment modes by their stored code; an unknown code is shown as stored. */
-const MODE_NAMES: Partial<Record<string, Pair>> = TD.modeName;
-const modeName = (mode: string): Pair => MODE_NAMES[mode.toLowerCase()] ?? { en: mode };
 
 /** The design's tile colours by kind (`typeMeta`, and the correction's pencil). */
 const KIND_LOOK: Record<InboxItem["kind"], { icon: IconName; bg: string; fg: string }> = {
@@ -126,47 +133,28 @@ const QUICK_LOOK: Record<QuickTone, { bg: string; fg: string }> = {
   plain: { bg: "var(--s3)", fg: "var(--fg)" },
 };
 
+/** One look for every widget's icon tile, so the cards read as one family (7 Nov 2026). */
+type WidgetTone = "acc" | "warn" | "info" | "ok" | "bad" | "pri" | "plain";
+const WIDGET_TONE: Record<WidgetTone, { bg: string; fg: string }> = {
+  acc: { bg: "var(--accs)", fg: "var(--accfg)" },
+  warn: { bg: "var(--warns)", fg: "var(--warnfg)" },
+  info: { bg: "var(--infos)", fg: "var(--info)" },
+  ok: { bg: "var(--oks)", fg: "var(--ok)" },
+  bad: { bg: "var(--bads)", fg: "var(--bad)" },
+  pri: { bg: "var(--pri)", fg: "var(--prifg)" },
+  plain: { bg: "var(--s3)", fg: "var(--fg)" },
+};
+
 /** The design's light teal on the navy hero; the same in both themes, as drawn. */
 const HERO_TEAL = "#81DAE4";
 const HERO_INK = "#082F49";
 
-/*
- * Layout rules the inline styles cannot say: the two-column desk becomes one
- * column under 985px of page (the design's 1060px window less its 76px icon
- * sidebar), the chart's hover tips, and the donut and heat cells' hover.
- */
-const CSS = `
-.vx .td-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:20px;padding:24px 28px 40px;align-items:start}
-.vx .td-wide{grid-column:1/-1}
-.vx .td-stack{display:flex;flex-direction:column;gap:16px;min-width:0}
-.vx .td-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:16px}
-.vx .td-two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
-.vx .td-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.vx .td-shortcut{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px;border:1px solid var(--bd);border-radius:12px;color:var(--fg);font-size:13px;font-weight:600;overflow-wrap:anywhere}
-.vx .td-shortcut:hover{background:var(--s2)}
-.vx .td-shortcut:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
-@container vx (max-width:984px){.vx .td-grid,.vx .td-two{grid-template-columns:minmax(0,1fr)}}
-@container vx (max-width:899px){.vx .td-grid{padding:24px 18px 8px;gap:16px}}
-.vx .td-bar{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center}
-.vx .td-bar .fill{width:70%;border-radius:6px 6px 3px 3px;transform-origin:bottom;transition:height .55s var(--ease),filter .15s ease;animation:xGrowY .7s var(--ease) both}
-.vx .td-bar:hover .fill{filter:brightness(1.3)}
-.vx .td-bar .tip{position:absolute;left:50%;transform:translate(-50%,6px);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;background:var(--tbg);color:var(--tfg);font-size:12px;font-weight:600;padding:6px 9px;border-radius:9px;white-space:nowrap;z-index:3;box-shadow:var(--sh)}
-.vx .td-bar:hover .tip{opacity:1;transform:translate(-50%,0)}
-.vx .td-bar.end .tip{left:auto;right:0;transform:translate(0,6px)}
-.vx .td-bar.end:hover .tip{transform:none}
-.vx .td-donut .seg{transition:stroke-width .2s var(--ease),opacity .2s ease}
-.vx .td-donut:hover .seg{opacity:.4}
-.vx .td-donut .seg:hover{opacity:1;stroke-width:24}
-.vx .td-cell{transition:transform .15s var(--ease)}
-.vx .td-cell:hover{transform:scale(1.07);z-index:2}
-.vx .td-hero-card{min-width:0;overflow:hidden}
-@container vx (max-width:359px){.vx .td-ring svg{width:40px;height:40px}}
-`;
-
 export function TodayScreen(props: TodayProps) {
   const { tx } = useVx();
   const { money, attendance, inbox } = props;
-  const avg = money ? vsAverage(dailySeries(money.days, props.today, 30), props.today) : null;
+  // A day series known only from a later day (the real session's, from Fees) is never averaged over days it was not told.
+  const span = money ? knownSpan(props.today, money.knownFrom, 30) : 30;
+  const avg = money ? vsAverage(dailySeries(money.days, props.today, span), props.today) : null;
   const pace = money && money.expected > 0 ? yearPace({ expected: money.expected, collected: money.collected, dueSoFar: money.dueSoFar }) : null;
   const awaiting = inbox ? inbox.length : 0;
   // A queue with a source that could not be read is never reported as nought.
@@ -178,6 +166,11 @@ export function TodayScreen(props: TodayProps) {
     : 0;
   const greeting = `${tx(props.greeting)}, ${props.firstName}`;
   const statusText = props.status ? ` · ${tx(props.status)}` : "";
+  const glance = props.glance ?? null;
+  const closed = glance?.closed ?? null;
+  const schoolClosed = closed !== null || (attendance !== null && !attendance.schoolOpen);
+  const birthdays = glance?.birthdays ?? [];
+  const coming = glance?.coming ?? [];
 
   // The page's own figures, for the AI brief (D-328): the AI writes words around
   // `<<slots>>` and these values fill them, so no number in the brief is the AI's.
@@ -197,55 +190,54 @@ export function TodayScreen(props: TodayProps) {
     { key: "session_collected", label: "Fees collected this session, of what is expected", value: money && money.expected > 0 ? `${rupees(money.collected)} of ${rupees(money.expected)}` : null },
     { key: "families_follow_up", label: "Families to follow up for fees", value: money ? String(money.followUps) : null },
     { key: "promised_today", label: "Families who promised to pay today", value: props.promisedToday != null ? String(props.promisedToday) : null },
+    { key: "birthdays_today", label: "Children whose birthday is today", value: glance?.birthdays ? String(birthdays.length) : null },
   ];
 
   /* ------------------------------------------- after the design: later cards */
 
+  // On a phone a closed day's "School is closed" cards say what the hero already says, so they step aside.
   const scheduleCard =
     props.schedule || props.scheduleFailed ? (
-      <Card>
-        <CardHead
+      <section className={`card td-widget${props.schedule?.state === "closed" ? " only-d" : ""}`}>
+        <WidgetHead
+          icon="clock"
+          tone="acc"
           title={tx(TD.scheduledNow)}
           sub={<span className="only-d">{tx(TD.scheduledSub)}</span>}
-          action={
-            props.links.timetable ? (
-              <Link href="/timetable" className="tap" style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}>
-                {tx(TD.fullDay)}
-              </Link>
-            ) : undefined
-          }
+          action={props.links.timetable ? <WidgetLink href="/timetable" label={tx(TD.fullDay)} /> : undefined}
         />
-        <div style={{ marginTop: 12 }}>{props.schedule ? <ScheduleBody view={props.schedule} /> : <Quiet>{tx(T.couldNotRead)}</Quiet>}</div>
+        <div>{props.schedule ? <ScheduleBody view={props.schedule} /> : <Quiet>{tx(T.couldNotRead)}</Quiet>}</div>
         {/* On a phone the "not a record of teaching" line moves under the list, small. */}
-        {props.schedule ? <p className="only-m" style={{ margin: "10px 0 0", fontSize: 12, color: "var(--mut)" }}>{tx(TD.scheduledSub)}</p> : null}
-      </Card>
+        {props.schedule ? <p className="only-m" style={{ margin: 0, fontSize: 12, color: "var(--mut)" }}>{tx(TD.scheduledSub)}</p> : null}
+      </section>
     ) : null;
 
   const notMarked = props.exceptions.notMarked ?? [];
   const coverRows = props.exceptions.cover ?? [];
   const exceptionsUnread = ["board", "calendar", "cover"].some((key) => todayMissing.includes(key));
+  // A phone's Needs you already lists the unmarked classes and the cover to arrange.
   const exceptionsCard = (
-    <Card pad={false} style={{ overflow: "hidden" }}>
-      <div style={{ padding: "16px 18px 10px" }}>
-        <CardHead
-          title={tx(TD.exceptions)}
-          action={
-            props.links.substitutions && coverRows.length > 0 ? (
-              <Link href="/substitutions" className="tap" style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(TD.arrangeCover)}</Link>
-            ) : props.links.attendance && notMarked.length > 0 ? (
-              <Link href="/attendance?f=pending" className="tap" style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(TD.openBoard)}</Link>
-            ) : undefined
-          }
-        />
-      </div>
+    <section className={`card td-widget${inbox || schoolClosed ? " only-d" : ""}`}>
+      <WidgetHead
+        icon="swap"
+        tone="info"
+        title={tx(TD.exceptions)}
+        action={
+          props.links.substitutions && coverRows.length > 0 ? (
+            <WidgetLink href="/substitutions" label={tx(TD.arrangeCover)} />
+          ) : props.links.attendance && notMarked.length > 0 ? (
+            <WidgetLink href="/attendance?f=pending" label={tx(TD.openBoard)} />
+          ) : undefined
+        }
+      />
       {notMarked.length === 0 && coverRows.length === 0 && exceptionsUnread ? (
-        <CouldNotRead style={{ margin: "0 18px 16px" }} />
+        <CouldNotRead />
       ) : notMarked.length === 0 && coverRows.length === 0 ? (
-        <p style={{ margin: 0, padding: "0 18px 16px", color: "var(--mut)", fontSize: 14 }}>
+        <p style={{ margin: 0, color: "var(--mut)", fontSize: 14 }}>
           {attendance && !attendance.schoolOpen ? tx(T.schoolClosed) : tx(TD.noExceptions)}
         </p>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul className="td-wlist">
           {notMarked.length > 0 ? (
             <ExceptionRow
               icon="calCheck"
@@ -271,72 +263,74 @@ export function TodayScreen(props: TodayProps) {
           ))}
         </ul>
       )}
-    </Card>
+    </section>
   );
 
-  // Student support and approvals: counts the design does not draw, kept after its sections.
+  // Student support and approvals: two tiles in the same look as every other widget.
   const laterTiles =
     props.support || (inbox && props.links.review) ? (
-      <Grid cols={2}>
+      <div className="td-stats">
         {props.support ? (
-          <Kpi
+          <StatTile
+            icon="note"
+            tone={props.support.needsAction > 0 ? "warn" : "ok"}
             label={tx(TD.support)}
             value={props.support.needsAction}
+            valueColor={props.support.needsAction > 0 ? "var(--warnfg)" : undefined}
             href="/notes"
-            icon="note"
-            tone={props.support.needsAction > 0 ? "var(--warnfg)" : undefined}
             sub={props.support.needsAction > 0 ? tx(TD.followUpsDue(props.support.due)) : tx(TD.nothingNeedsAction)}
           />
         ) : null}
         {inbox && props.links.review ? (
-          <Kpi
+          <StatTile
+            icon="clipboard"
+            tone={dataChanges > 0 ? "info" : "ok"}
             label={tx(TD.approvals)}
             value={inboxMissing.includes("submissions") && dataChanges === 0 ? "—" : dataChanges}
             href="/collection/review"
-            icon="clipboard"
             sub={inboxMissing.includes("submissions") ? tx(T.couldNotRead) : dataChanges > 0 ? tx(TD.dataChanges(dataChanges)) : tx(TD.noDataChanges)}
           />
         ) : null}
-      </Grid>
+      </div>
     ) : null;
 
-  // With the Fees ledger notice shown, "fee figures are shown to the fee desk" would be wrong for this reader.
+  // The plain ledger tile is only for a Fees that sends no session figures; the phone hero already shows it.
   const ledgerCard = props.ledgerToday ? <LedgerTodayCard today={props.ledgerToday} /> : null;
-  const moneyNote = money ? null : ledgerCard ? ledgerCard : props.moneyFailed ? (
-    <Card><p style={{ margin: 0, color: "var(--mut)" }}>{tx(TD.feesUnavailable)}</p></Card>
+  const moneyNote = money ? null : ledgerCard ? <div className="only-d">{ledgerCard}</div> : props.moneyFailed ? (
+    <Card className="only-d"><p style={{ margin: 0, color: "var(--mut)" }}>{tx(TD.feesUnavailable)}</p></Card>
   ) : props.notice ? null : (
     <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(T.moneyHidden)}</p>
   );
+  // On a fees-ledger session there is no class table: the year's pace and how they pay stand beside the chart.
+  const noHeat = money?.source === "fees" && money.matrix.length === 0;
+  const timelineEmptyClosed = schoolClosed && props.timeline.length === 0;
 
   /* ------------------------------------------------------------ the frames */
 
   return (
     <>
-      <style href="vx-today" precedence="default">{CSS}</style>
       <DeskTopBar crumb={props.dayLine} actions={props.actions} />
       <div className="vx-pmain">
         {props.unavailable ? (
           <div role="status" style={{ margin: "12px 18px 0", fontSize: 13, color: "var(--warnfg)", background: "var(--warns)", padding: "8px 12px", borderRadius: 12 }}>{tx(T.couldNotRead)}</div>
         ) : null}
 
-        {/* F01 / F14 — the phone, as drawn: hero, Needs you, quick actions, the day, this session.
+        {/* The phone, top half: hero, what needs you, the calls, quick actions and today's small widgets.
             The phone frame sets its text at 1.4, a touch under the kit's 1.45. */}
         <div className="only-m" style={{ lineHeight: 1.4 }}>
-          <PhoneHero {...props} hello={greeting} statusText={statusText} />
-          {props.notice ? <div className="vx-today-notice">{props.notice}</div> : null}
+          <PhoneHero {...props} hello={greeting} statusText={statusText} closed={closed} />
           <PhoneNeeds inbox={inbox} incomplete={inboxIncomplete} />
           <PhoneCalls money={money} promisedToday={props.promisedToday} />
-          {props.officeWork ? <div style={{ padding: "0 16px 16px" }}>{props.officeWork}</div> : null}
+          {props.officeWork ? <div style={{ padding: "16px 18px 0" }}>{props.officeWork}</div> : null}
           <PhoneQuick actions={props.actions} />
-          <ReadyForYou wrap={{ padding: "18px 18px 0" }} />
-          <TodayBrief facts={briefFacts} style={{ padding: "18px 18px 0" }} />
-          <section style={{ padding: "26px 18px 0", display: "flex", flexDirection: "column", gap: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h2>
-            <div className="card" style={{ padding: "6px 16px" }}>
-              <Timeline items={props.timeline} closed={attendance !== null && !attendance.schoolOpen} phone />
+          {birthdays.length || coming.length ? (
+            <div style={{ padding: "16px 18px 0", display: "flex", flexDirection: "column", gap: 16 }}>
+              {birthdays.length ? <BirthdaysWidget kids={birthdays} /> : null}
+              {coming.length ? <ComingWidget items={coming} /> : null}
             </div>
-          </section>
-          <PhoneSession money={money} pace={pace} today={props.today} attendance={attendance} week={props.week ?? null} linkAttendance={props.links.attendance} />
+          ) : null}
+          <ReadyForYou wrap={{ padding: "16px 18px 0" }} />
+          <TodayBrief facts={briefFacts} style={{ padding: "16px 18px 0" }} />
         </div>
 
         {/* The school day and action queue share the first row. Fee analysis follows both. */}
@@ -358,11 +352,19 @@ export function TodayScreen(props: TodayProps) {
                 </div>
               ) : null}
             </div>
+            {closed ? <ClosedBanner closed={closed} today={props.today} /> : null}
             <DeskKpis {...props} avgDelta={avg?.deltaPct ?? null} />
           </div>
           <div className="td-stack">
             {scheduleCard}
             {exceptionsCard}
+            {/* A desk keeps the day's small widgets under the teaching cards, beside the rail. */}
+            {birthdays.length || coming.length ? (
+              <div className={`only-d${birthdays.length && coming.length ? " td-two" : ""}`} style={{ alignItems: "start" }}>
+                {coming.length ? <ComingWidget items={coming} /> : null}
+                {birthdays.length ? <BirthdaysWidget kids={birthdays} /> : null}
+              </div>
+            ) : null}
           </div>
           <aside className="td-stack">
             <div className="only-d td-stack">
@@ -372,9 +374,9 @@ export function TodayScreen(props: TodayProps) {
             </div>
             {laterTiles}
             <div className="only-d td-stack">
-              <section className="card" style={{ padding: "14px 18px 8px", animation: "xRise .45s .15s var(--ease) both" }}>
-                <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h3>
-                <Timeline items={props.timeline} closed={attendance !== null && !attendance.schoolOpen} />
+              <section className="card td-widget" style={{ animationDelay: ".15s" }}>
+                <WidgetHead icon="flag" tone="acc" title={tx(T.todayAtSchool)} />
+                <Timeline items={props.timeline} closed={schoolClosed} />
               </section>
               <ReadyForYou />
               <TodayBrief facts={briefFacts} />
@@ -386,17 +388,22 @@ export function TodayScreen(props: TodayProps) {
             {money ? (
               <section aria-label={tx(TD.financeToday)} className="only-d td-stack">
                 <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(TD.financeToday)}</h2>
-                <div className="td-two">
-                  <MoneyTaken money={money} today={props.today} />
-                  {pace ? <PaceCard money={money} pace={pace} today={props.today} /> : <HowTheyPay money={money} />}
-                </div>
-                <div className={pace ? "td-two" : undefined}>
-                  <PendingHeat money={money} today={props.today} />
-                  {pace ? <HowTheyPay money={money} /> : null}
-                </div>
+                <DeskMoney money={money} pace={pace} today={props.today} noHeat={noHeat} />
               </section>
             ) : null}
           </div>
+        </div>
+
+        {/* The phone, lower half: the day's timeline and this session, then where the money is kept. */}
+        <div className="only-m" style={{ lineHeight: 1.4, padding: "16px 18px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {timelineEmptyClosed ? null : (
+            <section className="card td-widget">
+              <WidgetHead icon="flag" tone="acc" title={tx(T.todayAtSchool)} />
+              <Timeline items={props.timeline} closed={schoolClosed} phone />
+            </section>
+          )}
+          <PhoneSession money={money} pace={pace} today={props.today} attendance={attendance} week={props.week ?? null} linkAttendance={props.links.attendance} />
+          {props.notice ? <div className="vx-today-notice" style={{ padding: 0 }}>{props.notice}</div> : null}
         </div>
       </div>
     </>
@@ -589,9 +596,12 @@ function TileLink({ href, className, style, children }: { href: string | null; c
   );
 }
 
-function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
+function PhoneHero(props: TodayProps & { hello: string; statusText: string; closed: TodayGlance["closed"] }) {
   const { tx } = useVx();
-  const { money, attendance, cover } = props;
+  const { money, cover, closed } = props;
+  // On a closed day the register and cover tiles have nothing to say; the closed tile says why and when school opens.
+  const attendance = closed ? null : props.attendance;
+  const staffAway = closed ? null : props.staffAway;
   const heroCard: CSSProperties = { border: "1px solid var(--navb)", background: "var(--navs)", color: "var(--navfg)", borderRadius: 20 };
   const label: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 12, color: "var(--navm)" };
   // The design draws these tiles as buttons, which set their text at the browser's "normal" leading.
@@ -638,7 +648,10 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
               <span style={{ fontSize: 12, color: "var(--navm)" }}>{tx(TD.feesCollectedToday)}</span>
               <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{rupees(money.today)}</span>
-              <span style={{ fontSize: 12, color: "var(--navm)" }}>{receiptsLine(money, tx)}</span>
+              <span style={{ fontSize: 12, color: "var(--navm)" }}>
+                {receiptsLine(money, tx)}
+                {money.source === "fees" && money.asOf ? ` · ${tx(TD.asOf(asOfTime(money.asOf)))}` : ""}
+              </span>
             </span>
             {/* The week's running total rose to a high dot beside "₹0 today" and read as money coming in (UX review 6 Nov 2026). */}
             {money.today > 0 ? <Spark values={weekRunning(money, props.today)} w={128} h={54} color={HERO_TEAL} stroke={2.5} dot={4.5} end={[124, 6]} /> : null}
@@ -671,18 +684,30 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             </span>
           </TileLink>
         ) : null}
-        {props.staffAway !== null ? (
+        {staffAway !== null ? (
           <TileLink href={props.links.substitutions ? "/substitutions" : null} className="td-hero-card" style={{ ...heroCard, ...tileText, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
             <span style={label}>
               {tx(T.teachersOnLeave)}
               {props.links.substitutions ? <Ic n="chevRight" size={16} /> : null}
             </span>
-            <span className="num" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{props.staffAway}</span>
+            <span className="num" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{staffAway}</span>
             <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on={HERO_TEAL} off="var(--navb)" width={18} /> : null}
               <CoverLine cover={cover} color="var(--navm)" />
             </span>
           </TileLink>
+        ) : null}
+        {closed ? (
+          <div className="td-hero-card" style={{ ...heroCard, gridColumn: "1 / -1", padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
+            <span aria-hidden="true" style={{ flex: "none", width: 46, height: 46, borderRadius: 23, background: HERO_TEAL, color: HERO_INK, display: "flex", alignItems: "center", justifyContent: "center", animation: "xPopIn .5s var(--spring) both" }}>
+              <Ic n="sun" size={22} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 17, fontWeight: 700 }}>{tx(closedTitle(closed))}</span>
+              {closed.reopens ? <span style={{ fontSize: 13, color: "var(--navm)" }}>{tx(TD.opensAgain(shortDay(closed.reopens), daysUntil(props.today, closed.reopens)))}</span> : null}
+              <span style={{ fontSize: 12, color: "var(--navm)" }}>{tx(TD.closedRest)}</span>
+            </span>
+          </div>
         ) : null}
       </div>
     </section>
@@ -699,7 +724,7 @@ function PhoneCalls({ money, promisedToday }: { money: TodayMoneyView | null; pr
   if (!money) return null;
   return (
     <div style={{ padding: "16px 18px 0" }}>
-      <Link href="/dues" className="tap" style={{ lineHeight: "normal", background: HERO_TEAL, color: HERO_INK, borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+      <Link href="/dues" className="tap lift" style={{ lineHeight: "normal", background: HERO_TEAL, color: HERO_INK, borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
         <span aria-hidden="true" style={{ flex: "none", width: 36, height: 36, borderRadius: 12, background: "rgba(8,47,73,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Ic n="phone" />
         </span>
@@ -734,39 +759,45 @@ function PhoneNeeds({ inbox, incomplete }: { inbox: InboxItem[] | null; incomple
   const { tx } = useVx();
   if (!inbox) return null;
   return (
-    <section style={{ padding: "24px 18px 0", display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-          {tx(T.needsYou)}
-          {inbox.length > 0 ? <CountPill n={inbox.length} /> : null}
-        </h2>
-        <Link href="/inbox" className="tap" style={{ height: 44, padding: "0 0 0 12px", display: "inline-flex", alignItems: "center", color: "var(--acc)", fontSize: 14, fontWeight: 600 }}>{tx(T.seeAll)}</Link>
+    <section style={{ padding: "18px 18px 0" }}>
+      <div className="card td-widget">
+        <WidgetHead
+          icon="inbox"
+          tone={inbox.length > 0 ? "bad" : "ok"}
+          title={
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {tx(T.needsYou)}
+              {inbox.length > 0 ? <CountPill n={inbox.length} /> : null}
+            </span>
+          }
+          action={<WidgetLink href="/inbox" label={tx(T.seeAll)} />}
+        />
+        {inbox.length > 0 ? (
+          <ul className="td-wlist" style={incomplete ? { marginBottom: 0 } : undefined}>
+            {inbox.slice(0, 3).map((item, i) => (
+              <li key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", animation: `xRise .44s var(--ease) ${i * 35}ms both` }}>
+                <NeedTile item={item} size={42} radius={14} />
+                <Link href={`/inbox?item=${encodeURIComponent(item.id)}`} className="tap" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{tx(needTitle(item))}</span>
+                  <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(item.sub)}</span>
+                </Link>
+                <Link href={`/inbox?item=${encodeURIComponent(item.id)}`} className="tap btn soft" style={{ flex: "none", padding: "0 14px" }}>{tx(ACTION_OF[item.kind] ?? T.open)}</Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {incomplete ? <CouldNotRead partial={inbox.length > 0} /> : inbox.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, animation: "xIn .3s var(--ease) both" }}>
+            <span aria-hidden="true" style={{ flex: "none", width: 38, height: 38, borderRadius: 19, background: "var(--oks)", color: "var(--ok)", display: "flex", alignItems: "center", justifyContent: "center", animation: "xPopIn .5s var(--spring) both" }}>
+              <Ic n="check" />
+            </span>
+            <span style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(T.allClear)}</span>
+              <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(TD.allClearSub)}</span>
+            </span>
+          </div>
+        ) : null}
       </div>
-      {inbox.length > 0 ? (
-        <div className="card" style={{ overflow: "hidden" }}>
-          {inbox.slice(0, 3).map((item, i) => (
-            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderTop: i === 0 ? 0 : "1px solid var(--bd)", animation: `xRise .44s var(--ease) ${i * 35}ms both` }}>
-              <NeedTile item={item} size={42} radius={14} />
-              <Link href={`/inbox?item=${encodeURIComponent(item.id)}`} className="tap" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-                <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{tx(needTitle(item))}</span>
-                <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(item.sub)}</span>
-              </Link>
-              <Link href={`/inbox?item=${encodeURIComponent(item.id)}`} className="tap btn soft" style={{ flex: "none", padding: "0 14px" }}>{tx(ACTION_OF[item.kind] ?? T.open)}</Link>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {incomplete ? <CouldNotRead partial={inbox.length > 0} /> : inbox.length === 0 ? (
-        <div className="card" style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, animation: "xIn .3s var(--ease) both" }}>
-          <span aria-hidden="true" style={{ flex: "none", width: 44, height: 44, borderRadius: 22, background: "var(--oks)", color: "var(--ok)", display: "flex", alignItems: "center", justifyContent: "center", animation: "xPopIn .5s var(--spring) both" }}>
-            <Ic n="check" />
-          </span>
-          <span style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(T.allClear)}</span>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(TD.allClearSub)}</span>
-          </span>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -800,40 +831,22 @@ function PhoneQuick({ actions }: { actions: TodayProps["actions"] }) {
   const four = actions.slice(0, 4);
   if (four.length === 0) return null;
   return (
-    <section style={{ padding: "24px 18px 0" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
-        {four.map((a, i) => (
-          <Link key={a.key} href={a.href} className="tap rise" style={{ padding: "4px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, color: "var(--fg)", fontSize: 12, fontWeight: 600, textAlign: "center", animationDelay: `${i * 35}ms` }}>
-            <span aria-hidden="true" style={{ width: 58, height: 58, borderRadius: 20, background: i === 0 ? "var(--pri)" : "var(--card)", color: i === 0 ? "var(--prifg)" : "var(--pri)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--sh)" }}>
-              <Ic n={a.icon} size={24} />
-            </span>
-            {tx(TD.quickShort[a.key] ?? a.label)}
-          </Link>
-        ))}
+    <section aria-label={tx(T.quickActions)} style={{ padding: "18px 18px 0" }}>
+      <div className="td-mquick">
+        {four.map((a, i) => {
+          // Every tile the same shape, each in its action's own colour: none looks "chosen" over the others.
+          const look = QUICK_LOOK[a.tone ?? "acc"];
+          return (
+            <Link key={a.key} href={a.href} className="tap rise card lift" style={{ padding: "12px 4px 10px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, color: "var(--fg)", fontSize: 12, fontWeight: 600, textAlign: "center", lineHeight: 1.25, animationDelay: `${i * 35}ms` }}>
+              <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 15, background: look.bg, color: look.fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic n={a.icon} size={22} />
+              </span>
+              {tx(TD.quickShort[a.key] ?? a.label)}
+            </Link>
+          );
+        })}
       </div>
     </section>
-  );
-}
-
-function PaceBar({ pace }: { pace: { percent: number; shouldPercent: number } }) {
-  return (
-    <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pace.percent} style={{ position: "relative", height: 12, borderRadius: 6, background: "var(--s3)" }}>
-      <div style={{ height: 12, borderRadius: 6, width: `${Math.min(100, pace.percent)}%`, background: "var(--acc)", transformOrigin: "left", animation: "xGrowX .9s var(--ease) both", transition: "width .6s var(--ease)" }} />
-      <span aria-hidden="true" style={{ position: "absolute", top: -4, bottom: -4, left: `${Math.min(100, pace.shouldPercent)}%`, width: 2, borderRadius: 1, background: "var(--fg)" }} />
-    </div>
-  );
-}
-
-function PaceWords({ pace, today, size }: { pace: { behind: number }; today: string; size: number }) {
-  const { tx } = useVx();
-  const more = catchUp(pace.behind, today);
-  return (
-    <>
-      <span style={{ fontSize: 13, lineHeight: 1.45, fontWeight: 600, color: pace.behind > 0 ? "var(--warnfg)" : "var(--ok)" }}>
-        {pace.behind > 0 ? tx(T.behindBy(rupees(pace.behind))) : tx(T.onPace)}
-      </span>
-      {more ? <span style={{ fontSize: size, lineHeight: 1.5, color: "var(--mut)" }}>{tx(TD.catchUp(rupees(more.perDay), more.daysLeft, TD.month[more.month]))}</span> : null}
-    </>
   );
 }
 
@@ -856,28 +869,21 @@ function PhoneSession({
   const bars = attendance && week !== null ? weekBars(today, week, attendance.schoolOpen ? attendance.percent : null) : null;
   if (!(money && pace) && !bars) return null;
   return (
-    <section style={{ padding: "26px 18px 0", display: "flex", flexDirection: "column", gap: 12 }}>
-      <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(T.thisSession)}</h2>
+    <>
       {money && pace ? (
-        <div className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(TD.feesCollected)}</span>
-            <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(T.ofTotal(rupeesShort(money.collected), rupeesShort(money.expected)))}</span>
-          </div>
+        <section className="card td-widget">
+          <WidgetHead icon="trend" tone="acc" title={tx(TD.feesThisSession)} sub={<span className="num">{tx(T.ofTotal(rupeesShort(money.collected), rupeesShort(money.expected)))}</span>} />
           <PaceBar pace={pace} />
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, color: "var(--mut)" }}>
             <span className="num">{tx(T.pctCollected(pace.percent))}</span>
             <span>{tx(TD.shouldBeByToday(pace.shouldPercent))}</span>
           </div>
           <PaceWords pace={pace} today={today} size={13} />
-        </div>
+        </section>
       ) : null}
       {bars ? (
-        <TileLink href={linkAttendance ? "/attendance" : null} className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12, color: "var(--fg)" }}>
-          <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", width: "100%" }}>
-            <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(TD.attendanceThisWeek)}</span>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(TD.presentShare)}</span>
-          </span>
+        <TileLink href={linkAttendance ? "/attendance" : null} className="card td-widget" style={{ color: "var(--fg)" }}>
+          <WidgetHead icon="calCheck" tone="info" title={tx(TD.attendanceThisWeek)} sub={tx(TD.presentShare)} action={linkAttendance ? <Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} /> : undefined} />
           <span style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10, alignItems: "end", height: 92, width: "100%" }}>
             {bars.map((b, i) => (
               <span key={b.day} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 5, height: 92 }}>
@@ -889,7 +895,7 @@ function PhoneSession({
           </span>
         </TileLink>
       ) : null}
-    </section>
+    </>
   );
 }
 
@@ -898,7 +904,8 @@ function PhoneSession({
 function timelineLook(state: TimelineItem["state"]) {
   switch (state) {
     case "done":
-      return { time: "var(--sub)", title: "var(--mut)", dot: "var(--bds)", ring: "0", pulse: false };
+      // A past item is quieter, but its time still reads at full contrast (axe, 7 Nov 2026).
+      return { time: "var(--mut)", title: "var(--mut)", dot: "var(--bds)", ring: "0", pulse: false };
     case "alert":
       return { time: "var(--fg)", title: "var(--fg)", dot: "var(--warn)", ring: "0", pulse: false };
     case "now":
@@ -1013,169 +1020,6 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
   );
 }
 
-function MoneyTaken({ money, today }: { money: TodayMoneyView; today: string }) {
-  const { tx } = useVx();
-  const [range, setRange] = useState<"14" | "30">("30");
-  const chart = moneyChart(dailySeries(money.days, today, Number(range)), today);
-  return (
-    <section className="card" style={{ padding: "18px 20px 14px", display: "flex", flexDirection: "column", gap: 14, animation: "xRise .45s .1s var(--ease) both" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.moneyTaken)}</h3>
-          <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(T.moneyTakenSub(rupees(chart.average), rupees(chart.best), chart.emptyDays))}</span>
-        </div>
-        <Seg
-          options={[
-            { value: "14", label: tx(T.days14) },
-            { value: "30", label: tx(T.days30) },
-          ]}
-          value={range}
-          onChange={setRange}
-          label={tx(T.moneyTaken)}
-          style={{ width: 148 }}
-        />
-      </div>
-      <div style={{ position: "relative", height: 210, marginLeft: 48 }}>
-        {chart.grid.map((g) => (
-          <span key={g.at}>
-            <span aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: `${g.at}%`, borderTop: "1px dashed var(--bd)" }} />
-            <span className="num" style={{ position: "absolute", left: -48, bottom: `${g.at}%`, transform: "translateY(50%)", fontSize: 11, color: "var(--sub)" }}>{g.label}</span>
-          </span>
-        ))}
-        {chart.average > 0 ? (
-          <>
-            <span aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: `${chart.averageAt}%`, borderTop: "2px dashed var(--warn)", opacity: 0.8, transition: "bottom .5s var(--ease)" }} />
-            <span className="pill num" style={{ position: "absolute", right: 0, bottom: `${chart.averageAt}%`, transform: "translateY(-4px)", background: "var(--warns)", color: "var(--warnfg)", transition: "bottom .5s var(--ease)", zIndex: 1 }}>{tx(TD.avgPill(kfmt(chart.average)))}</span>
-          </>
-        ) : null}
-        <div role="list" aria-label={tx(T.moneyTaken)} style={{ position: "absolute", inset: 0, display: "flex", alignItems: "stretch", gap: 3 }}>
-          {chart.bars.map((b, i) => {
-            const tip = `${b.day} · ${b.amount > 0 ? rupees(b.amount) : b.sunday ? tx(TD.sunday) : tx(TD.nothingTaken)}`;
-            return (
-              // The last bars' tips open leftwards, so none runs past the card's edge.
-              <div key={b.date} role="listitem" aria-label={tip} className={i >= chart.bars.length - 3 ? "td-bar end" : "td-bar"}>
-                <span className="tip" style={{ bottom: `calc(${b.height}% + 8px)` }}>{tip}</span>
-                <span className="fill" style={{ height: `${b.height}%`, background: b.isToday ? "var(--acc)" : b.amount > 0 ? "var(--pri)" : "var(--s3)", animationDelay: `${i * 18}ms` }} />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <div aria-hidden="true" style={{ display: "flex", gap: 3, marginLeft: 48 }}>
-        {chart.bars.map((b) => (
-          <span key={b.date} className="num" style={{ flex: 1, textAlign: "center", fontSize: 11, color: b.isToday ? "var(--fg)" : "var(--sub)", fontWeight: b.isToday ? 700 : 500, opacity: b.showLabel ? 1 : 0, whiteSpace: "nowrap" }}>
-            {b.isToday ? tx(T.today) : b.label}
-          </span>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PendingHeat({ money, today }: { money: TodayMoneyView; today: string }) {
-  const { tx } = useVx();
-  // Only what is already past due: an installment not due yet never joins "pending" (RULES B).
-  const cols = dueColumns(money.installments, money.dueDates, money.carryForward, today) ?? money.installments.map((key) => ({ key, label: key, title: key, carry: false }));
-  const rows = money.matrix
-    .map((row) => ({ label: row.classLabel, cells: cols.map((c) => row.cells[c.key] ?? 0), total: cols.reduce((s, c) => s + (row.cells[c.key] ?? 0), 0) }))
-    .filter((row) => row.total > 0);
-  const max = Math.max(1, ...rows.flatMap((row) => row.cells));
-  return (
-    <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .15s var(--ease) both" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.pendingByClass)}</h3>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.pendingByClassSub)}</span>
-      </div>
-      {cols.length === 0 || rows.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(TD.nothingPastDue)}</p>
-      ) : (
-        // Each amount keeps room to be read ("₹1.3L", never "₹1.3" cut off); a narrow phone scrolls the table, not the page (smoke run, 20 Oct).
-        <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
-        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `minmax(84px, 112px) repeat(${cols.length}, minmax(52px, 1fr)) minmax(56px, 76px)`, gap: 5, alignItems: "center", minWidth: 84 + cols.length * 57 + 61 }}>
-          <div role="row" style={{ display: "contents" }}>
-            <span role="columnheader" />
-            {cols.map((c) => (
-              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center", whiteSpace: "nowrap", padding: "0 2px" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
-            ))}
-            <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(TD.total)}</span>
-          </div>
-          {rows.map((row, ri) => (
-            <div key={row.label} role="row" style={{ display: "contents" }}>
-              <span role="rowheader" className="clip" style={{ fontSize: 13, fontWeight: 600 }}>{row.label}</span>
-              {row.cells.map((v, ci) => {
-                const a = v ? 0.12 + (0.8 * v) / max : 0.04;
-                return (
-                  <span
-                    key={cols[ci].key}
-                    role="cell"
-                    className="td-cell num"
-                    title={`${row.label} · ${cols[ci].title} · ${v ? rupees(v) : "—"}`}
-                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", whiteSpace: "nowrap", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
-                  >
-                    {kfmt(v)}
-                  </span>
-                );
-              })}
-              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{kfmt(row.total)}</span>
-            </div>
-          ))}
-        </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function HowTheyPay({ money }: { money: TodayMoneyView }) {
-  const { tx } = useVx();
-  const total = money.modes.reduce((s, m) => s + m.amount, 0);
-  const C = 2 * Math.PI * 56;
-  const segs = money.modes.map((m, i) => {
-    const frac = total > 0 ? m.amount / total : 0;
-    const len = frac * C;
-    // Where this slice starts: the length of every slice before it.
-    const before = total > 0 ? (money.modes.slice(0, i).reduce((s, x) => s + x.amount, 0) / total) * C : 0;
-    return { key: m.mode, label: tx(modeName(m.mode)), color: MODE_COLORS[i % MODE_COLORS.length], pct: Math.round(frac * 100), amount: m.amount, dash: `${Math.max(0, len - 2).toFixed(1)} ${C.toFixed(1)}`, off: (-before).toFixed(1) };
-  });
-  return (
-    <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .2s var(--ease) both" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.howTheyPay)}</h3>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(TD.howTheyPaySub)}</span>
-      </div>
-      {total <= 0 ? (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(T.nothingTakenToday)}</p>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <div style={{ position: "relative", width: 150, height: 150, flex: "none" }}>
-            <svg className="td-donut" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true" style={{ transform: "rotate(-90deg)", animation: "xSpin .8s var(--ease) both" }}>
-              {segs.map((g) => (
-                <circle key={g.key} className="seg" cx="75" cy="75" r="56" style={{ fill: "none", stroke: g.color, strokeWidth: 20, strokeDasharray: g.dash, strokeDashoffset: g.off }}>
-                  <title>{`${g.label} · ${g.pct}% · ${rupees(g.amount)}`}</title>
-                </circle>
-              ))}
-            </svg>
-            <span style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-              <span className="num" style={{ fontSize: 18, fontWeight: 700 }}>{rupeesShort(total)}</span>
-              <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx(T.collected)}</span>
-            </span>
-          </div>
-          <div style={{ flex: 1, minWidth: 150, display: "flex", flexDirection: "column", gap: 8 }}>
-            {segs.map((g) => (
-              <div key={g.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 3, background: g.color }} />
-                <span style={{ flex: 1 }}>{g.label}</span>
-                <span className="num" style={{ fontWeight: 700 }}>{g.pct}%</span>
-                <span className="num" style={{ color: "var(--mut)", width: 64, textAlign: "right" }}>{kfmt(g.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function DeskQuick({ actions }: { actions: TodayProps["actions"] }) {
   const shortcuts = ["mark", "cover", "note", "certificate", "collect", "admit", "notice"]
     .flatMap((key) => actions.filter((action) => action.key === key)).slice(0, 4);
@@ -1224,24 +1068,6 @@ function RailNeeds({ inbox, awaiting, incomplete }: { inbox: InboxItem[]; awaiti
       {incomplete ? (
         <div style={{ padding: "12px 18px 16px", borderTop: "1px solid var(--bd)" }}><CouldNotRead partial={awaiting > 0} /></div>
       ) : awaiting === 0 ? <div style={{ padding: "14px 18px 18px", fontSize: 13, color: "var(--mut)", borderTop: "1px solid var(--bd)" }}>{tx(TD.allClearRail)}</div> : null}
-    </section>
-  );
-}
-
-function PaceCard({ money, pace, today }: { money: TodayMoneyView; pace: { percent: number; shouldPercent: number; behind: number }; today: string }) {
-  const { tx } = useVx();
-  return (
-    <section className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10, animation: "xRise .45s .2s var(--ease) both" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(T.yearPace)}</h3>
-        <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(T.ofTotal(rupeesShort(money.collected), rupeesShort(money.expected)))}</span>
-      </div>
-      <PaceBar pace={pace} />
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, color: "var(--mut)" }}>
-        <span className="num">{tx(T.pctCollected(pace.percent))}</span>
-        <span>{tx(T.shouldBe(pace.shouldPercent))}</span>
-      </div>
-      <PaceWords pace={pace} today={today} size={12} />
     </section>
   );
 }
@@ -1448,6 +1274,167 @@ function ExceptionRow({ icon, tone, href, title, sub, pill }: { icon: IconName; 
       <span style={{ flex: "none" }}>{pill}</span>
     </>
   );
-  const style: CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderTop: "1px solid var(--bd)" };
+  const style: CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: "10px 16px" };
   return <li>{href ? <Link href={href} className="row tap" style={style}>{body}</Link> : <div style={style}>{body}</div>}</li>;
+}
+
+/* ------------------------------------------------------ the widget family */
+
+/**
+ * Every Today card opens the same way (7 Nov 2026): a coloured icon tile, a
+ * plain title, an optional line under it and one link on the right. The
+ * cards were drawn one by one before, and read as unrelated boxes.
+ */
+function WidgetHead({ icon, tone, title, sub, action, iconClass }: { icon: IconName; tone: WidgetTone; title: ReactNode; sub?: ReactNode; action?: ReactNode; iconClass?: string }) {
+  const look = WIDGET_TONE[tone];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, width: "100%" }}>
+      <span aria-hidden="true" className="td-wicon" style={{ background: look.bg, color: look.fg }}>
+        <Ic n={icon} size={19} className={iconClass} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.25 }}>{title}</h3>
+        {sub ? <span style={{ fontSize: 12.5, color: "var(--mut)", lineHeight: 1.35 }}>{sub}</span> : null}
+      </span>
+      {action}
+    </div>
+  );
+}
+
+function WidgetLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="tap td-wlink">
+      {label}
+      <Ic n="chevRight" size={16} />
+    </Link>
+  );
+}
+
+/** A count with its line: Student support, Approvals. Same height side by side. */
+function StatTile({ icon, tone, label, value, valueColor, sub, href }: { icon: IconName; tone: WidgetTone; label: string; value: ReactNode; valueColor?: string; sub: string; href: string | null }) {
+  const look = WIDGET_TONE[tone];
+  return (
+    <TileLink href={href} className="card lift td-stat" style={{ animation: "xRise .45s .1s var(--ease) both" }}>
+      {/* The label on its own line, so two tiles side by side keep their numbers level however long the label. */}
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+        <span aria-hidden="true" className="td-wicon sm" style={{ background: look.bg, color: look.fg }}>
+          <Ic n={icon} size={16} />
+        </span>
+        {href ? <Ic n="chevRight" size={18} style={{ flex: "none", color: "var(--sub)" }} /> : null}
+      </span>
+      <span className="clip" style={{ fontSize: 13, fontWeight: 600, color: "var(--mut)" }}>{label}</span>
+      <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, color: valueColor, marginTop: -4 }}>{value}</span>
+      <span style={{ fontSize: 12.5, color: "var(--mut)", lineHeight: 1.35 }}>{sub}</span>
+    </TileLink>
+  );
+}
+
+/** How many to show before "+3 more": one row of names on a phone. */
+const BIRTHDAYS_SHOWN = 4;
+
+/**
+ * Today's birthdays: each child a big tap target that opens their page. A
+ * cake that wiggles twice on arrival is the widget's one flourish.
+ */
+function BirthdaysWidget({ kids }: { kids: readonly BirthdayChild[] }) {
+  const { tx } = useVx();
+  const [all, setAll] = useState(false);
+  const shown = all ? kids : kids.slice(0, BIRTHDAYS_SHOWN);
+  const hidden = kids.length - shown.length;
+  return (
+    <section className="card td-widget">
+      <WidgetHead icon="cake" tone="warn" iconClass="td-cake" title={tx(TD.birthdaysToday)} sub={tx(TD.birthdaysSub(kids.length))} />
+      <div className="td-kids">
+        {shown.map((kid, i) => (
+          <Link key={kid.id} href={`/students/${kid.id}`} className="tap td-kid" style={{ animation: `xPopIn .4s var(--spring) ${i * 50}ms both` }}>
+            <span className="av" aria-hidden="true">{firstName(kid.name).slice(0, 1).toUpperCase()}</span>
+            <span style={{ display: "flex", flexDirection: "column", minWidth: 0, lineHeight: 1.2 }}>
+              <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{kid.name}</span>
+              {kid.classLabel ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{kid.classLabel}</span> : null}
+            </span>
+          </Link>
+        ))}
+        {hidden > 0 ? (
+          <button type="button" className="tap td-kid" onClick={() => setAll(true)} style={{ border: 0, padding: "4px 14px", fontWeight: 600, fontSize: 14, color: "var(--accfg)" }}>
+            {tx(TD.moreBirthdays(hidden))}
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+const COMING_LOOK: Record<ComingItem["kind"], WidgetTone> = { holiday: "ok", vacation: "ok", exam: "warn", event: "info" };
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const dayParts = (day: string) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  return { date: d.getUTCDate(), month: d.getUTCMonth() };
+};
+
+/** "9–12 Nov", "30 Nov – 2 Dec", or one day's "Mon 7 Dec"; a Hindi reader's lead() says them in Hindi. */
+function rangeText(from: string, to: string): string {
+  if (from === to) return shortDay(from);
+  const a = dayParts(from);
+  const b = dayParts(to);
+  return a.month === b.month ? `${a.date}–${b.date} ${MONTH_SHORT[b.month]}` : `${a.date} ${MONTH_SHORT[a.month]} – ${b.date} ${MONTH_SHORT[b.month]}`;
+}
+
+function daysUntil(today: string, day: string): number {
+  return Math.round((new Date(`${day}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86_400_000);
+}
+
+/** What the next six weeks hold: holidays, breaks, exams and events, each with its date on a small calendar leaf. */
+function ComingWidget({ items }: { items: readonly ComingItem[] }) {
+  const { tx } = useVx();
+  return (
+    <section className="card td-widget">
+      <WidgetHead icon="calendar" tone="info" title={tx(TD.comingUp)} sub={tx(TD.comingSub)} action={<WidgetLink href="/calendar" label={tx(TD.openCalendar)} />} />
+      <ul className="td-wlist">
+        {items.map((item, i) => {
+          const look = WIDGET_TONE[COMING_LOOK[item.kind]];
+          const start = dayParts(item.from);
+          return (
+            <li key={`${item.kind}-${item.from}-${item.en}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", animation: `xRise .4s var(--ease) ${i * 40}ms both` }}>
+              <span className="td-date num" aria-hidden="true" style={{ background: look.bg, color: look.fg }}>
+                <b>{start.date}</b>
+                <span>{tx(p(MONTH_SHORT[start.month], TD.month[start.month].hi))}</span>
+              </span>
+              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{tx(p(item.en, item.hi ?? item.en))}</span>
+                <span style={{ fontSize: 13, color: "var(--mut)" }}>
+                  {tx(TD.comingKind[item.kind])} · {tx(rangeText(item.from, item.to))}
+                </span>
+              </span>
+              <Pill tone={item.inDays <= 3 ? "acc" : "mut"} style={{ flex: "none" }}>{tx(TD.inDays(item.inDays))}</Pill>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function closedTitle(closed: NonNullable<TodayGlance["closed"]>): Pair {
+  if (closed.en) return p(closed.en, closed.hi ?? closed.en);
+  return closed.sunday ? TD.sundayClosed : TD.closedToday;
+}
+
+/** A desk's line under the greeting on a closed day: why, and when school opens again. */
+function ClosedBanner({ closed, today }: { closed: NonNullable<TodayGlance["closed"]>; today: string }) {
+  const { tx } = useVx();
+  return (
+    <div className="card" role="status" style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, background: "var(--oks)", borderColor: "transparent", animation: "xRise .4s var(--ease) both" }}>
+      <span aria-hidden="true" className="td-wicon" style={{ background: "var(--ok)", color: "var(--onsolid)", borderRadius: 19 }}>
+        <Ic n="sun" size={20} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <strong style={{ fontSize: 16 }}>{tx(closedTitle(closed))}</strong>
+        <span style={{ fontSize: 13, color: "var(--mut)" }}>
+          {closed.reopens ? `${tx(TD.opensAgain(shortDay(closed.reopens), daysUntil(today, closed.reopens)))} · ` : ""}
+          {tx(TD.closedRest)}
+        </span>
+      </span>
+    </div>
+  );
 }

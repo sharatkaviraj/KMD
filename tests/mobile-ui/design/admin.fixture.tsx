@@ -129,6 +129,9 @@ import { TodayScreen, type TodayProps } from "@/vx/screens/admin/today";
 import type { InboxItem } from "@/vx/screens/admin/types";
 import { VxPage } from "@/vx/ui/page";
 import { QUICK_ACTIONS } from "@/vx/nav";
+import { LedgerNotice } from "@/vx/shell/ledger-notice";
+import "@/vx/shell/session-controls.css";
+import { moneyFromLedger, type TodayGlance } from "@/vx/screens/admin/today-logic";
 
 const pair = (en: string, hi?: string) => (hi ? { en, hi } : { en });
 
@@ -151,7 +154,25 @@ const inbox: InboxItem[] = [
   { id: "jb", type: "system", kind: "job", at: "2026-10-08T01:00:00Z", urgent: false, badge: pair("System"), title: pair("Daily summary did not finish"), sub: pair("Timed out"), facts: [] },
 ];
 
+/* Test data only: the children and the calendar's names are invented. */
+const glance: TodayGlance = {
+  closed: null,
+  coming: [
+    { from: "2026-10-15", to: "2026-10-15", kind: "event", en: "PTM · Classes 9–12", hi: "अभिभावक बैठक · कक्षा 9–12", inDays: 7 },
+    { from: "2026-10-20", to: "2026-10-20", kind: "holiday", en: "Dussehra", hi: "दशहरा", inDays: 12 },
+    { from: "2026-10-26", to: "2026-10-31", kind: "exam", en: "Unit Test 2", hi: "यूनिट टेस्ट 2", inDays: 18 },
+  ],
+  birthdays: [
+    { id: "00000000-0000-4000-8000-000000000b01", name: "Test Anaya", classLabel: "3" },
+    { id: "00000000-0000-4000-8000-000000000b02", name: "Test Kabir", classLabel: "6A" },
+    { id: "00000000-0000-4000-8000-000000000b03", name: "Test Ishita", classLabel: "9B" },
+    { id: "00000000-0000-4000-8000-000000000b04", name: "Test Vihaan", classLabel: "11 Sci" },
+    { id: "00000000-0000-4000-8000-000000000b05", name: "Test Diya", classLabel: "12 Arts" },
+  ],
+};
+
 const todayProps: TodayProps = {
+  glance,
   firstName: "Janmejay",
   greeting: pair("Good morning", "सुप्रभात"),
   dayLine: "Thursday, 8 October",
@@ -216,6 +237,76 @@ function TodayFrame() {
   );
 }
 
+/**
+ * The real session as an admin sees it under the live Fees connection: no local
+ * money, Fees' own "today" total, the ledger notice, and a timetable "who teaches
+ * now" (the real session has one). Synthetic figures.
+ */
+const ledger = {
+  total: 21300,
+  count: 6,
+  byMode: [{ mode: "cash", label: "Cash", amount: 15300, count: 4 }, { mode: "upi", label: "UPI", amount: 6000, count: 2 }],
+  asOf: "2026-10-08T05:40:00Z",
+};
+// Fees' latest 14 collection days (schoolfees #150), Sundays and quiet days left out as Fees leaves them.
+const ledgerDays = Array.from({ length: 16 }, (_, i) => {
+  const d = new Date(Date.UTC(2026, 9, 7 - i));
+  return { date: d.toISOString().slice(0, 10), amount: d.getUTCDay() === 0 ? 0 : 12000 + ((i * 7919) % 26000) };
+}).filter((d) => d.amount > 0).slice(0, 14).reverse();
+const liveTodayProps: TodayProps = {
+  ...todayProps,
+  money: moneyFromLedger({ ...ledger, session: { expected: 3120000, collected: 1860000, dueSoFar: 1934000, followUps: 10, recentDays: ledgerDays } }, TODAY),
+  ledgerToday: null,
+  notice: <LedgerNotice language="en" />,
+};
+
+function TodayLiveFrame() {
+  return (
+    <VxPage label="Today">
+      <TodayScreen {...liveTodayProps} />
+    </VxPage>
+  );
+}
+
+/** A Fees from before #150: only today's figures, so the plain ledger tile. */
+function TodayLedgerOnlyFrame() {
+  return (
+    <VxPage label="Today">
+      <TodayScreen {...liveTodayProps} money={null} promisedToday={null} ledgerToday={ledger} />
+    </VxPage>
+  );
+}
+
+/** A closed day in the real session: a named break, with the day school opens again. */
+const closedTodayProps: TodayProps = {
+  ...liveTodayProps,
+  status: pair("Diwali break", "दीपावली अवकाश"),
+  attendance: { marked: 0, total: 19, percent: null, schoolOpen: false },
+  staffAway: 0,
+  cover: { needed: 0, arranged: 0, missed: 0 },
+  inbox: [],
+  timeline: [],
+  exceptions: { notMarked: null, cover: [] },
+  week: [
+    { day: "2026-10-05", percent: 92 },
+    { day: "2026-10-06", percent: 95 },
+    { day: "2026-10-07", percent: 91 },
+  ],
+  glance: {
+    closed: { en: "Diwali break", hi: "दीपावली अवकाश", sunday: false, reopens: "2026-10-13" },
+    coming: [{ from: "2026-10-20", to: "2026-10-20", kind: "holiday", en: "Dussehra", hi: "दशहरा", inDays: 12 }],
+    birthdays: glance.birthdays!.slice(0, 2),
+  },
+};
+
+function TodayClosedFrame() {
+  return (
+    <VxPage label="Today">
+      <TodayScreen {...closedTodayProps} />
+    </VxPage>
+  );
+}
+
 // D09 is drawn with the icon sidebar: the person's own collapsed choice, set before the shell reads it.
 if (new URLSearchParams(location.search).get("view") === "D09-Laptop") {
   try {
@@ -227,6 +318,9 @@ if (new URLSearchParams(location.search).get("view") === "D09-Laptop") {
 
 Object.assign(views, {
   "F01-Today": { render: TodayFrame, path: "/" },
+  "F01-TodayLive": { render: TodayLiveFrame, path: "/" },
+  "F01-TodayLedgerOnly": { render: TodayLedgerOnlyFrame, path: "/" },
+  "F01-TodayClosed": { render: TodayClosedFrame, path: "/" },
   "F14-TodayDark": { render: TodayFrame, path: "/" },
   Desktop: { render: TodayFrame, path: "/" },
   "D08-TodayDark": { render: TodayFrame, path: "/" },
