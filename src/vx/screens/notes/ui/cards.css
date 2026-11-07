@@ -155,7 +155,8 @@
 .nc .nc-row .val{display:flex;align-items:center;gap:5px;font-size:14.5px;font-weight:650;line-height:1.3;min-width:0}
 /* A value says all of itself on two lines ("Admin and class teacher only"), one when the card is tight. */
 .nc .nc-row .val{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
-.nc .nc-aim{color:var(--acc);vertical-align:-2px;margin-right:4px}
+/* The AI mark sits beside the row's label, so a row the AI filled is no taller than one it did not. */
+.nc .nc-aim{color:var(--acc);vertical-align:-2px;margin-left:5px}
 .nc .nc-ai{flex:none;display:flex;align-items:flex-start;gap:6px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:auto}
 .nc .nc-ai>svg{margin-top:1px}
 .nc .nc-ai.ai{color:var(--accfg)}
@@ -183,7 +184,9 @@
 .nc .nc-swrow:disabled{opacity:.6}
 .nc .nc-wa{flex:0 1 auto;min-height:0;overflow:hidden;border-radius:16px}
 .nc .nc-wa .nx-wb>p{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
-.nc .nc-quote{flex:none;margin:0;padding:10px 14px;border-radius:14px;background:var(--s2);font-size:14.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.nc .nc-quote{flex:none;margin:0;padding:10px 14px;border-radius:14px;background:var(--s2);font-size:14.5px;line-height:1.5;overflow-wrap:anywhere}
+/* The clamp sits on the inner line, not on the padded box: a clamped box clips at its padding edge, so the next line showed through the bottom padding. */
+.nc .nc-quote>span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .nc .nc-quote.ai{background:var(--accs);color:var(--fg);border:1.5px dashed var(--acc)}
 .nc .nc-who{align-items:flex-start}
 .nc .nc-pickrow{flex:none;display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:8px 12px;border-radius:15px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
@@ -242,7 +245,7 @@
   .nc .nc-tag{min-height:50px}
   .nc .nc-opt{min-height:52px}
   .nc .nc-radio{padding:10px 12px}
-  .nc .nc-quote{-webkit-line-clamp:3}
+  .nc .nc-quote>span{-webkit-line-clamp:3}
   .nc .nc-acts{gap:6px}
   .nc .nc-act{min-height:48px}
   .nc .nc-micw,.nc .nc-mic{width:56px;height:56px}
@@ -255,7 +258,7 @@
   .nc .nc-row .val{-webkit-line-clamp:1;overflow-wrap:normal}
   .nc .nc-words:has(+.nc-wacts) .nc-wt{-webkit-line-clamp:1}
   .nc .nc-ai:not(.busy){display:none}
-  .nc .nc-quote{-webkit-line-clamp:2}
+  .nc .nc-quote>span{-webkit-line-clamp:2}
   .nc .nc-tidy{min-height:40px;padding-top:4px;padding-bottom:4px}
   .nc .nc-wa .nx-wb>p{-webkit-line-clamp:2}
 }

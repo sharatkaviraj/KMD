@@ -975,7 +975,7 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
   const followVal = !c.follow
     ? tx(p("Just noting · no reminder", "सिर्फ़ जानकारी · कोई याद नहीं"))
     : followOn
-      ? tx(p(`Look again ${day(followOn)} · ${ownerName(c.owner)}`, `फिर देखना ${shortDayHi(followOn)} · ${ownerName(c.owner)}`))
+      ? tx(p(`Look again ${day(followOn)} · ${ownerName(c.owner)}`, `${shortDayHi(followOn)} को · ${ownerName(c.owner)}`))
       : tx(p("Pick the day", "दिन चुनें"));
   const readVal = c.visibility === "private" ? tx(p("Only me", "सिर्फ़ मैं")) : sensitive ? tx(p("Admin and class teacher only", "सिर्फ़ प्रशासक और कक्षा अध्यापक")) : tx(p("Teachers and office", "अध्यापक और कार्यालय"));
   const parentsOn = c.tellParents && c.visibility === "team";
@@ -999,11 +999,11 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
         <Ic n={icon} size={18} />
       </span>
       <span className="nc-c" style={{ minWidth: 0 }}>
-        <span className="lab">{tx(label)}</span>
-        <span className="val">
+        <span className="lab">
+          {tx(label)}
           {extra}
-          {value}
         </span>
+        <span className="val">{value}</span>
       </span>
       <Ic n="chevRight" size={18} style={{ color: "var(--mut)" }} />
     </button>
@@ -1031,7 +1031,7 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
               <span>{tx(p("Who is this note about?", "यह नोट किसके बारे में है?"))}</span>
             </span>
           </div>
-          <p className="nc-quote">“{excerpt(text, 120)}”</p>
+          <p className="nc-quote"><span>“{excerpt(text, 120)}”</span></p>
           {named.map((n) => (
             <button key={n.id} type="button" className="tap nc-pickrow" onClick={() => props.onMove(n.id)}>
               <Avatar name={n.name} size={36} />
@@ -1251,12 +1251,12 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
         <Head title={p("Clearer wording", "साफ़ शब्दों में")} />
         <div className="nc-body">
           <span className="nc-hint">{tx(p("Your words", "आपके शब्द"))}</span>
-          <p className="nc-quote">{excerpt(text, 400)}</p>
+          <p className="nc-quote"><span>{excerpt(text, 400)}</span></p>
           <span className="nc-hint ai">
             <Ic n="sparkle" size={14} />
             {tx(p("Written clearly by the AI", "AI ने साफ़ लिखा"))}
           </span>
-          <p className="nc-quote ai">{excerpt(tidy, 400)}</p>
+          <p className="nc-quote ai"><span>{excerpt(tidy, 400)}</span></p>
           <span className="nc-meta wrap">{tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}</span>
         </div>
         <div className="nc-foot">
@@ -1293,20 +1293,20 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
         <Head title={to === "en" ? p("In English", "अंग्रेज़ी में") : p("In Hindi", "हिंदी में")} />
         <div className="nc-body">
           <span className="nc-hint">{tx(p("Your words", "आपके शब्द"))}</span>
-          <p className="nc-quote">{excerpt(text, 400)}</p>
+          <p className="nc-quote"><span>{excerpt(text, 400)}</span></p>
           <span className="nc-hint ai">
             <Ic n="sparkle" size={14} />
             {tx(p("Translated by the AI", "AI ने अनुवाद किया"))}
           </span>
           {ready ? (
-            <p className="nc-quote ai">{excerpt(ready.value, 400)}</p>
+            <p className="nc-quote ai"><span>{excerpt(ready.value, 400)}</span></p>
           ) : t.kind === "problem" && t.text === text ? (
             <span className="nc-note" role="status">
               <Ic n="info" size={16} />
               {tx(PROBLEM_TEXT[t.problem])}
             </span>
           ) : (
-            <p className="nc-quote ai nc-pulse" role="status">{tx(p("Translating…", "अनुवाद हो रहा है…"))}</p>
+            <p className="nc-quote ai nc-pulse" role="status"><span>{tx(p("Translating…", "अनुवाद हो रहा है…"))}</span></p>
           )}
           <span className="nc-meta wrap">{tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}</span>
         </div>
@@ -1474,7 +1474,7 @@ function SavedCard(props: CardsProps & { onAgain: () => void; onNew: () => void 
         </span>
       </div>
       <div className="nc-body">
-        <p className="nc-quote">{excerpt(note.body, 160)}</p>
+        <p className="nc-quote"><span>{excerpt(note.body, 160)}</span></p>
         <div className="nc-chips">
           {note.tags.map((t) => (
             <span key={t} className="pill" style={{ background: look[t].bg, color: look[t].fg }}>
