@@ -20,6 +20,13 @@ import { ownsScope, planTasks, type AssignmentMode, type TaskKind, type TaskOwne
 import type { SendQueue as SendQueueComponent } from "./send-queue";
 import { CW } from "./collect-words";
 
+/**
+ * The sheet's scroll area keeps 12px of padding below its content, and a sticky
+ * footer stops above that padding, so the list peeked out under the buttons
+ * (seen on a Galaxy M32, 7 Nov). A solid shadow the colour of the sheet paints it.
+ */
+const COVER_SHEET_PADDING = "0 12px 0 var(--card)";
+
 /*
  * Ask teachers (D-522): the old form's selects and a whole-school checkbox
  * list, rebuilt as four numbered questions with big tiles. The first one is
@@ -326,7 +333,7 @@ export function AssignmentEditor({ context, selectedIds, initialKind, initialMis
         </ul>
         {preview.unassigned.length > 0 ? <p role="alert" style={{ margin: 0, fontSize: 14, color: "var(--bad)" }}>{word(ms.taskUnassigned)} ({preview.unassigned.length})</p> : null}
         {preview.blocked.length > 0 && !stale ? <p role="status" style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--warnfg)" }}>{say(CW.pickAllFirst)}</p> : null}
-        <div style={{ display: "flex", gap: 8, position: "sticky", bottom: 0, paddingTop: 8, background: "var(--card)" }}>
+        <div style={{ display: "flex", gap: 8, position: "sticky", bottom: 0, paddingTop: 8, background: "var(--card)", boxShadow: COVER_SHEET_PADDING }}>
           <Btn variant="sec" big icon="chevLeft" disabled={pending} onClick={() => { setPreview(null); setStatus(null); setScopeTask(null); setChanging(new Set()); }}>{say(CW.back)}</Btn>
           <Btn variant="pri" big full disabled={pending || stale || !preview.previewId || !!scopeTask} onClick={create}>{pending ? say(stale ? CW.checking : CW.giving) : say(CW.give(teachersInPreview))}</Btn>
         </div>
@@ -472,7 +479,7 @@ export function AssignmentEditor({ context, selectedIds, initialKind, initialMis
         </label>
       </Question>
 
-      <div style={{ position: "sticky", bottom: 0, display: "flex", flexDirection: "column", gap: 8, margin: "0 -2px", padding: "12px 2px 4px", background: "var(--card)", borderTop: "1px solid var(--bd)", boxShadow: "0 -10px 16px -14px rgba(0,0,0,.25)" }}>
+      <div style={{ position: "sticky", bottom: 0, display: "flex", flexDirection: "column", gap: 8, margin: "0 -2px", padding: "12px 2px 4px", background: "var(--card)", borderTop: "1px solid var(--bd)", boxShadow: `0 -10px 16px -14px rgba(0,0,0,.25), ${COVER_SHEET_PADDING}` }}>
         {kind === "collection" && chosenFields.length === 0 ? <span style={{ fontSize: 13, color: "var(--mut)", textAlign: "center" }}>{say(CW.pickSomething)}</span> : null}
         {plan && targets.length > 0 ? (
           <span className="num" aria-live="polite" style={{ fontSize: 14, fontWeight: 700, textAlign: "center" }}>
