@@ -90,10 +90,11 @@ test("picker switches once, clears stale filters, and Back dismisses it", async 
 
 test("a year switch names the year it opened, then gets out of the way", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/one-polish.html");
+  await page.goto("/one-polish.html?slow-switch");
   await page.locator(".vx-sessionbar-m button").click();
   await page.getByRole("dialog").getByRole("button", { name: /TEST-2026-27/ }).click();
-  // D-515: the switch is seen ("Now showing …" once the year has arrived), never a silent jump.
+  // D-515: the switch is seen, "Opening …" while it runs and "Now showing …" once the year has arrived.
+  await expect(page.locator('[data-session-switch-card="opening"]')).toContainText("Opening TEST-2026-27");
   const landed = page.locator('[data-session-switch-card="landed"]');
   await expect(landed).toContainText("Now showing TEST-2026-27");
   await expect(landed).toBeHidden({ timeout: 4_000 });
