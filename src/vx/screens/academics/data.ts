@@ -954,7 +954,7 @@ export type AttentionChild = AttentionFacts & {
 
 /**
  * Who is on the needs-attention list and why, for every child in the reader's
- * scope. Attendance and open notes are read from `v_needs_attention`; the two
+ * scope. Attendance and open notes are read from `needs_attention_for_session`; the two
  * marks rules are worked out here (`marksFlags`) from the school's dated
  * exams only, with a blank, an absent or an exempt never read as 0%. The view
  * counted an undated rehearsal exam as the newest paper and put all of Class 1
@@ -963,22 +963,22 @@ export type AttentionChild = AttentionFacts & {
  */
 const attentionFacts = cache(async (ctx: Ctx): Promise<Map<string, AttentionFacts & { classId: string }>> => {
   const [view, exams, marks, enrolled] = await Promise.all([
+    // One session's attendance and open notes, narrowed before they are added
+    // up (D-495). `v_needs_attention` summed every session first and ran past
+    // the statement timeout on a busy morning.
     createAdminClient()
-      .from("v_needs_attention")
-      .select("student_id, class_id, attendance_pct, open_notes, reasons")
-      .eq("session_label", ctx.session)
-      .limit(2000)
-      .returns<{ student_id: string; class_id: string; attendance_pct: number | null; open_notes: number; reasons: AttentionReason[] }[]>(),
+      .rpc("needs_attention_for_session", { p_session: ctx.session }),
     examsOf(ctx.session),
     sessionMarks(ctx.session),
     enrolledRows(ctx.session),
   ]);
   if (view.error) throw new Error(`Could not read the attention list: ${view.error.message}`);
+  const viewRows = (view.data ?? []) as unknown as { student_id: string; class_id: string; attendance_pct: number | null; open_notes: number; reasons: AttentionReason[] }[];
   const classOf = new Map(enrolled.map((r) => [r.student_id, r.class_id]));
   const flags = marksFlags(marks, exams.map((e) => e.id));
   const out = new Map<string, AttentionFacts & { classId: string }>();
-  const ids = new Set([...view.data.map((r) => r.student_id), ...flags.keys()]);
-  const viewRow = new Map(view.data.map((r) => [r.student_id, r]));
+  const ids = new Set([...viewRows.map((r) => r.student_id), ...flags.keys()]);
+  const viewRow = new Map(viewRows.map((r) => [r.student_id, r]));
   for (const id of ids) {
     const classId = viewRow.get(id)?.class_id ?? classOf.get(id);
     if (!classId || !scopeIncludes(ctx.scope, classId)) continue;
