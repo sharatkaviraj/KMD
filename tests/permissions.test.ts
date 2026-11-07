@@ -392,5 +392,8 @@ describe("Reports has its own switch (D-476)", () => {
     expect(read("src/app/(app)/reports/page.tsx")).toContain('requirePermission("fees:reports", "/reports")');
     expect(read("src/vx/nav.ts")).not.toMatch(/href: "\/reports", permission: "fees:view"/);
     expect(read("src/app/(app)/menu/menu-items.ts")).toContain('"/reports", "fees:reports"');
+    // The office home's "Day report" button (found live on 7 Nov after the switch shipped).
+    expect(read("src/app/(app)/page.tsx")).toContain('reports: can(staff, "fees:reports")');
+    expect(read("src/vx/screens/admin/today.tsx")).toContain('{props.links.reports ? <Link href="/reports"');
   });
 });

@@ -71,7 +71,7 @@ const today: TodayProps = {
   exceptions: { notMarked: ["Class 9", "12 Arts"], cover: [] },
   support: null,
   actions: [],
-  links: { collect: true, attendance: true, substitutions: true, review: true, timetable: true },
+  links: { collect: true, reports: true, attendance: true, substitutions: true, review: true, timetable: true },
   unavailable: false,
 };
 

@@ -75,7 +75,7 @@ export type TodayProps = {
   support: { needsAction: number; due: number } | null;
   actions: { key: string; label: Pair; icon: IconName; href: string; tone?: QuickTone }[];
   /** Which screens behind the tiles this reader may open; a tile they cannot open is not a link. */
-  links: { collect: boolean; attendance: boolean; substitutions: boolean; review: boolean; timetable: boolean };
+  links: { collect: boolean; /** `fees:reports` (D-476): the "Day report" button opens Reports. */ reports: boolean; attendance: boolean; substitutions: boolean; review: boolean; timetable: boolean };
   unavailable: boolean;
   /** The phone hero's brand line ("Admin · Session 2026–27"). */
   roleLine?: Pair;
@@ -353,7 +353,7 @@ export function TodayScreen(props: TodayProps) {
               </div>
               {money ? (
                 <div style={{ display: "flex", gap: 8 }}>
-                  <Link href="/reports" className="tap btn sec"><Ic n="receipt" />{tx(T.dayReport)}</Link>
+                  {props.links.reports ? <Link href="/reports" className="tap btn sec"><Ic n="receipt" />{tx(T.dayReport)}</Link> : null}
                   {props.links.collect ? <Link href="/payments" className="tap btn pri"><Ic n="rupee" />{tx(T.paymentDesk)}</Link> : null}
                 </div>
               ) : null}

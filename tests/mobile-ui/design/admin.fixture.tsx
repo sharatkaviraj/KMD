@@ -196,7 +196,7 @@ const todayProps: TodayProps = {
   exceptions: { notMarked: ["3", "5", "7", "9", "11 Com"], cover: [] },
   support: { needsAction: 2, due: 1 },
   actions: QUICK_ACTIONS.map((q) => ({ key: q.key, label: q.label, icon: q.icon, href: q.href, tone: q.tone })),
-  links: { collect: true, attendance: true, substitutions: true, review: true, timetable: true },
+  links: { collect: true, reports: true, attendance: true, substitutions: true, review: true, timetable: true },
   unavailable: false,
   roleLine: pair("Admin · Session 2026–27", "प्रशासक · सत्र 2026–27"),
   me: { initials: "JS", href: "/settings" },

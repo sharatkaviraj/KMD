@@ -99,7 +99,7 @@ export function TodayFixture({ language }: { language: Language }) {
             exceptions={todayMissing.includes("board") ? { notMarked: null, cover: null } : { notMarked: ["9A", "9B", "10A", "12 Arts"], cover: [] }}
             support={{ needsAction: 1, due: 1 }}
             actions={actions}
-            links={{ collect: false, attendance: true, substitutions: true, review: inboxMissing.includes("submissions"), timetable: true }}
+            links={{ collect: false, reports: false, attendance: true, substitutions: true, review: inboxMissing.includes("submissions"), timetable: true }}
             unavailable={false}
           />
           <div id="vx-layer" />

@@ -158,6 +158,7 @@ export default async function TodayPage() {
         actions={actions}
         links={{
           collect: can(staff, "fees:collect"),
+          reports: can(staff, "fees:reports"),
           attendance: can(staff, "attendance:mark_on_behalf"),
           substitutions: can(staff, "substitutions:view"),
           review: can(staff, "collection:manage"),
