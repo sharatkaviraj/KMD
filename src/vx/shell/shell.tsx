@@ -36,13 +36,13 @@ import { homeHintFor } from "@/vx/home-redirect";
 
 import { VxBottomBar } from "./bottom-bar";
 import { HomeHint } from "./home-hint";
-import { LazyPersonBanner, LazyPersonFrame, LazySearchPalette } from "./lazy";
+import { LazyPersonBanner, LazyPreviewBanner, LazyPreviewLinks, LazySearchPalette } from "./lazy";
 import { OpeningNote } from "./opening-note";
 import type { PaletteItem } from "./palette";
-import { PreviewBanner } from "./preview-banner";
 import { SessionBar } from "./session-bar";
 import { menuRoleLabel, ROLE_SUB } from "./role-line";
-import { VxSidebar, type Badges, type PreviewMenu } from "./sidebar";
+import type { PreviewMenu } from "./preview-links";
+import { VxSidebar, type Badges } from "./sidebar";
 import { sessionText } from "@/platform/helpers/session-text";
 
 const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", exam: "award" } as const;
@@ -222,7 +222,7 @@ export async function VxShell({
             home={MENU_HOME[menu]}
             badges={badges}
             teacherSized={menu === "teacher"}
-            previewMenus={previewMenus}
+            preview={previewMenus.length ? <LazyPreviewLinks menus={previewMenus} previewing={rolePreview} /> : null}
             previewing={rolePreview}
           />
           <div className="vx-content">
@@ -242,7 +242,7 @@ export async function VxShell({
                 />
               </LanguageProvider>
             ) : previewing ? (
-              <PreviewBanner label={MENU_LABEL[previewing].en} />
+              <LazyPreviewBanner label={MENU_LABEL[previewing].en} />
             ) : null}
             {staff.confined ? (
               // A Preview or local deployment on the production database:
@@ -263,7 +263,6 @@ export async function VxShell({
         <UpdateBanner />
         <SessionExpiredSheet />
         <div id="vx-layer" className="vxt vx-layer" />
-        {viewer.person ? <LazyPersonFrame /> : null}
         </AssistProvider>
       </ToastProvider>
     </SessionSwitchingProvider>

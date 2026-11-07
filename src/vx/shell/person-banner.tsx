@@ -32,6 +32,12 @@ const W = {
  * are, that nothing is saved, and the two ways out. The screens below are in
  * the person's language; one tap switches them to the administrator's, for
  * this view only.
+ *
+ * While it is on the page it also marks `<html>` (`data-vx-view-as`). That
+ * mark draws the amber edge round the whole screen (person-banner.css), so a
+ * scrolled page still says so, and it tells the browser's own data clients
+ * that the view is on, so an upload straight from the phone is refused too
+ * (`platform/supabase/view-as-browser.ts`).
  */
 export function PersonBanner({
   name,
@@ -59,6 +65,12 @@ export function PersonBanner({
   const [switching, switchTo] = useTransition();
   const first = name.split(/\s+/)[0] || name;
   const lang = languageSwitch(shown, own, mine, first);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute(VIEW_AS_DOCUMENT_FLAG, "1");
+    return () => root.removeAttribute(VIEW_AS_DOCUMENT_FLAG);
+  }, []);
 
   const back = () => {
     cue("tap");
@@ -112,20 +124,4 @@ export function PersonBanner({
       </div>
     </div>
   );
-}
-
-/**
- * An amber edge round the whole screen while the view is on, so a scrolled
- * page still says so. It also tells the browser's own data clients that the
- * view is on, so an upload straight from the phone is refused too
- * (`platform/supabase/view-as-browser.ts`). Drawn outside `.vx`, whose
- * container query would otherwise hold a fixed element inside it.
- */
-export function PersonFrame() {
-  useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute(VIEW_AS_DOCUMENT_FLAG, "1");
-    return () => root.removeAttribute(VIEW_AS_DOCUMENT_FLAG);
-  }, []);
-  return <div className="vxp-frame" aria-hidden="true" />;
 }

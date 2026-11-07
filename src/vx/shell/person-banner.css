@@ -2,7 +2,9 @@
  * The "seeing One as a person" banner and frame (D-544). The banner sits at
  * the top of the content column and scrolls with the page, so it never covers
  * a screen's own sticky top bar; the frame round the screen stays, so a
- * scrolled page still says whose screens these are.
+ * scrolled page still says whose screens these are. The frame hangs off
+ * <html>, which the banner marks while it is shown: outside `.vx`, whose
+ * container query would otherwise hold a fixed box inside it.
  */
 
 .vxp{display:flex;flex-direction:column;gap:10px;padding:12px 16px;background:var(--warns);color:var(--warnfg);border-bottom:1.5px solid var(--warnm);animation:xIn .35s var(--ease) both}
@@ -26,6 +28,6 @@
   .vxp-lang{flex:none;width:auto}
 }
 
-.vxp-frame{position:fixed;inset:0;z-index:70;pointer-events:none;border:3px solid #D9902F}
-@media print{.vxp,.vxp-frame{display:none!important}}
+html[data-vx-view-as]::after{content:"";position:fixed;inset:0;z-index:70;pointer-events:none;border:3px solid #D9902F}
+@media print{.vxp,html[data-vx-view-as]::after{display:none!important}}
 @media (prefers-reduced-motion:reduce){.vxp{animation:none}}

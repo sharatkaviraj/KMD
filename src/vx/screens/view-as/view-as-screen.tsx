@@ -16,6 +16,7 @@ import { endViewAsPersonAction, startViewAsPersonAction } from "@/vx/shell/view-
 import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, SearchBox } from "@/vx/ui/controls";
 import { ListenButton } from "@/vx/ui/listen";
+import { useToast } from "@/vx/ui/overlays";
 import { Banner, TopBar } from "@/vx/ui/page";
 import { Avatar, EmptyState } from "@/vx/ui/primitives";
 
@@ -208,6 +209,7 @@ export function ViewAsScreen({ people, recent, current, focus }: ViewAsScreenPro
   const [problem, setProblem] = useState<Pair | null>(null);
   const [pending, start] = useTransition();
   const [leaving, leave] = useTransition();
+  const toast = useToast();
 
   useEffect(() => {
     if (!focus) return;
@@ -236,9 +238,12 @@ export function ViewAsScreen({ people, recent, current, focus }: ViewAsScreenPro
         router.refresh();
         return;
       }
-      cue("error");
+      const message = result ? result.message : p("Could not open One as that person. Check the connection and try again.", "उस व्यक्ति की तरह One नहीं खुल सका। कनेक्शन देखकर फिर कोशिश करें।");
       setOpening(null);
-      setProblem(result ? result.message : p("Could not open One as that person. Check the connection and try again.", "उस व्यक्ति की तरह One नहीं खुल सका। कनेक्शन देखकर फिर कोशिश करें।"));
+      setProblem(message);
+      // Said where the person tapped, however far down the list that was, with the error sound;
+      // the banner at the top keeps it on the page.
+      toast.show({ text: tx(message), tone: "bad", ms: 7000 });
     });
   };
 

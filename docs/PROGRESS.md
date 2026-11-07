@@ -16,6 +16,15 @@ and a frame round the page; entry points on the Menu, the sidebar and a
 Staff profile. Tests: `tests/view-as-person.test.ts` (30), plus the guard,
 navigation, role and quarantine lists; the whole suite passes except
 `tests/sentry-lite.test.ts` (fails only in a checkout under `/home/user`).
+**First-load budget:** `/teach/attendance` had about 0.4 KB left. The banner
+and the frame load only while looking (the frame is CSS on `<html>`, marked by
+the banner); the sidebar's "See the app as" list (`preview-links.tsx`, passed
+in as a slot) and the role preview's banner now load only for an
+administrator; and the picker imports `useToast` from `@/vx/ui/overlays`, so it
+uses that shared chunk whole instead of splitting it (a page that took only
+Listen and `cue` cost every route about 0.8 KB). Two builds of identical code
+differ by up to about 150 bytes (server-action ids are random per build), so
+read one measurement with that margin.
 
 ## Transport: the children on each route and each bus, and who drives — 7 November 2026
 

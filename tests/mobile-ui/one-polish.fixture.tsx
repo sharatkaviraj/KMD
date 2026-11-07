@@ -54,7 +54,7 @@ function Fixture() {
   return <NextIntlClientProvider locale={language} messages={messages}>
     <LanguageProvider language={reader}><SessionSwitchingProvider><ToastProvider>
       <div className="vxt vx-shell">
-        <VxSidebar groups={groupsFor("admin", allowAll)} home="/" roleLine="Synthetic admin" me={{ initials: "QA", name: "Synthetic admin", sub: "QA", href: "/settings", color: "#81DAE4" }} badges={badges} teacherSized={false} previewMenus={[]} previewing={null} />
+        <VxSidebar groups={groupsFor("admin", allowAll)} home="/" roleLine="Synthetic admin" me={{ initials: "QA", name: "Synthetic admin", sub: "QA", href: "/settings", color: "#81DAE4" }} badges={badges} teacherSized={false} previewing={null} />
         <div className="vx-content">
           <div className="vx-workspace-bar">
             <RosterStatusView language={reader} status={params.has("stale") ? "stale" : params.get("status") === "error" ? "error" : params.get("status") === "pending" ? "not_ready" : "ready"} checkedAt="2026-11-02T11:30:00.000Z" />
