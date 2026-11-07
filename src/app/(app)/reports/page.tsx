@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { dayBookClosure } from "@/modules/receipts/vx/domain/day-close";
@@ -29,7 +28,7 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : A
  * `?view=collection|defaulters|send|classwise|cell|daybook|export|schedule|newsch`.
  */
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  const staff = await requirePermission("fees:view", "/reports");
+  const staff = await requirePermission("fees:reports", "/reports");
   const { previewing } = await getViewer();
   const sp = await searchParams;
   const session = await resolveViewSession({ searchParamSession: sp.session, cookieSession: await getViewSessionCookie() });
@@ -51,8 +50,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   // and test accounts keep One's fee copy. Never the copy's numbers instead.
   const live = /^\d{4}-\d{2}$/.test(session.sessionLabel) && usesCanonicalFees(staff, session.sessionLabel);
   const detailed = feePermissionsFor(staff.role).includes("reports:view");
-  // Fees answers its reports only to reports:view, as its own Reports page does.
-  if (live && !detailed) redirect("/access-denied?permission=reports%3Aview");
   const data = await getReportsPageData({
     view,
     sheet,

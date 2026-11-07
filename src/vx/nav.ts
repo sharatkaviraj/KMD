@@ -67,7 +67,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         // Razorpay money: the fees app's /protected/payments/online (go-live Phase E).
         { key: "online", label: L("Online payments", "ऑनलाइन भुगतान"), icon: "globe", href: "/fees/payments/online", permission: "fees:accounts" },
         { key: "feesetup", label: L("Fee setup", "फीस ढाँचा"), icon: "sliders", href: "/fee-setup", permission: "fees:view" },
-        { key: "reports", label: L("Reports", "रिपोर्ट"), icon: "chart", href: "/reports", permission: "fees:view" },
+        { key: "reports", label: L("Reports", "रिपोर्ट"), icon: "chart", href: "/reports", permission: "fees:reports" },
       ],
     },
     {
@@ -127,7 +127,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "reminders", label: L("Fee reminders", "फीस रिमाइंडर"), icon: "bell", href: "/reminders", permission: "fees:view" },
         { key: "books", label: L("Cheques, UPI & refunds", "चेक व यूपीआई"), icon: "swap", href: "/accounts/books", permission: "fees:view", badge: "books" },
         { key: "online", label: L("Online payments", "ऑनलाइन भुगतान"), icon: "globe", href: "/fees/payments/online", permission: "fees:accounts" },
-        { key: "reports", label: L("Reports", "रिपोर्ट"), icon: "chart", href: "/reports", permission: "fees:view" },
+        { key: "reports", label: L("Reports", "रिपोर्ट"), icon: "chart", href: "/reports", permission: "fees:reports" },
         { key: "feesetup", label: L("Fee setup (view)", "फीस ढाँचा"), icon: "sliders", href: "/fee-setup", permission: "fees:view" },
       ],
     },

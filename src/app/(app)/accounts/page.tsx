@@ -26,7 +26,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const { previewing } = await getViewer();
   const sp = await searchParams;
   const bridgeSession=typeof sp.session==="string"?sp.session:await getViewSessionCookie();
-  if(usesCanonicalFees(staff,bridgeSession))return <LiveFinanceHub language={staff.language}/>;
+  if(usesCanonicalFees(staff,bridgeSession))return <LiveFinanceHub language={staff.language} reportsHere={can(staff,"fees:reports")}/>;
   const session = await resolveViewSession({ searchParamSession: sp.session, cookieSession: await getViewSessionCookie() });
   // The school clock: real for everyone, a QA/Smoke Lab account's pretend
   // time where one is set (D-269). It decides what the page says about the
@@ -56,6 +56,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       staffName={staff.displayName}
       canCollect={can(staff, "fees:collect")}
       canAccounts={can(staff, "fees:accounts")}
+      canReports={can(staff, "fees:reports")}
       canManage={can(staff, "fees:manage")}
       roleName={staff.role}
       readOnly={Boolean(previewing)}

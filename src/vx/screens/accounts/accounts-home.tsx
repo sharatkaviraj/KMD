@@ -93,6 +93,7 @@ export function AccountsHome({
   staffName,
   canCollect,
   canAccounts = false,
+  canReports = true,
   canManage,
   readOnly,
   greet,
@@ -112,6 +113,8 @@ export function AccountsHome({
   canCollect: boolean;
   /** Back office (`fees:accounts`): pausing reminders. A fee collector counts but does not pause (D-261). */
   canAccounts?: boolean;
+  /** `fees:reports` (D-476): the admin's "See fee reports" switch. Off hides every link to Reports. */
+  canReports?: boolean;
   canManage: boolean;
   readOnly: boolean;
   /** The signed-in account's role, so the office is not called "Fee collector" (verification N1). */
@@ -200,8 +203,8 @@ export function AccountsHome({
         }
       />
       {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} nowIso={nowIso} /> : null}
-      {view === "menu" ? <MenuView data={data} staffName={staffName} roleText={role} canCollect={canCollect} canAccounts={canAccounts} help={help} helpTitle={helpTitle} /> : null}
-      {view === "evening" ? <EveningView data={data} /> : null}
+      {view === "menu" ? <MenuView data={data} staffName={staffName} roleText={role} canCollect={canCollect} canAccounts={canAccounts} canReports={canReports} help={help} helpTitle={helpTitle} /> : null}
+      {view === "evening" ? <EveningView data={data} canReports={canReports} /> : null}
     </VxPage>
   );
 }
@@ -555,7 +558,7 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, no
   );
 }
 
-function MenuView({ data, staffName, roleText, canCollect, canAccounts, help, helpTitle }: { data: AccountsHomeData; staffName: string; roleText: string; canCollect: boolean; canAccounts: boolean; help: HelpStep[]; helpTitle: string }) {
+function MenuView({ data, staffName, roleText, canCollect, canAccounts, canReports, help, helpTitle }: { data: AccountsHomeData; staffName: string; roleText: string; canCollect: boolean; canAccounts: boolean; canReports: boolean; help: HelpStep[]; helpTitle: string }) {
   const { tx } = useVx();
   const [helpOpen, setHelpOpen] = useState(false);
   const closed = data.closure?.status === "closed";
@@ -567,7 +570,7 @@ function MenuView({ data, staffName, roleText, canCollect, canAccounts, help, he
     { icon: "phone", en: "Dues & calls", hi: "बकाया व कॉल", sub: tx(p(`${data.followUpsToday.count} follow-ups due today`, `आज ${data.followUpsToday.count} वादे`)), href: "/dues", badge: data.followUpsToday.count },
     { icon: "bell", en: "Fee reminders", hi: "फीस रिमाइंडर", sub: tx(p("Send from here", "यहाँ से भेजें")), href: "/reminders" },
     { icon: "swap", en: "Cheques, UPI & refunds", hi: "चेक, UPI व रिफंड", sub: tx(p(`${data.chequesToDeposit.count} cheques · ${data.upiOpen.count} UPI to match`, `${data.chequesToDeposit.count} चेक · ${data.upiOpen.count} UPI मिलान बाकी`)), href: "/accounts/books", badge: data.chequesToDeposit.count },
-    { icon: "chart", en: "Reports", hi: "रिपोर्ट", sub: tx(p("Day, month and class-wise", "दिन, महीना और कक्षा-वार")), href: "/reports" },
+    ...(canReports ? [{ icon: "chart" as IconName, en: "Reports", hi: "रिपोर्ट", sub: tx(p("Day, month and class-wise", "दिन, महीना और कक्षा-वार")), href: "/reports" }] : []),
     { icon: "sliders", en: "Fee setup — view only", hi: "फीस ढांचा — केवल देखें", sub: tx(p("Ask admin to change", "बदलने के लिए एडमिन से कहें")), href: "/fee-setup" },
   ];
   const tile = (i: number) => ({ animation: "xRise .42s var(--ease) both", animationDelay: delay(i) });
@@ -640,7 +643,7 @@ function MenuView({ data, staffName, roleText, canCollect, canAccounts, help, he
   );
 }
 
-function EveningView({ data }: { data: AccountsHomeData }) {
+function EveningView({ data, canReports }: { data: AccountsHomeData; canReports: boolean }) {
   const { tx } = useVx();
   const bag = useBagChecklist(data.today);
   const closed = data.closure?.status === "closed";
@@ -738,7 +741,7 @@ function EveningView({ data }: { data: AccountsHomeData }) {
       </Card>
       <div className="ac-f ac-w ac-noprint" style={{ gap: 8 }}>
         <Btn icon="printer" onClick={() => window.print()}>{tx(p("Day report PDF", "दिन की रिपोर्ट PDF"))}</Btn>
-        <Btn variant="ghost" href={`/reports?view=daybook&date=${data.today}`}>{tx(p("See today’s day book", "आज की रोकड़ बही देखें"))}</Btn>
+        {canReports ? <Btn variant="ghost" href={`/reports?view=daybook&date=${data.today}`}>{tx(p("See today’s day book", "आज की रोकड़ बही देखें"))}</Btn> : null}
         <span className="ac-1" />
         <Btn variant="ghost" href="/accounts?view=home">{tx(p("Back to today", "आज पर वापस"))}</Btn>
       </div>

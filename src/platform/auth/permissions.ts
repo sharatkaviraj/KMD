@@ -110,6 +110,9 @@ export const staffPermissions = [
   // only answer the question this app asks: which tabs does this person
   // get, and may they take money.
   "fees:view",
+  // Reports (D-476): its own switch so the admin decides who sees the fee
+  // reports, apart from who reads the other fee screens.
+  "fees:reports",
   "fees:collect",
   // The accounts side of taking money (D-261): closing and reopening the
   // day, reversing a receipt, the bank books, refunds, bulk entry and pausing
@@ -306,6 +309,7 @@ const viewOnlyPermissions: readonly StaffPermission[] = [
 const accountantPermissions: readonly StaffPermission[] = [
   "dashboard:view",
   "fees:view",
+  "fees:reports",
   "fees:collect",
   "fees:accounts",
 ];
@@ -320,6 +324,7 @@ const accountantPermissions: readonly StaffPermission[] = [
 const feeCollectorPermissions: readonly StaffPermission[] = [
   "dashboard:view",
   "fees:view",
+  "fees:reports",
   "fees:collect",
 ];
 

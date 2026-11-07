@@ -52,6 +52,7 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     note: p("Teachers never see fee amounts", "अध्यापक फीस की रक़म कभी नहीं देखते"),
     items: [
       I("fees:view", "See fees & receipts", "फीस व रसीदें देखें", "Open the fee screens: dues, receipts, reports.", "फीस की स्क्रीन खोलें: बकाया, रसीदें, रिपोर्ट।"),
+      I("fees:reports", "See fee reports", "फीस रिपोर्ट देखें", "Open Reports: collection, defaulters, pending by class and the day book.", "रिपोर्ट खोलें: वसूली, बकायादार, कक्षावार बकाया और रोकड़ बही।"),
       I("fees:collect", "Collect fee", "फीस जमा करें", "Take money at the Payment Desk and print the receipt.", "पेमेंट डेस्क पर फीस लें और रसीद छापें।"),
       I("fees:accounts", "Accounts back office", "लेखा कार्य", "Close the day, ask for reversals, bank books, refunds and bulk entry.", "दिन बंद करें, रसीद रद्द माँगें, बैंक बही, रिफ़ंड और थोक एंट्री।"),
       I("fees:manage", "Fee setup & corrections", "फीस ढाँचा व सुधार", "Change fee setup, admit children, approve reversals.", "फीस ढाँचा बदलें, दाख़िला करें, रसीद रद्द मंज़ूर करें।"),

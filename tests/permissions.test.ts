@@ -82,6 +82,8 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // PLAN §3 gives it to the admin and the office. The fee desk reaches
     // children through the fee app's own student screen instead.
     "fees:view",
+    // The fee reports (D-476); the admin can switch it off on Staff -> Roles.
+    "fees:reports",
     "fees:collect",
     // The back office: day close, reversals, bank books, refunds (D-261).
     "fees:accounts",
@@ -92,6 +94,7 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
   fee_collector: [
     "dashboard:view",
     "fees:view",
+    "fees:reports",
     "fees:collect",
   ],
 
@@ -376,4 +379,18 @@ describe("isStaffRole()", () => {
       expect(isStaffRole(value)).toBe(false);
     },
   );
+});
+
+describe("Reports has its own switch (D-476)", () => {
+  it("the office reads fee screens but does not open Reports by default", () => {
+    expect(can({ role: "office" }, "fees:view")).toBe(true);
+    expect(can({ role: "office" }, "fees:reports")).toBe(false);
+  });
+
+  it("the /reports page and every menu link ask for fees:reports", () => {
+    const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
+    expect(read("src/app/(app)/reports/page.tsx")).toContain('requirePermission("fees:reports", "/reports")');
+    expect(read("src/vx/nav.ts")).not.toMatch(/href: "\/reports", permission: "fees:view"/);
+    expect(read("src/app/(app)/menu/menu-items.ts")).toContain('"/reports", "fees:reports"');
+  });
 });
