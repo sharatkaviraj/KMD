@@ -14,6 +14,7 @@ import { resolveAssignedRequest, rollForRequest } from "@/modules/collection/dat
 import type { CollectionRequest, RollRow } from "@/modules/collection/domain/requests";
 import type { AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { mergeTaskSummaries, taskProgress, type TaskKind, type TaskScope, type TaskSummary } from "../domain/tasks";
+import { paperOrder, taskPaper, type PaperSource, type TeacherTaskSummary } from "../domain/paper-words";
 import type { TaskCredential } from "./save";
 import { academicDraftScope, collectionDraftScope } from "./draft-scope";
 import { attendanceCalendar } from "@/modules/attendance/data/attendance-repo";
@@ -123,7 +124,7 @@ async function summary(t:TaskRow, office:boolean):Promise<TaskSummary> {
  * asked for attendance on Dussehra, dated by the real day). `only` keeps the
  * kinds a caller shows, so Today reads just the office's requests.
  */
-export async function listTeacherTasks(office=false, opts:{now?:Date;only?:TaskKind[]}={}):Promise<TaskSummary[]> {
+export async function listTeacherTasks(office=false, opts:{now?:Date;only?:TaskKind[]}={}):Promise<TeacherTaskSummary[]> {
   const wants=(k:TaskKind)=>!opts.only||opts.only.includes(k);
   const actor=office?await assertPermission("collection:manage"):await assertStaff();
   const session=await resolveSessionLabel();if(!session)return [];
@@ -141,9 +142,20 @@ export async function listTeacherTasks(office=false, opts:{now?:Date;only?:TaskK
       tasks.push({id:`collection-${r.id}`,sourceKey:`collection:${r.id}`,kind:"collection",title:r.title_en,teacherId:actor.id,teacherName:actor.displayName,dueDate:r.due_date,state:taskProgress({kind:"collection",expected,answered:answers.length,approved:answers.filter(a=>a.status==="accepted").length,rejected:answers.filter(a=>a.status==="rejected").length}),expected,answered:answers.length,rejected:answers.filter(a=>a.status==="rejected").length,href:`/teach/tasks/collection-${r.id}`,openedAt:null});
     }
     if(wants("marks")){
-    const assignments=await fetchAllRows<{class_id:string;subject_id:string}>((from,to)=>db.from("teaching_assignments").select("class_id,subject_id").eq("session_label",session).eq("staff_profile_id",actor.id).order("id").range(from,to),"teaching assignments");
-    const papers=await fetchAllRows<{id:string;class_id:string;subject_id:string;class_label:string;subject_code:string;entry_status:string}>((from,to)=>db.from("assessment_subjects").select("id,class_id,subject_id,class_label,subject_code,entry_status,assessments!inner(session_label,status)").eq("assessments.session_label",session).eq("assessments.status","open").order("id").range(from,to),"assigned marks");
-    for(const p of papers.filter(p=>can(actor,"marks:write")&&assignments.some(a=>a.class_id===p.class_id&&a.subject_id===p.subject_id))) tasks.push({id:`paper-${p.id}`,sourceKey:`marks:${p.id}`,kind:"marks",title:`${p.class_label} · ${p.subject_code}`,teacherId:actor.id,teacherName:actor.displayName,dueDate:null,state:taskProgress({kind:"marks",submitted:p.entry_status==="submitted"}),expected:0,answered:0,href:`/teach/marks?paper=${p.id}`,openedAt:null});
+    // Each paper carries its exam and the exam office's "marks due" day, so two open
+    // exams no longer read as the same "Class 1 · EVS" twice (D-527).
+    const [assignments,papers]=await Promise.all([
+      fetchAllRows<{class_id:string;subject_id:string}>((from,to)=>db.from("teaching_assignments").select("class_id,subject_id").eq("session_label",session).eq("staff_profile_id",actor.id).order("id").range(from,to),"teaching assignments"),
+      fetchAllRows<PaperSource&{id:string;assessment_id:string;class_id:string;subject_id:string;entry_status:string}>((from,to)=>db.from("assessment_subjects").select("id,assessment_id,class_id,subject_id,class_label,subject_code,entry_status,assessments!inner(session_label,status,label_en,label_hi,starts_on)").eq("assessments.session_label",session).eq("assessments.status","open").order("id").range(from,to),"assigned marks"),
+    ]);
+    const mine=papers.filter(p=>can(actor,"marks:write")&&assignments.some(a=>a.class_id===p.class_id&&a.subject_id===p.subject_id)).map(p=>({p,paper:taskPaper(p)})).sort((a,b)=>paperOrder(a.paper,b.paper));
+    // By id, not embedded: exam_plans points at assessments twice (its exam and
+    // `copied_from`), so an embed is ambiguous. A failed read only leaves a line
+    // without its due day; it never hides a paper.
+    const exams=[...new Set(mine.map(x=>x.p.assessment_id))];
+    const plans=await fetchInChunks<{assessment_id:string;marks_due_on:string|null}>(exams,IN_FILTER_CHUNK_SIZE,chunk=>db.from("exam_plans").select("assessment_id,marks_due_on").in("assessment_id",chunk));
+    const dueOn=new Map((plans.error?[]:plans.data).map(r=>[r.assessment_id,r.marks_due_on]));
+    for(const {p,paper} of mine) {const task:TeacherTaskSummary={id:`paper-${p.id}`,sourceKey:`marks:${p.id}`,kind:"marks",title:`${p.class_label} · ${p.subject_code}`,teacherId:actor.id,teacherName:actor.displayName,dueDate:dueOn.get(p.assessment_id)??null,state:taskProgress({kind:"marks",submitted:p.entry_status==="submitted"}),expected:0,answered:0,href:`/teach/marks?paper=${p.id}`,openedAt:null,paper};tasks.push(task);}
     }
     if(wants("attendance")){
     const day=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata"}).format(opts.now??new Date());

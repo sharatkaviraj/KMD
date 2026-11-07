@@ -6,7 +6,8 @@ import type { Language } from "@/platform/i18n/language";
 import { lead, p, under } from "@/vx/text";
 import { Card, CardHead, ListRow, Pill } from "@/vx/ui/primitives";
 import { Ic } from "@/vx/icons";
-import type { TaskState, TaskSummary } from "../domain/tasks";
+import { paperTitle, type TeacherTaskSummary } from "../domain/paper-words";
+import type { TaskState } from "../domain/tasks";
 import { AssignmentLauncher } from "./assignment-sheet";
 
 /*
@@ -34,11 +35,14 @@ const TEACHER_LABEL = {
   revoked: p("Withdrawn by the office", "ऑफ़िस ने वापस लिया"),
 } as const;
 
-export function TeacherWork({ rows, language, compact, reviewPhotos = false, office = true }: { rows: TaskSummary[] | null; language: Language; compact: boolean; reviewPhotos?: boolean; office?: boolean }) {
+export function TeacherWork({ rows, language, compact, reviewPhotos = false, office = true }: { rows: TeacherTaskSummary[] | null; language: Language; compact: boolean; reviewPhotos?: boolean; office?: boolean }) {
   const say = (pair: { hi: string; en: string }) => lead(pair, language);
   // Work words and the school's own date, not a bare "2026-10-19" or "6 · SCI" (B13).
-  const titleOf = (t: TaskSummary) =>
-    t.kind === "attendance" && ISO_DAY.test(t.title) ? `${say(m.taskAttendance)} · ${say(dayLabel(t.title))}` : t.kind === "marks" ? `${say(m.taskMarks)} · ${t.title}` : t.title;
+  // A marks paper names its class and subject as the marks screens do, and says
+  // which exam it is under the title (D-527).
+  const titleOf = (t: TeacherTaskSummary) =>
+    t.kind === "attendance" && ISO_DAY.test(t.title) ? `${say(m.taskAttendance)} · ${say(dayLabel(t.title))}` : t.kind === "marks" ? `${say(m.taskMarks)} · ${t.paper ? lead(paperTitle(t.paper), language) : t.title}` : t.title;
+  const examOf = (t: TeacherTaskSummary) => (t.paper ? lead(t.paper.exam, language) : null);
   const dueOf = (due: string | null) => (due && ISO_DAY.test(due) ? `${say(ms.taskDue)} ${say(dayLabel(due))}` : due);
   const groups = (office ? ORDER : TEACHER_ORDER).map(state => ({ state, items: (rows ?? []).filter(r => r.state === state) })).filter(g => g.items.length > 0);
   const labelOf = (state: TaskState) => (office ? say(LABEL[state]) : lead(TEACHER_LABEL[state], language));
@@ -77,7 +81,7 @@ export function TeacherWork({ rows, language, compact, reviewPhotos = false, off
                 href={t.href}
                 title={titleOf(t)}
                 wrap
-                sub={[office ? t.teacherName : null, t.expected > 0 ? `${t.answered}/${t.expected}` : null, dueOf(t.dueDate)].filter(Boolean).join(" · ")}
+                sub={[office ? t.teacherName : null, examOf(t), t.expected > 0 ? `${t.answered}/${t.expected}` : null, dueOf(t.dueDate)].filter(Boolean).join(" · ")}
                 trail={t.rejected ? <Pill tone="bad">{`${say(ms.taskRejected)} ${t.rejected}`}</Pill> : <Ic n="chevRight" size={18} />}
                 style={{ minHeight: 52, padding: "8px 16px" }}
               />

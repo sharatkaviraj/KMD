@@ -78,9 +78,13 @@ says "Filled · not sent" on Today, My subjects and More, and the Marks tile
 counts it instead of "Nothing waiting"; "Attendance" fits the centre button;
 the top bar's line and a child's name in the register take two lines.
 Test: `tests/teacher-one-subject-name.test.ts`.
-**Remains:** "My tasks" lists each marks paper as "Class 1 · EVS" with no
-exam name, once per open exam; it waits for the teacher-data thread's change
-to the same files (`teacher-tasks` repo and `TeacherWork`).
+Merged as PR 303 (`ef4a7b3`).
+**My tasks (D-527):** each marks paper names its exam and the exam office's
+"marks due" day under its title, says class and subject as the marks screens
+do ("अंक · कक्षा 1 · पर्यावरण"), and the list runs oldest exam first, then
+classes in school order. It used to read "Class 1 · EVS" once per open exam
+with nothing to tell them apart. Built beside the teacher-data PR 301 without
+touching its lines. Test: `tests/teacher-tasks-exam-name.test.ts`.
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
