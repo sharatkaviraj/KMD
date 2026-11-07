@@ -1,4 +1,4 @@
--- D-482, D-483: the AI report (reports:ai, "Download the AI report" on Staff -> Roles):
+-- D-484, D-485: the AI report (reports:ai, "Download the AI report" on Staff -> Roles):
 -- one file of everything One and Fees hold for a session, student photographs
 -- included, for staff to give to an AI assistant. The admin's alone by default
 -- (owner, 7 Nov 2026); the admin can grant it to another role in the matrix,

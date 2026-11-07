@@ -186,7 +186,7 @@ export function shapeRow(row: Row, spec: Pick<SheetSpec, "refs" | "drop" | "ref"
     const ref = refOf(column, spec);
     if (!ref) {
       if (/_ids?$/.test(column) && looksLikeIds(value)) continue;
-      out[headerOf(column)] = cellOf(value);
+      out[headerOf(column)] = scrubIds(cellOf(value), lookups);
       continue;
     }
     switch (ref) {
@@ -240,6 +240,42 @@ export function shapeRow(row: Row, spec: Pick<SheetSpec, "refs" | "drop" | "ref"
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_INSIDE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const UUID_EVERYWHERE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+/** What a cell that was only an unknown id reads as. */
+export const ID_LEFT_OUT = "(internal reference left out)";
+
+/** The name an id stands for, from whichever list knows it. */
+function nameOfId(id: string, lookups: Lookups): string | undefined {
+  const student = lookups.students.get(id);
+  if (student) return student.admissionNo ? `${student.name} (${student.admissionNo})` : student.name;
+  const paper = lookups.papers.get(id);
+  if (paper) return `${paper.assessment} ${paper.subject}`.trim();
+  const register = lookups.registers.get(id);
+  if (register) return register.day;
+  for (const map of [
+    lookups.classes, lookups.staff, lookups.subjects, lookups.fields, lookups.noteKinds, lookups.assessments, lookups.versions,
+    lookups.supportPlans, lookups.substitutionPlans, lookups.campaigns, lookups.requests, lookups.rounds, lookups.rooms,
+  ]) {
+    const name = map.get(id);
+    if (name) return name;
+  }
+  return undefined;
+}
+
+/**
+ * An id can also hide inside a value: a JSON audience with class ids, a
+ * status reason such as "withdrawn:<id>", an upload's id in a collected
+ * answer. Each becomes the name it stands for, or is left out.
+ */
+export function scrubIds(cell: Cell, lookups: Lookups): Cell {
+  if (typeof cell !== "string" || !UUID_INSIDE.test(cell)) return cell;
+  if (UUID.test(cell)) return nameOfId(cell.toLowerCase(), lookups) ?? ID_LEFT_OUT;
+  return cell
+    .replace(UUID_EVERYWHERE, (id) => nameOfId(id.toLowerCase(), lookups) ?? "")
+    .replace(/[\s:,;/-]+$/, "");
+}
+
 function looksLikeIds(value: unknown): boolean {
   if (typeof value === "string") return UUID.test(value);
   return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && UUID.test(item));

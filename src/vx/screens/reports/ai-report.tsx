@@ -415,7 +415,7 @@ export function AiReport({
 
         <Card>
           <h2 className="sech" style={{ marginBottom: 10 }}>{tx(T.how)}</h2>
-          <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+          <ol style={{ margin: 0, paddingLeft: 22, listStyle: "decimal", display: "flex", flexDirection: "column", gap: 6 }}>
             <li>{tx(T.how1)}</li>
             <li>{tx(T.how2(sessionLabel))}</li>
             <li>{tx(T.how3)}</li>

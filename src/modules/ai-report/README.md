@@ -2,7 +2,7 @@
 
 One file with everything One and Fees hold for a session, to give to an AI assistant.
 
-Reports → AI report (`/reports/ai`, owner, 7 Nov 2026, D-482/D-483): staff
+Reports → AI report (`/reports/ai`, owner, 7 Nov 2026, D-484/D-485): staff
 give the file to ChatGPT (or any assistant that reads Excel) and ask for
 whatever report they need. It replaces hunting through many separate reports.
 
@@ -46,9 +46,11 @@ two files and the read-me says so.
 
 ## Never
 
-- Never put a secret, link, storage path, hash or raw id in a sheet: the
+- Never put a secret, link, storage path, hash or raw id in One's sheets: the
   `NEVER` list and the id rule in `shapeRow` keep them out generically, so a new
-  column cannot leak one.
+  column cannot leak one, and `scrubIds` turns an id inside a value (JSON, a
+  status reason) into its name or leaves it out. Fees' sheets keep the join
+  columns its own AI context export has (Student ID, Class id, Route id, Plan id).
 - Never let One's fee copy stand in for Fees' money on a real year.
 - Never return an error's own text: `aiReportFailure` answers in fixed words.
 - Every download is logged in `academic_exports` (kind `ai_report`): who, which

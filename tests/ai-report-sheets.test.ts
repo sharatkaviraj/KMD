@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  SHEETS, cellOf, classLabelOf, headerOf, istStamp, schoolReadmeLines, shapeRow, sheetAllowed, sheetsFor, type Lookups,
+  ID_LEFT_OUT, SHEETS, cellOf, classLabelOf, headerOf, istStamp, schoolReadmeLines, shapeRow, sheetAllowed, sheetsFor, type Lookups,
 } from "@/modules/ai-report/domain/sheets";
 import { can, readsEveryClass, staffPermissions, staffRoles, type StaffRole } from "@/platform/auth/permissions";
 
@@ -135,6 +135,22 @@ describe("a raw row as a readable row", () => {
   it("drops what the sheet says to drop, and gives a short Ref when asked", () => {
     const out = shapeRow({ id: "abcdef12-0000-4000-8000-000000000000", removed_at: null, body: "Text" }, { drop: ["removed_at"], ref: true }, lookups);
     expect(out).toEqual({ Ref: "abcdef12", Text: "Text" });
+  });
+
+  it("names or leaves out an id hiding inside a value: JSON, a status reason, an upload's id", () => {
+    const out = shapeRow({
+      audience: { classIds: [CLASS], studentIds: [STUDENT], search: "" },
+      status_reason: "withdrawn:00000000-0000-4000-8000-000000000777",
+      value: "00000000-0000-4000-8000-000000000778",
+      scope: { kind: "class", value: CLASS },
+      note: "Moved to Test Teacher's cover",
+    }, {}, lookups);
+    expect(out.Audience).toBe('{"classIds":["Class 5 - Section A"],"studentIds":["Test Child (T-101)"],"search":""}');
+    expect(out["Status reason"]).toBe("withdrawn");
+    expect(out.Value).toBe(ID_LEFT_OUT);
+    expect(out.Scope).toBe('{"kind":"class","value":"Class 5 - Section A"}');
+    expect(out.Note).toBe("Moved to Test Teacher's cover");
+    expect(JSON.stringify(out)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   });
 
   it("says when a child is not on this year's roll rather than showing an id", () => {
