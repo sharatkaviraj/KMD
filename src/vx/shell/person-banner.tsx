@@ -77,8 +77,10 @@ export function PersonBanner({
     leave(async () => {
       const href = await endViewAsPersonAction();
       cue("done");
-      router.push(href);
-      router.refresh();
+      // The action has already redrawn the frame as the administrator; one push, no
+      // second load, and the administrator's own screen from its top.
+      window.scrollTo(0, 0);
+      router.push(href, { scroll: false });
     });
   };
 
