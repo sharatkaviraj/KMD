@@ -1,5 +1,19 @@
 # VPPS One — progress
 
+## One AI page, and the connector on its own — 7 November 2026
+
+Owner asked (7 Nov) for one AI page in Settings instead of three, the MCP
+connector on a page of its own and clearly named, and a clear picture of which
+model does what, how each job is routed and what it costs. Branch
+`claude/project-thread-b5tm9t`, D-501. **Done:** Settings → AI helper shows
+every AI job (written drafts, photos, voice) in four views: What AI did, How it
+works (animated roads with Show me and Listen), Cost and Switches; one
+database function (`ai_overview`, migration `20261107100619`, applied) feeds
+it. `/settings/builtin-ai` redirects to its Cost view. The connector is now
+"Claude / ChatGPT connector" everywhere, with an explainer, a read-only list
+and this month's call counts.
+**Remains:** the BrowserStack phone and desktop check is recorded in the PR.
+
 ## Felt and heard: haptics, short sounds and Listen — 7 November 2026
 
 Owner asked (7 Nov) for haptic feedback where it helps (not too much), sounds

@@ -7,6 +7,8 @@ import { CACHE_TAGS, expireTag } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { createArchive, runRestoreDrill } from "@/modules/archives/data/archive-repo";
+import { checkBuiltinAiKeys, mayChangeBuiltinAiLimit, mayCheckBuiltinAiKeys, setBuiltinAiDailyLimit } from "@/lib/ai/admin";
+import { builtinAiPilot } from "@/lib/ai/config";
 import { saveAssistSettings } from "@/modules/assist/data/settings";
 import { isAssistFeature } from "@/modules/assist/domain/features";
 import { schoolToday } from "@/vx/format";
@@ -160,4 +162,35 @@ export async function saveAssistSettingsAction(input: {
   // The shell decides which AI buttons each person sees.
   revalidatePath("/", "layout");
   return { ok: true, message: p("AI helper settings saved", "AI सहायक की सेटिंग्स सहेजी गईं") };
+}
+
+/**
+ * Settings → AI helper → Switches (D-501): the photo and voice jobs' daily
+ * limit per person. Only an admin may change it while built-in AI is live
+ * (`mayChangeBuiltinAiLimit`); it moved here from the old Built-in AI page.
+ */
+export async function saveBuiltinAiLimitAction(limit: number): Promise<SettingsResult> {
+  const actor = await assertPermission("settings:manage");
+  await assertNotPreviewing();
+  if (!builtinAiPilot() || !mayChangeBuiltinAiLimit(actor)) {
+    return { ok: false, message: p("Only an admin can change this limit while photo and voice AI is on.", "फ़ोटो व आवाज़ AI चालू हो तो यह सीमा सिर्फ़ प्रशासक बदल सकते हैं।") };
+  }
+  if (!Number.isInteger(limit) || limit < 0 || limit > 200) return { ok: false, message: p("The daily limit must be a whole number from 0 to 200.", "रोज़ की सीमा 0 से 200 तक की पूरी संख्या हो।") };
+  const ok = await setBuiltinAiDailyLimit(actor.id, limit).catch(() => false);
+  if (!ok) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया।") };
+  revalidatePath("/settings");
+  return { ok: true, message: p("Photo and voice limit saved", "फ़ोटो व आवाज़ की सीमा सहेजी गई") };
+}
+
+/** Settings → AI helper → Cost → Check keys now: one tiny request per key and model, on the server. */
+export async function checkAiKeysAction(): Promise<SettingsResult> {
+  const actor = await assertPermission("settings:manage");
+  await assertNotPreviewing();
+  if (!mayCheckBuiltinAiKeys(actor)) return { ok: false, message: p("Only an admin can check the keys.", "कुंजियाँ सिर्फ़ प्रशासक जाँच सकते हैं।") };
+  const ok = await checkBuiltinAiKeys(actor.id).then(
+    () => true,
+    () => false,
+  );
+  revalidatePath("/settings");
+  return ok ? { ok: true, message: p("Keys checked", "कुंजियाँ जाँची गईं") } : { ok: false, message: p("The check could not finish. Try again.", "जाँच पूरी नहीं हुई। फिर कोशिश करें।") };
 }

@@ -13,7 +13,7 @@ import { t } from "@/platform/i18n/language";
  * `ai-connection-link.ts`.
  */
 export const aiConnectionMessages = {
-  consentTitle: t("AI सहायक को VPPS One से जोड़ें", "Connect an AI assistant to VPPS One"),
+  consentTitle: t("Claude / ChatGPT को VPPS One से जोड़ें", "Connect Claude / ChatGPT to VPPS One"),
   signedInAs: t("इस खाते से", "Signed in as"),
   wantsToRead: (provider: { hi: string; en: string }) =>
     t(`${provider.hi} आपके नाम से VPPS One पढ़ना चाहता है`, `${provider.en} wants to read VPPS One as you`),
@@ -56,9 +56,9 @@ export const aiConnectionMessages = {
   switchedOff: t("स्कूल ने AI कनेक्शन बंद किया है।", "The school has switched the AI connection off."),
   notSaved: t("अनुमति दर्ज नहीं हो सकी। फिर से कोशिश करें।", "The approval could not be saved. Try again."),
   // The card
-  cardTitle: t("AI सहायक (Claude / ChatGPT)", "AI assistant (Claude / ChatGPT)"),
+  cardTitle: t("Claude / ChatGPT कनेक्टर", "Claude / ChatGPT connector"),
   // Today's one-line status (owner, 4 Nov: "highlight it on the home page")
-  stripTitle: t("AI सहायक", "AI assistant"),
+  stripTitle: t("Claude कनेक्टर", "Claude connector"),
   stripNotConnected: t("Claude को VPPS One से जोड़ें — दो मिनट लगते हैं", "Connect Claude to VPPS One — it takes two minutes"),
   stripSwitchedOffAdmin: t("स्कूल का AI स्विच बंद है", "The school's AI switch is off"),
   stripConnect: t("जोड़ें", "Connect"),
@@ -108,7 +108,31 @@ export const aiConnectionMessages = {
     "VPPS One cannot see whether the AI app still has it — this shows only what One allowed.",
   ),
   // The admin page
-  adminTitle: t("AI सहायक कनेक्शन", "AI assistant connection"),
+  adminTitle: t("Claude / ChatGPT कनेक्टर", "Claude / ChatGPT connector"),
+  // What the page is, and what it is not (D-501): the AI helper inside One is a different thing.
+  whatTitle: t("यह क्या है", "What this is"),
+  whatBody: t(
+    "कनेक्टर से स्टाफ़ का अपना Claude या ChatGPT ऐप, उनके सवाल पर, One से कुछ गिनती पढ़ सकता है — आज की हाज़िरी, कौन छुट्टी पर है, दिन की व्यवस्था। यह One के अंदर का AI सहायक नहीं है: वह One की स्क्रीन पर मसौदे लिखता है और उसका अपना पेज है।",
+    "The connector lets a staff member's own Claude or ChatGPT app read a few counts from One when they ask it something — today's attendance, who is away, the cover plan. It is not the AI helper inside One: that one writes drafts on One's screens and has its own page.",
+  ),
+  flowApp: t("आपका Claude / ChatGPT", "Your Claude / ChatGPT"),
+  flowAsks: t("पूछता है", "asks"),
+  flowOne: t("VPPS One · सिर्फ़ पढ़ना", "VPPS One · read only"),
+  flowAnswers: t("सिर्फ़ गिनती लौटाता है", "answers with counts only"),
+  helperLink: t("One के अंदर का AI सहायक देखें", "See the AI helper inside One"),
+  helperLinkSub: t("मसौदे, फ़ोटो और आवाज़: किस AI ने क्या किया और कितना खर्च", "Drafts, photos and voice: what each AI did and cost"),
+  canReadTitle: t("यह क्या पढ़ सकता है", "What it can read"),
+  cannotTitle: t("यह कभी नहीं कर सकता", "What it can never do"),
+  monthTitle: t("इस महीने", "This month"),
+  monthAnswered: (n: number) => t(`${n} सवालों के जवाब दिए`, `${n} ${n === 1 ? "question" : "questions"} answered`),
+  monthRefused: (n: number) => t(`${n} मना किए`, `${n} refused`),
+  monthFailed: (n: number) => t(`${n} नहीं हो सके`, `${n} could not be answered`),
+  monthNone: t("इस महीने अभी कोई सवाल नहीं।", "No questions yet this month."),
+  monthUnread: t("इस महीने की गिनती नहीं पढ़ी जा सकी।", "This month's count could not be read."),
+  freeOfCost: t(
+    "One के लिए इसका कोई खर्च नहीं: सवाल का जवाब आपके अपने Claude या ChatGPT खाते में बनता है।",
+    "It costs One nothing: the answer is written in your own Claude or ChatGPT account.",
+  ),
   settingsCrumb: t("सेटिंग्स", "Settings"),
   switchTitle: t("स्कूल का स्विच", "School switch"),
   stateOn: t("चालू", "On"),

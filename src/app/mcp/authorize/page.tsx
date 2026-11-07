@@ -19,7 +19,7 @@ import { approveAuthorizationAction, denyAuthorizationAction } from "./actions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Connect an AI assistant" };
+export const metadata = { title: "Connect Claude / ChatGPT" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

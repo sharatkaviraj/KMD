@@ -231,8 +231,8 @@ export const JOBS: Record<JobName, JobDefinition> = {
     name: "ai-connection-purge",
     label: t("AI कनेक्शन की सफ़ाई", "AI connection clean-up"),
     what: t(
-      "AI सहायक कनेक्शन के 180 दिन से पुराने उपयोग-रिकॉर्ड, और समाप्त या उपयोग हो चुके कोड और टोकन हटाता है। जुड़े हुए कनेक्शन नहीं छेड़ता।",
-      "Removes AI assistant connection call records older than 180 days, and expired or used codes and tokens. Live connections are untouched.",
+      "Claude / ChatGPT कनेक्टर के 180 दिन से पुराने उपयोग-रिकॉर्ड, और समाप्त या उपयोग हो चुके कोड और टोकन हटाता है। जुड़े हुए कनेक्शन नहीं छेड़ता।",
+      "Removes Claude / ChatGPT connector call records older than 180 days, and expired or used codes and tokens. Live connections are untouched.",
     ),
     // 22:15 UTC is 03:45 in school, after the night's backups.
     schedule: "15 22 * * *",

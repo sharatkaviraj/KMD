@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -7,9 +8,8 @@ import { useMemo, useState, useSyncExternalStore, useTransition, type CSSPropert
 
 import { logoutAction } from "@/app/login/actions";
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
-import { archiveSessionAction, backupNowAction, restoreDrillAction, saveAssistSettingsAction, savePrefsAction, saveProfileAction, type SettingsResult } from "@/app/(app)/settings/actions";
-import type { AssistPanelData } from "@/modules/assist/data/panel";
-import { AssistSettingsPanel } from "@/vx/assist/settings-panel";
+import { archiveSessionAction, backupNowAction, restoreDrillAction, savePrefsAction, saveProfileAction, type SettingsResult } from "@/app/(app)/settings/actions";
+import type { AiPageData } from "@/modules/assist/data/panel";
 import { dateLabel, initials, longDay, schoolToday, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -20,6 +20,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
 
+import type { AiView } from "./ai/words";
 import type { SettingsData } from "./data";
 import { ParentSwitchesPanel, parentSwitchesSummary } from "./parent-switches-panel";
 import { DEFAULT_PARENT_SWITCHES } from "./domain/parent-switches";
@@ -101,6 +102,7 @@ const T = {
   school: p("School", "विद्यालय"),
   records: p("Records", "रिकॉर्ड"),
   connected: p("Connected", "जुड़ी सेवाएँ"),
+  aiGroup: p("AI", "AI"),
   help: p("Help", "मदद"),
   classic: p("Classic screens", "पुरानी स्क्रीन"),
   schoolProfile: p("School profile", "विद्यालय प्रोफ़ाइल"),
@@ -113,7 +115,7 @@ const T = {
   master: p("Master data", "मूल डेटा"),
   integrations: p("Integrations", "जुड़ी सेवाएँ"),
   ai: p("AI helper", "AI सहायक"),
-  aiSub: p("AI drafts, staff decide · switch, budget, usage", "AI लिखता है, स्टाफ़ तय करता है · स्विच, बजट, उपयोग"),
+  aiSub: p("Drafts, photos and voice · what each AI did and cost", "मसौदे, फ़ोटो और आवाज़ · किस AI ने क्या किया, कितना खर्च"),
   glossary: p("Glossary", "शब्दकोश"),
   glossarySub: p("Plain meanings · English + हिंदी", "आसान अर्थ · English + हिंदी"),
   about: p("About", "ऐप के बारे में"),
@@ -123,9 +125,12 @@ const T = {
   signOut: p("Sign out", "साइन आउट"),
 };
 
-type NavItem = { s: SettingsState | "about" | "users" | "ai-connection" | "builtin-ai"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
+type NavItem = { s: SettingsState | "about" | "users" | "ai-connection"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
 
-export function SettingsScreen({ data, state, ai = null }: { data: SettingsData; state: SettingsState; ai?: AssistPanelData | null }) {
+/* The AI page loads only when it is opened. */
+const AiPage = dynamic(() => import("./ai/ai-page").then((m) => m.AiPage));
+
+export function SettingsScreen({ data, state, ai = null, aiView = "used" }: { data: SettingsData; state: SettingsState; ai?: AiPageData | null; aiView?: AiView }) {
   const { tx, language } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -180,14 +185,17 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
       ],
     },
     {
-      title: T.connected,
+      // Two AI rows, and only two (D-501): every AI job inside One on one page, and the
+      // Claude / ChatGPT connector (MCP), which is a different thing, on its own.
+      title: T.aiGroup,
       items: [
-        { s: "integrations", icon: "link", tone: "warn", title: T.integrations, sub: status.integrations.sub, subTone: status.integrations.tone },
         { s: "ai", icon: "sparkle", tone: "acc", title: T.ai, sub: tx(T.aiSub) },
-        // The AI connection (Claude / ChatGPT through MCP) has its own page: the switch and every connection.
-        { s: "builtin-ai", icon: "sparkle", tone: "info", title: p("Built-in AI", "ऐप का AI"), sub: tx(p("Photo and voice usage, costs and limits", "फ़ोटो और आवाज़ का उपयोग, खर्च और सीमा")), href: "/settings/builtin-ai" },
-        { s: "ai-connection", icon: "shield", tone: "info", title: aiConnectionLink.title, sub: tx(aiConnectionLink.sub), href: "/settings/ai-connection" },
+        { s: "ai-connection", icon: "link", tone: "info", title: aiConnectionLink.title, sub: tx(aiConnectionLink.sub), href: "/settings/ai-connection" },
       ],
+    },
+    {
+      title: T.connected,
+      items: [{ s: "integrations", icon: "link", tone: "warn", title: T.integrations, sub: status.integrations.sub, subTone: status.integrations.tone }],
     },
     {
       title: T.help,
@@ -346,7 +354,7 @@ export function SettingsScreen({ data, state, ai = null }: { data: SettingsData;
       content = <Glossary />;
       break;
     case "ai":
-      content = ai ? <AssistSettingsPanel key={ai.settings?.updatedAt ?? "new"} data={ai} pending={pending} onSave={(next) => start(async () => done(await saveAssistSettingsAction(next)))} /> : null;
+      content = ai ? <AiPage data={ai} view={aiView} /> : null;
       break;
   }
 
