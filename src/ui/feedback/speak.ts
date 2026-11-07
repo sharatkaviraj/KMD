@@ -47,19 +47,41 @@ export function pickVoice(voices: readonly Pick<Voice, "lang" | "name" | "localS
   );
 }
 
-/** Voices load late on Chrome; wait for them, a little. */
+/** How long a tap waits for the voice list before speaking without it. */
+export const VOICE_WAIT_MS = 1500;
+/** A run that has not started its first line by now is given up as failed. */
+export const START_WATCHDOG_MS = 8000;
+
+/**
+ * Voices load late on Chrome, and on a phone whose speech engine is still
+ * asleep the list can stay empty for seconds (seen on a Galaxy M32: Hindi
+ * was there, just not yet). Wait a little, checking often; an empty answer
+ * means "not loaded yet", never "no voice".
+ */
 function voicesReady(s: SpeechSynthesis): Promise<Voice[]> {
   const now = s.getVoices();
   if (now.length) return Promise.resolve(now);
   return new Promise((resolve) => {
-    const done = () => {
-      s.removeEventListener?.("voiceschanged", done);
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearInterval(poll);
+      clearTimeout(limit);
+      s.removeEventListener?.("voiceschanged", check);
       resolve(s.getVoices());
     };
-    s.addEventListener?.("voiceschanged", done);
-    setTimeout(done, 1200);
+    const check = () => {
+      if (s.getVoices().length) finish();
+    };
+    s.addEventListener?.("voiceschanged", check);
+    const poll = setInterval(check, 200);
+    const limit = setTimeout(finish, VOICE_WAIT_MS);
   });
 }
+
+/** Errors a stop or a newer run causes; not a sign of a missing voice. */
+const STOP_ERRORS = new Set(["canceled", "interrupted"]);
 
 /** True when the phone has a voice for this language. */
 export async function hasVoice(lang: SpeakLang): Promise<boolean> {
@@ -68,7 +90,11 @@ export async function hasVoice(lang: SpeakLang): Promise<boolean> {
   return pickVoice(await voicesReady(s), lang) !== null;
 }
 
+let runId = 0;
+
 export function stopSpeaking() {
+  // A run still waiting for voices must not start after a Stop.
+  runId += 1;
   try {
     synth()?.cancel();
   } catch {
@@ -76,24 +102,58 @@ export function stopSpeaking() {
   }
 }
 
-let runId = 0;
-
 /**
  * Speak lines one after another. `onLine(i)` fires as line i starts, so a
- * help sheet can light up the step being read. Resolves false when there is
- * no voice for the words; a newer call stops an older one.
+ * help sheet can light up the step being read. Resolves false when the
+ * phone's voice list has loaded and holds no voice for the words; a newer
+ * call stops an older one, and the older one's `onEnd` still fires.
+ *
+ * A list still empty after the wait is spoken anyway, by language, and the
+ * phone picks the voice. If the phone then cannot speak it (an error, or
+ * nothing starts within START_WATCHDOG_MS), `onFail` fires instead of
+ * `onEnd`, so the caller can say there is no voice rather than sit on Stop.
  */
-export async function speakLines(lines: string[], options: { onLine?: (index: number) => void; onEnd?: () => void } = {}): Promise<boolean> {
+export async function speakLines(
+  lines: string[],
+  options: { onLine?: (index: number) => void; onEnd?: () => void; onFail?: () => void } = {},
+): Promise<boolean> {
   const s = synth();
   if (!s || !canSpeak()) return false;
   stopSpeaking();
   const id = ++runId;
   const voices = await voicesReady(s);
-  if (id !== runId) return true;
+  if (id !== runId) {
+    // Stopped or replaced while waiting: tell the caller it is over.
+    options.onEnd?.();
+    return true;
+  }
   const items = lines.map(speakable).filter(Boolean);
   if (!items.length) return false;
-  const firstLang = langOf(items[0]);
-  if (!pickVoice(voices, firstLang)) return false;
+  if (voices.length && !pickVoice(voices, langOf(items[0]))) return false;
+
+  let started = false;
+  let over = false;
+  const finish = (failed: boolean) => {
+    clearTimeout(watchdog);
+    if (over) return;
+    over = true;
+    // A run stopped or replaced by a newer one simply ended; only this
+    // run's own failure before its first word means "no voice".
+    if (failed && !started && id === runId) options.onFail?.();
+    else options.onEnd?.();
+  };
+  /** Settle this run as failed first, then silence it: cancelling fires
+   *  "canceled" on the queued lines, which must find the run already over. */
+  const fail = () => {
+    const mine = id === runId && !over;
+    finish(true);
+    if (mine) stopSpeaking();
+  };
+  // Declared after finish and fail, which only read it once speaking has begun.
+  const watchdog = setTimeout(() => {
+    if (!started) fail();
+  }, START_WATCHDOG_MS);
+
   items.forEach((text, i) => {
     const lang = langOf(text);
     const u = new SpeechSynthesisUtterance(text);
@@ -102,15 +162,19 @@ export async function speakLines(lines: string[], options: { onLine?: (index: nu
     if (voice) u.voice = voice as Voice;
     u.rate = lang === "hi" ? 0.92 : 0.95;
     u.onstart = () => {
-      if (id === runId) options.onLine?.(i);
+      if (id !== runId) return;
+      started = true;
+      options.onLine?.(i);
     };
-    if (i === items.length - 1) {
-      const end = () => {
-        if (id === runId) options.onEnd?.();
-      };
-      u.onend = end;
-      u.onerror = end;
-    }
+    u.onerror = (event) => {
+      const code = (event as Partial<SpeechSynthesisErrorEvent>)?.error;
+      if (code && STOP_ERRORS.has(code)) {
+        if (i === items.length - 1) finish(false);
+        return;
+      }
+      fail();
+    };
+    if (i === items.length - 1) u.onend = () => finish(false);
     s.speak(u);
   });
   return true;
