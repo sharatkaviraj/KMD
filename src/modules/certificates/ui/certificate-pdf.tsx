@@ -237,7 +237,7 @@ function CertificatePage({ snapshot, qr, verifyUrl, crest, seal, signature, leve
     </View>
 
     {!preprinted ? <Text fixed style={{ position: "absolute", bottom: 27, left: 40, right: 40, textAlign: "center", fontSize: 7, color: C.faint, fontFamily: "Helvetica" }}
-      render={({ pageNumber, totalPages }) => `${snapshot.serial}${totalPages > 1 ? `   ·   ${pageNumber} / ${totalPages}` : ""}   ·   Issued from the school's records${snapshot.verifyCode ? "; scan the code to confirm it is genuine" : ""}`} /> : null}
+      render={({ pageNumber, totalPages }) => `${snapshot.serial}${totalPages > 1 ? `   ·   ${pageNumber} / ${totalPages}` : ""}   ·   Issued from the school's records${qr ? "; scan the code to confirm it is genuine" : ""}`} /> : null}
   </Page>;
 }
 
