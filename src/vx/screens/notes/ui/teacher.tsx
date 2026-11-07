@@ -177,8 +177,9 @@ export function TeachNotes(props: NotesProps) {
     // Opened for one child (`?student=`), the note is about that child.
     const kid = props.initialStudent && props.kids.some((k) => k.id === props.initialStudent) ? props.initialStudent : null;
     if (kid) composer.pickChild(kid);
-    // A note left unsaved comes back (RULES G: forms keep their drafts), and opens on its words.
-    composer.restoreDraft(kid);
+    // Every new note starts empty. A note left unsaved is kept (RULES G) and
+    // offered on the card with "Continue this note", never filled in by itself.
+    composer.checkDraft();
     setSavedId(null);
     setAdding(true);
     flow.start(kid ? "write" : "child");

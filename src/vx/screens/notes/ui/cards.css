@@ -1,24 +1,27 @@
 /*
- * A note, card by card (D-486). One card on a stage, as Collect takes a
- * payment: the root is exactly the space between the page's top bar and the
- * phone's tab bar (`--nc-h`, set by `useFrame`), and nothing inside it
- * scrolls. A desk adds the steps on the left and, when wide, the child's
- * recent notes on the right. Everything is under `.nc`.
+ * A note, card by card (D-486, rebuilt for a first-time teacher in D-500).
+ * One card on a stage, as Collect takes a payment: the root is exactly the
+ * space between the page's top bar and the phone's tab bar (`--nc-h`, set by
+ * `useFrame`). On a phone the three steps sit above the card. The card's head
+ * and its button stay put; what does not fit between them scrolls inside the
+ * card, and says so (`data-more`). A desk adds the steps on the left and, when
+ * wide, the child's recent notes on the right. Everything is under `.nc`.
  */
 
 /* The page around the cards keeps no room of its own below them: the cards are measured to the tab bar. */
 .vx-page:has(>main>.nc){min-height:0}
 .vx-page>main:has(>.nc){padding-bottom:0}
-/* Typing on a phone: the page's top bar steps aside so the words and Next stay above the keyboard. */
-@container vx (max-width:899px){:root[data-kb] .vx-page:has(>main>.nc[data-card="write"])>.vx-top{display:none}}
+/* Typing on a phone: the page's top bar steps aside so the box, the list and the button stay above the keyboard. */
+@container vx (max-width:899px){:root[data-kb] .vx-page:has(>main>.nc:is([data-card="write"],[data-card="child"]))>.vx-top{display:none}}
 
-.nc{height:var(--nc-h,calc(100dvh - 140px));min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"stage";padding:0 12px;position:relative;color:var(--fg);-webkit-tap-highlight-color:transparent}
+.nc{--nc-sheen:rgba(255,255,255,.6);height:var(--nc-h,calc(100dvh - 140px));min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"steps" "stage";padding:0 12px;position:relative;color:var(--fg);-webkit-tap-highlight-color:transparent}
+.dark .nc{--nc-sheen:rgba(255,255,255,.08)}
 .nc *,.nc *::before,.nc *::after{box-sizing:border-box}
 :where(.nc) button{font:inherit;color:inherit;cursor:pointer}
 :where(.nc) button:disabled{cursor:not-allowed}
 .nc :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .nc [data-cut]{visibility:hidden}
-@container vx (min-width:900px){.nc{grid-template-columns:220px minmax(0,1fr);grid-template-areas:"rail stage";column-gap:20px;padding:0 24px}}
+@container vx (min-width:900px){.nc{grid-template-columns:220px minmax(0,1fr);grid-template-rows:minmax(0,1fr);grid-template-areas:"rail stage";column-gap:20px;padding:0 24px}}
 @container vx (min-width:1100px){.nc{grid-template-columns:220px minmax(0,1fr) 270px;grid-template-areas:"rail stage ctx"}}
 
 .nc .nc-c{display:flex;flex-direction:column;min-width:0}
@@ -28,16 +31,33 @@
 .nc .nc-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
 .nc .nc-pulse{animation:xPulse 1.1s ease-in-out infinite}
 
+/* ---- the steps above a phone's card: where the teacher is, and what is left ---------------- */
+.nc .nc-steps{grid-area:steps;list-style:none;margin:0;padding:8px 2px 0;display:flex;align-items:center;gap:6px;min-width:0}
+.nc .nc-steps>li{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;line-height:1.2;color:var(--mut)}
+.nc .nc-steps>li:last-child{flex:0 1 auto}
+.nc .nc-steps>li:not(:last-child)::after{content:"";flex:1 1 8px;min-width:8px;height:2px;border-radius:2px;background:var(--bds);transition:background-color .3s var(--ease)}
+.nc .nc-steps>li.done::after{background:var(--ok)}
+.nc .nc-steps .dot{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--bds);background:var(--card);font-size:11.5px;font-weight:700;color:var(--mut);transition:background-color .25s var(--ease),border-color .25s var(--ease),color .25s var(--ease)}
+.nc .nc-steps .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.nc .nc-steps>li.cur{color:var(--fg);font-weight:700}
+.nc .nc-steps>li.cur .dot{background:var(--pri);border-color:var(--pri);color:var(--prifg);animation:xPopIn .35s var(--spring) both}
+.nc .nc-steps>li.done .dot{background:var(--ok);border-color:var(--ok);color:var(--card)}
+.nc .nc-steps>li.done .dot>svg{animation:xPopIn .35s var(--spring) both}
+:root[data-kb] .nc:is([data-card="write"],[data-card="child"]) .nc-steps{display:none}
+/* A desk has its steps down the left (the rail). */
+@container vx (min-width:900px){.nc .nc-steps{display:none}}
+
 /* ---- the stage and the card -------------------------------------------------------- */
 .nc-stage{grid-area:stage;position:relative;min-height:0;min-width:0}
 .nc-ghosts{position:absolute;inset:0;pointer-events:none;z-index:0}
 .nc-card{position:absolute;inset:0;margin:auto;width:min(580px,100%);height:min(700px,calc(100% - 28px));display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:24px;box-shadow:var(--sh);overflow:hidden;z-index:1;container:ncc/size;will-change:transform,opacity}
 .nc-card.leaving{pointer-events:none;z-index:0}
-@container vx (max-width:899px){.nc-card{inset:6px 0 8px;margin:0;width:auto;height:auto;border-radius:20px}}
+/* A card sliding away is a copy: what it showed arriving (the AI's words, a tick) does not arrive again. */
+.nc-card.leaving *{animation:none!important}
+@container vx (max-width:899px){.nc-card{inset:8px 0 8px;margin:0;width:auto;height:auto;border-radius:20px}}
 
 /* head */
 .nc .nc-ch{flex:none;display:flex;align-items:center;gap:12px;padding:18px 24px 6px;min-width:0}
-.nc .nc-eb{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:3px}
 .nc .nc-h2{margin:0;font-family:var(--font-display),'Source Serif 4',Georgia,serif;font-size:24px;line-height:1.15;font-weight:700;text-wrap:balance}
 .nc .nc-h2s{display:block;font-family:var(--font-sans,inherit);font-size:13.5px;font-weight:500;color:var(--mut);margin-top:2px}
 .nc .nc-name{display:block;font-size:16px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -45,40 +65,58 @@
 .nc .nc-name.big{font-family:var(--font-display),'Source Serif 4',Georgia,serif;font-size:22px;line-height:1.15;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .nc .nc-meta{display:block;font-size:12.5px;line-height:1.35;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nc .nc-meta.wrap{white-space:normal}
-.nc .nc-chg{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 12px;border-radius:12px;border:1px solid var(--bds);background:var(--card);color:var(--acc);font-size:13px;font-weight:700;white-space:nowrap}
+.nc .nc-chg{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:0 14px;border-radius:13px;border:1.5px solid var(--bds);background:var(--card);color:var(--acc);font-size:14px;font-weight:700;white-space:nowrap}
 .nc .nc-chg:hover{background:var(--s2)}
 
-/* body and foot */
-.nc .nc-body{flex:1;min-height:0;overflow:hidden;padding:10px 24px 12px;display:flex;flex-direction:column;gap:10px;position:relative}
-.nc .nc-foot{flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--bd);min-width:0}
+/* body and foot: the body scrolls between them when it holds more than fits */
+.nc .nc-body{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:10px 24px 12px;display:flex;flex-direction:column;gap:10px;position:relative}
+.nc .nc-foot{position:relative;flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--bd);min-width:0;background:var(--card)}
 .nc .nc-foot .btn{border-radius:15px;min-width:0}
 .nc .nc-foot .btn.pri{flex:1}
-.nc .nc-ib{flex:none;width:52px;padding:0}
 .nc .nc-savefoot{flex-direction:column;align-items:stretch;gap:6px}
-.nc .nc-pg{flex:1;min-width:0;font-size:12.5px;color:var(--mut);font-weight:600;line-height:1.3;text-align:center}
-.nc .nc-more{flex:0 1 auto!important;padding:0 18px}
+.nc .nc-foot.nc-savefoot>.btn.nc-save{flex:none;width:100%}
 @container vx (max-width:899px){
   .nc .nc-ch{padding:12px 16px 4px}
-  .nc .nc-eb{display:none}
   .nc .nc-h2{font-size:20px}
   .nc .nc-h2s{font-size:12.5px}
   .nc .nc-body{padding:6px 16px 10px;gap:8px}
   .nc .nc-foot{padding:10px 12px 12px;gap:8px}
 }
 
+/* More below than shows: a fade over the last line and a small arrow, so a box that scrolls says it does (D-500). */
+.nc .nc-card[data-more] .nc-foot::before{content:"";position:absolute;left:0;right:0;bottom:calc(100% + 1px);height:30px;background:linear-gradient(to bottom,transparent,var(--card));pointer-events:none}
+.nc .nc-card[data-more] .nc-foot::after,.nc .nc-card[data-more] .nc-pick::before{content:"";position:absolute;left:50%;width:11px;height:11px;margin-left:-6px;border:solid var(--acc);border-width:0 2.5px 2.5px 0;transform:rotate(45deg);animation:ncNudge 1.5s ease-in-out infinite;pointer-events:none;z-index:2}
+.nc .nc-card[data-more] .nc-foot::after{bottom:calc(100% + 10px)}
+.nc .nc-card[data-more] .nc-pick::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40px;background:linear-gradient(to bottom,transparent,var(--card) 80%);pointer-events:none;z-index:1}
+.nc .nc-card[data-more] .nc-pick::before{bottom:14px}
+@keyframes ncNudge{0%,100%{transform:translateY(-2px) rotate(45deg);opacity:1}50%{transform:translateY(3px) rotate(45deg);opacity:.45}}
+
 /* notes in a card */
 .nc .nc-note{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:14px;font-size:13px;line-height:1.45;background:var(--s2);color:var(--fg);flex:none}
 .nc .nc-note.warn{background:var(--warns);color:var(--warnfg)}
-.nc .nc-note>svg{margin-top:1px}
+.nc .nc-note>svg{flex:none;margin-top:1px}
 .nc .nc-note b{font-weight:700}
 .nc .nc-hint{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mut);font-weight:600;line-height:1.35;flex:none}
 .nc .nc-hint.lock{color:var(--warnfg)}
-.nc .nc-hint.ai{color:var(--accfg)}
 .nc .nc-err{font-size:13px;font-weight:700;color:var(--bad);flex:none}
 .nc .nc-line{display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.45;color:var(--fg);flex:none}
-.nc .nc-line>svg{margin-top:2px;color:var(--mut)}
+.nc .nc-line>svg{flex:none;margin-top:2px;color:var(--mut)}
 
-/* ---- 1 the child ------------------------------------------------------------------- */
+/* A note left without saving: offered, never poured into the new one. */
+.nc .nc-offer{flex:none;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:16px;border:1.5px solid var(--warnm);background:var(--warns);color:var(--warnfg);animation:xRise .35s var(--ease) both}
+.nc .nc-offer-h{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.nc .nc-offer-h>svg{flex:none;margin-top:1px}
+.nc .nc-offer-h b{display:block;font-size:14.5px;font-weight:750;line-height:1.3}
+.nc .nc-offer .nc-meta{color:inherit;opacity:.85;white-space:normal}
+.nc .nc-offer-q{margin:0;padding:8px 12px;border-radius:12px;background:var(--card);color:var(--fg);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.nc .nc-offer-q>span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nc .nc-offer-acts{display:flex;gap:8px;min-width:0}
+.nc .nc-offer-acts .btn{min-height:48px;height:auto;padding:6px 14px;border-radius:13px;font-size:14.5px;font-weight:700;gap:6px}
+.nc .nc-offer-acts .btn.pri{flex:1}
+.nc .nc-offer-acts .btn.sec{flex:none}
+
+/* ---- 1 the child: the whole class, every name in full, in a list that scrolls --------------- */
+.nc .nc-pick{overflow:hidden}
 .nc .nc-search{position:relative;flex:none;display:flex;align-items:center;gap:10px;height:54px;padding:0 6px 0 14px;border:1.5px solid var(--bds);border-radius:16px;background:var(--card);color:var(--mut);transition:border-color .2s ease,box-shadow .2s ease}
 .nc .nc-search:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
 .nc .nc-search input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;font-size:17px;color:var(--fg)}
@@ -86,40 +124,56 @@
 .nc .nc-search input:focus-visible{outline:none}
 .nc .nc-search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
 .nc .nc-x{flex:none;width:44px;height:44px;border:0;border-radius:12px;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--mut)}
-.nc .nc-cls{flex:none;display:flex;gap:6px;flex-wrap:wrap;max-height:38px;overflow:hidden}
-.nc .nc-sel{flex:none;height:44px}
-.nc .nc-grid{position:relative;flex:1;min-height:0;overflow:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));grid-auto-rows:min-content;align-content:start;gap:8px}
-.nc .nc-kid{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1px;min-height:50px;min-width:0;padding:5px 10px;border-radius:14px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
-.nc .nc-kid:hover{border-color:var(--bds);background:var(--s2)}
-.nc .nc-kid.recent{border-style:dashed;border-color:var(--bds)}
-.nc .nc-kt{display:flex;align-items:baseline;gap:6px;width:100%;min-width:0}
-.nc .nc-kt>svg{align-self:center;color:var(--acc)}
-.nc .nc-kid .r{flex:none;font-size:11px;font-weight:700;color:var(--mut);font-variant-numeric:tabular-nums}
-.nc .nc-kid .n{flex:1;min-width:0;font-size:15px;font-weight:650;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.nc .nc-kid .c{display:block;width:100%;font-size:11px;font-weight:600;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.nc .nc-empty{grid-column:1/-1;margin:16px auto;max-width:34ch;text-align:center;color:var(--mut);line-height:1.5;font-size:14px}
+.nc .nc-cls{flex:none;display:flex;gap:6px;flex-wrap:wrap}
+.nc .nc-cls .chip{height:40px;padding:0 16px;font-size:14px}
+.nc .nc-selw{flex:none;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:700;color:var(--mut)}
+.nc .nc-selw .nc-sel{flex:1;min-width:0;height:46px}
+.nc .nc-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0 -10px;padding:0 10px 30px}
+.nc .nc-list ul{list-style:none;margin:0;padding:0}
+.nc .nc-list li{animation:xFade .25s ease both}
+.nc .nc-lh{position:sticky;top:0;z-index:1;margin:0;padding:8px 2px 6px;background:var(--card);font-size:12.5px;font-weight:700;color:var(--mut);line-height:1.3}
+.nc .nc-kidrow{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:6px 6px 6px 2px;border:0;border-bottom:1px solid var(--bd);border-radius:0;background:transparent;color:var(--fg);text-align:left;transition:background-color .15s ease}
+.nc .nc-list li:last-child>.nc-kidrow{border-bottom:0}
+.nc .nc-kidrow:hover{background:var(--s2)}
+.nc .nc-kidrow:active{background:var(--s3)}
+.nc .nc-kidrow .r{flex:none;width:36px;height:36px;border-radius:50%;background:var(--s2);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--mut);font-variant-numeric:tabular-nums}
+.nc .nc-kidrow.recent .r{background:var(--accs);color:var(--accfg)}
+.nc .nc-kidrow .n{display:block;font-size:16px;font-weight:650;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nc .nc-kidrow .c{display:block;font-size:12px;font-weight:600;color:var(--mut);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nc .nc-kidrow>svg{flex:none;color:var(--sub)}
+.nc .nc-empty{margin:16px auto;max-width:34ch;text-align:center;color:var(--mut);line-height:1.5;font-size:14px}
 
 /* ---- 2 the words ------------------------------------------------------------------- */
 .nc .nc-act1{align-items:center}
 .nc .nc-act1 .nc-e{display:block;font-size:12px;opacity:.9}
-.nc .nc-tbox{flex:1 1 120px;min-height:84px;display:flex}
+.nc .nc-tbox{flex:1 1 120px;min-height:96px;display:flex}
 .nc .nc-text{flex:1;width:100%;min-height:0;resize:none;padding:12px 14px;border-radius:16px;border:1.5px solid var(--bds);background:var(--card);color:var(--fg);font:inherit;font-size:17px;line-height:1.5;outline:none;transition:border-color .2s ease,box-shadow .2s ease}
 .nc .nc-text:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
 .nc .nc-text::placeholder{color:var(--sub);font-size:15px}
 .nc .nc-text.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
-.nc .nc-phr{position:relative;flex:0 1 auto;min-height:0;max-height:104px;overflow:hidden;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px}
-.nc .nc-qp{display:inline-flex;align-items:center;gap:5px;min-height:40px;max-width:100%;padding:0 12px;border-radius:20px;border:1px solid var(--bd);background:var(--s2);color:var(--fg);font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.nc .nc-qp>svg{color:var(--acc)}
+/* Speaking is a big button of its own (owner, 7 Nov: "clearly mention that you can speak the note"). */
+.nc .nc-speakbig{flex:none;display:flex;align-items:center;gap:14px;width:100%;min-height:66px;padding:10px 16px 10px 10px;border-radius:18px;border:1.5px solid var(--pri);background:var(--accs);color:var(--fg);text-align:left;transition:transform .15s var(--ease)}
+.nc .nc-speakbig:active{transform:scale(.98)}
+.nc .nc-speakbig .mic{position:relative;flex:none;width:46px;height:46px;border-radius:50%;background:var(--pri);color:var(--prifg);display:grid;place-items:center}
+.nc .nc-speakbig .mic>i{position:absolute;inset:0;border-radius:50%;background:var(--pri);animation:ncPing 2.4s ease-out infinite}
+.nc .nc-speakbig .mic>svg{position:relative}
+.nc .nc-speakbig b{display:block;font-size:16.5px;font-weight:750;line-height:1.2}
+.nc .nc-speakbig small{display:block;margin-top:2px;font-size:12.5px;font-weight:550;line-height:1.3;color:var(--mut)}
+.nc .nc-speakbig.more{min-height:52px;padding:6px 14px 6px 8px}
+.nc .nc-speakbig.more .mic{width:38px;height:38px}
+.nc .nc-speakbig.more .mic>i,.nc .nc-speakbig.more small{display:none}
+@keyframes ncPing{0%{transform:scale(1);opacity:.4}70%,100%{transform:scale(1.6);opacity:0}}
+.nc .nc-mich{color:var(--fg)}
+/* Two rows of quick words (each a 44px target); the rest are cut (useFit) rather than half shown. */
+.nc .nc-phr{position:relative;flex:none;max-height:94px;overflow:hidden;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px}
+@container ncc (min-height:620px){.nc .nc-phr{max-height:144px}}
+.nc .nc-qp{display:inline-flex;align-items:center;gap:5px;min-height:44px;max-width:100%;padding:0 12px;border-radius:20px;border:1px solid var(--bd);background:var(--s2);color:var(--fg);font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nc .nc-qp>svg{flex:none;color:var(--acc)}
 .nc .nc-kept{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);line-height:1.35;flex:none;min-width:0}
 .nc .nc-kept>svg{flex:none}
 .nc .nc-kept.full{color:var(--bad);font-weight:600}
-.nc .nc-speak{flex:0 1 auto;padding:0 16px;overflow:hidden}
-.nc .nc-speak .nc-sl{overflow:hidden;text-overflow:ellipsis}
-/* Next is the card's way on: it keeps its whole label, and Speak gives way to it. */
-.nc .nc-next{flex:1 0 auto}
-@container ncc (max-width:440px){.nc .nc-speak.more{padding:0;width:52px;flex:none;justify-content:center}.nc .nc-speak.more .nc-sl{display:none}}
+.nc .nc-next{flex:1}
 .nc .nc-next[aria-disabled=true]{opacity:.55}
-@container vx (max-width:899px){.nc .nc-speak{padding:0 12px}}
 
 /* listening */
 .nc .nc-listen{gap:12px}
@@ -132,36 +186,91 @@
 .nc .nc-timer{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--mut);font-weight:600}
 .nc .nc-timer>i{width:8px;height:8px;border-radius:4px;background:var(--bad);animation:xPulse 1.2s infinite}
 .nc .nc-lang{flex:none;display:inline-flex;padding:3px;gap:2px;border-radius:14px;background:var(--s3)}
-.nc .nc-lang>button{height:38px;padding:0 10px;border:0;border-radius:11px;background:transparent;font-size:13px;font-weight:700;color:var(--mut)}
+.nc .nc-lang>button{height:40px;padding:0 10px;border:0;border-radius:11px;background:transparent;font-size:13.5px;font-weight:700;color:var(--mut)}
 .nc .nc-lang>button.on{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
-.nc .nc-live{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:12px 14px;border-radius:16px;background:var(--s2)}
+.nc .nc-live{flex:1 1 120px;min-height:112px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:12px 14px;border-radius:16px;background:var(--s2)}
 .nc .nc-live>p{margin:0;font-size:17px;line-height:1.55}
 .nc .nc-was{color:var(--mut)}
 .nc .nc-mut{color:var(--sub)}
 
 /* ---- 3 the check ------------------------------------------------------------------- */
-.nc .nc-words{flex:none;display:flex;align-items:flex-start;gap:8px;width:100%;padding:10px 8px 10px 14px;border:0;border-radius:16px;background:var(--s2);color:var(--fg);text-align:left}
-.nc .nc-wt{flex:1;min-width:0;font-size:15px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.nc .nc-wedit{flex:none;display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:10px;border:1px solid var(--bds);background:var(--card);color:var(--acc);font-size:12.5px;font-weight:700}
-.nc .nc-wtop{flex:none;display:flex;flex-direction:column;gap:inherit;min-width:0}
-.nc .nc-wacts{flex:none;display:flex;gap:8px;min-width:0}
-.nc .nc-tidy{flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 14px;border-radius:14px;border:1.5px dashed var(--acc);background:var(--accs);color:var(--accfg);font-size:13.5px;font-weight:600;text-align:left}
-.nc .nc-tidy b{font-weight:800}
-.nc .nc-tr{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:14px;border:1px solid var(--bds);background:var(--card);color:var(--accfg);font-size:13px;font-weight:700;white-space:nowrap}
-.nc .nc-wacts>.nc-tr:only-child{margin-right:auto}
-.nc .nc-row{flex:none;display:grid;grid-template-columns:36px minmax(0,1fr) 18px;gap:12px;align-items:center;min-height:54px;width:100%;padding:6px 10px 6px 8px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
-.nc .nc-row:hover{background:var(--s2)}
-.nc .nc-row .ic{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center}
-.nc .nc-row .lab{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);line-height:1.3}
-.nc .nc-row .val{display:flex;align-items:center;gap:5px;font-size:14.5px;font-weight:650;line-height:1.3;min-width:0}
-/* A value says all of itself on two lines ("Admin and class teacher only"), one when the card is tight. */
-.nc .nc-row .val{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
-/* The AI mark sits beside the row's label, so a row the AI filled is no taller than one it did not. */
-.nc .nc-aim{display:inline-block;color:var(--acc);vertical-align:-2px;margin-left:5px}
-.nc .nc-ai{flex:none;display:flex;align-items:flex-start;gap:6px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:auto}
-.nc .nc-ai>svg{margin-top:1px}
+/* The words, with no AI note beside them: one tap anywhere on them goes back to change them. */
+.nc .nc-words{flex:none;display:flex;align-items:flex-start;gap:8px;width:100%;padding:12px 10px 12px 14px;border:1.5px solid var(--bd);border-radius:16px;background:var(--s2);color:var(--fg);text-align:left}
+.nc .nc-wt{flex:1;min-width:0;font-size:15.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.nc .nc-wedit{flex:none;display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 12px;border-radius:11px;border:1.5px solid var(--bds);background:var(--card);color:var(--acc);font-size:13.5px;font-weight:700}
+.nc .nc-cht{display:flex;align-items:center;gap:6px;min-height:28px;font-size:12.5px;font-weight:700;color:var(--mut);line-height:1.3}
+.nc .nc-cht>svg{flex:none}
+
+/* Which words Save keeps: the AI's clear note ticked when there is one, the teacher's own one tap away. */
+.nc .nc-pickw{flex:none;display:flex;flex-direction:column;gap:8px}
+.nc .nc-choice{position:relative;flex:none;border-radius:16px;border:1.5px solid var(--bd);background:var(--card);transition:border-color .2s var(--ease),background-color .2s var(--ease),box-shadow .2s var(--ease);animation:xRise .35s var(--ease) both}
+.nc .nc-choice.ai:not(.on){border-style:dashed;border-color:var(--acc)}
+.nc .nc-choice.on{border-color:var(--pri);background:var(--accs);box-shadow:0 0 0 1px var(--pri)}
+.nc .nc-chb{display:flex;align-items:flex-start;gap:12px;width:100%;padding:12px;border:0;border-radius:inherit;background:transparent;color:var(--fg);text-align:left}
+.nc .nc-chb .tick{flex:none;width:26px;height:26px;margin-top:1px;border-radius:50%;border:2px solid var(--bds);background:var(--card);color:var(--prifg);display:grid;place-items:center;transition:background-color .2s var(--ease),border-color .2s var(--ease)}
+.nc .nc-choice.on .tick{background:var(--pri);border-color:var(--pri)}
+.nc .nc-choice.on .tick>svg{animation:xPopIn .3s var(--spring) both}
+.nc .nc-choice .nc-cht{padding-right:84px}
+.nc .nc-choice.ai .nc-cht{color:var(--accfg)}
+.nc .nc-chx{display:block;margin-top:8px;font-size:15.5px;line-height:1.5;color:var(--fg);overflow-wrap:anywhere}
+.nc .nc-chx>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.nc .nc-choice.on .nc-chx>span{-webkit-line-clamp:9}
+.nc .nc-choice:not(.on) .nc-chx{color:var(--mut)}
+.nc .nc-choice .nc-wedit{position:absolute;top:8px;right:8px}
+/* The AI's words arrive a word at a time, once. */
+.nc .nc-w{animation:ncWord .45s var(--ease) both}
+@keyframes ncWord{from{opacity:0;color:var(--acc)}60%{opacity:1;color:var(--acc)}to{opacity:1}}
+
+/* The AI at work (owner, 7 Nov: "an animation that the AI is making the note"): what it is doing, over a shimmer. */
+.nc .nc-aiw{position:relative;flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 14px 14px;border-radius:16px;border:1.5px dashed var(--acc);background:var(--accs);color:var(--accfg);overflow:hidden;animation:xRise .3s var(--ease) both}
+.nc .nc-aiw::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,var(--nc-sheen) 50%,transparent 70%);transform:translateX(-100%);animation:ncSheen 1.8s ease-in-out infinite;pointer-events:none}
+.nc .nc-aiw-h{display:flex;align-items:center;gap:8px;font-size:14.5px;line-height:1.3;min-width:0}
+.nc .nc-aiw-h b{font-weight:750}
+.nc .nc-spark{flex:none;width:30px;height:30px;border-radius:50%;background:var(--card);color:var(--acc);display:grid;place-items:center;animation:ncTwinkle 1.6s ease-in-out infinite}
+.nc .nc-dots{flex:none;display:inline-flex;align-items:center;gap:4px;margin-left:2px}
+.nc .nc-dots>i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:ncDot 1.2s ease-in-out infinite}
+.nc .nc-dots>i:nth-child(2){animation-delay:.15s}
+.nc .nc-dots>i:nth-child(3){animation-delay:.3s}
+.nc .nc-aiw-say{position:relative;display:block;height:20px;font-size:13.5px;font-weight:600;line-height:20px;color:var(--fg)}
+.nc .nc-aiw-say>span{position:absolute;inset:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;animation:ncSay 4.8s ease-in-out infinite}
+.nc .nc-aiw-say>span:nth-child(2){animation-delay:1.6s}
+.nc .nc-aiw-say>span:nth-child(3){animation-delay:3.2s}
+.nc .nc-aiw-say.n1>span{opacity:1;animation:none}
+.nc .nc-skel{display:flex;flex-direction:column;gap:7px}
+.nc .nc-skel>i{display:block;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--s3) 25%,var(--card) 50%,var(--s3) 75%);background-size:200% 100%;animation:xShimmer 1.3s linear infinite}
+.nc .nc-skel>i:nth-child(1){width:94%}
+.nc .nc-skel>i:nth-child(2){width:80%}
+.nc .nc-skel>i:nth-child(3){width:56%}
+@keyframes ncSheen{to{transform:translateX(100%)}}
+@keyframes ncTwinkle{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.15) rotate(12deg)}}
+@keyframes ncDot{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-4px);opacity:1}}
+@keyframes ncSay{0%{opacity:0;transform:translateY(8px)}6%,30%{opacity:1;transform:none}36%,100%{opacity:0;transform:translateY(-8px)}}
+
+.nc .nc-trbtn{flex:none;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;min-height:46px;padding:0 16px;border-radius:14px;border:1.5px solid var(--bds);background:var(--card);color:var(--accfg);font-size:14.5px;font-weight:700}
+.nc .nc-trbtn>svg{flex:none;color:var(--acc)}
+.nc .nc-trbtn:hover{background:var(--s2)}
+.nc .nc-ai{flex:none;display:flex;align-items:flex-start;gap:6px;font-size:12.5px;font-weight:600;line-height:1.4}
+.nc .nc-ai>svg{flex:none;margin-top:1px}
 .nc .nc-ai.ai{color:var(--accfg)}
 .nc .nc-ai.mut{color:var(--mut)}
+
+/* What the note is about, the follow-up, who reads it, the parents: four boxes, each opens its own choices. */
+.nc .nc-sum{flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.nc .nc-sum>.nc-tile:last-child:nth-child(odd){grid-column:1/-1}
+.nc .nc-tile{display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px;align-items:start;min-height:66px;padding:10px 10px 10px 8px;border-radius:15px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:background-color .2s ease,border-color .2s ease,transform .15s var(--ease)}
+.nc .nc-tile:hover{background:var(--s2);border-color:var(--bds)}
+.nc .nc-tile:active{transform:scale(.98)}
+.nc .nc-tile .ic{width:30px;height:30px;border-radius:10px;display:grid;place-items:center}
+.nc .nc-tile .lab{display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--mut);line-height:1.3}
+.nc .nc-tile .val{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px;font-size:14.5px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.nc .nc-tile .val.ai{animation:ncFresh .9s var(--ease) both}
+.nc .nc-aim{flex:none;display:inline-block;color:var(--acc)}
+@keyframes ncFresh{0%{opacity:0;transform:translateY(4px);color:var(--acc)}45%{opacity:1;transform:none;color:var(--acc)}100%{opacity:1}}
+.nc .nc-fine{font-size:11.5px;line-height:1.45;color:var(--sub)}
+
+/* Save glows, three times, once the AI's note has arrived: this is the button that keeps it. */
+.nc .nc-save.glow{animation:ncGlow 1.15s ease-in-out 3}
+@keyframes ncGlow{0%,100%{box-shadow:0 0 0 0 rgba(var(--heat),0);transform:none}50%{box-shadow:0 0 0 7px rgba(var(--heat),.35);transform:scale(1.015)}}
 
 /* the check's own views */
 .nc .nc-tags{flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -175,6 +284,7 @@
 .nc .nc-opt.wide{grid-column:1/-1;min-height:48px;flex-direction:row;align-items:center}
 .nc .nc-date{flex:none;height:48px}
 .nc .nc-chips{flex:none;display:flex;flex-wrap:wrap;gap:6px}
+.nc .nc-chips>.chip{height:42px;padding:0 14px;font-size:14px}
 .nc .nc-radio{flex:none;display:flex;align-items:flex-start;gap:12px;width:100%;padding:12px 14px;border-radius:16px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
 .nc .nc-radio[aria-checked=true]{border-color:var(--pri);background:var(--accs);box-shadow:0 0 0 1px var(--pri)}
 .nc .nc-radio .dot{flex:none;width:22px;height:22px;margin-top:1px;border-radius:50%;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center}
@@ -183,12 +293,10 @@
 .nc .nc-swrow{align-items:center}
 .nc .nc-swrow>svg{flex:none;color:var(--ok)}
 .nc .nc-swrow:disabled{opacity:.6}
-.nc .nc-wa{flex:0 1 auto;min-height:0;overflow:hidden;border-radius:16px}
-.nc .nc-wa .nx-wb>p{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.nc .nc-wa{flex:none;border-radius:16px}
 .nc .nc-quote{flex:none;margin:0;padding:10px 14px;border-radius:14px;background:var(--s2);font-size:14.5px;line-height:1.5;overflow-wrap:anywhere}
 /* The clamp sits on the inner line, not on the padded box: a clamped box clips at its padding edge, so the next line showed through the bottom padding. */
 .nc .nc-quote>span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
-.nc .nc-quote.ai{background:var(--accs);color:var(--fg);border:1.5px dashed var(--acc)}
 .nc .nc-who{align-items:flex-start}
 .nc .nc-pickrow{flex:none;display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:8px 12px;border-radius:15px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
 .nc .nc-pickrow:hover{background:var(--s2)}
@@ -201,7 +309,7 @@
 .nc .nc-saved{padding-top:20px}
 .nc .nc-tick{flex:none}
 .nc .nc-acts{flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:auto}
-.nc .nc-act{display:flex;align-items:center;gap:8px;min-height:52px;padding:6px 12px;border-radius:15px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;font-size:14px;font-weight:650;line-height:1.25}
+.nc .nc-act{display:flex;align-items:center;gap:8px;min-height:54px;padding:6px 12px;border-radius:15px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;font-size:14px;font-weight:650;line-height:1.25}
 .nc .nc-act>svg{flex:none;color:var(--acc)}
 .nc .nc-act:hover{background:var(--s2)}
 .nc .nc-act:disabled{opacity:.5}
@@ -238,11 +346,12 @@
   .nc .nc-foot{padding-top:8px;padding-bottom:10px}
   .nc .nc-foot .nt-big{height:50px}
   .nc .nc-search{height:50px}
-  .nc .nc-kid{min-height:46px}
-  .nc .nc-row{min-height:48px;padding-top:4px;padding-bottom:4px}
-  .nc .nc-row .ic{width:32px;height:32px}
-  .nc .nc-words{padding-top:7px;padding-bottom:7px}
-  .nc .nc-wt{-webkit-line-clamp:2;font-size:14.5px}
+  .nc .nc-kidrow{min-height:50px}
+  .nc .nc-speakbig{min-height:58px;padding-top:6px;padding-bottom:6px}
+  .nc .nc-speakbig .mic{width:40px;height:40px}
+  .nc .nc-tile{min-height:60px;padding-top:8px;padding-bottom:8px}
+  /* The words not ticked keep one line, so the four boxes still show below them. */
+  .nc .nc-choice:not(.on) .nc-chx>span{-webkit-line-clamp:1}
   .nc .nc-tag{min-height:50px}
   .nc .nc-opt{min-height:52px}
   .nc .nc-radio{padding:10px 12px}
@@ -255,29 +364,9 @@
   .nc .nc-ch{padding-top:8px;gap:10px}
   .nc .nc-kidhead .nc-av{width:34px!important;height:34px!important;font-size:12px!important}
   .nc .nc-name.big{font-size:17px;-webkit-line-clamp:1}
-  .nc .nc-row{min-height:44px}
-  .nc .nc-row .val{-webkit-line-clamp:1;overflow-wrap:normal}
-  .nc .nc-words:has(+.nc-wacts) .nc-wt{-webkit-line-clamp:1}
-  .nc .nc-ai:not(.busy){display:none}
-  .nc .nc-quote>span{-webkit-line-clamp:2}
-  .nc .nc-tidy{min-height:40px;padding-top:4px;padding-bottom:4px}
-  .nc .nc-tr{min-height:40px}
+  .nc .nc-speakbig small{display:none}
   .nc .nc-body{gap:6px;padding-bottom:6px}
-  .nc .nc-wa .nx-wb>p{-webkit-line-clamp:2}
 }
-
-/* ---- squeezed: the check card's own content did not fit (the AI's offers, large text) ---- */
-/* useFrame sets it only after measuring a spill: the offers fold into buttons beside the words. */
-.nc[data-squeeze] .nc-wtop{flex-direction:row;align-items:stretch}
-.nc[data-squeeze] .nc-wtop>.nc-words{flex:1;min-width:0}
-.nc[data-squeeze] .nc-wacts{flex:none}
-.nc[data-squeeze] .nc-tidy,.nc[data-squeeze] .nc-tr{flex:none;width:44px;min-height:44px;padding:0;justify-content:center}
-.nc[data-squeeze] .nc-tidy>:not(svg),.nc[data-squeeze] .nc-tr>:not(svg){display:none}
-/* Tight, the next step: the AI's line under the rows gives its room too (while the AI reads the note, */
-/* that line alone dropped a 360x600 card to its own height, 7 Nov, live), and the words keep one line: */
-/* they are on the card before, and one tap on them goes back there. */
-.nc[data-squeeze=tight] .nc-ai{display:none}
-.nc[data-squeeze=tight] .nc-wt{-webkit-line-clamp:1}
 
 /* ---- too little room for a whole card: drawn at its own height, and the page scrolls ---- */
 /* flow-root keeps the card's top margin inside the frame, so the frame's top (and the room useFrame */
@@ -286,13 +375,17 @@
 .nc[data-short] .nc-rail,.nc[data-short] .nc-ctx,.nc[data-short] .nc-ghosts{display:none}
 .nc[data-short] .nc-card{position:relative;inset:auto;margin:6px auto 8px;width:min(580px,100%);height:auto;container-type:normal}
 .nc[data-short] .nc-body{flex:none;overflow:visible}
-.nc[data-short] .nc-grid{flex:none;height:212px}
+.nc[data-short] .nc-list{flex:none;height:260px}
 .nc[data-short] .nc-tbox{flex:none;height:112px}
 .nc[data-short] .nc-live{flex:none;min-height:112px}
 .nc[data-short] .nc-phr{max-height:none}
-.nc[data-short] .nc-ai,.nc[data-short] .nc-acts{margin-top:0}
+.nc[data-short] .nc-acts{margin-top:0}
 
 @media (prefers-reduced-motion:reduce){
-  .nc .nc-pulse,.nc .nc-micw>i,.nc .nc-timer>i{animation:none}
+  .nc .nc-pulse,.nc .nc-micw>i,.nc .nc-timer>i,.nc .nc-speakbig .mic>i{animation:none}
   .nc .nc-radio .dot>b{animation:none}
+  .nc .nc-aiw::after{display:none}
+  .nc .nc-aiw-say>span{animation:none;opacity:0}
+  .nc .nc-aiw-say>span:first-child{opacity:1}
+  .nc .nc-card[data-more] .nc-foot::after,.nc .nc-card[data-more] .nc-pick::before{animation:none}
 }

@@ -78,6 +78,31 @@ container queries, which breaks the whole app's layout there, not only notes
 (reported separately, 7 Nov). Below about 590px of visible height the check
 card is drawn at its own height and the page scrolls, by design.
 
+**Second round, the same afternoon (D-500, PR 283).** Janmejay, after using it:
+once the class was picked its children could not be seen, a new note opened
+with an earlier note's words, nothing showed the AI working, a teacher would
+not know how to save the AI's note, and the buttons were too small; look at
+the whole flow again for a teacher who is not technical. **Done** in
+`cards.tsx`, `cards.css` and `frame.ts`: the whole class in a list that
+scrolls inside the card; a note left unsaved is offered ("Continue this
+note"), never poured in; a large Speak button; while the AI works, a panel
+with a moving spark, dots and changing lines, then its clear note written in
+word by word and already ticked, so Save keeps it (the teacher's own words
+are the other choice); four labelled tiles; a steps strip on phones; a fade
+and an arrow wherever a card has more below; the "ready" and "done" cues.
+PR 273's squeeze steps are gone: what does not fit scrolls inside the card,
+above its button. Checked in the container: typecheck, lint, the full vitest
+run (only `sentry-lite` fails, as it always does in this container), the
+phone flow suite 16 of 16, and 42 screenshots of every card at 360×640,
+390×844 and 1366×768 in English, Hindi and dark mode, with no sideways scroll,
+Save in sight and no control under 36 px. **Surprised:** the quick-word
+chips are 44 px tall on a phone (`.tap`), so a strip sized for two rows of
+smaller chips showed one; the design fixture's server actions are stubs, so
+its Save says "Not confirmed" and the saved card has its own view
+(`M-TchNotes-Saved`; the AI at work is `M-TchNotes-AI` and `DX-TchNotes-AI`,
+the class list `M-TchNotes-Pick`). **Remains:** BrowserStack on a real phone
+and a desktop after the deploy.
+
 ## One AI report for the whole year — 7 November 2026
 
 Owner asked (7 Nov) for one master report instead of many: a file with

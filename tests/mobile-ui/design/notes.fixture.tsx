@@ -1,4 +1,5 @@
 import type { DesignView } from "../design.fixture";
+import { AssistProvider } from "@/vx/assist/context";
 import type { ChildChoice, NoteReply, NotesPeople, SupportPlan } from "@/vx/screens/notes/data";
 import type { BoardNote, NoteTag } from "@/vx/screens/notes/domain/notes";
 import type { AddStep, ClientViewer } from "@/vx/screens/notes/ui/parts";
@@ -242,6 +243,33 @@ function draftFromVoice() {
   }
 }
 
+/**
+ * The AI at work on a note (D-500): the helper is offered, and the fixture
+ * answers it after a pause, with canned words, so the "working" panel, the
+ * clear note arriving word by word and the translation can be seen. No AI.
+ */
+const RIYA_TIDY = "रिया को भिन्न के सवालों में कठिनाई हो रही है। हफ़्ते में दो बार अभ्यास शीट दी जाएगी।";
+const RIYA_EN = "Riya is finding fraction questions hard. She will get a practice sheet twice a week.";
+let fakeAi = false;
+function aiAnswers() {
+  if (fakeAi) return;
+  fakeAi = true;
+  const realFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (!url.endsWith("/api/assist")) return realFetch(input, init);
+    if (init?.method === "PATCH") return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    const { task } = JSON.parse(String(init?.body ?? "{}")) as { task: string };
+    await new Promise((r) => setTimeout(r, task === "note.sort" ? 3000 : 2200));
+    const value = task === "note.sort" ? { tags: ["studies"], followUp: "next_monday", tidy: RIYA_TIDY } : { text: RIYA_EN };
+    return new Response(JSON.stringify({ ok: true, value, logId: null }), { status: 200 });
+  };
+}
+function withAi(node: React.ReactNode) {
+  aiAnswers();
+  return <AssistProvider features={["note", "translate"]}>{node}</AssistProvider>;
+}
+
 const B = { path: "/notes" } as const;
 const T = { menu: "teacher", path: "/teach/notes" } as const;
 
@@ -297,6 +325,9 @@ export const views: Record<string, DesignView> = {
       return teacher({ sheet: "add", step: "review", student: riya });
     },
   },
+  "M-TchNotes-AI": { ...T, render: () => withAi(teacher({ sheet: "add", student: riya })) },
+  "DX-TchNotes-AI": { ...T, render: () => withAi(teacher({ sheet: "add", student: riya })) },
+  "M-TchNotes-Pick": { ...T, render: () => teacher({ sheet: "add" }) },
   "M-TchNotes-Saved": { ...T, render: () => teacher({ sheet: "add", step: "saved", student: riya, saved: "x1", notes: [SAVED, ...TEACH_NOTES] }) },
   "DX-TchNotes-Detail": { ...T, render: () => teacher({ focus: { kind: "note", note: t1, replies: T_REPLIES } }) },
   "M-TchNotes-Detail": { ...T, render: () => teacher({ focus: { kind: "note", note: t1, replies: T_REPLIES } }) },

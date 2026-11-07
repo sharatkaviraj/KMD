@@ -50,7 +50,7 @@ const DRAFT_KEY = (viewer: string) => `vx.notes.draft.${viewer}`;
  * back as "Just noting" / team after a reload before (6 Nov school day); they
  * are optional so drafts stored before them still restore.
  */
-type Draft = {
+export type StoredDraft = {
   studentId: string;
   body: string;
   tags: NoteTag[];
@@ -73,16 +73,16 @@ function newRequestId(): string {
   }
 }
 
-function readDraft(viewer: string): Draft | null {
+function readDraft(viewer: string): StoredDraft | null {
   try {
     const raw = window.localStorage.getItem(DRAFT_KEY(viewer));
-    return raw ? (JSON.parse(raw) as Draft) : null;
+    return raw ? (JSON.parse(raw) as StoredDraft) : null;
   } catch {
     return null;
   }
 }
 
-function writeDraft(viewer: string, d: Draft | null) {
+function writeDraft(viewer: string, d: StoredDraft | null) {
   try {
     if (d) window.localStorage.setItem(DRAFT_KEY(viewer), JSON.stringify(d));
     else window.localStorage.removeItem(DRAFT_KEY(viewer));
@@ -143,10 +143,12 @@ export function useComposer(init: ComposerInit) {
   // The server's refusal of the last save, kept apart from "pick a child" and the like (U01).
   const [refused, setRefused] = useState<Pair | null>(null);
   const [draftAt, setDraftAt] = useState<number | null>(null);
-  // One id per draft, kept across every save of it (see Draft).
+  // One id per draft, kept across every save of it (see StoredDraft).
   const [requestId, setRequestId] = useState<string>("");
   // Counts the drafts put back, so the cards can open on the words that came back.
   const [restoreTick, setRestoreTick] = useState(0);
+  // A note left unsaved, offered with "Continue" rather than poured into the new note (7 Nov 2026).
+  const [offer, setOffer] = useState<StoredDraft | null>(null);
   const [heard, setHeard] = useState("");
   const [append, setAppend] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -160,23 +162,34 @@ export function useComposer(init: ComposerInit) {
 
   const speech = useSpeech((text) => setHeard((cur) => appendSpoken(cur, text)));
 
-  // A draft from this reader's last visit comes back, so a dropped connection
-  // or a closed tab does not lose what was written (RULES G).
+  // A draft from this reader's last visit is kept, so a dropped connection or a
+  // closed tab does not lose what was written (RULES G). It is offered, never
+  // poured into a new note: a teacher opening "New note" found last week's words
+  // already in it and did not know where they came from (owner, 7 Nov 2026).
   const restored = useRef(false);
-  /** Put this reader's stored draft back into the composer; false when there is none for this child. */
-  const restoreDraft = (onlyFor: string | null): boolean => {
+  /** Look for this reader's stored draft and offer it (`offer`); nothing in the note changes. */
+  const checkDraft = () => {
     const d = readDraft(init.viewer.id);
-    if (!d || !d.body) return false;
+    if (!d || !d.body.trim() || !init.kids.some((k) => k.id === d.studentId)) {
+      setOffer(null);
+      return;
+    }
     // The page was refreshed while a save was on its way and the note did
     // reach the server (smoke 6 Nov, teacher 16): it is on the list, so the
     // kept copy goes instead of coming back as a second note to save.
     if (init.notes.some((n) => n.writtenBy === init.viewer.id && n.studentId === d.studentId && n.body.trim() === d.body.trim())) {
       writeDraft(init.viewer.id, null);
+      setOffer(null);
       toast.show({ text: tx(p("Your last note was saved.", "आपका पिछला नोट सहेज लिया गया था।")), tone: "ok" });
-      return false;
+      return;
     }
-    if (onlyFor && d.studentId !== onlyFor) return false;
-    if (!init.kids.some((k) => k.id === d.studentId)) return false;
+    setOffer(d);
+  };
+  /** "Continue this note": the offered draft back in the composer, child, words and choices. */
+  const continueDraft = () => {
+    const d = offer;
+    if (!d) return;
+    setOffer(null);
     setStudentId(d.studentId);
     setBody(d.body);
     setTags(d.tags.filter((t) => (NOTE_TAGS as readonly string[]).includes(t)));
@@ -190,13 +203,24 @@ export function useComposer(init: ComposerInit) {
     if (d.owner !== undefined) setOwner(d.owner);
     if (d.visibility === "team" || d.visibility === "private") setVisibility(d.visibility);
     setRestoreTick((n) => n + 1);
-    return true;
+  };
+  /** "Delete it": the offered draft goes from this phone. Returned, so a toast's Undo can put it back. */
+  const dropDraft = (): StoredDraft | null => {
+    const d = offer;
+    writeDraft(init.viewer.id, null);
+    setOffer(null);
+    return d;
+  };
+  /** Undo of a delete: the draft kept and offered again. */
+  const keepDraft = (d: StoredDraft) => {
+    writeDraft(init.viewer.id, d);
+    setOffer(d);
   };
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
-    // Restoring a stored draft once, after mount: localStorage is not readable during render.
-    restoreDraft(init.initialStudent);
+    // Once, after mount: localStorage is not readable during render.
+    checkDraft();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
   }, []);
 
@@ -209,6 +233,8 @@ export function useComposer(init: ComposerInit) {
       if (id !== requestId) setRequestId(id);
       writeDraft(init.viewer.id, { studentId, body, tags, voice, at, requestId: id || undefined, follow, when, followOn, owner, visibility });
       setDraftAt(at);
+      // This note now holds the one kept place: an older note offered there is gone.
+      setOffer(null);
     }, 600);
     return () => window.clearTimeout(t);
   }, [body, studentId, tags, voice, step, init.viewer.id, requestId, follow, when, followOn, owner, visibility]);
@@ -341,6 +367,7 @@ export function useComposer(init: ComposerInit) {
     setRefused(null);
     setDraftAt(null);
     setRequestId("");
+    setOffer(null);
   };
 
   /**
@@ -364,9 +391,12 @@ export function useComposer(init: ComposerInit) {
   };
 
   // What is checked here is checked before the transition starts, so "Saving…" only ever
-  // means the note is on its way to the server.
-  const save = (onSaved: (id: string, child: ChildChoice) => void) => {
+  // means the note is on its way to the server. `words` are the words the teacher
+  // ticked on the check card (the AI's clear note, a translation, or their own);
+  // without them, the words in the box.
+  const save = (onSaved: (id: string, child: ChildChoice) => void, words?: string) => {
     if (saveUncertain || pending) return;
+    const text = words ?? body;
     setError(null);
     setRefused(null);
     if (!child) {
@@ -374,7 +404,7 @@ export function useComposer(init: ComposerInit) {
       setError(p("First pick the child.", "पहले बच्चा चुनें।"));
       return;
     }
-    if (!body.trim()) {
+    if (!text.trim()) {
       setErrField("text");
       setError(p("Speak or type the note first.", "पहले नोट बोलें या लिखें।"));
       return;
@@ -392,13 +422,13 @@ export function useComposer(init: ComposerInit) {
     if (id !== requestId) setRequestId(id);
     // Kept before it leaves, not 600 ms later: a refresh during a quick save
     // brings the note back with the same id, so saving it again files it once.
-    writeDraft(init.viewer.id, { studentId: child.id, body, tags, voice, at: Date.now(), requestId: id, follow, when, followOn, owner, visibility });
+    writeDraft(init.viewer.id, { studentId: child.id, body: text, tags, voice, at: Date.now(), requestId: id, follow, when, followOn, owner, visibility });
     start(async () => {
       try {
         const res = await createNoteAction({
           requestId: id || null,
           studentId: child.id,
-          body,
+          body: text,
           tags,
           source: voice ? "voice" : "typed",
           needsFollowUp: follow,
@@ -411,6 +441,8 @@ export function useComposer(init: ComposerInit) {
         if (res.ok && res.id) {
           writeDraft(init.viewer.id, null);
           setDraftAt(null);
+          // The note is now the words that were saved: the saved card shows them, and Undo brings them back.
+          setBody(text);
           onSaved(res.id, child);
         } else if (!res.ok) setRefused(res.error);
       } catch {
@@ -441,7 +473,7 @@ export function useComposer(init: ComposerInit) {
     step, setStep, child, studentId, pickChild, tags, toggleTag, setTags, body, setBody, voice, mode, setMode, lang, switchLang,
     follow, setFollow, when, setWhen, followOn, setFollowOn, followOnDate, owner: ownerKey, setOwner, visibility, pickVisibility, tellParents, toggleTell,
     errField, setErrField, error, saveUncertain, pending, draftAt, listen, doneListening, cancelListening, heard, timer,
-    speech, addPhrase, reset, again, save, openAction, setError, restoreDraft, restoreTick,
+    speech, addPhrase, reset, again, save, openAction, setError, checkDraft, continueDraft, dropDraft, keepDraft, offer, restoreTick,
     saveLine, saveWords, refused, testSession: init.testSession ?? false,
   };
 }
@@ -451,14 +483,15 @@ export function useComposer(init: ComposerInit) {
  * otherwise the problem to fix or who will read the note. The saving line is
  * always mounted, so its change is announced; Try again keeps the child, the
  * words and every choice, and is offered only for a refusal, never for an
- * answer that was lost (that note may be saved already).
+ * answer that was lost (that note may be saved already). `retry` is the
+ * screen's own Save, where it chose the words.
  */
-export function SaveBarLine({ c, onSaved, idle, style }: { c: Composer; onSaved: (id: string, child: ChildChoice) => void; idle: string; style?: CSSProperties }) {
+export function SaveBarLine({ c, onSaved, idle, style, retry }: { c: Composer; onSaved: (id: string, child: ChildChoice) => void; idle: string; style?: CSSProperties; retry?: () => void }) {
   const { tx } = useVx();
   const busy = c.saveLine.kind !== "idle";
   return (
     <span className="nx-c" style={{ gap: 0, ...style }}>
-      <SaveStatus state={c.saveLine} words={c.saveWords} test={c.testSession} onRetry={c.refused ? () => c.save(onSaved) : undefined} reserve={false} />
+      <SaveStatus state={c.saveLine} words={c.saveWords} test={c.testSession} onRetry={c.refused ? (retry ?? (() => c.save(onSaved))) : undefined} reserve={false} />
       {busy ? null : (
         <span className="nx-m" role={c.error ? "alert" : undefined} style={{ fontSize: style?.fontSize, color: c.error ? "var(--bad)" : undefined, fontWeight: c.error ? 600 : undefined }}>
           {c.error ? tx(c.error) : idle}

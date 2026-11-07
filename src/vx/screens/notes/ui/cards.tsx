@@ -5,6 +5,7 @@ import "./cards.css";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import type { AssistProblem } from "@/modules/assist/domain/features";
+import { cue } from "@/ui/feedback/cue";
 import { translateTarget } from "@/modules/assist/domain/text";
 import { askAssist, DRAFT_NOTE, PRIVACY_NOTE, PROBLEM_TEXT, reportDecision } from "@/vx/assist/client";
 import { useAssistOffers } from "@/vx/assist/context";
@@ -13,10 +14,11 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { reducedMotion, slideIn, slideOut } from "@/vx/screens/collect/motion";
 import { p, type Pair } from "@/vx/text";
+import { useToast } from "@/vx/ui/overlays";
 import { appendSpoken, useHeardText } from "@/vx/ui/voice";
 
 import type { ChildChoice, NotesPeople } from "../data";
-import { chipNames, localSort, mergeSort, nameWordsIn, otherChildNamed, sameTags, searchKids, tidyWorthOffering, type AiSort, type NoteSort } from "../domain/cards";
+import { localSort, mergeSort, nameWordsIn, otherChildNamed, sameTags, searchKids, tidyWorthOffering, type AiSort, type NoteSort } from "../domain/cards";
 import {
   excerpt,
   FOLLOW_ON_MAX_DAYS,
@@ -33,34 +35,40 @@ import {
   type NoteTag,
 } from "../domain/notes";
 import { COST, readersLine, SaveBarLine, type Composer } from "./compose";
-import { useFrame } from "./frame";
+import { useFrame, useMoreBelow } from "./frame";
 import { BOARD_TAG, day, ini, nameTone, TEACH_TAG, useBoth, WaBubble, type HelpStep, type TagLook } from "./look";
 import type { ClientViewer } from "./parts";
 
 /*
  * A note, card by card (D-486, 7 Nov 2026), as Collect takes a payment: one
  * card on the screen at a time, each the size of the space between the top
- * bar and the tab bar, and nothing on any of them behind a scroll. Pick the
- * child (Hindi or English, or a tap on a first name); write or speak; check
- * what the words and the AI made of it (D-487); saved. Every list is cut to
- * the card, and a cut list says how to reach the rest.
+ * bar and the tab bar, with its one way on (Next, Save note, Done) always on
+ * it. Pick the child from the whole class, in roll order, or by a typed name;
+ * write or speak; check what the AI made of it (D-487); saved.
+ *
+ * Built again the same day for a teacher who has never used an app like it
+ * (owner, 7 Nov, D-500): every button says what it does in words; speaking is
+ * a big button of its own; a new note starts empty and an unsaved one is
+ * offered, not poured in; the AI shows it is working, and its clear note comes
+ * ready-ticked, so Save note keeps it, with the teacher's own words one tap
+ * away beside it. What does not fit above the button scrolls inside the card.
  */
 
 export type NoteCardName = "child" | "write" | "check" | "saved";
-type Sub = "who" | "kinds" | "follow" | "readers" | "parents" | "tidy" | "translate";
+type Sub = "who" | "kinds" | "follow" | "readers" | "parents";
 
 const ORDER: readonly NoteCardName[] = ["child", "write", "check", "saved"];
 
-/** The phone's top bar for each card. */
+/** The phone's top bar for each card. The steps themselves are drawn above the card. */
 export function noteCardTop(card: NoteCardName, child: ChildChoice | null): { title: Pair; sub: Pair | null } {
   const name = child ? `${child.name} · ${child.classLabel}` : "";
   switch (card) {
     case "child":
-      return { title: p("New note", "नया नोट"), sub: p("Step 1 of 3 · pick the child", "कदम 1/3 · बच्चा चुनें") };
+      return { title: p("New note", "नया नोट"), sub: p("Pick the child", "बच्चा चुनें") };
     case "write":
-      return { title: p("New note", "नया नोट"), sub: child ? p(`Step 2 of 3 · ${name}`, `कदम 2/3 · ${name}`) : null };
+      return { title: p("New note", "नया नोट"), sub: child ? p(name, name) : null };
     case "check":
-      return { title: p("Check and save", "जाँचें और सहेजें"), sub: child ? p(`Step 3 of 3 · ${name}`, `कदम 3/3 · ${name}`) : null };
+      return { title: p("Check and save", "जाँचें और सहेजें"), sub: child ? p(name, name) : null };
     default:
       return { title: p("Note saved", "नोट सहेजा गया"), sub: child ? p(name, name) : null };
   }
@@ -69,18 +77,18 @@ export function noteCardTop(card: NoteCardName, child: ChildChoice | null): { ti
 /** The "?" sheet, one set of three steps per card. */
 export const NOTE_CARD_HELP: Record<NoteCardName, HelpStep[]> = {
   child: [
-    { icon: "search", title: p("Type a name", "नाम लिखें"), body: p("In Hindi or English, or the roll number. Two letters are enough.", "हिंदी या अंग्रेज़ी में, या रोल नंबर। दो अक्षर काफ़ी हैं।") },
-    { icon: "user", title: p("Or tap the name", "या नाम दबाएँ"), body: p("Your class comes first. The arrow at the bottom shows more names.", "आपकी कक्षा पहले आती है। नीचे का तीर और नाम दिखाता है।") },
-    { icon: "check", title: p("See the full name", "पूरा नाम देखें"), body: p("The next card shows the child’s full name in big letters.", "अगले कार्ड पर बच्चे का पूरा नाम बड़े अक्षरों में दिखता है।") },
+    { icon: "users", title: p("Your class is open", "आपकी कक्षा खुली है"), body: p("Every child of the class is in the list, in roll order. Slide the list up to see more.", "कक्षा के सब बच्चे सूची में हैं, रोल नंबर से। और देखने के लिए सूची ऊपर खिसकाएँ।") },
+    { icon: "search", title: p("Or type a name", "या नाम लिखें"), body: p("In Hindi or English, or the roll number. Two letters are enough.", "हिंदी या अंग्रेज़ी में, या रोल नंबर। दो अक्षर काफ़ी हैं।") },
+    { icon: "check", title: p("Tap the name", "नाम दबाएँ"), body: p("The next card shows the child’s full name in big letters.", "अगले कार्ड पर बच्चे का पूरा नाम बड़े अक्षरों में दिखता है।") },
   ],
   write: [
-    { icon: "edit", title: p("Just write it", "बस लिख दें"), body: p("A line or two, in Hindi or English, as you would say it.", "एक-दो लाइन, हिंदी या अंग्रेज़ी में, जैसे आप बोलते हैं।") },
-    { icon: "mic", title: p("Or speak", "या बोलें"), body: p("Tap Speak and talk. Tap Done when you finish.", "बोलें दबाकर बोलिए। पूरा होने पर हो गया दबाएँ।") },
-    { icon: "arrowRight", title: p("Tap Next", "आगे दबाएँ"), body: p("The app works out what kind of note it is. You check it on the next card.", "ऐप खुद समझ लेता है कि नोट किस बारे में है। अगले कार्ड पर आप जाँच लें।") },
+    { icon: "mic", title: p("Speak", "बोलें"), body: p("Tap the big Speak button and talk, in Hindi or English. Tap Done when you finish.", "बड़ा बोलें बटन दबाएँ और हिंदी या अंग्रेज़ी में बोलें। पूरा होने पर हो गया दबाएँ।") },
+    { icon: "edit", title: p("Or type", "या लिखें"), body: p("A line or two, as you would say it. Spelling does not matter.", "एक-दो लाइन, जैसे आप बोलते हैं। वर्तनी की चिंता न करें।") },
+    { icon: "arrowRight", title: p("Tap Next", "आगे दबाएँ"), body: p("The AI reads your note and writes it clearly. You check it on the next card.", "AI आपका नोट पढ़कर साफ़ लिखता है। अगले कार्ड पर आप जाँच लें।") },
   ],
   check: [
-    { icon: "sparkle", title: p("Already sorted", "पहले से छँटा हुआ"), body: p("The kind of note and the follow-up are filled in from your words.", "नोट किस बारे में है और फिर कब देखना है, आपके शब्दों से भरा गया है।") },
-    { icon: "edit", title: p("Change anything", "कुछ भी बदलें"), body: p("Tap a line to change it. Nothing is saved until you tap Save note.", "बदलने के लिए लाइन दबाएँ। नोट सहेजें दबाने तक कुछ नहीं सहेजा जाता।") },
+    { icon: "sparkle", title: p("The AI’s note is ticked", "AI का नोट चुना हुआ है"), body: p("Tap Save note to keep it. To keep your own words instead, tap them first.", "इसे रखने के लिए नोट सहेजें दबाएँ। अपने शब्द रखने हों तो पहले उन्हें दबाएँ।") },
+    { icon: "edit", title: p("Change anything", "कुछ भी बदलें"), body: p("Tap a box (About, Follow-up, Who can read it, Tell parents) to change it. Nothing is saved until you tap Save note.", "बदलने के लिए बॉक्स दबाएँ। नोट सहेजें दबाने तक कुछ नहीं सहेजा जाता।") },
     { icon: "lock", title: p("Who reads it", "कौन पढ़ेगा"), body: p("Health and family notes stay with the admin and the class teacher.", "स्वास्थ्य और परिवार के नोट सिर्फ़ प्रशासक और कक्षा अध्यापक तक रहते हैं।") },
   ],
   saved: [
@@ -97,7 +105,7 @@ type Move = { dir: 1 | -1; slide: boolean };
 
 /**
  * Which card is on the screen, kept by the screen that owns the composer so
- * its top bar can name the card. A draft put back opens on its words.
+ * its top bar can name the card. A note continued opens on its words.
  */
 export function useNoteCards(c: Composer, initial: NoteCardName) {
   const [card, setCard] = useState<NoteCardName>(initial);
@@ -105,10 +113,11 @@ export function useNoteCards(c: Composer, initial: NoteCardName) {
   const [move, setMove] = useState<Move>({ dir: 1, slide: false });
   const [tick, setTick] = useState(c.restoreTick);
   if (tick !== c.restoreTick) {
+    const to: NoteCardName = c.child ? "write" : "child";
     setTick(c.restoreTick);
     setSub(null);
-    setMove({ dir: 1, slide: false });
-    setCard(c.child ? "write" : "child");
+    setMove({ dir: 1, slide: to !== card });
+    setCard(to);
   }
 
   const stepFor = (to: NoteCardName) => (to === "check" ? "review" : to === "saved" ? "saved" : "add");
@@ -214,6 +223,8 @@ function useNoteSort(c: Composer, kids: readonly ChildChoice[]) {
       // The words changed while the AI was reading: its sort is for other words.
       if (live.current.body.trim() !== text) return;
       place(mergeSort(mine, value), "ai", live.current.touched);
+      // Felt and heard as well as seen (D-497): the AI's note is ready.
+      cue("ready");
     });
   };
 
@@ -227,16 +238,20 @@ function useNoteSort(c: Composer, kids: readonly ChildChoice[]) {
     setPlaced({ tags: null, follow: null });
   };
 
-  /** At Save: was the AI's sort kept as it was, or changed? Counted once (D-324). */
-  const report = () => {
+  /**
+   * When the note is saved: was the AI's answer kept as it came, or changed?
+   * Counted once (D-324). Its clear note is part of the answer: saving the
+   * teacher's own words over it (`usedTidy` false) is a change too.
+   */
+  const report = (usedTidy: boolean | null) => {
     if (ai.kind !== "done" || !ai.logId) return;
     const aiFollow = mergeSort({ tags: [], follow: null }, ai.sort).follow;
     const followNow = c.follow ? (c.when === "pick" ? "pick" : c.when) : null;
-    const kept = (placed.tags !== "ai" || sameTags(c.tags, mergeSort({ tags: [], follow: null }, ai.sort).tags)) && (placed.follow !== "ai" || followNow === aiFollow);
-    reportDecision(ai.logId, kept ? "kept" : "edited");
+    const sortKept = (placed.tags !== "ai" || sameTags(c.tags, mergeSort({ tags: [], follow: null }, ai.sort).tags)) && (placed.follow !== "ai" || followNow === aiFollow);
+    reportDecision(ai.logId, sortKept && usedTidy !== false ? "kept" : "edited");
   };
 
-  /** The AI's clearer wording, or a translation, put in place of the words: the sort still stands for them. */
+  /** The AI's clear note put in the box to be changed: the sort still stands for those words. */
   const adopt = (words: string) => {
     if (ai.kind === "done") setAi({ ...ai, text: words.trim() });
   };
@@ -252,18 +267,18 @@ type TranslateState =
   | { kind: "problem"; text: string; to: "hi" | "en"; problem: AssistProblem };
 
 /**
- * "In English" / "In Hindi" (D-324, kept from the old form): the note's words
- * translated, offered beside them, never put in their place without a tap.
- * The children's names are masked first.
+ * "Change it to English" / "to Hindi" (D-324, kept from the old form): the
+ * ticked words translated, added as one more choice beside them, never put in
+ * their place without a tap. The children's names are masked first.
  */
 function useTranslate(c: Composer, kids: readonly ChildChoice[]) {
   const offered = useAssistOffers("translate");
   const [state, setState] = useState<TranslateState>({ kind: "idle" });
   const ticket = useRef(0);
-  const run = () => {
-    const text = c.body.trim();
+  const run = (source: string) => {
+    const text = source.trim();
     if (text.length < 8) return;
-    if (state.kind !== "idle" && state.kind !== "problem" && state.text === text) return;
+    if ((state.kind === "working" || state.kind === "done") && state.text === text) return;
     const to = translateTarget(text);
     const id = ++ticket.current;
     setState({ kind: "working", text, to });
@@ -271,6 +286,7 @@ function useTranslate(c: Composer, kids: readonly ChildChoice[]) {
     void askAssist("text.translate", { text, to, names }).then((answer) => {
       if (id !== ticket.current) return;
       setState(answer.ok ? { kind: "done", text, to, value: answer.value.text, logId: answer.logId } : { kind: "problem", text, to, problem: answer.problem });
+      if (answer.ok) cue("ready");
     });
   };
   const reset = () => {
@@ -344,10 +360,10 @@ function useCardMotion(flow: NoteFlow) {
 }
 
 /**
- * Hide the items of a box that do not fit it: nothing scrolls. The items stay
- * in the page, so a taller screen shows them again; a cut item is invisible
- * and out of the accessibility tree. The box must be positioned. Returns how
- * many are cut.
+ * Hide the items of a box that do not fit it (the quick words under the note).
+ * The items stay in the page, so a taller screen shows them again; a cut item
+ * is invisible and out of the accessibility tree. The box must be positioned.
+ * Returns how many are cut.
  */
 function useFit(box: RefObject<HTMLElement | null>, selector: string, deps: readonly unknown[]): number {
   const [cut, setCut] = useState(0);
@@ -417,19 +433,19 @@ function KidHead({ kid, ct, mine, big, onChange }: { kid: ChildChoice; ct: strin
         <span className="nc-meta">{meta}</span>
       </span>
       <button type="button" className="tap nc-chg" onClick={onChange}>
+        <Ic n="users" size={16} />
         {tx(p("Change", "बदलें"))}
       </button>
     </div>
   );
 }
 
-function Head({ step, title }: { step?: number; title: Pair }) {
+function Head({ title }: { title: Pair }) {
   const { tx, sub } = useVx();
   const second = sub(title);
   return (
     <div className="nc-ch">
       <span className="nc-c" style={{ minWidth: 0 }}>
-        {step ? <span className="nc-eb">{tx(p(`Step ${step} of 3`, `कदम ${step} / 3`))}</span> : null}
         <h2 className="nc-h2" data-title>
           {tx(title)}
           {second ? <span className="nc-h2s">{second}</span> : null}
@@ -449,6 +465,161 @@ function whenText(when: FollowWhen, today: string): { main: Pair; date: Pair } {
 }
 
 const TAG_LOOK = (board: boolean): Record<NoteTag, TagLook> => (board ? BOARD_TAG : TEACH_TAG);
+
+/** The three steps across the top of a phone's cards: where the teacher is, and what is left (D-500). */
+function Steps({ card }: { card: NoteCardName }) {
+  const { tx } = useVx();
+  const at = ORDER.indexOf(card);
+  const steps: Pair[] = [p("Child", "बच्चा"), p("Note", "नोट"), p("Check and save", "जाँचें, सहेजें")];
+  return (
+    <ol className="nc-steps" aria-label={tx(p("Steps", "कदम"))}>
+      {steps.map((s, i) => (
+        <li key={s.en} className={i < at ? "done" : i === at ? "cur" : undefined} aria-current={i === at ? "step" : undefined}>
+          <span className="dot" aria-hidden="true">
+            {i < at ? <Ic n="check" size={13} stroke={3} /> : i + 1}
+          </span>
+          <span className="lab">{tx(s)}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * A note left without saving, offered rather than poured into the new one
+ * (owner, 7 Nov: "it was pre-filled with text from earlier notes"). Continue
+ * opens it on its words; Delete takes it off the phone, with Undo.
+ */
+function DraftOffer({ c, kids, only }: { c: Composer; kids: readonly ChildChoice[]; only?: string }) {
+  const { tx } = useVx();
+  const toast = useToast();
+  const d = c.offer;
+  if (!d || c.body.trim() || (only !== undefined && d.studentId !== only)) return null;
+  const kid = kids.find((k) => k.id === d.studentId);
+  if (!kid) return null;
+  const drop = () => {
+    const gone = c.dropDraft();
+    toast.show({ text: tx(p("The unsaved note is deleted", "बिना सहेजा नोट हटा दिया गया")), undo: gone ? () => c.keepDraft(gone) : undefined });
+  };
+  return (
+    <section className="nc-offer" aria-label={tx(p("A note not saved yet", "एक नोट जो सहेजा नहीं गया"))}>
+      <span className="nc-offer-h">
+        <Ic n="notePen" size={20} />
+        <span className="nc-c" style={{ minWidth: 0 }}>
+          <b>{tx(p("You left a note without saving it", "आपने एक नोट बिना सहेजे छोड़ा था"))}</b>
+          <span className="nc-meta">
+            {kid.name} · {kid.classLabel} · {tx(agoP(new Date(d.at)))}
+          </span>
+        </span>
+      </span>
+      <p className="nc-offer-q">
+        <span>“{excerpt(d.body, 140)}”</span>
+      </p>
+      <span className="nc-offer-acts">
+        <button type="button" className="tap btn pri" onClick={c.continueDraft}>
+          <Ic n="edit" size={18} />
+          {tx(p("Continue this note", "यही नोट पूरा करें"))}
+        </button>
+        <button type="button" className="tap btn sec" onClick={drop}>
+          <Ic n="trash" size={18} />
+          {tx(p("Delete", "हटाएँ"))}
+        </button>
+      </span>
+    </section>
+  );
+}
+
+/**
+ * While the AI works: what it is doing, in turn, over a shimmer where its words
+ * will come (owner, 7 Nov: "an animation that the AI is making the note").
+ * The turning lines are drawn by CSS, so no timer re-renders the card; a
+ * screen reader hears the title once.
+ */
+function AiBusy({ title, says }: { title: Pair; says: readonly Pair[] }) {
+  const { tx } = useVx();
+  return (
+    <div className="nc-aiw" role="status">
+      <span className="nc-aiw-h">
+        <span className="nc-spark" aria-hidden="true">
+          <Ic n="sparkle" size={18} />
+        </span>
+        <b>{tx(title)}</b>
+        <span className="nc-dots" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      </span>
+      {says.length ? (
+        <span className={`nc-aiw-say n${says.length}`} aria-hidden="true">
+          {says.map((s) => (
+            <span key={s.en}>{tx(s)}</span>
+          ))}
+        </span>
+      ) : null}
+      <span className="nc-skel" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The AI's words arriving a word at a time, the first time they are shown.
+ * A screen reader gets the whole text at once.
+ */
+function TypeIn({ text, play, onDone }: { text: string; play: boolean; onDone: () => void }) {
+  if (!play) return <>{text}</>;
+  const parts = text.split(/(\s+)/);
+  const order = parts.map((part, i) => (part.trim() === "" ? -1 : parts.slice(0, i).filter((w) => w.trim() !== "").length));
+  const words = parts.filter((w) => w.trim() !== "").length;
+  const step = Math.min(60, 1400 / Math.max(words, 1));
+  return (
+    <>
+      <span className="sr">{text}</span>
+      <span aria-hidden="true">
+        {parts.map((part, i) => {
+          const at = order[i] ?? -1;
+          if (at < 0) return part;
+          return (
+            <span key={i} className="nc-w" style={{ animationDelay: `${Math.round(at * step)}ms` }} onAnimationEnd={at === words - 1 ? onDone : undefined}>
+              {part}
+            </span>
+          );
+        })}
+      </span>
+    </>
+  );
+}
+
+/** One set of words Save could keep: tick it to choose it. */
+function Choice({ on, ai, icon, title, onPick, onEdit, children }: { on: boolean; ai?: boolean; icon: IconName; title: Pair; onPick: () => void; onEdit?: () => void; children: ReactNode }) {
+  const { tx } = useVx();
+  return (
+    <div className={`nc-choice${on ? " on" : ""}${ai ? " ai" : ""}`}>
+      <button type="button" role="radio" aria-checked={on} className="tap nc-chb" onClick={onPick}>
+        <span className="tick" aria-hidden="true">
+          {on ? <Ic n="check" size={15} stroke={3} /> : null}
+        </span>
+        <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
+          <span className="nc-cht">
+            <Ic n={icon} size={14} />
+            {tx(title)}
+          </span>
+          <span className="nc-chx">{children}</span>
+        </span>
+      </button>
+      {onEdit ? (
+        <button type="button" className="tap nc-wedit" onClick={onEdit}>
+          <Ic n="edit" size={15} />
+          {tx(p("Edit", "बदलें"))}
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 /* -------------------------------------------------------------- the cards */
 
@@ -477,6 +648,9 @@ type CardsProps = {
   onOpenAction: (href: string) => void;
 };
 
+/** The words Save keeps: the AI's clear note, its translation, or the teacher's own. */
+type Pick = "mine" | "ai" | "tr";
+
 export function NoteCards(props: CardsProps) {
   const { flow, c, kids, viewer, people } = props;
   const { tx } = useVx();
@@ -484,21 +658,36 @@ export function NoteCards(props: CardsProps) {
   const translator = useTranslate(c, kids);
   const rootRef = useRef<HTMLDivElement>(null);
   const keyboard = useFrame(rootRef, flow.card);
+  useMoreBelow(rootRef);
   const { ghosts, hold } = useCardMotion(flow);
   const child = c.child;
   const ct = child ? (people.classTeachers[child.classId] ?? null) : null;
   const mine = child ? viewer.heldClassIds.includes(child.classId) : false;
   // The child the wrong-child question was answered for, with those words (D-486).
   const [whoDone, setWhoDone] = useState<string | null>(null);
+  // The words the teacher ticked, for these words. Untouched, the AI's clear note when there is one (D-500).
+  const [choice, setChoice] = useState<{ text: string; pick: Pick } | null>(null);
+  // The AI's notes already shown arriving, and the Save buttons already lit for them: each plays once.
+  const [typed, setTyped] = useState<readonly string[]>([]);
+  const [lit, setLit] = useState<readonly string[]>([]);
 
-  const pick = (id: string) => {
+  const text = c.body.trim();
+  const tidy = sorter.tidy;
+  const ts = translator.state;
+  const tr = ts.kind === "done" && (ts.text === text || (tidy !== null && ts.text === tidy.trim())) ? ts : null;
+  const auto: Pick = tidy ? "ai" : "mine";
+  const want = choice && choice.text === text ? choice.pick : auto;
+  const pick: Pick = want === "ai" && !tidy ? "mine" : want === "tr" && !tr ? auto : want;
+  const words = pick === "ai" && tidy ? tidy : pick === "tr" && tr ? tr.value : c.body;
+  const setPick = (next: Pick) => setChoice({ text, pick: next });
+
+  const pick1 = (id: string) => {
     c.pickChild(id);
     flow.go("write");
   };
 
   /** Next on the write card: sort the words, and ask about a classmate the words name instead. */
   const next = () => {
-    const text = c.body.trim();
     if (!child) {
       flow.go("child");
       return;
@@ -514,9 +703,20 @@ export function NoteCards(props: CardsProps) {
     flow.go("check", named.length && whoDone !== key ? "who" : null);
   };
 
+  /** Save the ticked words. Each AI answer is counted once, when the note is saved (D-324). */
   const save = () => {
-    sorter.report();
-    c.save(props.onSaved);
+    const usedTidy = tidy ? pick === "ai" : null;
+    const kept = pick;
+    const translation = tr;
+    c.save((id, kid) => {
+      cue("done");
+      sorter.report(usedTidy);
+      if (translation) {
+        if (kept === "tr") reportDecision(translation.logId, "kept");
+        else reportDecision(translation.logId, "discarded");
+      }
+      props.onSaved(id, kid);
+    }, words);
   };
 
   const fresh = () => {
@@ -524,6 +724,7 @@ export function NoteCards(props: CardsProps) {
     sorter.reset();
     translator.reset();
     setWhoDone(null);
+    setChoice(null);
     flow.go("child");
   };
 
@@ -535,7 +736,7 @@ export function NoteCards(props: CardsProps) {
 
   let body: ReactNode;
   if (flow.card === "child" || !child) {
-    body = <ChildCard {...props} onPick={pick} />;
+    body = <ChildCard {...props} onPick={pick1} />;
   } else if (flow.card === "write") {
     body = <WriteCard {...props} ct={ct} mine={mine} keyboard={keyboard} onNext={next} />;
   } else if (flow.card === "check") {
@@ -546,14 +747,32 @@ export function NoteCards(props: CardsProps) {
         mine={mine}
         sorter={sorter}
         translator={translator}
+        pick={pick}
+        words={words}
+        tr={tr}
+        onPick={setPick}
+        typed={typed}
+        onTyped={(t) => setTyped((cur) => (cur.includes(t) ? cur : [...cur, t]))}
+        glow={pick === "ai" && tidy !== null && typed.includes(tidy) && !lit.includes(tidy)}
+        onLit={() => {
+          if (tidy) setLit((cur) => (cur.includes(tidy) ? cur : [...cur, tidy]));
+        }}
+        onEditAi={() => {
+          if (!tidy) return;
+          c.setBody(tidy);
+          c.setMode("type");
+          sorter.adopt(tidy);
+          setChoice(null);
+          flow.go("write");
+        }}
         onSave={save}
         onKeep={() => {
-          setWhoDone(`${child.id}|${c.body.trim()}`);
+          setWhoDone(`${child.id}|${text}`);
           flow.openSub(null);
         }}
         onMove={(id) => {
           c.pickChild(id);
-          setWhoDone(`${id}|${c.body.trim()}`);
+          setWhoDone(`${id}|${text}`);
           flow.openSub(null);
         }}
       />
@@ -564,6 +783,7 @@ export function NoteCards(props: CardsProps) {
 
   return (
     <div className="nc" ref={rootRef} data-card={flow.card} data-sub={flow.sub ?? undefined}>
+      <Steps card={flow.card} />
       <Rail {...props} onNext={next} />
       <div className="nc-stage">
         <div className="nc-ghosts" ref={ghosts} />
@@ -578,17 +798,26 @@ export function NoteCards(props: CardsProps) {
 
 /* ----------------------------------------------------------- 1 the child */
 
-function ChildCard({ flow, kids, notes, viewer, initialClass, onPick, onDone }: CardsProps & { onPick: (id: string) => void }) {
+/** A roll number as a number, for the class list's order; a child without one goes to the end. */
+const rollOf = (k: ChildChoice) => {
+  const n = Number.parseInt(k.rollNo ?? "", 10);
+  return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+};
+const byRoll = (a: ChildChoice, b: ChildChoice) => rollOf(a) - rollOf(b) || a.name.localeCompare(b.name);
+
+/**
+ * The child, from the whole class: every name in full, in roll order, in a
+ * list that scrolls (owner, 7 Nov: "I select the class, I can't see the list
+ * of students"). It replaced pages of first names behind "More names".
+ */
+function ChildCard({ c, kids, notes, viewer, initialClass, onPick, onDone }: CardsProps & { onPick: (id: string) => void }) {
   const { tx } = useVx();
   const classes = [...new Map(kids.map((k) => [k.classId, k.classLabel])).entries()];
   const [cls, setCls] = useState(() => pickerStartClass(classes.map(([id]) => id), { initial: initialClass, held: viewer.heldClassIds }));
   const [q, setQ] = useState("");
-  // Where each page of names starts: "›" pushes the next start, "‹" pops it.
-  const [pages, setPages] = useState<number[]>([0]);
-  const gridRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const searching = q.trim().length > 0;
   const { here, elsewhere } = searchKids(kids, cls, q);
-  const short = chipNames(kids.filter((k) => k.classId === cls || elsewhere.includes(k)));
   const recent: ChildChoice[] = [];
   if (!searching) {
     for (const n of notes) {
@@ -598,32 +827,48 @@ function ChildCard({ flow, kids, notes, viewer, initialClass, onPick, onDone }: 
       if (recent.length >= 3) break;
     }
   }
-  const list: { kid: ChildChoice; other: boolean; recent: boolean }[] = searching
-    ? [...here.map((kid) => ({ kid, other: false, recent: false })), ...elsewhere.map((kid) => ({ kid, other: true, recent: false }))]
-    : [...recent.map((kid) => ({ kid, other: kid.classId !== cls, recent: true })), ...here.filter((k) => !recent.includes(k)).map((kid) => ({ kid, other: false, recent: false }))];
-  const from = pages[pages.length - 1] ?? 0;
-  const shown = list.slice(from);
-  const cut = useFit(gridRef, ".nc-kid", [from, q, cls, list.length, flow.card]);
-  const fits = shown.length - cut;
+  const roster = [...here].sort(byRoll);
+  // Other classes in the order of the class buttons, the school's own (B-06), each in roll order.
+  const rank = new Map(classes.map(([id], i) => [id, i]));
+  const others = [...elsewhere].sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || byRoll(a, b));
   const clsLabel = classes.find(([id]) => id === cls)?.[1] ?? "";
+  const first = searching ? (roster[0] ?? others[0] ?? null) : null;
 
+  const top = () => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  };
   const setClass = (id: string) => {
     setCls(id);
-    setPages([0]);
+    top();
   };
   const type = (value: string) => {
     setQ(value);
-    setPages([0]);
+    top();
   };
   // Enter opens the first match, as on Collect's search.
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searching && list[0]) onPick(list[0].kid.id);
+    if (e.key === "Enter" && first) onPick(first.id);
   };
+
+  const row = (kid: ChildChoice, key: string, opts: { cls?: boolean; recent?: boolean } = {}) => (
+    <li key={key}>
+      <button type="button" className={`tap nc-kidrow${opts.recent ? " recent" : ""}`} onClick={() => onPick(kid.id)} aria-label={`${kid.name}, ${kid.classLabel}${kid.rollNo ? `, roll ${kid.rollNo}` : ""}`}>
+        <span className="r" aria-hidden="true">
+          {opts.recent ? <Ic n="clock" size={15} /> : (kid.rollNo ?? "·")}
+        </span>
+        <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
+          <span className="n">{kid.name}</span>
+          {opts.cls || kid.hint ? <span className="c">{[opts.cls ? kid.classLabel : null, kid.hint ? tx(kid.hint) : null].filter(Boolean).join(" · ")}</span> : null}
+        </span>
+        <Ic n="chevRight" size={18} />
+      </button>
+    </li>
+  );
 
   if (kids.length === 0) {
     return (
       <>
-        <Head step={1} title={p("Which child is it about?", "किस बच्चे के बारे में?")} />
+        <Head title={p("Which child is it about?", "किस बच्चे के बारे में?")} />
         <div className="nc-body">
           <div className="nc-note warn" role="status">
             <Ic n="info" size={18} />
@@ -641,8 +886,9 @@ function ChildCard({ flow, kids, notes, viewer, initialClass, onPick, onDone }: 
 
   return (
     <>
-      <Head step={1} title={p("Which child is it about?", "किस बच्चे के बारे में?")} />
-      <div className="nc-body">
+      <Head title={p("Which child is it about?", "किस बच्चे के बारे में?")} />
+      <div className="nc-body nc-pick">
+        <DraftOffer c={c} kids={kids} />
         <label className="nc-search">
           <Ic n="search" size={20} />
           <span className="sr">{tx(p("Find a child", "बच्चा खोजें"))}</span>
@@ -653,7 +899,7 @@ function ChildCard({ flow, kids, notes, viewer, initialClass, onPick, onDone }: 
             onKeyDown={onKey}
             enterKeyHint="go"
             autoComplete="off"
-            placeholder={tx(p("Name or roll number · नाम", "नाम या रोल नंबर"))}
+            placeholder={tx(p("Type a name or roll number", "नाम या रोल नंबर लिखें"))}
           />
           {q ? (
             <button type="button" className="tap nc-x" aria-label={tx(p("Clear", "साफ़ करें"))} onClick={() => type("")}>
@@ -671,47 +917,54 @@ function ChildCard({ flow, kids, notes, viewer, initialClass, onPick, onDone }: 
               ))}
             </div>
           ) : (
-            <select className="inp nc-sel" aria-label={tx(p("Class", "कक्षा"))} value={cls} onChange={(e) => setClass(e.target.value)}>
-              {classes.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-            </select>
+            <label className="nc-selw">
+              <span>{tx(p("Class", "कक्षा"))}</span>
+              <select className="inp nc-sel" value={cls} onChange={(e) => setClass(e.target.value)}>
+                {classes.map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
           )
         ) : null}
-        <div className="nc-grid" ref={gridRef} role="list" aria-label={tx(searching ? p("Children found", "मिले बच्चे") : p(`Children of ${clsLabel}`, `${clsLabel} के बच्चे`))}>
-          {shown.map(({ kid, other, recent: r }) => (
-            <button key={`${r ? "r" : "k"}-${kid.id}`} type="button" role="listitem" className={`tap nc-kid${r ? " recent" : ""}`} onClick={() => onPick(kid.id)} title={kid.name} aria-label={`${kid.name}, ${kid.classLabel}${kid.rollNo ? `, roll ${kid.rollNo}` : ""}`}>
-              <span className="nc-kt">
-                {r ? <Ic n="clock" size={13} /> : kid.rollNo ? <span className="r">{kid.rollNo}</span> : null}
-                <span className="n">{short.get(kid.id) ?? kid.name}</span>
-              </span>
-              {other || kid.hint ? <span className="c">{[other ? kid.classLabel : null, kid.hint ? tx(kid.hint) : null].filter(Boolean).join(" · ")}</span> : null}
-            </button>
-          ))}
-          {searching && list.length === 0 ? (
-            <p className="nc-empty" role="status">
-              {tx(p(`No child by that name in ${clsLabel} or your other classes. Try the first name only.`, `${clsLabel} या आपकी दूसरी कक्षाओं में इस नाम का कोई बच्चा नहीं। सिर्फ़ पहला नाम लिखकर देखें।`))}
-            </p>
-          ) : null}
+        <div className="nc-list" ref={listRef}>
+          {searching ? (
+            <>
+              {roster.length ? (
+                <>
+                  <h3 className="nc-lh">{tx(p(`Found in ${clsLabel}`, `${clsLabel} में मिले`))}</h3>
+                  <ul>{roster.map((kid) => row(kid, `h-${kid.id}`))}</ul>
+                </>
+              ) : null}
+              {others.length ? (
+                <>
+                  <h3 className="nc-lh">{tx(p("In your other classes", "आपकी दूसरी कक्षाओं में"))}</h3>
+                  <ul>{others.map((kid) => row(kid, `o-${kid.id}`, { cls: true }))}</ul>
+                </>
+              ) : null}
+              {roster.length + others.length === 0 ? (
+                <p className="nc-empty" role="status">
+                  {tx(p(`No child by that name in ${clsLabel} or your other classes. Try the first name only.`, `${clsLabel} या आपकी दूसरी कक्षाओं में इस नाम का कोई बच्चा नहीं। सिर्फ़ पहला नाम लिखकर देखें।`))}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {recent.length ? (
+                <>
+                  <h3 className="nc-lh">{tx(p("You wrote about lately", "हाल में आपने इनके बारे में लिखा"))}</h3>
+                  <ul>{recent.map((kid) => row(kid, `r-${kid.id}`, { cls: kid.classId !== cls, recent: true }))}</ul>
+                </>
+              ) : null}
+              <h3 className="nc-lh">
+                {tx(p(`${clsLabel} · all ${roster.length} children`, `${clsLabel} · सभी ${roster.length} बच्चे`))}
+              </h3>
+              <ul>{roster.map((kid) => row(kid, `k-${kid.id}`))}</ul>
+            </>
+          )}
         </div>
-      </div>
-      <div className="nc-foot">
-        {pages.length > 1 ? (
-          <button type="button" className="tap btn sec nt-big nc-ib" aria-label={tx(p("Earlier names", "पिछले नाम"))} onClick={() => setPages((cur) => cur.slice(0, -1))}>
-            <Ic n="chevLeft" size={22} />
-          </button>
-        ) : null}
-        <span className="nc-pg" aria-live="polite">
-          {list.length === 0
-            ? ""
-            : cut > 0 || pages.length > 1
-              ? tx(p(`${from + 1}–${from + Math.max(fits, 1)} of ${list.length} · or type a name`, `${list.length} में से ${from + 1}–${from + Math.max(fits, 1)} · या नाम लिखें`))
-              : tx(p("Tap the child’s name", "बच्चे का नाम दबाएँ"))}
-        </span>
-        {cut > 0 && fits > 0 ? (
-          <button type="button" className="tap btn pri nt-big nc-more" onClick={() => setPages((cur) => [...cur, from + fits])}>
-            {tx(p("More names", "और नाम"))}
-            <Ic n="chevRight" size={20} />
-          </button>
-        ) : null}
       </div>
     </>
   );
@@ -734,15 +987,15 @@ function keptLine(at: number): Pair {
   return p(`Kept on this device · ${ago.en} · not saved yet`, `इसी डिवाइस पर रखा है · ${ago.hi} · सहेजना बाकी है`);
 }
 
-function WriteCard({ flow, c, ct, mine, keyboard, onNext, onOpenAction, base }: CardsProps & { ct: string | null; mine: boolean; keyboard: boolean; onNext: () => void }) {
+function WriteCard({ flow, c, kids, ct, mine, keyboard, onNext, onOpenAction, base }: CardsProps & { ct: string | null; mine: boolean; keyboard: boolean; onNext: () => void }) {
   const { tx } = useVx();
   const both = useBoth();
   const kid = c.child!;
   const phrasesRef = useRef<HTMLDivElement>(null);
-  useFit(phrasesRef, ".nc-qp", [c.body.length > 0, keyboard]);
+  useFit(phrasesRef, ".nc-qp", [c.body.length > 0, keyboard, c.offer !== null]);
   const listening = c.step === "listening";
   const full = c.body.length >= 2000;
-  const speakLabel = c.body.trim() ? tx(p("Add by speaking", "बोलकर जोड़ें")) : tx(p("Speak", "बोलें"));
+  const has = c.body.trim().length > 0;
   const phrase = (ph: Pair) => c.addPhrase(c.lang === "hi-IN" ? (ph.hi ?? ph.en) : ph.en);
   const action = c.openAction;
 
@@ -752,6 +1005,7 @@ function WriteCard({ flow, c, ct, mine, keyboard, onNext, onOpenAction, base }: 
     <>
       <KidHead kid={kid} ct={ct} mine={mine} big onChange={() => flow.go("child")} />
       <div className="nc-body">
+        <DraftOffer c={c} kids={kids} only={kid.id} />
         {action ? (
           <div className="nc-note warn nc-act1" role="status">
             <Ic n="flag" size={16} />
@@ -777,12 +1031,32 @@ function WriteCard({ flow, c, ct, mine, keyboard, onNext, onOpenAction, base }: 
               c.setMode("type");
               c.setErrField(null);
             }}
-            placeholder={tx(p("What did you notice? Type or speak, in Hindi or English. For example: Finds fractions hard", "आपने क्या देखा? हिंदी या अंग्रेज़ी में लिखें या बोलें। जैसे: भिन्न में दिक्कत आती है"))}
+            placeholder={tx(p("Type here, in Hindi or English. For example: Finds fractions hard", "यहाँ हिंदी या अंग्रेज़ी में लिखें। जैसे: भिन्न में दिक्कत आती है"))}
           />
         </label>
         {c.errField === "text" ? (
           <span className="nc-err" role="alert">{tx(p("Write or speak the note first.", "पहले नोट लिखें या बोलें।"))}</span>
         ) : null}
+        {/* Speaking is as plain as typing (owner, 7 Nov): a big button of its own, not an icon in a row. */}
+        {c.speech.supported ? (
+          keyboard ? null : (
+            <button type="button" className={`tap nc-speakbig${has ? " more" : ""}`} onClick={() => c.listen(has)}>
+              <span className="mic" aria-hidden="true">
+                <i />
+                <Ic n="mic" size={has ? 18 : 22} />
+              </span>
+              <span className="nc-c" style={{ minWidth: 0 }}>
+                <b>{tx(has ? p("Speak more", "और बोलें") : p("Speak your note", "बोलकर लिखें"))}</b>
+                <small>{tx(p("Talk in Hindi or English. The app writes it for you.", "हिंदी या अंग्रेज़ी में बोलें। ऐप खुद लिख देगा।"))}</small>
+              </span>
+            </button>
+          )
+        ) : (
+          <span className="nc-kept nc-mich">
+            <Ic n="mic" size={16} />
+            {tx(p("To speak instead of typing, tap the mic on your keyboard.", "लिखने के बजाय बोलने के लिए कीबोर्ड का माइक दबाएँ।"))}
+          </span>
+        )}
         <div className="nc-phr" ref={phrasesRef} role="group" aria-label={tx(p("Quick words", "झटपट शब्द"))}>
           {PHRASES.map((ph) => (
             <button key={ph.en} type="button" className="tap nc-qp" onClick={() => phrase(ph)}>
@@ -795,26 +1069,15 @@ function WriteCard({ flow, c, ct, mine, keyboard, onNext, onOpenAction, base }: 
           <Ic n={full ? "alert" : "cloud"} size={14} />
           {full
             ? tx(p("The note is full (2,000 characters). Save it and write the rest as a second note.", "नोट भर गया (2,000 अक्षर)। इसे सहेजें और बाकी दूसरे नोट में लिखें।"))
-            : c.draftAt && c.body.trim()
-            ? tx(keptLine(c.draftAt))
-            : c.body.length > 1700
-              ? tx(p(`${2000 - c.body.length} characters left`, `${2000 - c.body.length} अक्षर बाकी`))
-              : c.speech.supported
-                ? tx(p("What you write is kept here until you save", "सहेजने तक आपका लिखा यहीं रखा रहता है"))
-                : tx(p("To speak, use the mic on your keyboard", "बोलने के लिए कीबोर्ड का माइक इस्तेमाल करें"))}
+            : c.draftAt && has
+              ? tx(keptLine(c.draftAt))
+              : c.body.length > 1700
+                ? tx(p(`${2000 - c.body.length} characters left`, `${2000 - c.body.length} अक्षर बाकी`))
+                : tx(p("What you write is kept here until you save", "सहेजने तक आपका लिखा यहीं रखा रहता है"))}
         </span>
       </div>
       <div className="nc-foot">
-        <button type="button" className="tap btn sec nt-big nc-ib" aria-label={tx(p("Previous step", "पिछला कदम"))} onClick={() => flow.go("child")}>
-          <Ic n="chevLeft" size={22} />
-        </button>
-        {c.speech.supported ? (
-          <button type="button" className={`tap btn soft nt-big nc-speak${c.body.trim() ? " more" : ""}`} aria-label={speakLabel} onClick={() => c.listen(Boolean(c.body.trim()))}>
-            <Ic n="mic" size={20} />
-            <span className="nc-sl">{speakLabel}</span>
-          </button>
-        ) : null}
-        <button type="button" className="tap btn pri nt-big nc-next" onClick={onNext} aria-disabled={!c.body.trim()}>
+        <button type="button" className="tap btn pri nt-big nc-next" onClick={onNext} aria-disabled={!has}>
           {both(p("Next", "आगे"))}
           <Ic n="chevRight" size={20} />
         </button>
@@ -897,10 +1160,30 @@ function ListenCard({ c }: { c: Composer }) {
 
 type Sorter = ReturnType<typeof useNoteSort>;
 type Translator = ReturnType<typeof useTranslate>;
+type Translated = Extract<TranslateState, { kind: "done" }>;
 
-function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorter: Sorter; translator: Translator; onSave: () => void; onKeep: () => void; onMove: (id: string) => void }) {
-  const { flow, c, ct, mine, sorter, translator, kids, viewer, people, today, school, board } = props;
-  const { tx } = useVx();
+type CheckProps = CardsProps & {
+  ct: string | null;
+  mine: boolean;
+  sorter: Sorter;
+  translator: Translator;
+  pick: Pick;
+  words: string;
+  tr: Translated | null;
+  onPick: (pick: Pick) => void;
+  typed: readonly string[];
+  onTyped: (text: string) => void;
+  glow: boolean;
+  onLit: () => void;
+  onEditAi: () => void;
+  onSave: () => void;
+  onKeep: () => void;
+  onMove: (id: string) => void;
+};
+
+function CheckCard(props: CheckProps) {
+  const { flow, c, ct, mine, sorter, translator, kids, viewer, people, today, school, board, pick, words, tr } = props;
+  const { tx, language } = useVx();
   const both = useBoth();
   const kid = c.child!;
   const text = c.body.trim();
@@ -909,47 +1192,6 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
   const sensitive = isSensitiveNote({ tags: c.tags });
   const followOn = c.follow ? c.followOnDate : null;
   const named = sub === "who" ? otherChildNamed(text, kid, kids) : [];
-
-  /* the rows' values */
-  const kindVal = c.tags.length ? c.tags.map((t) => tx(TAG_TEXT[t])).join(" · ") : tx(p("Not sorted · tap to choose", "नहीं चुना · चुनने के लिए दबाएँ"));
-  const ownerName = (o: FollowOwner): string =>
-    o === "me" ? tx(p("me", "मैं")) : o === "class_teacher" ? (ct ?? tx(p("class teacher", "कक्षा अध्यापक"))) : o === "coordinator" ? (people.coordinator ?? tx(p("coordinator", "समन्वयक"))) : (people.admin ?? tx(p("admin", "प्रशासक")));
-  const followVal = !c.follow
-    ? tx(p("Just noting · no reminder", "सिर्फ़ जानकारी · कोई याद नहीं"))
-    : followOn
-      ? tx(p(`Look again ${day(followOn)} · ${ownerName(c.owner)}`, `${shortDayHi(followOn)} को · ${ownerName(c.owner)}`))
-      : tx(p("Pick the day", "दिन चुनें"));
-  const readVal = c.visibility === "private" ? tx(p("Only me", "सिर्फ़ मैं")) : sensitive ? tx(p("Admin and class teacher only", "सिर्फ़ प्रशासक और कक्षा अध्यापक")) : tx(p("Teachers and office", "अध्यापक और कार्यालय"));
-  const parentsOn = c.tellParents && c.visibility === "team";
-  const parentVal = parentsOn ? tx(p(`On · 1 WhatsApp · about ${COST}`, `चालू · 1 व्हाट्सऐप · लगभग ${COST}`)) : tx(p("Off · parents are not told", "बंद · माता-पिता को नहीं बताया जाएगा"));
-
-  const canTranslate = translator.offered && text.length >= 8;
-  const ai = sorter.ai;
-  const aiLine: { icon: IconName; text: Pair; tone: "ai" | "mut" } =
-    ai.kind === "working" && ai.text === text
-      ? { icon: "sparkle", text: p("The AI is reading your note…", "AI आपका नोट पढ़ रहा है…"), tone: "ai" }
-      : (sorter.placed.tags === "ai" || sorter.placed.follow === "ai") && ai.kind === "done" && ai.text === text
-        ? { icon: "sparkle", text: p("Sorted by the AI from your words. Tap a line to change it.", "AI ने आपके शब्दों से छाँटा। बदलने के लिए लाइन दबाएँ।"), tone: "ai" }
-        : ai.kind === "problem" && ai.text === text && ai.problem !== "off" && ai.problem !== "denied"
-          ? { icon: "info", text: p(`Sorted from your words. ${PROBLEM_TEXT[ai.problem].en}`, `आपके शब्दों से छाँटा। ${PROBLEM_TEXT[ai.problem].hi ?? PROBLEM_TEXT[ai.problem].en}`), tone: "mut" }
-          : { icon: "check", text: p("Sorted from your words. Tap a line to change it.", "आपके शब्दों से छाँटा। बदलने के लिए लाइन दबाएँ।"), tone: "mut" };
-  const mark = (what: "tags" | "follow") => (sorter.placed[what] === "ai" && ai.kind === "done" && ai.text === text ? <Ic n="sparkle" size={13} className="nc-aim" /> : null);
-
-  const row = (key: Sub, icon: IconName, tone: [string, string], label: Pair, value: string, extra?: ReactNode) => (
-    <button type="button" className="tap nc-row" onClick={() => flow.openSub(key)} aria-label={`${tx(label)}: ${value}`}>
-      <span className="ic" style={{ background: tone[0], color: tone[1] }}>
-        <Ic n={icon} size={18} />
-      </span>
-      <span className="nc-c" style={{ minWidth: 0 }}>
-        <span className="lab">
-          {tx(label)}
-          {extra}
-        </span>
-        <span className="val">{value}</span>
-      </span>
-      <Ic n="chevRight" size={18} style={{ color: "var(--mut)" }} />
-    </button>
-  );
 
   const done = (
     <div className="nc-foot">
@@ -1156,8 +1398,9 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
   }
 
   /* -- tell parents -- */
+  const parentsOn = c.tellParents && c.visibility === "team";
   if (sub === "parents") {
-    const msg = parentNoteMessage({ childName: kid.name, teacher: viewer.name, body: text || "…", school });
+    const msg = parentNoteMessage({ childName: kid.name, teacher: viewer.name, body: words.trim() || "…", school });
     return (
       <>
         <Head title={p("Tell the parents?", "माता-पिता को बताएँ?")} />
@@ -1185,170 +1428,173 @@ function CheckCard(props: CardsProps & { ct: string | null; mine: boolean; sorte
     );
   }
 
-  /* -- clearer wording (D-487) -- */
-  if (sub === "tidy" && sorter.tidy) {
-    const tidy = sorter.tidy;
-    return (
-      <>
-        <Head title={p("Clearer wording", "साफ़ शब्दों में")} />
-        <div className="nc-body">
-          <span className="nc-hint">{tx(p("Your words", "आपके शब्द"))}</span>
-          <p className="nc-quote"><span>{excerpt(text, 400)}</span></p>
-          <span className="nc-hint ai">
-            <Ic n="sparkle" size={14} />
-            {tx(p("Written clearly by the AI", "AI ने साफ़ लिखा"))}
-          </span>
-          <p className="nc-quote ai"><span>{excerpt(tidy, 400)}</span></p>
-          <span className="nc-meta wrap">{tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}</span>
-        </div>
-        <div className="nc-foot">
-          {/* One decision per AI answer (D-324): this wording came with the sort, which is counted at Save. */}
-          <button type="button" className="tap btn sec nt-big" style={{ flex: 1 }} onClick={() => flow.openSub(null)}>
-            {tx(p("Keep mine", "मेरे शब्द रखें"))}
-          </button>
-          <button
-            type="button"
-            className="tap btn pri nt-big"
-            style={{ flex: 1.4 }}
-            onClick={() => {
-              c.setBody(tidy);
-              c.setMode("type");
-              sorter.adopt(tidy);
-              flow.openSub(null);
-            }}
-          >
-            <Ic n="check" size={18} />
-            {tx(p("Use this", "यही रखें"))}
-          </button>
-        </div>
-      </>
-    );
-  }
-
-  /* -- in the other language (D-324) -- */
-  if (sub === "translate") {
-    const t = translator.state;
-    const to = t.kind === "idle" ? translateTarget(text) : t.to;
-    const ready = t.kind === "done" && t.text === text ? t : null;
-    return (
-      <>
-        <Head title={to === "en" ? p("In English", "अंग्रेज़ी में") : p("In Hindi", "हिंदी में")} />
-        <div className="nc-body">
-          <span className="nc-hint">{tx(p("Your words", "आपके शब्द"))}</span>
-          <p className="nc-quote"><span>{excerpt(text, 400)}</span></p>
-          <span className="nc-hint ai">
-            <Ic n="sparkle" size={14} />
-            {tx(p("Translated by the AI", "AI ने अनुवाद किया"))}
-          </span>
-          {ready ? (
-            <p className="nc-quote ai"><span>{excerpt(ready.value, 400)}</span></p>
-          ) : t.kind === "problem" && t.text === text ? (
-            <span className="nc-note" role="status">
-              <Ic n="info" size={16} />
-              {tx(PROBLEM_TEXT[t.problem])}
-            </span>
-          ) : (
-            <p className="nc-quote ai nc-pulse" role="status"><span>{tx(p("Translating…", "अनुवाद हो रहा है…"))}</span></p>
-          )}
-          <span className="nc-meta wrap">{tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}</span>
-        </div>
-        <div className="nc-foot">
-          <button
-            type="button"
-            className="tap btn sec nt-big"
-            style={{ flex: 1 }}
-            onClick={() => {
-              if (ready) reportDecision(ready.logId, "discarded");
-              translator.reset();
-              flow.openSub(null);
-            }}
-          >
-            {tx(p("Keep mine", "मेरे शब्द रखें"))}
-          </button>
-          <button
-            type="button"
-            className="tap btn pri nt-big"
-            style={{ flex: 1.4 }}
-            disabled={!ready}
-            onClick={() => {
-              if (!ready) return;
-              reportDecision(ready.logId, "kept");
-              c.setBody(ready.value);
-              c.setMode("type");
-              sorter.adopt(ready.value);
-              translator.reset();
-              flow.openSub(null);
-            }}
-          >
-            <Ic n="check" size={18} />
-            {tx(p("Use this", "यही रखें"))}
-          </button>
-        </div>
-      </>
-    );
-  }
-
   /* -- the check itself -- */
+  const ai = sorter.ai;
+  const tidy = sorter.tidy;
+  const working = ai.kind === "working" && ai.text === text;
+  const sortedByAi = (sorter.placed.tags === "ai" || sorter.placed.follow === "ai") && ai.kind === "done" && ai.text === text;
+  const problem = ai.kind === "problem" && ai.text === text && ai.problem !== "off" && ai.problem !== "denied" ? ai.problem : null;
+  const ts = translator.state;
+  const trBusy = ts.kind === "working" && (ts.text === text || (tidy !== null && ts.text === tidy.trim())) ? ts : null;
+  const trProblem = ts.kind === "problem" && ts.text === words.trim() ? ts.problem : null;
+  const choosing = tidy !== null || tr !== null || trBusy !== null;
+  const canTranslate = translator.offered && !working && words.trim().length >= 8 && tr === null && trBusy === null;
+  const toLang = translateTarget(words.trim());
+  const glow = props.glow && !c.pending;
+
+  /* the boxes' values, short enough for half a phone's width */
+  const ownerName = (o: FollowOwner): string =>
+    o === "me" ? tx(p("me", "मैं")) : o === "class_teacher" ? (ct ?? tx(p("class teacher", "कक्षा अध्यापक"))) : o === "coordinator" ? (people.coordinator ?? tx(p("coordinator", "समन्वयक"))) : (people.admin ?? tx(p("admin", "प्रशासक")));
+  const kindVal = c.tags.length ? c.tags.map((t) => tx(TAG_TEXT[t])).join(" · ") : tx(p("Not chosen · tap to choose", "नहीं चुना · चुनने के लिए दबाएँ"));
+  const followVal = !c.follow
+    ? tx(p("Just noting · no reminder", "सिर्फ़ जानकारी · कोई याद नहीं"))
+    : followOn
+      ? tx(p(`${day(followOn)} · ${ownerName(c.owner)}`, `${shortDayHi(followOn)} · ${ownerName(c.owner)}`))
+      : tx(p("Pick the day", "दिन चुनें"));
+  const readVal = c.visibility === "private" ? tx(p("Only me", "सिर्फ़ मैं")) : sensitive ? tx(p("Admin and class teacher", "प्रशासक और कक्षा अध्यापक")) : tx(p("Teachers and office", "अध्यापक और कार्यालय"));
+  const parentVal = parentsOn ? tx(p("Yes · 1 WhatsApp", "हाँ · 1 व्हाट्सऐप")) : tx(p("No, not told", "नहीं बताया जाएगा"));
+  const byAi = (what: "tags" | "follow") => sorter.placed[what] === "ai" && ai.kind === "done" && ai.text === text;
+
+  const tile = (key: Sub, icon: IconName, tone: [string, string], label: Pair, value: string, fromAi = false) => (
+    <button type="button" className="tap nc-tile" onClick={() => flow.openSub(key)} aria-label={`${tx(label)}: ${value}`}>
+      <span className="ic" style={{ background: tone[0], color: tone[1] }}>
+        <Ic n={icon} size={16} />
+      </span>
+      <span className="nc-c" style={{ minWidth: 0 }}>
+        <span className="lab">
+          {tx(label)}
+          {fromAi ? <Ic n="sparkle" size={12} className="nc-aim" /> : null}
+        </span>
+        <span className={`val${fromAi ? " ai" : ""}`} key={value}>
+          {value}
+        </span>
+      </span>
+    </button>
+  );
+
+  // While there are words to choose from, the ticks and the line above Save say what is kept.
+  const line: { icon: IconName; text: Pair; tone: "ai" | "mut" } | null =
+    working || choosing
+      ? null
+      : sortedByAi
+        ? { icon: "sparkle", text: p("The AI read your note and filled in the boxes below. Tap a box to change it.", "AI ने आपका नोट पढ़कर नीचे के बॉक्स भरे हैं। बदलने के लिए बॉक्स दबाएँ।"), tone: "ai" }
+        : problem
+          ? { icon: "info", text: p(`The AI could not help this time. ${PROBLEM_TEXT[problem].en} Your own words will be saved.`, `AI इस बार मदद नहीं कर सका। ${PROBLEM_TEXT[problem].hi ?? PROBLEM_TEXT[problem].en} आपके अपने शब्द सहेजे जाएँगे।`), tone: "mut" }
+          : { icon: "check", text: p("Sorted from your words. Tap a box below to change it.", "आपके शब्दों से छाँटा। बदलने के लिए नीचे का बॉक्स दबाएँ।"), tone: "mut" };
+
+  const idle = working
+    ? tx(p("The AI is still working. Save note now keeps your own words.", "AI अभी काम कर रहा है। अभी सहेजें तो आपके अपने शब्द सहेजे जाएँगे।"))
+    : pick === "ai"
+      ? tx(p("Save note keeps the AI’s clear note.", "नोट सहेजें से AI का साफ़ नोट सहेजा जाएगा।"))
+      : pick === "tr"
+        ? tx(tr?.to === "en" ? p("Save note keeps the note in English.", "नोट सहेजें से अंग्रेज़ी वाला नोट सहेजा जाएगा।") : p("Save note keeps the note in Hindi.", "नोट सहेजें से हिंदी वाला नोट सहेजा जाएगा।"))
+        : choosing
+          ? tx(p("Save note keeps your own words.", "नोट सहेजें से आपके अपने शब्द सहेजे जाएँगे।"))
+          : "";
+
   return (
     <>
       <KidHead kid={kid} ct={ct} mine={mine} onChange={() => flow.go("child")} />
       <div className="nc-body">
-        {/* The words and the AI's offers: side by side when the card is squeezed (useFrame). */}
-        <div className="nc-wtop">
-          {/* The words themselves are the way back to them: one tap anywhere on them. */}
+        {choosing ? (
+          <div className="nc-pickw" role="radiogroup" aria-label={tx(p("Which words to save", "कौन से शब्द सहेजें"))}>
+            {tidy ? (
+              <Choice on={pick === "ai"} ai icon="sparkle" title={p("The AI’s clear note", "AI का साफ़ नोट")} onPick={() => props.onPick("ai")} onEdit={props.onEditAi}>
+                <span>
+                  <TypeIn text={tidy} play={!props.typed.includes(tidy)} onDone={() => props.onTyped(tidy)} />
+                </span>
+              </Choice>
+            ) : null}
+            {tr ? (
+              <Choice on={pick === "tr"} ai icon="globe" title={tr.to === "en" ? p("In English, by the AI", "अंग्रेज़ी में, AI ने बदला") : p("In Hindi, by the AI", "हिंदी में, AI ने बदला")} onPick={() => props.onPick("tr")}>
+                <span>
+                  <TypeIn text={tr.value} play={!props.typed.includes(tr.value)} onDone={() => props.onTyped(tr.value)} />
+                </span>
+              </Choice>
+            ) : trBusy ? (
+              <AiBusy title={trBusy.to === "en" ? p("Changing it to English", "अंग्रेज़ी में बदल रहा है") : p("Changing it to Hindi", "हिंदी में बदल रहा है")} says={[]} />
+            ) : null}
+            <Choice on={pick === "mine"} icon="user" title={p("Your own words", "आपके अपने शब्द")} onPick={() => props.onPick("mine")} onEdit={() => flow.go("write")}>
+              <span className="nc-wt">{text}</span>
+            </Choice>
+          </div>
+        ) : (
+          // The words themselves are the way back to them: one tap anywhere on them.
           <button type="button" className="tap nc-words" onClick={() => flow.go("write")}>
-            <span className="nc-wt">{text}</span>
+            <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>
+              <span className="nc-cht">
+                <Ic n="user" size={14} />
+                {tx(p("Your note", "आपका नोट"))}
+              </span>
+              <span className="nc-wt">{text}</span>
+            </span>
             <span className="nc-wedit">
               <Ic n="edit" size={15} />
               {tx(p("Edit", "बदलें"))}
             </span>
           </button>
-          {sorter.tidy || canTranslate ? (
-            <div className="nc-wacts">
-              {sorter.tidy ? (
-                <button type="button" className="tap nc-tidy" aria-label={tx(p("Clearer wording is ready · See", "साफ़ शब्दों में तैयार है · देखें"))} onClick={() => flow.openSub("tidy")}>
-                  <Ic n="sparkle" size={16} />
-                  <span className="nc-e" style={{ flex: 1 }}>{tx(p("Clearer wording is ready", "साफ़ शब्दों में तैयार है"))}</span>
-                  <b>{tx(p("See", "देखें"))}</b>
-                </button>
-              ) : null}
-              {canTranslate ? (
-                <button
-                  type="button"
-                  className="tap nc-tr"
-                  aria-label={tx(translateTarget(text) === "en" ? p("In English", "अंग्रेज़ी में") : p("In Hindi", "हिंदी में"))}
-                  onClick={() => {
-                    translator.run();
-                    flow.openSub("translate");
-                  }}
-                >
-                  <Ic n="globe" size={16} />
-                  <span>{tx(translateTarget(text) === "en" ? p("In English", "अंग्रेज़ी में") : p("In Hindi", "हिंदी में"))}</span>
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+        )}
+        {working ? (
+          <AiBusy
+            title={p("The AI is helping with your note", "AI आपके नोट में मदद कर रहा है")}
+            says={[
+              p("Reading your note…", "आपका नोट पढ़ रहा है…"),
+              p("Seeing what it is about…", "देख रहा है कि नोट किस बारे में है…"),
+              language === "hi" ? p("Writing it in clear Hindi…", "साफ़ हिंदी में लिख रहा है…") : p("Writing it clearly…", "साफ़ शब्दों में लिख रहा है…"),
+            ]}
+          />
+        ) : null}
+        {line ? (
+          <span className={`nc-ai ${line.tone}`} role="status">
+            <Ic n={line.icon} size={14} />
+            {tx(line.text)}
+          </span>
+        ) : null}
+        <div className="nc-sum">
+          {tile("kinds", c.tags[0] ? look[c.tags[0]].icon : "tag", c.tags[0] ? [look[c.tags[0]].bg, look[c.tags[0]].fg] : ["var(--s2)", "var(--mut)"], p("About", "किस बारे में"), kindVal, byAi("tags"))}
+          {tile("follow", "calendar", c.follow ? ["var(--warns)", "var(--warnfg)"] : ["var(--s2)", "var(--mut)"], p("Follow-up", "फिर देखना"), followVal, byAi("follow"))}
+          {tile("readers", c.visibility === "private" ? "lock" : "users", ["var(--infos)", "var(--info)"], p("Who can read it", "कौन पढ़ सकता है"), readVal)}
+          {viewer.parentNotes === false ? null : tile("parents", "message", parentsOn ? ["var(--oks)", "var(--ok)"] : ["var(--s2)", "var(--mut)"], p("Tell parents", "माता-पिता को बताएँ"), parentVal)}
         </div>
-        {row("kinds", c.tags[0] ? look[c.tags[0]].icon : "tag", c.tags[0] ? [look[c.tags[0]].bg, look[c.tags[0]].fg] : ["var(--s2)", "var(--mut)"], p("About", "किस बारे में"), kindVal, mark("tags"))}
-        {row("follow", "calendar", c.follow ? ["var(--warns)", "var(--warnfg)"] : ["var(--s2)", "var(--mut)"], p("Follow-up", "फिर देखना"), followVal, mark("follow"))}
-        {row("readers", c.visibility === "private" ? "lock" : "users", ["var(--infos)", "var(--info)"], p("Who can read it", "कौन पढ़ सकता है"), readVal)}
-        {viewer.parentNotes === false ? null : row("parents", "message", parentsOn ? ["var(--oks)", "var(--ok)"] : ["var(--s2)", "var(--mut)"], p("Tell parents", "माता-पिता को बताएँ"), parentVal)}
-        <span className={`nc-ai ${aiLine.tone}${ai.kind === "working" && ai.text === text ? " busy" : ""}`} role="status">
-          <Ic n={aiLine.icon} size={14} className={ai.kind === "working" && ai.text === text ? "nc-pulse" : undefined} />
-          {tx(aiLine.text)}
-        </span>
+        {canTranslate ? (
+          <button
+            type="button"
+            className="tap nc-trbtn"
+            onClick={() => {
+              translator.run(words);
+              props.onPick("tr");
+            }}
+          >
+            <Ic n="globe" size={18} />
+            {tx(toLang === "en" ? p("Change it to English", "अंग्रेज़ी में बदलें") : p("Change it to Hindi", "हिंदी में बदलें"))}
+          </button>
+        ) : null}
+        {trProblem ? (
+          <span className="nc-note" role="status">
+            <Ic n="info" size={16} />
+            {tx(PROBLEM_TEXT[trProblem])}
+          </span>
+        ) : null}
+        {choosing ? (
+          <span className="nc-meta wrap nc-fine">
+            {tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}
+          </span>
+        ) : null}
       </div>
       <div className="nc-foot nc-savefoot">
-        <SaveBarLine c={c} onSaved={props.onSaved} idle="" style={{ fontSize: 12.5 }} />
-        <div className="nc-f" style={{ gap: 10, width: "100%" }}>
-          <button type="button" className="tap btn sec nt-big nc-ib" aria-label={tx(p("Previous step", "पिछला कदम"))} onClick={() => flow.go("write")}>
-            <Ic n="chevLeft" size={22} />
-          </button>
-          <button type="button" className="tap btn pri nt-big" disabled={c.pending || c.saveUncertain} onClick={props.onSave} style={{ flex: 1 }}>
-            {c.pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="check" size={18} />}
-            {both(p("Save note", "नोट सहेजें"))}
-          </button>
-        </div>
+        <SaveBarLine c={c} onSaved={props.onSaved} retry={props.onSave} idle={idle} style={{ fontSize: 12.5 }} />
+        <button
+          type="button"
+          className={`tap btn pri nt-big nc-save${glow ? " glow" : ""}`}
+          disabled={c.pending || c.saveUncertain}
+          onClick={props.onSave}
+          onAnimationEnd={(e) => {
+            if (e.target === e.currentTarget && glow) props.onLit();
+          }}
+        >
+          {c.pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="check" size={18} />}
+          {both(p("Save note", "नोट सहेजें"))}
+        </button>
       </div>
     </>
   );
@@ -1409,7 +1655,7 @@ function SavedCard(props: CardsProps & { onAgain: () => void; onNew: () => void 
   return (
     <>
       <div className="nc-ch nc-saved">
-        <svg width="52" height="52" viewBox="0 0 96 96" aria-hidden="true" className="nc-tick">
+        <svg width="56" height="56" viewBox="0 0 96 96" aria-hidden="true" className="nc-tick">
           <circle cx="48" cy="48" r="44" style={{ fill: "var(--oks)" }} />
           <circle cx="48" cy="48" r="44" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 5, ["--len" as string]: 276.5, strokeDasharray: 276.5, animation: "xDraw .7s .1s var(--ease) both" }} />
           <path d="M30 49l12 12 24-26" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 7, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: 60, strokeDasharray: 60, animation: "xDraw .45s .5s var(--ease) both" }} />
@@ -1420,7 +1666,7 @@ function SavedCard(props: CardsProps & { onAgain: () => void; onNew: () => void 
         </span>
       </div>
       <div className="nc-body">
-        <p className="nc-quote"><span>{excerpt(note.body, 160)}</span></p>
+        <p className="nc-quote"><span>{excerpt(note.body, 220)}</span></p>
         <div className="nc-chips">
           {note.tags.map((t) => (
             <span key={t} className="pill" style={{ background: look[t].bg, color: look[t].fg }}>
@@ -1512,7 +1758,7 @@ function Context({ c, notes, people, viewer, board }: CardsProps) {
       <aside className="nc-ctx">
         <div className="nc-cbox">
           <h4>{tx(p("How it works", "कैसे काम करता है"))}</h4>
-          {[p("Pick the child", "बच्चा चुनें"), p("Write or speak a line or two", "एक-दो लाइन लिखें या बोलें"), p("Check what the app sorted, and save", "ऐप ने जो छाँटा, जाँचें और सहेजें")].map((s, i) => (
+          {[p("Pick the child from your class list", "कक्षा की सूची से बच्चा चुनें"), p("Speak or type a line or two", "एक-दो लाइन बोलें या लिखें"), p("The AI writes it clearly. Check it and tap Save note", "AI इसे साफ़ लिखता है। जाँचें और नोट सहेजें दबाएँ")].map((s, i) => (
             <span key={s.en} className="nc-line">
               <b className="nc-n">{i + 1}</b>
               {tx(s)}

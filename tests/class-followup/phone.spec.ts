@@ -136,9 +136,12 @@ test('note focus and footer remain reachable after a simulated keyboard viewport
   await info.attach('simulated-keyboard-viewport', { body: JSON.stringify({ physicalKeyboard: false, ...measure }), contentType: 'application/json' });
   expect(measure.height).toBeGreaterThanOrEqual(44); expect(measure.bottom).toBeLessThanOrEqual(measure.viewportHeight);
   expect(measure.ownsCenter).toBe(true); expect(measure.document).toBeLessThanOrEqual(measure.viewportWidth);
-  // Leaving the page keeps the words: the draft comes back when the note is opened again (RULES G).
+  // Leaving the page keeps the words (RULES G). A new note starts empty and offers them back,
+  // rather than pouring them in (D-500): one tap on "Continue this note" brings them back.
   await expect(dialog.getByText(/Kept on this device/)).toBeVisible();
   await page.setViewportSize(before); await page.getByRole('button', { name: 'Back', exact: true }).tap();
   await page.locator('button.nt-fab').tap();
+  await expect(dialog.getByRole('textbox', { name: 'Note', exact: true })).toHaveValue('');
+  await dialog.getByRole('button', { name: 'Continue this note', exact: true }).tap();
   await expect(dialog.getByRole('textbox', { name: 'Note', exact: true })).toHaveValue(WORDS);
 });

@@ -220,11 +220,11 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   const openAdd = () => {
     const kid = scope && props.kids.some((k) => k.id === scope.studentId) ? scope.studentId : open?.note.studentId && props.kids.some((k) => k.id === open.note.studentId) ? open.note.studentId : null;
     // Every note starts empty: the last one's tags and words never carry over
-    // to the next child. An unsaved one is still kept and comes back below.
+    // to the next child. A note left unsaved is kept (RULES G) and offered on
+    // the card with "Continue this note", never filled in by itself.
     composer.reset(false);
     if (kid) composer.pickChild(kid);
-    // A note left unsaved for this child comes back (RULES G: forms keep their drafts), on its words.
-    composer.restoreDraft(kid);
+    composer.checkDraft();
     setSaved(null);
     setAdding(true);
     flow.start(kid ? "write" : "child");
