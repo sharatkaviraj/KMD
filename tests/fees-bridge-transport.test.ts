@@ -60,13 +60,15 @@ describe("canonical Fees transport",()=>{
     const ok=()=>vi.fn().mockResolvedValue(Response.json({version:1,data:{ok:true}}));
     const id="00000000-0000-4000-8000-000000000001";
     for(const path of ["/screens/dues?session=2026-27",`/screens/dues/family?session=2026-27&student=${id}`,
-      `/screens/dues/people?session=2026-27&since=2026-10-16&student=${id}`,"/screens/fee-setup?session=2026-27"]){
+      `/screens/dues/people?session=2026-27&since=2026-10-16&student=${id}`,"/screens/fee-setup?session=2026-27",
+      "/screens/reports/balances?session=2026-27","/screens/reports/receipts?session=2026-27&from=2026-11-01&to=2026-11-07",
+      "/screens/reports/daybook?session=2026-27&date=2026-11-06"]){
       const fetcher=ok();
       expect(await bridgeRequest({...base,path,fetcher})).toEqual({ok:true});
       expect(fetcher.mock.calls[0][0]).toBe(`https://fees.vpps.co.in/api/one/v1${path}`);
       expect(fetcher.mock.calls[0][1]).toMatchObject({method:"GET",cache:"no-store"});
     }
-    for(const path of ["/screens","/screens/reports","/screens/dues/ledger","/screens/fee-setup/publish","/screens/dues/../payments","/screens/duesx"]){
+    for(const path of ["/screens","/screens/reports","/screens/reports/ledger","/screens/reports/../payments","/screens/dues/ledger","/screens/fee-setup/publish","/screens/dues/../payments","/screens/duesx"]){
       await expect(bridgeRequest({...base,path,fetcher:ok()}),path).rejects.toMatchObject({code:"invalid_route"});
     }
   });

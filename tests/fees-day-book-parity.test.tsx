@@ -61,6 +61,7 @@ describe("finance hub", () => {
       expect(hub.querySelector('a[href^="https://fees.vpps.co.in"]')).toBeNull();
       expect(hub.querySelector('a[href="/dues"]')).not.toBeNull();
       expect(hub.querySelector('a[href="/fee-setup"]')).not.toBeNull();
+      expect(hub.querySelector('a[href="/reports"]')).not.toBeNull();
     }
   });
 });

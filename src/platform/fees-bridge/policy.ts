@@ -88,6 +88,9 @@ export function delegatedFeesPath(pathname: string, env: Environment = process.e
   const admission=/^\/admissions\/([0-9a-f-]{36})$/.exec(pathname);
   if(admission)return `/protected/students/${admission[1]}/edit`;
   if (NATIVE_READ_ROUTES.has(pathname)) return null;
+  // Reports is One's own screen and reads Fees itself (7 Nov 2026). Its only
+  // writes are One's own report schedules, so it is not a read-only route.
+  if (pathname === "/reports") return null;
   // These are One-owned homes/CRM. Their source-data adapters keep them here.
   if(pathname==="/accounts" || pathname==="/admissions" || pathname==="/admissions/seats")return null;
   // The single-receipt page validates number + source UUID + session and is

@@ -103,18 +103,27 @@ function usePins(): [string[], (key: string) => void] {
  */
 const DetailedReports = createContext(true);
 
+/** "Live from Fees" when the figures were read from Fees itself (7 Nov 2026). */
+const ReportsNotice = createContext<ReactNode>(null);
+function LiveNotice() {
+  const notice = use(ReportsNotice);
+  return notice ? <div className="pad" style={{ paddingBottom: 0 }}>{notice}</div> : null;
+}
+
 export function Reports({
   data,
   initialSheet,
   initialLeft,
   readOnly,
   detailed = true,
+  notice = null,
 }: {
   data: ReportsPageData;
   initialSheet: ReportsSheet;
   initialLeft: boolean;
   readOnly: boolean;
   detailed?: boolean;
+  notice?: ReactNode;
 }) {
   const [sheet, setSheetState] = useState<ReportsSheet>(initialSheet);
   const setSheet = (s: ReportsSheet) => {
@@ -126,7 +135,11 @@ export function Reports({
   };
   const close = () => setSheet("");
 
-  return <DetailedReports value={detailed}>{reportView(data, sheet, setSheet, close, initialLeft, readOnly)}</DetailedReports>;
+  return (
+    <DetailedReports value={detailed}>
+      <ReportsNotice value={notice}>{reportView(data, sheet, setSheet, close, initialLeft, readOnly)}</ReportsNotice>
+    </DetailedReports>
+  );
 }
 
 function reportView(data: ReportsPageData, sheet: ReportsSheet, setSheet: (s: ReportsSheet) => void, close: () => void, initialLeft: boolean, readOnly: boolean) {
@@ -306,6 +319,7 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
           </>
         }
       />
+      <LiveNotice />
       <Section>
         <label className="only-m rp-f" style={{ height: 46, borderRadius: 23, border: "1px solid var(--bds)", background: "var(--card)", padding: "0 14px", color: "var(--mut)" }}>
           <Ic n="search" />
@@ -407,6 +421,7 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
           </>
         }
       />
+      <LiveNotice />
       <MActs
         items={[
           { icon: "printer", label: tx(T.print), onClick: () => window.print() },
@@ -634,6 +649,7 @@ function DefaultersView({ data, sheet, setSheet, close, initialLeft }: ViewProps
           </>
         }
       />
+      <LiveNotice />
       <MActs
         items={[
           { icon: "printer", label: tx(T.print), onClick: () => window.print() },
@@ -892,6 +908,7 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
           </>
         }
       />
+      <LiveNotice />
       <MActs
         items={[
           { icon: "printer", label: tx(T.print), onClick: () => window.print() },
@@ -1036,6 +1053,7 @@ function DayBookView({ data, sheet, setSheet, close }: ViewProps) {
           </>
         }
       />
+      <LiveNotice />
       <Section>
         <div className="rp-f rp-noprint" style={{ flexWrap: "wrap", gap: 10 }}>
           <Btn icon="chevLeft" onClick={() => shift(-1)} ariaLabel="Day before" />
@@ -1126,6 +1144,7 @@ function ScheduleView({ data, sheet, setSheet, close, readOnly }: ViewProps & { 
           </>
         }
       />
+      <LiveNotice />
       <Section>
         <div className="only-m">
           <Btn variant="pri" icon="plus" onClick={() => setSheet("newsch")} disabled={readOnly}>Schedule a report</Btn>

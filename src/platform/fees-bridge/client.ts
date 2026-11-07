@@ -10,7 +10,8 @@ import {
   bridgeStudentLedgerSchema, bridgeStudentReceiptsSchema, type BridgeWorkspace,
 } from "./student-read-contracts";
 import { composeStudentView } from "./student-view";
-import { bridgeDuesFamilySchema, bridgeDuesPeopleSchema, bridgeDuesSchema, bridgeFeeSetupSchema } from "./screen-read-contracts";
+import { bridgeDuesFamilySchema, bridgeDuesPeopleSchema, bridgeDuesSchema, bridgeFeeSetupSchema,
+  bridgeReportBalancesSchema, bridgeReportDaybookSchema, bridgeReportReceiptsSchema } from "./screen-read-contracts";
 import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import {
   officeCommandStatusSchema, refundDecisionInputSchema, refundDecisionResultSchema, refundProcessInputSchema, refundProcessResultSchema,
@@ -256,6 +257,27 @@ export async function getBridgeFeeSetup(sessionLabel: string) {
   const staff = await assertPermission("fees:view");
   return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
     path:`/screens/fee-setup?${new URLSearchParams({session:sessionLabel})}`,schema:bridgeFeeSetupSchema}),sessionLabel,"fee setup");
+}
+
+/** Reports: every installment balance of the session, its classes and who has left (reports:view in Fees). */
+export async function getBridgeReportBalances(sessionLabel: string) {
+  const staff = await assertPermission("fees:view");
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
+    path:`/screens/reports/balances?${new URLSearchParams({session:sessionLabel})}`,schema:bridgeReportBalancesSchema}),sessionLabel,"report balances");
+}
+
+/** Reports: receipts dated in a window (at most 400 days), write-offs excluded, with the session's classes. */
+export async function getBridgeReportReceipts(sessionLabel: string, from: string, to: string) {
+  const staff = await assertPermission("fees:view");
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
+    path:`/screens/reports/receipts?${new URLSearchParams({session:sessionLabel,from,to})}`,schema:bridgeReportReceiptsSchema}),sessionLabel,"report receipts");
+}
+
+/** Reports: one day of the Fees day book (also needs finance:view in Fees). */
+export async function getBridgeReportDaybook(sessionLabel: string, date: string) {
+  const staff = await assertPermission("fees:view");
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),
+    path:`/screens/reports/daybook?${new URLSearchParams({session:sessionLabel,date})}`,schema:bridgeReportDaybookSchema}),sessionLabel,"day book");
 }
 
 export async function listBridgeStudents(sessionLabel: string, query = "", cursor: string | null = null) {

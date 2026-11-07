@@ -19,8 +19,76 @@ import {
 } from "@/modules/reports/vx/domain/reports";
 import { isPendingOn } from "@/modules/fees/domain/due-rule";
 import { collectionModeOf, isLeft } from "@/modules/reports/vx/domain/reports";
-import { getClasses, getCollectionReceipts, getInstallmentBalances, getReportSchedules } from "@/modules/reports/vx/reports-data";
-import type { CollectionPreset, ReportsPageData, ReportsSheet, ReportsView } from "@/modules/reports/vx/types";
+import { getClasses, getCollectionReceipts, getInstallmentBalances, getReportSchedules, withClassTeachers, type ClassInfo } from "@/modules/reports/vx/reports-data";
+import type { CollectionReceipt } from "@/modules/reports/vx/domain/reports";
+import type { CollectionPreset, DayBookData, ReportsPageData, ReportsSheet, ReportsView } from "@/modules/reports/vx/types";
+import { getBridgeReportBalances, getBridgeReportDaybook, getBridgeReportReceipts } from "@/platform/fees-bridge/client";
+
+/**
+ * Where the rows come from. `copy` is One's fee copy (TEST sessions, test
+ * accounts); `fees` is Fees itself through the bridge, for real staff on a
+ * real session (7 Nov 2026) — never the copy's numbers in its place.
+ */
+type Source = {
+  /** The session's classes when the view's own rows did not bring them. */
+  classes: (session: string) => Promise<ClassInfo[]>;
+  balances: (session: string) => Promise<{ classes: ClassInfo[] | null; balances: InstallmentBalance[] }>;
+  receipts: (session: string, from: string, to: string) => Promise<{ classes: ClassInfo[] | null; receipts: CollectionReceipt[] }>;
+  daybook: (session: string, date: string) => Promise<DayBookData>;
+};
+
+const fromCopy: Source = {
+  classes: getClasses,
+  balances: async (session) => ({ classes: null, balances: await getInstallmentBalances(session) }),
+  receipts: async (_session, from, to) => ({ classes: null, receipts: await getCollectionReceipts(from, to) }),
+  daybook: async (session, date) => {
+    const fc = await getFinanceControlsPageData(date, session);
+    return {
+      date: fc.selectedDate,
+      closure: fc.closure ? { status: fc.closure.status, closedAt: fc.closure.closedAt, closedByName: fc.closure.closedByName } : null,
+      collected: fc.summary.receiptTotal,
+      paidOut: fc.dayBookRows.reduce((s, r) => s + r.cashOut, 0),
+      receiptCount: fc.summary.receiptCount,
+      reversedCount: fc.summary.reversedReceiptCount,
+      rows: fc.dayBookRows.map((r) => ({
+        id: `${r.entryType}-${r.entryId}`,
+        type: r.entryType,
+        postedAt: r.postedAt,
+        studentId: r.studentId,
+        studentName: r.studentName,
+        classLabel: r.classLabel,
+        receiptNumber: r.receiptNumber,
+        mode: r.paymentMode,
+        cashIn: r.cashIn,
+        cashOut: r.cashOut,
+        status: r.statusLabel,
+        tone: r.statusTone,
+        note: r.note,
+      })),
+    };
+  },
+};
+
+/** Fees itself. `seen` collects each read's "read at" so the page can say it. */
+function fromFees(seen: string[]): Source {
+  const at = <T extends { asOf: string }>(r: T) => (seen.push(r.asOf), r);
+  return {
+    classes: async () => [],
+    balances: async (session) => {
+      const r = at(await getBridgeReportBalances(session));
+      return { classes: await withClassTeachers(r.classes, session), balances: r.balances };
+    },
+    receipts: async (session, from, to) => {
+      const r = at(await getBridgeReportReceipts(session, from, to));
+      return { classes: await withClassTeachers(r.classes, session), receipts: r.receipts };
+    },
+    daybook: async (session, date) => {
+      const { sessionLabel: _s, asOf: _a, asOfDate: _d, ...day } = at(await getBridgeReportDaybook(session, date));
+      void _s; void _a; void _d;
+      return day;
+    },
+  };
+}
 
 function defaulterRows(balances: InstallmentBalance[], today: string) {
   return buildDefaulters(balances, today, { includeLeft: true }).map(({ fatherPhone, ...r }) => ({ ...r, phone: maskPhone(fatherPhone) }));
@@ -38,8 +106,12 @@ export async function getReportsPageData(input: {
   date?: string;
   cellClass?: string;
   cellInst?: number;
-}): Promise<ReportsPageData> {
+  /** Read Fees itself through the bridge instead of One's fee copy. */
+  live?: boolean;
+}): Promise<ReportsPageData & { liveAsOf: string | null }> {
   const { view, today, sessionLabel } = input;
+  const seen: string[] = [];
+  const src = input.live ? fromFees(seen) : fromCopy;
   const base: ReportsPageData = {
     today,
     sessionLabel,
@@ -58,19 +130,21 @@ export async function getReportsPageData(input: {
   };
 
   const needsBalances = view === "hub" || view === "defaulters" || view === "classwise";
-  const [classes, balances, schedules] = await Promise.all([
-    getClasses(sessionLabel),
-    needsBalances ? getInstallmentBalances(sessionLabel) : Promise.resolve([] as InstallmentBalance[]),
+  const collectionWindow = view === "collection" ? collectionRange(input.preset, today, sessionLabel, { from: input.from, to: input.to }) : null;
+  const [fromBalances, fromReceipts, schedules] = await Promise.all([
+    needsBalances ? src.balances(sessionLabel) : Promise.resolve({ classes: null, balances: [] as InstallmentBalance[] }),
+    collectionWindow ? src.receipts(sessionLabel, collectionWindow.from, collectionWindow.to) : Promise.resolve(null),
     view === "hub" || view === "schedule" || input.sheet === "newsch" ? getReportSchedules() : Promise.resolve([]),
   ]);
-  base.classes = classes;
+  const balances = fromBalances.balances;
+  base.classes = fromBalances.classes ?? fromReceipts?.classes ?? (await src.classes(sessionLabel));
   base.schedules = schedules;
 
   if (view === "hub") {
     const monthFrom = `${today.slice(0, 7)}-01`;
     const sparkFrom = new Date(Date.parse(`${today}T00:00:00Z`) - 13 * 86_400_000).toISOString().slice(0, 10);
     const from = sparkFrom < monthFrom ? sparkFrom : monthFrom;
-    const receipts = await getCollectionReceipts(from, today);
+    const { receipts } = await src.receipts(sessionLabel, from, today);
     const live = receipts.filter((r) => !r.reversed);
     const todayLive = live.filter((r) => r.paymentDate === today);
     const month = live.filter((r) => r.paymentDate >= monthFrom);
@@ -101,13 +175,11 @@ export async function getReportsPageData(input: {
     };
   }
 
-  if (view === "collection") {
-    const range = collectionRange(input.preset, today, sessionLabel, { from: input.from, to: input.to });
-    const receipts = await getCollectionReceipts(range.from, range.to);
+  if (collectionWindow && fromReceipts) {
     base.collection = {
       preset: input.preset,
-      ...range,
-      receipts: receipts.map((r) => ({ date: r.paymentDate, mode: r.paymentMode, amount: r.amount, classId: r.classId, reversed: r.reversed })),
+      ...collectionWindow,
+      receipts: fromReceipts.receipts.map((r) => ({ date: r.paymentDate, mode: r.paymentMode, amount: r.amount, classId: r.classId, reversed: r.reversed })),
     };
   }
 
@@ -137,31 +209,8 @@ export async function getReportsPageData(input: {
 
   if (view === "daybook") {
     const date = input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date) && input.date <= today ? input.date : today;
-    const fc = await getFinanceControlsPageData(date, sessionLabel);
-    base.daybook = {
-      date: fc.selectedDate,
-      closure: fc.closure ? { status: fc.closure.status, closedAt: fc.closure.closedAt, closedByName: fc.closure.closedByName } : null,
-      collected: fc.summary.receiptTotal,
-      paidOut: fc.dayBookRows.reduce((s, r) => s + r.cashOut, 0),
-      receiptCount: fc.summary.receiptCount,
-      reversedCount: fc.summary.reversedReceiptCount,
-      rows: fc.dayBookRows.map((r) => ({
-        id: `${r.entryType}-${r.entryId}`,
-        type: r.entryType,
-        postedAt: r.postedAt,
-        studentId: r.studentId,
-        studentName: r.studentName,
-        classLabel: r.classLabel,
-        receiptNumber: r.receiptNumber,
-        mode: r.paymentMode,
-        cashIn: r.cashIn,
-        cashOut: r.cashOut,
-        status: r.statusLabel,
-        tone: r.statusTone,
-        note: r.note,
-      })),
-    };
+    base.daybook = await src.daybook(sessionLabel, date);
   }
 
-  return base;
+  return { ...base, liveAsOf: input.live ? ([...seen].sort()[0] ?? null) : null };
 }

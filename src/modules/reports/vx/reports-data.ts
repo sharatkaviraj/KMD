@@ -67,11 +67,23 @@ export async function getInstallmentBalances(sessionLabel: string): Promise<Inst
 /** Classes of the session in the school's order, with the class teacher. */
 export async function getClasses(sessionLabel: string): Promise<ClassInfo[]> {
   const fee = await createFeeClient();
+  const { data: classRows } = await fee.from("classes").select("id, class_name, section, stream_name, sort_order").eq("session_label", sessionLabel).order("sort_order");
+  return withClassTeachers(((classRows ?? []) as Row[]).map((c) => ({
+    id: String(c.id), className: String(c.class_name ?? ""), section: str(c.section), streamName: str(c.stream_name), sortOrder: num(c.sort_order),
+  })), sessionLabel);
+}
+
+/**
+ * Names each class and adds its class teacher from One's own records. The
+ * classes may be Fees' own (read through the bridge); a class One does not
+ * know by that id simply has no teacher listed.
+ */
+export async function withClassTeachers(
+  classes: { id: string; className: string; section: string | null; streamName: string | null; sortOrder: number }[],
+  sessionLabel: string,
+): Promise<ClassInfo[]> {
   const app = await createAppClient();
-  const [{ data: classRows }, { data: teacherRows }] = await Promise.all([
-    fee.from("classes").select("id, class_name, section, stream_name, sort_order").eq("session_label", sessionLabel).order("sort_order"),
-    app.from("class_teachers").select("class_id, staff_profile_id, role").eq("session_label", sessionLabel).is("effective_to", null),
-  ]);
+  const { data: teacherRows } = await app.from("class_teachers").select("class_id, staff_profile_id, role").eq("session_label", sessionLabel).is("effective_to", null);
   const teachers = ((teacherRows ?? []) as Row[]).filter((t) => t.role === "class_teacher" || !t.role);
   const staffIds = [...new Set(teachers.map((t) => String(t.staff_profile_id)))];
   const { data: staffRows } = await fetchInChunks<Row>(staffIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
@@ -79,12 +91,12 @@ export async function getClasses(sessionLabel: string): Promise<ClassInfo[]> {
   );
   const staffBy = new Map(staffRows.map((s) => [String(s.id), s]));
   const teacherBy = new Map(teachers.map((t) => [String(t.class_id), staffBy.get(String(t.staff_profile_id))]));
-  return ((classRows ?? []) as Row[]).map((c) => {
-    const t = teacherBy.get(String(c.id));
+  return [...classes].sort((a, b) => a.sortOrder - b.sortOrder).map((c) => {
+    const t = teacherBy.get(c.id);
     return {
-      id: String(c.id),
-      label: [c.class_name, c.stream_name, c.section].filter(Boolean).join(" "),
-      sortOrder: num(c.sort_order),
+      id: c.id,
+      label: [c.className, c.streamName, c.section].filter(Boolean).join(" "),
+      sortOrder: c.sortOrder,
       teacher: t ? String(t.display_name ?? "") : null,
       teacherPhone: t ? str(t.whatsapp_phone ?? t.phone) : null,
     };

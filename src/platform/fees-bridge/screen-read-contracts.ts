@@ -78,3 +78,43 @@ export const bridgeFeeSetupSchema = z.object({
   updatedAt: nullableText,
 });
 export type BridgeFeeSetup = z.infer<typeof bridgeFeeSetupSchema>;
+
+// Fees report reads (schoolfees docs/one-bridge/report-reads.md): the rows
+// behind One's own Reports screen. One does the arranging.
+const reportClass = z.object({ id: text, className: text, section: nullableText, streamName: nullableText, sortOrder: z.number().finite() });
+
+export const bridgeReportBalancesSchema = z.object({
+  ...pins,
+  classes: z.array(reportClass),
+  balances: z.array(z.object({
+    studentId: text, studentName: text, admissionNo: nullableText, fatherName: nullableText, fatherPhone: nullableText,
+    classId: nullableText, classLabel: text, installmentNo: z.number().int(), dueDate: text,
+    pendingAmount: amount, lateFeePending: amount, studentStatus: text, isCarryForward: z.boolean(),
+  })),
+});
+export type BridgeReportBalances = z.infer<typeof bridgeReportBalancesSchema>;
+
+export const bridgeReportReceiptsSchema = z.object({
+  ...pins,
+  from: text,
+  to: text,
+  classes: z.array(reportClass),
+  receipts: z.array(z.object({ paymentDate: text, paymentMode: text, amount, classId: nullableText, reversed: z.boolean() })),
+});
+export type BridgeReportReceipts = z.infer<typeof bridgeReportReceiptsSchema>;
+
+export const bridgeReportDaybookSchema = z.object({
+  ...pins,
+  date: text,
+  closure: z.object({ status: text, closedAt: nullableText, closedByName: nullableText }).nullable(),
+  collected: amount,
+  paidOut: amount,
+  receiptCount: count,
+  reversedCount: count,
+  rows: z.array(z.object({
+    id: text, type: z.enum(["collection", "refund", "correction"]), postedAt: text, studentId: nullableText, studentName: text,
+    classLabel: nullableText, receiptNumber: nullableText, mode: nullableText, cashIn: amount, cashOut: amount,
+    status: text, tone: z.enum(["good", "warning", "neutral", "accent"]), note: nullableText,
+  })),
+});
+export type BridgeReportDaybook = z.infer<typeof bridgeReportDaybookSchema>;
