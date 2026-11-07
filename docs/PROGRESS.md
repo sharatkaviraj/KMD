@@ -125,6 +125,15 @@ which on a phone looks switched off. It now stays solid and a ring grows
 off it and fades, four times, then rests (none with reduced motion). The
 help pictures of the button do the same. Test:
 `tests/teacher-mark-attendance-call.test.ts`.
+**Live and on BrowserStack:** PR 304 went live at 17:51 UTC (`578a12e`).
+It was checked at 360 px as QA teacher and QA teacher 2, then on BrowserStack
+on a real Galaxy M32 (Chrome) and on Windows 11 Chrome, and every check
+passed. My tasks names each exam, with First formative first. Subjects read
+in Hindi. The Mark attendance button stays at full opacity, and its ring is
+gone after about 10 s. No Class 11 or 12 card says "No paper yet".
+"Attendance" fits under the centre tab, and nothing scrolls sideways.
+Still there: leftover `phoneops-20261011` test tasks show under their raw
+titles on QA teacher's To do list (TEST data only).
 
 ## Today looks the same in the real year, with one widget style — 7 November 2026
 
