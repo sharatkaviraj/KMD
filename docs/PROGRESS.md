@@ -16,6 +16,13 @@ teacher's More hold the Sounds, Vibration (Android only) and Read aloud
 switches, kept on the device. Every Help sheet has a Listen button that reads
 the steps aloud in Hindi or English and lights the step it is on, and a
 screen's Help button ripples on the first three visits until it is opened.
+Live in PRs 280 and 281 (Vibration offered only where the pointer is a
+finger). Checked on BrowserStack, Windows 11 Chrome and a real Galaxy M32:
+switches, Help ripple and Listen work. The phone's first Listen tap said "no
+voice" although Hindi was installed, because a sleeping speech engine took
+longer than 1.2 s to list its voices; Listen now speaks by language when the
+list is still empty, and says the device could not read the words only when
+speaking actually fails or nothing starts within 8 s.
 **Remains:** notes screens are the notes thread's (it imports the same
 helper); iPhones cannot vibrate from a web page, so they get the chime only.
 

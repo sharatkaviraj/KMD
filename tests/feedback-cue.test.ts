@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CUE_SOUND, CUE_VIBRATION, cue, emptyCueHistory, primeFeedback, resetCueStateForTests, RESULT_WINDOW_MS, shouldCue, type CueHistory } from "@/ui/feedback/cue";
 import { FEEDBACK_DEFAULTS, FEEDBACK_KEY, parseFeedbackPrefs, writeFeedbackPrefs } from "@/ui/feedback/prefs";
-import { langOf, pickVoice, speakable } from "@/ui/feedback/speak";
+import { langOf, pickVoice, speakable, speakLines, START_WATCHDOG_MS, stopSpeaking, VOICE_WAIT_MS } from "@/ui/feedback/speak";
 import { TONES, toneLength } from "@/ui/feedback/tones";
 import { toastCue } from "@/vx/ui/overlays";
 
@@ -164,5 +164,139 @@ describe("reading aloud", () => {
     expect(pickVoice(voices, "hi")?.name).toBe("Hindi");
     expect(pickVoice(voices, "en")?.name).toBe("India");
     expect(pickVoice([{ lang: "en-GB", name: "UK", localService: true }], "hi")).toBeNull();
+  });
+});
+
+/*
+ * A fake speech engine, enough for speakLines: a voice list that can load
+ * late, and utterances whose start, end and error the test fires by hand.
+ */
+type FakeUtterance = {
+  text: string;
+  lang: string;
+  voice: unknown;
+  rate: number;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+};
+
+function installFakeSpeech(initialVoices: { lang: string; name: string; localService: boolean }[]) {
+  let voices = initialVoices;
+  const spoken: FakeUtterance[] = [];
+  const listeners = new Set<() => void>();
+  const synth = {
+    getVoices: () => voices,
+    speak: (u: FakeUtterance) => spoken.push(u),
+    cancel: vi.fn(() => {
+      const queued = spoken.splice(0);
+      queued.forEach((u) => u.onerror?.({ error: "canceled" }));
+    }),
+    addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+    removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
+  };
+  class Utterance {
+    lang = "";
+    voice: unknown = null;
+    rate = 1;
+    onstart: (() => void) | null = null;
+    onend: (() => void) | null = null;
+    onerror: ((e: { error: string }) => void) | null = null;
+    constructor(public text: string) {}
+  }
+  Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+  Object.defineProperty(window, "SpeechSynthesisUtterance", { value: Utterance, configurable: true });
+  return {
+    synth,
+    spoken,
+    loadVoices(next: typeof voices) {
+      voices = next;
+      listeners.forEach((fn) => fn());
+    },
+  };
+}
+
+describe("speakLines on a real phone", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    stopSpeaking();
+    vi.useRealTimers();
+    Reflect.deleteProperty(window, "speechSynthesis");
+    Reflect.deleteProperty(window, "SpeechSynthesisUtterance");
+  });
+
+  it("speaks by language when the voice list is still empty, instead of saying there is no voice", async () => {
+    const fake = installFakeSpeech([]);
+    const run = speakLines(["पहला कदम", "दूसरा कदम"]);
+    await vi.advanceTimersByTimeAsync(VOICE_WAIT_MS + 10);
+    expect(await run).toBe(true);
+    expect(fake.spoken.map((u) => u.lang)).toEqual(["hi-IN", "hi-IN"]);
+    expect(fake.spoken[0].voice).toBeNull();
+  });
+
+  it("starts as soon as late voices arrive and picks the Hindi one", async () => {
+    const fake = installFakeSpeech([]);
+    const run = speakLines(["पहला कदम"]);
+    await vi.advanceTimersByTimeAsync(20);
+    fake.loadVoices([{ lang: "hi_IN", name: "Hindi India", localService: true }]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await run).toBe(true);
+    expect((fake.spoken[0].voice as { name: string }).name).toBe("Hindi India");
+  });
+
+  it("says no voice only when the loaded list has none for the words", async () => {
+    const fake = installFakeSpeech([{ lang: "en-US", name: "US", localService: true }]);
+    expect(await speakLines(["पहला कदम"])).toBe(false);
+    expect(fake.spoken).toHaveLength(0);
+  });
+
+  it("reports a failure before the first word, so the button does not sit on Stop", async () => {
+    const fake = installFakeSpeech([]);
+    const onEnd = vi.fn();
+    const onFail = vi.fn();
+    const run = speakLines(["पहला कदम", "दूसरा कदम"], { onEnd, onFail });
+    await vi.advanceTimersByTimeAsync(VOICE_WAIT_MS + 10);
+    await run;
+    fake.spoken[0].onerror?.({ error: "language-unavailable" });
+    expect(onFail).toHaveBeenCalledTimes(1);
+    expect(onEnd).not.toHaveBeenCalled();
+    expect(fake.synth.cancel).toHaveBeenCalled();
+  });
+
+  it("gives up when nothing starts at all", async () => {
+    installFakeSpeech([{ lang: "hi-IN", name: "Hindi", localService: true }]);
+    const onFail = vi.fn();
+    await speakLines(["पहला कदम"], { onFail });
+    await vi.advanceTimersByTimeAsync(START_WATCHDOG_MS + 10);
+    expect(onFail).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a Stop as an ending, never as a missing voice", async () => {
+    const fake = installFakeSpeech([{ lang: "hi-IN", name: "Hindi", localService: true }]);
+    const onLine = vi.fn();
+    const onEnd = vi.fn();
+    const onFail = vi.fn();
+    await speakLines(["पहला कदम", "दूसरा कदम"], { onLine, onEnd, onFail });
+    fake.spoken[0].onstart?.();
+    expect(onLine).toHaveBeenCalledWith(0);
+    stopSpeaking();
+    expect(onFail).not.toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(START_WATCHDOG_MS + 10);
+    expect(onFail).not.toHaveBeenCalled();
+  });
+
+  it("never starts a run that was stopped while it waited for voices", async () => {
+    const fake = installFakeSpeech([]);
+    const onEnd = vi.fn();
+    const run = speakLines(["पहला कदम"], { onEnd });
+    stopSpeaking();
+    await vi.advanceTimersByTimeAsync(VOICE_WAIT_MS + 10);
+    await run;
+    expect(fake.spoken).toHaveLength(0);
+    expect(onEnd).toHaveBeenCalledTimes(1);
   });
 });

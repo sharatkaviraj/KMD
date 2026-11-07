@@ -12,8 +12,8 @@ const SAY = {
   listen: p("Listen", "सुनें"),
   stop: p("Stop", "रोकें"),
   noVoice: p(
-    "This phone has no voice for these words. Add Hindi under the phone's text-to-speech settings.",
-    "इस फ़ोन में इन शब्दों की आवाज़ नहीं है। फ़ोन की ‘टेक्स्ट-टू-स्पीच’ सेटिंग में हिंदी जोड़ें।",
+    "This device could not read these words aloud. In the device's settings, open text-to-speech and add the language.",
+    "यह डिवाइस इन शब्दों को पढ़कर नहीं सुना पाया। डिवाइस की सेटिंग में ‘टेक्स्ट-टू-स्पीच’ खोलकर भाषा जोड़ें।",
   ),
 };
 
@@ -41,6 +41,8 @@ export function ListenButton({
   const [speaking, setSpeaking] = useState(false);
   const [noVoice, setNoVoice] = useState(false);
   const mine = useRef(false);
+  // Each tap is its own run; a late callback from an older run is ignored.
+  const run = useRef(0);
   const lineRef = useRef(onLine);
   useEffect(() => {
     lineRef.current = onLine;
@@ -55,31 +57,38 @@ export function ListenButton({
 
   if (!able) return null;
 
-  const stop = () => {
+  const settle = (noVoiceNow: boolean) => {
+    run.current += 1;
     mine.current = false;
-    stopSpeaking();
     setSpeaking(false);
     lineRef.current?.(null);
+    if (noVoiceNow) setNoVoice(true);
+  };
+
+  const stop = () => {
+    settle(false);
+    stopSpeaking();
   };
 
   const start = async () => {
     cue("tap");
     setNoVoice(false);
+    const my = ++run.current;
+    const live = () => run.current === my;
     mine.current = true;
     setSpeaking(true);
     const ok = await speakLines(lines, {
-      onLine: (i) => lineRef.current?.(i),
+      onLine: (i) => {
+        if (live()) lineRef.current?.(i);
+      },
       onEnd: () => {
-        mine.current = false;
-        setSpeaking(false);
-        lineRef.current?.(null);
+        if (live()) settle(false);
+      },
+      onFail: () => {
+        if (live()) settle(true);
       },
     });
-    if (!ok) {
-      mine.current = false;
-      setSpeaking(false);
-      setNoVoice(true);
-    }
+    if (!ok && live()) settle(true);
   };
 
   return (
