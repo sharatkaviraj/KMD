@@ -122,7 +122,10 @@
 .famx-money{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:14px;font-weight:700;text-align:right}
 .famx-late{font-size:12px;color:var(--warnfg)}
 .famx-leaving{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border-radius:14px;background:var(--s2)}
-.famx-leaving>svg{color:var(--mut)}
+.famx-leaving>.famx-who{flex:1 1 150px}
+.famx-goes{display:inline-flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0}
+.famx-goes>svg{flex:none;color:var(--mut)}
+.famx-goes>.famx-tag{align-self:center}
 .famx-warn{margin:0;display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--warns);color:var(--warnfg);font-size:14px;font-weight:600;line-height:1.4;text-align:left}
 .famx-working,.famx-saved{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:220px;padding:20px 8px;text-align:center}
 .famx-working>strong,.famx-saved>strong{font-size:17px;line-height:1.35;max-width:420px}
