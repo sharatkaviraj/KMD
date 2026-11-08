@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { isStaffRole } from "@/platform/auth/permissions";
 import { createAdminClient } from "@/platform/supabase/admin";
 import {
@@ -106,7 +107,7 @@ export async function addStaffAction(input: {
   if (clash) return fail(p(`Short name already used by ${clash.displayName}`, `यह संक्षिप्त नाम ${clash.displayName} के पास है`));
 
   try {
-    const created = await createStaff(parsed.data, actor.userId, { isTestAccount: actor.isTestAccount === true });
+    const created = await createStaff(parsed.data, actor.userId, { isTestAccount: actor.isTestAccount === true || (await viewingTestSession()) });
     revalidatePath("/staff");
     return { ok: true, message: p(`${created.displayName} added`, `${created.displayName} जोड़े गए`), staffId: created.id };
   } catch {

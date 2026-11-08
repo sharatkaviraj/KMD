@@ -3,6 +3,7 @@ import "server-only";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import type {
   CoverPolicy,
   CoverPolicyInput,
@@ -16,12 +17,12 @@ type PolicyRow = {
   cover_role: CoverRole;
   max_auto_covers: number;
   note: string | null;
-  staff_profiles: { display_name: string; short_name: string } | null;
+  staff_profiles: { display_name: string; short_name: string; is_test_account?: boolean | null } | null;
 };
 
 const COLUMNS =
   "id, staff_profile_id, allowed_periods, cover_role, max_auto_covers, note, " +
-  "staff_profiles!inner(display_name, short_name)";
+  "staff_profiles!inner(display_name, short_name, is_test_account)";
 
 export async function listCoverPolicies(
   sessionLabel: string,
@@ -31,6 +32,9 @@ export async function listCoverPolicies(
     .from("cover_policies")
     .select(COLUMNS)
     .eq("session_label", sessionLabel)
+    // The session's own kind of staff (owner, 8 Nov 2026): no practice
+    // account's policy in the real year, no real person's in TEST.
+    .eq("staff_profiles.is_test_account", isTestSessionLabel(sessionLabel))
     .returns<PolicyRow[]>();
 
   if (error) throw new Error(`Could not read the cover policies: ${error.message}`);

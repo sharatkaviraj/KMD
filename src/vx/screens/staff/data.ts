@@ -3,6 +3,7 @@ import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can, staffRoles, type StaffRole } from "@/platform/auth/permissions";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
@@ -17,6 +18,14 @@ export type StaffEvent = { id: string; staffId: string; at: string; text: Pair; 
 
 export type StaffScreenData = {
   sessionLabel: string | null;
+  /**
+   * A real member of staff (the admin) is looking at the test session's list,
+   * which holds test accounts only (owner, 8 Nov 2026). The screen says so, so
+   * an admin who left the pill on TEST-2026-27 knows why the real staff are
+   * missing and that anyone added now is a test account. A test account is
+   * never anywhere else, so it is not told.
+   */
+  testSession: boolean;
   rows: StaffRow[];
   /** Periods per weekday (Mon..Sat) for each staff member, from the live timetable. */
   load: Record<string, number[]>;
@@ -59,7 +68,7 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
   const admin = createAdminClient();
   const today = schoolToday();
 
-  const [people, users, matrixRows, classTeacherRows, published, labels, subjects, authorityRows] = await Promise.all([
+  const [people, users, matrixRows, classTeacherRows, published, labels, subjects, authorityRows, testSession] = await Promise.all([
     listStaff(),
     authUsers().catch(() => new Map<string, AuthInfo>()),
     admin.from("role_permissions").select("role, permission").returns<{ role: string; permission: string }[]>(),
@@ -79,6 +88,7 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
       .order("changed_at", { ascending: false })
       .limit(200)
       .returns<{ id: string; staff_profile_id: string; actor_staff_id: string | null; from_role: string; to_role: string; from_active: boolean; to_active: boolean; reason: string | null; changed_at: string }[]>(),
+    viewingTestSession(),
   ]);
 
   const slots = published ? await listSlots(published.id) : [];
@@ -141,7 +151,9 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
   for (const row of rows) if (row.isActive) roleCounts[row.role] += 1;
 
   const nameOf = new Map(rows.map((r) => [r.id, r.name]));
-  const events: StaffEvent[] = (authorityRows.data ?? []).map((row) => ({
+  // Only the history of people this session lists: a test account's changes
+  // stay with the test session, as the account does.
+  const events: StaffEvent[] = (authorityRows.data ?? []).filter((row) => nameOf.has(row.staff_profile_id)).map((row) => ({
     id: row.id,
     staffId: row.staff_profile_id,
     at: row.changed_at,
@@ -160,6 +172,7 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
 
   return {
     sessionLabel,
+    testSession: testSession && me.isTestAccount !== true,
     rows,
     load,
     matrix: matrixFromRows(matrixRows.data ?? []),

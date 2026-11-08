@@ -2,6 +2,7 @@ import "server-only";
 
 import { assertStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { assertActorSession, type VerifiedActor } from "@/platform/auth/verified-actor";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
@@ -17,12 +18,12 @@ type AbsenceRow = {
   day: string;
   periods: number[];
   reason: string | null;
-  staff_profiles: { display_name: string; short_name: string } | null;
+  staff_profiles: { display_name: string; short_name: string; is_test_account?: boolean | null } | null;
 };
 
 const COLUMNS =
   "id, staff_profile_id, day, periods, reason, " +
-  "staff_profiles!teacher_absences_staff_profile_id_fkey!inner(display_name, short_name)";
+  "staff_profiles!teacher_absences_staff_profile_id_fkey!inner(display_name, short_name, is_test_account)";
 
 /**
  * Who is away on a day.
@@ -65,6 +66,8 @@ async function readAbsences(sessionLabel: string, day: string, showReason: boole
     .select(COLUMNS)
     .eq("session_label", sessionLabel)
     .eq("day", day)
+    // The session's own kind of staff (owner, 8 Nov 2026).
+    .eq("staff_profiles.is_test_account", isTestSessionLabel(sessionLabel))
     .returns<AbsenceRow[]>();
 
   if (error) throw new Error(`Could not read the absences: ${error.message}`);

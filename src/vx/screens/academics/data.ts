@@ -123,11 +123,17 @@ export async function studentInfo(ids: string[]): Promise<Map<string, { name: st
   return new Map(data.map((row) => [row.id, { name: row.full_name, father: row.father_name, phone: row.primary_phone, dob: row.date_of_birth, sr: row.admission_no ?? null }]));
 }
 
+/**
+ * Every profile by id — a NAME lookup for rows that already belong to one
+ * session. Anything that lists, counts or offers people from it filters by
+ * `staffBelongsToSession(row.is_test_account, session)` first (owner, 8 Nov
+ * 2026), so a QA account never appears in a real picker or headcount.
+ */
 export const staffDirectory = cache(async () => {
   const { data, error } = await createAdminClient()
     .from("staff_profiles")
-    .select("id, display_name, short_name, role, is_active, is_teaching, phone, whatsapp_phone")
-    .returns<{ id: string; display_name: string; short_name: string | null; role: string; is_active: boolean; is_teaching: boolean; phone: string | null; whatsapp_phone: string | null }[]>();
+    .select("id, display_name, short_name, role, is_active, is_teaching, phone, whatsapp_phone, is_test_account")
+    .returns<{ id: string; display_name: string; short_name: string | null; role: string; is_active: boolean; is_teaching: boolean; phone: string | null; whatsapp_phone: string | null; is_test_account: boolean | null }[]>();
   if (error) throw new Error(`Could not read the staff: ${error.message}`);
   return new Map(data.map((row) => [row.id, row]));
 });

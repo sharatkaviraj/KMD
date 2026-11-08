@@ -1,5 +1,6 @@
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
+import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 
@@ -64,7 +65,7 @@ export async function AcadProgress(props: Props) {
   };
   const staffList = async () =>
     [...(await staffDirectory()).values()]
-      .filter((s) => s.is_active && s.is_teaching !== false)
+      .filter((s) => s.is_active && s.is_teaching !== false && staffBelongsToSession(s.is_test_account, ctx.session))
       .map((s) => ({ id: s.id, name: s.display_name }))
       .sort((x, y) => x.name.localeCompare(y.name));
 

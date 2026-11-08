@@ -29,6 +29,7 @@ export default async function StaffPage({
       roleCounts={data.roleCounts}
       events={data.events}
       sessionLabel={data.sessionLabel}
+      testSession={data.testSession}
       mayManage={data.mayManage}
       isAdmin={data.isAdmin}
       mayEditMatrix={data.mayEditMatrix}

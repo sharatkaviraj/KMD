@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { shortDay } from "@/vx/format";
@@ -91,6 +92,9 @@ export async function loadSheet(paperId: string, known?: { exams?: Exam[]; paper
       .select("display_name")
       .eq("role", "exam_coordinator")
       .eq("is_active", true)
+      // The exam's own session's coordinator (owner, 8 Nov 2026): never the
+      // QA test coordinator on a real exam.
+      .eq("is_test_account", isTestSessionLabel(exam.session_label))
       .order("created_at")
       .limit(1)
       .maybeSingle<{ display_name: string }>(),

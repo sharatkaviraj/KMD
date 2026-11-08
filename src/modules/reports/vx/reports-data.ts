@@ -9,6 +9,7 @@ import { createClient as createFeeClient } from "@/modules/fees/platform/supabas
 import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/data/reversals";
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
 import { createVppsoneReader as createAppClient } from "@/modules/finance-controls/vx/app-db";
 
 import type { CollectionReceipt, InstallmentBalance } from "@/modules/reports/vx/domain/reports";
@@ -127,13 +128,20 @@ export async function getCollectionReceipts(from: string, to: string): Promise<C
   }));
 }
 
-export async function getReportSchedules(): Promise<ReportSchedule[]> {
+/**
+ * The schedules of the session being looked at. A schedule carries no
+ * session, so it follows the person who set it up (owner, 8 Nov 2026): the QA
+ * admin's practice schedules stay in the test session.
+ */
+export async function getReportSchedules(sessionLabel: string): Promise<ReportSchedule[]> {
   const app = await createAppClient();
   const { data } = await app
     .from("acc_report_schedules")
-    .select("id, report_key, title, recipients, frequency, weekday, send_time, format, active, last_sent_at")
+    .select("id, report_key, title, recipients, frequency, weekday, send_time, format, active, last_sent_at, maker:staff_profiles!acc_report_schedules_created_by_fkey(is_test_account)")
     .order("created_at");
-  return ((data ?? []) as Row[]).map((r) => ({
+  return ((data ?? []) as Row[])
+    .filter((r) => staffBelongsToSession(((r.maker ?? null) as { is_test_account?: boolean | null } | null)?.is_test_account === true, sessionLabel))
+    .map((r) => ({
     id: String(r.id),
     reportKey: r.report_key as ReportSchedule["reportKey"],
     title: String(r.title),

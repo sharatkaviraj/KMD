@@ -134,7 +134,7 @@ export async function getReportsPageData(input: {
   const [fromBalances, fromReceipts, schedules] = await Promise.all([
     needsBalances ? src.balances(sessionLabel) : Promise.resolve({ classes: null, balances: [] as InstallmentBalance[] }),
     collectionWindow ? src.receipts(sessionLabel, collectionWindow.from, collectionWindow.to) : Promise.resolve(null),
-    view === "hub" || view === "schedule" || input.sheet === "newsch" ? getReportSchedules() : Promise.resolve([]),
+    view === "hub" || view === "schedule" || input.sheet === "newsch" ? getReportSchedules(sessionLabel) : Promise.resolve([]),
   ]);
   const balances = fromBalances.balances;
   base.classes = fromBalances.classes ?? fromReceipts?.classes ?? (await src.classes(sessionLabel));

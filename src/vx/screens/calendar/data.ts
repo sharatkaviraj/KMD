@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { WHATSAPP_MESSAGE_COST_RUPEES } from "@/modules/whatsapp/domain/run-measurement";
 import { studentInfo, staffDirectory } from "@/vx/screens/academics/data";
@@ -117,7 +118,7 @@ export async function audienceSize(session: string, classIds: string[]): Promise
   const [roll, staff] = await Promise.all([enrolledFor(session), staffDirectory()]);
   const wanted = new Set(classIds);
   const parents = roll.filter((r) => wanted.size === 0 || wanted.has(r.class_id)).length;
-  return { parents, staff: [...staff.values()].filter((s) => s.is_active).length };
+  return { parents, staff: [...staff.values()].filter((s) => s.is_active && staffBelongsToSession(s.is_test_account, session)).length };
 }
 
 /** About what a WhatsApp notice costs, in paise. */

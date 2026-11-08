@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   actor: null as null | { id: string; userId: string; role: string; isTestAccount?: boolean; language: string },
   previewing: false,
+  testSession: false,
   testProfiles: new Set<string>(),
   created: vi.fn(),
   updated: vi.fn(),
@@ -32,6 +33,9 @@ vi.mock("@/platform/auth/current-staff", () => ({
     if (!state.actor) throw new Error("Not signed in.");
     return state.actor;
   },
+}));
+vi.mock("@/platform/auth/staff-scope", () => ({
+  viewingTestSession: async () => state.testSession,
 }));
 vi.mock("@/vx/view-as", () => ({
   assertNotPreviewing: async () => {
@@ -92,6 +96,7 @@ const IDLE = { status: "idle" as const, fieldErrors: {}, message: null };
 beforeEach(() => {
   vi.clearAllMocks();
   state.previewing = false;
+  state.testSession = false;
   state.testProfiles = new Set([TEST]);
   state.rpcResult = { data: { ok: true }, error: null };
 });
@@ -105,6 +110,15 @@ describe("a test account manages only test accounts", () => {
     as("admin", false);
     await expect(createStaffAction(IDLE, form({ ...PROFILE, shortName: "PRC" }))).rejects.toThrow("NEXT_REDIRECT /staff");
     expect(state.created).toHaveBeenLastCalledWith(expect.anything(), "u", { isTestAccount: false });
+  });
+
+  // Owner, 8 Nov 2026: the test session holds test accounts only, so a real
+  // admin adding somebody while looking at TEST-2026-27 adds a practice account.
+  it("a real admin in a test session adds a test account", async () => {
+    as("admin", false);
+    state.testSession = true;
+    await expect(createStaffAction(IDLE, form({ ...PROFILE, shortName: "PRD" }))).rejects.toThrow("NEXT_REDIRECT /staff");
+    expect(state.created).toHaveBeenLastCalledWith(expect.anything(), "u", { isTestAccount: true });
   });
 
   it("a test admin cannot edit a real profile, and can edit a test one", async () => {

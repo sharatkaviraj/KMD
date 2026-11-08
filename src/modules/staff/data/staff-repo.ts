@@ -3,6 +3,7 @@ import "server-only";
 import { assertStaff } from "@/platform/auth/current-staff";
 import { can, resolveStaffRole, type StaffRole } from "@/platform/auth/permissions";
 import { assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { revokeStaffAiConnections } from "@/modules/mcp/data/connections";
 import { resolveLanguage } from "@/platform/i18n/language";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -68,24 +69,36 @@ async function readerSeesContact(): Promise<boolean> {
   return can(reader, "staff:view");
 }
 
+/**
+ * The staff of the session being looked at (owner, 8 Nov 2026): in the real
+ * year only real staff, in a test session only test accounts — never both,
+ * whoever is looking (`staffBelongsToSession`). Every screen that lists,
+ * counts or picks colleagues comes through here, so a QA account can no
+ * longer turn up in a live staff list, picker or headcount. A real admin who
+ * needs the test accounts switches the session pill to TEST-2026-27.
+ */
 export async function listStaff(): Promise<StaffProfile[]> {
-  return readStaffList(await readerSeesContact());
+  const [showContact, testSession] = await Promise.all([readerSeesContact(), viewingTestSession()]);
+  return readStaffList(showContact, testSession);
 }
 
 /**
  * `listStaff` for a member of staff verified by the AI connection: names to
  * any active staff, phone numbers withheld always — the AI connection's
- * projections never carry one, so it never reads one (plan §4.3).
+ * projections never carry one, so it never reads one (plan §4.3). The actor's
+ * own session decides whose names: a real actor reads the real year
+ * (`sessionLabelForActor`), a test actor TEST-2026-27.
  */
 export async function listStaffAs(actor: VerifiedActor): Promise<StaffProfile[]> {
-  assertActorStaff(actor);
-  return readStaffList(false);
+  const staff = assertActorStaff(actor);
+  return readStaffList(false, staff.isTestAccount === true);
 }
 
-async function readStaffList(showContact: boolean): Promise<StaffProfile[]> {
+async function readStaffList(showContact: boolean, testAccounts: boolean): Promise<StaffProfile[]> {
   const { data, error } = await createAdminClient()
     .from("staff_profiles")
     .select(COLUMNS)
+    .eq("is_test_account", testAccounts)
     .order("display_name")
     // The column list is a constant string, so supabase-js cannot infer the
     // row shape from it. Row is asserted here, next to the SELECT it belongs to.

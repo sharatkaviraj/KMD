@@ -312,7 +312,9 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
     })),
     // A teacher sees her own requests and who is away on approved leave — never a
     // colleague's request still waiting for a decision (admin run, 20 Oct).
-    leave: (leaveRows.data ?? []).filter((l) => mayCover || l.staff_profile_id === me.id || l.status === "approved").map((l) => ({
+    // Only people of this session (the staff list is already the session's
+    // own kind): a practice-day leave for a real teacher never shows in TEST.
+    leave: (leaveRows.data ?? []).filter((l) => nameOf.has(l.staff_profile_id) && (mayCover || l.staff_profile_id === me.id || l.status === "approved")).map((l) => ({
       id: l.id,
       staffId: l.staff_profile_id,
       name: nameOf.get(l.staff_profile_id) ?? "—",

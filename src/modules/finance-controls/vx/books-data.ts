@@ -16,6 +16,7 @@ import "server-only";
 const createFeeClient = async () => createAdminClient();
 
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
+import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
 import { getFinanceControlsPageData } from "@/modules/finance-controls/data/queries";
 import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/data/reversals";
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
@@ -224,7 +225,18 @@ async function readRequests(staffId: string, all: boolean, limit = 60): Promise<
 }
 
 /** Cheque receipts of the session, with VPPS One's details and where each cheque is. */
-async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip[] }> {
+/**
+ * Deposit slips and bank-statement lines carry no session of their own, so
+ * they follow the person who made them (owner, 8 Nov 2026): the QA accounts'
+ * practice slips and statement lines stay in the test session and never show
+ * in the real year's books. A row with no maker is a real one.
+ */
+function madeInSession(row: Row, sessionLabel: string): boolean {
+  const maker = (row.maker ?? null) as { is_test_account?: boolean | null } | null;
+  return staffBelongsToSession(maker?.is_test_account === true, sessionLabel);
+}
+
+async function readCheques(sessionLabel: string): Promise<{ cheques: ChequeRow[]; slips: DepositSlip[] }> {
   const fee = await createFeeClient();
   const app = await createAppClient();
   const { data: receiptRows } = await fetchAllPages<Row>((from, to) =>
@@ -239,7 +251,7 @@ async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip
   const [details, events, slipsRes, reversals] = await Promise.all([
     fetchInChunks<Row>(ids, IN_FILTER_CHUNK_SIZE, (chunk) => app.from("acc_cheques").select("receipt_id, cheque_no, bank_name, cheque_date").in("receipt_id", chunk)),
     fetchInChunks<Row>(ids, IN_FILTER_CHUNK_SIZE, (chunk) => app.from("acc_cheque_events").select("receipt_id, status, created_at, deposit_slip_id, reason").in("receipt_id", chunk)),
-    app.from("acc_deposit_slips").select("id, slip_no, bank_label, deposited_on, total_amount, cheque_count").order("created_at", { ascending: false }).limit(50),
+    app.from("acc_deposit_slips").select("id, slip_no, bank_label, deposited_on, total_amount, cheque_count, maker:staff_profiles!acc_deposit_slips_created_by_fkey(is_test_account)").order("created_at", { ascending: false }).limit(50),
     getReceiptReversalTotals(ids, fee),
   ]);
   const detailBy = new Map(details.data.map((d) => [String(d.receipt_id), d]));
@@ -249,7 +261,7 @@ async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip
     list.push({ receiptId: String(e.receipt_id), status: e.status as ChequeEvent["status"], createdAt: String(e.created_at), depositSlipId: str(e.deposit_slip_id), reason: str(e.reason) });
     eventsBy.set(String(e.receipt_id), list);
   }
-  const slips: DepositSlip[] = ((slipsRes.data ?? []) as Row[]).map((s) => ({
+  const slips: DepositSlip[] = ((slipsRes.data ?? []) as Row[]).filter((s) => madeInSession(s, sessionLabel)).map((s) => ({
     id: String(s.id),
     slipNo: String(s.slip_no),
     bankLabel: String(s.bank_label),
@@ -293,15 +305,15 @@ async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip
   return { cheques, slips };
 }
 
-async function readUpi(): Promise<{ lines: UpiLineRow[]; unmatchedReceipts: number }> {
+async function readUpi(sessionLabel: string): Promise<{ lines: UpiLineRow[]; unmatchedReceipts: number }> {
   const app = await createAppClient();
   const fee = await createFeeClient();
   const { data: lineRows } = await app
     .from("acc_upi_lines")
-    .select("id, txn_at, amount, payer, utr")
+    .select("id, txn_at, amount, payer, utr, maker:staff_profiles!acc_upi_lines_uploaded_by_fkey(is_test_account)")
     .order("txn_at", { ascending: false })
     .limit(200);
-  const lines = (lineRows ?? []) as Row[];
+  const lines = ((lineRows ?? []) as Row[]).filter((l) => madeInSession(l, sessionLabel));
   const lineIds = lines.map((l) => String(l.id));
   const { data: eventRows } = await fetchInChunks<Row>(lineIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
     app.from("acc_upi_events").select("line_id, action, receipt_id, created_at").in("line_id", chunk),
@@ -426,8 +438,8 @@ async function readFeeRefunds(): Promise<FeeRefundRow[]> {
 
 export async function getBooksData(opts: { staffId: string; today: string; sessionLabel: string; canDecide: boolean; canWrite: boolean }): Promise<BooksData> {
   const [{ cheques, slips }, upi, advances, feeRefunds, requests] = await Promise.all([
-    readCheques(),
-    readUpi(),
+    readCheques(opts.sessionLabel),
+    readUpi(opts.sessionLabel),
     readAdvances(),
     readFeeRefunds(),
     readRequests(opts.staffId, opts.canDecide),
@@ -472,8 +484,8 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
     app.from("acc_counter_queue").select("id, student_id, family_label, note, arrived_at").is("served_at", null).is("left_at", null).order("arrived_at").limit(20),
     fee.from("defaulter_contacts").select("student_id, snooze_until, note, contacted_at").eq("session_label", sessionLabel).in("snooze_until", [today, tomorrow]).order("contacted_at", { ascending: false }).limit(200),
     app.from("acc_reminder_pauses").select("paused, created_at").eq("day", today).order("created_at", { ascending: false }).limit(1),
-    readCheques(),
-    readUpi(),
+    readCheques(sessionLabel),
+    readUpi(sessionLabel),
     readRequests(opts.staffId, opts.seesAllRequests, 8),
     // Perf fix 7: this used to page every pending installment of the session
     // (1,385 rows, two ~500 ms pages) for one count and one date. Now the

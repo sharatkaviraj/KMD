@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { MASTER_AUDIENCE_LABEL } from "@/modules/collection/domain/audience";
@@ -69,6 +70,9 @@ export async function recipientsFor(sessionLabel: string): Promise<Owner[]> {
       .from("staff_profiles")
       .select("id, display_name, phone, whatsapp_phone, is_active")
       .eq("is_active", true)
+      // Only this session's people (owner, 8 Nov 2026): QA accounts never on a
+      // real send list, real staff never on a test one.
+      .eq("is_test_account", isTestSessionLabel(sessionLabel))
       .order("display_name")
       .returns<ProfileRow[]>(),
     admin

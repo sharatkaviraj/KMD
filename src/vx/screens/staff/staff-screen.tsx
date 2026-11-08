@@ -203,6 +203,7 @@ export function StaffScreen({
   roleCounts,
   events,
   sessionLabel,
+  testSession = false,
   mayManage,
   isAdmin,
   mayEditMatrix,
@@ -217,6 +218,8 @@ export function StaffScreen({
   roleCounts: Record<StaffRole, number>;
   events: StaffEvent[];
   sessionLabel: string | null;
+  /** The test session's list: test accounts only. A short line says so. */
+  testSession?: boolean;
   mayManage: boolean;
   isAdmin: boolean;
   mayEditMatrix: boolean;
@@ -397,6 +400,15 @@ export function StaffScreen({
   const peopleList = (
     <section className={`pad${narrow ? " hide-m" : ""}`} style={{ padding: "20px 28px 40px", ...S.col, gap: 14, minWidth: 0 }}>
       {tabs}
+      {testSession ? (
+        <div role="note" className="card rise" style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 14px", background: "var(--warns)", borderColor: "var(--warnm)", color: "var(--fg)" }}>
+          <span aria-hidden="true" style={{ color: "var(--warnfg)", flex: "none", marginTop: 2 }}><Ic n="info" size={18} /></span>
+          <span style={{ ...S.col, gap: 2, minWidth: 0 }}>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{tx(p("Test session: practice accounts only", "टेस्ट सत्र: केवल अभ्यास खाते"))}</span>
+            <span style={S.sub}>{tx(p("Real staff are in the school's real year. Switch the session at the top to see them. Anyone you add here is a practice account.", "असली स्टाफ़ स्कूल के असली साल में हैं। उन्हें देखने के लिए ऊपर से सत्र बदलें। यहाँ जोड़ा गया हर व्यक्ति अभ्यास खाता होगा।"))}</span>
+          </span>
+        </div>
+      ) : null}
       <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
         {kpis.map((k, i) => {
           const on = loginFilter === k.key;

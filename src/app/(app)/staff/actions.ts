@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import * as m from "@/messages/pairs";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { isRealAdmin } from "@/platform/auth/test-session-policy";
 import { testSessionMessages } from "@/messages/setup";
 import { createClient } from "@/platform/supabase/server";
@@ -113,8 +114,10 @@ export async function createStaffAction(
   }
 
   try {
-    // A test account's new colleague is a test account too (Phase 3).
-    await createStaff(parsed.data, staff.userId, { isTestAccount: staff.isTestAccount === true });
+    // A test account's new colleague is a test account too (Phase 3), and so
+    // is anyone added while the test session is open (owner, 8 Nov 2026):
+    // the test session holds test accounts only.
+    await createStaff(parsed.data, staff.userId, { isTestAccount: staff.isTestAccount === true || (await viewingTestSession()) });
   } catch (error) {
     // The race the check above cannot close: two admins submitting the same
     // short name at once. The index catches it; this translates it.

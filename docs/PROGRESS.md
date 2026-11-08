@@ -1,5 +1,21 @@
 # VPPS One — progress
 
+## Test accounts only in the test session — 8 November 2026
+
+Owner asked (8 Nov) that test and QA accounts live only in the test session
+and the real year hold genuine accounts only. Branch
+`claude/project-thread-9xpuje`, D-560. **Done:** every staff list, picker and
+count follows the session being looked at (`listStaff()` via
+`viewingTestSession()`, plus notes/exam/task routing, "See One as", the staff
+log, AI page, books and report schedules); Staff shows a "practice accounts
+only" note in TEST and a real admin adding someone there adds a practice
+account; migration `20261108170533_staff_session_match.sql` (applied to One)
+skips cross-kind notices both ways and refuses cross-kind assignments on nine
+tables, proved by `tests/sql/staff-session-match.mjs`.
+**Remains:** 20 test-only leftover rows are hidden, not deleted: the Supabase
+connector asked for a confirmation that got no answer. `tests/sentry-lite.test.ts`
+fails in a checkout under `/home/user` (the path contains "user"); it passes in CI.
+
 ## Families reachable and working end to end — 8 November 2026
 
 Owner asked (8 Nov) that the Families section, which could not be opened in
