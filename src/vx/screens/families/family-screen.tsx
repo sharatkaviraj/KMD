@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { dateLabelP, initials, pct, rupees } from "@/vx/format";
 import { Ic, type IconName } from "@/vx/icons";
@@ -11,6 +11,7 @@ import { useToast } from "@/vx/ui/overlays";
 import { Banner, Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Card, CardHead, EmptyState, Pill, Progress, SecHead } from "@/vx/ui/primitives";
 
+import { FamilyLinkSheet, FamilyUnlinkSheet, type SheetKid } from "./change-sheet";
 import { collectChild, maskedPhone, mobile, toFamilyCard, type FamiliesData, type FamilyCard, type FamilyKid } from "./logic";
 import { W } from "./words";
 import "./families.css";
@@ -28,6 +29,10 @@ export function FamilyScreen(props: Props) {
   const { tx } = useVx();
   const group = props.families.find((g) => g.groupId === props.groupId) ?? null;
   const f = useMemo(() => (group ? toFamilyCard(group) : null), [group]);
+  // Each open mounts a fresh sheet (`n`), so it starts at its first step.
+  const [adding, setAdding] = useState({ open: false, n: 0 });
+  const [taking, setTaking] = useState<{ open: boolean; n: number; kid: SheetKid | null }>({ open: false, n: 0, kid: null });
+  const live = props.asOf !== null;
 
   if (!f || f.kids.length === 0) {
     return (
@@ -50,27 +55,55 @@ export function FamilyScreen(props: Props) {
         mSub={tx(W.kids(f.kids.length))}
       />
       <Section>
-        {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={W.notYet} /> : null}
+        {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={props.canChange ? undefined : W.notYet} /> : null}
         {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
         <div className="fam-page">
           <div className="fam-col">
             <Hero f={f} canCollect={props.canCollect} />
             <MoneyCard f={f} />
-            <HelpCard canCollect={props.canCollect} canOpen={props.canOpenChildren} />
             {props.canChange ? (
-              <Btn icon="users" full href="/student-tools?view=families" ariaLabel={tx(W.changeSub)}>
-                {tx(W.change)}
+              <Btn variant="soft" big full icon="userPlus" ariaLabel={tx(W.addKidSub)} onClick={() => setAdding((a) => ({ open: true, n: a.n + 1 }))}>
+                {tx(W.addKid)}
               </Btn>
             ) : null}
+            <HelpCard canCollect={props.canCollect} canOpen={props.canOpenChildren} canChange={props.canChange} />
           </div>
           <div className="fam-col">
             <SecHead>{tx(W.children(f.kids.length))}</SecHead>
             {f.kids.map((k, i) => (
-              <ChildCard key={k.id} k={k} delay={i * 40} canCollect={props.canCollect} canOpen={props.canOpenChildren} />
+              <ChildCard
+                key={k.id}
+                k={k}
+                delay={i * 40}
+                canCollect={props.canCollect}
+                canOpen={props.canOpenChildren}
+                onTakeOut={props.canChange ? () => setTaking((t) => ({ open: true, n: t.n + 1, kid: k })) : null}
+              />
             ))}
           </div>
         </div>
       </Section>
+      {props.canChange ? (
+        <FamilyLinkSheet
+          key={`add-${adding.n}`}
+          open={adding.open}
+          onClose={() => setAdding((a) => ({ ...a, open: false }))}
+          sessionLabel={props.sessionLabel}
+          live={live}
+          family={{ groupId: f.id, kids: f.kids }}
+        />
+      ) : null}
+      {props.canChange && taking.kid ? (
+        <FamilyUnlinkSheet
+          key={`out-${taking.n}`}
+          open={taking.open}
+          onClose={() => setTaking((t) => ({ ...t, open: false }))}
+          sessionLabel={props.sessionLabel}
+          live={live}
+          groupId={f.id}
+          kid={taking.kid}
+        />
+      ) : null}
     </VxPage>
   );
 }
@@ -185,7 +218,7 @@ function Figure({ label, value, tone }: { label: string; value: string; tone?: s
   );
 }
 
-function ChildCard({ k, delay, canCollect, canOpen }: { k: FamilyKid; delay: number; canCollect: boolean; canOpen: boolean }) {
+function ChildCard({ k, delay, canCollect, canOpen, onTakeOut }: { k: FamilyKid; delay: number; canCollect: boolean; canOpen: boolean; onTakeOut: (() => void) | null }) {
   const { tx } = useVx();
   const m = k.money;
   const status = k.status === "active" ? null : k.status === "left" ? W.child.left : W.child.inactive;
@@ -244,6 +277,12 @@ function ChildCard({ k, delay, canCollect, canOpen }: { k: FamilyKid; delay: num
           ) : null}
         </div>
       ) : null}
+      {onTakeOut ? (
+        <button type="button" className="tap fam-takeout" onClick={onTakeOut} aria-label={tx(W.takeOutWho(k.name))}>
+          <Ic n="x" size={16} />
+          {tx(W.takeOut)}
+        </button>
+      ) : null}
     </Card>
   );
 }
@@ -260,11 +299,12 @@ function Row({ icon, label, value, tone }: { icon: IconName; label: string; valu
   );
 }
 
-function HelpCard({ canCollect, canOpen }: { canCollect: boolean; canOpen: boolean }) {
+function HelpCard({ canCollect, canOpen, canChange }: { canCollect: boolean; canOpen: boolean; canChange: boolean }) {
   const { tx } = useVx();
   const steps: [IconName, string][] = [];
   if (canCollect) steps.push(["rupee", tx(W.help.collect)]);
   if (canOpen) steps.push(["user", tx(W.help.open)]);
+  if (canChange) steps.push(["userPlus", tx(W.help.change)]);
   steps.push(["clock", tx(W.help.late)]);
   return (
     <Card className="fam-help">

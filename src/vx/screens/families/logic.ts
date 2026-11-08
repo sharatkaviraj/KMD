@@ -1,4 +1,5 @@
 import { matchScore, queryShape, spellingKey, type SearchableStudent } from "@/modules/collect/domain/search";
+import type { FamilyPreview } from "@/platform/fees-bridge/family-command-contracts";
 import type { BridgeFamilyChild, BridgeFamilyGroup } from "@/platform/fees-bridge/screen-read-contracts";
 
 /*
@@ -20,7 +21,7 @@ export type FamiliesData = {
   canCollect: boolean;
   /** The reader may open a child's own page (`students:view`). */
   canOpenChildren: boolean;
-  /** Linking and separating children, which only a TEST year does from One for now. */
+  /** May link children and take one out: through Fees on a real year, One's copy on a TEST year. */
   canChange: boolean;
 };
 
@@ -284,4 +285,40 @@ export function firstName(name: string): string {
 /** The child the Collect fee button opens: the first with fees left, else the first child. */
 export function collectChild(f: FamilyCard): string | null {
   return (f.kids.find((k) => (k.money?.feesPending ?? 0) > 0) ?? f.kids.find((k) => k.status === "active") ?? f.kids[0])?.id ?? null;
+}
+
+/* ---------------------------------------------------------- link / unlink */
+
+/**
+ * What the preview should say about the 3rd Child Policy, in order (8 Nov
+ * 2026). Pure, so each case is tested; the sheet words them. A child who
+ * loses the policy is always said, because their fees go up.
+ */
+export type ThirdChildNote =
+  | { kind: "off" }
+  | { kind: "needThree"; count: number }
+  | { kind: "gets"; studentId: string; tuition: number | null; base: number | null }
+  | { kind: "keeps"; studentId: string }
+  | { kind: "staff"; studentId: string }
+  | { kind: "loses"; studentId: string }
+  | { kind: "same" };
+
+export function thirdChildNotes(preview: FamilyPreview): ThirdChildNote[] {
+  const t = preview.thirdChild;
+  const notes: ThirdChildNote[] = [];
+  if (!t.policyConfigured) notes.push({ kind: "off" });
+  else if (t.outrankedByStaffChildStudentId) notes.push({ kind: "staff", studentId: t.outrankedByStaffChildStudentId });
+  else if (t.recipientAfter && t.gains.includes(t.recipientAfter)) {
+    const child = preview.children.find((c) => c.studentId === t.recipientAfter);
+    notes.push({ kind: "gets", studentId: t.recipientAfter, tuition: t.recipientTuition, base: child?.baseTuition ?? null });
+  } else if (t.recipientAfter) notes.push({ kind: "keeps", studentId: t.recipientAfter });
+  else if (preview.after.family.length > 0) notes.push({ kind: "needThree", count: t.eligibleCount });
+  for (const id of t.loses) notes.push({ kind: "loses", studentId: id });
+  if (notes.length === 0) notes.push({ kind: "same" });
+  return notes;
+}
+
+/** A fresh id for one change; the same id is sent again on a retry. */
+export function newCommandId(): string {
+  return globalThis.crypto.randomUUID();
 }
