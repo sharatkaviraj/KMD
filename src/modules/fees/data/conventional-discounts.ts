@@ -471,11 +471,14 @@ async function upsertAutomaticThirdChildAssignment(payload: {
     return;
   }
 
+  // One (8 Nov 2026): the student filter only narrows the update to the row it
+  // already names, and lets One's fee-writes guard place it (an id alone is unscoped).
   const writeResult = existing?.id
     ? await payload.supabase
         .from("student_conventional_discount_assignments")
         .update(rowValues)
         .eq("id", existing.id)
+        .eq("student_id", payload.studentId)
     : await payload.supabase
         .from("student_conventional_discount_assignments")
         .insert(rowValues);
@@ -588,22 +591,23 @@ export async function applyThirdChildPolicyForFamilyGroup(
   const recipientStudentId = recipient?.studentId ?? null;
   const affectedStudentIds = new Set(memberStudentIds);
 
-  let deactivateQuery = supabase
-    .from("student_conventional_discount_assignments")
-    .update({ is_active: false })
-    .eq("academic_session_label", academicSessionLabel)
-    .eq("policy_id", policy.id)
-    .eq("is_active", true)
-    .in("student_id", memberStudentIds);
+  // One (8 Nov 2026): everyone but the recipient as an explicit list, not
+  // `in(members)` plus `neq(recipient)`. Same rows; One's fee-writes guard
+  // cannot place a `neq` filter and refused the whole update, so linking a
+  // third child stopped here after the family was already saved.
+  const othersIds = memberStudentIds.filter((id) => id !== recipientStudentId);
+  if (othersIds.length > 0) {
+    const { error: deactivateError } = await supabase
+      .from("student_conventional_discount_assignments")
+      .update({ is_active: false })
+      .eq("academic_session_label", academicSessionLabel)
+      .eq("policy_id", policy.id)
+      .eq("is_active", true)
+      .in("student_id", othersIds);
 
-  if (recipientStudentId) {
-    deactivateQuery = deactivateQuery.neq("student_id", recipientStudentId);
-  }
-
-  const { error: deactivateError } = await deactivateQuery;
-
-  if (deactivateError) {
-    throw new Error(deactivateError.message);
+    if (deactivateError) {
+      throw new Error(deactivateError.message);
+    }
   }
 
   await supabase

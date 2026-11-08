@@ -45,7 +45,7 @@ export type FamilySaved = {
   /** Null when an unlink left fewer than two children and the family ended. */
   familyGroupId: string | null;
   memberIds: string[];
-  /** False: saved, but Fees is still working out the 3rd Child Policy or dues; send the same change again. */
+  /** False: the family is saved, but the 3rd Child Policy or dues are not worked out yet; send the same change again. */
   settled: boolean;
 };
 
@@ -141,7 +141,7 @@ export async function saveFamilyChangeAction(input: FamilySaveInput): Promise<Fa
         saved = { ok: true, familyGroupId: r.familyGroupId, memberIds: r.memberStudentIds, settled: r.after.settled };
       } else {
         const r = await linkLocalFamily(body);
-        saved = { ok: true, familyGroupId: r.familyGroupId, memberIds: r.memberIds, settled: true };
+        saved = { ok: true, familyGroupId: r.familyGroupId, memberIds: r.memberIds, settled: r.settled };
       }
     } else {
       const body = { commandId: input.commandId, sessionLabel: input.sessionLabel, studentId: input.studentId, familyGroupId: input.familyGroupId, expectedMemberIds: input.expectedMemberIds };
@@ -150,7 +150,7 @@ export async function saveFamilyChangeAction(input: FamilySaveInput): Promise<Fa
         saved = { ok: true, familyGroupId: r.familyGroupId, memberIds: r.familyGroupId ? r.memberStudentIds : [], settled: r.after.settled };
       } else {
         const r = await unlinkLocalFamily(body);
-        saved = { ok: true, familyGroupId: r.familyGroupId, memberIds: r.memberIds, settled: true };
+        saved = { ok: true, familyGroupId: r.familyGroupId, memberIds: r.memberIds, settled: r.settled };
       }
     }
     // One's own record of who changed which family; Fees keeps its own audit too.

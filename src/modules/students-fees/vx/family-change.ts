@@ -19,8 +19,10 @@ import {
 import {
   FamilyChangeRefused,
   familyHousehold,
+  linkedTogether,
   predictFamilyChange,
   sameHousehold,
+  unlinkAlreadyLanded,
   type FamilyChangeMoney,
   type FamilyChangePolicy,
   type FamilyChangeStudent,
@@ -185,7 +187,33 @@ export type LocalFamilyChangeResult = {
   familyGroupId: string | null;
   memberIds: string[];
   message: string;
+  /** False: the family changed, but the 3rd Child Policy or dues step after it stopped. "Finish" sends it again. */
+  settled: boolean;
 };
+
+type EngineRun = { ok: boolean; message: string; familyGroupId?: string | null };
+
+/**
+ * Run a ported sibling action and keep what it threw. The engine saves the
+ * family first and then works out the 3rd Child Policy and dues; when a later
+ * step fails the family is already saved, so the caller reads the table
+ * before it says anything (8 Nov 2026: a TEST link said "nothing was changed"
+ * about a family it had made).
+ */
+async function runEngine(run: () => Promise<EngineRun>): Promise<{ res: EngineRun | null; thrown: unknown }> {
+  try {
+    return { res: await run(), thrown: null };
+  } catch (thrown) {
+    return { res: null, thrown };
+  }
+}
+
+/** Every child in this family, straight from the table. */
+async function familyMembers(familyGroupId: string): Promise<string[]> {
+  const { data, error } = await createAdminClient().from("student_family_members").select("student_id").eq("family_group_id", familyGroupId);
+  if (error) throw new FamilyChangeRefused("failed", "Could not read the family.");
+  return [...new Set(((data ?? []) as Array<{ student_id: string }>).map((r) => r.student_id))].sort();
+}
 
 /** Link children, if the household is still the one the preview showed. */
 export async function linkLocalFamily(raw: FamilyLinkRequest): Promise<LocalFamilyChangeResult> {
@@ -193,22 +221,33 @@ export async function linkLocalFamily(raw: FamilyLinkRequest): Promise<LocalFami
   const input = familyLinkRequestSchema.parse(raw);
   const now = await readHousehold("link", input.studentIds, null);
   if (!sameHousehold(now.expectedMemberIds, input.expectedMemberIds)) throw new FamilyChangeRefused("family_changed");
-  const res = await mergeFamily(input.studentIds, input.sessionLabel);
-  if (!res.ok) throw new FamilyChangeRefused("failed", res.message);
+  const { res, thrown } = await runEngine(() => mergeFamily(input.studentIds, input.sessionLabel));
   const after = await readHousehold("link", input.studentIds, null);
-  return { familyGroupId: res.familyGroupId ?? null, memberIds: after.expectedMemberIds, message: res.message };
+  const holder = linkedTogether(input.studentIds, after.memberGroups);
+  const message = res?.message ?? "";
+  if (res?.ok) return { familyGroupId: res.familyGroupId ?? holder, memberIds: after.expectedMemberIds, message, settled: true };
+  if (holder) return { familyGroupId: holder, memberIds: after.expectedMemberIds, message, settled: false };
+  if (thrown) throw thrown;
+  throw new FamilyChangeRefused("failed", message);
 }
 
 /** Take one child out, if the family is still the one the preview showed. */
 export async function unlinkLocalFamily(raw: FamilyUnlinkRequest): Promise<LocalFamilyChangeResult> {
   await requireStaffPermission("students:write");
   const input = familyUnlinkRequestSchema.parse(raw);
-  const now = await readHousehold("unlink", [input.studentId], input.familyGroupId);
-  if (!sameHousehold(now.expectedMemberIds, input.expectedMemberIds)) throw new FamilyChangeRefused("family_changed");
-  const res = await splitFromFamily(input.studentId, input.familyGroupId, input.sessionLabel);
-  if (!res.ok) throw new FamilyChangeRefused("failed", res.message);
-  const left = now.expectedMemberIds.filter((id) => id !== input.studentId);
-  return { familyGroupId: left.length >= 2 ? input.familyGroupId : null, memberIds: left.length >= 2 ? left : [], message: res.message };
+  const members = await familyMembers(input.familyGroupId);
+  if (members.includes(input.studentId)) {
+    if (!sameHousehold(members, input.expectedMemberIds)) throw new FamilyChangeRefused("family_changed");
+  } else if (!unlinkAlreadyLanded(members, input.studentId, input.expectedMemberIds)) {
+    throw new FamilyChangeRefused("not_found", "This child is not in that family.");
+  }
+  const { res, thrown } = await runEngine(() => splitFromFamily(input.studentId, input.familyGroupId, input.sessionLabel));
+  const left = input.expectedMemberIds.filter((id) => id.toLowerCase() !== input.studentId.toLowerCase());
+  const result = { familyGroupId: left.length >= 2 ? input.familyGroupId : null, memberIds: left.length >= 2 ? left : [], message: res?.message ?? "" };
+  if (res?.ok) return { ...result, settled: true };
+  if (!(await familyMembers(input.familyGroupId)).includes(input.studentId)) return { ...result, settled: false };
+  if (thrown) throw thrown;
+  throw new FamilyChangeRefused("failed", result.message);
 }
 
 export type FamilyPickChild = {

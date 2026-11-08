@@ -69,8 +69,9 @@ export function FamiliesScreen(props: FamiliesData) {
   };
   // Each open mounts a fresh sheet (`n`), so it starts at its first step.
   const [linking, setLinking] = useState({ open: false, n: 0 });
+  const openLinking = () => setLinking((l) => ({ open: true, n: l.n + 1 }));
   const change = props.canChange ? (
-    <Btn variant="pri" icon="userPlus" ariaLabel={tx(W.changeSub)} onClick={() => setLinking((l) => ({ open: true, n: l.n + 1 }))}>
+    <Btn variant="pri" icon="userPlus" ariaLabel={tx(W.changeSub)} onClick={openLinking}>
       {tx(W.change)}
     </Btn>
   ) : null;
@@ -88,6 +89,14 @@ export function FamiliesScreen(props: FamiliesData) {
         <p className="fam-lead">{tx(W.lead)}</p>
         {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={props.canChange ? undefined : W.notYet} /> : null}
         {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
+        {/* The top bar's button is desk-only; a phone gets the same as a big button here. */}
+        {props.canChange && cards.length > 0 ? (
+          <div className="only-m">
+            <Btn variant="soft" big full icon="userPlus" ariaLabel={tx(W.changeSub)} onClick={openLinking}>
+              {tx(W.change)}
+            </Btn>
+          </div>
+        ) : null}
 
         {cards.length === 0 ? (
           <EmptyState icon="home" title={tx(W.empty.none)} body={tx(W.empty.noneBody)} action={change} />

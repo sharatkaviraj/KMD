@@ -26,7 +26,7 @@ fails in a checkout under `/home/user` (the path contains "user"); it passes in 
 
 Owner asked (8 Nov) that the Families section, which could not be opened in
 One, work end to end and go live. Branch `claude/project-thread-dvuplh`,
-D-556 and D-557, with schoolfees PR 152 (merged 8 Nov).
+D-556 to D-559 and D-561, with schoolfees PRs 152 and 153 (merged 8 Nov).
 **Why it could not be opened:** the Menu tile went to
 `/student-tools?view=families`, a Fees-delegated route, so real staff landed
 on "Not in One yet". **Done:** `/families` and `/families/[groupId]` drawn by
@@ -48,6 +48,13 @@ pick, "Check fees" (who is in the family after, 3rd Child Policy moves and
 new tuition, fees left), then save. TEST years change One's copy; the real
 year goes to Fees' new `families/preview|link|unlink` routes (schoolfees PR
 153), which carry the household the preview showed and a command id.
+**Live check fixes (8 Nov, later; D-561):** a TEST link of three children
+made the family but stopped at the 3rd Child step, because the ported engine
+sent two writes One's fee-writes guard cannot place (`neq`, and an update by
+`id` alone), and the sheet then said "nothing was changed". Both writes now
+name their children; a part-way stop reads the table and says "saved" with
+"Finish"; phones get the "Add a brother or sister" button; the engine's
+generated "Family <phone> <id>" name is never shown.
 **Remains:** the Fees migration for those routes (source functions and the
 `can_link_family` grant flag) waits for the owner's go-ahead on the live Fees
 database; it is written and proved on a local Postgres replay of every Fees

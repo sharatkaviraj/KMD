@@ -160,7 +160,7 @@ export const W = {
     unavailable: p("Fees did not answer just now. Wait a minute and try again.", "Fees ने अभी जवाब नहीं दिया। एक मिनट रुककर फिर कोशिश करें।"),
     uncertain: p("We could not hear back whether it saved. Tap Try again: it will not link twice.", "पता नहीं चला कि सेव हुआ या नहीं। ‘फिर कोशिश करें’ दबाएँ: दो बार नहीं जुड़ेगा।"),
     failed: p("This could not be saved. Nothing was changed. Try again.", "यह सेव नहीं हो सका। कुछ नहीं बदला। फिर कोशिश करें।"),
-    unsettled: p("Saved. Fees is still working out the 3rd Child Policy and dues. Tap Finish to complete it.", "सेव हो गया। Fees अभी 3rd Child Policy और फीस बना रहा है। पूरा करने के लिए ‘पूरा करें’ दबाएँ।"),
+    unsettled: p("The family is saved. The 3rd Child Policy and dues are not worked out yet. Tap Finish to complete it.", "परिवार सेव हो गया। 3rd Child Policy और फीस अभी बननी बाकी है। पूरा करने के लिए ‘पूरा करें’ दबाएँ।"),
     finish: p("Finish", "पूरा करें"),
     retry: p("Try again", "फिर कोशिश करें"),
     checkAgain: p("Check again", "फिर से जाँचें"),
