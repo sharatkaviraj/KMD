@@ -456,6 +456,7 @@ export const T = {
   remainingYear: p("Remaining this year", "इस साल बाकी"),
   leftThisYear: (v: string): Pair => p(`${v} left`, `${v} बाकी`),
   familyStatement: p("Family statement PDF", "परिवार का विवरण PDF"),
+  openFamily: p("Open family page", "परिवार का पेज खोलें"),
 } as const;
 
 export type AdminText = typeof T;

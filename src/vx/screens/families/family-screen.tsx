@@ -1,0 +1,282 @@
+"use client";
+
+import { useMemo } from "react";
+
+import { dateLabelP, initials, pct, rupees } from "@/vx/format";
+import { Ic, type IconName } from "@/vx/icons";
+import { useVx } from "@/vx/i18n";
+import { ChildAvatar } from "@/vx/ui/child-avatar";
+import { LiveFromFees } from "@/vx/ui/live-fees";
+import { useToast } from "@/vx/ui/overlays";
+import { Banner, Section, TopBar, VxPage } from "@/vx/ui/page";
+import { Btn, Card, CardHead, EmptyState, Pill, Progress, SecHead } from "@/vx/ui/primitives";
+
+import { collectChild, maskedPhone, mobile, toFamilyCard, type FamiliesData, type FamilyCard, type FamilyKid } from "./logic";
+import { W } from "./words";
+import "./families.css";
+
+/*
+ * One family (owner, 8 Nov 2026): the parents with Call and WhatsApp, the
+ * year's fees for all the children together, and each child with their own
+ * fees, next due and the two next steps: open the child, or collect the fee.
+ * The late fee is always its own line, never inside fees.
+ */
+
+type Props = FamiliesData & { groupId: string };
+
+export function FamilyScreen(props: Props) {
+  const { tx } = useVx();
+  const group = props.families.find((g) => g.groupId === props.groupId) ?? null;
+  const f = useMemo(() => (group ? toFamilyCard(group) : null), [group]);
+
+  if (!f || f.kids.length === 0) {
+    return (
+      <VxPage label={tx(W.title)}>
+        <TopBar crumb={tx(W.crumb)} title={tx(W.title)} mBack="/families" />
+        <Section>
+          <EmptyState icon="search" title={tx(W.notFound)} body={tx(W.notFoundBody)} action={<Btn variant="pri" big icon="chevLeft" href="/families">{tx(W.back)}</Btn>} />
+        </Section>
+      </VxPage>
+    );
+  }
+
+  return (
+    <VxPage label={f.name}>
+      <TopBar
+        crumb={tx(W.crumb)}
+        title={f.name}
+        actions={<Btn icon="chevLeft" href="/families">{tx(W.back)}</Btn>}
+        mBack="/families"
+        mSub={tx(W.kids(f.kids.length))}
+      />
+      <Section>
+        {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={W.notYet} /> : null}
+        {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
+        <div className="fam-page">
+          <div className="fam-col">
+            <Hero f={f} canCollect={props.canCollect} />
+            <MoneyCard f={f} />
+            <HelpCard canCollect={props.canCollect} canOpen={props.canOpenChildren} />
+            {props.canChange ? (
+              <Btn icon="users" full href="/student-tools?view=families" ariaLabel={tx(W.changeSub)}>
+                {tx(W.change)}
+              </Btn>
+            ) : null}
+          </div>
+          <div className="fam-col">
+            <SecHead>{tx(W.children(f.kids.length))}</SecHead>
+            {f.kids.map((k, i) => (
+              <ChildCard key={k.id} k={k} delay={i * 40} canCollect={props.canCollect} canOpen={props.canOpenChildren} />
+            ))}
+          </div>
+        </div>
+      </Section>
+    </VxPage>
+  );
+}
+
+function Hero({ f, canCollect }: { f: FamilyCard; canCollect: boolean }) {
+  const { tx } = useVx();
+  const toast = useToast();
+  const number = mobile(f.phone);
+  const masked = maskedPhone(f.phone);
+  const collectFor = collectChild(f);
+  const parents: [string, string][] = [];
+  if (f.father) parents.push([tx(W.father), f.father]);
+  if (f.mother) parents.push([tx(W.mother), f.mother]);
+  if (!parents.length && f.name) parents.push([tx(W.parent), f.name]);
+  const contact = f.father ?? f.mother ?? f.name;
+  return (
+    <Card className="rise fam-hero">
+      <span className="fam-hero-faces">
+        {f.kids.map((k) => (
+          <ChildAvatar key={k.id} text={initials(k.name)} seed={k.id} size={60} student={k.id} photo={k.hasPhoto ? undefined : null} zoom={k.name} zoomSub={k.classLabel} />
+        ))}
+      </span>
+      <h2 className="serif fam-hero-name">{f.name}</h2>
+      <dl className="fam-facts">
+        {parents.map(([role, name]) => (
+          <div key={role}>
+            <dt>{role}</dt>
+            <dd>{name}</dd>
+          </div>
+        ))}
+        {f.village ? (
+          <div>
+            <dt>{tx(W.village)}</dt>
+            <dd>{f.village}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <div className="fam-actions">
+        {number ? (
+          <>
+            <a href={`tel:${number}`} className="tap btn sec big" aria-label={tx(W.callWho(contact))} onClick={() => toast.show({ tone: "info", text: tx(W.opening.call(contact)), cue: "tap" })}>
+              <Ic n="phone" size={20} />
+              {tx(W.call)}
+              {masked ? <span className="num fam-masked">{masked}</span> : null}
+            </a>
+            <a href={`https://wa.me/91${number}`} target="_blank" rel="noreferrer" className="tap btn sec big fam-wa" aria-label={tx(W.whatsappWho(contact))} onClick={() => toast.show({ tone: "info", text: tx(W.opening.whatsapp), cue: "tap" })}>
+              <Ic n="message" size={20} />
+              {tx(W.whatsapp)}
+            </a>
+          </>
+        ) : (
+          <span className="fam-nophone">
+            <Ic n="phone" size={16} />
+            {tx(W.noPhone)}
+          </span>
+        )}
+        {canCollect && collectFor ? (
+          <Btn
+            variant="pri"
+            big
+            icon="rupee"
+            href={`/payments?student=${collectFor}`}
+          >
+            {tx(W.collect)}
+          </Btn>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
+function MoneyCard({ f }: { f: FamilyCard }) {
+  const { tx } = useVx();
+  const read = f.feesPending !== null && f.paid !== null && f.yearFees !== null;
+  return (
+    <Card className="rise fam-moneycard" style={{ animationDelay: "60ms" }}>
+      <CardHead title={tx(W.money.title)} />
+      {read ? (
+        <>
+          <div className="fam-figures">
+            <Figure label={tx(W.money.yearFees)} value={rupees(f.yearFees)} />
+            <Figure label={tx(W.money.paid)} value={rupees(f.paid)} tone="var(--ok)" />
+            <Figure label={tx(W.money.left)} value={rupees(f.feesPending)} tone={(f.feesPending ?? 0) > 0 ? "var(--warnfg)" : "var(--ok)"} />
+          </div>
+          {(f.yearFees ?? 0) > 0 ? (
+            <Progress value={Math.min(f.paid ?? 0, f.yearFees ?? 0)} max={f.yearFees ?? 0} tone="var(--ok)" height={10} label={tx(W.money.paidPart(pct(f.paid ?? 0, f.yearFees ?? 0)))} />
+          ) : null}
+          {f.feesPending === 0 ? <Pill tone="ok" icon="checkCircle">{tx(W.money.allPaid)}</Pill> : null}
+        </>
+      ) : (
+        <p className="fam-note">
+          <Ic n="info" size={18} />
+          {tx(W.money.notRead)}
+        </p>
+      )}
+      {f.lateFee ? (
+        <p className="fam-late">
+          <Ic n="clock" size={18} />
+          {tx(W.money.late(rupees(f.lateFee)))}
+        </p>
+      ) : null}
+    </Card>
+  );
+}
+
+function Figure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <span className="fam-figure">
+      <span className="fam-k">{label}</span>
+      <span className="num fam-v" style={{ color: tone }}>{value}</span>
+    </span>
+  );
+}
+
+function ChildCard({ k, delay, canCollect, canOpen }: { k: FamilyKid; delay: number; canCollect: boolean; canOpen: boolean }) {
+  const { tx } = useVx();
+  const m = k.money;
+  const status = k.status === "active" ? null : k.status === "left" ? W.child.left : W.child.inactive;
+  return (
+    <Card className="rise fam-child" style={{ animationDelay: `${delay}ms` }}>
+      <div className="fam-child-head">
+        <ChildAvatar text={initials(k.name)} seed={k.id} size={56} student={k.id} photo={k.hasPhoto ? undefined : null} zoom={k.name} zoomSub={k.classLabel} />
+        <span className="fam-child-id">
+          <strong className="clip">{k.name}</strong>
+          <span className="fam-who">
+            {k.classLabel || "—"}
+            {k.sr ? ` · ${tx(W.child.sr(k.sr))}` : ""}
+          </span>
+          <span className="fam-tags">
+            {status ? <Pill tone="mut">{tx(status)}</Pill> : null}
+            {k.thirdChild ? <Pill tone="info" icon="users">{tx(W.child.thirdChild)}</Pill> : null}
+            {m?.discountLabels.map((d) => (
+              <Pill key={d} tone="acc" icon="tag">{d}</Pill>
+            ))}
+            {m?.overdue ? <Pill tone="bad" icon="alert">{tx(W.card.overdue)}</Pill> : null}
+          </span>
+        </span>
+      </div>
+      {m ? (
+        <dl className="fam-rows">
+          <Row icon="rupee" label={tx(W.child.feesLeft)} value={rupees(m.feesPending)} tone={m.feesPending > 0 ? "var(--warnfg)" : "var(--ok)"} />
+          <Row icon="checkCircle" label={tx(W.child.paid)} value={rupees(m.paid)} tone="var(--ok)" />
+          {m.lateFeePending > 0 ? <Row icon="clock" label={tx(W.child.late)} value={rupees(m.lateFeePending)} tone="var(--warnfg)" /> : null}
+          {m.discount > 0 ? <Row icon="percent" label={tx(W.child.discount)} value={rupees(m.discount)} /> : null}
+          {m.feesPending > 0 && m.nextDueDate && m.nextDueAmount ? (
+            <Row icon="calendar" label={tx(W.child.nextDue)} value={tx(W.child.nextDueOn(rupees(m.nextDueAmount), tx(dateLabelP(m.nextDueDate))))} />
+          ) : null}
+          {m.feesPending === 0 ? (
+            <div className="fam-allpaid">
+              <Pill tone="ok" icon="check">{tx(W.child.allPaid)}</Pill>
+            </div>
+          ) : null}
+        </dl>
+      ) : (
+        <p className="fam-note">
+          <Ic n="info" size={18} />
+          {tx(W.child.notRead)}
+        </p>
+      )}
+      {canOpen || canCollect ? (
+        <div className="fam-child-actions">
+          {canOpen ? (
+            <Btn icon="user" href={`/students/${k.id}`} ariaLabel={tx(W.child.openWho(k.name))}>
+              {tx(W.child.open)}
+            </Btn>
+          ) : null}
+          {canCollect ? (
+            <Btn variant={m && m.feesPending > 0 ? "pri" : "soft"} icon="rupee" href={`/payments?student=${k.id}`} ariaLabel={tx(W.collectFor(k.name))}>
+              {tx(W.collect)}
+            </Btn>
+          ) : null}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+function Row({ icon, label, value, tone }: { icon: IconName; label: string; value: string; tone?: string }) {
+  return (
+    <div className="fam-row">
+      <dt>
+        <Ic n={icon} size={16} />
+        {label}
+      </dt>
+      <dd className="num" style={{ color: tone }}>{value}</dd>
+    </div>
+  );
+}
+
+function HelpCard({ canCollect, canOpen }: { canCollect: boolean; canOpen: boolean }) {
+  const { tx } = useVx();
+  const steps: [IconName, string][] = [];
+  if (canCollect) steps.push(["rupee", tx(W.help.collect)]);
+  if (canOpen) steps.push(["user", tx(W.help.open)]);
+  steps.push(["clock", tx(W.help.late)]);
+  return (
+    <Card className="fam-help">
+      <CardHead title={<><Ic n="help" size={18} />{tx(W.help.title)}</>} />
+      <ol>
+        {steps.map(([icon, text]) => (
+          <li key={icon}>
+            <span className="fam-help-ic"><Ic n={icon} size={16} /></span>
+            {text}
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}

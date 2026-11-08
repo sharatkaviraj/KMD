@@ -88,6 +88,8 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
       items: [
         { key: "admissions", label: L("Admissions", "दाख़िले"), icon: "userPlus", href: "/admissions", permission: "fees:manage" },
         { key: "schooloffice", label: L("School Office", "विद्यालय कार्यालय"), icon: "fileText", href: "/school-office", permission: "certificates:view" },
+        // Brothers and sisters with their fees together (owner, 8 Nov 2026).
+        { key: "families", label: L("Families", "परिवार"), icon: "home", href: "/families", permission: "fees:view" },
         { key: "studenttools", label: L("Promote & import", "प्रमोशन व इम्पोर्ट"), icon: "upload", href: "/student-tools", permission: "fees:manage" },
         // Children on each bus route, the bus times and the drivers (D-550).
         { key: "transport", label: L("Transport", "परिवहन"), icon: "bus", href: "/transport", permission: "transport:view" },
@@ -128,6 +130,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "collect", label: L("Payment Desk", "फीस जमा"), icon: "rupee", href: "/payments", permission: "fees:collect" },
         { key: "fees", label: L("Receipts & day close", "रसीदें"), icon: "receipt", href: "/receipts", permission: "fees:view" },
         { key: "dues", label: L("Dues & calls", "बकाया"), icon: "phone", href: "/dues", permission: "fees:view", badge: "dues" },
+        { key: "families", label: L("Families", "परिवार"), icon: "home", href: "/families", permission: "fees:view" },
         { key: "reminders", label: L("Fee reminders", "फीस रिमाइंडर"), icon: "bell", href: "/reminders", permission: "fees:view" },
         { key: "books", label: L("Cheques, UPI & refunds", "चेक व यूपीआई"), icon: "swap", href: "/accounts/books", permission: "fees:view", badge: "books" },
         { key: "online", label: L("Online payments", "ऑनलाइन भुगतान"), icon: "globe", href: "/fees/payments/online", permission: "fees:accounts" },

@@ -10,7 +10,7 @@ import {
   bridgeStudentLedgerSchema, bridgeStudentReceiptsSchema, type BridgeWorkspace,
 } from "./student-read-contracts";
 import { composeStudentView } from "./student-view";
-import { bridgeAiPhotosSchema, bridgeDuesFamilySchema, bridgeDuesPeopleSchema, bridgeDuesSchema, bridgeFeeSetupSchema,
+import { bridgeAiPhotosSchema, bridgeDuesFamilySchema, bridgeDuesPeopleSchema, bridgeDuesSchema, bridgeFamiliesSchema, bridgeFeeSetupSchema,
   bridgeReportBalancesSchema, bridgeReportDaybookSchema, bridgeReportReceiptsSchema } from "./screen-read-contracts";
 import { bridgePendingRequestsSchema, bridgeReceiptListSchema, bridgeReceiptLookupSchema, bridgeTodaySummarySchema, RECEIPT_NUMBER } from "./office-read-contracts";
 import {
@@ -254,6 +254,14 @@ export async function getBridgeDuesPeople(sessionLabel: string, ids: readonly st
   const params = new URLSearchParams({session:sessionLabel,since:z.iso.date().parse(since)});
   for (const id of studentIds(ids, 200)) params.append("student", id);
   return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/screens/dues/people?${params}`,schema:bridgeDuesPeopleSchema}),sessionLabel,"promise families");
+}
+
+/** Every confirmed family of the session, or one (`groupId`), for One's Families screen. */
+export async function getBridgeFamilies(sessionLabel: string, groupId: string | null = null) {
+  const staff = await assertPermission("fees:view");
+  const params = new URLSearchParams({session:sessionLabel});
+  if (groupId !== null) params.set("group", z.uuid().parse(groupId));
+  return sessionMatches(await bridgeRequest({...(await credentials(staff,sessionLabel)),path:`/screens/families?${params}`,schema:bridgeFamiliesSchema}),sessionLabel,"families");
 }
 
 /** The session's published fee setup, in the shape One's Fee setup draws. */

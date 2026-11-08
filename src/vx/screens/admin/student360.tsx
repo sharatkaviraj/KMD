@@ -1206,6 +1206,10 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
             <span style={{ display: "flex", flexDirection: "column" }}><span className="s360-k">{tx(T.remainingYear)}</span><span className="num s360-v">{rupees(familyTotal.remaining)}</span></span>
           </div>
           {p.familyGroupId ? (
+            <Link href={`/families/${p.familyGroupId}`} className="tap btn sec"><Ic n="home" size={18} />{tx(T.openFamily)}</Link>
+          ) : null}
+          {/* The PDF is a Fees screen: on a real year it is not in One yet (8 Nov 2026). */}
+          {p.familyGroupId && !p.source ? (
             <Link href={`/fees/students/family/${p.familyGroupId}/statement`} className="tap btn sec"><Ic n="receipt" size={18} />{tx(T.familyStatement)}</Link>
           ) : null}
         </div>
