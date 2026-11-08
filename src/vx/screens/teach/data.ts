@@ -3,6 +3,7 @@ import { readParentSwitches } from "@/vx/screens/settings/parent-switches";
 import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { fetchInChunks } from "@/platform/helpers/chunk";
@@ -212,12 +213,20 @@ async function withCovers(staffId: string, sessionLabel: string, rows: LeaveRow[
   }));
 }
 
-/** Her leave rows, newest first. */
-async function myLeaveRows(staffId: string, limit: number): Promise<LeaveRow[]> {
-  const { data } = await createAdminClient()
+/**
+ * Her leave rows, newest first: in sessions of the kind she is looking at, so
+ * a practice-day leave recorded against a real teacher in TEST never shows in
+ * her real year (owner, 8 Nov 2026).
+ */
+async function myLeaveRows(staffId: string, limit: number, sessionLabel: string): Promise<LeaveRow[]> {
+  const query = createAdminClient()
     .from("teacher_leave")
     .select("id, from_day, to_day, span, note, status, created_at, decided_by, decided_at")
-    .eq("staff_profile_id", staffId)
+    .eq("staff_profile_id", staffId);
+  const sameKind = isTestSessionLabel(sessionLabel)
+    ? query.or("session_label.ilike.TEST-*,session_label.ilike.UAT-*,session_label.ilike.DEMO-*")
+    : query.not("session_label", "ilike", "TEST-*").not("session_label", "ilike", "UAT-*").not("session_label", "ilike", "DEMO-*");
+  const { data } = await sameKind
     .order("from_day", { ascending: false })
     .limit(limit)
     .returns<LeaveRow[]>();
@@ -487,7 +496,7 @@ export async function loadHome(staff: CurrentStaff) {
     staffNotices(staff.id, sessionLabel, 10),
     listSubjects().catch(() => []),
     calendarNames(sessionLabel, addDays(today, -10), addDays(today, 14)).catch(() => new Map<string, CalendarEntry>()),
-    myLeaveRows(staff.id, 10).catch(() => [] as LeaveRow[]),
+    myLeaveRows(staff.id, 10, sessionLabel).catch(() => [] as LeaveRow[]),
     waitingTasks(now),
     createAdminClient()
       .from("staff_ui_preferences")
@@ -1205,7 +1214,7 @@ export async function loadMore(staff: CurrentStaff) {
     publishedP,
     staffNotices(staff.id, sessionLabel, 40),
     admin.from("staff_ui_preferences").select("large_text, alerts").eq("staff_profile_id", staff.id).maybeSingle<{ large_text: boolean; alerts: Record<string, boolean> | null }>(),
-    myLeaveRows(staff.id, 20).catch(() => [] as LeaveRow[]),
+    myLeaveRows(staff.id, 20, sessionLabel).catch(() => [] as LeaveRow[]),
     currentBells(sessionLabel).catch(() => null),
     listSubjects().catch(() => []),
     attendanceCalendar(sessionLabel).catch(() => new Map<string, CalendarDayKind>()),

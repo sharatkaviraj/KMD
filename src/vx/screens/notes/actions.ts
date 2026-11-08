@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { schoolProfile } from "@/platform/config/school";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
@@ -93,11 +94,14 @@ async function followUpStaff(owner: FollowOwner, actor: { id: string; role: stri
     return (data ?? []).find((r) => !r.effective_to || r.effective_to >= today)?.staff_profile_id ?? null;
   }
   const role = owner === "coordinator" ? "academic_coordinator" : "admin";
+  // Somebody of this session (owner, 8 Nov 2026): the real year had no real
+  // coordinator, so "the coordinator" was the QA test coordinator.
   const { data } = await admin
     .from("staff_profiles")
     .select("id")
     .eq("role", role)
     .eq("is_active", true)
+    .eq("is_test_account", isTestSessionLabel(sessionLabel))
     .order("created_at")
     .limit(1)
     .returns<{ id: string }[]>();

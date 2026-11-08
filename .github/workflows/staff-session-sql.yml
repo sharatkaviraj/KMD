@@ -1,0 +1,23 @@
+name: Staff session SQL
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+# Only obsolete PR test runs may be cancelled; main/manual runs stay independent.
+concurrency:
+  group: staff-session-sql-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install disposable in-memory PostgreSQL runtime
+        run: npm install --prefix "$RUNNER_TEMP/staff-session-sql" --no-package-lock @electric-sql/pglite@0.5.10
+      - name: Run the staff-session migration against a synthetic schema and exercise the predicate, notices, row guards and grants
+        run: node tests/sql/staff-session-match.mjs "$RUNNER_TEMP/staff-session-sql/node_modules/@electric-sql/pglite"

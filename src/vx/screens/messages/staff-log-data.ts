@@ -1,7 +1,7 @@
 import "server-only";
 
-import { getCurrentStaff } from "@/platform/auth/current-staff";
-import { isRealAdmin, isTestSessionLabel } from "@/platform/auth/test-session-policy";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { readMonthCap } from "@/modules/staff-notices/domain/gates";
 import { KINDS, isStaffMessageKind } from "@/modules/staff-notices/domain/kinds";
@@ -44,17 +44,22 @@ export type StaffLogData = {
 const pairOf = (label: { hi: string; en: string }): Pair => p(label.en, label.hi);
 
 export async function loadStaffLog(transport: string): Promise<StaffLogData> {
-  const viewer = await getCurrentStaff();
   const admin = createAdminClient();
-  const seeAll = viewer ? isRealAdmin({ role: viewer.role, isTestAccount: viewer.isTestAccount === true }) : false;
-  const testOnly = viewer?.isTestAccount === true;
+  // The session being looked at decides, for everybody (owner, 8 Nov 2026):
+  // the real year's log shows real staff's notices only, the test session's
+  // the test accounts' — a real admin no longer sees the two mixed.
+  const testOnly = await viewingTestSession();
 
+  const noticesQuery = admin
+    .from("staff_notices")
+    .select("id, kind, status, status_reason, created_at, session_label, staff_profile_id");
+  // Filtered before the limit, so a busy test session cannot push the real
+  // year's notices off the page (and the other way round).
+  const sessionNotices = testOnly
+    ? noticesQuery.or("session_label.ilike.TEST-*,session_label.ilike.UAT-*,session_label.ilike.DEMO-*")
+    : noticesQuery.not("session_label", "ilike", "TEST-*").not("session_label", "ilike", "UAT-*").not("session_label", "ilike", "DEMO-*");
   const [notices, month, cap, consented] = await Promise.all([
-    admin
-      .from("staff_notices")
-      .select("id, kind, status, status_reason, created_at, session_label, staff_profile_id")
-      .order("created_at", { ascending: false })
-      .limit(150),
+    sessionNotices.order("created_at", { ascending: false }).limit(150),
     admin.rpc("staff_whatsapp_month_sent"),
     admin.from("runtime_flags").select("enabled, value").eq("key", "staff_whatsapp_month_cap").maybeSingle(),
     admin
@@ -62,7 +67,8 @@ export async function loadStaffLog(transport: string): Promise<StaffLogData> {
       .select("id", { count: "exact", head: true })
       .not("whatsapp_opt_in_at", "is", null)
       .is("whatsapp_opt_out_at", null)
-      .eq("is_active", true),
+      .eq("is_active", true)
+      .eq("is_test_account", testOnly),
   ]);
 
   const visible = ((notices.data ?? []) as Array<{
@@ -74,9 +80,7 @@ export async function loadStaffLog(transport: string): Promise<StaffLogData> {
     session_label: string;
     staff_profile_id: string;
   }>).filter((row) => {
-    const test = isTestSessionLabel(row.session_label);
-    if (seeAll) return true;
-    return testOnly ? test : !test;
+    return isTestSessionLabel(row.session_label) === testOnly;
   });
 
   // At most 150 ids: under the URL limit (rule 3b).
@@ -90,7 +94,7 @@ export async function loadStaffLog(transport: string): Promise<StaffLogData> {
           .in("notice_id", ids)
       : Promise.resolve({ data: [] }),
     staffIds.length
-      ? admin.from("staff_profiles").select("id, display_name").in("id", staffIds)
+      ? admin.from("staff_profiles").select("id, display_name, is_test_account").in("id", staffIds)
       : Promise.resolve({ data: [] }),
   ]);
   const latest = new Map<string, { state: string; transport: string; destination: string; finished_at: string | null; started_at: string; attempt_no: number }>();
@@ -106,12 +110,16 @@ export async function loadStaffLog(transport: string): Promise<StaffLogData> {
     const held = latest.get(row.notice_id);
     if (!held || row.attempt_no > held.attempt_no) latest.set(row.notice_id, row);
   }
-  const names = new Map(((people.data ?? []) as Array<{ id: string; display_name: string }>).map((row) => [row.id, row.display_name]));
+  const peopleRows = (people.data ?? []) as Array<{ id: string; display_name: string; is_test_account: boolean | null }>;
+  const names = new Map(peopleRows.map((row) => [row.id, row.display_name]));
+  // Nobody of the other kind, even on a notice written before the database
+  // refused it (queue_staff_notice, 20261108170533).
+  const otherKind = new Set(peopleRows.filter((row) => (row.is_test_account === true) !== testOnly).map((row) => row.id));
 
   const capRow = cap.data as { enabled: boolean; value: unknown } | null;
   const monthSent = typeof month.data === "number" ? month.data : 0;
   return {
-    rows: visible.map((row) => {
+    rows: visible.filter((row) => !otherKind.has(row.staff_profile_id)).map((row) => {
       const attempt = latest.get(row.id);
       return {
         id: row.id,

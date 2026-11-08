@@ -78,6 +78,32 @@ export const UNREADABLE_VIEWER: SessionViewer & { feeReader: boolean } = Object.
   feeReader: false,
 });
 
+/**
+ * Which staff accounts a session shows (owner, 8 Nov 2026: "the test accounts
+ * and QA accounts should be in the test session only … the real live data
+ * will only have the genuine accounts"). A test session lists test accounts
+ * and nobody else; every real session lists real staff and nobody else —
+ * whoever is looking, a real admin included. Staff lists, pickers, counts,
+ * "who follows this up" and every fan-out ask this one question; the
+ * database's half is `vppsone.staff_matches_session()` and the
+ * `staff_session_match` triggers (migration 20261108170533).
+ */
+export function staffBelongsToSession(
+  isTestAccount: boolean | null | undefined,
+  sessionLabel: string | null | undefined,
+): boolean {
+  return (isTestAccount === true) === isTestSessionLabel(sessionLabel);
+}
+
+/**
+ * Does this viewer, looking at this session, see test accounts in a staff
+ * list? A test account always works in a test session (so yes); everybody
+ * else only while the session they are looking at is a test one.
+ */
+export function listsTestStaff(viewer: SessionViewer, sessionLabel: string | null | undefined): boolean {
+  return viewer.isTestAccount === true || isTestSessionLabel(sessionLabel);
+}
+
 /** The session a viewer lands on when they have not chosen one. */
 export function defaultSessionFor(viewer: SessionViewer, activeSessionLabel: string): string {
   return viewer.isTestAccount === true ? TEST_SESSION_LABEL : activeSessionLabel;

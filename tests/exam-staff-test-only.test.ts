@@ -7,9 +7,12 @@ describe("exam staff for a test account are test accounts", () => {
   const data = readFileSync("src/vx/screens/exams/data.ts", "utf8");
   const plan = readFileSync("src/app/(app)/exam-office/plan/actions.ts", "utf8");
 
-  it("staffList narrows to test accounts for a test viewer", () => {
+  // Since 8 Nov 2026 the list follows the session being looked at, not only
+  // the viewer: test accounts in a test session, real staff in a real one.
+  it("staffList lists the session's own kind of staff", () => {
     const body = data.slice(data.indexOf("export async function staffList"));
-    expect(body).toMatch(/viewer\?\.isTestAccount\) query = query\.eq\("is_test_account", true\)/);
+    expect(body).toMatch(/const testSession = await viewingTestSession\(\);/);
+    expect(body).toMatch(/\.eq\("is_test_account", testSession\)/);
   });
 
   it("a test account cannot set a real teacher as a paper's setter", () => {

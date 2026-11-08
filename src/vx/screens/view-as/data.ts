@@ -4,6 +4,7 @@ import { classLabelMap } from "@/modules/academics/data/academics-repo";
 import { staffPhotosFor } from "@/modules/collection/data/approved-photos";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { resolveStaffRole, type StaffRole } from "@/platform/auth/permissions";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { mayViewAs } from "@/platform/auth/view-as-subject";
 import { resolveLanguage } from "@/platform/i18n/language";
@@ -51,11 +52,15 @@ export const ROLE_ORDER: readonly StaffRole[] = [
  */
 export async function loadViewAsChoices(actor: CurrentStaff): Promise<ViewAsChoices> {
   const db = createAdminClient();
+  // The people of the session being looked at (owner, 8 Nov 2026): real staff
+  // in the real year, practice accounts only in the test session.
+  const testSession = actor.isTestAccount === true || (await viewingTestSession());
   const [profiles, log, classes] = await Promise.all([
     db
       .from("staff_profiles")
       .select("id, user_id, display_name, role, is_active, is_test_account, preferred_language")
       .eq("is_active", true)
+      .eq("is_test_account", testSession)
       .order("display_name")
       .returns<ProfileRow[]>(),
     db

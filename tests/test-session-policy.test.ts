@@ -10,6 +10,8 @@ import {
   filterSessionsForViewer,
   isRealAdmin,
   isTestSessionLabel,
+  listsTestStaff,
+  staffBelongsToSession,
   TEST_SESSION_LABEL,
   UNREADABLE_VIEWER,
 } from "@/platform/auth/test-session-policy";
@@ -147,5 +149,36 @@ describe("a confined deployment fences every account (D-346)", () => {
     expect(isConfinedDeployment({ VERCEL_ENV: "production" })).toBe(false);
     expect(isConfinedDeployment({ VERCEL_ENV: "preview" })).toBe(true);
     expect(isConfinedDeployment({})).toBe(true);
+  });
+});
+
+// Owner, 8 Nov 2026: "the test accounts and QA accounts should be in the test
+// session only ... the real live data will only have the genuine accounts".
+describe("which staff a session lists", () => {
+  it("a test session lists test accounts only; a real session real staff only", () => {
+    for (const label of [LABELS.test, LABELS.uat, "DEMO-2026-27"]) {
+      expect(staffBelongsToSession(true, label)).toBe(true);
+      expect(staffBelongsToSession(false, label)).toBe(false);
+    }
+    for (const label of [LABELS.real, LABELS.coming]) {
+      expect(staffBelongsToSession(false, label)).toBe(true);
+      expect(staffBelongsToSession(true, label)).toBe(false);
+    }
+  });
+
+  it("an unknown flag is a real account, and a missing or malformed label a real session", () => {
+    expect(staffBelongsToSession(null, LABELS.real)).toBe(true);
+    expect(staffBelongsToSession(undefined, LABELS.test)).toBe(false);
+    expect(staffBelongsToSession(false, null)).toBe(true);
+    expect(staffBelongsToSession(true, "not-a-session")).toBe(false);
+  });
+
+  it("whoever is looking: a real admin in the real year sees real staff, in TEST test accounts", () => {
+    const realAdmin = { role: "admin" as const, isTestAccount: false };
+    expect(listsTestStaff(realAdmin, LABELS.real)).toBe(false);
+    expect(listsTestStaff(realAdmin, LABELS.test)).toBe(true);
+    // A test account is always in a test session, whatever label it names.
+    expect(listsTestStaff({ role: "admin", isTestAccount: true }, LABELS.real)).toBe(true);
+    expect(listsTestStaff({ role: "teacher" }, LABELS.real)).toBe(false);
   });
 });

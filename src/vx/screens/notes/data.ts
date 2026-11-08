@@ -2,6 +2,7 @@ import "server-only";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -455,8 +456,9 @@ export async function notesPeople(sessionLabel: string, day: string, reader?: { 
       .select("class_id, staff_profile_id, role, effective_from, effective_to")
       .eq("session_label", sessionLabel)
       .returns<{ class_id: string; staff_profile_id: string; role: string; effective_from: string | null; effective_to: string | null }[]>(),
-    admin.from("staff_profiles").select("id").eq("role", "academic_coordinator").eq("is_active", true).order("created_at").limit(1).returns<{ id: string }[]>(),
-    admin.from("staff_profiles").select("id").eq("role", "admin").eq("is_active", true).order("created_at").limit(1).returns<{ id: string }[]>(),
+    // Of this session only (owner, 8 Nov 2026), as followUpStaff() picks.
+    admin.from("staff_profiles").select("id").eq("role", "academic_coordinator").eq("is_active", true).eq("is_test_account", isTestSessionLabel(sessionLabel)).order("created_at").limit(1).returns<{ id: string }[]>(),
+    admin.from("staff_profiles").select("id").eq("role", "admin").eq("is_active", true).eq("is_test_account", isTestSessionLabel(sessionLabel)).order("created_at").limit(1).returns<{ id: string }[]>(),
   ]);
   const byClass = new Map<string, { staff: string; role: string }>();
   for (const row of held.data ?? []) {

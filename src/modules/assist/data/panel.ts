@@ -4,6 +4,7 @@ import { lastBuiltinAiSmoke, mayChangeBuiltinAiLimit, mayCheckBuiltinAiKeys } fr
 import { builtinAiMode, builtinAiPilot } from "@/lib/ai/config";
 import { readKeyStatuses } from "@/lib/ai/provider-status";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 import { aiLanes, type BuiltinRoute, type Lane } from "../domain/ai-map";
@@ -97,30 +98,37 @@ export async function loadAiPage(staff: Pick<CurrentStaff, "role" | "isTestAccou
     today,
   };
 
-  const [settings, usage, raw, limit, statuses, smoke] = await Promise.all([
+  const [settings, usage, raw, limit, statuses, smoke, testSession] = await Promise.all([
     getAssistSettings().catch(() => null),
     usageSince(since).catch(() => null),
     overviewSince(since).then(readRaw).catch((error: unknown) => (error instanceof Error ? error : new Error("unknown"))),
     builtinLimit().catch(() => null),
     readKeyStatuses().catch(() => []),
     lastBuiltinAiSmoke().catch(() => null),
+    staff.isTestAccount === true ? Promise.resolve(true) : viewingTestSession(),
   ]);
 
+  // "Who used AI" and "What AI did" name the people of the session being
+  // looked at (owner, 8 Nov 2026): real staff in the real year, practice
+  // accounts in the test session. The month's cost stays whole — test runs
+  // spend real money — and keeps saying how much of it was practice.
   const names = new Map<string, string>();
   const ids = usage?.staff.map((s) => s.staffProfileId) ?? [];
   if (ids.length) {
-    const { data } = await createAdminClient().from("staff_profiles").select("id, display_name").in("id", ids.slice(0, 200));
+    const { data } = await createAdminClient().from("staff_profiles").select("id, display_name").eq("is_test_account", testSession).in("id", ids.slice(0, 200));
     for (const row of (data ?? []) as { id: string; display_name: string }[]) names.set(row.id, row.display_name);
   }
 
   const failedRead = raw instanceof Error ? raw.message : null;
-  const overview = buildOverview(raw instanceof Error ? EMPTY_RAW : raw, { inrPerUsd: rate, from, today, env: process.env });
+  const built = buildOverview(raw instanceof Error ? EMPTY_RAW : raw, { inrPerUsd: rate, from, today, env: process.env });
+  const overview = { ...built, recent: built.recent.filter((job) => job.test === testSession) };
 
   return {
     ...base,
     settings,
     features: usage?.features ?? [],
     people: (usage?.staff ?? [])
+      .filter((s) => names.has(s.staffProfileId))
       .map((s) => ({ name: names.get(s.staffProfileId) ?? "—", uses: s.uses, costInr: Math.round(s.costUsd * rate * 100) / 100 }))
       .sort((a, b) => b.uses - a.uses)
       .slice(0, 6),

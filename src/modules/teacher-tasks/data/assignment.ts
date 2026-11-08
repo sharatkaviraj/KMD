@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { primary } from "@/platform/i18n/language";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -41,7 +42,7 @@ export async function assignmentContext(): Promise<AssignmentContext> {
   const [roll, fields, labels, profiles, classTeachers, scopes, assignments, subjects, papers] = await Promise.all([
     fetchAllRows<{ student_id: string; class_id: string }>((from,to) => db.from("enrolments").select("student_id,class_id").eq("session_label",session).eq("status","enrolled").order("student_id").range(from,to), "task roster"),
     listFieldsPublic(), classLabelMap(session),
-    db.from("staff_profiles").select("id,display_name").eq("is_active",true).or("is_teaching.eq.true,role.eq.teacher").order("display_name").returns<{id:string;display_name:string}[]>(),
+    db.from("staff_profiles").select("id,display_name").eq("is_active",true).eq("is_test_account",isTestSessionLabel(session)).or("is_teaching.eq.true,role.eq.teacher").order("display_name").returns<{id:string;display_name:string}[]>(),
     db.from("class_teachers").select("staff_profile_id,class_id,effective_from,effective_to").eq("session_label",session).eq("role","class_teacher").returns<{staff_profile_id:string;class_id:string;effective_from:string;effective_to:string|null}[]>(),
     db.from("staff_scopes").select("staff_profile_id,kind,value").eq("session_label",session).returns<{staff_profile_id:string;kind:string;value:string}[]>(),
     fetchAllRows<{staff_profile_id:string;class_id:string;subject_id:string}>((from,to) => db.from("teaching_assignments").select("staff_profile_id,class_id,subject_id").eq("session_label",session).order("id").range(from,to), "subject assignments"),
