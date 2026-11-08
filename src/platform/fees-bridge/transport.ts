@@ -143,8 +143,9 @@ export async function bridgeRequest<T>(options: {
 }): Promise<T> {
   const {path,token,key,schema,body} = options;
   // Every route One may call, and nothing else. Office reads (Fees 20261103170000) and
-  // office commands (Fees 20261103190000) were missing here, so they failed before leaving One.
-  if (!/^\/(?:students(?:\/[0-9a-f-]+(?:\/(?:workspace|fees|receipts|ledger|finance-history|household|history))?)?|directory(?:\/lookup)?|sessions|classes|quote|payments|commands\/[0-9a-f-]+|receipts\/[0-9a-f-]+(?:\/detail)?|summary\/today|requests\/pending|receipts\/lookup|receipts|screens\/(?:dues(?:\/(?:family|people))?|fee-setup|reports\/(?:balances|receipts|daybook|ai-photos))|reversals|refunds\/[0-9a-f-]+\/(?:decision|process))(?:\?[^#]*)?$/i.test(path)) {
+  // office commands (Fees 20261103190000) were missing here, so they failed before leaving One;
+  // so was /screens/families (8 Nov 2026), which made real staff's Families page say Fees was down.
+  if (!/^\/(?:students(?:\/[0-9a-f-]+(?:\/(?:workspace|fees|receipts|ledger|finance-history|household|history))?)?|directory(?:\/lookup)?|sessions|classes|quote|payments|commands\/[0-9a-f-]+|receipts\/[0-9a-f-]+(?:\/detail)?|summary\/today|requests\/pending|receipts\/lookup|receipts|screens\/(?:dues(?:\/(?:family|people))?|fee-setup|families|reports\/(?:balances|receipts|daybook|ai-photos))|reversals|refunds\/[0-9a-f-]+\/(?:decision|process))(?:\?[^#]*)?$/i.test(path)) {
     throw new FeesBridgeError("invalid_route", "The Fees connection route is not permitted.");
   }
   // A command that moves money or decides a request: a lost or unreadable answer may have committed.

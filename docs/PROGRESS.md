@@ -37,6 +37,11 @@ name; filters, counts, "Most fees left"; family page with Call, WhatsApp,
 Collect fee, the family's year, each child's fees, late fee apart and next
 due; in the admin sidebar, the accountant's menu and the phone Menu, and
 "Open family page" on Student 360's Family tab.
+**Fix (8 Nov, later):** One's Fees transport only lets through routes on its
+list, and `/screens/families` was not on it, so a real staff member on
+2026-27 would have seen "Fees could not be read" (test accounts read One's
+copy and were fine, which is why the BrowserStack check passed). Added, with
+a test that every route `client.ts` asks for passes the list.
 **Remains:** linking and separating brothers and sisters on the real year
 from One (owner said yes; a Fees command with a fee preview, D-557). The
 family statement PDF is still a Fees screen. `tests/sentry-lite.test.ts`

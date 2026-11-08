@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe,it,expect,vi } from "vitest";
 import { z } from "zod";
 import { bridgeRequest, bridgeTimingLine } from "@/platform/fees-bridge/transport";
@@ -62,14 +63,26 @@ describe("canonical Fees transport",()=>{
     for(const path of ["/screens/dues?session=2026-27",`/screens/dues/family?session=2026-27&student=${id}`,
       `/screens/dues/people?session=2026-27&since=2026-10-16&student=${id}`,"/screens/fee-setup?session=2026-27",
       "/screens/reports/balances?session=2026-27","/screens/reports/receipts?session=2026-27&from=2026-11-01&to=2026-11-07",
-      "/screens/reports/daybook?session=2026-27&date=2026-11-06"]){
+      "/screens/reports/daybook?session=2026-27&date=2026-11-06","/screens/families?session=2026-27",`/screens/families?session=2026-27&group=${id}`]){
       const fetcher=ok();
       expect(await bridgeRequest({...base,path,fetcher})).toEqual({ok:true});
       expect(fetcher.mock.calls[0][0]).toBe(`https://fees.vpps.co.in/api/one/v1${path}`);
       expect(fetcher.mock.calls[0][1]).toMatchObject({method:"GET",cache:"no-store"});
     }
-    for(const path of ["/screens","/screens/reports","/screens/reports/ledger","/screens/reports/../payments","/screens/dues/ledger","/screens/fee-setup/publish","/screens/dues/../payments","/screens/duesx"]){
+    for(const path of ["/screens","/screens/reports","/screens/reports/ledger","/screens/reports/../payments","/screens/dues/ledger","/screens/fee-setup/publish","/screens/dues/../payments","/screens/duesx","/screens/families/link","/screens/familiesx"]){
       await expect(bridgeRequest({...base,path,fetcher:ok()}),path).rejects.toMatchObject({code:"invalid_route"});
+    }
+  });
+  it("lets through every route the client asks for (Families was missing for a day)",async()=>{
+    const source=readFileSync("src/platform/fees-bridge/client.ts","utf8");
+    const id="00000000-0000-4000-8000-000000000001";
+    const paths=[...source.matchAll(/path:`(\/[^`]*)`/g)].map((m)=>m[1]
+      .replace(/\$\{new URLSearchParams\(\{[^}]*\}\)\}/g,"session=2026-27").replace(/\$\{section\}/g,"fees")
+      .replace(/\$\{(?:params|queryParams)\}/g,"session=2026-27").replace(/\$\{[^}]*\}/g,id));
+    expect(paths.length).toBeGreaterThan(15);
+    for(const path of paths){
+      const fetcher=vi.fn().mockResolvedValue(Response.json({version:1,data:{ok:true}}));
+      await expect(bridgeRequest({...base,path,fetcher}),path).resolves.toEqual({ok:true});
     }
   });
   it("treats a lost answer to a reversal or refund command as uncertain, never to a read",async()=>{
