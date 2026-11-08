@@ -40,6 +40,42 @@ function uniqueIds(values: Iterable<string>) {
   return Array.from(new Set([...values].map((value) => value.trim()).filter(Boolean)));
 }
 
+/*
+ * One's change from the Fees original (8 Nov 2026, D-561): the writes below
+ * that pick rows by a family group id also name those rows' own years.
+ * One's fee-writes guard places a write on a TEST year only by a scope column
+ * (student, class, year…) compared with eq/in, and a group id is none of
+ * those, so "delete the group with this id" was refused: taking out the
+ * second-last child left a family of one on the list, and joining two
+ * families stopped at re-pointing the discounts. The year filter names the
+ * rows the id already picks, so the same rows change. Fees has no such guard.
+ */
+type YearScopedTable = "student_family_groups" | "student_conventional_discount_assignments";
+
+async function yearsOfRows(
+  supabase: SupabaseServerClient,
+  table: YearScopedTable,
+  column: "id" | "family_group_id",
+  ids: string[],
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase.from(table).select("academic_session_label").in(column, ids);
+  if (error) throw new Error(error.message);
+  return uniqueIds(((data ?? []) as Array<{ academic_session_label: string | null }>).map((row) => row.academic_session_label ?? ""));
+}
+
+/** Delete family groups (membership rows cascade), naming each group's own year. */
+async function deleteFamilyGroups(supabase: SupabaseServerClient, groupIds: string[]): Promise<void> {
+  const years = await yearsOfRows(supabase, "student_family_groups", "id", groupIds);
+  if (years.length === 0) return;
+  const { error } = await supabase
+    .from("student_family_groups")
+    .delete()
+    .in("id", groupIds)
+    .in("academic_session_label", years);
+  if (error) throw new Error(error.message);
+}
+
 /**
  * Every sibling id submitted by the picker. The sheet posts one
  * `siblingStudentIds` field per selected student; `siblingStudentId` is the
@@ -141,27 +177,29 @@ async function resolveFamilyGroupId(
 
   // Discount rows point at the absorbed group; re-point them before the delete
   // turns the reference into null (the FK is `on delete set null`).
-  const { error: repointError } = await supabase
-    .from("student_conventional_discount_assignments")
-    .update({ family_group_id: primaryGroupId })
-    .in("family_group_id", absorbedGroupIds);
+  const discountYears = await yearsOfRows(
+    supabase,
+    "student_conventional_discount_assignments",
+    "family_group_id",
+    absorbedGroupIds,
+  );
+  if (discountYears.length > 0) {
+    const { error: repointError } = await supabase
+      .from("student_conventional_discount_assignments")
+      .update({ family_group_id: primaryGroupId })
+      .in("family_group_id", absorbedGroupIds)
+      .in("academic_session_label", discountYears);
 
-  if (repointError) {
-    throw new Error(repointError.message);
+    if (repointError) {
+      throw new Error(repointError.message);
+    }
   }
 
   // Delete first, insert second. `student_family_members` is unique on
   // (student_id, academic_session_label), so writing a carried row while the
   // absorbed group still holds the same (student, session) pair would collide.
   // The rows being carried are already in memory above.
-  const { error: deleteError } = await supabase
-    .from("student_family_groups")
-    .delete()
-    .in("id", absorbedGroupIds);
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
-  }
+  await deleteFamilyGroups(supabase, absorbedGroupIds);
 
   if (carriedRows.length > 0) {
     const { error: carryError } = await supabase
@@ -559,10 +597,17 @@ export async function unlinkSiblingAction(
     };
   }
 
+  let cleanupError: string | null = null;
   if (remainingStudentIds.length < 2) {
     // A single (or empty) group is no longer a family — remove it (membership
-    // rows cascade) so no stale "family of one" lingers.
-    await supabase.from("student_family_groups").delete().eq("id", familyGroupId);
+    // rows cascade) so no stale "family of one" lingers. A failure is reported
+    // after the dues below are worked out, so the money is right either way
+    // and running the take-out again finishes the clean-up.
+    try {
+      await deleteFamilyGroups(supabase, [familyGroupId]);
+    } catch (error) {
+      cleanupError = (error as Error).message;
+    }
     for (const id of remainingStudentIds) affected.add(id);
   } else if (sessionLabel) {
     // Recompute the 3rd-child discount for the slimmer family.
@@ -588,5 +633,8 @@ export async function unlinkSiblingAction(
     revalidatePath(`/fees/students/${id}`);
   }
 
+  if (cleanupError) {
+    return { status: "error", message: `Unlinked, but the family of one could not be removed: ${cleanupError}` };
+  }
   return { status: "success", message: "Sibling unlinked." };
 }
