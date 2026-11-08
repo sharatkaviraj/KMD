@@ -636,6 +636,8 @@ function redesign(): RouteExpectation[] {
     row("/receipts", FEE_READERS, "Receipts and the day close are fee screens, read by everyone who reads the fee app."),
     row("/receipts/[receiptNumber]", FEE_READERS, "One receipt: print, share preview and reversal, read by everyone who reads receipts."),
     row("/dues", FEE_READERS, "Who owes what; the fee collector's follow-up list starts here."),
+    row("/families", FEE_READERS, "Brothers and sisters with their fees together: a fee screen, read by everyone who reads the fee app (owner, 8 Nov 2026)."),
+    row("/families/[groupId]", FEE_READERS, "One family's page follows the Families list: the same fee readers, with Collect fee only for those who take money."),
     row("/reminders", FEE_READERS, "Fee reminders are drafted from the dues list by the fee desk."),
     row("/fee-setup", FEE_READERS, "Fee setup is read by the fee desk; changing it stays admin-only inside the screen."),
     row("/reports", FEE_READERS, "Money reports belong to the fee desk and the office."),

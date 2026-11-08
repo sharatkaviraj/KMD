@@ -1,0 +1,84 @@
+/*
+ * Families (owner, 8 Nov 2026): the list of families and one family's page.
+ * Big, labelled targets for office staff; two columns of cards from 900px,
+ * one column on a phone. The 900px switch is the `.vx` container's, as for
+ * every other vx screen.
+ */
+.fam-lead{margin:0;color:var(--mut);font-size:15px;max-width:720px}
+
+/* The search, filter and order controls stay together above the list. */
+.fam-tools{display:flex;flex-direction:column;gap:10px;position:sticky;top:64px;z-index:4;margin:0 -4px;padding:8px 4px;background:var(--bg)}
+.fam-search{display:flex;gap:8px;align-items:center}
+.fam-mic{flex:none;height:50px;min-width:50px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);color:var(--fg);display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-weight:600;cursor:pointer}
+.fam-mic.on{background:var(--accs);border-color:var(--acc);color:var(--accfg)}
+.fam-mic.on svg{animation:famPulse 1s ease-in-out infinite}
+@keyframes famPulse{50%{transform:scale(1.18)}}
+.fam-order{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.fam-count{font-size:13px;font-weight:600;color:var(--mut)}
+
+.fam-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fam-card{display:flex;align-items:flex-start;gap:14px;padding:16px;color:var(--fg);min-width:0;text-decoration:none}
+.fam-card[data-nav-pending]{opacity:.65}
+.fam-faces{flex:none;display:flex;align-items:center;padding-top:2px}
+.fam-faces>*{box-shadow:0 0 0 3px var(--card)}
+.fam-faces>*+*{margin-left:-14px}
+.fam-extra{flex:none;width:44px;height:44px;border-radius:22px;background:var(--s3);color:var(--fg);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.fam-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.fam-name{font-size:17px;font-weight:700;line-height:1.25}
+.fam-who{font-size:13px;color:var(--mut)}
+.fam-kids{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:2px}
+.fam-kid{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--s2);color:var(--fg);white-space:nowrap}
+.fam-money{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.fam-chev{flex:none;align-self:center;color:var(--mut)}
+
+/* One family */
+.fam-page{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:16px;align-items:start}
+.fam-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.fam-hero{display:flex;flex-direction:column;gap:12px}
+.fam-hero-faces{display:flex;flex-wrap:wrap;gap:8px}
+.fam-hero-name{margin:0;font-size:24px;font-weight:600;line-height:1.2}
+.fam-facts{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+.fam-facts dt{font-size:12px;color:var(--mut);font-weight:600}
+.fam-facts dd{margin:0;font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.fam-actions{display:flex;flex-wrap:wrap;gap:8px}
+.fam-actions>.btn{flex:1 1 140px}
+.fam-masked{font-size:12px;font-weight:600;color:var(--mut)}
+.fam-wa{color:var(--ok)}
+.fam-nophone{flex:1 1 100%;display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--mut)}
+
+.fam-moneycard{display:flex;flex-direction:column;gap:12px}
+.fam-figures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fam-figure{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fam-k{font-size:12px;font-weight:600;color:var(--mut)}
+.fam-v{font-size:20px;font-weight:700}
+.fam-note,.fam-late{margin:0;display:flex;align-items:flex-start;gap:8px;font-size:14px;line-height:1.4}
+.fam-note{color:var(--mut)}
+.fam-late{padding:10px 12px;border-radius:12px;background:var(--warns);color:var(--warnfg);font-weight:600}
+.fam-note svg,.fam-late svg{flex:none;margin-top:1px}
+
+.fam-child{display:flex;flex-direction:column;gap:12px}
+.fam-child-head{display:flex;gap:12px;align-items:flex-start}
+.fam-child-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.fam-child-id>strong{font-size:16px}
+.fam-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.fam-rows{margin:0;display:flex;flex-direction:column;border-top:1px solid var(--bd)}
+.fam-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--bd)}
+.fam-row dt{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--mut)}
+.fam-row dd{margin:0;font-size:15px;font-weight:700;text-align:right}
+.fam-allpaid{padding-top:10px}
+.fam-child-actions{display:flex;flex-wrap:wrap;gap:8px}
+.fam-child-actions>.btn{flex:1 1 140px}
+
+.fam-help ol{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.fam-help li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.4}
+.fam-help-ic{flex:none;width:28px;height:28px;border-radius:14px;background:var(--accs);color:var(--accfg);display:inline-flex;align-items:center;justify-content:center}
+.fam-help h3{gap:8px}
+
+@container vx (max-width:899px){
+  .fam-tools{position:static;margin:0;padding:0}
+  .fam-list{grid-template-columns:minmax(0,1fr)}
+  .fam-page{grid-template-columns:minmax(0,1fr)}
+  .fam-card{padding:14px}
+  .fam-hero-name{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){.fam-mic.on svg{animation:none}}

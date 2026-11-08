@@ -136,3 +136,24 @@ export const bridgeAiPhotosSchema = z.object({
   total: count.nullable(),
 });
 export type BridgeAiPhotos = z.infer<typeof bridgeAiPhotosSchema>;
+
+// Families (8 Nov 2026, schoolfees docs/one-bridge/screen-reads.md): every
+// confirmed family of the session, each child's record and money. Fees and
+// the late fee travel apart and are never added; a child Fees has no money
+// row for carries `money: null`, which One shows as "not read", never as 0.
+const familyChild = z.object({
+  studentId: text, fullName: text, admissionNo: text, classLabel: text, status: text,
+  fatherName: nullableText, motherName: nullableText, fatherPhone: nullableText, motherPhone: nullableText,
+  villageCity: nullableText, hasPhoto: z.boolean(), siblingOrder: z.number().int().nullable(), thirdChildCandidate: z.boolean(),
+  money: z.object({
+    yearFees: amount, paid: amount, feesPending: amount, lateFeePending: amount, discount: amount,
+    discountLabels: z.array(text), nextDueDate: nullableText, nextDueAmount: amount.nullable(), overdue: z.boolean(),
+  }).nullable(),
+});
+export const bridgeFamiliesSchema = z.object({
+  ...pins,
+  families: z.array(z.object({ groupId: text, label: text, guardianName: nullableText, guardianPhone: nullableText, children: z.array(familyChild) })),
+});
+export type BridgeFamilies = z.infer<typeof bridgeFamiliesSchema>;
+export type BridgeFamilyGroup = BridgeFamilies["families"][number];
+export type BridgeFamilyChild = z.infer<typeof familyChild>;
