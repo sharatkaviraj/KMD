@@ -2,7 +2,7 @@ import { runTeacherPhotoCopy } from "./teacher-photo-copy";
 
 /*
  * The teachers' photo copy carries on by itself (owner, 8 Nov 2026). Started by
- * `photo-catch-up.tsx` for a real admin on the live session only: a few
+ * the roster card's button (`refresh-roster-button.tsx`) for a real admin on the live session only: a few
  * seconds after One opens, it runs the same copy "Refresh roster now" runs
  * (`teacher-photo-copy.ts`). The server asks One's own database what is
  * missing first, so Fees is read only while a photo is still to copy.

@@ -6,7 +6,7 @@ import { flat, type Language } from "@/platform/i18n/language";
  * only when it runs, so no screen carries it.
  *
  * Two things start it: an admin's "Refresh roster now", and an admin simply
- * opening One (`photo-catch-up.tsx`, 8 Nov 2026). The first copy stopped at
+ * opening One (`photo-catch-up-run.ts`, 8 Nov 2026). The first copy stopped at
  * 279 of 484 children when the admin left the screen after one batch, and
  * nothing ever carried on, so half of every class had no face for its
  * teacher. Now one copy runs at a time in a tab (a tap while the quiet one

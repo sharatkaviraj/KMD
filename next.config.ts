@@ -79,6 +79,31 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
   },
 
+  /*
+   * A child's face (`src/vx/ui/face.tsx` and the photo lookup beside it) is
+   * on nearly every screen, but it is too small for webpack to share on its
+   * own (20 KB minimum), so every page carried its own copy: three on the
+   * attendance page's count, which put it over its ceiling (D-554, 8 Nov
+   * 2026). One small chunk, fetched once and kept, instead. Production client
+   * builds only; `next dev` and the server bundles are untouched.
+   */
+  webpack(config, { isServer, dev }) {
+    const split = config.optimization?.splitChunks;
+    if (!isServer && !dev && split && typeof split === "object") {
+      split.cacheGroups = {
+        ...split.cacheGroups,
+        faces: {
+          test: /[\\/]src[\\/]vx[\\/]ui[\\/](face\.tsx|student-photos\.ts)$/,
+          name: "vx-faces",
+          chunks: "all",
+          enforce: true,
+          priority: 20,
+        },
+      };
+    }
+    return config;
+  },
+
   async headers() {
     return [
       {

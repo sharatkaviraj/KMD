@@ -16,7 +16,12 @@ where a screen did not load it; faces on class, attendance, marks, notes,
 payment desk, collect, search, birthdays, siblings, academics and transport;
 the open photo grows out of the circle (`vx/ui/face-zoom.tsx`); the copy
 carries on whenever a real admin opens One, joins a running copy, retries a
-failed batch once and says what is left (D-555).
+failed batch once and says what is left (D-555). **Page size:** `Face` and
+its lookup ship as one shared `vx-faces` chunk (a cache group in
+`next.config.ts`; webpack had copied them into each page, three times on the
+attendance count), and "Refresh roster now" with the quiet copy now loads
+after the page; `/teach/attendance` measures 274,624 B against a 275,488 B
+ceiling (main 274,152).
 **Remains:** the remaining 205 photos copy the next time a real admin opens
 One after this deploy (no test account may run it); receipts' day list has no
 child id and keeps initials.

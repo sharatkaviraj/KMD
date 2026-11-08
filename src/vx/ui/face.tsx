@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+
+import type { Language } from "@/platform/i18n/language";
 
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
@@ -11,6 +13,14 @@ const SEE = p("See {name}'s photo", "{name} की फ़ोटो देखे�
 /** Fetched on the first press of any face, then kept: the zoom is not on any page until it is wanted. */
 const loadZoom = () => import("./face-zoom");
 
+function zoomFace(from: HTMLElement, src: string, name: string, language: Language, sub?: string | null, saveable?: boolean) {
+  void loadZoom().then(({ openFaceZoom }) => openFaceZoom({ from, thumb: src, name, sub, saveable, language }));
+}
+
+function warmFace(src: string) {
+  void loadZoom().then(({ warmFaceZoom }) => warmFaceZoom(src));
+}
+
 /**
  * Open a child's photo large, growing out of `from` (`face-zoom.tsx`), and
  * start it early on the press (`warm`). For a screen that draws its own face.
@@ -20,12 +30,8 @@ const loadZoom = () => import("./face-zoom");
 export function useFaceZoom() {
   const { language } = useVx();
   return {
-    open: (from: HTMLElement, src: string, name: string, more: { sub?: string | null; saveable?: boolean } = {}) => {
-      void loadZoom().then(({ openFaceZoom }) => openFaceZoom({ from, thumb: src, name, sub: more.sub ?? null, saveable: more.saveable, language }));
-    },
-    warm: (src: string) => {
-      void loadZoom().then(({ warmFaceZoom }) => warmFaceZoom(src));
-    },
+    open: (from: HTMLElement, src: string, name: string, more: { sub?: string | null; saveable?: boolean } = {}) => zoomFace(from, src, name, language, more.sub, more.saveable),
+    warm: warmFace,
   };
 }
 
@@ -62,55 +68,49 @@ export function Face({ photo, student, className, style, children, zoom, zoomSub
   /** Offer "Save photo" in the open photo. */
   saveable?: boolean;
 }) {
-  const { tx } = useVx();
+  const { tx, language } = useVx();
   const src = useStudentPhoto(student, photo);
-  const [seen, setSeen] = useState<{ src: string; ok: boolean } | null>(null);
+  // The photo that loaded, or failed: the initials stay under anything else.
+  const [seen, setSeen] = useState<[string, boolean] | null>(null);
   const face = useRef<HTMLSpanElement>(null);
-  const failed = seen !== null && seen.src === src && !seen.ok;
-  const loaded = seen !== null && seen.src === src && seen.ok;
-  const show = src && !failed ? src : null;
-  const settle = useCallback((ok: boolean) => {
-    if (show) setSeen((prev) => (prev && prev.src === show && prev.ok === ok ? prev : { src: show, ok }));
-  }, [show]);
-  // A photo that finished before the page woke up fires no event: read it once.
-  const check = useCallback((img: HTMLImageElement | null) => {
-    if (img?.complete && img.currentSrc) settle(img.naturalWidth > 0);
-  }, [settle]);
-
-  const zoomer = useFaceZoom();
-  const opens = Boolean(zoom && show && loaded);
+  const show = src && !(seen?.[0] === src && !seen[1]) ? src : null;
+  const loaded = show !== null && seen?.[0] === show;
+  const settle = (ok: boolean) => {
+    if (show && !(seen?.[0] === show && seen[1] === ok)) setSeen([show, ok]);
+  };
+  const opens = Boolean(zoom && loaded);
   const open = (event: MouseEvent | KeyboardEvent) => {
-    if (!opens || !show || !face.current) return;
+    if (!opens || !face.current) return;
     event.preventDefault();
     event.stopPropagation();
-    zoomer.open(face.current, show, zoom ?? "", { sub: zoomSub, saveable });
+    zoomFace(face.current, show!, zoom!, language, zoomSub, saveable);
   };
-  // The press starts the sharper photo and the zoom's code, before the finger lifts.
-  const warm = () => {
-    if (opens && show) zoomer.warm(show);
-  };
-
-  const classes = className ? `${className} vx-face` : "vx-face";
   const img = show ? (
     // eslint-disable-next-line @next/next/no-img-element -- private photo link, no shared optimizer cache.
-    <img ref={check} src={show} alt="" loading="lazy" decoding="async" draggable={false} data-on={loaded ? "" : undefined} onLoad={() => settle(true)} onError={() => settle(false)} />
+    <img
+      // A photo that finished before the page woke up fires no event: read it once.
+      ref={(el) => { if (el?.complete && el.currentSrc) settle(el.naturalWidth > 0); }}
+      src={show} alt="" loading="lazy" decoding="async" draggable={false} data-on={loaded ? "" : undefined} onLoad={() => settle(true)} onError={() => settle(false)}
+    />
   ) : null;
-  if (!opens) {
-    return <span ref={face} className={classes} style={style} aria-hidden="true">{children}{img}</span>;
-  }
   // A span, not a button: faces sit inside links and buttons, and a button
   // inside a button is cut in two by the HTML parser.
   return (
     <span
       ref={face}
-      role="button"
-      tabIndex={0}
-      aria-label={tx(SEE).replace("{name}", zoom ?? "")}
-      className={`${classes} vx-face-open`}
+      className={`${className ? `${className} ` : ""}vx-face${opens ? " vx-face-open" : ""}`}
       style={style}
-      onPointerDown={warm}
-      onClick={open}
-      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") open(event); }}
+      {...(opens
+        ? {
+            role: "button",
+            tabIndex: 0,
+            "aria-label": tx(SEE).replace("{name}", zoom!),
+            // The press starts the sharper photo and the zoom's code, before the finger lifts.
+            onPointerDown: () => warmFace(show!),
+            onClick: open,
+            onKeyDown: (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") open(event); },
+          }
+        : { "aria-hidden": true })}
     >
       {children}
       {img}

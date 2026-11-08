@@ -1,5 +1,6 @@
 "use client";
 
+import { ChildAvatar } from "@/vx/ui/child-avatar";
 import { Face } from "@/vx/ui/face";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -1067,7 +1068,7 @@ export function MarksSheet({
                       const s = byId.get(id)!;
                       return (
                         <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--bd)" }}>
-                          <Avatar text={initials(s.name)} bg={avatarColor(s.name)} size={34} student={s.id} zoom={s.name} />
+                          <ChildAvatar text={initials(s.name)} bg={avatarColor(s.name)} size={34} student={s.id} zoom={s.name} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <strong className="clip" style={{ display: "block" }}>{s.name}</strong>
                             {s.hint ? <span style={{ display: "block", fontSize: 12, color: "var(--mut)" }}>{tx(s.hint)}</span> : null}
