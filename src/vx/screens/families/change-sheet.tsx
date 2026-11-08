@@ -365,8 +365,11 @@ export function FamilyUnlinkSheet({
             <strong>{kid.name}</strong>
             <span>{kid.classLabel}</span>
           </span>
-          <Ic n="arrowRight" size={20} />
-          <span className="famx-tag">{tx(W.unlink.leaves(name))}</span>
+          {/* Arrow and words wrap together under the name on a phone, never over it. */}
+          <span className="famx-goes">
+            <Ic n="arrowRight" size={20} />
+            <span className="famx-tag">{tx(W.unlink.leaves(name))}</span>
+          </span>
         </div>
         <p className="famx-after">
           <Ic n="users" size={18} />
