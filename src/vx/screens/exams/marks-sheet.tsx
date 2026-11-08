@@ -1,5 +1,7 @@
 "use client";
 
+import { ChildAvatar } from "@/vx/ui/child-avatar";
+import { Face } from "@/vx/ui/face";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
@@ -1066,7 +1068,7 @@ export function MarksSheet({
                       const s = byId.get(id)!;
                       return (
                         <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--bd)" }}>
-                          <Avatar text={initials(s.name)} bg={avatarColor(s.name)} size={34} />
+                          <ChildAvatar text={initials(s.name)} bg={avatarColor(s.name)} size={34} student={s.id} zoom={s.name} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <strong className="clip" style={{ display: "block" }}>{s.name}</strong>
                             {s.hint ? <span style={{ display: "block", fontSize: 12, color: "var(--mut)" }}>{tx(s.hint)}</span> : null}
@@ -1220,9 +1222,12 @@ export function MarksSheet({
                     return (
                       <div key={s.id} className="row xer xd">
                         <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{rollText(s)}</span>
-                        <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                          <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: res.c }}>{res.t}</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                          <Face className="xface" style={{ width: 34, height: 34, borderRadius: 17, flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: avatarColor(s.name), color: "#082F49" }} student={s.id} zoom={s.name}>{initials(s.name)}</Face>
+                          <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                            <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: res.c }}>{res.t}</span>
+                          </span>
                         </span>
                         {away ? (
                           <span className="pill" style={{ height: 42, borderRadius: 12, justifyContent: "center", fontSize: 12, color: "var(--mut)", background: "var(--s3)", animation: "xPopIn .3s var(--spring) both" }}>
@@ -1403,6 +1408,7 @@ export function MarksSheet({
                     return (
                       <div key={s.id} className="row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "10px 14px", borderTop: "1px solid var(--bd)", background: slip ? "var(--bads)" : active ? "var(--accs)" : undefined, boxShadow: slip ? "inset 3px 0 0 var(--bad)" : active ? "inset 3px 0 0 var(--pri)" : undefined }}>
                         <span className="num" style={{ width: 30, flex: "none", color: "var(--mut)", fontWeight: 600 }}>{rollText(s)}</span>
+                        <Face className="xface" style={{ width: 34, height: 34, borderRadius: 17, flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: avatarColor(s.name), color: "#082F49" }} student={s.id} zoom={s.name}>{initials(s.name)}</Face>
                         {/* Name, box and Absent share one line at 360px: the
                             Absent button no longer wraps under the name and
                             doubles every row (smoke 20 Oct); a long name

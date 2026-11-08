@@ -1,5 +1,6 @@
 "use client";
 
+import { Face } from "@/vx/ui/face";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -367,7 +368,7 @@ export function SearchPalette({
                   const right = statusRight(s);
                   return (
                     <button key={s.id} type="button" className="tap vxp-stu" style={{ borderTop: i ? "1px solid var(--bd)" : 0 }} onClick={() => go(s)}>
-                      <span className="vxp-ava" style={{ background: TONES[i % TONES.length][0], color: TONES[i % TONES.length][1] }} aria-hidden="true">{initials(s.name)}</span>
+                      <Face className="vxp-ava" style={{ background: TONES[i % TONES.length][0], color: TONES[i % TONES.length][1] }} student={s.id} zoom={s.name} zoomSub={s.classLabel}>{initials(s.name)}</Face>
                       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                         <span className="clip" style={{ fontSize: 15 }}><Hl text={s.name} q={term} /></span>
                         <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{[s.classLabel, `SR ${s.sr}`, s.why ? tx(whyLine(s.why)) : null].filter(Boolean).join(" · ")}</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Face } from "@/vx/ui/face";
 import Link from "@/ui/link";
 import { useRef, useState, useTransition } from "react";
 
@@ -401,7 +402,7 @@ export function TeacherRemarks({
               {child ? (
                 <>
                   <div className="card" style={{ padding: "16px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
-                    <span className="tc-av serif tc-pop" style={{ width: 56, height: 56, fontSize: 20, background: TONES[idx % 4][0], color: TONES[idx % 4][1] }}>{initials(child.name)}</span>
+                    <Face className="tc-av serif tc-pop" style={{ width: 56, height: 56, fontSize: 20, background: TONES[idx % 4][0], color: TONES[idx % 4][1] }} student={child.id} zoom={child.name} zoomSub={classLabel}>{initials(child.name)}</Face>
                     <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
                       <span className="tc-h2">{child.name}</span>
                       <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(child.roll ? p(`${classLabel} · Roll ${child.roll} · your class`, `${classLabel} · रोल ${child.roll} · आपकी कक्षा`) : p(`${classLabel} · your class`, `${classLabel} · आपकी कक्षा`))}</span>

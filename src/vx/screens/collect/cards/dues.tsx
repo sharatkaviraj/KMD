@@ -8,6 +8,7 @@ import type { WaiverReason } from "@/modules/collect/domain/remarks";
 import type { CollectDues, CollectReceiptRow } from "@/modules/collect/domain/types";
 import type { Localized } from "@/platform/i18n/language";
 
+import { Face } from "@/vx/ui/face";
 import { avatarTone, BackButton, CardShell, firstName, Icon, initialsOf, tail, useFit, YearBar } from "../parts";
 import { Bi, dayMonth, fill, money, useCx } from "../text";
 
@@ -62,7 +63,7 @@ export function DuesCard(props: {
       }
     >
       <div className="cx-who">
-        <span className={`cx-av ${avatarTone(dues.student.id)}`}>{initialsOf(dues.student.name)}</span>
+        <Face className={`cx-av ${avatarTone(dues.student.id)}`} student={dues.student.id} zoom={dues.student.name} zoomSub={dues.student.classLabel}>{initialsOf(dues.student.name)}</Face>
         <div>
           <div className="nm" title={dues.student.name}>{dues.student.name}</div>
           <div className="meta">

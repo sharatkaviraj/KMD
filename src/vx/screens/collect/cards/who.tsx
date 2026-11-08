@@ -7,6 +7,7 @@ import { isHouseholdSearch, queryShape, type QueryShape } from "@/modules/collec
 import type { CollectStudentRow, LikelyRow } from "@/modules/collect/domain/types";
 import type { Localized } from "@/platform/i18n/language";
 
+import { Face } from "@/vx/ui/face";
 import { avatarTone, CardShell, Icon, initialsOf, useFit, type IconName } from "../parts";
 import { Bi, fill, money, useCx } from "../text";
 
@@ -121,7 +122,7 @@ export function WhoCard({ inputRef, ...props }: {
               className={`cx-res${i === hl ? " hl" : ""}`}
               onClick={() => props.onPick(row, false)}
             >
-              <span className={`cx-av ${avatarTone(row.id)}`}>{initialsOf(row.name)}</span>
+              <Face className={`cx-av ${avatarTone(row.id)}`} student={row.id} zoom={row.name} zoomSub={row.classLabel}>{initialsOf(row.name)}</Face>
               <span className="cx-rc">
                 <span className="cx-rn">{row.name}</span>
                 <span className="cx-rm">

@@ -1,5 +1,6 @@
 "use client";
 
+import { Face } from "@/vx/ui/face";
 import "./paydesk.css";
 
 import Link from "@/ui/link";
@@ -961,7 +962,7 @@ export function PaymentDesk({
                   onClick={() => selectStudent(s.id)}
                   style={{ animationDelay: `${Math.min(i, 10) * 16}ms` }}
                 >
-                  <span className="pd-av" style={{ borderRadius: 20, background: tone[0], color: tone[1] }}>{initials(s.name)}</span>
+                  <Face className="pd-av" style={{ borderRadius: 20, background: tone[0], color: tone[1] }} student={s.id} zoom={s.name} zoomSub={s.classLabel}>{initials(s.name)}</Face>
                   <span className="pd-c pd-identity">
                     <span className="pd-b">{s.name}</span>
                     <span className="pd-m">{dotJoin(searching && s.classLabel, srTag(s.sr), s.father)}</span>
@@ -1682,7 +1683,7 @@ function StudentCard({
   return (
     <div className="card pd-cd fadein" data-st="1" aria-label={student.name}>
       <div className="pd-f" style={{ gap: 12, alignItems: "flex-start" }}>
-        <span className="pd-av" style={{ width: 50, height: 50, borderRadius: 17, fontSize: 17, background: "var(--accs)", color: "var(--accfg)" }}>{initials(student.name)}</span>
+        <Face className="pd-av" style={{ width: 50, height: 50, borderRadius: 25, fontSize: 17, background: "var(--accs)", color: "var(--accfg)" }} student={student.id} zoom={student.name} zoomSub={student.classLabel}>{initials(student.name)}</Face>
         <span className="pd-c" style={{ flex: 1 }}>
           <span className="pd-f" style={{ gap: 6, flexWrap: "wrap" }}>
             <span className="serif" style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.2 }}>{student.name}</span>

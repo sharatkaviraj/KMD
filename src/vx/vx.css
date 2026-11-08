@@ -344,3 +344,7 @@ a[data-nav-pending]{opacity:.6;transition:opacity .16s ease .08s}
 .vx-face>img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;opacity:0;transition:opacity .24s ease}
 .vx-face>img[data-on]{opacity:1}
 @media (prefers-reduced-motion:reduce){.vx-face>img{transition:none}}
+.vx-face-open{cursor:zoom-in;-webkit-tap-highlight-color:transparent;transition:transform .12s ease}
+.vx-face-open:active{transform:scale(.94)}
+.vx-face-open:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.vx-face-open{transition:none}.vx-face-open:active{transform:none}}

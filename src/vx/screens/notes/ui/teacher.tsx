@@ -88,7 +88,7 @@ function TeachCard({ note, viewerId, today, href, due, ct, delay }: { note: Boar
         </span>
       ) : null}
       <span className="nx-f" style={{ gap: 10, width: "100%" }}>
-        <Face photo={note.studentPhoto} className="nt-av" style={{ width: 40, height: 40, fontSize: 13, background: abg, color: afg }}>{words.initials(note)}</Face>
+        <Face photo={note.studentPhoto} zoom={note.studentName} className="nt-av" style={{ width: 40, height: 40, fontSize: 13, background: abg, color: afg }}>{words.initials(note)}</Face>
         <span className="nx-c" style={{ flex: 1 }}>
           <span className="nx-e nt-f15" style={{ fontSize: 15, fontWeight: 700 }}>{words.name(note)}</span>
           {hint ? <span className="nt-hn">{hint}</span> : null}

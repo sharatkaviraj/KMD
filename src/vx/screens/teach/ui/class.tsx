@@ -1,6 +1,6 @@
 "use client";
 
-import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
+import { Face } from "@/vx/ui/face";
 import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "@/ui/link";
 import { useState, type ReactNode } from "react";
@@ -347,7 +347,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
           {needs.length === 0 ? <span className="tc-s" style={{ padding: "6px" }}>{tx(p("Everyone is doing fine.", "सब ठीक चल रहे हैं।"))}</span> : null}
           {needs.map((c, i) => (
             <Link key={c.id} href={kidHref(c.id)} className="tap row tc-in" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 6px", borderRadius: 12, borderTop: i ? "1px solid var(--bd)" : 0, color: "var(--fg)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
-              <span className="tc-av" style={{ width: 44, height: 44, fontSize: 13, background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span>
+              <Face className="tc-av" style={{ width: 44, height: 44, fontSize: 13, background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }} photo={c.photoUrl ?? null} zoom={c.name}>{initials(c.name)}</Face>
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{c.name} {c.rollNo ? <span className="tc-s num">· {tx(p(`Roll ${c.rollNo}`, `रोल ${c.rollNo}`))}</span> : null}</span>
                 <span style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{why(c).map((w) => <span key={w.label} className="pill" style={{ background: w.t[0], color: w.t[1] }}>{w.label}</span>)}</span>
@@ -417,7 +417,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
               <span className="pill num" style={{ background: "var(--s2)", color: "var(--mut)" }}>{tx(p(`Roll ${c.rollNo ?? "—"}`, `रोल ${c.rollNo ?? "—"}`))}</span>
               <span className="num" style={{ fontSize: 12, fontWeight: 700, color: ringColor(c.attendancePct) }}>{c.attendancePct === null ? "—" : `${Math.round(c.attendancePct)}%`}</span>
             </span>
-            <Ring pct={c.daysCounted < ATTENTION_RULES.minDays ? null : c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
+            <Ring pct={c.daysCounted < ATTENTION_RULES.minDays ? null : c.attendancePct}><Face className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }} photo={c.photoUrl ?? null} zoom={c.name}>{initials(c.name)}</Face></Ring>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{c.name}</span>
             {badges(c, true)}
           </Link>
@@ -427,7 +427,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
         {shown.map((c, i) => (
           <Link key={c.id} href={kidHref(c.id)} className="tap row tc-in" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 76, padding: "10px 14px", borderTop: i ? "1px solid var(--bd)" : 0, color: "var(--fg)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
             <span className="num tc-s" style={{ flex: "none", width: 22, textAlign: "center", fontWeight: 700 }}>{c.rollNo ?? ""}</span>
-            <Ring pct={c.daysCounted < ATTENTION_RULES.minDays ? null : c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
+            <Ring pct={c.daysCounted < ATTENTION_RULES.minDays ? null : c.attendancePct}><Face className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }} photo={c.photoUrl ?? null} zoom={c.name}>{initials(c.name)}</Face></Ring>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <span className="tc-el" style={{ fontSize: 16, fontWeight: 600 }}>{c.name}</span>
               <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
@@ -704,7 +704,7 @@ export function TeachStudent({ data, initialTab, back, canAskCertificate = false
           <div className="tc-cc">
             <div className="card rise tc-hdr" style={{ order: 1, display: "flex", padding: 20, gap: 16 }}>
               <Ring pct={ringPct} size={96}>
-                <span className="tc-av serif" style={{ top: 11, left: 11, width: 74, height: 74, fontSize: 26, background: tone(data.rollNo ?? 1)[0], color: tone(data.rollNo ?? 1)[1] }}>{data.photoUrl ? <PrivatePhoto src={data.photoUrl} alt="" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(data.name)}</span>
+                <Face className="tc-av serif" style={{ top: 11, left: 11, width: 74, height: 74, fontSize: 26, background: tone(data.rollNo ?? 1)[0], color: tone(data.rollNo ?? 1)[1] }} photo={data.photoUrl ?? null} zoom={data.name} zoomSub={data.classLabel}>{initials(data.name)}</Face>
               </Ring>
               <span className="tc-hdc" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                 <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{data.name}</span>

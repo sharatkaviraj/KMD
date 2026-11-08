@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { flat, type Language } from "@/platform/i18n/language";
 import { cue } from "@/ui/feedback/cue";
 import { Ic } from "@/vx/icons";
-import type { PhotoProgress } from "./teacher-photo-copy";
 
 const W = {
   refresh: { en: "Refresh roster now", hi: "सूची अभी अपडेट करें" },
@@ -22,13 +21,30 @@ const W = {
  * Admin only, by hand, at most once in ten minutes: never a schedule (D-457).
  * After the roster, the same tap copies the Fees photos One does not hold yet,
  * so teachers see their children's faces (D-511). That runs in batches with a
- * bar and a count, whether or not the roster itself had changes.
+ * bar and a count, whether or not the roster itself had changes; a copy an
+ * admin's open of One already started is joined, not run twice.
+ *
+ * With `catchUp` (a real admin, not previewing, roster readable) the same copy
+ * also carries on by itself a few seconds after One opens
+ * (`photo-catch-up-run.ts`, D-555). Both live here, loaded after the page
+ * (`lazy-refresh-roster-button.tsx`), so no page carries either up front.
  */
-export function RefreshRosterButton({ language }: { language: Language }) {
+export function RefreshRosterButton({ language, catchUp = false }: { language: Language; catchUp?: boolean }) {
   const router = useRouter();
+  useEffect(() => {
+    if (!catchUp) return;
+    let gone = false;
+    const timer = setTimeout(() => {
+      void import("./photo-catch-up-run").then(({ catchUpPhotos }) => catchUpPhotos(() => gone)).catch(() => {});
+    }, 5_000);
+    return () => {
+      gone = true;
+      clearTimeout(timer);
+    };
+  }, [catchUp]);
   const [pending, start] = useTransition();
   const [note, setNote] = useState<string | null>(null);
-  const [photos, setPhotos] = useState<PhotoProgress | null>(null);
+  const [photos, setPhotos] = useState<{ text: string; done: number; of: number } | null>(null);
   const say = (pair: { en: string; hi: string }, values: Record<string, number> = {}) =>
     Object.entries(values).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), flat(pair, language));
 

@@ -80,7 +80,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <VxShell
         viewer={viewer}
         sessionLabel={sessionLabel}
-        rosterStatus={showBridgeStatus ? <Suspense fallback={<span className="vx-roster-placeholder" aria-hidden="true" />}><RosterStatus language={staff.language} canRefresh={staff.role === "admin" && !previewing} /></Suspense> : null}
+        rosterStatus={showBridgeStatus ? <Suspense fallback={<span className="vx-roster-placeholder" aria-hidden="true" />}><RosterStatus language={staff.language} canRefresh={staff.role === "admin" && !previewing} catchUpPhotos={staff.role === "admin" && !viewer.previewing && staff.isTestAccount !== true} /></Suspense> : null}
         sessionIsTest={resolvedSession?.isTest ?? (isTestSessionLabel(academicSession) || getAppMode() === "test")}
         sessionPill={
           showPill

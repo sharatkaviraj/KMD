@@ -29,6 +29,7 @@ import { useVx } from "@/vx/i18n";
 import { Chip, ChipRow, SearchBox, Seg } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
 import { Banner, Grid, Section, TopBar, VxPage } from "@/vx/ui/page";
+import { ChildAvatar } from "@/vx/ui/child-avatar";
 import { Avatar, Btn, Card, EmptyState, IconTile, Kpi, Pill, SecHead } from "@/vx/ui/primitives";
 
 import { DriverEditor, TripEditor } from "./editors";
@@ -424,7 +425,7 @@ function RoutesView(props: {
                 onClick={() => props.onOpen(rider.routeId)}
                 style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 60, padding: "10px 16px", width: "100%", textAlign: "left", font: "inherit", color: "var(--fg)", background: "transparent", border: 0, borderTop: "1px solid var(--bd)", cursor: "pointer" }}
               >
-                <Avatar text={initialsOf(rider.name)} seed={rider.id} photo={rider.photo} size={40} />
+                <ChildAvatar text={initialsOf(rider.name)} seed={rider.id} photo={rider.photo ?? null} zoom={rider.name} size={40} />
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span className="clip" style={{ fontWeight: 600 }}>{rider.name}</span>
                   <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>

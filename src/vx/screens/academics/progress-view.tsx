@@ -850,7 +850,7 @@ export function AcadProgressView(p: AcadProgressProps) {
                 return (
                   <div key={c.studentId} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 0", borderTop: i ? "1px solid var(--bd)" : undefined, opacity: im ? 0.62 : 1, animation: `xIn .3s var(--ease) ${Math.min(i, 12) * 25}ms both` }}>
                     <Link href={qs(BASE, { view: "student", student: c.studentId, exam: q })} className="tap" aria-label={say(`Open ${c.name}`, `${c.name} खोलें`)} style={{ flex: 1, minWidth: 250, display: "flex", alignItems: "flex-start", gap: 12, color: "var(--fg)" }}>
-                      <ToneAvatar name={c.name} />
+                      <ToneAvatar name={c.name} student={c.studentId} sub={c.classLabel} />
                       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
                           <span style={{ fontWeight: 600 }}>{c.name}</span>

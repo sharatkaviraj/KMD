@@ -6,6 +6,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { lead, under, type Pair } from "@/vx/text";
 import { LangButton } from "@/vx/shell/sidebar";
 import { BackLink } from "@/vx/ui/back-link";
+import { Face } from "@/vx/ui/face";
 import { Pill } from "@/vx/ui/primitives";
 import { shortDay, shortDayHi } from "@/vx/format";
 import { subjectPair } from "@/vx/screens/exams/domain/groups";
@@ -126,10 +127,13 @@ export function nameInitials(name: string): string {
 }
 
 /** A round initials avatar in the design's soft tones. */
-export function ToneAvatar({ name, size = 36, tone }: { name: string; size?: number; tone?: { bg: string; fg: string } }) {
+export function ToneAvatar({ name, size = 36, tone, student, sub }: { name: string; size?: number; tone?: { bg: string; fg: string }; student?: string; sub?: string | null }) {
   const t = tone ?? toneOf(name);
+  const style: CSSProperties = { flex: "none", width: size, height: size, borderRadius: size / 2, background: t.bg, color: t.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size >= 48 ? 18 : 12, fontWeight: 700 };
+  // A child's circle shows the child's photo when there is one, and opens it on a tap.
+  if (student) return <Face style={style} student={student} zoom={name} zoomSub={sub}>{nameInitials(name) || "?"}</Face>;
   return (
-    <span aria-hidden="true" style={{ flex: "none", width: size, height: size, borderRadius: size / 2, background: t.bg, color: t.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size >= 48 ? 18 : 12, fontWeight: 700 }}>
+    <span aria-hidden="true" style={style}>
       {nameInitials(name) || "?"}
     </span>
   );
@@ -392,7 +396,7 @@ export function AttentionRow({ child, href, language, trail, delay, first }: { c
   return (
     <Link href={href} className="row tap" style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 6px", borderTop: first ? undefined : "1px solid var(--bd)", color: "var(--fg)", animation: delay !== undefined ? `xIn .3s var(--ease) ${Math.min(delay, 200)}ms both` : undefined }}>
       <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <ToneAvatar name={child.name} />
+        <ToneAvatar name={child.name} student={child.studentId} sub={child.classLabel} />
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <span className="clip" style={{ fontWeight: 600 }}>{child.name}</span>
           <span style={{ fontSize: 12, color: "var(--mut)" }}>{lead(classPair(child.classLabel), language)}</span>

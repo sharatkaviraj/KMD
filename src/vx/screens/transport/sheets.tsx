@@ -10,6 +10,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import type { Pair } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";
+import { ChildAvatar } from "@/vx/ui/child-avatar";
 import { Avatar, Btn, EmptyState, Pill, SecHead } from "@/vx/ui/primitives";
 
 import { W } from "./words";
@@ -302,7 +303,7 @@ function RiderRow({ rider, canOpen }: { rider: Rider; canOpen: boolean }) {
   };
   const inner: ReactNode = (
     <>
-      <Avatar text={initialsOf(rider.name)} seed={rider.id} photo={rider.photo} size={40} />
+      <ChildAvatar text={initialsOf(rider.name)} seed={rider.id} photo={rider.photo ?? null} zoom={rider.name} size={40} />
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <span className="clip" style={{ fontWeight: 600 }}>{rider.name}</span>
         <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>

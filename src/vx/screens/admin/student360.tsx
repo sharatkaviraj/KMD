@@ -14,7 +14,7 @@ import { Ic } from "@/vx/icons";
 import { p as pair, type Pair } from "@/vx/text";
 import { CloseLink, useCloseTo } from "@/vx/ui/back-link";
 import { Sheet } from "@/vx/ui/overlays";
-import { PhotoViewer } from "@/vx/ui/photo-viewer";
+import { Face, useFaceZoom } from "@/vx/ui/face";
 import { Btn, EmptyState, Pill, Skel, type Tone } from "@/vx/ui/primitives";
 import { mobileOf, parseTab, provisionalLabel, type InstallmentState, type MarkStatus, type MonthCell, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
 import { SupportActions } from "@/vx/screens/admin/support-actions";
@@ -721,7 +721,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
                 <circle cx="42" cy="42" r="38" style={{ fill: "none", stroke: "var(--s3)", strokeWidth: 5 }} />
                 <circle className="arc" cx="42" cy="42" r="38" style={{ fill: "none", stroke: "var(--acc)", strokeWidth: 5, strokeLinecap: "round", strokeDasharray: ringLenD, strokeDashoffset: ringLenD * (1 - Math.min(100, Math.max(0, ringValue)) / 100), ["--len" as string]: ringLenD } as CSSProperties} />
               </svg>
-              <StudentFace name={p.name} url={p.photoUrl} bg={avaBg} />
+              <StudentFace name={p.name} url={p.photoUrl} bg={avaBg} sub={p.classLabel} />
               {p.canEditPhoto ? (
                 <button type="button" className="tap s360-cam" aria-label={tx(photoWords.edit)} title={tx(photoWords.edit)} onClick={() => launch("photo")}>
                   <Ic n="camera" size={16} />
@@ -822,33 +822,28 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   );
 }
 
-/** The Fees photo proxy serves a thumbnail in the ring; the viewer asks for the full photograph. */
-function largePhoto(url: string): string {
-  if (!url.startsWith("/api/fees-bridge/")) return url;
-  const parsed = new URL(url, "https://one.invalid");
-  parsed.searchParams.set("variant", "full");
-  return `${parsed.pathname}${parsed.search}`;
-}
-
 /**
  * The child's face in the ring: the school photograph when there is one, the
- * initials otherwise. A photograph opens the viewer when tapped (review P04);
- * anyone who can see it here may enlarge and save it (owner, 3 Nov).
+ * initials otherwise. A photograph opens large when tapped, growing out of the
+ * ring (owner, 8 Nov 2026; review P04 before it); anyone who can see it here
+ * may save it (owner, 3 Nov).
  */
-function StudentFace({ name, url, bg }: { name: string; url?: string | null; bg: string }) {
+function StudentFace({ name, url, bg, sub }: { name: string; url?: string | null; bg: string; sub?: string | null }) {
   const [failed, setFailed] = useState<string | null>(null);
-  const [viewing, setViewing] = useState(false);
+  const ring = useRef<HTMLSpanElement>(null);
   const { tx } = useVx();
+  const zoom = useFaceZoom();
   const shown = url && failed !== url ? url : null;
   return (
-    <span className="serif s360-ava" style={{ background: bg, color: "var(--accfg)" }}>
+    <span ref={ring} className="serif s360-ava" style={{ background: bg, color: "var(--accfg)" }}>
       {shown ? (
         <>
-          {/* Signed private URLs are short-lived; do not cache them in an image proxy. */}
+          {/* A private photo link; never through the shared image optimiser. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={shown} alt={tx(T.studentPortrait(name))} onError={() => setFailed(shown)} />
-          <button type="button" className="tap s360-ava-open" aria-label={tx(T.viewPhoto(name))} aria-haspopup="dialog" onClick={() => setViewing(true)} />
-          <PhotoViewer open={viewing} onClose={() => setViewing(false)} src={largePhoto(shown)} alt={tx(T.studentPortrait(name))} name={name} />
+          <button type="button" className="tap s360-ava-open" aria-label={tx(T.viewPhoto(name))} aria-haspopup="dialog"
+            onPointerDown={() => zoom.warm(shown)}
+            onClick={() => { if (ring.current) zoom.open(ring.current, shown, name, { sub, saveable: true }); }} />
         </>
       ) : (
         <span role="img" aria-label={tx(T.studentInitials(name))}>{initials(name)}</span>
@@ -1190,7 +1185,7 @@ function FamilyTab({ p, siblings, feesLoading, feesUnavailable, loadingCard }: {
           ) : (
             siblings.map((m) => (
               <Link key={m.id} href={studentProfileHref(m.id, p.returnTo)} className="tap card s360-row" style={{ color: "var(--fg)", padding: "12px 14px" }}>
-                <span style={{ flex: "none", width: 46, height: 46, borderRadius: 23, background: "var(--warns)", color: "var(--warnfg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700 }}>{initials(m.name)}</span>
+                <Face className="s360-sib" style={{ flex: "none", width: 46, height: 46, borderRadius: 23, background: "var(--warns)", color: "var(--warnfg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700 }} student={m.id} zoom={m.name} zoomSub={m.classLabel}>{initials(m.name)}</Face>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{m.name}</span>
                   <span style={{ fontSize: 12, color: "var(--mut)" }}>{m.classLabel} · SR {m.sr}</span>
