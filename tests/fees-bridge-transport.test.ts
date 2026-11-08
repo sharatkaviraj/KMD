@@ -92,6 +92,29 @@ describe("canonical Fees transport",()=>{
     }
     await expect(bridgeRequest({...base,path:"/summary/today?session=2026-27",fetcher:lost()})).rejects.toMatchObject({uncertain:false});
   });
+  it("permits the family preview, link and unlink (Fees 20261108190000), and only those shapes",async()=>{
+    const ok=()=>vi.fn().mockResolvedValue(Response.json({version:1,data:{ok:true}}));
+    for(const path of ["/families/preview","/families/link","/families/unlink"]){
+      const fetcher=ok();
+      expect(await bridgeRequest({...base,path,body:{},fetcher})).toEqual({ok:true});
+      expect(fetcher.mock.calls[0][0]).toBe(`https://fees.vpps.co.in/api/one/v1${path}`);
+      expect(fetcher.mock.calls[0][1]).toMatchObject({method:"POST",cache:"no-store"});
+    }
+    for(const path of ["/families","/families/merge","/families/link/extra","/families/../payments","/families/linkx"]){
+      await expect(bridgeRequest({...base,path,body:{},fetcher:ok()}),path).rejects.toMatchObject({code:"invalid_route"});
+    }
+    const source=readFileSync("src/platform/fees-bridge/client.ts","utf8");
+    for(const path of ["/families/preview","/families/link","/families/unlink"]) expect(source).toContain(`"${path}"`);
+  });
+  it("treats a lost answer to a link or unlink as uncertain, never to a preview",async()=>{
+    const lost=()=>vi.fn().mockRejectedValue(new TypeError("network"));
+    for(const path of ["/families/link","/families/unlink"]){
+      await expect(bridgeRequest({...base,path,body:{},fetcher:lost()})).rejects.toMatchObject({uncertain:true});
+    }
+    await expect(bridgeRequest({...base,path:"/families/preview",body:{},fetcher:lost()})).rejects.toMatchObject({uncertain:false});
+    const refused=vi.fn().mockResolvedValue(Response.json({version:1,error:{code:"family_changed",message:"Preview again"}},{status:409}));
+    await expect(bridgeRequest({...base,path:"/families/link",body:{},fetcher:refused})).rejects.toMatchObject({code:"family_changed",uncertain:false});
+  });
   it("does not claim a source quote refusal committed",async()=>{
     const fetcher=vi.fn().mockResolvedValue(Response.json({version:1,error:{code:"quote_changed",message:"Review again"}},{status:409}));
     await expect(bridgeRequest({...base,path:"/payments",body:{},fetcher})).rejects.toMatchObject({code:"quote_changed",uncertain:false});

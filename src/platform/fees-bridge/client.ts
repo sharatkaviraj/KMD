@@ -17,6 +17,10 @@ import {
   officeCommandStatusSchema, refundDecisionInputSchema, refundDecisionResultSchema, refundProcessInputSchema, refundProcessResultSchema,
   reversalInputSchema, reversalResultSchema, type RefundDecisionInput, type RefundProcessInput, type ReversalInput,
 } from "./office-command-contracts";
+import {
+  familyCommandResultSchema, familyLinkRequestSchema, familyPreviewRequestSchema, familyPreviewSchema, familyUnlinkRequestSchema,
+  type FamilyLinkRequest, type FamilyPreviewRequest, type FamilyUnlinkRequest,
+} from "./family-command-contracts";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { oneStudentReadPermissions, permittedFinanceKinds, restrictStudentWorkspace } from "./read-permissions";
 import { assertBridgeSession, feesBridgeOrigin, feesBridgeWritesEnabled, usesCanonicalFees } from "./policy";
@@ -424,6 +428,44 @@ export async function postBridgeRefundProcess(refundRequestId: string, input: Re
   const body = refundProcessInputSchema.parse(input);
   const result = await officeCommand("finance:write", body.sessionLabel, body.commandId, `/refunds/${id}/process`, body, refundProcessResultSchema);
   if (result.refundRequestId !== id) throw new FeesBridgeError("invalid_response", "The Fees answer was about another refund. Check its status.", true);
+  return result;
+}
+
+/**
+ * Brothers and sisters (Fees 20261108190000): the Fees student page's
+ * permission (`students:write`, admins only), One's `fees:manage`, writes
+ * open, never while seeing One as somebody else; Fees then checks the
+ * person's own `can_link_family` grant and runs its engine as them.
+ */
+async function familyRequest<T>(sessionLabel: string, path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
+  if (!feesBridgeWritesEnabled()) throw new FeesBridgeError("read_only", "Use the Fees app while One's fee desk is read-only.");
+  if (!feePermissionsFor(staff.role).includes("students:write")) throw new FeesBridgeError("forbidden", "Your account cannot do this.");
+  return bridgeRequest({...(await credentials(staff, sessionLabel)), path, body, schema});
+}
+
+/** What a link or unlink would do, from Fees. Writes nothing. */
+export async function previewBridgeFamilyChange(input: FamilyPreviewRequest) {
+  const body = familyPreviewRequestSchema.parse(input);
+  const result = await familyRequest(body.sessionLabel, "/families/preview", body, familyPreviewSchema);
+  if (result.sessionLabel !== body.sessionLabel || result.operation !== body.operation) {
+    throw new FeesBridgeError("invalid_response", "The Fees answer was about another family change.");
+  }
+  return result;
+}
+
+export async function postBridgeFamilyLink(input: FamilyLinkRequest) {
+  const body = familyLinkRequestSchema.parse(input);
+  const result = await familyRequest(body.sessionLabel, "/families/link", body, familyCommandResultSchema);
+  if (result.commandId !== body.commandId || result.kind !== "family_link") throw new FeesBridgeError("invalid_response", "The Fees answer was about another request. Check its status.", true);
+  return result;
+}
+
+export async function postBridgeFamilyUnlink(input: FamilyUnlinkRequest) {
+  const body = familyUnlinkRequestSchema.parse(input);
+  const result = await familyRequest(body.sessionLabel, "/families/unlink", body, familyCommandResultSchema);
+  if (result.commandId !== body.commandId || result.kind !== "family_unlink") throw new FeesBridgeError("invalid_response", "The Fees answer was about another request. Check its status.", true);
   return result;
 }
 

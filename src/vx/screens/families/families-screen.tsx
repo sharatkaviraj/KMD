@@ -15,6 +15,7 @@ import { useToast } from "@/vx/ui/overlays";
 import { Banner, Grid, Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, EmptyState, Kpi, Pill } from "@/vx/ui/primitives";
 
+import { FamilyLinkSheet } from "./change-sheet";
 import {
   FAMILY_FILTERS,
   familyCounts,
@@ -33,7 +34,8 @@ import "./families.css";
  * Families (owner, 8 Nov 2026): every family with two or more children in
  * the school, their fees together, and one search box for a child, a parent,
  * a phone or an SR. A family opens its own page (`/families/[groupId]`).
- * Read-only on a real year: linking stays in Fees until One can send it.
+ * "Link brothers and sisters" (admins) opens the linking sheet: through Fees
+ * on a real year, One's copy on a TEST year.
  */
 
 const PAGE = 30;
@@ -65,8 +67,10 @@ export function FamiliesScreen(props: FamiliesData) {
     setQuery(next);
     setLimit(PAGE);
   };
+  // Each open mounts a fresh sheet (`n`), so it starts at its first step.
+  const [linking, setLinking] = useState({ open: false, n: 0 });
   const change = props.canChange ? (
-    <Btn icon="users" href="/student-tools?view=families" ariaLabel={tx(W.changeSub)}>
+    <Btn variant="pri" icon="userPlus" ariaLabel={tx(W.changeSub)} onClick={() => setLinking((l) => ({ open: true, n: l.n + 1 }))}>
       {tx(W.change)}
     </Btn>
   ) : null;
@@ -82,7 +86,7 @@ export function FamiliesScreen(props: FamiliesData) {
       />
       <Section>
         <p className="fam-lead">{tx(W.lead)}</p>
-        {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={W.notYet} /> : null}
+        {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={props.canChange ? undefined : W.notYet} /> : null}
         {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
 
         {cards.length === 0 ? (
@@ -185,6 +189,16 @@ export function FamiliesScreen(props: FamiliesData) {
           </>
         )}
       </Section>
+      {props.canChange ? (
+        <FamilyLinkSheet
+          key={`link-${linking.n}`}
+          open={linking.open}
+          onClose={() => setLinking((l) => ({ ...l, open: false }))}
+          sessionLabel={props.sessionLabel}
+          live={props.asOf !== null}
+          family={null}
+        />
+      ) : null}
     </VxPage>
   );
 }

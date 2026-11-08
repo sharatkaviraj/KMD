@@ -4,10 +4,11 @@ import { getViewSessionCookie } from "@/modules/fees/platform/session-context/co
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { loadFamilyBook } from "@/modules/students-fees/vx/families";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
+import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { can } from "@/platform/auth/permissions";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { getBridgeFamilies } from "@/platform/fees-bridge/client";
-import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { feesBridgeWritesEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 
 import type { FamiliesData } from "./logic";
 
@@ -50,6 +51,19 @@ export async function loadFamilies(staff: CurrentStaff, search: Search, groupId:
     families: read.families,
     canCollect: can(staff, "fees:collect"),
     canOpenChildren: can(staff, "students:view"),
-    canChange: !live && can(staff, "fees:manage"),
+    canChange: familiesCanChange(staff, live),
   };
+}
+
+/**
+ * Who sees "Add a brother or sister" and "Take out of this family" (8 Nov
+ * 2026): `fees:manage` and the Fees student page's own permission
+ * (`students:write`, admins), never while seeing One as somebody else. On a
+ * real year the change goes to Fees, so also One's fee writes switched on;
+ * Fees then checks the person's own grant.
+ */
+export function familiesCanChange(staff: CurrentStaff, live: boolean): boolean {
+  if (!can(staff, "fees:manage") || staff.viewedBy) return false;
+  if (!feePermissionsFor(staff.role).includes("students:write")) return false;
+  return live ? feesBridgeWritesEnabled() : true;
 }

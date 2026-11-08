@@ -42,10 +42,19 @@ list, and `/screens/families` was not on it, so a real staff member on
 2026-27 would have seen "Fees could not be read" (test accounts read One's
 copy and were fine, which is why the BrowserStack check passed). Added, with
 a test that every route `client.ts` asks for passes the list.
-**Remains:** linking and separating brothers and sisters on the real year
-from One (owner said yes; a Fees command with a fee preview, D-557). The
-family statement PDF is still a Fees screen. `tests/sentry-lite.test.ts`
-fails in a checkout under `/home/user` (the path holds "user"), as on main.
+**Linking (8 Nov, later; D-558, D-559):** "Add a brother or sister" on the
+list and family page, "Take out of this family" on each child, admins only:
+pick, "Check fees" (who is in the family after, 3rd Child Policy moves and
+new tuition, fees left), then save. TEST years change One's copy; the real
+year goes to Fees' new `families/preview|link|unlink` routes (schoolfees PR
+153), which carry the household the preview showed and a command id.
+**Remains:** the Fees migration for those routes (source functions and the
+`can_link_family` grant flag) waits for the owner's go-ahead on the live Fees
+database; it is written and proved on a local Postgres replay of every Fees
+migration (`/mnt/project-files/families-2026-11-08/fees-pr-b/`). Until it is
+applied a real admin sees "not switched on yet". The family statement PDF is
+still a Fees screen. `tests/sentry-lite.test.ts` fails in a checkout under
+`/home/user` (the path holds "user"), as on main.
 
 ## Children's photos everywhere, fast, and open like WhatsApp — 8 November 2026
 
