@@ -417,7 +417,7 @@ function Two({ t }: { t: Pair }) {
 function Avatar({ name, photo, size = 44 }: { name: string; photo?: string | null; size?: number }) {
   const [bg, fg] = nameTone(name);
   return (
-    <Face photo={photo} className="nc-av" style={{ width: size, height: size, fontSize: Math.round(size / 3), background: bg, color: fg }}>
+    <Face photo={photo} zoom={name} className="nc-av" style={{ width: size, height: size, fontSize: Math.round(size / 3), background: bg, color: fg }}>
       {ini(name)}
     </Face>
   );
@@ -858,7 +858,7 @@ function ChildCard({ c, kids, notes, viewer, initialClass, onPick, onDone }: Car
   const row = (kid: ChildChoice, key: string, opts: { cls?: boolean; recent?: boolean } = {}) => (
     <li key={key}>
       <button type="button" className={`tap nc-kidrow${opts.recent ? " recent" : ""}`} onClick={() => onPick(kid.id)} aria-label={`${kid.name}, ${kid.classLabel}${kid.rollNo ? `, roll ${kid.rollNo}` : ""}`}>
-        <Face photo={kid.photo} className="r">
+        <Face photo={kid.photo} zoom={kid.name} zoomSub={kid.classLabel} className="r">
           {opts.recent ? <Ic n="clock" size={15} /> : (kid.rollNo ?? ini(kid.name))}
         </Face>
         <span className="nc-c" style={{ flex: 1, minWidth: 0 }}>

@@ -103,7 +103,7 @@ function BoardCard({ note, plan, today, href, selected, delay, viewerId }: { not
   return (
     <Link href={href} scroll={false} className="tap card nx-nc" aria-current={selected ? "true" : undefined} style={{ borderColor: selected ? "var(--acc)" : "var(--bd)", background: selected ? "var(--accs)" : "var(--card)", animationDelay: `${delay}ms` }}>
       <span className="nx-f" style={{ gap: 10, width: "100%" }}>
-        <Face photo={note.studentPhoto} className="nx-ib" style={{ borderRadius: 19, background: look.bg, color: look.fg }}>{words.initials(note)}</Face>
+        <Face photo={note.studentPhoto} zoom={note.studentName} className="nx-ib" style={{ borderRadius: 19, background: look.bg, color: look.fg }}>{words.initials(note)}</Face>
         <span className="nx-c" style={{ flex: 1 }}>
           <span className="nx-b nx-e" style={{ fontSize: 15 }}>{words.name(note)}</span>
           <span className="nx-m nx-e">{[note.classLabel, hint, note.writtenByName, rel ? tx(rel) : null].filter(Boolean).join(" · ")}</span>
@@ -615,7 +615,7 @@ function StudentPage({
   return (
     <div className="nx-c" style={{ gap: 16, animation: "xPush .36s var(--ease) both" }}>
       <div className="card nx-f" style={{ padding: "16px 18px", gap: 16, flexWrap: "wrap" }}>
-        <Face photo={scope.photo} className="nx-ib" style={{ width: 60, height: 60, borderRadius: 30, fontSize: 20, background: "var(--accs)", color: "var(--accfg)" }}>{ini(name)}</Face>
+        <Face photo={scope.photo} zoom={name} zoomSub={scope.classLabel} className="nx-ib" style={{ width: 60, height: 60, borderRadius: 30, fontSize: 20, background: "var(--accs)", color: "var(--accfg)" }}>{ini(name)}</Face>
         <span className="nx-c" style={{ flex: 1, minWidth: 200, gap: 4 }}>
           <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{name}</span>
           {line ? <span className="nx-m" style={{ fontSize: 13 }}>{line}</span> : null}

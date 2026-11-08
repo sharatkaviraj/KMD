@@ -350,7 +350,7 @@ export function BoardNoteAside({
   return (
     <div className="nx-c" style={{ padding: "18px 20px 28px", gap: 14 }}>
       <div className="nx-f" style={{ gap: 12 }}>
-        <Face photo={note.studentPhoto} className="nx-ib" style={{ width: 48, height: 48, borderRadius: 24, fontSize: 16, background: look.bg, color: look.fg }}>{words.initials(note)}</Face>
+        <Face photo={note.studentPhoto} zoom={note.studentName} className="nx-ib" style={{ width: 48, height: 48, borderRadius: 24, fontSize: 16, background: look.bg, color: look.fg }}>{words.initials(note)}</Face>
         <span className="nx-c" style={{ flex: 1 }}>
           <span className="serif" style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.2 }}>{words.name(note)}</span>
           {words.hint(note) ? <span className="nt-hn">{words.hint(note)}</span> : null}
@@ -615,7 +615,7 @@ export function TeachNoteDetail({
       <div className="nx-c" style={{ gap: 16 }}>
         <div className="card rise nx-c" style={{ padding: "18px 20px", gap: 12, borderLeft: `4px solid ${look.fg}` }}>
           <div className="nx-f" style={{ gap: 12 }}>
-            <Face photo={note.studentPhoto} className="nt-av" style={{ width: 52, height: 52, fontSize: 16, background: abg, color: afg }}>{words.initials(note)}</Face>
+            <Face photo={note.studentPhoto} zoom={note.studentName} className="nt-av" style={{ width: 52, height: 52, fontSize: 16, background: abg, color: afg }}>{words.initials(note)}</Face>
             <span className="nx-c" style={{ flex: 1 }}>
               <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{words.name(note)}</span>
               {words.hint(note) ? <span className="nt-hn">{words.hint(note)}</span> : null}

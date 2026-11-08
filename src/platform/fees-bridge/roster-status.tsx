@@ -5,7 +5,7 @@ import { RosterStatusView } from "./roster-status-view";
 import { readFeesBridgeHealth } from "./state";
 
 /** Informational only: each data reader still enforces current bridge readiness. */
-export async function RosterStatus({ language, canRefresh = false }: { language: Language; canRefresh?: boolean }) {
+export async function RosterStatus({ language, canRefresh = false, catchUpPhotos = false }: { language: Language; canRefresh?: boolean; catchUpPhotos?: boolean }) {
   const health = await readFeesBridgeHealth().catch(() => ({ state: null, status: "error" as const }));
-  return <RosterStatusView language={language} status={health.status} checkedAt={health.state?.last_checked_at} canRefresh={canRefresh} />;
+  return <RosterStatusView language={language} status={health.status} checkedAt={health.state?.last_checked_at} canRefresh={canRefresh} catchUpPhotos={catchUpPhotos && health.status !== "not_ready" && health.status !== "error"} />;
 }

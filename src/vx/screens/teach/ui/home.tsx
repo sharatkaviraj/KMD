@@ -8,6 +8,7 @@ import { draftKey } from "@/platform/drafts/policy";
 import { loadDraft } from "@/platform/drafts/store";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
+import { Face } from "@/vx/ui/face";
 import { initials, shortDayHi, timeHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { VxPage } from "@/vx/ui/page";
@@ -779,7 +780,7 @@ export function TeachHome({
   );
 
   /* ------------------------------------------------- children */
-  type KidRow = { key: string; name: string; ini?: string; icon?: IconName; bg: string; fg: string; tag: string; why: string; done?: string | null; acts: ReactNode[] };
+  type KidRow = { key: string; name: string; ini?: string; icon?: IconName; student?: string | null; who?: string | null; bg: string; fg: string; tag: string; why: string; done?: string | null; acts: ReactNode[] };
   const actBtn = (key: string, href: string, icon: IconName, label: string, cls: string) => (
     <Link key={key} href={href} className={`tap btn ${cls}`} style={{ height: 44 }}>
       <Ic n={icon} />
@@ -801,6 +802,8 @@ export function TeachHome({
         key: `k${k.id}`,
         name: k.classLabel ? `${k.name} · ${tx(classWord(k.classLabel))}` : k.name,
         ini: initials(k.name),
+        student: k.id,
+        who: k.name,
         bg: TONE[first][0],
         fg: TONE[first][1],
         tag,
@@ -812,6 +815,8 @@ export function TeachHome({
       key: `b${b.id}`,
       name: b.name,
       icon: "cake" as IconName,
+      student: b.id,
+      who: b.name,
       bg: V("warns"),
       fg: V("warnfg"),
       tag: tx(p("Birthday today", "आज जन्मदिन")),
@@ -856,7 +861,7 @@ export function TeachHome({
         <div style={{ display: "flex", flexDirection: "column" }} data-support-reviews={data.reviews.length ? "" : undefined}>
           {kidRows.map((k, i) => (
             <div key={k.key} className="tc-kid" style={{ animationDelay: `${Math.min(i, 12) * 45}ms` }}>
-              <span className="tc-av" style={{ width: 46, height: 46, background: k.bg, color: k.fg, fontSize: 14 }}>{k.icon ? <Ic n={k.icon} size={21} /> : k.ini}</span>
+              <Face className="tc-av" style={{ width: 46, height: 46, background: k.bg, color: k.fg, fontSize: 14 }} student={k.student} zoom={k.who}>{k.icon ? <Ic n={k.icon} size={21} /> : k.ini}</Face>
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                 <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                   <span className="tc-p" style={{ fontWeight: 700 }}>{k.name}</span>

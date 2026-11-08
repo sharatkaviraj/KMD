@@ -13,6 +13,7 @@ import { cue } from "@/ui/feedback/cue";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { initials } from "@/vx/format";
+import { Face } from "@/vx/ui/face";
 import { p, type Pair } from "@/vx/text";
 import { Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
@@ -588,7 +589,7 @@ export function TeachAttend({
           style={{ background: lk.bg, borderColor: lk.bd, opacity: editing && !ready ? 0.6 : 1, animationDelay: `${Math.min(i, 16) * 22}ms` }}
         >
           <span className="num" style={{ flex: "none", minWidth: 22, fontSize: 13, fontWeight: 700, textAlign: "right", color: "var(--mut)" }}>{num}</span>
-          <span className="tc-av" style={{ width: 40, height: 40, fontSize: 13, background: tone[0], color: tone[1] }}>{initials(r.name)}</span>
+          <Face className="tc-av" style={{ width: 40, height: 40, fontSize: 13, background: tone[0], color: tone[1] }} student={r.id} zoom={r.name}>{initials(r.name)}</Face>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
             <span className="tc-el2" style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.25 }}>{r.name}</span>
             {r.hint ? <span className="tc-el" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(r.hint)}</span> : null}
@@ -765,7 +766,7 @@ export function TeachAttend({
               const a = marks[k.id] === "absent";
               return (
                 <span key={k.id} className="tc-in" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="tc-av" style={{ width: 30, height: 30, fontSize: 11, background: a ? V("bads") : V("warns"), color: a ? V("bad") : V("warnfg") }}>{initials(k.name)}</span>
+                  <Face className="tc-av" style={{ width: 30, height: 30, fontSize: 11, background: a ? V("bads") : V("warns"), color: a ? V("bad") : V("warnfg") }} student={k.id} zoom={k.name}>{initials(k.name)}</Face>
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                     <span className="tc-el" style={{ fontWeight: 600 }}>{k.name}</span>
                     <span className="tc-s">{[a ? tx(p("Absent", "अनुपस्थित")) : tx(p("Half-day", "आधा दिन")), whoLine(k)].filter(Boolean).join(" · ")}</span>
@@ -943,7 +944,7 @@ export function TeachAttend({
           <div className="card tc-in" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, borderColor: "var(--warnm)", animationDelay: "120ms" }}>
             <span className="sech" style={{ color: "var(--warnfg)" }}>{T(p("Next step", "अगला कदम"))}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span className="tc-av" style={{ width: 48, height: 48, fontSize: 15, background: "var(--bads)", color: "var(--bad)" }}>{initials(nextKid.name)}</span>
+              <Face className="tc-av" style={{ width: 48, height: 48, fontSize: 15, background: "var(--bads)", color: "var(--bad)" }} student={nextKid.id} zoom={nextKid.name}>{initials(nextKid.name)}</Face>
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <span className="tc-p" style={{ fontWeight: 700 }}>{tx(p(`${nextKid.name}: absent ${nextKid.n} days`, `${nextKid.name}: ${nextKid.n} दिन अनुपस्थित`))}</span>
                 <span className="tc-s">
@@ -1116,7 +1117,7 @@ export function TeachAttend({
                     <span className="sech">{tx(label)} ({list.length})</span>
                     {list.map((id) => (
                       <span key={id} className="tc-in" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span className="tc-av" style={{ width: 34, height: 34, fontSize: 12, background: bg, color: fg }}>{initials(nameOf.get(id) ?? "?")}</span>
+                        <Face className="tc-av" style={{ width: 34, height: 34, fontSize: 12, background: bg, color: fg }} student={id} zoom={nameOf.get(id)}>{initials(nameOf.get(id) ?? "?")}</Face>
                         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                           <span style={{ fontWeight: 600 }}>{nameOf.get(id) ?? "—"}</span>
                           {numLabel(id) ? <span className="tc-s">{numLabel(id)}</span> : null}
@@ -1160,7 +1161,7 @@ export function TeachAttend({
           {histKids.map((k) => (
             <div key={k.id} style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 12, borderTop: "1px solid var(--bd)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span className="tc-av" style={{ width: 42, height: 42, fontSize: 13, background: "var(--bads)", color: "var(--bad)" }}>{initials(k.name)}</span>
+                <Face className="tc-av" style={{ width: 42, height: 42, fontSize: 13, background: "var(--bads)", color: "var(--bad)" }} student={k.id} zoom={k.name}>{initials(k.name)}</Face>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span className="tc-p" style={{ fontWeight: 700 }}>{k.name}</span>
                   <span className="tc-s">{tx(p(`${k.n} of ${marked.length} days absent this month`, `इस महीने ${marked.length} में से ${k.n} दिन अनुपस्थित`))}</span>
@@ -1395,7 +1396,7 @@ export function TeachAttend({
                 <span className="sech">{T(label)} ({list.length})</span>
                 {list.map((k) => (
                   <span key={k.id} className="tc-in" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="tc-av" style={{ width: 38, height: 38, fontSize: 12, background: bg, color: fg }}>{initials(k.name)}</span>
+                    <Face className="tc-av" style={{ width: 38, height: 38, fontSize: 12, background: bg, color: fg }} student={k.id} zoom={k.name}>{initials(k.name)}</Face>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                       <span className="tc-p" style={{ fontWeight: 600 }}>{k.name}</span>
                       <span className="tc-s">{whoLine(k)}{data.yesterday[k.id] === "absent" && marks[k.id] === "absent" ? ` · ${tx(p("absent on the last school day too", "पिछले स्कूल दिन भी अनुपस्थित"))}` : ""}</span>

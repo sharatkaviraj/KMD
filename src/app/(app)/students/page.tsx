@@ -216,7 +216,9 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     attendanceForStudents(ids, session).catch((): Map<string, AttendanceFacts> | null => null),
     // The fee list carries no parent name; the design shows it under each child.
     moneyMode && !canonicalDirectory && ids.length ? parentNamesFor(ids).catch((): Map<string, string> | null => null) : Promise.resolve(null),
-    !canonicalDirectory || !moneyMode ? approvedStudentPhotos(ids).catch(() => new Map<string,string>()) : Promise.resolve(null),
+    // The canonical fee list already names each Fees photo; this swaps in One's
+    // kept copy of it where there is one, so the phone reuses it (8 Nov 2026).
+    !canonicalDirectory || !moneyMode ? approvedStudentPhotos(ids).catch(() => new Map<string,string>()) : approvedStudentPhotos(ids).catch(() => null),
     readTaskFields(),
   ]);
   const classOrder = new Map([...labels.values()].map((label, i) => [label, i]));
@@ -227,7 +229,8 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   }
 
   if (portraits) {
-    for (const row of rows) row.photoUrl = portraits.get(row.id) ?? null;
+    const keepListed = canonicalDirectory && moneyMode;
+    for (const row of rows) row.photoUrl = portraits.get(row.id) ?? (keepListed ? row.photoUrl : null);
   }
   const window = pageWindow(page, total);
 

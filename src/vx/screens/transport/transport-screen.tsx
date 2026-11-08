@@ -424,7 +424,7 @@ function RoutesView(props: {
                 onClick={() => props.onOpen(rider.routeId)}
                 style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 60, padding: "10px 16px", width: "100%", textAlign: "left", font: "inherit", color: "var(--fg)", background: "transparent", border: 0, borderTop: "1px solid var(--bd)", cursor: "pointer" }}
               >
-                <Avatar text={initialsOf(rider.name)} seed={rider.id} photo={rider.photo} size={40} />
+                <Avatar text={initialsOf(rider.name)} seed={rider.id} photo={rider.photo ?? null} zoom={rider.name} size={40} />
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span className="clip" style={{ fontWeight: 600 }}>{rider.name}</span>
                   <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>

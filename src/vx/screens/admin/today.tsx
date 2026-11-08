@@ -11,6 +11,7 @@ import { Bi, useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { Seg } from "@/vx/ui/controls";
+import { Face } from "@/vx/ui/face";
 import { Card, IconTile, Pill } from "@/vx/ui/primitives";
 import { CouldNotRead } from "@/vx/ui/read-state";
 import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
@@ -1295,7 +1296,7 @@ function BirthdaysWidget({ kids }: { kids: readonly BirthdayChild[] }) {
       <div className="td-kids">
         {shown.map((kid, i) => (
           <Link key={kid.id} href={`/students/${kid.id}`} className="tap td-kid" style={{ animation: `xPopIn .4s var(--spring) ${i * 50}ms both` }}>
-            <span className="av" aria-hidden="true">{firstName(kid.name).slice(0, 1).toUpperCase()}</span>
+            <Face className="av" student={kid.id} zoom={kid.name} zoomSub={kid.classLabel}>{firstName(kid.name).slice(0, 1).toUpperCase()}</Face>
             <span style={{ display: "flex", flexDirection: "column", minWidth: 0, lineHeight: 1.2 }}>
               <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{kid.name}</span>
               {kid.classLabel ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{kid.classLabel}</span> : null}

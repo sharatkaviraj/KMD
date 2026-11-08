@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { rupees, rupeesShort } from "@/vx/format";
+import { Face } from "@/vx/ui/face";
 
 /*
  * The design's building blocks (DESIGN-SYSTEM.md §5) that need no state, so
@@ -180,25 +181,31 @@ export function avatarColor(seed: string): string {
   return AVATAR_BGS[h % AVATAR_BGS.length];
 }
 
-export function Avatar({ text, seed, size = 40, bg, photo }: { text: string; seed?: string; size?: number; bg?: string; photo?: string | null }) {
+/**
+ * A round avatar: initials on a tint, or a photo. With `zoom` (the child's
+ * name) a loaded photo opens large on a tap; with `student` the face finds the
+ * child's photo itself when the screen did not load it (`Face`).
+ */
+export function Avatar({ text, seed, size = 40, bg, photo, student, zoom, zoomSub }: { text: string; seed?: string; size?: number; bg?: string; photo?: string | null; student?: string | null; zoom?: string | null; zoomSub?: string | null }) {
+  const style: CSSProperties = {
+    flex: "none",
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    background: bg ?? avatarColor(seed ?? text),
+    color: "#082F49",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: Math.max(11, Math.round(size * 0.34)),
+    fontWeight: 700,
+    overflow: "hidden",
+  };
+  if (zoom || student) {
+    return <Face photo={photo} student={student} zoom={zoom} zoomSub={zoomSub} style={style}>{text}</Face>;
+  }
   return (
-    <span
-      aria-hidden="true"
-      style={{
-        flex: "none",
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        background: bg ?? avatarColor(seed ?? text),
-        color: "#082F49",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: Math.max(11, Math.round(size * 0.34)),
-        fontWeight: 700,
-        overflow: "hidden",
-      }}
-    >
+    <span aria-hidden="true" style={style}>
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photo} alt="" width={size} height={size} loading="lazy" decoding="async" style={{ objectFit: "cover", width: "100%", height: "100%" }} />

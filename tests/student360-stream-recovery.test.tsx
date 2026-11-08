@@ -140,21 +140,21 @@ describe("Student 360 overview", () => {
     expect(host.querySelector('.s360-ava img')).not.toBeNull();
   });
 
-  it("opens the photo viewer from the portrait and closes it with Escape (review P04)", async () => {
-    const layer = document.createElement("div"); layer.id = "vx-layer"; document.body.append(layer);
-    try {
-      await render(undefined, { ...p, photoUrl: "/api/fees-bridge/students/x/photo?session=2026-27&variant=thumb" });
-      await act(async () => host.querySelector<HTMLButtonElement>(".s360-ava-open")!.click());
-      const dialog = layer.querySelector('[role="dialog"]');
-      expect(dialog).not.toBeNull();
-      // The viewer asks for the full photograph; the ring keeps its thumbnail.
-      expect(dialog!.querySelector("img")?.getAttribute("src")).toContain("variant=full");
-      expect(host.querySelector(".s360-ava img")?.getAttribute("src")).toContain("variant=thumb");
-      await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
-      expect(layer.querySelector('[role="dialog"]')).toBeNull();
-    } finally {
-      layer.remove();
-    }
+  it("opens the photo large from the portrait and closes it with Escape (review P04, owner 8 Nov 2026)", async () => {
+    await render(undefined, { ...p, photoUrl: "/api/fees-bridge/students/x/photo?session=2026-27&variant=thumb" });
+    await act(async () => host.querySelector<HTMLButtonElement>(".s360-ava-open")!.click());
+    // The open photo is loaded on the first tap, then grows out of the ring.
+    await vi.waitFor(() => expect(document.querySelector('.vx-face-zoom[role="dialog"]')).not.toBeNull());
+    const dialog = document.querySelector('.vx-face-zoom[role="dialog"]')!;
+    // The ring's photo shows at once; the full photograph fades in over it.
+    const shown = [...dialog.querySelectorAll("img")].map((img) => img.getAttribute("src"));
+    expect(shown[0]).toContain("variant=thumb");
+    expect(shown[1]).toContain("variant=full");
+    expect(dialog.textContent).toContain("Save photo");
+    expect(host.querySelector(".s360-ava img")?.getAttribute("src")).toContain("variant=thumb");
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    await vi.waitFor(() => expect(document.querySelector('.vx-face-zoom')).toBeNull());
+    expect(document.body.style.overflow).toBe("");
   });
 
   it("does not invent active status or empty academic records when a read failed", async () => {

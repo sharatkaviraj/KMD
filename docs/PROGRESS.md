@@ -1,5 +1,26 @@
 # VPPS One — progress
 
+## Children's photos everywhere, fast, and open like WhatsApp — 8 November 2026
+
+Owner asked (8 Nov, after seeing One as a teacher) that teachers see their
+children's photos, that photos show on every screen that draws a child, that
+a tap opens the photo with WhatsApp's pop-up animation, and that it loads
+quickly. Branch `claude/project-thread-woe5on`, D-554 and D-555.
+**Why teachers saw initials:** the teachers' copy of the Fees photos (D-511)
+ran once, at 04:07 UTC 8 Nov, copied 279 of 484 children and stopped when the
+admin left the screen; nothing carried on. **Why photos were slow:** every
+page handed out new five-minute signed links, so the phone downloaded every
+face again at 600 px. **Done:** day-long kept photo links at list size
+(`/api/photos/students/...`, D-554); `Face` asks for a child's photo by id
+where a screen did not load it; faces on class, attendance, marks, notes,
+payment desk, collect, search, birthdays, siblings, academics and transport;
+the open photo grows out of the circle (`vx/ui/face-zoom.tsx`); the copy
+carries on whenever a real admin opens One, joins a running copy, retries a
+failed batch once and says what is left (D-555).
+**Remains:** the remaining 205 photos copy the next time a real admin opens
+One after this deploy (no test account may run it); receipts' day list has no
+child id and keeps initials.
+
 ## See One as a chosen person — 7 November 2026
 
 Owner asked (7 Nov) for the administrator to choose a particular teacher,
