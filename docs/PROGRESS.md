@@ -58,6 +58,17 @@ generated "Family <phone> <id>" name is never shown. The fee check no longer
 says an RTE child's fees move with the 3rd Child Policy (they stay ₹0;
 schoolfees PR 154 for the real year), and on a phone the last child's "Take
 out of this family" no longer sits under the tab bar.
+**BrowserStack (8 Nov, 19:30 UTC):** Windows 11 Chrome linked three TEST
+Nursery children (pick, fee preview with the RTE wording, "Linked!", family
+page, take-out preview) and a Galaxy M32 took two of them out again (buttons
+clear of the tab bar, the take-out arrow under the name, no sideways
+scroll); both passed. It also found that a family that ends stayed on the
+list with one child: the ported engine removed the group by its id alone,
+which the guard refuses, and it never read the error. Joining two existing
+families had two writes of the same kind. All three now also name their
+rows' own year (`sibling-actions.ts`, `tests/sibling-actions-write-guard.test.ts`),
+and a clean-up that still fails says so after the dues are worked out, so
+"Finish" completes it.
 **Remains:** the Fees migration for those routes (source functions and the
 `can_link_family` grant flag) waits for the owner's go-ahead on the live Fees
 database; it is written and proved on a local Postgres replay of every Fees
