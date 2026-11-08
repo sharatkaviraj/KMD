@@ -1,5 +1,25 @@
 # VPPS One — progress
 
+## Families reachable and working end to end — 8 November 2026
+
+Owner asked (8 Nov) that the Families section, which could not be opened in
+One, work end to end and go live. Branch `claude/project-thread-dvuplh`,
+D-556 and D-557, with schoolfees PR 152 (merged 8 Nov).
+**Why it could not be opened:** the Menu tile went to
+`/student-tools?view=families`, a Fees-delegated route, so real staff landed
+on "Not in One yet". **Done:** `/families` and `/families/[groupId]` drawn by
+One (`src/vx/screens/families/`), live from Fees for real staff on a real
+year and from One's copy for test accounts and TEST years, the same shape
+both ways; search by child, parent, phone or SR, Hindi typed or a spoken
+name; filters, counts, "Most fees left"; family page with Call, WhatsApp,
+Collect fee, the family's year, each child's fees, late fee apart and next
+due; in the admin sidebar, the accountant's menu and the phone Menu, and
+"Open family page" on Student 360's Family tab.
+**Remains:** linking and separating brothers and sisters on the real year
+from One (owner said yes; a Fees command with a fee preview, D-557). The
+family statement PDF is still a Fees screen. `tests/sentry-lite.test.ts`
+fails in a checkout under `/home/user` (the path holds "user"), as on main.
+
 ## Children's photos everywhere, fast, and open like WhatsApp — 8 November 2026
 
 Owner asked (8 Nov, after seeing One as a teacher) that teachers see their
