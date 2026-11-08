@@ -245,5 +245,6 @@ Test folders:
 | `phone-followup-ui.yml` | Phone follow-up UI | PR, push main, manual |
 | `phone-operations-ui.yml` | Phone operations UI | PR, push main, manual |
 | `provider-claim.yml` | Provider claim concurrency | PR, push main, manual |
+| `staff-session-sql.yml` | Staff session SQL | PR, push main, manual |
 | `teacher-task-sql.yml` | Teacher task SQL scope | PR, push main, manual |
 | `transport-sql.yml` | Transport SQL | PR, push main, manual |
