@@ -203,7 +203,9 @@ function FaceZoom({ from, thumb, name, sub, language, saveable, onGone }: FaceZo
   }, [from, box]);
 
   // Back closes it, as it closes a sheet; closing another way pops our entry.
-  useEffect(() => {
+  // A layout effect, so Escape and Back work from the moment the photo shows
+  // (a passive effect can wait a frame on a slow phone, CI 8 Nov 2026).
+  useLayoutEffect(() => {
     const id = Date.now();
     window.history.pushState({ ...(window.history.state ?? {}), [MARK]: id }, "");
     pushed.current = true;
