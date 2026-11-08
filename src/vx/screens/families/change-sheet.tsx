@@ -51,6 +51,7 @@ export function FamilyLinkSheet({
   sessionLabel,
   live,
   family,
+  onSaving,
 }: {
   open: boolean;
   onClose: () => void;
@@ -59,6 +60,8 @@ export function FamilyLinkSheet({
   live: boolean;
   /** Adding to this family; null links children from scratch. */
   family: { groupId: string; kids: SheetKid[] } | null;
+  /** Told before the save goes out: the save can fold this page's family into an older one. */
+  onSaving?: () => void;
 }) {
   const { tx } = useVx();
   const router = useRouter();
@@ -112,6 +115,7 @@ export function FamilyLinkSheet({
   function save(preview: FamilyPreview) {
     cue("tap");
     setStep({ at: "saving", preview });
+    onSaving?.();
     void saveFamilyChangeAction({
       kind: "family_link",
       commandId: commandId.current,
@@ -252,7 +256,8 @@ export function FamilyLinkSheet({
       <Btn variant="pri" big icon="refresh" full onClick={() => save(step.preview)}>{tx(W.problem.finish)}</Btn>
     ) : (
       <>
-        <Btn variant="sec" style={{ flex: 1 }} onClick={onClose}>{tx(W.link.done)}</Btn>
+        {/* On a family page, Done lands on the family the children are now in: this one may be gone. */}
+        <Btn variant="sec" style={{ flex: 1 }} onClick={family ? () => openFamily(step.saved.familyGroupId) : onClose}>{tx(W.link.done)}</Btn>
         {step.saved.familyGroupId && step.saved.familyGroupId !== family?.groupId ? (
           <Btn variant="pri" big icon="home" style={{ flex: 1.6 }} onClick={() => openFamily(step.saved.familyGroupId)}>{tx(W.link.openFamily)}</Btn>
         ) : null}
@@ -286,6 +291,7 @@ export function FamilyUnlinkSheet({
   live,
   groupId,
   kid,
+  onSaving,
 }: {
   open: boolean;
   onClose: () => void;
@@ -293,6 +299,8 @@ export function FamilyUnlinkSheet({
   live: boolean;
   groupId: string;
   kid: SheetKid;
+  /** Told before the save goes out: taking out the second-last child ends the family. */
+  onSaving?: () => void;
 }) {
   const { tx } = useVx();
   const router = useRouter();
@@ -322,6 +330,7 @@ export function FamilyUnlinkSheet({
   function save(preview: FamilyPreview) {
     cue("tap");
     setStep({ at: "saving", preview });
+    onSaving?.();
     void saveFamilyChangeAction({
       kind: "family_unlink",
       commandId: commandId.current,
@@ -373,7 +382,7 @@ export function FamilyUnlinkSheet({
         </div>
         <p className="famx-after">
           <Ic n="users" size={18} />
-          {left.length >= 2 ? tx(W.unlink.keeps(left.length)) : tx(W.unlink.ends(other ? firstName(other.fullName) : "—"))}
+          {left.length >= 2 ? tx(W.unlink.keeps(left.length)) : other ? tx(W.unlink.ends(firstName(other.fullName))) : tx(W.unlink.endsAlone)}
         </p>
         <ThirdChildBox preview={p} />
         <p className="famx-muted">{tx(W.link.paidStays)}</p>

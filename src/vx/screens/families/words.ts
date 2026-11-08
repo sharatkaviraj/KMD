@@ -132,6 +132,7 @@ export const W = {
     title: (name: string): Pair => p(`Take ${name} out of this family?`, `${name} को इस परिवार से अलग करें?`),
     keeps: (n: number): Pair => p(`The family keeps ${n} children.`, `परिवार में ${n} बच्चे रहेंगे।`),
     ends: (name: string): Pair => p(`Only ${name} would be left, so this family ends. Both children stay in school as before.`, `परिवार में सिर्फ़ ${name} रह जाएँगे, इसलिए यह परिवार खत्म हो जाएगा। दोनों बच्चे पहले की तरह स्कूल में रहेंगे।`),
+    endsAlone: p("Nobody else is left in it, so this family ends. The child stays in school as before.", "इसमें और कोई नहीं बचेगा, इसलिए यह परिवार खत्म हो जाएगा। बच्चा पहले की तरह स्कूल में रहेगा।"),
     leaves: (name: string): Pair => p(`${name} will be in no family.`, `${name} किसी परिवार में नहीं रहेंगे।`),
     save: p("Yes, take out", "हाँ, अलग करें"),
     cancel: p("No, keep", "नहीं, रहने दें"),
@@ -175,6 +176,17 @@ export const W = {
   notFoundBody: p(
     "It may have been changed in Fees, or it belongs to another year. Go back to all families and search again.",
     "हो सकता है Fees में बदला गया हो, या यह किसी और साल का हो। सभी परिवारों पर लौटकर फिर खोजें।",
+  ),
+  /* Shown in place of "not found" when a change saved on this page removed the family. */
+  ended: p("This family has ended", "यह परिवार खत्म हुआ"),
+  endedBody: p(
+    "The children stay in school as before, each with their own fees. Go back to all families to see the others.",
+    "बच्चे पहले की तरह स्कूल में हैं, हर बच्चे की अपनी फीस के साथ। बाकी परिवार देखने के लिए सभी परिवारों पर लौटें।",
+  ),
+  joined: p("This family was joined with another", "यह परिवार दूसरे परिवार से जुड़ गया"),
+  joinedBody: p(
+    "All the children are now in one family. Go back to all families to open it.",
+    "सभी बच्चे अब एक ही परिवार में हैं। उसे खोलने के लिए सभी परिवारों पर लौटें।",
   ),
   call: p("Call", "कॉल करें"),
   callWho: (name: string): Pair => p(`Call ${name}`, `${name} को कॉल करें`),

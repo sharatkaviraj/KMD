@@ -33,8 +33,32 @@ export function FamilyScreen(props: Props) {
   const [adding, setAdding] = useState({ open: false, n: 0 });
   const [taking, setTaking] = useState<{ open: boolean; n: number; kid: SheetKid | null }>({ open: false, n: 0, kid: null });
   const live = props.asOf !== null;
+  // The family as it was when a change on this page started saving. Taking
+  // out the second-last child deletes the family, and adding a child can fold
+  // it into an older one; the save re-renders this page without it, and the
+  // open sheet must still be here to say what happened (8 Nov 2026: it said
+  // "not found" instead of "This family has ended").
+  const [held, setHeld] = useState<{ card: FamilyCard; kind: "link" | "unlink" } | null>(null);
+  const shown = f ?? held?.card ?? null;
 
-  if (!f || f.kids.length === 0) {
+  if (!f && held && !adding.open && !taking.open) {
+    const ended = held.kind === "unlink";
+    return (
+      <VxPage label={tx(W.title)}>
+        <TopBar crumb={tx(W.crumb)} title={tx(W.title)} mBack="/families" />
+        <Section>
+          <EmptyState
+            icon={ended ? "checkCircle" : "users"}
+            title={tx(ended ? W.ended : W.joined)}
+            body={tx(ended ? W.endedBody : W.joinedBody)}
+            action={<Btn variant="pri" big icon="chevLeft" href="/families">{tx(W.back)}</Btn>}
+          />
+        </Section>
+      </VxPage>
+    );
+  }
+
+  if (!shown || shown.kids.length === 0) {
     return (
       <VxPage label={tx(W.title)}>
         <TopBar crumb={tx(W.crumb)} title={tx(W.title)} mBack="/families" />
@@ -46,13 +70,13 @@ export function FamilyScreen(props: Props) {
   }
 
   return (
-    <VxPage label={f.name}>
+    <VxPage label={shown.name}>
       <TopBar
         crumb={tx(W.crumb)}
-        title={f.name}
+        title={shown.name}
         actions={<Btn icon="chevLeft" href="/families">{tx(W.back)}</Btn>}
         mBack="/families"
-        mSub={tx(W.kids(f.kids.length))}
+        mSub={tx(W.kids(shown.kids.length))}
       />
       {/* vx-pmain: room under the last child's "Take out of this family" for the phone's tab bar. */}
       <div className="vx-pmain">
@@ -61,8 +85,8 @@ export function FamilyScreen(props: Props) {
           {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
           <div className="fam-page">
             <div className="fam-col">
-              <Hero f={f} canCollect={props.canCollect} />
-              <MoneyCard f={f} />
+              <Hero f={shown} canCollect={props.canCollect} />
+              <MoneyCard f={shown} />
               {props.canChange ? (
                 <Btn variant="soft" big full icon="userPlus" ariaLabel={tx(W.addKidSub)} onClick={() => setAdding((a) => ({ open: true, n: a.n + 1 }))}>
                   {tx(W.addKid)}
@@ -71,8 +95,8 @@ export function FamilyScreen(props: Props) {
               <HelpCard canCollect={props.canCollect} canOpen={props.canOpenChildren} canChange={props.canChange} />
             </div>
             <div className="fam-col">
-              <SecHead>{tx(W.children(f.kids.length))}</SecHead>
-              {f.kids.map((k, i) => (
+              <SecHead>{tx(W.children(shown.kids.length))}</SecHead>
+              {shown.kids.map((k, i) => (
                 <ChildCard
                   key={k.id}
                   k={k}
@@ -93,7 +117,8 @@ export function FamilyScreen(props: Props) {
           onClose={() => setAdding((a) => ({ ...a, open: false }))}
           sessionLabel={props.sessionLabel}
           live={live}
-          family={{ groupId: f.id, kids: f.kids }}
+          family={{ groupId: shown.id, kids: shown.kids }}
+          onSaving={() => setHeld({ card: shown, kind: "link" })}
         />
       ) : null}
       {props.canChange && taking.kid ? (
@@ -103,8 +128,9 @@ export function FamilyScreen(props: Props) {
           onClose={() => setTaking((t) => ({ ...t, open: false }))}
           sessionLabel={props.sessionLabel}
           live={live}
-          groupId={f.id}
+          groupId={shown.id}
           kid={taking.kid}
+          onSaving={() => setHeld({ card: shown, kind: "unlink" })}
         />
       ) : null}
     </VxPage>

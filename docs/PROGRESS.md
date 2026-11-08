@@ -69,6 +69,14 @@ families had two writes of the same kind. All three now also name their
 rows' own year (`sibling-actions.ts`, `tests/sibling-actions-write-guard.test.ts`),
 and a clean-up that still fails says so after the dues are worked out, so
 "Finish" completes it.
+**Live check after that (19:50 UTC):** the leftover one-child TEST family was
+taken out through the screen and is gone (3 TEST families left, none with one
+child). Because an ended family is now really deleted, the save re-rendered
+the family page without it and staff saw "This family was not found" instead
+of "Done. This family has ended." The family page now holds the family while
+a change it started is saving, then shows "This family has ended" (or "joined
+with another" when adding a child folded it into an older family, where Done
+opens the joined family). `tests/vx-family-ends.test.tsx` (fails on the old code).
 **Remains:** the Fees migration for those routes (source functions and the
 `can_link_family` grant flag) waits for the owner's go-ahead on the live Fees
 database; it is written and proved on a local Postgres replay of every Fees
