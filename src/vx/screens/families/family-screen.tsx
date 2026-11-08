@@ -54,35 +54,38 @@ export function FamilyScreen(props: Props) {
         mBack="/families"
         mSub={tx(W.kids(f.kids.length))}
       />
-      <Section>
-        {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={props.canChange ? undefined : W.notYet} /> : null}
-        {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
-        <div className="fam-page">
-          <div className="fam-col">
-            <Hero f={f} canCollect={props.canCollect} />
-            <MoneyCard f={f} />
-            {props.canChange ? (
-              <Btn variant="soft" big full icon="userPlus" ariaLabel={tx(W.addKidSub)} onClick={() => setAdding((a) => ({ open: true, n: a.n + 1 }))}>
-                {tx(W.addKid)}
-              </Btn>
-            ) : null}
-            <HelpCard canCollect={props.canCollect} canOpen={props.canOpenChildren} canChange={props.canChange} />
+      {/* vx-pmain: room under the last child's "Take out of this family" for the phone's tab bar. */}
+      <div className="vx-pmain">
+        <Section>
+          {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={props.canChange ? undefined : W.notYet} /> : null}
+          {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
+          <div className="fam-page">
+            <div className="fam-col">
+              <Hero f={f} canCollect={props.canCollect} />
+              <MoneyCard f={f} />
+              {props.canChange ? (
+                <Btn variant="soft" big full icon="userPlus" ariaLabel={tx(W.addKidSub)} onClick={() => setAdding((a) => ({ open: true, n: a.n + 1 }))}>
+                  {tx(W.addKid)}
+                </Btn>
+              ) : null}
+              <HelpCard canCollect={props.canCollect} canOpen={props.canOpenChildren} canChange={props.canChange} />
+            </div>
+            <div className="fam-col">
+              <SecHead>{tx(W.children(f.kids.length))}</SecHead>
+              {f.kids.map((k, i) => (
+                <ChildCard
+                  key={k.id}
+                  k={k}
+                  delay={i * 40}
+                  canCollect={props.canCollect}
+                  canOpen={props.canOpenChildren}
+                  onTakeOut={props.canChange ? () => setTaking((t) => ({ open: true, n: t.n + 1, kid: k })) : null}
+                />
+              ))}
+            </div>
           </div>
-          <div className="fam-col">
-            <SecHead>{tx(W.children(f.kids.length))}</SecHead>
-            {f.kids.map((k, i) => (
-              <ChildCard
-                key={k.id}
-                k={k}
-                delay={i * 40}
-                canCollect={props.canCollect}
-                canOpen={props.canOpenChildren}
-                onTakeOut={props.canChange ? () => setTaking((t) => ({ open: true, n: t.n + 1, kid: k })) : null}
-              />
-            ))}
-          </div>
-        </div>
-      </Section>
+        </Section>
+      </div>
       {props.canChange ? (
         <FamilyLinkSheet
           key={`add-${adding.n}`}

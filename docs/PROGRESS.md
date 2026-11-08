@@ -56,7 +56,8 @@ name their children; a part-way stop reads the table and says "saved" with
 "Finish"; phones get the "Add a brother or sister" button; the engine's
 generated "Family <phone> <id>" name is never shown. The fee check no longer
 says an RTE child's fees move with the 3rd Child Policy (they stay ₹0;
-schoolfees PR 154 for the real year).
+schoolfees PR 154 for the real year), and on a phone the last child's "Take
+out of this family" no longer sits under the tab bar.
 **Remains:** the Fees migration for those routes (source functions and the
 `can_link_family` grant flag) waits for the owner's go-ahead on the live Fees
 database; it is written and proved on a local Postgres replay of every Fees
