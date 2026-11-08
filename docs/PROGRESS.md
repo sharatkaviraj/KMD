@@ -12,6 +12,12 @@ only" note in TEST and a real admin adding someone there adds a practice
 account; migration `20261108170533_staff_session_match.sql` (applied to One)
 skips cross-kind notices both ways and refuses cross-kind assignments on nine
 tables, proved by `tests/sql/staff-session-match.mjs`.
+**Live:** PR 326, merge `14878e1`, serving 17:39 UTC 8 Nov. BrowserStack
+passed as the QA admin on TEST-2026-27, Galaxy M32 and Windows 11 Chrome:
+Staff lists 44 practice accounts only, "See One as" 40 of 40 practice accounts
+(the yellow note shows only to a real admin in TEST, so QA accounts don't see
+it). DB: 24 real active staff, 9 guard triggers, no cross-kind rows apart from
+the leftovers below.
 **Remains:** 20 test-only leftover rows are hidden, not deleted: the Supabase
 connector asked for a confirmation that got no answer. `tests/sentry-lite.test.ts`
 fails in a checkout under `/home/user` (the path contains "user"); it passes in CI.
