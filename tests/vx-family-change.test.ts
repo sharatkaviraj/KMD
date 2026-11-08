@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   familyHousehold,
+  linkedTogether,
   predictFamilyChange,
   sameHousehold,
+  unlinkAlreadyLanded,
   type FamilyChangeHousehold,
   type FamilyChangeStudent,
 } from "@/modules/students-fees/vx/domain/family-change";
@@ -14,7 +16,7 @@ import {
   familyPreviewSchema,
   familyUnlinkRequestSchema,
 } from "@/platform/fees-bridge/family-command-contracts";
-import { thirdChildNotes } from "@/vx/screens/families/logic";
+import { familyLabel, thirdChildNotes } from "@/vx/screens/families/logic";
 
 /*
  * Linking brothers and sisters from One (8 Nov 2026): the preview's rule, the
@@ -136,6 +138,46 @@ describe("the household a change locks", () => {
   it("compares households whatever the order or case", () => {
     expect(sameHousehold([b, a.toUpperCase()], [a, b, b])).toBe(true);
     expect(sameHousehold([a, b], [a, b, c])).toBe(false);
+  });
+});
+
+/*
+ * 8 Nov 2026: a TEST link of three made the family, then its 3rd Child step
+ * failed and the sheet said "Nothing was changed". After a step stops
+ * part-way the table decides what the sheet says.
+ */
+describe("what landed when the engine stopped part-way", () => {
+  it("a link landed when every named child is in one family", () => {
+    const rows = [
+      { studentId: a, familyGroupId: group },
+      { studentId: b, familyGroupId: group },
+      { studentId: c.toUpperCase(), familyGroupId: group },
+    ];
+    expect(linkedTogether([a, b, c], rows)).toBe(group);
+  });
+  it("a link did not land when a child is missing or in another family", () => {
+    expect(linkedTogether([a, b, c], [{ studentId: a, familyGroupId: group }, { studentId: b, familyGroupId: group }])).toBeNull();
+    expect(linkedTogether([a, b], [{ studentId: a, familyGroupId: group }, { studentId: b, familyGroupId: other }])).toBeNull();
+    expect(linkedTogether([a, b], [])).toBeNull();
+  });
+  it("Finish on a take-out runs again only when the child is out and nobody else moved", () => {
+    expect(unlinkAlreadyLanded([b, c], a, [a, b, c])).toBe(true);
+    expect(unlinkAlreadyLanded([b], a, [a, b])).toBe(true);
+    expect(unlinkAlreadyLanded([a, b], a, [a, b])).toBe(false);
+    expect(unlinkAlreadyLanded([b, d], a, [a, b, c])).toBe(false);
+    expect(unlinkAlreadyLanded([b], a, [b, c])).toBe(false);
+  });
+});
+
+describe("a family's name on screen", () => {
+  it("never shows the engine's generated label", () => {
+    expect(familyLabel("Family 9876543210 7fc74467")).toBeNull();
+    expect(familyLabel("Family — 7fc74467")).toBeNull();
+    expect(familyLabel("  ")).toBeNull();
+  });
+  it("keeps a name a person gave", () => {
+    expect(familyLabel(" Sharma family ")).toBe("Sharma family");
+    expect(familyLabel("Family of TEST Ramesh")).toBe("Family of TEST Ramesh");
   });
 });
 

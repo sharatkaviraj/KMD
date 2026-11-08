@@ -67,6 +67,17 @@ export type FamilySort = "name" | "owing";
 
 const blank = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
+/**
+ * The fee engine names a family it makes "Family <phone> <first 8 of an id>"
+ * only so the name is unique. Nobody calls a family that, so it is never
+ * the family's name on screen: the guardian's or father's name is.
+ */
+const GENERATED_LABEL = /^Family \S+ [0-9a-f]{8}$/i;
+export function familyLabel(label: string | null | undefined): string | null {
+  const name = blank(label);
+  return name && !GENERATED_LABEL.test(name) ? name : null;
+}
+
 function sum(kids: readonly FamilyKid[], pick: (m: NonNullable<FamilyKid["money"]>) => number): number | null {
   let total = 0;
   for (const k of kids) {
@@ -95,7 +106,7 @@ export function toFamilyCard(g: BridgeFamilyGroup): FamilyCard {
   const mother = kids.find((k) => k.mother)?.mother ?? null;
   return {
     id: g.groupId,
-    name: blank(g.label) ?? blank(g.guardianName) ?? father ?? kids[0]?.name ?? "—",
+    name: familyLabel(g.label) ?? blank(g.guardianName) ?? father ?? kids[0]?.name ?? "—",
     father,
     mother,
     phone: blank(g.guardianPhone) ?? kids.find((k) => k.phone)?.phone ?? null,

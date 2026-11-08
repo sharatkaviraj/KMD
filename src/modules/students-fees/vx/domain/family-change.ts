@@ -184,6 +184,34 @@ export function sameHousehold(a: readonly string[], b: readonly string[]): boole
   return left.length === right.length && left.every((id, i) => id === right[i]);
 }
 
+/**
+ * The family every named child is now in, or null when they are not all in
+ * one. Read after the ported engine stopped part-way: if the children are
+ * already one family the screen must say "saved", never "nothing changed".
+ */
+export function linkedTogether(studentIds: readonly string[], rows: ReadonlyArray<{ studentId: string; familyGroupId: string }>): string | null {
+  const named = new Set(studentIds.map((id) => id.toLowerCase()));
+  const groups = new Set<string>();
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (!named.has(r.studentId.toLowerCase())) continue;
+    groups.add(r.familyGroupId);
+    seen.add(r.studentId.toLowerCase());
+  }
+  return seen.size === named.size && groups.size === 1 ? [...groups][0] : null;
+}
+
+/**
+ * "Finish" after a take-out that stopped part-way: the child is already out
+ * and everyone still in the family was in the one the preview showed. Then
+ * the follow-up steps run again; anything else is a family that changed.
+ */
+export function unlinkAlreadyLanded(members: readonly string[], studentId: string, expectedMemberIds: readonly string[]): boolean {
+  const expected = new Set(expectedMemberIds.map((id) => id.toLowerCase()));
+  const child = studentId.toLowerCase();
+  return expected.has(child) && !members.some((id) => id.toLowerCase() === child) && members.every((id) => expected.has(id.toLowerCase()));
+}
+
 /** Why One's own copy refused a change. The screen words each one. */
 export type FamilyChangeRefusal = "not_found" | "family_changed" | "failed";
 
