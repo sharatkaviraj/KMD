@@ -308,23 +308,25 @@ export function collectChild(f: FamilyCard): string | null {
 export type ThirdChildNote =
   | { kind: "off" }
   | { kind: "needThree"; count: number }
-  | { kind: "gets"; studentId: string; tuition: number | null; base: number | null }
+  | { kind: "gets"; studentId: string; tuition: number | null; base: number | null; feesStay: boolean }
   | { kind: "keeps"; studentId: string }
   | { kind: "staff"; studentId: string }
-  | { kind: "loses"; studentId: string }
+  | { kind: "loses"; studentId: string; feesStay: boolean }
   | { kind: "same" };
 
 export function thirdChildNotes(preview: FamilyPreview): ThirdChildNote[] {
   const t = preview.thirdChild;
   const notes: ThirdChildNote[] = [];
+  // An RTE child pays ₹0 with or without it: say so, never "fees go up".
+  const feesStay = (id: string) => preview.children.find((c) => c.studentId === id)?.thirdChildChangesFees === false;
   if (!t.policyConfigured) notes.push({ kind: "off" });
   else if (t.outrankedByStaffChildStudentId) notes.push({ kind: "staff", studentId: t.outrankedByStaffChildStudentId });
   else if (t.recipientAfter && t.gains.includes(t.recipientAfter)) {
     const child = preview.children.find((c) => c.studentId === t.recipientAfter);
-    notes.push({ kind: "gets", studentId: t.recipientAfter, tuition: t.recipientTuition, base: child?.baseTuition ?? null });
+    notes.push({ kind: "gets", studentId: t.recipientAfter, tuition: t.recipientTuition, base: child?.baseTuition ?? null, feesStay: feesStay(t.recipientAfter) });
   } else if (t.recipientAfter) notes.push({ kind: "keeps", studentId: t.recipientAfter });
   else if (preview.after.family.length > 0) notes.push({ kind: "needThree", count: t.eligibleCount });
-  for (const id of t.loses) notes.push({ kind: "loses", studentId: id });
+  for (const id of t.loses) notes.push({ kind: "loses", studentId: id, feesStay: feesStay(id) });
   if (notes.length === 0) notes.push({ kind: "same" });
   return notes;
 }

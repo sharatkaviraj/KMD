@@ -148,6 +148,8 @@ export const W = {
     tuitionTo: (to: string): Pair => p(`Tuition becomes ${to}.`, `ट्यूशन ${to} होगी।`),
     staff: (name: string): Pair => p(`${name} is a Staff Child and keeps Staff Child, so nobody gets the 3rd Child Policy.`, `${name} स्टाफ़ चाइल्ड हैं और स्टाफ़ चाइल्ड ही रहेंगे, इसलिए किसी को 3rd Child Policy नहीं मिलेगी।`),
     loses: (name: string): Pair => p(`${name} loses the 3rd Child Policy, so ${name}'s fees go up.`, `${name} की 3rd Child Policy हटेगी, इसलिए ${name} की फीस बढ़ेगी।`),
+    alreadyLess: (name: string): Pair => p(`${name} already pays less tuition with another discount (like RTE), so ${name}'s fees stay the same.`, `${name} को पहले से दूसरी छूट (जैसे RTE) में कम ट्यूशन लगती है, इसलिए ${name} की फीस नहीं बदलेगी।`),
+    losesSame: (name: string): Pair => p(`${name} loses the 3rd Child Policy. ${name}'s fees stay the same, because another discount (like RTE) already gives less tuition.`, `${name} की 3rd Child Policy हटेगी। ${name} की फीस वही रहेगी, क्योंकि दूसरी छूट (जैसे RTE) में पहले से कम ट्यूशन है।`),
     same: p("Nobody's 3rd Child Policy changes.", "किसी की 3rd Child Policy नहीं बदलेगी।"),
   },
   problem: {

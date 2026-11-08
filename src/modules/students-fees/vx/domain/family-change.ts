@@ -56,6 +56,8 @@ export function predictFamilyChange(input: {
   /** Active 3rd Child rows this year, and whether each was set by hand. */
   thirdChildNow: ReadonlyMap<string, { manual: boolean }>;
   staffChildOutranks: boolean;
+  /** The lowest tuition each child's other discounts (RTE, Staff Child, …) give this year; absent for none. */
+  otherDiscountTuition?: ReadonlyMap<string, number>;
 }): FamilyPreview {
   const source = input.household;
   const session = source.sessionLabel;
@@ -106,9 +108,19 @@ export function predictFamilyChange(input: {
       ? calculateConventionalPolicyTuition({ baseTuition: recipientBase, policy: input.thirdChildPolicy })
       : null;
 
+  // Lowest tuition wins, so the 3rd Child Policy moves fees only when it is lower
+  // than what another discount already gives (an RTE child pays ₹0 either way).
+  const changesFees = (base: number | null, id: string): boolean | undefined => {
+    if (!input.thirdChildPolicy || base === null) return undefined;
+    const other = input.otherDiscountTuition?.get(id);
+    return other === undefined || calculateConventionalPolicyTuition({ baseTuition: base, policy: input.thirdChildPolicy }) < other;
+  };
+
   const children: FamilyPreviewChild[] = household.map((id) => {
     const s = byId.get(id);
     const classId = s?.classId ?? null;
+    const baseTuition = classId && input.baseTuitionByClass.has(classId) ? input.baseTuitionByClass.get(classId)! : null;
+    const moves = changesFees(baseTuition, id);
     return {
       studentId: id,
       fullName: s?.fullName ?? "",
@@ -120,7 +132,8 @@ export function predictFamilyChange(input: {
       familyGroupId: groupOf.get(id) ?? null,
       staffChild: input.staffChildIds.has(id),
       thirdChildNow: input.thirdChildNow.has(id),
-      baseTuition: classId && input.baseTuitionByClass.has(classId) ? input.baseTuitionByClass.get(classId)! : null,
+      baseTuition,
+      ...(moves === undefined ? {} : { thirdChildChangesFees: moves }),
       money: input.money.get(id) ?? null,
     };
   });

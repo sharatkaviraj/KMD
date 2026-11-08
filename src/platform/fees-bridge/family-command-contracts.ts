@@ -49,6 +49,13 @@ export const familyPreviewChildSchema = z.object({
   thirdChildNow: z.boolean(),
   /** The class's full tuition this year, before any discount. */
   baseTuition: amount.nullable(),
+  /**
+   * False when another discount this child holds (RTE, Staff Child) already
+   * makes tuition no higher than the 3rd Child Policy would, so getting or
+   * losing it leaves the fees as they are. Absent when not known (and from a
+   * Fees answer that does not send it): the screen then says fees move.
+   */
+  thirdChildChangesFees: z.boolean().optional(),
   /** Fees only, the late fee apart. Null when no money row was read. */
   money: previewMoney.nullable(),
 });
