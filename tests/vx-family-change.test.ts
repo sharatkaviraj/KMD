@@ -49,7 +49,10 @@ const base = new Map([["class-2", 18000], ["class-5", 20000], ["class-8", 24000]
 const household = (over: Partial<FamilyChangeHousehold>): FamilyChangeHousehold => ({
   sessionLabel: session, operation: "link", studentIds: [a, c], familyGroupId: null, expectedMemberIds: [a, b, c], memberGroups: [], ...over,
 });
-const run = (h: FamilyChangeHousehold, extra: { staff?: string[]; now?: Array<[string, boolean]>; policyOn?: boolean; outranks?: boolean } = {}) =>
+const run = (
+  h: FamilyChangeHousehold,
+  extra: { staff?: string[]; now?: Array<[string, boolean]>; policyOn?: boolean; outranks?: boolean; other?: Array<[string, number]> } = {},
+) =>
   predictFamilyChange({
     household: h,
     students,
@@ -59,6 +62,7 @@ const run = (h: FamilyChangeHousehold, extra: { staff?: string[]; now?: Array<[s
     staffChildIds: new Set(extra.staff ?? []),
     thirdChildNow: new Map((extra.now ?? []).map(([sid, manual]) => [sid, { manual }])),
     staffChildOutranks: extra.outranks ?? true,
+    otherDiscountTuition: new Map(extra.other ?? []),
   });
 
 describe("what the preview says will happen", () => {
@@ -185,9 +189,23 @@ describe("what the sheet says about the 3rd Child Policy", () => {
   it("names who gets it, at what tuition, and who loses it", () => {
     const p = run(household({}), { now: [[a, true]] });
     expect(thirdChildNotes(p)).toEqual([
-      { kind: "gets", studentId: b, tuition: 6000, base: 18000 },
-      { kind: "loses", studentId: a },
+      { kind: "gets", studentId: b, tuition: 6000, base: 18000, feesStay: false },
+      { kind: "loses", studentId: a, feesStay: false },
     ]);
+  });
+  it("never says fees move for a child another discount already charges less (an RTE child pays ₹0 either way)", () => {
+    const p = run(household({}), { now: [[a, false]], other: [[b, 0], [a, 0]] });
+    expect(p.children.find((c) => c.studentId === b)?.thirdChildChangesFees).toBe(false);
+    expect(thirdChildNotes(p)).toEqual([
+      { kind: "gets", studentId: b, tuition: 6000, base: 18000, feesStay: true },
+      { kind: "loses", studentId: a, feesStay: true },
+    ]);
+  });
+  it("still says fees move when the 3rd Child Policy is lower than the other discount", () => {
+    // Staff Child at half of 18,000 is 9,000; the 3rd Child Policy's 6,000 is lower and wins.
+    const p = run(household({}), { other: [[b, 9000]], outranks: false });
+    expect(p.children.find((c) => c.studentId === b)?.thirdChildChangesFees).toBe(true);
+    expect(thirdChildNotes(p)[0]).toMatchObject({ kind: "gets", feesStay: false });
   });
   it("says who keeps it, when nothing moves", () => {
     expect(thirdChildNotes(run(household({}), { now: [[b, false]] }))).toEqual([{ kind: "keeps", studentId: b }]);

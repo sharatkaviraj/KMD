@@ -85,119 +85,122 @@ export function FamiliesScreen(props: FamiliesData) {
         mBack="/menu"
         mSub={tx(W.summary(counts.all, counts.children))}
       />
-      <Section>
-        <p className="fam-lead">{tx(W.lead)}</p>
-        {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={props.canChange ? undefined : W.notYet} /> : null}
-        {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
-        {/* The top bar's button is desk-only; a phone gets the same as a big button here. */}
-        {props.canChange && cards.length > 0 ? (
-          <div className="only-m">
-            <Btn variant="soft" big full icon="userPlus" ariaLabel={tx(W.changeSub)} onClick={openLinking}>
-              {tx(W.change)}
-            </Btn>
-          </div>
-        ) : null}
-
-        {cards.length === 0 ? (
-          <EmptyState icon="home" title={tx(W.empty.none)} body={tx(W.empty.noneBody)} action={change} />
-        ) : (
-          <>
-            <Grid cols={4}>
-              <Kpi icon="home" label={tx(W.kpi.families)} value={counts.all} sub={tx(W.kpi.familiesSub)} />
-              <Kpi icon="users" label={tx(W.kpi.children)} value={counts.children} sub={tx(W.kpi.childrenSub(counts.three))} delay={40} />
-              <Kpi
-                icon="rupee"
-                label={tx(W.kpi.feesLeft)}
-                value={rupees(counts.feesPending)}
-                tone={counts.feesPending > 0 ? "var(--warnfg)" : "var(--ok)"}
-                sub={tx(counts.unread ? W.kpi.unreadSub(counts.unread) : W.kpi.feesLeftSub(counts.owing))}
-                delay={80}
-              />
-              <Kpi icon="clock" label={tx(W.kpi.late)} value={rupees(counts.lateFee)} sub={tx(W.kpi.lateSub)} delay={120} />
-            </Grid>
-
-            <div className="fam-tools">
-              <div className="fam-search">
-                <SearchBox value={query} onChange={type} placeholder={tx(W.search)} style={{ flex: 1, height: 50 }} />
-                {voice.supported ? (
-                  <button
-                    type="button"
-                    className={`tap fam-mic${voice.listening ? " on" : ""}`}
-                    aria-pressed={voice.listening}
-                    aria-label={tx(voice.listening ? W.listening : W.speak)}
-                    onClick={() => {
-                      cue("listen");
-                      voice.start();
-                    }}
-                  >
-                    <Ic n="mic" size={20} />
-                    <span className="hide-m">{tx(voice.listening ? W.listening : W.speak)}</span>
-                  </button>
-                ) : null}
-              </div>
-              <ChipRow label={tx(W.filtersLabel)}>
-                {FAMILY_FILTERS.map((key) => (
-                  <Chip key={key} on={filter === key} count={counts[key]} onClick={() => pick(key)}>
-                    {tx(W.filters[key])}
-                  </Chip>
-                ))}
-              </ChipRow>
-              <div className="fam-order">
-                <span className="fam-count">{tx(W.showing(shown.length, found.length))}</span>
-                <Seg
-                  label={tx(W.sortLabel)}
-                  value={sort}
-                  onChange={setSort}
-                  options={[
-                    { value: "name", label: tx(W.sort.name) },
-                    { value: "owing", label: tx(W.sort.owing) },
-                  ]}
-                  style={{ width: 280, maxWidth: "100%" }}
-                />
-              </div>
-            </div>
-
-            {found.length === 0 ? (
-              <EmptyState
-                icon="search"
-                title={tx(W.empty.noMatch)}
-                body={tx(W.empty.noMatchBody)}
-                action={
-                  <Btn
-                    icon="x"
-                    onClick={() => {
-                      cue("tap");
-                      setQuery("");
-                      setFilter("all");
-                    }}
-                  >
-                    {tx(W.empty.clear)}
-                  </Btn>
-                }
-              />
-            ) : (
-              <div className="fam-list">
-                {shown.map((f, i) => (
-                  <FamilyRow key={f.id} f={f} delay={i < 8 ? i * 30 : 0} />
-                ))}
-              </div>
-            )}
-            {found.length > shown.length ? (
-              <Btn
-                big
-                full
-                icon="chevDown"
-                onClick={() => {
-                  cue("tap");
-                  setLimit((n) => n + PAGE);
-                }}
-              >
-                {tx(W.more(Math.min(PAGE, found.length - shown.length)))}
+      {/* vx-pmain: room under the last family for the phone's tab bar. */}
+      <div className="vx-pmain">
+        <Section>
+          <p className="fam-lead">{tx(W.lead)}</p>
+          {props.asOf ? <LiveFromFees asOf={props.asOf} notYet={props.canChange ? undefined : W.notYet} /> : null}
+          {props.test ? <Banner tone="warn">{tx(W.testYear(props.sessionLabel))}</Banner> : null}
+          {/* The top bar's button is desk-only; a phone gets the same as a big button here. */}
+          {props.canChange && cards.length > 0 ? (
+            <div className="only-m">
+              <Btn variant="soft" big full icon="userPlus" ariaLabel={tx(W.changeSub)} onClick={openLinking}>
+                {tx(W.change)}
               </Btn>
-            ) : null}
-          </>
-        )}
-      </Section>
+            </div>
+          ) : null}
+
+          {cards.length === 0 ? (
+            <EmptyState icon="home" title={tx(W.empty.none)} body={tx(W.empty.noneBody)} action={change} />
+          ) : (
+            <>
+              <Grid cols={4}>
+                <Kpi icon="home" label={tx(W.kpi.families)} value={counts.all} sub={tx(W.kpi.familiesSub)} />
+                <Kpi icon="users" label={tx(W.kpi.children)} value={counts.children} sub={tx(W.kpi.childrenSub(counts.three))} delay={40} />
+                <Kpi
+                  icon="rupee"
+                  label={tx(W.kpi.feesLeft)}
+                  value={rupees(counts.feesPending)}
+                  tone={counts.feesPending > 0 ? "var(--warnfg)" : "var(--ok)"}
+                  sub={tx(counts.unread ? W.kpi.unreadSub(counts.unread) : W.kpi.feesLeftSub(counts.owing))}
+                  delay={80}
+                />
+                <Kpi icon="clock" label={tx(W.kpi.late)} value={rupees(counts.lateFee)} sub={tx(W.kpi.lateSub)} delay={120} />
+              </Grid>
+
+              <div className="fam-tools">
+                <div className="fam-search">
+                  <SearchBox value={query} onChange={type} placeholder={tx(W.search)} style={{ flex: 1, height: 50 }} />
+                  {voice.supported ? (
+                    <button
+                      type="button"
+                      className={`tap fam-mic${voice.listening ? " on" : ""}`}
+                      aria-pressed={voice.listening}
+                      aria-label={tx(voice.listening ? W.listening : W.speak)}
+                      onClick={() => {
+                        cue("listen");
+                        voice.start();
+                      }}
+                    >
+                      <Ic n="mic" size={20} />
+                      <span className="hide-m">{tx(voice.listening ? W.listening : W.speak)}</span>
+                    </button>
+                  ) : null}
+                </div>
+                <ChipRow label={tx(W.filtersLabel)}>
+                  {FAMILY_FILTERS.map((key) => (
+                    <Chip key={key} on={filter === key} count={counts[key]} onClick={() => pick(key)}>
+                      {tx(W.filters[key])}
+                    </Chip>
+                  ))}
+                </ChipRow>
+                <div className="fam-order">
+                  <span className="fam-count">{tx(W.showing(shown.length, found.length))}</span>
+                  <Seg
+                    label={tx(W.sortLabel)}
+                    value={sort}
+                    onChange={setSort}
+                    options={[
+                      { value: "name", label: tx(W.sort.name) },
+                      { value: "owing", label: tx(W.sort.owing) },
+                    ]}
+                    style={{ width: 280, maxWidth: "100%" }}
+                  />
+                </div>
+              </div>
+
+              {found.length === 0 ? (
+                <EmptyState
+                  icon="search"
+                  title={tx(W.empty.noMatch)}
+                  body={tx(W.empty.noMatchBody)}
+                  action={
+                    <Btn
+                      icon="x"
+                      onClick={() => {
+                        cue("tap");
+                        setQuery("");
+                        setFilter("all");
+                      }}
+                    >
+                      {tx(W.empty.clear)}
+                    </Btn>
+                  }
+                />
+              ) : (
+                <div className="fam-list">
+                  {shown.map((f, i) => (
+                    <FamilyRow key={f.id} f={f} delay={i < 8 ? i * 30 : 0} />
+                  ))}
+                </div>
+              )}
+              {found.length > shown.length ? (
+                <Btn
+                  big
+                  full
+                  icon="chevDown"
+                  onClick={() => {
+                    cue("tap");
+                    setLimit((n) => n + PAGE);
+                  }}
+                >
+                  {tx(W.more(Math.min(PAGE, found.length - shown.length)))}
+                </Btn>
+              ) : null}
+            </>
+          )}
+        </Section>
+      </div>
       {props.canChange ? (
         <FamilyLinkSheet
           key={`link-${linking.n}`}

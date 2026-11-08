@@ -513,16 +513,23 @@ function ThirdChildBox({ preview }: { preview: FamilyPreview }) {
         return { tone: "info", text: tx(W.third.needThree(n.count)) };
       case "gets": {
         const c = nameOf(n.studentId);
-        const money =
-          n.tuition !== null && n.base !== null ? ` ${tx(W.third.tuition(rupees(n.tuition), rupees(n.base)))}` : n.tuition !== null ? ` ${tx(W.third.tuitionTo(rupees(n.tuition)))}` : "";
+        const money = n.feesStay
+          ? ` ${tx(W.third.alreadyLess(firstName(c?.fullName ?? "—")))}`
+          : n.tuition !== null && n.base !== null
+            ? ` ${tx(W.third.tuition(rupees(n.tuition), rupees(n.base)))}`
+            : n.tuition !== null
+              ? ` ${tx(W.third.tuitionTo(rupees(n.tuition)))}`
+              : "";
         return { tone: "ok", text: `${tx(W.third.gets(c?.fullName ?? "—", c?.classLabel ?? "—"))}${money}` };
       }
       case "keeps":
         return { tone: "ok", text: tx(W.third.keeps(nameOf(n.studentId)?.fullName ?? "—")) };
       case "staff":
         return { tone: "info", text: tx(W.third.staff(nameOf(n.studentId)?.fullName ?? "—")) };
-      case "loses":
-        return { tone: "warn", text: tx(W.third.loses(firstName(nameOf(n.studentId)?.fullName ?? "—"))) };
+      case "loses": {
+        const first = firstName(nameOf(n.studentId)?.fullName ?? "—");
+        return n.feesStay ? { tone: "info", text: tx(W.third.losesSame(first)) } : { tone: "warn", text: tx(W.third.loses(first)) };
+      }
       case "same":
         return { tone: "info", text: tx(W.third.same) };
     }

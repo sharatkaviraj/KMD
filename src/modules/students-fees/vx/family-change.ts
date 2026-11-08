@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getWorkbookStudentFinancials } from "@/modules/fees/data/queries";
+import { calculateConventionalPolicyTuition } from "@/modules/fees/domain/conventional-discount-rules";
 import { buildClassLabel } from "@/modules/fees/domain/policy-shaping";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
@@ -101,8 +102,7 @@ export async function previewLocalFamilyChange(raw: FamilyPreviewRequest): Promi
     admin
       .from("conventional_discount_policies")
       .select("id, code, calculation_type, fixed_tuition_amount, percentage, is_active")
-      .eq("academic_session_label", session)
-      .in("code", ["third_child", "staff_child"]),
+      .eq("academic_session_label", session),
   ]);
   if (students.error || policies.error) throw new FamilyChangeRefused("failed", "Could not read the family.");
 
@@ -130,7 +130,9 @@ export async function previewLocalFamilyChange(raw: FamilyPreviewRequest): Promi
   const third = policyRows.find((p) => p.code === "third_child" && p.is_active) ?? null;
   const thirdIds = policyRows.filter((p) => p.code === "third_child").map((p) => p.id);
   const staffIds = policyRows.filter((p) => p.code === "staff_child" && p.is_active).map((p) => p.id);
-  const policyIds = [...thirdIds, ...staffIds];
+  // Every other active discount (RTE, Staff Child, …): lowest tuition wins, so an RTE child's fees never move with the 3rd Child Policy.
+  const otherPolicies = new Map(policyRows.filter((p) => p.code !== "third_child" && p.is_active).map((p) => [p.id, p]));
+  const policyIds = [...new Set([...thirdIds, ...staffIds, ...otherPolicies.keys()])];
 
   type AssignmentRow = { student_id: string; policy_id: string; is_manual_override: boolean | null };
   const classIds = [...new Set(rows.filter((s) => s.classSessionLabel === session && s.classId).map((s) => s.classId as string))];
@@ -153,18 +155,30 @@ export async function previewLocalFamilyChange(raw: FamilyPreviewRequest): Promi
   ]);
   if (assignments.error || fees.error) throw new FamilyChangeRefused("failed", "Could not read the family.");
 
-  const thirdChildNow = new Map<string, { manual: boolean }>();
-  const staffChildIds = new Set<string>();
-  for (const a of assignments.data ?? []) {
-    if (thirdIds.includes(a.policy_id)) thirdChildNow.set(a.student_id, { manual: Boolean(a.is_manual_override) });
-    if (staffIds.includes(a.policy_id)) staffChildIds.add(a.student_id);
-  }
   const moneyById = new Map<string, FamilyChangeMoney>(
     money.map((m) => [m.studentId, { yearFees: rupees(m.baseChargeTotal), feesPending: rupees(m.outstandingAmount), lateFeePending: rupees(m.lateFeeOutstandingAmount) }]),
   );
   const baseTuitionByClass = new Map<string, number>();
   for (const row of (fees.data ?? []) as Array<{ class_id: string; tuition_fee_amount: number }>) {
     if (!baseTuitionByClass.has(row.class_id)) baseTuitionByClass.set(row.class_id, rupees(row.tuition_fee_amount));
+  }
+  const classOf = new Map(rows.map((s) => [s.id, s.classId]));
+
+  const thirdChildNow = new Map<string, { manual: boolean }>();
+  const staffChildIds = new Set<string>();
+  const otherDiscountTuition = new Map<string, number>();
+  for (const a of assignments.data ?? []) {
+    if (thirdIds.includes(a.policy_id)) thirdChildNow.set(a.student_id, { manual: Boolean(a.is_manual_override) });
+    if (staffIds.includes(a.policy_id)) staffChildIds.add(a.student_id);
+    const other = otherPolicies.get(a.policy_id);
+    const classId = classOf.get(a.student_id);
+    const base = classId ? baseTuitionByClass.get(classId) : undefined;
+    if (!other || base === undefined) continue;
+    const tuition = calculateConventionalPolicyTuition({
+      baseTuition: base,
+      policy: { calculationType: other.calculation_type as FamilyChangePolicy["calculationType"], fixedTuitionAmount: other.fixed_tuition_amount, percentage: other.percentage },
+    });
+    otherDiscountTuition.set(a.student_id, Math.min(tuition, otherDiscountTuition.get(a.student_id) ?? Number.POSITIVE_INFINITY));
   }
   const thirdChildPolicy: FamilyChangePolicy | null = third
     ? { calculationType: third.calculation_type as FamilyChangePolicy["calculationType"], fixedTuitionAmount: third.fixed_tuition_amount, percentage: third.percentage }
@@ -180,6 +194,7 @@ export async function previewLocalFamilyChange(raw: FamilyPreviewRequest): Promi
     thirdChildNow,
     // One's ported 3rd Child step does not know the Staff Child rule yet.
     staffChildOutranks: false,
+    otherDiscountTuition,
   });
 }
 
