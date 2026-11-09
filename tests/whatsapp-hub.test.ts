@@ -190,6 +190,14 @@ describe("templates on the hub", () => {
     fakeHub(() => ({ status: 400, body: hubError(null, 100, "Template name already exists") }));
     expect(await hub().submitTemplate!(HUB_TEMPLATE_SUBMISSIONS[0]!)).toEqual({ ok: false, code: "100", problem: "Template name already exists" });
   });
+
+  it("keeps the hub's own words when it refuses in its short form, not just the HTTP number", async () => {
+    fakeHub(() => ({ status: 400, body: { ok: false, error: "template already exists" } }));
+    const answer = await hub().submitTemplate!(HUB_TEMPLATE_SUBMISSIONS[0]!);
+    expect(answer).toMatchObject({ ok: false, problem: "template already exists" });
+    fakeHub(() => ({ status: 400, body: "" }));
+    expect(await hub().submitTemplate!(HUB_TEMPLATE_SUBMISSIONS[0]!)).toMatchObject({ ok: false, problem: "The hub answered 400." });
+  });
 });
 
 describe("the _v8 set", () => {

@@ -766,7 +766,8 @@ export async function submitTemplates(
   const config = readWhatsAppConfig();
   if (!config.ok) return { ok: false, problem: config.reason };
   const provider = providerFor(config);
-  if (!provider.submitTemplate) return { ok: false, problem: "Only the school's WhatsApp hub takes templates from One." };
+  const submitTemplate = provider.submitTemplate;
+  if (!submitTemplate) return { ok: false, problem: "Only the school's WhatsApp hub takes templates from One." };
   const db = whatsappDb();
   const { data: rows, error } = await db
     .from("whatsapp_templates")
@@ -777,23 +778,44 @@ export async function submitTemplates(
   let sent = 0;
   let skipped = 0;
   const failed: Array<{ name: string; problem: string }> = [];
+  const todo: Array<{ submission: TemplateSubmission; row: { key: string; status: string } }> = [];
   for (const submission of submissions) {
     const row = (rows as Array<{ key: string; provider_name: string; language_code: string; status: string }>).find(
       (candidate) => candidate.provider_name === submission.name && candidate.language_code === submission.language,
     );
-    if (!row || !["not_submitted", "rejected"].includes(row.status)) {
+    if (!row || !SUBMITTABLE.includes(row.status)) skipped += 1;
+    else todo.push({ submission, row });
+  }
+
+  await eachAtMost(SUBMIT_AT_ONCE, todo, async ({ submission, row }) => {
+    // Take the row first. A second press while this one is still sending (it
+    // did happen: 22 at ~5 s each) finds it taken and leaves it alone, instead
+    // of sending it again and writing Meta's "already there" over a row that
+    // went through (9 Nov).
+    const takenAt = new Date().toISOString();
+    const { data: taken } = await db
+      .from("whatsapp_templates")
+      .update({ status: "pending", status_reason: "Being sent to Meta.", status_checked_at: takenAt, updated_at: takenAt, updated_by: actor.staffId })
+      .eq("key", row.key)
+      .in("status", SUBMITTABLE)
+      .select("key");
+    if (!taken || taken.length === 0) {
       skipped += 1;
-      continue;
+      return;
     }
-    const answer = await provider.submitTemplate(submission);
+    const answer = await submitTemplate(submission).catch(
+      (caught: unknown): { ok: false; problem: string } => ({ ok: false, problem: caught instanceof Error ? caught.message : "No answer from the hub." }),
+    );
     const now = new Date().toISOString();
     if (!answer.ok) {
       failed.push({ name: submission.name, problem: answer.problem });
+      // Back to where it was, so it can be sent again.
       await db
         .from("whatsapp_templates")
-        .update({ status_reason: `Not sent for approval: ${answer.problem}`.slice(0, 300), status_checked_at: now, updated_at: now, updated_by: actor.staffId })
-        .eq("key", row.key);
-      continue;
+        .update({ status: row.status, status_reason: `Not sent for approval: ${answer.problem}`.slice(0, 300), status_checked_at: now, updated_at: now, updated_by: actor.staffId })
+        .eq("key", row.key)
+        .eq("status", "pending");
+      return;
     }
     sent += 1;
     const status = answer.status === "APPROVED" ? "pending" : (STATUS_FROM_EVENT[answer.status ?? ""] ?? "pending");
@@ -808,8 +830,26 @@ export async function submitTemplates(
         updated_by: actor.staffId,
       })
       .eq("key", row.key);
-  }
+  });
   return { ok: true, sent, skipped, failed };
+}
+
+/** Rows Meta has not seen yet, or turned down: the only ones Send for approval sends. */
+const SUBMITTABLE = ["not_submitted", "rejected"];
+
+/** Three at a time: 22 one after another took 100 seconds and somebody pressed again. */
+const SUBMIT_AT_ONCE = 3;
+
+async function eachAtMost<T>(limit: number, items: readonly T[], work: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const lane = async () => {
+    while (next < items.length) {
+      const item = items[next];
+      next += 1;
+      await work(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
 }
 
 /** Is the school's WhatsApp connected, from which number, and how healthy? */

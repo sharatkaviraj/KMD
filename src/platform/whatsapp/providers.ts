@@ -306,6 +306,18 @@ export function readHubStatus(body: unknown, wamid: string): ProviderStatus | nu
 
 const TEMPLATE_FIELDS = "name,language,status,category,components,rejected_reason,quality_score";
 
+/**
+ * A refusal the hub wrote as `{ ok: false, error: "…" }` or `{ message: "…" }`
+ * rather than Meta's `{ error: { message } }`. Without this a template refusal
+ * read only "The hub answered 400." (9 Nov).
+ */
+function plainRefusal(record: Record<string, unknown>): string | null {
+  for (const value of [record.error, record.message, record.detail]) {
+    if (typeof value === "string" && value.trim()) return value.trim().slice(0, 300);
+  }
+  return null;
+}
+
 function hubProvider(config: Extract<WhatsAppConfig, { ok: true; provider: "hub" }>): WhatsAppProvider {
   const base = `${config.hubUrl}/v1`;
   return {
@@ -359,7 +371,7 @@ function hubProvider(config: Extract<WhatsAppConfig, { ok: true; provider: "hub"
       return {
         ok: false,
         code: refusalCode(parsed, response.status),
-        problem: graphError(parsed).title ?? `The hub answered ${response.status}.`,
+        problem: graphError(parsed).title ?? plainRefusal(record) ?? `The hub answered ${response.status}.`,
       };
     },
   };

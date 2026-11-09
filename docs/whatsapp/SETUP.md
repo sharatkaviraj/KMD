@@ -162,7 +162,11 @@ cannot drift.
 
 1. Settings → WhatsApp → **Fee reminders with Pay now** → **Send for
    approval**. Only rows that are `not_submitted` or `rejected` are sent; they
-   then read "Waiting for Meta". Nothing goes to any parent.
+   then read "Waiting for Meta". Nothing goes to any parent. Three go at a
+   time (about half a minute for 22); each row is taken before it is sent,
+   so a second press never sends one twice, and a refusal puts the row back
+   with the hub's own words. **Done 9 Nov 08:56 UTC by Janmejay: all 22 are
+   with Meta.**
 2. Meta decides, usually within hours. The webhook writes a rejection at once;
    an approval makes One read the hub's list. **Check with WhatsApp** reads it
    by hand.
@@ -188,7 +192,8 @@ anything.
 1. ~~`WHATSAPP_HUB_KEY` in Vercel (Production, Sensitive)~~ — Janmejay added
    it on 9 Nov; it takes effect with the next deployment.
 2. ~~One's webhook on the hub's `APP_WEBHOOKS`~~ — done by Janmejay on 9 Nov.
-3. **Send the `_v8` set for approval** (above), then wait for Meta.
+3. ~~Send the `_v8` set for approval~~ — Janmejay, 9 Nov; Meta's answers
+   are coming in through the webhook.
 4. **Fill `APPROVED_HUB`** from the APPROVED statuses on the hub's list.
 5. **Going live** needs Janmejay's written go-ahead, then: practice mode off,
    one feature switched on, a test to his own number, the hub switched to

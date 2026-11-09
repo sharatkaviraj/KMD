@@ -27,9 +27,18 @@ word for word) with Send for approval on Settings → WhatsApp; the manual
 **State of the switches:** practice mode on, every feature off, real
 recipients off (owner's test number only), 250 a day; the hub itself is in
 test mode.
-**Remains:** send the `_v8` set for approval and wait for Meta, fill
-`APPROVED_HUB` from the APPROVED statuses, then the owner's written go-ahead
-(SETUP.md "What is left to fill in").
+**Live:** PR 338, merge `6db23cd`; the live webhook refuses unsigned posts
+(key in place) and BrowserStack (Galaxy M32 + Windows 11 Chrome, QA admin)
+shows "Connected, Veer Patta School" through the hub. Janmejay pressed Send
+for approval at 08:56 UTC: all 22 reached Meta, and by 09:02 Meta's first
+approvals came back through the hub's webhook and One's own check (3
+approved, 19 waiting). A second press while the first was still sending (22
+one after another, 100 s) made nine rows read "Not sent: the hub answered
+400" though they had gone; follow-up PR: a row is taken before it is sent,
+a refusal puts it back with the hub's own words, three go at a time.
+**Remains:** fill `APPROVED_HUB` from the APPROVED statuses once Meta has
+answered, then the owner's written go-ahead (SETUP.md "What is left to fill
+in").
 `tests/sentry-lite.test.ts` fails in a checkout under `/home/user`; it passes in CI.
 
 ## Test accounts only in the test session — 8 November 2026

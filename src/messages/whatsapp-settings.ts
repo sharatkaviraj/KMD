@@ -88,7 +88,7 @@ export const waMessages = {
   hubCounts: (approved: number, waiting: number, notSent: number) =>
     t(`${approved} मंज़ूर · ${waiting} मंज़ूरी बाकी · ${notSent} अभी नहीं भेजे`, `${approved} approved · ${waiting} waiting for Meta · ${notSent} not sent yet`),
   hubSend: (n: number) => t(`${n} संदेश मंज़ूरी के लिए भेजें`, `Send ${n} for approval`),
-  hubSending: t("Meta को भेज रहे हैं…", "Sending to Meta…"),
+  hubSending: t("Meta को भेज रहे हैं… करीब आधा मिनट", "Sending to Meta… about half a minute"),
   hubSendConfirm: t(
     "ये संदेश Meta को मंज़ूरी के लिए जाएँगे। किसी अभिभावक को कुछ नहीं जाएगा। भेजें?",
     "These go to Meta for approval. Nothing goes to any parent. Send them?",
