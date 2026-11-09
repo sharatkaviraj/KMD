@@ -231,11 +231,24 @@ describe("the _v8 set", () => {
     }
   });
 
-  it("is approved only from the hub's list: APPROVED_HUB starts empty and holds only _v8 names", () => {
-    expect(APPROVED_HUB.size).toBe(0);
-    for (const name of APPROVED_HUB) expect(name).toMatch(/_v8$/);
-    // Until then nothing switches to it: the fee reminders keep their old names.
-    expect(activeCampaignName("fee_due", "hi")).not.toMatch(/_v8$/);
+  it("is approved only from the hub's list: APPROVED_HUB holds only real _v8 names", () => {
+    // Every name is one of the 22, so a typo cannot quietly switch nothing on.
+    const v8Names = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
+    for (const name of APPROVED_HUB) expect(v8Names.has(name)).toBe(true);
+    // 9 Nov 2026: the 20 the hub read APPROVED and One's own check passed.
+    expect(APPROVED_HUB.size).toBe(20);
+    expect(APPROVED_HUB.has("vpps_app_upcoming_hi_v8")).toBe(false);
+    expect(APPROVED_HUB.has("vpps_app_promise_lapsed_hi_v8")).toBe(false);
+  });
+
+  it("switches a notice to its _v8 name only once that name is approved", () => {
+    for (const situation of V8_SITUATIONS) {
+      for (const language of ["hi", "en"] as const) {
+        const name = activeCampaignName(situation, language);
+        if (APPROVED_HUB.has(v8CampaignName(situation, language))) expect(name).toBe(v8CampaignName(situation, language));
+        else expect(name).not.toMatch(/_v[678]$/);
+      }
+    }
     expect(v7CampaignName("fee_due", "hi")).toBe("vpps_app_fee_due_hi_v7");
   });
 });

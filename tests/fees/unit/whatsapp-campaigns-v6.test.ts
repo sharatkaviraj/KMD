@@ -12,6 +12,7 @@ import {
   V6_BUTTON_LABELS,
   V6_CAMPAIGNS,
 } from "@/modules/whatsapp/domain/campaign-bodies-v6";
+import { isHubApproved } from "@/modules/whatsapp/domain/campaign-generation";
 import { campaignFor, type NoticeValues } from "@/modules/whatsapp/domain/campaigns";
 import { payNowButton } from "@/modules/whatsapp/data/parent-send";
 import { templateMessageBody } from "@/platform/whatsapp/payload";
@@ -73,11 +74,13 @@ describe("the v6 registry", () => {
     // Pinned by name, so a typo cannot quietly leave one notice on the old set.
     expect([...APPROVED_V6].sort()).toEqual(V6_CAMPAIGNS.map((entry) => entry.campaignName).sort());
     expect(V6_CAMPAIGNS.every((entry) => entry.approved)).toBe(true);
-    // VPPS One never hands out `_v6` (go-live plan §6.2): until a `_v7` is
-    // approved the notice goes under the earlier text-only generation. The
-    // fees app's assertion was that `_v6` is the active name.
+    // VPPS One never hands out `_v6` (go-live plan §6.2): it sends the hub's
+    // `_v8` once that is approved (D-566), else the earlier text-only
+    // generation. The fees app's assertion was that `_v6` is the active name.
     expect(activeCampaignName("fee_due", "hi")).not.toBe("vpps_app_fee_due_hi_v6");
-    expect(activeCampaignName("fee_due", "hi")).toBe(campaignFor("fee_due", "hi").campaignName);
+    expect(activeCampaignName("fee_due", "hi")).toBe(
+      isHubApproved("fee_due", "hi") ? "vpps_app_fee_due_hi_v8" : campaignFor("fee_due", "hi").campaignName,
+    );
   });
 
   it.each(V6_CAMPAIGNS.map((entry) => [entry.campaignName, entry] as const))(

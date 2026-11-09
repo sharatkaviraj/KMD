@@ -36,9 +36,13 @@ approved, 19 waiting). A second press while the first was still sending (22
 one after another, 100 s) made nine rows read "Not sent: the hub answered
 400" though they had gone; follow-up PR: a row is taken before it is sent,
 a refusal puts it back with the hub's own words, three go at a time.
-**Remains:** fill `APPROVED_HUB` from the APPROVED statuses once Meta has
-answered, then the owner's written go-ahead (SETUP.md "What is left to fill
-in").
+By 09:16 UTC Meta had approved 20 of the 22, every one also passing One's
+own check (button host, five blanks, the `_v7` wording to the byte);
+`APPROVED_HUB` lists those 20, so the fee reminder screens use their `_v8`
+names. Still with Meta: `upcoming_hi_v8`, `promise_lapsed_hi_v8`.
+**Remains:** add those two once they read approved; then the owner's written
+go-ahead (SETUP.md "What is left to fill in"): practice mode off, one feature
+on, a test to his own number, the hub to live, and only then real recipients.
 `tests/sentry-lite.test.ts` fails in a checkout under `/home/user`; it passes in CI.
 
 ## Test accounts only in the test session — 8 November 2026

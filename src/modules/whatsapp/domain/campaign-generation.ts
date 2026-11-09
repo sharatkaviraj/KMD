@@ -144,9 +144,34 @@ export function v8CampaignName(situation: NoticeSituation, language: NoticeLangu
  * and deployed, like every generation before it; the registry row must ALSO
  * read approved before anything goes (platform/whatsapp/policy.ts).
  *
- * Empty until the hub reports the first approvals.
+ * Filled 9 Nov 2026 (09:16 UTC) from the hub's list: these 20 read APPROVED
+ * there AND passed One's own check (button opens one.vpps.co.in, five blanks,
+ * the `_v7` wording to the byte), so their registry rows read approved too.
+ * Still waiting for Meta then: `vpps_app_upcoming_hi_v8` and
+ * `vpps_app_promise_lapsed_hi_v8` — add them only once they read approved.
  */
-export const APPROVED_HUB: ReadonlySet<string> = new Set<string>([]);
+export const APPROVED_HUB: ReadonlySet<string> = new Set<string>([
+  "vpps_app_balance_en_v8",
+  "vpps_app_balance_hi_v8",
+  "vpps_app_exam_clearance_en_v8",
+  "vpps_app_exam_clearance_hi_v8",
+  "vpps_app_fee_due_en_v8",
+  "vpps_app_fee_due_hi_v8",
+  "vpps_app_late_fee_waiver_en_v8",
+  "vpps_app_late_fee_waiver_hi_v8",
+  "vpps_app_overdue_final_en_v8",
+  "vpps_app_overdue_final_hi_v8",
+  "vpps_app_prevyear_en_v8",
+  "vpps_app_prevyear_hi_v8",
+  "vpps_app_promise_due_en_v8",
+  "vpps_app_promise_due_hi_v8",
+  "vpps_app_promise_lapsed_en_v8",
+  "vpps_app_upcoming_en_v8",
+  "vpps_app_upcoming_final_en_v8",
+  "vpps_app_upcoming_final_hi_v8",
+  "vpps_app_waiver_last_call_en_v8",
+  "vpps_app_waiver_last_call_hi_v8",
+]);
 
 export function isHubApproved(situation: NoticeSituation, language: NoticeLanguage): boolean {
   return V8_SITUATIONS.includes(situation) && APPROVED_HUB.has(v8CampaignName(situation, language));

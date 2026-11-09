@@ -28,14 +28,16 @@ vi.mock("@/modules/whatsapp/data/campaign-store", () => ({ openRun: async () => 
 vi.mock("@/modules/activity/data/events", () => ({ recordActivity: async () => undefined }));
 vi.mock("@/modules/whatsapp/domain/campaign-generation", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/modules/whatsapp/domain/campaign-generation")>();
+  // Every Pay now notice approved on the school's hub (`_v8`, D-566), the
+  // state One reaches once Meta has answered for all 22.
   const all = new Set(
-    real.V7_SITUATIONS.flatMap((situation) => (["hi", "en"] as const).map((language) => real.v7CampaignName(situation, language))),
+    real.V8_SITUATIONS.flatMap((situation) => (["hi", "en"] as const).map((language) => real.v8CampaignName(situation, language))),
   );
   return {
     ...real,
-    APPROVED_V7: all,
-    isV7Approved: (situation: Parameters<typeof real.v7CampaignName>[0], language: Parameters<typeof real.v7CampaignName>[1]) =>
-      all.has(real.v7CampaignName(situation, language)),
+    APPROVED_HUB: all,
+    isHubApproved: (situation: Parameters<typeof real.v8CampaignName>[0], language: Parameters<typeof real.v8CampaignName>[1]) =>
+      all.has(real.v8CampaignName(situation, language)),
   };
 });
 
@@ -239,14 +241,14 @@ describe("the run sender", () => {
     const outcome = await runWith("2026-27", [feesCode]);
     expect(outcome.sent).toBe(1);
     const posted = send.mock.calls[0]![0] as Posted;
-    expect(posted.campaignName).not.toMatch(/_v7$/);
+    expect(posted.campaignName).not.toMatch(/_v[78]$/);
     expect(posted.buttons).toBeUndefined();
   });
 
   it("sends Pay now once the fees code has expired", async () => {
     await runWith("2026-27", [{ ...feesCode, pay_code_expires_on: "2026-12-19" }]);
     const posted = send.mock.calls[0]![0] as Posted;
-    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v7");
+    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v8");
     expect(posted.buttons).toHaveLength(1);
   });
 
@@ -260,7 +262,7 @@ describe("the run sender", () => {
   it("never holds back a TEST session", async () => {
     await runWith("TEST-2026-27", [{ ...feesCode, session_label: "2026-27" }]);
     const posted = send.mock.calls[0]![0] as Posted;
-    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v7");
+    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v8");
     expect(posted.buttons).toHaveLength(1);
   });
 });

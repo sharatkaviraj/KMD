@@ -27,23 +27,25 @@ vi.mock("@/modules/activity/data/events", () => ({
 
 import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
 
-// VPPS One sends `_v7` where the fees app sends `_v6` (go-live plan §6.2):
-// the same templates, slot for slot, with One's Pay now host. These are the
-// fees app's v6 cases run with every `_v7` approved — the state One reaches
-// once the owner reports them Live. Until then `APPROVED_V7` is empty and
-// the earlier text-only generation goes (tests/fees/unit/whatsapp-campaigns-v7.test.ts).
+// VPPS One sends the hub's `_v8` where the fees app sends `_v6` (D-566):
+// the same templates, slot for slot, with One's Pay now host, on the school's
+// own number. These are the fees app's v6 cases run with every `_v8`
+// approved on the hub — the state One reaches once Meta has answered for all
+// 22 (20 on 9 Nov 2026). `_v7`, the AiSensy account's, is never approved in
+// One. A notice whose `_v8` is not approved yet falls back to the earlier
+// text-only generation (tests/fees/unit/whatsapp-campaigns-v7.test.ts).
 vi.mock("@/modules/whatsapp/domain/campaign-generation", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/modules/whatsapp/domain/campaign-generation")>();
   const all = new Set(
-    real.V7_SITUATIONS.flatMap((situation) =>
-      (["hi", "en"] as const).map((language) => real.v7CampaignName(situation, language)),
+    real.V8_SITUATIONS.flatMap((situation) =>
+      (["hi", "en"] as const).map((language) => real.v8CampaignName(situation, language)),
     ),
   );
   return {
     ...real,
-    APPROVED_V7: all,
-    isV7Approved: (situation: Parameters<typeof real.v7CampaignName>[0], language: Parameters<typeof real.v7CampaignName>[1]) =>
-      all.has(real.v7CampaignName(situation, language)),
+    APPROVED_HUB: all,
+    isHubApproved: (situation: Parameters<typeof real.v8CampaignName>[0], language: Parameters<typeof real.v8CampaignName>[1]) =>
+      all.has(real.v8CampaignName(situation, language)),
   };
 });
 
@@ -212,13 +214,13 @@ describe("executeReminderRun with the v6 notices Live", () => {
 
     expect(send).toHaveBeenCalledTimes(1);
     const posted = send.mock.calls[0]![0] as Posted;
-    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v7");
+    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v8");
     // The body's five slots; the pay code is NOT one of them here.
     expect(posted.templateParams).toHaveLength(5);
     expect(posted.templateParams[0]).toBe("22,375");
 
     const claim = sendRows.find((row) => row.status === "pending")!;
-    expect(claim.campaign_name).toBe("vpps_app_fee_due_hi_v7");
+    expect(claim.campaign_name).toBe("vpps_app_fee_due_hi_v8");
     expect(claim.due_amount).toBe(22375);
     expect(typeof claim.pay_code).toBe("string");
     expect(posted.buttons).toEqual([
@@ -229,14 +231,14 @@ describe("executeReminderRun with the v6 notices Live", () => {
     ]);
 
     const covered = sendRows.find((row) => row.status === "covered_by_sibling")!;
-    expect(covered.campaign_name).toBe("vpps_app_fee_due_hi_v7");
+    expect(covered.campaign_name).toBe("vpps_app_fee_due_hi_v8");
     expect(outcome.sent).toBe(1);
   });
 
   it("sends a one-child phone the same v6 template", async () => {
     await run([candidate()]);
     const posted = send.mock.calls[0]![0] as Posted;
-    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v7");
+    expect(posted.campaignName).toBe("vpps_app_fee_due_hi_v8");
     expect(posted.templateParams).toHaveLength(5);
     expect(posted.buttons).toHaveLength(1);
   });
@@ -249,7 +251,7 @@ describe("executeReminderRun with the v6 notices Live", () => {
       installments: [2],
     });
     const posted = send.mock.calls[0]![0] as Posted;
-    // It has no Pay now and so no `_v7`; One never sends `_v6`, so it goes
+    // It has no Pay now and so no `_v8`; One never sends `_v6`, so it goes
     // out under the earlier text-only generation (go-live plan §6.2).
     expect(posted.campaignName).toBe("vpps_app_late_fee_applied_en_v3");
     expect(posted.buttons).toBeUndefined();

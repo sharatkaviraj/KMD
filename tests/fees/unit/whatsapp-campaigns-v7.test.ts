@@ -18,6 +18,7 @@ import {
   activeCampaignName,
   activeCampaignNameOrNull,
   APPROVED_V7,
+  isHubApproved,
   V7_SITUATIONS,
   v7CampaignName,
 } from "@/modules/whatsapp/domain/campaign-generation";
@@ -148,7 +149,8 @@ describe("VPPS One never sends _v6", () => {
   it("never names a _v6 campaign as the one to send, approved or not", () => {
     for (const situation of NOTICE_SITUATIONS) {
       for (const language of ["hi", "en"] as const) {
-        expect(approvedV6Campaign(situation, language)?.generation ?? "v7").toBe("v7");
+        // `_v8` is the hub's copy of `_v7`; either is fine, `_v6` never is.
+        expect(["v7", "v8"]).toContain(approvedV6Campaign(situation, language)?.generation ?? "v7");
         expect(activeCampaignNameOrNull(situation, language) ?? "").not.toMatch(/_v6$/);
         try {
           expect(activeCampaignName(situation, language)).not.toMatch(/_v6$/);
@@ -164,9 +166,23 @@ describe("VPPS One never sends _v6", () => {
     expect(V6_CAMPAIGNS.every((entry) => entry.campaignName.endsWith("_v6"))).toBe(true);
   });
 
-  it("falls back to the text-only generation while _v7 is not approved", () => {
+  it("falls back to the text-only generation while neither _v8 nor _v7 is approved", () => {
     if (APPROVED_V7.size > 0) return;
-    expect(approvedV6Campaign("fee_due", "hi")).toBeNull();
-    expect(activeCampaignNameOrNull("fee_due", "hi")).toMatch(/^vpps_app_fee_due_hi_v[2-5]$/);
+    let fellBack = 0;
+    for (const situation of NOTICE_SITUATIONS) {
+      for (const language of ["hi", "en"] as const) {
+        if (isHubApproved(situation, language)) {
+          // The hub's copy goes, under its own name (D-566).
+          expect(approvedV6Campaign(situation, language)?.campaignName).toBe(`vpps_app_${situation}_${language}_v8`);
+          expect(activeCampaignNameOrNull(situation, language)).toBe(`vpps_app_${situation}_${language}_v8`);
+          continue;
+        }
+        fellBack += 1;
+        expect(approvedV6Campaign(situation, language)).toBeNull();
+        expect(activeCampaignNameOrNull(situation, language) ?? "").not.toMatch(/_v[678]$/);
+      }
+    }
+    // late_fee_applied has no Pay now and so no `_v8`: it always falls back.
+    expect(fellBack).toBeGreaterThan(0);
   });
 });

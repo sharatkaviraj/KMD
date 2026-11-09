@@ -20,6 +20,10 @@ import type { ReminderCandidate, ReminderFilters } from "@/modules/whatsapp/doma
 vi.mock("@/modules/whatsapp/domain/campaign-generation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/modules/whatsapp/domain/campaign-generation")>()),
   APPROVED_V6: new Set<string>(),
+  // And no hub `_v8` either: this pins the family templates, the fallback if
+  // the hub's approval were ever withdrawn.
+  APPROVED_HUB: new Set<string>(),
+  isHubApproved: () => false,
 }));
 
 const send = vi.fn();

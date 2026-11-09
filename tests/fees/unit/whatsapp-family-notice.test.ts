@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { describeFamilyCampaign } from "@/modules/whatsapp/domain/campaign-bodies-v3";
+import { isHubApproved } from "@/modules/whatsapp/domain/campaign-generation";
 import type { NoticeSituation } from "@/modules/whatsapp/domain/campaigns";
 import {
   campaignNamesForNotice,
@@ -135,19 +136,24 @@ describe("campaignNamesForNotice", () => {
   it("returns every name a family may have been messaged under, v6 included", () => {
     // The day v6 went Live, a family messaged that morning under v2 or the
     // family template must still read as contacted.
+    // And the hub's `_v8` once it is approved there (9 Nov 2026), so a family
+    // messaged under `_v6` from the fees app reads as contacted in One.
     expect(campaignNamesForNotice("fee_due", "hi")).toEqual([
       "vpps_app_fee_due_hi_v2",
       "vpps_app_family_fee_due_hi_v3",
       "vpps_app_fee_due_hi_v6",
+      ...(isHubApproved("fee_due", "hi") ? ["vpps_app_fee_due_hi_v8"] : []),
     ]);
   });
 
   it.each(["late_fee_applied", "prevyear", "promise_lapsed", "upcoming_final"] as NoticeSituation[])(
-    "returns the per-child name and the v6 name for %s",
+    "returns the per-child name and the v6 name for %s, and the hub's v8 once approved",
     (situation) => {
       const names = campaignNamesForNotice(situation, "en");
-      expect(names).toHaveLength(2);
+      const hub = isHubApproved(situation, "en");
+      expect(names).toHaveLength(hub ? 3 : 2);
       expect(names[1]).toBe(`vpps_app_${situation}_en_v6`);
+      if (hub) expect(names[2]).toBe(`vpps_app_${situation}_en_v8`);
     },
   );
 });
