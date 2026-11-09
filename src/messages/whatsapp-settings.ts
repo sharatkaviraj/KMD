@@ -115,6 +115,12 @@ type Note = { tone: "ok" | "warn" | "bad" | "info"; text: Localized };
 /** The line shown after an action, from the `?note=` it came back with. */
 export function noteFor(note: string, params: Record<string, string | undefined>): Note | null {
   const why = params.why ?? "";
+  // A refusal, answered beside the card whose button was pressed (`<area>_locked`).
+  if (/^[a-z]+_locked$/.test(note)) {
+    return params.why === "preview"
+      ? { tone: "info", text: t("आप One को किसी और की तरह देख रहे हैं। बदलने के लिए अपने खाते पर लौटें। कुछ नहीं बदला।", "You are seeing One as someone else. Go back to your own view to change this. Nothing was changed.") }
+      : { tone: "info", text: t("अभ्यास खाता यहाँ देख सकता है, पर पूरे स्कूल की WhatsApp सेटिंग नहीं बदल सकता। कुछ नहीं बदला।", "A practice account can look here but cannot change the school's WhatsApp settings. Nothing was changed.") };
+  }
   switch (note) {
     case "conn_ok":
       return { tone: "ok", text: t(`जुड़ा है। WhatsApp इस नंबर को "${params.name ?? "Veer Patta School"}" बताता है।`, `Connected. WhatsApp names this number "${params.name ?? "Veer Patta School"}".`) };

@@ -16,6 +16,7 @@ check, safety switches, practice mode, a switch per feature, templates and
 approvals, failed messages in plain words with "Send again", the log and
 replies; Pay now kept and the message marked Paid on Razorpay's confirmation.
 Setup, env vars and the fill-in list: `docs/whatsapp/SETUP.md`.
+**Live:** PR 336, merge `814d84e`, serving about 07:34 UTC 9 Nov. BrowserStack (Galaxy M32, QA admin, TEST-2026-27): the page loads with no sideways scroll and "Check connection" answers beside its card, but a practice account pressing "Turn practice off" got the error screen; fixed in the follow-up PR (a plain note, nothing changed).
 **State of the switches:** practice mode on, every feature off, real
 recipients off (owner's test number only), 250 a day. No env var is set on
 Vercel yet, so nothing can be sent.

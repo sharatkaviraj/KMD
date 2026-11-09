@@ -447,7 +447,7 @@ export const taskDeliveryMessages = {
 
 export const taskIntegrationMessages = {
   pending: t("सेटअप बाकी है", "Setup pending"),
-  sub: t("शिक्षक कार्य के WhatsApp संदेश", "WhatsApp messages for teacher tasks"),
+  sub: t("स्कूल के अपने नंबर से अभिभावकों और स्टाफ़ को WhatsApp", "WhatsApp to parents and staff from the school's own number"),
   deferred: t("स्कूल के WhatsApp का जुड़ना और टेम्पलेट की स्वीकृति अभी बाकी है। स्वचालित कार्य संदेश बंद हैं। बाकी कार्य और फोटो सुविधाएँ उपलब्ध हैं।", "The school WhatsApp connection and template approval are pending. Automated task messages are off. Other task and photograph features remain available."),
   test: t("परीक्षण मोड में वास्तविक WhatsApp संदेश नहीं भेजे जाते।", "Test mode does not send real WhatsApp messages."),
   ready: t("कार्य संदेश कॉन्फ़िगर हैं। हर संदेश भेजने से पहले प्राप्तकर्ता और कार्य की समीक्षा करें।", "Task messages are configured. Review the recipient and task before each send."),
