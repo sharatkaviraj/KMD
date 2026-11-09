@@ -47,7 +47,7 @@ with
     'ai_jobs','builtin_ai_settings','builtin_ai_provider_status','assist_log','assist_drafts','cover_reports','data_replica','drive_folders','drive_object_copies','drive_snapshots','external_student_ids','job_runs',
     'qa_dayrun_accounts','qa_dayrun_pairs','qa_dayrun_runs','qa_dayrun_sessions','qa_runs','qa_undo','rate_limits',
     'restore_drills','sampark_import_batches','sampark_import_rows','smoke_findings','smoke_passes','smoke_pool','smoke_runs',
-    'teacher_task_previews'])),
+    'teacher_task_previews','whatsapp_inbound','whatsapp_message_events','whatsapp_messages','whatsapp_templates'])),
   -- @buckets-end
   -- References with no foreign key that the catalog does not find by name
   -- (lib/quarantine-rules.mjs TABLES: staffRefs, classRefs, staffArrays,
@@ -67,7 +67,9 @@ with
     ('student_documents', 'removed_by', 'staff', false),
     ('student_record_history', 'actor_staff_id', 'staff', false),
     ('substitution_assignments', 'merge_host_class_id', 'class', false),
-    ('teacher_absences', 'updated_by', 'staff', false)),
+    ('teacher_absences', 'updated_by', 'staff', false),
+    ('whatsapp_messages', 'requested_by', 'staff', false),
+    ('whatsapp_messages', 'retried_by', 'staff', false)),
   -- @refs-end
   quarantined_at as (
     select coalesce(

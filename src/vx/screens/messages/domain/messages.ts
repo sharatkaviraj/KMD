@@ -9,7 +9,7 @@ import { p, type Pair } from "@/vx/text";
  * cannot fill.
  */
 
-/** AiSensy charges about 88 paise a template message. */
+/** WhatsApp charges about 88 paise a template message (Meta's utility rate in India). */
 export const PAISE_PER_MESSAGE = 88;
 export const MAX_BODY = 1024;
 export const MAX_TITLE = 80;

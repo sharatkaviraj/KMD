@@ -1037,7 +1037,7 @@ export function RemindersScreen(props: RemindersProps) {
           isList ? (
             <>
               {perms.queue ? (
-                <Btn variant="sec" icon="rupee" href="https://app.aisensy.com" target="_blank">
+                <Btn variant="sec" icon="settings" href="/settings/whatsapp">
                   {tx(W.topUp)}
                 </Btn>
               ) : null}

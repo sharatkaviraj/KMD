@@ -12,7 +12,7 @@ vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({rpc:async(name
   }
   return state.finishFails?{data:null,error:{message:"synthetic write timeout"}}:{data:{ok:true},error:null};
 }})}));
-vi.mock("@/modules/collection/data/message-provider",()=>({taskDeliveryAvailability:()=>state.availability,selectProvider:()=>({id:"aisensy",send:state.send}),ProviderMisconfigured:class extends Error{}}));
+vi.mock("@/modules/collection/data/message-provider",()=>({taskDeliveryAvailability:()=>state.availability,selectProvider:()=>({id:"whatsapp",send:state.send}),ProviderMisconfigured:class extends Error{}}));
 vi.mock("@/modules/collection/data/parent-messages-repo",()=>({}));
 // The staff gate (go-live Phase F): a consenting teacher with the switch on, on Vercel production.
 vi.mock("@/platform/deployment/confinement",()=>({isConfinedDeployment:()=>false}));

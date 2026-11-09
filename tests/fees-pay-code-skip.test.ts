@@ -20,9 +20,9 @@ vi.mock("@/platform/migration/cutover-watermark-reader", () => ({
 }));
 
 const send = vi.fn();
-vi.mock("@/modules/whatsapp/data/aisensy", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/modules/whatsapp/data/aisensy")>()),
-  sendAisensyCampaignMessage: (args: unknown) => send(args),
+vi.mock("@/modules/whatsapp/data/parent-send", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/whatsapp/data/parent-send")>()),
+  sendParentTemplate: (args: unknown) => send(args),
 }));
 vi.mock("@/modules/whatsapp/data/campaign-store", () => ({ openRun: async () => "run-1", closeRun: async () => undefined }));
 vi.mock("@/modules/activity/data/events", () => ({ recordActivity: async () => undefined }));

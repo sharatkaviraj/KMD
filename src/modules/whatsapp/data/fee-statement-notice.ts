@@ -1,6 +1,6 @@
 import "server-only";
 
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import { sendParentTemplate } from "@/modules/whatsapp/data/parent-send";
 import {
   parentFacingFilename,
   storeNoticeDocument,
@@ -234,12 +234,12 @@ export async function sendFeeStatementNotice(
     return { sent: false, reason: `Could not claim the notice: ${claimError.message}` };
   }
 
-  const result = await sendAisensyCampaignMessage({
+  const result = await sendParentTemplate({
     campaignName: campaign.campaignName,
     destination,
     userName: values.parentName,
     templateParams,
-    source: "vppsone/statement",
+    link: { table: "whatsapp_reminder_sends", id: claim.id },
     gate: { kind: "fee_statement", sessionLabel, actor: staffId ? { userId: staffId } : "system" },
     media: { url: prepared.document.signedUrl, filename: prepared.filename },
   });

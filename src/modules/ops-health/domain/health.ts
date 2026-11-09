@@ -133,8 +133,9 @@ export const HEALTH_CHECKS: readonly Check[] = [
   usage("school_notices_month", t("स्कूल सूचनाएँ इस महीने", "school notices this month"), () => SCHOOL_NOTICE_BUDGET),
   usage("staff_month", t("स्टाफ़ WhatsApp इस महीने", "staff WhatsApp this month"), (counts) => countOf(counts, "staff_cap")),
   // Every lane together (receipt notices and One's parent sends included)
-  // against the AiSensy plan, when the owner has set its allowance.
-  usage("aisensy_month_total", t("AiSensy कुल इस महीने", "AiSensy total this month"), (counts) => countOf(counts, "aisensy_plan_cap")),
+  // against the school WhatsApp plan, when the owner has set its allowance.
+  // Renamed from aisensy_* in 20261109062459, which patched the SQL to match.
+  usage("whatsapp_month_total", t("स्कूल WhatsApp कुल इस महीने", "school WhatsApp total this month"), (counts) => countOf(counts, "whatsapp_plan_cap")),
 ];
 
 /* ------------------------------------------------- the webhook probe */

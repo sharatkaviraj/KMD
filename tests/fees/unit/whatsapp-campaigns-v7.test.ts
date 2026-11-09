@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { aisensyTemplateParams, payNowButton } from "@/modules/whatsapp/data/aisensy";
+import { templateMessageBody } from "@/platform/whatsapp/payload";
 import {
   approvedV6Campaign,
   describeV6Campaign,
@@ -99,18 +99,23 @@ describe("the _v7 set", () => {
   it.each(V7_CAMPAIGNS.map((entry) => [entry.campaignName, entry] as const))(
     "%s sends exactly the parameter count submitted for its situation",
     (_name, entry) => {
-      const sent = aisensyTemplateParams({
-        templateParams: entry.buildParams(SAMPLE),
-        buttons: [payNowButton("pc_test")],
-      });
-      expect(sent).toHaveLength(V7_TEMPLATE_PARAMS[entry.situation]!);
-      // The Pay now suffix is the last one, as on `_v6`.
-      expect(sent.at(-1)).toBe("pc_test");
-      // And the `_v6` send of the same values carried the same count.
+      // The pinned count is the body's slots plus Pay now. In Meta's format
+      // (D-562) Pay now is its own button component, so the body carries one
+      // fewer and the button carries the pay code.
+      const wire = templateMessageBody({
+        to: "+919000000001",
+        name: entry.campaignName,
+        languageCode: entry.language,
+        bodyParams: entry.buildParams(SAMPLE),
+        urlButtonSuffix: "pc_test",
+      }) as { template: { components: Array<{ type: string; parameters: Array<{ text?: string }> }> } };
+      const body = wire.template.components.find((part) => part.type === "body")!;
+      const button = wire.template.components.find((part) => part.type === "button")!;
+      expect(body.parameters.length + button.parameters.length).toBe(V7_TEMPLATE_PARAMS[entry.situation]!);
+      expect(button.parameters).toEqual([{ type: "text", text: "pc_test" }]);
+      // And the `_v6` send of the same values carried the same body.
       const v6 = describeV6Campaign(entry.situation, entry.language)!;
-      expect(
-        aisensyTemplateParams({ templateParams: v6.buildParams(SAMPLE), buttons: [payNowButton("pc_test")] }),
-      ).toHaveLength(sent.length);
+      expect(v6.buildParams(SAMPLE)).toHaveLength(body.parameters.length);
     },
   );
 

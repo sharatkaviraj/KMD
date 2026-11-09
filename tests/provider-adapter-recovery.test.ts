@@ -1,41 +1,116 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { MessageSend } from "@/modules/collection/domain/messages";
-const state = vi.hoisted(() => ({ provider: "mock", environment: "dev", key: "qa-key-placeholder" }));
+
+/**
+ * The collection provider seam (D-562): `whatsapp` hands every non-parent
+ * message to the one WhatsApp service; `mock` decides from the last digit and
+ * touches nothing. The service is mocked, so nothing here can reach a
+ * provider; `fetch` is stubbed to prove the mock never calls out.
+ */
+
+const state = vi.hoisted(() => ({ provider: "mock" as string | undefined, environment: "dev", sendTemplate: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/platform/env", () => ({ getOptionalEnvVar: (key: string) => key === "MESSAGE_PROVIDER" ? state.provider : key === "AISENSY_API_KEY" ? state.key : undefined, getVppsOneEnvironment: () => state.environment }));
-import { providers, selectProvider } from "@/modules/collection/data/message-provider";
-const send = { id: "qa-send", toPhone: "9876543210", toName: "QA recipient", templateCode: "qa-only", variables: [] } as unknown as MessageSend;
-beforeEach(() => { state.provider = "mock"; state.environment = "dev"; state.key = "qa-key-placeholder"; vi.stubGlobal("fetch", vi.fn()); });
-afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
-it("missing configuration is a known refusal before transport", async () => {
-  state.key = ""; expect(await providers.aisensyProvider.send(send)).toMatchObject({ ok: false, outcome: "rejected" });
-  expect(fetch).not.toHaveBeenCalled();
+vi.mock("@/platform/env", () => ({
+  getOptionalEnvVar: (key: string) => (key === "MESSAGE_PROVIDER" ? state.provider : undefined),
+  getVppsOneEnvironment: () => state.environment,
+}));
+vi.mock("@/platform/auth/current-staff", () => ({ getCurrentStaff: async () => ({ userId: "qa-user" }) }));
+vi.mock("@/platform/whatsapp/service", () => ({ sendTemplate: state.sendTemplate }));
+vi.mock("@/modules/whatsapp/data/parent-send", () => ({ sendParentTemplate: vi.fn() }));
+
+import { dispatchResultFrom, providers, selectProvider } from "@/modules/collection/data/message-provider";
+
+const send = { id: "qa-send", audience: "staff", toPhone: "9876543210", toName: "QA recipient", templateCode: "qa_only", variables: ["a"], sessionLabel: "TEST-2026-27" } as unknown as MessageSend;
+
+beforeEach(() => {
+  state.provider = "mock";
+  state.environment = "dev";
+  state.sendTemplate.mockReset();
+  vi.stubGlobal("fetch", vi.fn());
 });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
 it.each(["0", "6", "7", "8", "9"])("mock outcome %s never calls an external endpoint", async (digit) => {
   const result = await selectProvider().send({ ...send, toPhone: `987654321${digit}` });
-  expect(result.ok).toBe(["0", "9"].includes(digit)); expect(fetch).not.toHaveBeenCalled();
+  expect(result.ok).toBe(["0", "9"].includes(digit));
+  expect(fetch).not.toHaveBeenCalled();
 });
+
 it("slow mock stays pending until its defined delay", async () => {
-  vi.useFakeTimers(); let settled = false;
-  const result = selectProvider().send({ ...send, toPhone: "9876543215" }).then(value => { settled = true; return value; });
-  await vi.advanceTimersByTimeAsync(1199); expect(settled).toBe(false);
-  await vi.advanceTimersByTimeAsync(1); expect((await result).ok).toBe(true); expect(fetch).not.toHaveBeenCalled();
+  vi.useFakeTimers();
+  let settled = false;
+  const result = selectProvider()
+    .send({ ...send, toPhone: "9876543215" })
+    .then((value) => {
+      settled = true;
+      return value;
+    });
+  await vi.advanceTimersByTimeAsync(1199);
+  expect(settled).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  expect((await result).ok).toBe(true);
+  expect(fetch).not.toHaveBeenCalled();
 });
+
 it("refuses mock configuration on live and unknown providers", () => {
-  state.environment = "live"; expect(selectProvider).toThrow(); state.environment = "dev"; state.provider = "unknown"; expect(selectProvider).toThrow(); expect(fetch).not.toHaveBeenCalled();
+  state.environment = "live";
+  expect(selectProvider).toThrow();
+  state.environment = "dev";
+  state.provider = "unknown";
+  expect(selectProvider).toThrow();
+  expect(fetch).not.toHaveBeenCalled();
 });
-it("missing real-provider configuration sends nothing", async () => { state.key = ""; expect((await providers.aisensyProvider.send(send)).ok).toBe(false); expect(fetch).not.toHaveBeenCalled(); });
-it.each([429, 500])("a mocked provider %i response is a failure", async (status) => { vi.mocked(fetch).mockResolvedValue({ ok: false, status } as Response); expect((await providers.aisensyProvider.send(send)).ok).toBe(false); });
-it("a mocked transport failure is not confirmation", async () => { vi.mocked(fetch).mockRejectedValue(new Error("QA response lost")); expect((await providers.aisensyProvider.send(send)).ok).toBe(false); });
-it.each(["dropped", "server"])("%s response cannot authorize an ordinary retry", async (caseName) => {
-  if (caseName === "dropped") vi.mocked(fetch).mockRejectedValue(new Error("QA response lost"));
-  else vi.mocked(fetch).mockResolvedValue({ ok: false, status: 503 } as Response);
-  expect(await providers.aisensyProvider.send(send)).toMatchObject({ ok: false, outcome: "unknown" });
+
+it.each([undefined, "whatsapp", "aisensy"])("MESSAGE_PROVIDER=%s is the school's WhatsApp (the old name included)", (value) => {
+  state.provider = value;
+  expect(selectProvider().id).toBe("whatsapp");
 });
-// AiSensy's API reference defines HTTP 200 as acceptance; it does not promise
-// a messageId. Acceptance is not a delivery/read receipt or a invented ID.
-it.each([{}, { messageId: null }, { messageId: "" }, { messageId: "  " }])("a documented success without an ID records acceptance without inventing an identifier", async (body) => {
-  vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => body } as Response);
-  expect(await providers.aisensyProvider.send(send)).toEqual({ ok: true, providerMessageId: "" });
+
+it("hands a staff message to the WhatsApp service with its own row to update", async () => {
+  state.sendTemplate.mockResolvedValue({ outcome: "accepted", providerMessageId: "wamid.qa", logId: "log" });
+  expect(await providers.whatsappProvider.send(send)).toEqual({ ok: true, providerMessageId: "wamid.qa" });
+  const [to, name, language, values, options] = state.sendTemplate.mock.calls[0]!;
+  expect([to, name, language, values]).toEqual(["+919876543210", "qa_only", null, ["a"]]);
+  expect(options).toMatchObject({ feature: "staff_notice", urlButton: null, link: { table: "message_sends", id: "qa-send" }, sessionLabel: "TEST-2026-27", requestedBy: "qa-user" });
 });
-it("returns a confirmed ID from a mocked positive response", async () => { vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ messageId: "qa-confirmation" }) } as Response); expect(await providers.aisensyProvider.send(send)).toEqual({ ok: true, providerMessageId: "qa-confirmation" }); });
+
+it("a refusal (not connected, switch off, practice mode) is a definite not-sent", async () => {
+  state.sendTemplate.mockResolvedValue({ outcome: "refused", code: "not_configured", reason: "The school's WhatsApp is not connected.", logId: null });
+  expect(await providers.whatsappProvider.send(send)).toMatchObject({ ok: false, outcome: "rejected" });
+});
+
+it.each([
+  { outcome: "queued", reason: "Busy.", logId: "l" },
+  { outcome: "unknown", reason: "No answer.", logId: "l" },
+  { outcome: "duplicate", providerMessageId: null, logId: "l" },
+])("$outcome cannot authorize an ordinary retry", async (outcome) => {
+  state.sendTemplate.mockResolvedValue(outcome);
+  expect(await providers.whatsappProvider.send(send)).toMatchObject({ ok: false, outcome: "unknown" });
+});
+
+it("a thrown service is unknown, never a failure that may be resent", async () => {
+  state.sendTemplate.mockRejectedValue(new Error("QA response lost"));
+  expect(await providers.whatsappProvider.send(send)).toMatchObject({ ok: false, outcome: "unknown" });
+});
+
+it("WhatsApp's own refusal keeps its code in the words", () => {
+  expect(dispatchResultFrom({ outcome: "rejected", code: "131026", reason: "Not on WhatsApp.", logId: "l" } as never)).toEqual({
+    ok: false,
+    outcome: "rejected",
+    error: "Not on WhatsApp. (WhatsApp 131026)",
+  });
+  expect(dispatchResultFrom({ outcome: "dry_run", reason: "Practice mode is on.", logId: "l" } as never)).toEqual({
+    ok: false,
+    outcome: "rejected",
+    error: "Not sent: Practice mode is on.",
+  });
+  expect(dispatchResultFrom({ outcome: "duplicate", providerMessageId: "wamid.2", logId: "l" } as never)).toEqual({ ok: true, providerMessageId: "wamid.2" });
+});
+
+it("the adapter refuses a task campaign without its task before anything is sent", async () => {
+  expect(await providers.whatsappProvider.send({ ...send, templateCode: "vppsone_teacher_task_en_v1", variables: [] } as unknown as MessageSend)).toMatchObject({ ok: false, outcome: "rejected" });
+  expect(state.sendTemplate).not.toHaveBeenCalled();
+});

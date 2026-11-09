@@ -23,8 +23,8 @@ vi.mock("@/modules/whatsapp/domain/campaign-generation", async (importOriginal) 
 }));
 
 const send = vi.fn();
-vi.mock("@/modules/whatsapp/data/aisensy", () => ({
-  sendAisensyCampaignMessage: (args: unknown) => send(args),
+vi.mock("@/modules/whatsapp/data/parent-send", () => ({
+  sendParentTemplate: (args: unknown) => send(args),
 }));
 vi.mock("@/modules/whatsapp/data/campaign-store", () => ({
   openRun: async () => "run-1",

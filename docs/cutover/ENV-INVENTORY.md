@@ -6,7 +6,7 @@ Go-live Phase G (plan §9.3; critique1 B7). **Generated** by
 No value appears here or in the script.
 Coexistence supersedes the historical C5 provider-copy notes below: Fees retains Razorpay, fee messaging and financial jobs. Do not copy those secrets or activate competing One financial jobs for coexistence.
 
-- Code: static scan of each repo's app code (`src`, `next.config.ts`, `next.config.mjs`, `proxy.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) — One at this commit, the fees app at `unknown` (read-only).
+- Code: static scan of each repo's app code (`src`, `next.config.ts`, `next.config.mjs`, `proxy.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) — One at this commit, the fees app at `43d92102` (read-only).
   A name built at run time cannot be seen by the scan.
 - Vercel Production: name inventory refreshed on 1 Nov 2026 for the `vppsone` and `schoolfees` projects (names only).
 - Status: **set** = on One Production now; **add at C5/C6/C9** = the owner sets it on One Production at that cutover step (CUTOVER-RUNBOOK-2026-27.md);
@@ -14,30 +14,27 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 
 | Name | One reads | fees reads | One Prod | fees Prod | Production value from | Status |
 |---|---|---|---|---|---|---|
-| `AISENSY_API_KEY` | `src/modules/collection/data/message-provider.ts`, `src/modules/staff-notices/data/dispatcher.ts` +1 | `src/modules/whatsapp/data/aisensy.ts` | — | yes | AiSensy dashboard (owner); same key as fees | add at C5 — without it every AiSensy send is off |
+| `AISENSY_API_KEY` | — | `src/modules/whatsapp/data/aisensy.ts` | — | yes | fees | fees only — One left AiSensy on 9 Nov 2026 (D-562); never set it on One |
 | `AISENSY_CAMPAIGN` | — | — | — | yes | fees | fees only — not read by either codebase; not needed |
-| `AISENSY_CAMPAIGN_PREFIX` | `src/modules/collection/data/message-provider.ts` | — | — | — | owner | leave unset — template names as submitted |
-| `AISENSY_TASK_CAMPAIGN_ORIGIN` | `src/modules/collection/data/message-provider.ts` | — | — | — | owner | leave unset unless the teacher-task link goes by AiSensy (then the site origin) |
-| `AISENSY_TASK_CONTRACT` | `src/modules/collection/data/message-provider.ts` | — | — | — | owner | leave unset unless the teacher-task link goes by AiSensy (then `v1`) |
-| `AISENSY_WEBHOOK_SECRET` | `src/app/api/fees/webhooks/aisensy/route.ts` | `src/app/api/webhooks/aisensy/route.ts` | — | — | owner | leave unset — delivery webhooks are an AiSensy Pro feature; Basic plan (route answers 404) |
+| `AISENSY_WEBHOOK_SECRET` | — | `src/app/api/webhooks/aisensy/route.ts` | — | — | fees | fees only — One's delivery webhook is /api/webhooks/whatsapp |
 | `ANALYZE` | — | `next.config.ts` | — | — | fees build flag | fees only (bundle analyzer); not needed |
 | `ANTHROPIC_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` +2 | — | yes | — | owner | set — `assist` reading real data needs the owner's yes (MCP-AND-NOTION.md, Q13) |
 | `APP_MODE` | `src/platform/config/school.ts`, `src/platform/env.ts` | `src/modules/one-bridge/data/auth.ts`, `src/platform/config/school.ts` +1 | yes | yes | owner | add at C5: `production` — required together with VPPSONE_ENV=live (`getFeeSchema()` throws otherwise) |
 | `CI` | `src/platform/supabase/target-guard.ts` | `next.config.ts` | — | — | CI runner | CI only — never set on Vercel |
-| `CRON_SECRET` | `src/app/api/fees/admin/repair-discount-drift/route.ts`, `src/app/api/fees/admin/revalidate-after-bulk/route.ts` +6 | `src/app/api/admin/repair-discount-drift/route.ts`, `src/app/api/admin/revalidate-after-bulk/route.ts` +4 | yes | yes | owner | set — Vercel cron bearer; also stored in Vault as VPPS_CRON_SECRET for the pg_cron jobs that call `/api/fees/cron/*` (one-live-cron-jobs.sql) |
+| `CRON_SECRET` | `src/app/api/fees/admin/repair-discount-drift/route.ts`, `src/app/api/fees/admin/revalidate-after-bulk/route.ts` +7 | `src/app/api/admin/repair-discount-drift/route.ts`, `src/app/api/admin/revalidate-after-bulk/route.ts` +6 | yes | yes | owner | set — Vercel cron bearer; also stored in Vault as VPPS_CRON_SECRET for the pg_cron jobs that call `/api/fees/cron/*` (one-live-cron-jobs.sql) |
 | `FAMILY_PAYMENTS_ENABLED` | — | — | — | yes | fees | fees only — not read by either codebase at 8a0cd47c; not needed |
 | `FEES_BRIDGE_CRON_SECRET` | `src/app/api/jobs/fees-bridge-sync/route.ts` | — | yes | — | deployment operator | dedicated One scheduler credential; same value in Vault; production only |
 | `FEES_BRIDGE_ENABLED` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production coexistence switch; configure after schema and identity verification |
 | `FEES_BRIDGE_KEY` | `src/platform/fees-bridge/client.ts` | — | yes | — | deployment operator | new server-only bridge credential; shared with source ONE_BRIDGE_KEY; production only |
 | `FEES_BRIDGE_OFFICE_READS` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | set true on 3 Nov 2026 once Fees migration 20261103170000_one_bridge_office_reads was applied: Fees totals, refund requests, receipt lookup and the day book |
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
-| `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
+| `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts`, `src/modules/transport/data/routes.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
 | `GEMINI_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — server-only Gemini paid-fallback slot for built-in AI |
 | `GEMINI_API_KEY_FREE` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — free Gemini key; used only for TEST-session (fictional) media, never real records |
 | `GEMINI_API_KEY_PAID` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | optional override for the existing GEMINI_API_KEY fallback slot |
-| `GEMINI_INR_PER_USD` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; accounting conversion (default 90) |
-| `GEMINI_MODEL` | `src/app/(app)/settings/builtin-ai/page.tsx`, `src/lib/ai/config.ts` +1 | — | yes | — | owner | set — gemini-3.5-flash-lite (D-415); the paid key follows it unless GEMINI_MODEL_PAID is set |
+| `GEMINI_INR_PER_USD` | `src/lib/ai/config.ts`, `src/modules/assist/data/panel.ts` | — | — | — | owner | confined Gemini pilot only; accounting conversion (default 90) |
+| `GEMINI_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — gemini-3.5-flash-lite (D-415); the paid key follows it unless GEMINI_MODEL_PAID is set |
 | `GEMINI_MODEL_FALLBACK` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to gemini-3.8-flash |
 | `GEMINI_MODEL_PAID` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | confined Gemini paid fallback; pinned model |
 | `GEMINI_MODEL_VISION` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; defaults to GEMINI_MODEL |
@@ -45,7 +42,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `GEMINI_THINKING_LEVEL` | `src/lib/ai/config.ts` | — | — | — | owner | confined Gemini pilot only; optional minimal or low |
 | `JOBS_SECRET` | `src/app/api/jobs/[job]/route.ts`, `src/vx/screens/settings/data.ts` | — | yes | — | owner | set — per-job tokens (`npm run jobs:tokens`) go into Vault for pg_cron |
 | `LOCALE_SWITCHER_ENABLED` | `src/platform/env.ts` | `src/platform/env.ts` | — | — | owner | leave unset (on); not set on fees either |
-| `MESSAGE_PROVIDER` | `src/modules/collection/data/message-provider.ts` | — | — | — | owner | add at C9 — `aisensy`; `mock` is refused on live |
+| `MESSAGE_PROVIDER` | `src/modules/collection/data/message-provider.ts` | — | — | — | owner | leave unset (the school's WhatsApp); `mock` is refused on live |
 | `NEXT_PUBLIC_SCHOOL_ADDRESS` | `src/platform/config/school.ts`, `src/vx/screens/settings/data.ts` | `src/platform/config/school.ts` | — | yes | copy the fees Production value (owner) | add at C5 — receipt header |
 | `NEXT_PUBLIC_SCHOOL_EMAIL` | `src/platform/config/school.ts` | `src/platform/config/school.ts` | — | yes | copy the fees Production value (owner) | add at C5 — receipt header |
 | `NEXT_PUBLIC_SCHOOL_NAME` | `src/platform/config/school.ts`, `src/platform/env.ts` +1 | `src/platform/config/school.ts` | yes | yes | fees Production value (owner) | set |
@@ -57,7 +54,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `NEXT_PUBLIC_SUPABASE_URL` | `src/modules/fees/platform/supabase/client.ts`, `src/platform/auth/dayrun-server.ts` +4 | `src/modules/one-bridge/data/auth.ts`, `src/platform/env.ts` +5 | yes | yes | Supabase wtgx → Settings → API (owner) | set — keep wtgx (D-338); never the fees URL |
 | `NEXT_PUBLIC_VERCEL_ENV` | — | `src/platform/observability/sentry-browser.ts` | — | — | Vercel (automatic) | fees only (its Sentry client); not read by One |
 | `NEXT_RUNTIME` | — | `src/instrumentation.ts` | — | — | Next.js (automatic) | automatic |
-| `NODE_ENV` | `src/app/(app)/fees/admin-tools/activity/error.tsx`, `src/app/(app)/fees/admin-tools/error.tsx` +18 | `src/app/protected/admin-tools/activity/error.tsx`, `src/app/protected/admin-tools/error.tsx` +14 | — | — | Next.js (automatic) | automatic |
+| `NODE_ENV` | `src/app/(app)/fees/admin-tools/activity/error.tsx`, `src/app/(app)/fees/admin-tools/error.tsx` +19 | `src/app/protected/admin-tools/activity/error.tsx`, `src/app/protected/admin-tools/error.tsx` +16 | — | — | Next.js (automatic) | automatic |
 | `NVIDIA_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | optional alias if NVIDIA_KIMI_API_KEY is absent |
 | `NVIDIA_KIMI_API_KEY` | `src/lib/ai/config.ts` | — | yes | — | owner | set — free NVIDIA API key for the AI helper's open tasks only (D-490) |
 | `ONE_BRIDGE_AUTH_ANON_KEY` | — | `src/modules/one-bridge/data/auth.ts` | — | yes | One publishable API key | set on Fees production only to verify One access tokens; never a One service-role key |
@@ -90,17 +87,17 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `SCHOOLFEES_LOCAL_ISOLATION` | — | `src/platform/testing/local-isolation.ts` | — | — | Fees local test runtime | local tests only; never set on production |
 | `SENTRY_AUTH_TOKEN` | — | `next.config.ts` | — | yes | fees build | fees only (source maps); One has no Sentry build step |
 | `SENTRY_DSN` | `src/instrumentation.ts`, `src/platform/observability/sentry-lite.ts` | — | — | — | owner | add at C5 — the DSN of a One-owned Sentry project (never the fees project's); unset = server errors are not reported (src/instrumentation.ts) |
-| `STAFF_NOTICE_TRANSPORT` | `src/modules/staff-notices/data/dispatcher.ts` | — | — | — | owner | add when staff WhatsApp starts (T+7) — `aisensy`; unset on live = disabled (STAFF-WHATSAPP.md §4) |
+| `STAFF_NOTICE_TRANSPORT` | `src/modules/staff-notices/data/dispatcher.ts` | — | — | — | owner | add when staff WhatsApp starts — `whatsapp`; unset on live = disabled (STAFF-WHATSAPP.md §4) |
 | `SUPABASE_ANON_KEY` | — | — | — | yes | Supabase integration (fees) | fees only |
 | `SUPABASE_JWT_SECRET` | — | — | — | yes | Supabase integration (fees) | fees only |
 | `SUPABASE_PROJECT_REF` | — | — | yes | — | owner | set on One (not read by One's code; informational) |
 | `SUPABASE_PUBLISHABLE_KEY` | — | — | — | yes | Supabase integration (fees) | fees only (and its MCP worker) |
 | `SUPABASE_SECRET_KEY` | — | — | — | yes | Supabase integration (fees) | fees only |
-| `SUPABASE_SERVICE_ROLE_KEY` | `src/app/(app)/fees/settings/page.tsx`, `src/modules/fees/data/policy.ts` +8 | `src/app/protected/settings/page.tsx`, `src/modules/fees/data/policy.ts` +5 | yes | yes | Supabase wtgx → API keys (owner) | set — wtgx's key; rotate if it was ever shared |
+| `SUPABASE_SERVICE_ROLE_KEY` | `src/app/(app)/fees/settings/page.tsx`, `src/modules/collection/data/photo-link.ts` +9 | `src/app/protected/settings/page.tsx`, `src/modules/fees/data/policy.ts` +5 | yes | yes | Supabase wtgx → API keys (owner) | set — wtgx's key; rotate if it was ever shared |
 | `SUPABASE_URL` | — | — | yes | yes | Supabase integration | set on One (not read by One's code); fees: integration leftover |
 | `VERCEL` | `next.config.ts` | — | — | — | Vercel (automatic) | automatic — `1` on Vercel; next.config.ts skips the build's type check there (CI is the gate) |
 | `VERCEL_BRANCH_URL` | `src/modules/mcp/domain/origin.ts` | — | — | — | Vercel (automatic) | automatic — a Preview's branch alias; the AI connection's issuer on a confined deployment only (production uses the verified origin) |
-| `VERCEL_ENV` | `src/platform/auth/dayrun-server.ts`, `src/platform/deployment/confinement.ts` +3 | `next.config.ts`, `src/modules/one-bridge/data/auth.ts` +4 | — | — | Vercel (automatic) | automatic — `production` is what makes a deployment unconfined (D-346) |
+| `VERCEL_ENV` | `src/platform/auth/dayrun-server.ts`, `src/platform/deployment/confinement.ts` +4 | `next.config.ts`, `src/modules/one-bridge/data/auth.ts` +4 | — | — | Vercel (automatic) | automatic — `production` is what makes a deployment unconfined (D-346) |
 | `VERCEL_GIT_COMMIT_SHA` | `src/modules/archives/data/archive-repo.ts`, `src/modules/archives/data/drive-backup-job.ts` +1 | — | — | — | Vercel (automatic) | automatic (Sentry release, archive manifest) |
 | `VERCEL_OIDC_TOKEN` | `src/platform/google/vercel-oidc.ts` | — | — | — | Vercel (automatic) | automatic when OIDC is on — Google workload identity for drive-backup / document-backup (the pool and service account are in the database, not env) |
 | `VERCEL_PROJECT_PRODUCTION_URL` | `src/platform/env.ts` | `src/platform/env.ts` | — | — | Vercel (automatic) | automatic |
@@ -113,13 +110,24 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `VPPSONE_BUILTIN_AI_TEST` | `src/lib/ai/config.ts` | — | — | — | owner | leave unset; Preview/local pilot switch only, production ignores it |
 | `VPPSONE_CLAUDE_IMAGE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned image extraction model; defaults to Claude Sonnet 5.5 |
 | `VPPSONE_CLAUDE_VOICE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned voice understanding model; defaults to Claude Haiku 5.5 |
-| `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +4 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |
+| `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +5 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |
 | `VPPSONE_NVIDIA_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | optional — NVIDIA model (default nvidia/nemotron-3.5-super-vl-120b-a12b) |
 | `VPPSONE_OPENAI_TRANSCRIPTION_MODEL` | `src/lib/ai/config.ts` | — | — | — | owner | pinned voice transcription model; defaults to gpt-transcribe |
 | `VPPSONE_OPENROUTER_MODELS` | `src/lib/ai/config.ts` | — | — | — | owner | optional — up to three `:free` OpenRouter models, comma-separated |
 | `VPPSONE_SESSION_LABEL` | `src/modules/academics/data/academics-repo.ts` | — | — | — | owner | leave unset — the active session comes from app_settings (rule 3a) |
 | `VPPS_OBSERVABILITY_VERBOSE` | `src/platform/observability/log.ts` | `src/platform/observability/log.ts` | — | — | owner | leave unset (off) |
-| `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-scheduled-runs/route.ts` | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
+| `WHATSAPP_ACCESS_TOKEN` | `src/platform/whatsapp/config.ts` | — | — | — | Meta system-user token (owner) | only with WHATSAPP_PHONE_NUMBER_ID |
+| `WHATSAPP_API_KEY` | `src/platform/whatsapp/config.ts` | — | — | — | the school's WhatsApp server (owner) | add with WHATSAPP_API_URL — sent as a Bearer token |
+| `WHATSAPP_API_URL` | `src/platform/whatsapp/config.ts` | — | — | — | the school's WhatsApp server (owner) | add when the server is ready — its base URL, https only |
+| `WHATSAPP_APP_SECRET` | `src/platform/whatsapp/config.ts` | — | — | — | Meta app secret (owner) | add to accept Meta's webhook — unset with no other secret, /api/webhooks/whatsapp answers 404 |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | `src/platform/whatsapp/config.ts` | — | — | — | Meta WhatsApp Manager (owner) | optional — lets “Check templates” read approvals from Meta |
+| `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-run-drain/route.ts`, `src/app/api/cron/whatsapp-scheduled-runs/route.ts` +1 | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
+| `WHATSAPP_GRAPH_VERSION` | `src/platform/whatsapp/config.ts` | — | — | — | owner | optional — default v21.0 |
+| `WHATSAPP_PHONE_NUMBER_ID` | `src/platform/whatsapp/config.ts` | — | — | — | Meta WhatsApp Manager (owner) | only to send through Meta directly — the number's ID, not the phone number |
+| `WHATSAPP_PROVIDER` | `src/platform/whatsapp/config.ts` | — | — | — | owner | optional — `school_server` or `meta_cloud`; unset, inferred from which credentials are present (docs/whatsapp/SETUP.md) |
+| `WHATSAPP_SENDER_NUMBER` | `src/platform/whatsapp/config.ts` | — | — | — | owner | add — must be +918302207823, the school's number; anything else, and the fees app's number above all, refuses every send |
+| `WHATSAPP_VERIFY_TOKEN` | `src/platform/whatsapp/config.ts` | — | — | — | owner | add — any long random string, typed into Meta's webhook setup as the verify token |
+| `WHATSAPP_WEBHOOK_SECRET` | `src/platform/whatsapp/config.ts` | — | — | — | the school's WhatsApp server (owner) | add to accept the school server's webhook (same X-Hub-Signature-256 HMAC) |
 
 ## The fees MCP worker (Cloudflare)
 
@@ -141,7 +149,6 @@ Cloudflare wrangler vars and secrets of `schoolfees-live-mcp`. Fees remains live
 
 ## To do at C5 (summary)
 
-- `AISENSY_API_KEY`: add at C5 — without it every AiSensy send is off
 - `APP_MODE`: add at C5: `production` — required together with VPPSONE_ENV=live (`getFeeSchema()` throws otherwise)
 - `NEXT_PUBLIC_SCHOOL_ADDRESS`: add at C5 — receipt header
 - `NEXT_PUBLIC_SCHOOL_EMAIL`: add at C5 — receipt header

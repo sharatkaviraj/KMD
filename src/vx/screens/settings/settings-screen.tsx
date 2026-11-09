@@ -1157,7 +1157,7 @@ function Master({ master }: { master: SettingsData["master"] }) {
 /* ------------------------------------------------------------ integrations */
 
 const INTEGRATION_LOOK: Record<string, { icon: IconName; tone: Tone; action: Pair; actionIcon: IconName }> = {
-  aisensy: { icon: "message", tone: "ok", action: p("Templates", "टेम्पलेट"), actionIcon: "file" },
+  whatsapp: { icon: "message", tone: "ok", action: p("Templates", "टेम्पलेट"), actionIcon: "file" },
   sampark: { icon: "link", tone: "acc", action: p("Manage links", "लिंक देखें"), actionIcon: "clipboard" },
   backups: { icon: "cloud", tone: "info", action: p("Backups", "बैकअप"), actionIcon: "cloud" },
   jobs: { icon: "clock", tone: "warn", action: p("Scheduled jobs", "निर्धारित कार्य"), actionIcon: "list" },
@@ -1199,6 +1199,9 @@ function Integrations({ data }: { data: SettingsData }) {
                 <p style={m12}>{tx(taskIntegration.localNote)}</p>
                 <p style={m13}>{tx(taskIntegration.manualNote)}</p>
               </div>}
+              {i.settingsHref ? (
+                <Btn variant="pri" icon="settings" href={i.settingsHref} style={{ width: "100%" }}>{tx(taskIntegration.settings)}</Btn>
+              ) : null}
               {i.href ? (
                 <Btn variant="soft" icon={i.taskDelivery ? "link" : look.actionIcon} href={i.href} style={{ width: "100%" }}>{tx(i.taskDelivery ? taskIntegration.manual : look.action)}</Btn>
               ) : null}

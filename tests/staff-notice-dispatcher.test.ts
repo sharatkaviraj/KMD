@@ -13,14 +13,14 @@ vi.mock("@/modules/substitutions/data/cover-repo", () => ({
   currentBells: async () => ({ periods: [{ index: 2, starts: "10:00", ends: "10:40" }] }),
 }));
 
-import { dispatchStaffNotices, staffTransportName, type StaffTransport } from "@/modules/staff-notices/data/dispatcher";
+import { dispatchStaffNotices, staffTransportName, transportOutcomeFrom, type StaffTransport } from "@/modules/staff-notices/data/dispatcher";
 import type { StaffGateFacts } from "@/modules/staff-notices/domain/gates";
 import { seededKindsMap } from "@/modules/staff-notices/domain/kinds";
 
 /**
  * The dispatcher with the staff gate in front of it (go-live Phase F), against
  * a fake database and a fake transport: what is sent, what is handed back and
- * why, the digest, and the one-a-second pace. Nothing here reaches AiSensy.
+ * why, the digest, and the one-a-second pace. Nothing here reaches WhatsApp.
  */
 
 const AT_10 = new Date("2026-11-02T04:30:00.000Z");
@@ -91,7 +91,7 @@ function fakeDb(claims: Claim[], options: { slots?: string[] } = {}) {
   };
 }
 
-function fakeTransport(name: "mock" | "aisensy" = "aisensy", answer: "accepted" | "rejected" | "rate_limited" | "unknown" = "accepted") {
+function fakeTransport(name: "mock" | "whatsapp" = "whatsapp", answer: "accepted" | "rejected" | "rate_limited" | "unknown" = "accepted") {
   const sent: Array<{ templateCode: string; params: string[]; destination: string }> = [];
   const transport: StaffTransport = {
     name,
@@ -223,7 +223,7 @@ describe("the digest and the pace", () => {
 
   it.each(["rejected", "rate_limited"] as const)("a %s digest folds nothing, so every notice in it is still there to retry", async (answer) => {
     const db = fakeDb([claim("money_request", { pendingSameKind: 4 })]);
-    const { transport } = fakeTransport("aisensy", answer);
+    const { transport } = fakeTransport("whatsapp", answer);
     const summary = await run(db, transport);
     expect(summary).toMatchObject({ failed: 1, digested: 0 });
     expect(db.calls.some((call) => call.fn === "digest_staff_notices")).toBe(false);
@@ -231,15 +231,15 @@ describe("the digest and the pace", () => {
 
   it("an unknown digest folds the rest in: it may have gone", async () => {
     const db = fakeDb([claim("money_request", { pendingSameKind: 4 })]);
-    const { transport } = fakeTransport("aisensy", "unknown");
+    const { transport } = fakeTransport("whatsapp", "unknown");
     const summary = await run(db, transport);
     expect(summary).toMatchObject({ unknown: 1, digested: 3 });
   });
 
-  it("takes each AiSensy second from the database, shared by every dispatcher at once", async () => {
+  it("takes each WhatsApp second from the database, shared by every dispatcher at once", async () => {
     const soon = (ms: number) => new Date(Date.now() + ms).toISOString();
     const db = fakeDb([claim("cover_assigned"), claim("cover_changed")], { slots: [soon(-5), soon(2500)] });
-    const { transport } = fakeTransport("aisensy");
+    const { transport } = fakeTransport("whatsapp");
     const sleep = vi.fn(async () => undefined);
     await run(db, transport, { sleep });
 
@@ -251,9 +251,9 @@ describe("the digest and the pace", () => {
     expect(ms).toBeLessThanOrEqual(2500);
   });
 
-  it("waits so AiSensy is asked at most once a second", async () => {
+  it("waits so WhatsApp is asked at most once a second", async () => {
     const db = fakeDb([claim("cover_assigned"), claim("cover_changed"), claim("cover_cancelled")]);
-    const { transport } = fakeTransport("aisensy");
+    const { transport } = fakeTransport("whatsapp");
     const sleep = vi.fn(async () => undefined);
     await run(db, transport, { sleep });
     expect(sleep).toHaveBeenCalledTimes(2);
@@ -277,15 +277,35 @@ describe("never a real send from a test run", () => {
     vi.unstubAllEnvs();
   });
 
-  it("the AiSensy transport is never chosen under a test runner, even when declared", () => {
-    vi.stubEnv("STAFF_NOTICE_TRANSPORT", "aisensy");
-    vi.stubEnv("AISENSY_API_KEY", "test-key-not-real");
+  it.each(["whatsapp", "aisensy"])("the real transport (%s) is never chosen under a test runner, even when declared and connected", (declared) => {
+    vi.stubEnv("STAFF_NOTICE_TRANSPORT", declared);
+    vi.stubEnv("WHATSAPP_API_URL", "https://wa.example.test");
+    vi.stubEnv("WHATSAPP_API_KEY", "test-key-not-real");
+    vi.stubEnv("WHATSAPP_SENDER_NUMBER", "+918302207823");
     expect(staffTransportName()).toBe("disabled");
   });
 
-  it("names AiSensy's endpoint with a vppsone source", () => {
+  it("sends through the one WhatsApp service, behind the staff gate, keyed on the attempt", () => {
     const source = readFileSync(join(process.cwd(), "src/modules/staff-notices/data/dispatcher.ts"), "utf8");
-    expect(source).toContain('source: "vppsone/staff-notice"');
+    expect(source).toContain("sendTemplate(");
+    expect(source).toContain("idempotencyKey: `staff_notice:${attemptId}`");
     expect(source).toContain("evaluateStaffSend(");
+    expect(source).not.toContain("backend.aisensy.com");
+  });
+});
+
+describe("the WhatsApp service's answer as the outbox's outcome", () => {
+  it.each([
+    [{ outcome: "accepted", providerMessageId: "wamid.1", logId: "l" }, { outcome: "accepted", providerMessageId: "wamid.1" }],
+    [{ outcome: "duplicate", providerMessageId: null, logId: "l" }, { outcome: "unknown" }],
+    [{ outcome: "dry_run", reason: "Practice mode is on.", logId: "l" }, { outcome: "rejected" }],
+    [{ outcome: "refused", code: "daily_limit", reason: "Today's limit is reached.", logId: "l" }, { outcome: "rate_limited" }],
+    [{ outcome: "refused", code: "feature_off", reason: "Switched off.", logId: "l" }, { outcome: "rejected" }],
+    [{ outcome: "rejected", code: "130429", reason: "Too many.", logId: "l" }, { outcome: "rate_limited" }],
+    [{ outcome: "rejected", code: "131026", reason: "Not on WhatsApp.", logId: "l" }, { outcome: "rejected", error: "Not on WhatsApp. (WhatsApp 131026)" }],
+    [{ outcome: "queued", reason: "Busy.", logId: "l" }, { outcome: "unknown" }],
+    [{ outcome: "unknown", reason: "No answer.", logId: "l" }, { outcome: "unknown" }],
+  ])("%j is %j", (answer, expected) => {
+    expect(transportOutcomeFrom(answer as never)).toMatchObject(expected);
   });
 });

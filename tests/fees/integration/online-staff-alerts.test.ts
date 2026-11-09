@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/modules/whatsapp/data/aisensy", () => ({
-  isAisensyConfigured: () => true,
-  sendAisensyCampaignMessage: () => {
+vi.mock("@/modules/whatsapp/data/parent-send", () => ({
+  isParentWhatsAppConfigured: () => true,
+  sendParentTemplate: () => {
     throw new Error("One's staff alerts never call AiSensy directly");
   },
 }));

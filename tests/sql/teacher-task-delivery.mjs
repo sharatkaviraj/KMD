@@ -14,13 +14,15 @@ if(migration)await db.exec(migration);
 // The fixture's message_sends carries live's own `snapshot` column, which the
 // queue once read as its variable; every queue failed until this fix.
 await db.exec(await read('../../supabase/migrations/20261107174655_task_delivery_queue_fix.sql'));
+// One sends teacher tasks through the school's own WhatsApp, not AiSensy (D-562).
+await db.exec(await read('../../supabase/migrations/20261109062527_task_delivery_whatsapp_transport.sql'));
 const scalar=async(sql,args=[]) => (await db.query(sql,args)).rows[0].v;
 const id=n=>`10000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const [actor,teacher,child,field,request,task]=[1,2,3,4,5,6].map(id);
 await db.exec(await read('./teacher-task-delivery-seed.sql'));
 const preview=()=>scalar("select vppsone.prepare_teacher_task_delivery($1,$2,'initial') v",[actor,task]);
 const queue=p=>scalar('select vppsone.queue_teacher_task_delivery($1,$2,$3) v',[actor,p.id,p.digest]);
-const claim=(send,attempt='attempt:synthetic-one')=>scalar("select vppsone.claim_teacher_task_delivery($1,$2,$3,'aisensy',false) v",[actor,send,attempt]);
+const claim=(send,attempt='attempt:synthetic-one')=>scalar("select vppsone.claim_teacher_task_delivery($1,$2,$3,'whatsapp',false) v",[actor,send,attempt]);
 const finish=(send,outcome,receipt=null)=>scalar('select vppsone.finish_teacher_task_delivery($1,$2,$3,$4,$5) v',[actor,send,'attempt:synthetic-one',outcome,receipt]);
 await assert.rejects(()=>db.query("insert into vppsone.message_sends(session_label,template_id,to_phone,rendered_hi,rendered_en) select 'QA',id,'9000000000','synthetic','synthetic' from vppsone.message_templates where code='vppsone_teacher_task_en_v1'"),/task_delivery:review_required/,'generic template IDs cannot queue reserved campaigns');
 await db.exec('begin');
@@ -134,7 +136,7 @@ c=await claim(send);assert.equal(c.ok,true);
 assert.equal((await finish(send,'accepted','synthetic-receipt')).ok,true);
 assert.equal((await claim(send)).reason,'already_handled');
 const summary=await scalar('select vppsone.teacher_task_delivery_summary($1,$2) v',[actor,task]);
-assert.equal(summary.deliveries[0].state,'accepted');assert.equal(summary.deliveries[0].transport,'aisensy');
+assert.equal(summary.deliveries[0].state,'accepted');assert.equal(summary.deliveries[0].transport,'whatsapp');
 assert.equal(JSON.stringify(summary).includes('synthetic-private-token'),false);
 assert.equal(summary.deliveries[0].history.filter(e=>e.event==='claim').length,2);
 assert.equal(summary.deliveries[0].history.find(e=>e.event==='reconcile').actor,actor);

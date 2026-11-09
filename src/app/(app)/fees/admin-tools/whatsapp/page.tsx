@@ -5,7 +5,7 @@ import { SectionCard } from "@/ui/shell/section-card";
 import { Button } from "@/ui/primitives/button";
 import { WhatsappSettingsForm } from "@/modules/whatsapp/ui/whatsapp-settings-form";
 import { loadWhatsappSettings } from "@/modules/whatsapp/data/whatsapp-settings";
-import { isAisensyConfigured } from "@/modules/whatsapp/data/aisensy";
+import { isParentWhatsAppConfigured } from "@/modules/whatsapp/data/parent-send";
 import { StatusBadge } from "@/ui/shell/status-badge";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
@@ -21,8 +21,9 @@ import { saveWhatsappSettingsAction } from "./actions";
  * text nobody had approved, sent from whichever account the staff member
  * happened to be signed into, recorded nowhere.
  *
- * Message bodies now live in AiSensy and Meta, where they are approved before
- * they can be sent at all, so there is nothing here to write. What IS here is
+ * Message bodies now live with Meta, approved on the school's own WhatsApp
+ * number before they can be sent at all, so there is nothing here to write.
+ * Which ones are approved, and the message log, are in Settings → WhatsApp. What IS here is
  * everything that used to be a production SQL statement: whether receipts send
  * by themselves, whether a reversal is announced, when messages may go out, and
  * what the month is allowed to cost.
@@ -35,7 +36,7 @@ export default async function WhatsappSettingsPage() {
   // the RBAC decision is the guard above, and the usage count reads a table
   // staff have no reason to hold rights on.
   const settings = await loadWhatsappSettings(createAdminClient());
-  const providerReady = isAisensyConfigured();
+  const providerReady = isParentWhatsAppConfigured();
 
   return (
     <div className="space-y-6">
@@ -51,19 +52,22 @@ export default async function WhatsappSettingsPage() {
       />
 
       <SectionCard
-        title="Message templates live in AiSensy"
+        title="Message templates live on the school's WhatsApp"
         description="Every parent-facing message uses a Meta-approved UTILITY template. There is no body to edit here, and that is the point: an approved template cannot be changed into something nobody reviewed."
       >
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge
-            label={providerReady ? "AiSensy connected" : "AISENSY_API_KEY not set"}
+            label={providerReady ? "School WhatsApp connected" : "School WhatsApp not connected"}
             tone={providerReady ? "good" : "warning"}
           />
           {providerReady ? null : (
             <span className="text-xs text-muted-foreground">
-              Nothing will send until the key is configured.
+              Nothing will send until this server is connected to the school&apos;s WhatsApp.
             </span>
           )}
+          <Button asChild variant="outline" size="sm">
+            <Link href="/settings/whatsapp">Approved templates and message log</Link>
+          </Button>
         </div>
       </SectionCard>
 

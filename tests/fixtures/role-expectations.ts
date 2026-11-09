@@ -669,6 +669,7 @@ function redesign(): RouteExpectation[] {
     row("/settings", ["admin"], "School-wide settings and the role matrix are the admin's."),
     row("/settings/builtin-ai", ["admin"], "Built-in photo and voice usage and the daily quota are administered by the school administrator."),
     row("/settings/ai-connection", ["admin"], "The AI connection's school switch and every staff member's connections (owner decision D9) are the admin's."),
+    row("/settings/whatsapp", ["admin"], "The school's own WhatsApp number, its switches, templates and failed messages are the admin's (D-562)."),
     row("/staff/classic", ["admin", "office", "academic_coordinator", "exam_coordinator"], "The classic staff list, kept reachable beside Staff & roles; same readers as /staff."),
     row("/timetable/classic", EVERYONE_BUT_THE_FEE_DESK, "The classic timetable screen, kept reachable beside the redesigned week grid; same readers as /timetable."),
     row("/teach/marks", ["admin", "exam_coordinator", "teacher"], "A teacher enters marks for her own class-subjects."),

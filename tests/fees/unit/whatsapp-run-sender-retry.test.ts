@@ -15,9 +15,9 @@ import type { ReminderCandidate, ReminderFilters } from "@/modules/whatsapp/doma
 
 vi.mock("server-only", () => ({}));
 const send = vi.fn();
-vi.mock("@/modules/whatsapp/data/aisensy", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/modules/whatsapp/data/aisensy")>()),
-  sendAisensyCampaignMessage: (args: unknown) => send(args),
+vi.mock("@/modules/whatsapp/data/parent-send", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/whatsapp/data/parent-send")>()),
+  sendParentTemplate: (args: unknown) => send(args),
 }));
 vi.mock("@/modules/whatsapp/data/campaign-store", () => ({
   openRun: async () => "run-1",
@@ -27,7 +27,7 @@ vi.mock("@/modules/activity/data/events", () => ({
   recordActivity: async () => undefined,
 }));
 
-import { DELIVERY_UNKNOWN_PREFIX } from "@/modules/whatsapp/data/aisensy";
+import { DELIVERY_UNKNOWN_PREFIX } from "@/modules/whatsapp/data/parent-send";
 import { executeReminderRun } from "@/modules/whatsapp/data/run-sender";
 
 /**

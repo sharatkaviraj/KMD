@@ -27,7 +27,7 @@ def queue(db, p):
     return scalar(db, "SELECT vppsone.queue_teacher_task_delivery(%s,%s,%s)", (ACTOR, p['id'], p['digest']))
 
 def claim(db, send, attempt="attempt:synthetic-claim"):
-    return scalar(db, "SELECT vppsone.claim_teacher_task_delivery(%s,%s,%s,'aisensy',false)", (ACTOR, send, attempt))
+    return scalar(db, "SELECT vppsone.claim_teacher_task_delivery(%s,%s,%s,'whatsapp',false)", (ACTOR, send, attempt))
 
 def wait_blocked(observer, worker, future):
     deadline = monotonic() + 8
@@ -47,6 +47,7 @@ with connect() as a, connect() as b, ThreadPoolExecutor(max_workers=1) as pool:
                  'supabase/migrations/20261016070000_teacher_tasks.sql',
                  'supabase/migrations/20261016090000_teacher_task_delivery.sql',
                  'supabase/migrations/20261107174655_task_delivery_queue_fix.sql',
+                 'supabase/migrations/20261109062527_task_delivery_whatsapp_transport.sql',
                  'tests/sql/teacher-task-delivery-seed.sql']:
         a.execute((ROOT / file).read_text(encoding='utf-8'))
     p = preview(a)

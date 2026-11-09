@@ -59,7 +59,7 @@ const STATUS_LABEL: Record<string, string> = {
   provider_accepted: "Accepted by WhatsApp provider",
   delivered: "Delivered",
   suppressed: "Not sent (by rule)",
-  uncertain: "Unknown — check AiSensy",
+  uncertain: "Unknown — check the WhatsApp dashboard",
 };
 
 const REVIEW_LABEL: Record<string, string> = {
@@ -407,7 +407,7 @@ export default async function OnlinePaymentsPage({
 
       <SectionCard
         title="Receipt messages"
-        description="Accepted by the provider is not the same as delivered: AiSensy's Basic plan reports no delivery back."
+        description="Accepted by WhatsApp is not the same as delivered. Delivery comes back from WhatsApp by itself once the school's webhook is connected (Settings → WhatsApp)."
       >
         <ul className="flex flex-col divide-y divide-border text-sm">
           {(outbox.data ?? []).map((row: { id: string; status: string; attempts: number; last_error: string | null; updated_at: string; payload: { receipt_number?: string } }) => (

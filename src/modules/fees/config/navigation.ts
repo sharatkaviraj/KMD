@@ -216,7 +216,7 @@ const routeMetaItems: Array<
     match: "/fees/admin-tools/whatsapp-templates",
     href: "/fees/admin-tools/whatsapp",
     label: "WhatsApp settings",
-    description: "Templates moved to AiSensy on 12 Sep 2026. Redirects to the WhatsApp settings screen.",
+    description: "Templates live on the school's WhatsApp. Redirects to the WhatsApp settings screen.",
   },
 
   {

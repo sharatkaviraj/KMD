@@ -18,7 +18,7 @@ import {
 import { TestSendPanel } from "@/modules/whatsapp/ui/test-send-panel";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { hasStaffPermission, requireAnyStaffPermission } from "@/modules/fees/platform/session";
-import { isAisensyConfigured } from "@/modules/whatsapp/data/aisensy";
+import { isParentWhatsAppConfigured } from "@/modules/whatsapp/data/parent-send";
 import { oneMessagePerFamilyEnabled } from "@/modules/whatsapp/data/reminder-settings";
 import { toWorkspaceCandidate } from "@/modules/whatsapp/ui/workspace-candidate";
 import { MessageBlock } from "@/modules/whatsapp/ui/message-block";
@@ -81,7 +81,7 @@ import { isoFromDdMmYyyy } from "@/platform/helpers/date";
 export const revalidate = 0;
 
 // A run of a few hundred families is one request: rebuild the audience, call
-// AiSensy in batches, then log. Well inside this, but the default ceiling is
+// WhatsApp in batches, then log. Well inside this, but the default ceiling is
 // not something to discover halfway through a send — a request cut off after
 // the provider calls leaves parents messaged and the office told nothing.
 export const maxDuration = 300;
@@ -186,7 +186,7 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
   // otherwise blank the whole screen, which is the failure
   // `parseReminderFilters` falls back rather than throws to avoid.
   const campaignName = activeCampaignNameOrNull(filters.situation, filters.language) ?? "";
-  const providerReady = isAisensyConfigured();
+  const providerReady = isParentWhatsAppConfigured();
   const pickedIso = isoFromDdMmYyyy(filters.lastDate);
   // No prevyear exception any more: v2 gave that notice a settle-by date too.
   // `describeDateGuard`, not a bare comparison: the rule is per notice.
@@ -381,7 +381,7 @@ export default async function WhatsappRemindersPage({ searchParams }: PageProps)
           `md:` and up no order class applies, so the desk keeps source order. */}
       {!providerReady ? (
         <OfficeNotice title="Sending is not configured" tone="warning" className="max-md:order-1">
-          AISENSY_API_KEY is not set on the server. The list below is live, but Send will refuse.
+          The school’s WhatsApp is not connected on this server yet. The list below is live, but Send will refuse.
         </OfficeNotice>
       ) : null}
 

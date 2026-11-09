@@ -43,3 +43,14 @@ database `vgqyilgstjvgohrsiwkb` is never a target from this repo. The full
 environment inventory is `docs/cutover/ENV-INVENTORY.md` (names only).
 
 `npm run check` runs the same gates as CI without touching any database.
+
+## WhatsApp
+
+One sends WhatsApp from the school's own number, +91 83022 07823, through one
+service in `src/platform/whatsapp/`; the Fees app keeps its own AiSensy setup.
+Setup, the environment variables (`WHATSAPP_SENDER_NUMBER`,
+`WHATSAPP_API_URL`, `WHATSAPP_API_KEY`, or Meta's `WHATSAPP_PHONE_NUMBER_ID`
+and `WHATSAPP_ACCESS_TOKEN`, plus the webhook secrets), the safety switches
+and what still needs the school server's details are in
+[docs/whatsapp/SETUP.md](docs/whatsapp/SETUP.md). Nothing reaches a parent
+until the owner switches real recipients on in the database (D-563).

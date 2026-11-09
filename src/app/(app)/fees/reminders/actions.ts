@@ -7,10 +7,10 @@ import { requireAnyStaffPermission, requireStaffPermission } from "@/modules/fee
 import { assertStudentsVisible, assertStudentVisible, filterVisibleStudentIds } from "@/platform/auth/test-session-access";
 import { renderNoticePreview } from "@/modules/whatsapp/domain/campaign-bodies";
 import {
-  isAisensyConfigured,
+  isParentWhatsAppConfigured,
   payNowButton,
-  sendAisensyCampaignMessage,
-} from "@/modules/whatsapp/data/aisensy";
+  sendParentTemplate,
+} from "@/modules/whatsapp/data/parent-send";
 import {
   activeCampaignName,
   activeCampaignNameOrNull,
@@ -322,7 +322,7 @@ export async function sendRemindersAction(
   ).messages;
 
   const guards = evaluateSendGuards({
-    providerReady: isAisensyConfigured(),
+    providerReady: isParentWhatsAppConfigured(),
     campaignApproved: isCampaignApproved(filters.situation, filters.language),
     situation: filters.situation,
     lastDateIso,
@@ -759,7 +759,7 @@ export type TestSendState = {
   message?: string;
   /**
    * The provider's HTTP status. 0 means the request never completed — a network
-   * failure, which is NOT the same as a 4xx AiSensy actually answered with.
+   * failure, which is NOT the same as a 4xx WhatsApp actually answered with.
    * Absent when the call was refused here before it was ever made (permission,
    * no API key, unusable number), which is itself the diagnosis.
    */
@@ -771,7 +771,7 @@ export type TestSendState = {
   campaignName?: string;
   /** The four slot values as sent, in template order. */
   templateParams?: string[];
-  /** AiSensy's own error string, verbatim and unwrapped. */
+  /** The WhatsApp service's own error sentence, verbatim and unwrapped. */
   providerError?: string;
 };
 
@@ -840,8 +840,11 @@ export async function sendTestReminderAction(
     return { status: "error", message: "Permission denied." };
   }
 
-  if (!isAisensyConfigured()) {
-    return { status: "error", message: "AISENSY_API_KEY is not configured on the server." };
+  if (!isParentWhatsAppConfigured()) {
+    return {
+      status: "error",
+      message: "The school's WhatsApp is not connected on this server yet. Settings → WhatsApp shows what is missing.",
+    };
   }
   const situation = String(formData.get("situation") ?? "");
   const language = String(formData.get("language") ?? "");
@@ -888,12 +891,11 @@ export async function sendTestReminderAction(
   const sendName = v6?.campaignName ?? campaignName;
   const templateParams = v6 ? v6.buildParams(values) : campaign.buildParams(values);
 
-  const result = await sendAisensyCampaignMessage({
+  const result = await sendParentTemplate({
     campaignName: sendName,
     destination,
     userName: values.parentName || templateParams[0],
     templateParams,
-    source: "vppsone/reminders-test",
     // A test send goes only to a number on the test-recipient list, wherever
     // it is pressed: the number is typed in, not read from a family.
     gate: { kind: "fee_reminder", sessionLabel: null, actor: staffId ? { userId: staffId } : "unknown", testSend: true },
@@ -924,23 +926,32 @@ export async function sendTestReminderAction(
   });
 
   // Everything the provider told us, passed through rather than summarised, so
-  // staff can tell a rejected campaign name from a bad number without opening
-  // the AiSensy dashboard.
+  // staff can tell a template that is not approved yet from a bad number
+  // without opening anything else.
   const sent = { destination, campaignName: sendName, templateParams } as const;
 
-  return result.ok
-    ? {
-        status: "success",
-        message: `AiSensy accepted it for ${destination}. Check that phone.`,
-        httpStatus: result.status,
-        messageId: result.messageId,
-        ...sent,
-      }
-    : {
-        status: "error",
-        message: `AiSensy refused it (HTTP ${result.status}).`,
-        httpStatus: result.status,
-        providerError: result.error,
-        ...sent,
-      };
+  if (result.ok) {
+    return {
+      status: "success",
+      message: `WhatsApp accepted it for ${destination}, from the school's number. Check that phone.`,
+      httpStatus: result.status,
+      messageId: result.messageId,
+      ...sent,
+    };
+  }
+  const message =
+    result.refused && result.refusalCode === "dry_run"
+      ? "Practice mode is on, so this was written to the WhatsApp log and not sent. Nothing reached that phone."
+      : result.refused
+        ? result.error
+        : result.deliveryUnknown
+          ? "WhatsApp did not answer clearly. The message may still arrive: check that phone before trying again."
+          : `WhatsApp refused it: ${result.error}`;
+  return {
+    status: "error",
+    message,
+    httpStatus: result.status,
+    providerError: result.error,
+    ...sent,
+  };
 }

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import { sendParentTemplate } from "@/modules/whatsapp/data/parent-send";
 import { describeReversalCampaign } from "@/modules/whatsapp/domain/campaign-bodies-v5";
 import { isNoticeLanguage, type NoticeLanguage } from "@/modules/whatsapp/domain/campaigns";
 import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
@@ -191,12 +191,12 @@ export async function sendReversalNotice(
     return { sent: false, reason: `Could not claim the notice: ${claimError.message}` };
   }
 
-  const result = await sendAisensyCampaignMessage({
+  const result = await sendParentTemplate({
     campaignName: campaign.campaignName,
     destination,
     userName: values.parentName,
     templateParams,
-    source: "vppsone/reversal",
+    link: { table: "whatsapp_reminder_sends", id: claim.id },
     gate: { kind: "reversal", sessionLabel, actor: staffId ? { userId: staffId } : "system" },
   });
 

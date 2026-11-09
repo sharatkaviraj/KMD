@@ -1,5 +1,29 @@
 # VPPS One — progress
 
+## The school's own WhatsApp replaces AiSensy in One — 9 November 2026
+
+Owner asked (9 Nov) that One stop using AiSensy and send from the school's own
+WhatsApp number, +91 83022 07823, through the school's server (being built) or
+Meta directly, with a switch per feature and nothing to real parents until he
+approves. Fees keeps its AiSensy setup and was not touched. Branch
+`claude/project-thread-09w5sv`, D-562 to D-565. **Done:** one service
+(`src/platform/whatsapp/`: `sendTemplate`, `sendText`, `getStatus`) in Meta's
+Cloud API format, used by every One send path; the signed webhook
+`/api/webhooks/whatsapp`; the template registry, message log, events,
+replies and queue (migrations `20261109062459` and `20261109062527`, applied
+to One 9 Nov); Settings → WhatsApp (`/settings/whatsapp`) with connection
+check, safety switches, practice mode, a switch per feature, templates and
+approvals, failed messages in plain words with "Send again", the log and
+replies; Pay now kept and the message marked Paid on Razorpay's confirmation.
+Setup, env vars and the fill-in list: `docs/whatsapp/SETUP.md`.
+**State of the switches:** practice mode on, every feature off, real
+recipients off (owner's test number only), 250 a day. No env var is set on
+Vercel yet, so nothing can be sent.
+**Remains:** the school server's base URL, key and endpoints (or Meta's IDs
+and token) and template approval on the school's account, then the owner's
+written go-ahead (SETUP.md "What still needs the server's details").
+`tests/sentry-lite.test.ts` fails in a checkout under `/home/user`; it passes in CI.
+
 ## Test accounts only in the test session — 8 November 2026
 
 Owner asked (8 Nov) that test and QA accounts live only in the test session

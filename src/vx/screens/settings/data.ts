@@ -12,6 +12,9 @@ import { parentDispatchSwitch } from "@/modules/collection/data/parent-messages-
 import { lastRunPerJob } from "@/modules/jobs/data/jobs-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { taskDeliveryAvailability } from "@/modules/collection/data/message-provider";
+import { readWhatsAppConfig } from "@/platform/whatsapp/config";
+import { SCHOOL_WHATSAPP_NUMBER } from "@/platform/whatsapp/numbers";
+import { readSwitches } from "@/platform/whatsapp/store";
 
 import {
   areaForTable,
@@ -39,7 +42,7 @@ export type MasterData = {
   holidays: { day: string; label: string }[];
 };
 
-export type Integration = { key: string; name: string; sub: string; status: "on" | "off" | "partial" | "pending"; facts: [string, string][]; href?: string; taskDelivery?: "ready" | "unavailable" | "test_mode"; localContracts?: number };
+export type Integration = { key: string; name: string; sub: string; status: "on" | "off" | "partial" | "pending"; facts: [string, string][]; href?: string; settingsHref?: string; taskDelivery?: "ready" | "unavailable" | "test_mode"; localContracts?: number };
 
 export type SettingsData = {
   profile: SchoolProfile;
@@ -234,7 +237,7 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
   const nameByStaff = new Map(staff.map((s) => [s.id, s.displayName]));
   const nameByUser = new Map(staff.filter((s) => s.userId).map((s) => [s.userId as string, s.displayName]));
 
-  const [profileRow, prefsRow, sessions, activity, backups, archives, jobs, master, dispatchOn, templates, links, parentSwitches] = await Promise.all([
+  const [profileRow, prefsRow, sessions, activity, backups, archives, jobs, master, dispatchOn, templates, links, parentSwitches, whatsappSwitches] = await Promise.all([
     admin.from("school_settings").select("value, updated_by, updated_at").eq("key", "profile").maybeSingle<{ value: unknown; updated_by: string | null; updated_at: string }>(),
     admin.from("staff_ui_preferences").select("large_text, alerts").eq("staff_profile_id", me.id).maybeSingle<{ large_text: boolean; alerts: Record<string, boolean> | null }>(),
     listSessionLabels().catch(() => [] as string[]),
@@ -247,6 +250,7 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
     admin.from("message_templates").select("is_active").returns<{ is_active: boolean }[]>(),
     admin.from("collection_requests").select("id", { count: "exact", head: true }),
     readParentSwitches(),
+    readSwitches().catch(() => null),
   ]);
 
   const fallback: SchoolProfile = {
@@ -262,16 +266,20 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
 
   const integrations: Integration[] = [
     {
-      key: "aisensy",
-      name: "AiSensy WhatsApp",
+      key: "whatsapp",
+      name: "School WhatsApp",
       sub: "Messages and receipts to parents",
       status: taskDelivery === "ready" ? "on" : "pending",
       taskDelivery,
       localContracts,
       facts: [
+        ["Number", `+91 ${SCHOOL_WHATSAPP_NUMBER.slice(3, 8)} ${SCHOOL_WHATSAPP_NUMBER.slice(8)}`],
+        ["Connection", readWhatsAppConfig().ok ? "Connected" : "Not connected yet"],
+        ["Practice mode", whatsappSwitches === null ? "Unknown" : whatsappSwitches.dryRun ? "On · nothing leaves the school" : "Off"],
         ["Parent sending", dispatchOn ? "On" : "Off · messages wait in the queue"],
       ],
       href: "/inbox?tasks=all",
+      settingsHref: "/settings/whatsapp",
     },
     {
       key: "sampark",

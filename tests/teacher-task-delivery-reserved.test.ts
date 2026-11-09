@@ -9,7 +9,7 @@ vi.mock("@/modules/academics/data/academics-repo",()=>({resolveSessionLabel:asyn
 vi.mock("@/modules/collection/data/documents-repo",()=>({}));
 vi.mock("@/modules/collection/data/parent-messages-repo",()=>({}));
 vi.mock("@/modules/teacher-tasks/data/delivery-routing",()=>({managedTasksForRequests:async()=>new Map()}));
-vi.mock("@/platform/env",()=>({getOptionalEnvVar:(k:string)=>({MESSAGE_PROVIDER:"aisensy",AISENSY_API_KEY:"synthetic-key"}[k]),getSiteUrl:()=>"https://vpps.example.test",getVppsOneEnvironment:()=>"dev"}));
+vi.mock("@/platform/env",()=>({getOptionalEnvVar:(k:string)=>({MESSAGE_PROVIDER:"whatsapp"}[k]),getSiteUrl:()=>"https://vpps.example.test",getVppsOneEnvironment:()=>"dev"}));
 vi.mock("@/platform/supabase/server",()=>({createClient:async()=>({from:()=>({select:()=>({order:()=>({returns:async()=>({data:[state.template],error:null})})})})})}));
 vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({from:()=>{
   const q={insert:(v:unknown)=>{state.insert(v);return q;},update:(v:unknown)=>{state.update(v);return q;},select:()=>q,eq:()=>q,in:()=>q,is:()=>q,single:async()=>({data:{id:"synthetic-send"},error:null}),then:(resolve:(r:unknown)=>void)=>resolve({data:[{id:"synthetic-send"}],error:null})};return q;
@@ -41,6 +41,6 @@ it.each([undefined,"forged-task"])("old generic queued task campaign never reach
   expect(await dispatch(send)).toMatchObject({ok:false,outcome:"rejected"});expect(state.fetch).not.toHaveBeenCalled();expect(state.update).not.toHaveBeenCalled();
 });
 it("the adapter refuses a reserved campaign with missing task metadata before fetch",async()=>{
-  expect(await providers.aisensyProvider.send({templateCode:state.template.code,toPhone:"9000000000",variables:[]} as unknown as MessageSend)).toMatchObject({ok:false,outcome:"rejected"});
+  expect(await providers.whatsappProvider.send({templateCode:state.template.code,toPhone:"9000000000",variables:[]} as unknown as MessageSend)).toMatchObject({ok:false,outcome:"rejected"});
   expect(state.fetch).not.toHaveBeenCalled();
 });

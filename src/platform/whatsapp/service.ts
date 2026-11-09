@@ -1,0 +1,615 @@
+import "server-only";
+
+import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
+import { describeError } from "@/platform/whatsapp/errors";
+import { SCHOOL_WHATSAPP_NUMBER, toE164 } from "@/platform/whatsapp/numbers";
+import { templateMessageBody, textMessageBody, type TemplateDocument } from "@/platform/whatsapp/payload";
+import {
+  checkWhatsAppSend,
+  type WhatsAppFeature,
+  type WhatsAppRefusal,
+  type WhatsAppSwitches,
+} from "@/platform/whatsapp/policy";
+import { providerFor, type ProviderConnection, type ProviderSendResult, type WhatsAppProvider } from "@/platform/whatsapp/providers";
+import {
+  claimSend,
+  readMessage,
+  readSwitches,
+  readTemplateRow,
+  recordAttempt,
+  takeDue,
+  whatsappDb,
+  wroteWithin24h,
+  type MessageRow,
+  type MessageStatus,
+} from "@/platform/whatsapp/store";
+
+/**
+ * The one WhatsApp service in One (D-562). Everything that messages anybody
+ * — fee reminders, receipts, school notices, staff notices, teacher tasks —
+ * comes through here:
+ *
+ *   sendTemplate(phone, templateName, language, variables, { feature, … })
+ *   sendText(phone, text, { feature, … })
+ *   getStatus(messageId)
+ *
+ * It talks to the school's own WhatsApp server or straight to Meta's Cloud
+ * API (config.ts), in Meta's message format either way, and it writes every
+ * message to `vppsone.whatsapp_messages` — sent, refused, practice or queued.
+ *
+ * It does NOT decide whether a parent should hear about something: the
+ * parent-send gate and the staff gates do, before they call here. This decides
+ * whether the school's number may send this message now (policy.ts), and
+ * keeps the day's limit (in Postgres).
+ */
+
+export type SendOptions = {
+  feature: WhatsAppFeature;
+  toName?: string | null;
+  document?: TemplateDocument | null;
+  /** The dynamic end of the template's URL button (a pay code, a task token). */
+  urlButton?: string | null;
+  /** The row in the sending module this message belongs to, for the webhook and the queue. */
+  link?: { table: string; id: string } | null;
+  sessionLabel?: string | null;
+  /** The staff member's auth user id, or null for a scheduled send. */
+  requestedBy?: string | null;
+  /** The same key twice is one message: the second call answers the first. */
+  idempotencyKey?: string | null;
+  /** The Pay now code this message carries, so a payment can mark it paid. */
+  payCode?: string | null;
+  /** `queue` leaves it for the queue job; `now` (default) sends in this request. */
+  delivery?: "now" | "queue";
+  /**
+   * How many tries in all a busy-server failure gets from the queue. 1 (the
+   * default) means none: the sending module keeps its own retry. Never
+   * applied to an UNKNOWN result, which may already have reached the phone.
+   */
+  maxAttempts?: number;
+  retryOf?: string | null;
+};
+
+export type SendOutcome =
+  | { outcome: "accepted"; logId: string; providerMessageId: string }
+  | { outcome: "queued"; logId: string; nextAttemptAt: string; reason: string }
+  | { outcome: "dry_run"; logId: string | null; reason: string }
+  | { outcome: "refused"; logId: string | null; code: WhatsAppRefusal; reason: string }
+  | { outcome: "rejected"; logId: string; code: string | null; reason: string }
+  | { outcome: "unknown"; logId: string; code: string; reason: string }
+  | { outcome: "duplicate"; logId: string; status: MessageStatus; providerMessageId: string | null };
+
+/** Minutes between the queue's tries of a busy-server failure. */
+const RETRY_DELAYS_MINUTES = [5, 20, 60, 180] as const;
+
+/* --------------------------------------------------------- the sender check */
+
+/**
+ * Meta is asked, once per server instance every ten minutes, which number
+ * this phone-number ID sends from. A deployment whose ID belongs to any other
+ * number than the school's sends nothing, whatever WHATSAPP_SENDER_NUMBER
+ * says. The school's own server is held to the same answer when it gives one.
+ */
+let senderCheck: { at: number; key: string; connection: ProviderConnection } | null = null;
+const SENDER_CHECK_MS = 10 * 60 * 1000;
+
+async function senderProblem(config: Extract<WhatsAppConfig, { ok: true }>, provider: WhatsAppProvider): Promise<string | null> {
+  if (config.provider === "mock") return null;
+  const key = config.provider === "meta_cloud" ? `meta:${config.phoneNumberId}` : `server:${config.apiUrl}`;
+  if (!senderCheck || senderCheck.key !== key || Date.now() - senderCheck.at > SENDER_CHECK_MS) {
+    senderCheck = { at: Date.now(), key, connection: await provider.checkConnection() };
+  }
+  const connection = senderCheck.connection;
+  if (connection.displayNumber && connection.displayNumber !== SCHOOL_WHATSAPP_NUMBER) {
+    return "The WhatsApp server sends from a different number than the school's. Nothing was sent.";
+  }
+  if (config.provider === "meta_cloud" && !connection.ok) {
+    // Not cached as a pass: try again next time.
+    senderCheck = null;
+    return connection.problem ?? "Could not confirm the school's number with Meta. Nothing was sent.";
+  }
+  return null;
+}
+
+/** For tests: forget the cached sender check. */
+export function forgetSenderCheck() {
+  senderCheck = null;
+}
+
+/* ------------------------------------------------------------------ sending */
+
+type Prepared = {
+  kind: "template" | "text";
+  body: Record<string, unknown>;
+  log: Record<string, unknown>;
+};
+
+function logFields(to: string, options: SendOptions): Record<string, unknown> {
+  return {
+    feature: options.feature,
+    to_e164: to,
+    to_name: options.toName?.slice(0, 120) ?? null,
+    session_label: options.sessionLabel ?? null,
+    source_table: options.link?.table ?? null,
+    source_id: options.link?.id ?? null,
+    requested_by: options.requestedBy ?? null,
+    pay_code: options.payCode ?? null,
+    idempotency_key: options.idempotencyKey ?? null,
+    retry_of: options.retryOf ?? null,
+    max_attempts: Math.max(1, Math.min(5, Math.trunc(options.maxAttempts ?? 1))),
+  };
+}
+
+async function dispatch(
+  prepared: Prepared,
+  verdict: ReturnType<typeof checkWhatsAppSend>,
+  switches: WhatsAppSwitches | null,
+  config: WhatsAppConfig,
+  options: SendOptions,
+): Promise<SendOutcome> {
+  if (verdict.decision === "refuse") {
+    // A number the log cannot hold (not a mobile number, or the fees app's)
+    // is refused without a row; everything else is kept, so the office can see
+    // what was held back and why.
+    if (!verdict.to || verdict.code === "fees_number" || verdict.code === "own_number") {
+      return { outcome: "refused", logId: null, code: verdict.code, reason: verdict.reason };
+    }
+    const held = await claimSend(
+      { ...prepared.log, error_code: verdict.code, error_title: verdict.reason, idempotency_key: null },
+      "held",
+      0,
+    );
+    return { outcome: "refused", logId: held.ok ? held.id : null, code: verdict.code, reason: verdict.reason };
+  }
+
+  if (verdict.decision === "dry_run") {
+    const logged = await claimSend({ ...prepared.log, idempotency_key: null }, "dry_run", 0);
+    return {
+      outcome: "dry_run",
+      logId: logged.ok ? logged.id : null,
+      reason: "Practice mode is on: written to the WhatsApp log, not sent.",
+    };
+  }
+
+  if (!config.ok) return { outcome: "refused", logId: null, code: "not_configured", reason: config.reason };
+  const provider = providerFor(config);
+
+  const problem = await senderProblem(config, provider);
+  if (problem) {
+    const held = await claimSend({ ...prepared.log, error_code: "not_configured", error_title: problem, idempotency_key: null }, "held", 0);
+    return { outcome: "refused", logId: held.ok ? held.id : null, code: "not_configured", reason: problem };
+  }
+
+  const claim = await claimSend(
+    { ...prepared.log, provider: provider.name },
+    options.delivery === "queue" ? "queued" : "sending",
+    switches?.dailyLimit ?? 0,
+  );
+  if (!claim.ok) {
+    if (claim.reason === "duplicate") {
+      return { outcome: "duplicate", logId: claim.id, status: claim.status, providerMessageId: claim.provider_message_id };
+    }
+    if (claim.reason === "daily_limit") {
+      return { outcome: "refused", logId: claim.id, code: "daily_limit", reason: describeError("daily_limit").text.en };
+    }
+    return { outcome: "refused", logId: null, code: "read_failed", reason: "Could not write the WhatsApp log, so nothing was sent." };
+  }
+  if (claim.status === "queued") {
+    return { outcome: "queued", logId: claim.id, nextAttemptAt: new Date().toISOString(), reason: "Waiting in the WhatsApp queue." };
+  }
+
+  const result = await provider.send(prepared.body);
+  return settle(claim.id, result, 1, Number(prepared.log.max_attempts ?? 1), provider.name);
+}
+
+/** Write one attempt's answer and say what it means to the caller. */
+async function settle(
+  logId: string,
+  result: ProviderSendResult,
+  attempt: number,
+  maxAttempts: number,
+  providerName: string,
+): Promise<SendOutcome> {
+  if (result.outcome === "accepted") {
+    await recordAttempt(logId, {
+      status: "accepted",
+      providerMessageId: result.messageId,
+      httpStatus: result.httpStatus,
+      attempts: attempt,
+      provider: providerName,
+    });
+    return { outcome: "accepted", logId, providerMessageId: result.messageId };
+  }
+
+  if (result.outcome === "unknown") {
+    await recordAttempt(logId, {
+      status: "unknown",
+      httpStatus: result.httpStatus,
+      errorCode: result.errorCode,
+      errorTitle: result.errorTitle,
+      attempts: attempt,
+      provider: providerName,
+    });
+    return { outcome: "unknown", logId, code: result.errorCode, reason: describeError(result.errorCode).text.en };
+  }
+
+  const plainWords = describeError(result.errorCode, result.errorTitle);
+  if (plainWords.retryable && attempt < maxAttempts) {
+    const delay = RETRY_DELAYS_MINUTES[Math.min(attempt - 1, RETRY_DELAYS_MINUTES.length - 1)];
+    const nextAttemptAt = new Date(Date.now() + delay * 60_000).toISOString();
+    await recordAttempt(logId, {
+      status: "retry_wait",
+      httpStatus: result.httpStatus,
+      errorCode: result.errorCode,
+      errorTitle: result.errorTitle,
+      errorDetail: result.errorDetail,
+      nextAttemptAt,
+      attempts: attempt,
+      provider: providerName,
+    });
+    return { outcome: "queued", logId, nextAttemptAt, reason: `${plainWords.text.en} One will try again by itself in ${delay} minutes.` };
+  }
+
+  await recordAttempt(logId, {
+    status: "failed",
+    httpStatus: result.httpStatus,
+    errorCode: result.errorCode,
+    errorTitle: result.errorTitle,
+    errorDetail: result.errorDetail,
+    attempts: attempt,
+    provider: providerName,
+  });
+  return { outcome: "rejected", logId, code: result.errorCode, reason: plainWords.text.en };
+}
+
+/**
+ * Send one approved template. `templateName` is the registry key
+ * (`vppsone.whatsapp_templates.key`); the name and language Meta knows it by
+ * come from the registry row, and `language` must agree with it.
+ */
+export async function sendTemplate(
+  phone: string,
+  templateName: string,
+  language: string | null,
+  variables: readonly string[],
+  options: SendOptions,
+): Promise<SendOutcome> {
+  const config = readWhatsAppConfig();
+  const [switches, template] = await Promise.all([readSwitches(), readTemplateRow(templateName).catch(() => null)]);
+  const verdict = checkWhatsAppSend({
+    feature: options.feature,
+    to: phone,
+    switches,
+    config,
+    kind: "template",
+    template,
+    language,
+    bodyParamCount: variables.length,
+    hasDocument: Boolean(options.document),
+    hasUrlButton: Boolean(options.urlButton),
+  });
+
+  const to = verdict.to ?? toE164(phone) ?? "";
+  const providerName = template?.provider_name ?? templateName;
+  const languageCode = template?.language_code ?? language ?? "hi";
+  const prepared: Prepared = {
+    kind: "template",
+    body: templateMessageBody({
+      to,
+      name: providerName,
+      languageCode,
+      bodyParams: variables,
+      document: options.document ?? null,
+      urlButtonSuffix: options.urlButton ?? null,
+    }),
+    log: {
+      ...logFields(to, options),
+      kind: "template",
+      template_key: templateName,
+      provider_template_name: providerName,
+      language_code: languageCode,
+      body_params: [...variables],
+      // The signed URL expires; the filename is what the office needs to see.
+      header: options.document ? { type: "document", filename: options.document.filename, url: options.document.url } : null,
+      button_params: options.urlButton ? [options.urlButton] : [],
+    },
+  };
+  return dispatch(prepared, verdict, switches, config, options);
+}
+
+/** Send typed text. WhatsApp delivers it only within 24 hours of the person's last message. */
+export async function sendText(phone: string, text: string, options: SendOptions): Promise<SendOutcome> {
+  const config = readWhatsAppConfig();
+  const to = toE164(phone);
+  const [switches, wrote] = await Promise.all([readSwitches(), to ? wroteWithin24h(to).catch(() => null) : Promise.resolve(null)]);
+  const verdict = checkWhatsAppSend({ feature: options.feature, to: phone, switches, config, kind: "text", wroteInLast24h: wrote });
+  const body = text.trim().slice(0, 4096);
+  const prepared: Prepared = {
+    kind: "text",
+    body: textMessageBody(verdict.to ?? to ?? "", body),
+    log: { ...logFields(verdict.to ?? to ?? "", options), kind: "text", text_body: body || "-" },
+  };
+  return dispatch(prepared, verdict, switches, config, options);
+}
+
+/* ------------------------------------------------------------------- status */
+
+export type MessageStatusView = {
+  id: string;
+  status: MessageStatus;
+  providerMessageId: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
+  failedAt: string | null;
+  paidAt: string | null;
+  errorCode: string | null;
+  /** Why, in plain words, when it did not go. */
+  problem: { hi: string; en: string } | null;
+};
+
+/** Where a message is now, by the log's id or WhatsApp's own message id. Kept current by the webhook. */
+export async function getStatus(messageId: string): Promise<MessageStatusView | null> {
+  const row = await readMessage(messageId);
+  if (!row) return null;
+  const troubled = ["failed", "unknown", "held", "retry_wait"].includes(row.status);
+  return {
+    id: row.id,
+    status: row.status,
+    providerMessageId: row.provider_message_id,
+    sentAt: row.sent_at,
+    deliveredAt: row.delivered_at,
+    readAt: row.read_at,
+    failedAt: row.failed_at,
+    paidAt: row.paid_at,
+    errorCode: row.error_code,
+    problem: troubled ? describeError(row.error_code, row.error_title).text : null,
+  };
+}
+
+/* -------------------------------------------------------------------- queue */
+
+export type QueueSettled = { row: MessageRow; outcome: SendOutcome };
+
+/**
+ * Send what is due: `queued` rows and busy-server failures whose wait is over.
+ * Each row is checked against today's switches again before it goes: a feature
+ * switched off, a template paused or practice mode turned on since it was
+ * queued stops it here.
+ */
+export async function drainQueue(limit = 20): Promise<{ taken: number; settled: QueueSettled[] }> {
+  const rows = await takeDue(limit);
+  const settled: QueueSettled[] = [];
+  if (rows.length === 0) return { taken: 0, settled };
+
+  const config = readWhatsAppConfig();
+  const switches = await readSwitches();
+  const db = whatsappDb();
+
+  for (const row of rows) {
+    const template = row.kind === "template" && row.template_key ? await readTemplateRow(row.template_key, db).catch(() => null) : null;
+    const verdict =
+      row.kind === "template"
+        ? checkWhatsAppSend({
+            feature: row.feature as WhatsAppFeature,
+            to: row.to_e164,
+            switches,
+            config,
+            kind: "template",
+            template,
+            language: row.language_code,
+            bodyParamCount: row.body_params.length,
+            hasDocument: Boolean(row.header),
+            hasUrlButton: row.button_params.length > 0,
+          })
+        : checkWhatsAppSend({
+            feature: row.feature as WhatsAppFeature,
+            to: row.to_e164,
+            switches,
+            config,
+            kind: "text",
+            wroteInLast24h: await wroteWithin24h(row.to_e164, db).catch(() => null),
+          });
+
+    if (verdict.decision !== "send" || !config.ok) {
+      const code = verdict.decision === "refuse" ? verdict.code : verdict.decision === "dry_run" ? "dry_run" : "not_configured";
+      const reason = verdict.decision === "refuse" ? verdict.reason : describeError(code).text.en;
+      await recordAttempt(row.id, {
+        status: verdict.decision === "dry_run" ? "dry_run" : "held",
+        errorCode: code,
+        errorTitle: reason,
+        attempts: row.attempts,
+        provider: row.provider,
+      });
+      settled.push({
+        row,
+        outcome:
+          verdict.decision === "dry_run"
+            ? { outcome: "dry_run", logId: row.id, reason }
+            : { outcome: "refused", logId: row.id, code: (code as WhatsAppRefusal) ?? "not_configured", reason },
+      });
+      continue;
+    }
+
+    const provider = providerFor(config);
+    const problem = await senderProblem(config, provider);
+    if (problem) {
+      await recordAttempt(row.id, { status: "held", errorCode: "not_configured", errorTitle: problem, attempts: row.attempts, provider: provider.name });
+      settled.push({ row, outcome: { outcome: "refused", logId: row.id, code: "not_configured", reason: problem } });
+      continue;
+    }
+
+    const body =
+      row.kind === "template"
+        ? templateMessageBody({
+            to: row.to_e164,
+            name: row.provider_template_name ?? row.template_key ?? "",
+            languageCode: row.language_code ?? "hi",
+            bodyParams: row.body_params,
+            document: row.header ? { url: row.header.url, filename: row.header.filename } : null,
+            urlButtonSuffix: row.button_params[0] ?? null,
+          })
+        : textMessageBody(row.to_e164, row.text_body ?? "");
+    const outcome = await settle(row.id, await provider.send(body), row.attempts + 1, row.max_attempts, provider.name);
+    settled.push({ row, outcome });
+  }
+  return { taken: rows.length, settled };
+}
+
+/* ------------------------------------------------------------------- retry */
+
+/**
+ * Features whose failed messages are sent again from their own screen, never
+ * from the WhatsApp log: a fee message must be re-checked against the ledger
+ * first (the parent may have paid since), an absence must not be told twice,
+ * and staff and task messages have their own consent and reconcile rules.
+ */
+export const RETRY_FROM_OWN_SCREEN: Partial<Record<WhatsAppFeature, string>> = {
+  fee_reminder: "/fees/reminders/fix",
+  receipt: "/fees/reminders/fix",
+  reversal: "/fees/reminders/fix",
+  fee_statement: "/fees/reminders/fix",
+  absent_notice: "/fees/reminders",
+  collection_request: "/messages",
+  report_delivery: "/messages",
+  general: "/messages",
+  staff_notice: "/messages",
+  teacher_task: "/inbox?tasks=all",
+};
+
+export type RetryRefusal = "not_found" | "not_failed" | "own_screen" | "confirm_unknown" | "already_retried";
+
+/**
+ * Send a failed message again, as a new message (the old row stays as it was,
+ * with `retried_at`). Only for messages One owns outright; the rest answer
+ * `own_screen` with where to go. An UNKNOWN message may already be on the
+ * parent's phone, so it needs `confirmUnknown`.
+ */
+export async function retryMessage(
+  logId: string,
+  actor: { userId: string },
+  options: { confirmUnknown?: boolean } = {},
+): Promise<SendOutcome | { outcome: "cannot_retry"; code: RetryRefusal; href?: string }> {
+  const row = await readMessage(logId);
+  if (!row) return { outcome: "cannot_retry", code: "not_found" };
+  const ownScreen = RETRY_FROM_OWN_SCREEN[row.feature as WhatsAppFeature];
+  if (ownScreen) return { outcome: "cannot_retry", code: "own_screen", href: ownScreen };
+  if (row.retried_at) return { outcome: "cannot_retry", code: "already_retried" };
+  if (!["failed", "unknown", "held"].includes(row.status)) return { outcome: "cannot_retry", code: "not_failed" };
+  if (row.status === "unknown" && !options.confirmUnknown) return { outcome: "cannot_retry", code: "confirm_unknown" };
+
+  const db = whatsappDb();
+  const { data: marked } = await db
+    .from("whatsapp_messages")
+    .update({ retried_at: new Date().toISOString(), retried_by: actor.userId, updated_at: new Date().toISOString() })
+    .eq("id", row.id)
+    .is("retried_at", null)
+    .select("id");
+  if (!Array.isArray(marked) || marked.length !== 1) return { outcome: "cannot_retry", code: "already_retried" };
+  await db.from("whatsapp_message_events").insert({ message_id: row.id, event: "retry", status: row.status, detail: { by: actor.userId } });
+
+  const again: SendOptions = {
+    feature: row.feature as WhatsAppFeature,
+    toName: row.to_name,
+    link: row.source_table && row.source_id ? { table: row.source_table, id: row.source_id } : null,
+    sessionLabel: row.session_label,
+    requestedBy: actor.userId,
+    payCode: row.pay_code,
+    retryOf: row.id,
+    maxAttempts: row.max_attempts,
+    document: row.header ? { url: row.header.url, filename: row.header.filename } : null,
+    urlButton: row.button_params[0] ?? null,
+  };
+  return row.kind === "template"
+    ? sendTemplate(row.to_e164, row.template_key ?? "", row.language_code, row.body_params, again)
+    : sendText(row.to_e164, row.text_body ?? "", again);
+}
+
+/* ---------------------------------------------------------------- templates */
+
+const STATUS_FROM_META: Record<string, string> = {
+  APPROVED: "approved",
+  PENDING: "pending",
+  IN_APPEAL: "pending",
+  PENDING_DELETION: "disabled",
+  REJECTED: "rejected",
+  PAUSED: "paused",
+  DISABLED: "disabled",
+  LIMIT_EXCEEDED: "disabled",
+};
+
+/**
+ * Read every template's status from the school's WhatsApp account and write
+ * it to the registry. A template whose URL button opens anywhere but One is
+ * marked disabled whatever Meta says: a Pay now link to the wrong host is how
+ * a parent pays the wrong app.
+ */
+export async function syncTemplates(
+  actor: { staffId: string | null },
+  siteOrigin: string,
+): Promise<{ ok: true; checked: number; approved: number; missing: number } | { ok: false; problem: string }> {
+  const config = readWhatsAppConfig();
+  if (!config.ok) return { ok: false, problem: config.reason };
+  const listed = await providerFor(config).listTemplates();
+  if (!listed.ok) return { ok: false, problem: listed.problem };
+
+  const db = whatsappDb();
+  const { data: rows, error } = await db.from("whatsapp_templates").select("key, provider_name, language_code, body_params, header, url_button");
+  if (error || !rows) return { ok: false, problem: "Could not read the template list." };
+
+  let approved = 0;
+  let missing = 0;
+  const host = (() => {
+    try {
+      return new URL(siteOrigin).host;
+    } catch {
+      return "one.vpps.co.in";
+    }
+  })();
+  const now = new Date().toISOString();
+  for (const row of rows as Array<{ key: string; provider_name: string; language_code: string; body_params: number; header: string; url_button: boolean }>) {
+    const found = listed.templates.find((template) => template.name === row.provider_name && template.language === row.language_code);
+    let status = found ? (STATUS_FROM_META[found.status] ?? "pending") : "not_submitted";
+    let reason: string | null = found?.rejectedReason ?? null;
+    if (found && status === "approved") {
+      const buttonHost = (() => {
+        try {
+          return found.buttonUrl ? new URL(found.buttonUrl.replace(/\{\{\s*\d+\s*\}\}/g, "x")).host : null;
+        } catch {
+          return "unreadable";
+        }
+      })();
+      if (row.url_button && buttonHost !== host) {
+        status = "disabled";
+        reason = `Its button opens ${buttonHost ?? "nothing"}, not ${host}.`;
+      } else if (found.bodyParams !== row.body_params) {
+        status = "disabled";
+        reason = `The approved template has ${found.bodyParams} blanks; One fills ${row.body_params}.`;
+      } else if ((found.header === "document") !== (row.header === "document")) {
+        status = "disabled";
+        reason = row.header === "document" ? "The approved template has no PDF header." : "The approved template expects a PDF.";
+      }
+    }
+    if (status === "approved") approved += 1;
+    if (!found) missing += 1;
+    await db
+      .from("whatsapp_templates")
+      .update({ status, status_reason: reason, status_checked_at: now, updated_at: now, updated_by: actor.staffId })
+      .eq("key", row.key);
+  }
+  return { ok: true, checked: rows.length, approved, missing };
+}
+
+/** Is the school's WhatsApp connected, from which number, and how healthy? */
+export async function checkConnection(): Promise<ProviderConnection & { provider: string | null; configured: boolean }> {
+  const config = readWhatsAppConfig();
+  if (!config.ok) {
+    return { ok: false, configured: false, provider: config.provider, displayNumber: null, verifiedName: null, quality: null, limitTier: null, problem: config.reason };
+  }
+  forgetSenderCheck();
+  const connection = await providerFor(config).checkConnection();
+  return { ...connection, configured: true, provider: config.provider };
+}
+
+export function isWhatsAppConfigured(): boolean {
+  return readWhatsAppConfig().ok;
+}

@@ -1,7 +1,6 @@
 import "server-only";
 
-import { parentSendRefusalWithCode, sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
-import type { ParentSendRefusal } from "@/platform/messaging/parent-send-gate";
+import { parentSendRefusalWithCode, sendParentTemplate, type SendRefusalCode } from "@/modules/whatsapp/data/parent-send";
 import {
   parentFacingFilename,
   storeNoticeDocument,
@@ -41,7 +40,7 @@ export type ReceiptNoticeResult =
    * `refusalCode` (One only): set when the parent-send gate refused, so the
    * online outbox can tell a rule (suppress) from a failed read (retry).
    */
-  | { sent: false; reason: string; refusalCode?: ParentSendRefusal };
+  | { sent: false; reason: string; refusalCode?: SendRefusalCode };
 
 export type ReceiptNoticeArgs = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,7 +168,7 @@ export async function sendReceiptNotice(
   // As in the fees app: the automatic notice on posting follows the office's
   // switch. D-270 ("only a person pressing Send") is superseded at cutover by
   // D-353: every receipt notice, automatic or pressed, now also passes the
-  // parent-send gate in `sendAisensyCampaignMessage`, which refuses unless the
+  // parent-send gate in `sendParentTemplate`, which refuses unless the
   // deployment is live, `parent_dispatch` is on and `receipt` is a named
   // category — so the replica's 'true' toggle alone reaches nobody.
   if (args.trigger !== "manual" && !(await isReceiptNoticeEnabled(supabase))) {
@@ -234,7 +233,7 @@ export async function sendReceiptNotice(
   // receipt index covers failed rows and this path never reclaims one, so a
   // refusal recorded as a failed claim would make the receipt un-notifiable
   // for good — and every later press would report "already sent" for a
-  // notice that reached nobody. `sendAisensyCampaignMessage` asks again.
+  // notice that reached nobody. `sendParentTemplate` asks again.
   const gate = { kind: "receipt" as const, sessionLabel, actor: staffId ? { userId: staffId } : ("system" as const) };
   const refusal = await parentSendRefusalWithCode({ campaignName: bodyCampaign.campaignName, destination, gate });
   if (refusal) return { sent: false, reason: refusal.sentence, refusalCode: refusal.code };
@@ -324,12 +323,12 @@ export async function sendReceiptNotice(
     return { sent: false, reason: `Could not claim the notice: ${claimError.message}` };
   }
 
-  const result = await sendAisensyCampaignMessage({
+  const result = await sendParentTemplate({
     campaignName: campaign.campaignName,
     destination,
     userName: values.parentName,
     templateParams,
-    source: "vppsone/receipt",
+    link: { table: "whatsapp_reminder_sends", id: claim.id },
     gate,
     ...(prepared
       ? { media: { url: prepared.document.signedUrl, filename: prepared.filename } }
@@ -337,7 +336,7 @@ export async function sendReceiptNotice(
   });
 
   // The gate changed its answer between the pre-check and the send (a switch
-  // flipped off in between). Nothing reached AiSensy, so release the claim
+  // flipped off in between). Nothing reached WhatsApp, so release the claim
   // rather than leave a failed row the receipt index would hold forever.
   if (!result.ok && result.refused) {
     // Only when the row really went: a delete RLS filtered to nothing must

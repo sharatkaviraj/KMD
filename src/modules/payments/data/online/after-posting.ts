@@ -6,7 +6,8 @@ import {
   revalidateAfterPaymentPosting,
   revalidateSessionFinance,
 } from "@/modules/system-sync/data/finance-revalidation";
-import { isTransientParentRefusal } from "@/modules/whatsapp/data/aisensy";
+import { isTransientParentRefusal } from "@/modules/whatsapp/data/parent-send";
+import { markMessagesPaidForPayments } from "@/modules/whatsapp/data/whatsapp-source-sync";
 import { sendReceiptNotice } from "@/modules/whatsapp/data/receipt-notice";
 import { logWarn } from "@/platform/observability/log";
 
@@ -71,12 +72,12 @@ export function createReceiptSender(supabase: Db): ReceiptSender {
         .maybeSingle();
       if (data?.status === "sent") return { outcome: "provider_accepted", providerMessageId: data.provider_message_id ?? null };
       if (data?.status === "pending") {
-        return { outcome: "uncertain", reason: "A send began and never reported back. Check AiSensy before resending." };
+        return { outcome: "uncertain", reason: "A send began and never reported back. Check Settings → WhatsApp before resending." };
       }
       return { outcome: "failed", reason: "The first send failed. Resend from the receipt screen." };
     }
     // One only: the parent-send gate's refusal (D-353). Nothing reached
-    // AiSensy either way, and the gate's CODE says which kind it was: a rule
+    // WhatsApp either way, and the gate's CODE says which kind it was: a rule
     // (dispatch or the category off, a number not on the allowlist, a bad
     // destination) is suppressed for good; a read that failed this once
     // (`read_failed`, `actor_unknown`) is retried at the next pass, or one
@@ -162,6 +163,10 @@ export async function afterOnlinePosting(args: {
     const postings = await postingsForPayments(args.supabase, args.paymentIds);
     if (postings.length === 0) return { postings: 0, receiptsSent: 0 };
     await refreshAfterOnlinePosting(args.supabase, postings);
+    // The message whose Pay now link the parent used is marked Paid (D-562).
+    await markMessagesPaidForPayments(args.supabase, args.paymentIds).catch((caught) => {
+      logWarn("online.whatsapp_paid.failed", { error: caught instanceof Error ? caught.message : "unknown" });
+    });
     // The office hears before the parent's receipt goes: staff alerts read
     // nothing from the matview, so they need not wait behind the outbox.
     await drainStaffPaymentAlerts({ supabase: args.supabase }).catch((caught) => {

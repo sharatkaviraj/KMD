@@ -223,8 +223,8 @@ export function TestSendPanel({
   // query would be churn — and it would wipe the typed-in fields on a screen
   // whose whole point is iterating on the message.
   useActionFeedback(testState, {
-    successTitle: "AiSensy accepted it",
-    errorTitle: "AiSensy did not accept it",
+    successTitle: "WhatsApp accepted it",
+    errorTitle: "WhatsApp did not accept it",
     refreshOnSuccess: false,
   });
 
@@ -330,7 +330,7 @@ export function TestSendPanel({
               Will send to <span className="font-mono">{destination}</span>
             </>
           ) : (
-            "Not a valid Indian mobile — AiSensy needs a country code."
+            "Not a valid Indian mobile — WhatsApp needs a country code."
           )}
         </p>
       </div>
@@ -420,7 +420,7 @@ function TestResult({
   return (
     <Notice
       tone={failed ? "danger" : "success"}
-      title={failed ? "AiSensy did not accept it" : "AiSensy accepted it"}
+      title={failed ? "WhatsApp did not accept it" : "WhatsApp accepted it"}
     >
       <p>{state.message}</p>
       <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">

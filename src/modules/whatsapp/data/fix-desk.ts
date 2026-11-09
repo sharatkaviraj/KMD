@@ -647,9 +647,9 @@ export async function loadStudentWhatsappHistory(
 export function describeAttemptResult(result: string): string {
   switch (result) {
     case "accepted":
-      return "Sent · AiSensy accepted";
+      return "Sent · WhatsApp accepted";
     case "refused":
-      return "Refused by AiSensy";
+      return "Refused by WhatsApp";
     case "submitted":
       return "Report: submitted";
     case "delivered":

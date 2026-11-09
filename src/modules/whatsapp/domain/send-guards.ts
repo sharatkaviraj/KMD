@@ -147,7 +147,7 @@ export function evaluateSendGuards(context: SendGuardContext): SendGuardResult {
     blocking.push({
       code: "campaign_unapproved",
       message:
-        "This notice is awaiting Meta approval. It cannot be sent until its template is Live in AiSensy and the app's campaign registry marks it approved — there is no switch for this on screen.",
+        "This notice is awaiting Meta approval. It cannot be sent until WhatsApp approves its template and Settings → WhatsApp shows it approved — there is no switch for this on this screen.",
     });
   }
 

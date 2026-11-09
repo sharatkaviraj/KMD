@@ -247,7 +247,7 @@ const settingsData: SettingsData = {
     holidays: [{ day: "2026-10-20", label: "Dussehra" }, { day: "2026-11-07", label: "Diwali break" }],
   },
   integrations: [
-    { key: "aisensy", name: "AiSensy WhatsApp", sub: "Messages and receipts to parents", status: "on", facts: [["API key", "Set"], ["Parent sending", "By hand from To send"], ["Templates", "14 ready · 2 waiting"], ["Cost", "about ₹0.88 a message"]], href: "/messages?view=templates" },
+    { key: "whatsapp", name: "School WhatsApp", sub: "Messages and receipts to parents", status: "on", facts: [["API key", "Set"], ["Parent sending", "By hand from To send"], ["Templates", "14 ready · 2 waiting"], ["Cost", "about ₹0.88 a message"]], href: "/messages?view=templates" },
     { key: "sampark", name: "Sampark links", sub: "Collection and marks without a login", status: "on", facts: [["Links made", "23"]], href: "/collection" },
     { key: "backups", name: "Nightly backup", sub: "Fee records copied every night", status: "on", facts: [["Schedule", "Every night"], ["Last copy", dayOf(0)]], href: "/settings?s=backups" },
     { key: "jobs", name: "Scheduled jobs", sub: "Registers, reminders and summaries", status: "on", facts: [["open registers", "ok · today"], ["daily summary", "ok · yesterday"]], href: "/jobs" },

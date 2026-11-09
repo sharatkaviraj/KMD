@@ -28,7 +28,7 @@ import { KINDS, isOutboxKind } from "./kinds";
  *     day starts before the parents' does). Cover is exempt; a day-not-closed
  *     notice may go in the hour the window closes. Outside it: held until 07:00.
  *  7. At most 8 a day per person, cover exempt.
- *  8. The month's cap on AiSensy sends (`staff_whatsapp_month_cap`, 1,000 by
+ *  8. The month's cap on WhatsApp sends (`staff_whatsapp_month_cap`, 1,000 by
  *     default), for every kind — it is money. The count is
  *     `vppsone.staff_whatsapp_month_sent()`: the outbox's sends and the
  *     teacher-task link's, one budget.
@@ -46,7 +46,7 @@ export const DIGEST_WINDOW_MINUTES = 30;
 export const DEFAULT_MONTH_CAP = 1000;
 /** A fact that could not be read: look again in five minutes rather than send. */
 export const RETRY_UNREADABLE_MS = 5 * 60_000;
-/** One request a second to AiSensy (plan §8.3). */
+/** One request a second to WhatsApp (plan §8.3). */
 export const MIN_SEND_GAP_MS = 1000;
 
 /** What the claim reads about the person, the kind and the month, as it read it. */
@@ -67,7 +67,7 @@ export type StaffGateFacts = {
   pendingSameKind: number;
   /** Whether this notice was already held once to gather a digest. */
   heldForDigest: boolean;
-  /** AiSensy sends this IST month, every staff member together. */
+  /** WhatsApp sends this IST month, every staff member together. */
   monthSent: number;
   /** The JSON value of `staff_whatsapp_month_cap`; null when the switch is off or missing. */
   monthCap: unknown;
@@ -78,7 +78,7 @@ export type StaffGateFacts = {
 export type StaffGateInput = {
   kind: string;
   facts: StaffGateFacts | null | undefined;
-  transport: "mock" | "aisensy";
+  transport: "mock" | "whatsapp";
   /** `isConfinedDeployment()` — anything that is not Vercel production. */
   confined: boolean;
   now: Date;
@@ -191,8 +191,8 @@ export function evaluateStaffSend(input: StaffGateInput): StaffGateVerdict {
   // 7. Eight a day, cover exempt.
   if (!definition.urgent && facts.sentToday >= STAFF_DAILY_LIMIT) return suppress("daily_cap");
 
-  // 8. The month's AiSensy budget. The mock costs nothing and is not counted.
-  if (input.transport === "aisensy") {
+  // 8. The month's WhatsApp budget. The mock costs nothing and is not counted.
+  if (input.transport === "whatsapp") {
     const cap = facts.monthCap === null || facts.monthCap === undefined ? null : readMonthCap(facts.monthCap);
     if (cap === null) return defer("gate_unreadable", retry);
     if (facts.monthSent >= cap) return suppress("month_cap");
@@ -252,7 +252,7 @@ export function evaluateTeacherTaskSend(input: {
   return { ok: true };
 }
 
-/** How long to wait before the next AiSensy request so they are at least a second apart. */
+/** How long to wait before the next WhatsApp request so they are at least a second apart. */
 export function paceDelay(lastSentAt: number | null, now: number, gapMs = MIN_SEND_GAP_MS): number {
   if (lastSentAt === null) return 0;
   return Math.max(0, lastSentAt + gapMs - now);

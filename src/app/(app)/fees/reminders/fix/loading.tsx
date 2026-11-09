@@ -5,7 +5,7 @@ export default function Loading() {
     <RouteLoading
       badgeLabel="Loading failures"
       title="Families we didn't reach"
-      description="Reading the send log, AiSensy's results and the ledger."
+      description="Reading the send log, WhatsApp's results and the ledger."
       cards={3}
     />
   );

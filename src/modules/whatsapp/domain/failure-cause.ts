@@ -263,7 +263,7 @@ export type ResendPolicy =
   | "needs_number"
   /** The family stopped messages. Call, or send a slip. */
   | "never"
-  /** Nobody knows whether it went. A person checks AiSensy first. */
+  /** Nobody knows whether it went. A person checks the WhatsApp dashboard first. */
   | "check_first"
   /** Through the Send screen, as part of a list. */
   | "send_screen";
@@ -313,7 +313,7 @@ export const CAUSE_COPY: Record<ProblemCause, CauseCopy> = {
   invalid_number: {
     label: "Not a mobile",
     hindi: "नंबर सही नहीं है — 10 अंक का मोबाइल चाहिए",
-    explanation: "The number on record is not a 10-digit Indian mobile, or AiSensy rejected it.",
+    explanation: "The number on record is not a 10-digit Indian mobile, or WhatsApp rejected it.",
     tone: "neutral",
   },
   not_on_whatsapp: {
@@ -341,15 +341,15 @@ export const CAUSE_COPY: Record<ProblemCause, CauseCopy> = {
     tone: "danger",
   },
   account: {
-    label: "AiSensy account",
-    hindi: "AiSensy खाते की समस्या",
-    explanation: "AiSensy refused the request: the key, the wallet balance, or the campaign is not live. Fix it in AiSensy, then resend.",
+    label: "WhatsApp account",
+    hindi: "WhatsApp खाते की समस्या",
+    explanation: "WhatsApp refused the request: the key, the account's payment, or the template is not live. Settings → WhatsApp shows which; fix it there, then resend.",
     tone: "danger",
   },
   network: {
     label: "No reply",
-    hindi: "AiSensy से जवाब नहीं आया",
-    explanation: "AiSensy did not answer in time. Nothing is wrong with the family; resend.",
+    hindi: "WhatsApp से जवाब नहीं आया",
+    explanation: "WhatsApp did not answer in time. Nothing is wrong with the family; resend.",
     tone: "warning",
   },
   media: {
@@ -361,13 +361,13 @@ export const CAUSE_COPY: Record<ProblemCause, CauseCopy> = {
   unknown: {
     label: "Other error",
     hindi: "कोई और समस्या",
-    explanation: "AiSensy gave a reason this app does not recognise. It is shown in full below.",
+    explanation: "WhatsApp gave a reason this app does not recognise. It is shown in full below.",
     tone: "warning",
   },
   stuck: {
     label: "No answer",
     hindi: "भेजा या नहीं, पता नहीं",
-    explanation: "The send started and never heard back. It may or may not have gone. Check AiSensy before resending.",
+    explanation: "The send started and never heard back. It may or may not have gone. Check the school’s WhatsApp dashboard before resending.",
     tone: "warning",
   },
   left_out: {

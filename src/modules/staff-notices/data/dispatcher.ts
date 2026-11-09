@@ -3,6 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { getOptionalEnvVar, getSiteUrl, getVppsOneEnvironment } from "@/platform/env";
+import { readWhatsAppConfig } from "@/platform/whatsapp/config";
+import { sendTemplate, type SendOutcome } from "@/platform/whatsapp/service";
 import { isConfinedDeployment } from "@/platform/deployment/confinement";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveLanguage, type Language } from "@/platform/i18n/language";
@@ -39,25 +41,27 @@ import {
  *
  *   STAFF_NOTICE_TRANSPORT=disabled  nothing is claimed
  *   STAFF_NOTICE_TRANSPORT=mock      a synthetic provider
- *   STAFF_NOTICE_TRANSPORT=aisensy   the real one — only with an API key, never
- *                                    under a test runner
+ *   STAFF_NOTICE_TRANSPORT=whatsapp  the school's own number, through the one
+ *                                    WhatsApp service — only once this
+ *                                    deployment is connected, never under a
+ *                                    test runner (`aisensy` is read as this)
  *
  * A live deployment with nothing set is `disabled`. A real WhatsApp to a
  * member of staff is the school's decision, not a default (CLAUDE.md rule 8):
- * even with `aisensy`, nothing reaches a person who has not consented, and on
+ * even with `whatsapp`, nothing reaches a person who has not consented, and on
  * anything but Vercel production (a confined deployment), nothing reaches a
  * number outside `vppsone.message_test_recipients` — and a confined
  * deployment claims TEST-session notices only (`p_test_only`), so Preview or
  * a local `next dev`, pointed at the one database, never leases, suppresses
  * or sends a real one.
  *
- * AiSensy is asked at most once a second (plan §8.3) across every run at
+ * WhatsApp is asked at most once a second (plan §8.3) across every run at
  * once: each send takes the next free second from
  * `vppsone.reserve_staff_send_slot` and waits for it. If that cannot be read
  * the run falls back to its own pace.
  */
 
-export type StaffTransportName = "disabled" | "mock" | "aisensy";
+export type StaffTransportName = "disabled" | "mock" | "whatsapp";
 
 type SendInput = { destination: string; templateCode: string; params: string[]; userName: string; attemptId: string };
 
@@ -66,15 +70,15 @@ export type StaffTransport = {
   send(input: SendInput): Promise<TransportOutcome>;
 };
 
-const PROVIDER_TIMEOUT_MS = 10_000;
-
 export function staffTransportName(): StaffTransportName {
   const underTest = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
-  const declared = getOptionalEnvVar("STAFF_NOTICE_TRANSPORT")?.toLowerCase();
+  const raw = getOptionalEnvVar("STAFF_NOTICE_TRANSPORT")?.toLowerCase();
+  // `aisensy` is the old name for the real transport; One sends from the school's own number now.
+  const declared = raw === "aisensy" ? "whatsapp" : raw;
   const fallback: StaffTransportName = getVppsOneEnvironment() === "live" ? "disabled" : "mock";
-  const chosen = (["disabled", "mock", "aisensy"] as const).find((name) => name === declared) ?? fallback;
+  const chosen = (["disabled", "mock", "whatsapp"] as const).find((name) => name === declared) ?? fallback;
 
-  if (chosen === "aisensy" && (underTest || !getOptionalEnvVar("AISENSY_API_KEY"))) return "disabled";
+  if (chosen === "whatsapp" && (underTest || !readWhatsAppConfig().ok)) return "disabled";
   return chosen;
 }
 
@@ -102,39 +106,59 @@ const mockTransport: StaffTransport = {
   },
 };
 
-const aisensyTransport: StaffTransport = {
-  name: "aisensy",
-  async send({ destination, templateCode, params, userName }) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+/**
+ * The school's own WhatsApp number, through the one WhatsApp service (D-562).
+ * Its policy refuses until the deployment is connected and `staff_notice` is
+ * switched on, and while real recipients are off it messages only the
+ * owner's test number. Its answer is mapped onto the four outcomes the outbox
+ * already knows: anything short of a receipt id is Unknown, never failed.
+ */
+const whatsappTransport: StaffTransport = {
+  name: "whatsapp",
+  async send({ destination, templateCode, params, userName, attemptId }) {
     try {
-      const response = await fetch("https://backend.aisensy.com/campaign/t1/api/v2", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          apiKey: getOptionalEnvVar("AISENSY_API_KEY"),
-          campaignName: templateCode,
-          destination: `91${destination}`,
-          userName,
-          templateParams: params,
-          source: "vppsone/staff-notice",
-        }),
-        signal: controller.signal,
+      const outcome = await sendTemplate(`+91${destination}`, templateCode, null, params, {
+        feature: "staff_notice",
+        toName: userName,
+        link: { table: "staff_notice_attempts", id: attemptId },
+        // The attempt is the outbox's own claim: the same attempt twice is one message.
+        idempotencyKey: `staff_notice:${attemptId}`,
       });
-      const body = await response.json().catch(() => null);
-      return classifyResponse(response.status, body);
+      return transportOutcomeFrom(outcome);
     } catch (error) {
-      // Aborted or dropped after the request may have left: Unknown, not failed.
+      // Thrown after the request may have left: Unknown, not failed.
       return outcomeOfThrow(error);
-    } finally {
-      clearTimeout(timer);
     }
   },
 };
 
+/** The WhatsApp service's answer as one of the outbox's four outcomes. */
+export function transportOutcomeFrom(outcome: SendOutcome): TransportOutcome {
+  switch (outcome.outcome) {
+    case "accepted":
+      return { outcome: "accepted", providerMessageId: outcome.providerMessageId, status: 200 };
+    case "duplicate":
+      return outcome.providerMessageId
+        ? { outcome: "accepted", providerMessageId: outcome.providerMessageId, status: 200 }
+        : { outcome: "unknown", status: null, error: "Already handed to WhatsApp once; its answer is not known." };
+    case "dry_run":
+    case "refused":
+      return outcome.outcome === "refused" && outcome.code === "daily_limit"
+        ? { outcome: "rate_limited", status: 429, error: outcome.reason }
+        : { outcome: "rejected", status: 0, error: `Not sent: ${outcome.reason}` };
+    case "rejected":
+      return outcome.code === "130429" || outcome.code === "131056"
+        ? { outcome: "rate_limited", status: 429, error: outcome.reason }
+        : { outcome: "rejected", status: 400, error: outcome.code ? `${outcome.reason} (WhatsApp ${outcome.code})` : outcome.reason };
+    case "queued":
+    case "unknown":
+      return { outcome: "unknown", status: null, error: outcome.reason };
+  }
+}
+
 function transportFor(name: StaffTransportName): StaffTransport | null {
   if (name === "mock") return mockTransport;
-  if (name === "aisensy") return aisensyTransport;
+  if (name === "whatsapp") return whatsappTransport;
   return null;
 }
 
@@ -370,7 +394,7 @@ export async function dispatchStaffNotices(options: DispatchOptions = {}): Promi
     });
     if (!stamped) continue; // The lease went; the sweeper will put it back.
 
-    if (transport.name === "aisensy") {
+    if (transport.name === "whatsapp") {
       const wait = await paceWait(admin, lastProviderCall);
       if (wait > 0) await sleep(wait);
       lastProviderCall = Date.now();

@@ -181,8 +181,8 @@ export default async function FixPage({ searchParams }: Props) {
         title="Families we didn't reach"
         description={`Session ${sessionLabel} · last ${30} days · ${
           desk.lastReportAt
-            ? `AiSensy report last imported ${formatDateTimeIst(desk.lastReportAt)}`
-            : "no AiSensy report imported yet"
+            ? `WhatsApp report last imported ${formatDateTimeIst(desk.lastReportAt)}`
+            : "no WhatsApp report imported yet"
         }`}
         mobileEyebrow={`${totalOpen} to fix · ${desk.noNumber.length} no number`}
       />
@@ -191,7 +191,7 @@ export default async function FixPage({ searchParams }: Props) {
       {desk.degraded ? (
         <OfficeNotice title="Delivery reasons are not being stored yet" tone="warning">
           The database update for the failure desk has not run. Failures still show, but
-          resolutions and AiSensy&apos;s reasons cannot be saved until it does.
+          resolutions and WhatsApp&apos;s reasons cannot be saved until it does.
         </OfficeNotice>
       ) : null}
 
@@ -244,8 +244,8 @@ export default async function FixPage({ searchParams }: Props) {
             days have no delivery result
           </h2>
           <p className="text-xs text-muted-foreground">
-            &ldquo;Sent&rdquo; means AiSensy accepted it, not that a phone received it. Download
-            the campaign report from the AiSensy dashboard and import it here: undelivered
+            &ldquo;Sent&rdquo; means WhatsApp accepted it, not that a phone received it. Download
+            the delivery report from the school&apos;s WhatsApp dashboard and import it here: undelivered
             messages then appear above with WhatsApp&apos;s reason. One file covers every run that
             used that campaign.
           </p>
@@ -269,7 +269,7 @@ export default async function FixPage({ searchParams }: Props) {
               <span className="block">{CAUSE_COPY[group.cause].explanation}</span>
               <span className="mt-1 block text-xs">
                 Template <code className="font-mono">{group.campaignName}</code>
-                {group.reason ? ` · AiSensy said: “${group.reason}”` : ""}
+                {group.reason ? ` · WhatsApp said: “${group.reason}”` : ""}
               </span>
             </OfficeNotice>
           ))
@@ -313,7 +313,7 @@ export default async function FixPage({ searchParams }: Props) {
               tone={desk.notChecked > 0 && desk.lastReportAt === null ? "info" : "success"}
             >
               {desk.notChecked > 0 && desk.lastReportAt === null
-                ? "AiSensy refused nothing, but no delivery report has been imported, so undelivered messages cannot show here yet."
+                ? "WhatsApp refused nothing, but no delivery report has been imported, so undelivered messages cannot show here yet."
                 : "Every reminder in this view either arrived, was resent, or was handled."}
             </OfficeNotice>
           ) : (
@@ -323,7 +323,7 @@ export default async function FixPage({ searchParams }: Props) {
                   <p className="text-xs text-muted-foreground">
                     <span className="font-semibold text-foreground tabular-nums">{resendable.length}</span>{" "}
                     of {shownFamilies.length} can be resent now. The rest need a number, a fix in
-                    AiSensy, or a call first.
+                    WhatsApp settings, or a call first.
                   </p>
                   <ResendForm
                     sendIds={resendable.flatMap((family) => family.problems.map((problem) => problem.sendId))}
@@ -635,12 +635,12 @@ function FamilyDetail({
         <span className="text-xs text-foreground">{copy.explanation}</span>
         {problem.reason ? (
           <span className="mt-1 text-xs text-muted-foreground">
-            {problem.lane === "not_delivered" ? "WhatsApp said" : "AiSensy said"}: &ldquo;{problem.reason}&rdquo;
+            {problem.lane === "not_delivered" ? "The phone side said" : "WhatsApp said"}: &ldquo;{problem.reason}&rdquo;
             {problem.errorCode ? ` (code ${problem.errorCode})` : ""}
           </span>
         ) : null}
         <span className="text-xs text-muted-foreground">
-          {problem.lane === "not_delivered" ? "From the AiSensy report" : "When it was sent"} ·{" "}
+          {problem.lane === "not_delivered" ? "From the delivery report" : "When it was sent"} ·{" "}
           {formatDdMmYyyy(problem.sentOn)} · tried {problem.attempts}×
         </span>
       </div>

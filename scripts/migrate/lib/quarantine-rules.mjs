@@ -175,6 +175,13 @@ export const TABLES = {
   assist_log: { bucket: "C", why: "assist log" },
   assist_drafts: { bucket: "K", why: "post go-live service-only prepared AI drafts (cover plans, class digests) that expire within days" },
   cover_reports: { bucket: "K", why: "post go-live service-only report on a covered period, for the absent teacher", staffArrays: ["seen_by"] },
+  // The school's own WhatsApp (D-562): created after go-live, service-role
+  // only. The log keeps whole numbers for the webhook to match on (and a
+  // strict E.164 check), so it is never scrubbed in place.
+  whatsapp_templates: { bucket: "K", why: "post go-live template registry for the school's WhatsApp number; no pupil data" },
+  whatsapp_messages: { bucket: "K", why: "post go-live log of One's WhatsApp sends, service-role only; numbers masked on every screen", staffRefs: ["requested_by", "retried_by"] },
+  whatsapp_message_events: { bucket: "K", why: "post go-live status history of One's WhatsApp sends, service-role only" },
+  whatsapp_inbound: { bucket: "K", why: "post go-live parents' replies to the school's WhatsApp number, service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

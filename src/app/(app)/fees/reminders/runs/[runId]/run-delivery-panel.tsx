@@ -92,7 +92,7 @@ export function RunDeliveryPanel({
             <p className="mt-1 text-xs text-muted-foreground">
               {deliveredCount === null ? (
                 <>
-                  Nothing imported yet. <strong>Sent</strong> means AiSensy accepted the message,
+                  Nothing imported yet. <strong>Sent</strong> means WhatsApp accepted the message,
                   not that a phone lit up — the plan has no delivery webhooks, so the campaign
                   report is the only way to know.
                 </>
@@ -114,7 +114,7 @@ export function RunDeliveryPanel({
           <form action={importAction} className="flex flex-col gap-2">
             <input type="hidden" name="runId" value={runId} />
             <div className="space-y-1.5">
-              <Label htmlFor="report">AiSensy campaign report (CSV)</Label>
+              <Label htmlFor="report">WhatsApp delivery report (CSV)</Label>
               <Input
                 id="report"
                 name="report"
@@ -147,7 +147,7 @@ export function RunDeliveryPanel({
                 <span className="tabular-nums">{failedCount}</span> did not reach the family
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Refused by AiSensy or reported undelivered. Resending rebuilds each family from
+                Refused by WhatsApp or reported undelivered. Resending rebuilds each family from
                 today&apos;s ledger, skips anyone who has paid since, and uses the other
                 parent&apos;s number where WhatsApp rejected the first. Wrong numbers are fixed on
                 the Fix tab.
@@ -180,7 +180,7 @@ export function RunDeliveryPanel({
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 The request died between claiming the row and hearing back, so these may or may not
-                have gone out. Check the AiSensy dashboard and record what you find — the day is
+                have gone out. Check the school’s WhatsApp dashboard and record what you find — the day is
                 already claimed either way.
               </p>
             </div>
@@ -199,7 +199,7 @@ export function RunDeliveryPanel({
                   <Input
                     id="reason"
                     name="reason"
-                    placeholder="AiSensy dashboard shows them delivered"
+                    placeholder="The WhatsApp dashboard shows them delivered"
                   />
                 </div>
               </div>

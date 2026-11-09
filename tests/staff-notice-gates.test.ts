@@ -55,7 +55,7 @@ function gate(overrides: Partial<StaffGateInput> & { f?: Partial<StaffGateFacts>
   return evaluateStaffSend({
     kind: "money_request",
     facts: facts(f),
-    transport: "aisensy",
+    transport: "whatsapp",
     confined: false,
     now: AT_10,
     ...rest,
@@ -96,7 +96,7 @@ describe("evaluateStaffSend — in order, every branch fails closed", () => {
 
   it("1. holds, never sends, when the facts could not be read", () => {
     for (const bad of [null, undefined, { ...facts(), sentToday: "3" }, { ...facts(), heldForDigest: undefined }]) {
-      const verdict = evaluateStaffSend({ kind: "money_request", facts: bad as never, transport: "aisensy", confined: false, now: AT_10 });
+      const verdict = evaluateStaffSend({ kind: "money_request", facts: bad as never, transport: "whatsapp", confined: false, now: AT_10 });
       expect(verdict).toMatchObject({ action: "defer", reason: "gate_unreadable" });
     }
   });
@@ -168,7 +168,7 @@ describe("evaluateStaffSend — in order, every branch fails closed", () => {
     expect(gate({ kind: "cover_changed", f: { sentToday: 30 } }).action).toBe("send");
   });
 
-  it("8. the month's cap on AiSensy sends, for every kind; the mock is not counted", () => {
+  it("8. the month's cap on WhatsApp sends, for every kind; the mock is not counted", () => {
     expect(gate({ f: { monthSent: 999 } }).action).toBe("send");
     expect(gate({ f: { monthSent: 1000 } })).toEqual({ action: "suppress", reason: "month_cap" });
     expect(gate({ kind: "cover_assigned", f: { monthSent: 1000 } })).toEqual({ action: "suppress", reason: "month_cap" });
@@ -235,7 +235,7 @@ describe("evaluateTeacherTaskSend — the teacher-task link's API send", () => {
   });
 });
 
-describe("1 request a second to AiSensy", () => {
+describe("1 request a second to WhatsApp", () => {
   it("waits out the rest of the second since the last call, and not at all the first time", () => {
     expect(paceDelay(null, 5000)).toBe(0);
     expect(paceDelay(5000, 5200)).toBe(800);

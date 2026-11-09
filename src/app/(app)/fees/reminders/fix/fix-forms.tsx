@@ -134,7 +134,7 @@ export function ImportReportForm() {
   return (
     <form action={action} className="flex flex-col gap-2">
       <div className="space-y-1.5">
-        <Label htmlFor="fix-report">AiSensy campaign report (CSV)</Label>
+        <Label htmlFor="fix-report">WhatsApp delivery report (CSV)</Label>
         <Input id="fix-report" name="report" type="file" accept=".csv,text/csv" className="h-11 py-2" />
       </div>
       <PendingSubmitButton variant="outline" className="h-11 w-full md:h-9 md:w-auto" idleLabel="Import report" pendingLabel="Reading…" />

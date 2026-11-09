@@ -22,9 +22,16 @@ it("task delivery is unavailable with absent or mock configuration, even on dev"
   config.values.MESSAGE_PROVIDER="mock";
   expect(taskDeliveryAvailability()).toBe("test_mode");
 });
-it("task transport requires a verified VPPS origin contract and stays disabled under tests", () => {
-  config.values={MESSAGE_PROVIDER:"aisensy",AISENSY_API_KEY:"synthetic-key",AISENSY_TASK_CAMPAIGN_ORIGIN:"https://sampark.example.test",AISENSY_TASK_CONTRACT:"v1"};
+it("task transport needs the school's WhatsApp connected, and stays in test mode under a test runner", () => {
+  config.values = { MESSAGE_PROVIDER: "whatsapp" };
   expect(taskDeliveryAvailability()).toBe("unavailable");
-  config.values.AISENSY_TASK_CAMPAIGN_ORIGIN="https://vpps.example.test";
+  vi.stubEnv("WHATSAPP_API_URL", "https://wa.example.test");
+  vi.stubEnv("WHATSAPP_API_KEY", "synthetic-key");
+  vi.stubEnv("WHATSAPP_SENDER_NUMBER", "+918047136289");
+  // The fees app's AiSensy number is refused as a sender, whatever else is set.
+  expect(taskDeliveryAvailability()).toBe("unavailable");
+  vi.stubEnv("WHATSAPP_SENDER_NUMBER", "+918302207823");
   expect(taskDeliveryAvailability()).toBe("test_mode");
+  config.values = { MESSAGE_PROVIDER: "sampark" };
+  expect(taskDeliveryAvailability()).toBe("unavailable");
 });

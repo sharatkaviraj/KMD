@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+// The WhatsApp service is where a message would leave One. Mocked, so no test
+// here can reach a provider; each asserts on what was handed to it.
+const service = vi.hoisted(() => ({ sendTemplate: vi.fn() }));
+vi.mock("@/platform/whatsapp/service", () => ({ sendTemplate: service.sendTemplate, isWhatsAppConfigured: () => true }));
+
 import {
   checkParentSend,
   isRefusedGeneration,
@@ -13,7 +18,7 @@ import {
   type ParentSendGate,
   type ParentSendReader,
 } from "@/platform/messaging/parent-send-gate";
-import { sendAisensyCampaignMessage } from "@/modules/whatsapp/data/aisensy";
+import { sendParentTemplate } from "@/modules/whatsapp/data/parent-send";
 
 /**
  * The one gate in front of every parent WhatsApp (go-live Phase D, plan §6.3,
@@ -301,12 +306,10 @@ describe("the parent-send gate", () => {
   });
 });
 
-describe("sendAisensyCampaignMessage asks the gate before AiSensy", () => {
-  const fetchSpy = vi.fn();
+describe("sendParentTemplate asks the gate before the school's WhatsApp", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.unstubAllEnvs();
-    fetchSpy.mockReset();
+    service.sendTemplate.mockReset();
   });
 
   const args = {
@@ -316,36 +319,49 @@ describe("sendAisensyCampaignMessage asks the gate before AiSensy", () => {
     templateParams: ["1", "2", "3", "4", "5"],
     gate: { kind: "fee_reminder" as const, sessionLabel: "2026-27", actor: "system" as const },
   };
+  const live = () => {
+    vi.stubEnv("VPPSONE_ENV", "live");
+    vi.stubEnv("VERCEL_ENV", "production");
+  };
 
-  it("never reaches the network when the gate refuses", async () => {
-    vi.stubGlobal("fetch", fetchSpy);
-    vi.stubEnv("AISENSY_API_KEY", "test-key");
+  it("never reaches the WhatsApp service when the gate refuses", async () => {
     vi.stubEnv("VPPSONE_ENV", "dev");
-    const result = await sendAisensyCampaignMessage(args, reader());
+    const result = await sendParentTemplate(args, reader());
     expect(result).toMatchObject({ ok: false, refused: true });
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(service.sendTemplate).not.toHaveBeenCalled();
   });
 
   it("refuses a _v6 campaign even with everything on", async () => {
-    vi.stubGlobal("fetch", fetchSpy);
-    vi.stubEnv("AISENSY_API_KEY", "test-key");
-    vi.stubEnv("VPPSONE_ENV", "live");
-    vi.stubEnv("VERCEL_ENV", "production");
-    const result = await sendAisensyCampaignMessage({ ...args, campaignName: "vpps_app_fee_due_hi_v6" }, reader());
+    live();
+    const result = await sendParentTemplate({ ...args, campaignName: "vpps_app_fee_due_hi_v6" }, reader());
     expect(result).toMatchObject({ ok: false, refused: true });
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(service.sendTemplate).not.toHaveBeenCalled();
   });
 
-  it("posts with a vppsone source once every check passes (fetch mocked; nothing is sent)", async () => {
-    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ submitted_message_id: "m1" }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchSpy);
-    vi.stubEnv("AISENSY_API_KEY", "test-key");
-    vi.stubEnv("VPPSONE_ENV", "live");
-    vi.stubEnv("VERCEL_ENV", "production");
-    const result = await sendAisensyCampaignMessage(args, reader());
-    expect(result).toEqual({ ok: true, status: 200, messageId: "m1" });
-    const body = JSON.parse(String(fetchSpy.mock.calls[0]![1].body));
-    expect(body.source).toBe("vppsone");
+  it("hands the template, its values and the gate's answers to the service once every check passes", async () => {
+    live();
+    service.sendTemplate.mockResolvedValue({ outcome: "accepted", providerMessageId: "wamid.1", logId: "log-1" });
+    const result = await sendParentTemplate({ ...args, payCode: "pc_test", buttons: [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: "pc_test" }] }] }, reader());
+    expect(result).toEqual({ ok: true, status: 200, messageId: "wamid.1", logId: "log-1" });
+    expect(service.sendTemplate).toHaveBeenCalledTimes(1);
+    const [to, name, language, values, options] = service.sendTemplate.mock.calls[0]!;
+    expect([to, name, language, values]).toEqual([REAL_PHONE, "vpps_app_fee_due_hi_v7", null, ["1", "2", "3", "4", "5"]]);
+    // The button's code is its own component, never one of the body's values.
+    expect(options).toMatchObject({ feature: "fee_reminder", urlButton: "pc_test", payCode: "pc_test", sessionLabel: "2026-27", maxAttempts: 1 });
+  });
+
+  it.each([
+    [{ outcome: "dry_run", reason: "Practice mode is on.", logId: "l" }, { ok: false, refused: true, refusalCode: "dry_run" }],
+    [{ outcome: "refused", code: "not_approved", reason: "Template not approved.", logId: "l" }, { ok: false, refused: true, refusalCode: "not_approved" }],
+    [{ outcome: "queued", reason: "Busy; will try again.", logId: "l" }, { ok: false, deliveryUnknown: true, queued: true }],
+    [{ outcome: "unknown", reason: "No answer.", logId: "l" }, { ok: false, deliveryUnknown: true }],
+    [{ outcome: "rejected", code: "131026", reason: "Not on WhatsApp.", logId: "l" }, { ok: false, status: 400, errorCode: "131026", error: "Not on WhatsApp. (WhatsApp 131026)" }],
+    [{ outcome: "duplicate", providerMessageId: null, logId: "l" }, { ok: false, deliveryUnknown: true }],
+    [{ outcome: "duplicate", providerMessageId: "wamid.2", logId: "l" }, { ok: true, messageId: "wamid.2" }],
+  ])("reads the service's %j as %j — an unknown is never a definite no", async (outcome, expected) => {
+    live();
+    service.sendTemplate.mockResolvedValue(outcome);
+    expect(await sendParentTemplate(args, reader())).toMatchObject(expected);
   });
 });
 
@@ -360,40 +376,38 @@ describe("every parent send goes through the choke point", () => {
     "src/modules/whatsapp/data/school-notice-sender.ts",
     "src/app/(app)/fees/reminders/actions.ts",
     "src/modules/collection/data/message-provider.ts",
-  ])("%s states a gate and a vppsone source", (path) => {
+  ])("%s states a gate and names no provider of its own", (path) => {
     const source = read(path);
-    expect(source).toContain("sendAisensyCampaignMessage(");
+    expect(source).toContain("sendParentTemplate(");
     expect(source).toMatch(/gate[:\s]/);
-    expect(source).toMatch(/source: "vppsone\//);
     expect(source).not.toContain("veerpatta-fees-app/");
+    expect(source).not.toContain("backend.aisensy.com");
+    expect(source).not.toContain("graph.facebook.com");
   });
 
-  it("names AiSensy's endpoint only in the choke point and the two STAFF transports", () => {
+  it("names no AiSensy endpoint, and a WhatsApp provider only in the one service", () => {
     const walk = (dir: string): string[] =>
       readdirSync(dir).flatMap((entry) => {
         const full = join(dir, entry);
         return statSync(full).isDirectory() ? walk(full) : /\.(ts|tsx)$/.test(entry) ? [full] : [];
       });
-    const naming = walk(join(process.cwd(), "src"))
-      .filter((file) => readFileSync(file, "utf8").includes("backend.aisensy.com"))
-      .map((file) => file.slice(process.cwd().length + 1).replace(/\\/g, "/"))
-      .sort();
-    expect(naming).toEqual([
-      // Teacher-task links: a message to staff about their own work (Phase F).
-      "src/modules/collection/data/message-provider.ts",
-      // Staff notices (Phase F gates these to the allowlist too).
-      "src/modules/staff-notices/data/dispatcher.ts",
-      "src/modules/whatsapp/data/aisensy.ts",
-    ]);
-    // And the one in message-provider is never reached by a parent message.
+    const files = walk(join(process.cwd(), "src"));
+    const naming = (needle: RegExp) =>
+      files
+        .filter((file) => needle.test(readFileSync(file, "utf8")))
+        .map((file) => file.slice(process.cwd().length + 1).replace(/\\/g, "/"))
+        .sort();
+    // One left AiSensy on 9 Nov (D-562); the fees app keeps its own.
+    expect(naming(/backend\.aisensy\.com/)).toEqual([]);
+    expect(naming(/graph\.facebook\.com/)).toEqual(["src/platform/whatsapp/providers.ts"]);
+    // And the teacher-task path never carries a parent message.
     const provider = read("src/modules/collection/data/message-provider.ts");
     expect(provider.indexOf('if (send.audience === "parent" && !send.taskId) return sendParentThroughGate')).toBeGreaterThan(-1);
-    expect(provider.indexOf("sendParentThroughGate(send, context)")).toBeLessThan(provider.indexOf("backend.aisensy.com"));
   });
 
   it("the run page's retry sends nothing itself: it hands the failed rows to the failure desk's resend, which posts the Send screen's own action (fees 3cc2de4b)", () => {
     const retry = read("src/app/(app)/fees/reminders/runs/[runId]/actions.ts");
-    expect(retry).not.toContain("sendAisensyCampaignMessage(");
+    expect(retry).not.toContain("sendParentTemplate(");
     expect(retry).toContain("resendFailuresAction(");
     expect(read("src/app/(app)/fees/reminders/fix/actions.ts")).toContain("sendRemindersAction(");
   });

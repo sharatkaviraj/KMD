@@ -4,8 +4,8 @@ import { recordActivity } from "@/modules/activity/data/events";
 import {
   DELIVERY_UNKNOWN_PREFIX,
   payNowButton,
-  sendAisensyCampaignMessage,
-} from "@/modules/whatsapp/data/aisensy";
+  sendParentTemplate,
+} from "@/modules/whatsapp/data/parent-send";
 import { closeRun, openRun } from "@/modules/whatsapp/data/campaign-store";
 import { approvedV6Campaign, v6HeadlineAmount } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import {
@@ -402,7 +402,7 @@ export async function executeReminderRun(
         channel: "whatsapp",
         outcome: "other",
         wabulk: true,
-        provider: "aisensy",
+        provider: "school_whatsapp",
         campaignName,
         source,
         count: sent,
@@ -822,8 +822,8 @@ async function sendOne(args: {
   const destination = args.destination ?? candidate.destination;
   const destinationRole = args.destinationRole ?? "primary";
   // Seven slots on a per-child notice, five on a family one. A count that does
-  // not match is refused by AiSensy with "Template params does not match the
-  // campaign", which is why the registry owns both the count and the order and
+  // not match is refused by the WhatsApp service as a template mismatch
+  // before anything leaves, which is why the registry owns both the count and the order and
   // `sendFamily` built these before this was called.
   const { campaignName, templateParams } = message;
 
@@ -838,7 +838,7 @@ async function sendOne(args: {
 
   // Claim the day BEFORE calling the provider. Two staff members working the
   // same list at the same time collide on the unique index here, and the loser
-  // never reaches AiSensy — rather than both passing a check-then-send.
+  // never reaches WhatsApp — rather than both passing a check-then-send.
   const claimRow = {
     student_id: candidate.studentId,
     session_label: sessionLabel,
@@ -897,7 +897,7 @@ async function sendOne(args: {
     // A `pending` row is never taken — that is a send still in flight.
     //
     // In a real session a failure whose fate is unknown is NOT taken back: a
-    // timeout or a 5xx can come after AiSensy accepted the message, and one
+    // timeout or a 5xx can come after WhatsApp accepted the message, and one
     // parent missed beats one parent messaged twice. Only a definite rejection
     // (or a sent row WhatsApp later reported undelivered) is retried. The fees
     // app retries every failed row; One differs here (D-352 (4)).
@@ -948,12 +948,15 @@ async function sendOne(args: {
     claimId = row.id;
   }
 
-  const result = await sendAisensyCampaignMessage({
+  const result = await sendParentTemplate({
     campaignName,
     destination,
     userName: candidate.parentName,
     templateParams,
-    source: "vppsone/reminders",
+    // The message log points back at this row, so the delivery webhook and a
+    // Razorpay payment both find the reminder they belong to.
+    link: claimId ? { table: "whatsapp_reminder_sends", id: claimId } : null,
+    payCode,
     // A cron run has nobody behind it; a pressed Send has the staff member.
     gate: { kind: "fee_reminder", sessionLabel, actor: staffId ? { userId: staffId } : "system" },
     // The pay code just minted and claimed above, as the Pay now button's URL
@@ -1004,7 +1007,7 @@ async function sendOne(args: {
  *   `loadLastSentOn` reads it: a receipt notice to a family that just paid is
  *   not a reminder, and counting it would silence them for a whole cadence.
  * - **A delivery-unknown failure counts as sent.** A timeout or a 5xx may
- *   follow AiSensy's acceptance; the same-day retry refuses those rows for
+ *   follow WhatsApp's acceptance; the same-day retry refuses those rows for
  *   that reason, and so does this.
  * - **Paged, newest first.** PostgREST stops at 1,000 rows without saying so,
  *   and an unordered cut could drop exactly today's send.

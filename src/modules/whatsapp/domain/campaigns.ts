@@ -1161,7 +1161,7 @@ export function campaignFor(
   // says so rather than reading as a missing registry entry.
   if (found) {
     throw new Error(
-      `The ${situation} notice is awaiting Meta approval: ${found.campaignName} is written but not Live yet. It cannot be sent until the template is approved in AiSensy and the app's campaign registry marks it approved.`,
+      `The ${situation} notice is awaiting Meta approval: ${found.campaignName} is written but not Live yet. It cannot be sent until WhatsApp approves the template and Settings → WhatsApp shows it approved.`,
     );
   }
 

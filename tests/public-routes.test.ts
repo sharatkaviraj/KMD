@@ -62,7 +62,7 @@ function urlOf(file: string): string {
 
 /** A machine credential or a public token the route checks itself. */
 const MACHINE_CREDENTIAL =
-  /CRON_SECRET|JOBS_SECRET|WEBHOOK_SECRET|verifyRazorpaySignature|x-aisensy-signature|cron_secret_matches|SCHOOLFEES_DOC_TOKEN|timingSafeEqual|loadCheckoutSend|isPayCodeShaped/;
+  /CRON_SECRET|JOBS_SECRET|WEBHOOK_SECRET|verifyRazorpaySignature|x-hub-signature-256|queueSecretMatches|cron_secret_matches|SCHOOLFEES_DOC_TOKEN|timingSafeEqual|loadCheckoutSend|isPayCodeShaped/;
 
 /**
  * Secret-checked routes deliberately left behind the login page, each with its
@@ -206,7 +206,8 @@ describe("a cold request with no cookie", () => {
     "/pay/AbCdEfGhIjKlMnOpQrStUv?step=open&check=1",
     "/api/webhooks/razorpay",
     "/api/fees/webhooks/razorpay",
-    "/api/fees/webhooks/aisensy",
+    "/api/webhooks/whatsapp",
+    "/api/jobs/whatsapp-queue",
     "/api/fees/cron/online-payments",
     "/api/fees/cron/whatsapp-scheduled-runs",
     "/api/fees/cron/auto-day-close",

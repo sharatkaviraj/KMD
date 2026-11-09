@@ -267,7 +267,7 @@ export function WeekDraft({
             {[
               [tx({ en: "To", hi: "किसे" }), tx({ en: `${n} ${n === 1 ? "person" : "people"} · Admin`, hi: `${n} व्यक्ति · एडमिन` })],
               [tx({ en: "Cost", hi: "खर्च" }), `₹${(n * COST_PER_MESSAGE).toFixed(2)} · ${n} × ₹${COST_PER_MESSAGE.toFixed(2)}`],
-              [tx({ en: "Sent through", hi: "कैसे" }), "AiSensy · WhatsApp"],
+              [tx({ en: "Sent through", hi: "कैसे" }), tx({ en: "School WhatsApp", hi: "स्कूल का WhatsApp" })],
             ].map(([k, v], i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", fontSize: 13, borderTop: i ? "1px solid var(--bd)" : undefined }}>
                 <span style={{ color: "var(--mut)" }}>{k}</span>

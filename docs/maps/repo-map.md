@@ -181,6 +181,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `pwa` | One |
 | `supabase` | One |
 | `telemetry` | ported from Fees |
+| `whatsapp` | One |
 
 ## vx screens — `src/vx/screens/`
 

@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { fetchAllPages } from "@/platform/helpers/chunk";
-import { sendAisensyCampaignMessage, isAisensyConfigured } from "@/modules/whatsapp/data/aisensy";
+import { isParentWhatsAppConfigured, sendParentTemplate } from "@/modules/whatsapp/data/parent-send";
 import { istHour, readNumberSetting } from "@/modules/whatsapp/data/guard-context";
 import { DEFAULT_QUIET_HOURS } from "@/modules/whatsapp/domain/send-guards";
 import { toWhatsappDestination } from "@/modules/whatsapp/domain/phone";
@@ -177,8 +177,13 @@ export async function sendSchoolNotice(args: {
 }): Promise<SchoolNoticeOutcome> {
   const empty = { sent: 0, failed: 0, skippedNoCall: 0, skippedNoNumber: 0, alreadySent: 0 };
 
-  if (!isAisensyConfigured()) {
-    return { status: "error", message: "AISENSY_API_KEY is not set on the server.", batchId: null, ...empty };
+  if (!isParentWhatsAppConfigured()) {
+    return {
+      status: "error",
+      message: "The school's WhatsApp is not connected on this server yet. Settings → WhatsApp shows what is missing.",
+      batchId: null,
+      ...empty,
+    };
   }
   // VPPS One only (critique0 #30): one path tells a parent about an absence.
   // When the school has handed it to the register's own message, this notice
@@ -278,6 +283,7 @@ export async function sendSchoolNotice(args: {
   const batchId = randomUUID();
   let sent = 0;
   let failed = 0;
+  let waiting = 0;
   let alreadySent = alreadyReached;
   const failures: string[] = [];
 
@@ -360,12 +366,16 @@ export async function sendSchoolNotice(args: {
       claimId = row.id;
     }
 
-    const result = await sendAisensyCampaignMessage({
+    const result = await sendParentTemplate({
       campaignName: template.campaignName,
       destination: group.lead.destination!,
       userName: group.lead.studentName,
       templateParams,
-      source: "vppsone/school-notice",
+      link: claimId ? { table: "school_notice_sends", id: claimId } : null,
+      // A busy WhatsApp server gets two more tries from the queue. The row
+      // stays `pending` meanwhile, so a second press cannot send it twice;
+      // the queue writes the final answer back here.
+      maxAttempts: 3,
       // An absence is its own category, and only the path the school chose
       // (runtime_flags.absent_notice_owner) may send it.
       gate:
@@ -383,16 +393,21 @@ export async function sendSchoolNotice(args: {
             },
     });
 
+    const waitingForQueue = !result.ok && result.queued === true;
     await args.supabase
       .from("school_notice_sends")
       .update({
-        status: result.ok ? "sent" : "failed",
+        status: result.ok ? "sent" : waitingForQueue ? "pending" : "failed",
         provider_message_id: result.ok ? result.messageId : null,
         error_message: result.ok ? null : result.error,
         updated_at: new Date().toISOString(),
       })
       .eq("id", claimId);
 
+    if (waitingForQueue) {
+      waiting += 1;
+      continue;
+    }
     if (!result.ok) {
       failed += 1;
       failures.push(`${group.lead.studentName}: ${result.error}`);
@@ -429,11 +444,12 @@ export async function sendSchoolNotice(args: {
     alreadySent ? `${alreadySent} already sent today` : null,
     skippedNoCall ? `${skippedNoCall} no-call` : null,
     skippedNoNumber ? `${skippedNoNumber} with no number` : null,
+    waiting ? `${waiting} waiting to try again by itself` : null,
     failed ? `${failed} failed` : null,
   ].filter(Boolean);
 
   return {
-    status: failed > 0 ? (sent > 0 ? "partial" : "error") : "success",
+    status: failed > 0 ? (sent > 0 || waiting > 0 ? "partial" : "error") : waiting > 0 ? "partial" : "success",
     message: `${parts.join(" · ")}.${failures.length ? ` ${failures.slice(0, 5).join("; ")}` : ""}`,
     sent,
     failed,

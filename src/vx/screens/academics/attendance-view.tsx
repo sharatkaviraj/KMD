@@ -151,7 +151,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
         )}
         unit={{ one: { en: "teacher", hi: "शिक्षक" }, many: { en: "teachers", hi: "शिक्षक" } }}
         costEach={COST_PER_MESSAGE}
-        channel={{ en: "AiSensy · WhatsApp", hi: "AiSensy · WhatsApp" }}
+        channel={{ en: "School WhatsApp", hi: "स्कूल का WhatsApp" }}
         note={{ en: "Sent once per class per day. If the register is saved before it goes, it is not sent. You can undo for a few seconds.", hi: "हर कक्षा के लिए दिन में एक बार। रजिस्टर पहले सहेजा गया तो नहीं जाएगा। कुछ सेकंड तक वापस ले सकते हैं।" }}
       />
     );

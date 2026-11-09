@@ -547,7 +547,7 @@ export async function importSessionReportAction(
   }
   const file = formData.get("report");
   if (!(file instanceof File) || file.size === 0) {
-    return { status: "error", message: "Choose the AiSensy campaign report (CSV) first." };
+    return { status: "error", message: "Choose the WhatsApp delivery report (CSV) first." };
   }
   if (file.size > MAX_REPORT_BYTES) {
     return { status: "error", message: "That file is larger than a campaign report should be." };
@@ -614,8 +614,8 @@ export async function resolveStuckAction(
       outcome,
       reason:
         outcome === "sent"
-          ? "Checked the AiSensy dashboard: it went."
-          : "Checked the AiSensy dashboard: it did not go.",
+          ? "Checked the WhatsApp dashboard: it went."
+          : "Checked the WhatsApp dashboard: it did not go.",
       staffId,
     });
   } catch (caught) {

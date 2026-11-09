@@ -182,7 +182,7 @@ export function parseDeliveryReport(csv: string): DeliveryReportParse {
       rows: [],
       skipped: 0,
       error:
-        "Could not find a status column, or anything to match a message on. Export the campaign report from AiSensy without renaming its columns.",
+        "Could not find a status column, or anything to match a message on. Export the delivery report from the school’s WhatsApp dashboard without renaming its columns.",
     };
   }
 

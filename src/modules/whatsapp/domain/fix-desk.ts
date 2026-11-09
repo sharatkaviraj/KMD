@@ -36,7 +36,7 @@ export const FIX_WINDOW_DAYS = 30;
 export type FixLane = "refused" | "not_delivered" | "stuck" | "no_number" | "left_out";
 
 export const FIX_LANES: ReadonlyArray<{ value: FixLane; label: string; hint: string }> = [
-  { value: "refused", label: "Refused", hint: "AiSensy said no before sending." },
+  { value: "refused", label: "Refused", hint: "WhatsApp said no before sending." },
   { value: "not_delivered", label: "Not delivered", hint: "Accepted, then WhatsApp could not deliver it." },
   { value: "stuck", label: "No answer", hint: "The send never heard back. It may or may not have gone." },
   { value: "no_number", label: "No usable number", hint: "Never tried: no number, or not a mobile." },
@@ -222,8 +222,8 @@ export function fixActionFor(input: {
       return {
         policy,
         canResend: false,
-        label: "Check AiSensy",
-        blocked: "Check the AiSensy dashboard first, then record whether it went.",
+        label: "Check WhatsApp",
+        blocked: "Check the school’s WhatsApp dashboard first, then record whether it went.",
         nextDestination,
       };
     case "send_screen":

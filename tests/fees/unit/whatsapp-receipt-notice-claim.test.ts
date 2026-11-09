@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { templateMessageBody } from "@/platform/whatsapp/payload";
 
 // The fees app mocks these once in tests/setup.ts; One has no shared setup
 // file, so each ported test carries the same three (go-live Phase D).
@@ -23,7 +24,7 @@ afterEach(() => {
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
 const NOTICE = read("src/modules/whatsapp/data/receipt-notice.ts");
-const AISENSY = read("src/modules/whatsapp/data/aisensy.ts");
+const PARENT_SEND = read("src/modules/whatsapp/data/parent-send.ts");
 const MIGRATION = read(
   "tests/fees/fixtures/fee-migrations/20260912165421_a_second_receipt_deserves_its_own_notice.sql",
 );
@@ -101,26 +102,28 @@ describe("a receipt notice claims on the receipt, not on the day", () => {
 });
 
 describe("a document header never becomes a body slot", () => {
-  it("spreads media only when present, so body-only sends are unchanged", () => {
-    // All 34 existing templates must keep sending exactly the six keys they
-    // always did. JSON.stringify drops an undefined value either way — the
-    // conditional spread is what makes that visible to a reviewer.
-    expect(AISENSY).toContain("...(args.media");
-    expect(AISENSY).not.toMatch(/media:\s*args\.media,/);
+  it("hands the PDF to the service as the header's document, and only when there is one", () => {
+    expect(PARENT_SEND).toContain("document: args.media ?? null");
+    expect(PARENT_SEND).not.toMatch(/templateParams[^\n]*media/);
   });
 
-  it("keeps media off templateParams", () => {
-    // AiSensy enforces the template's parameter count exactly. A header is a
-    // separate component with its own media parameter; adding filename as a
-    // body slot is the mistake this pins against.
-    const body = AISENSY.slice(AISENSY.indexOf("body: JSON.stringify"));
-    expect(body).toContain("templateParams: aisensyTemplateParams(args)");
-    expect(body).not.toMatch(/templateParams:\s*\[[\s\S]*args\.media/);
-    const builder = AISENSY.slice(
-      AISENSY.indexOf("export function aisensyTemplateParams"),
-      AISENSY.indexOf("export function isAisensyConfigured"),
-    );
-    expect(builder).not.toContain("media");
+  it("keeps the document a header component, never a body value", () => {
+    // Meta enforces the template's parameter count exactly. A header is a
+    // separate component with its own document parameter; adding the filename
+    // as a body slot is the mistake this pins against.
+    const wire = templateMessageBody({
+      to: "+919000000001",
+      name: "vpps_receipt_hi_v1",
+      languageCode: "hi",
+      bodyParams: ["a", "b"],
+      document: { url: "https://example.test/r.pdf", filename: "Receipt.pdf" },
+    }) as { template: { components: Array<{ type: string; parameters: unknown[] }> } };
+    const [header, body] = wire.template.components;
+    expect(header).toEqual({ type: "header", parameters: [{ type: "document", document: { link: "https://example.test/r.pdf", filename: "Receipt.pdf" } }] });
+    expect(body!.parameters).toHaveLength(2);
+    // A body-only send has no header at all.
+    const plain = templateMessageBody({ to: "+919000000001", name: "x", languageCode: "hi", bodyParams: ["a"] }) as { template: { components: Array<{ type: string }> } };
+    expect(plain.template.components.map((part) => part.type)).toEqual(["body"]);
   });
 });
 

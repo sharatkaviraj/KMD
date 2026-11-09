@@ -368,9 +368,9 @@ export async function confirmDispatchReceived(id: string, attempt: string | null
  * believes. What is left is staff messaging: a teacher's own token link, which
  * is a message to a colleague about their own work.
  *
- * Only then does it ask `selectProvider()` who is sending. Unset means AiSensy,
- * which still refuses without an `AISENSY_API_KEY` this repository does not
- * carry (rule 8: sending costs money). `MESSAGE_PROVIDER=mock` is how a QA run
+ * Only then does it ask `selectProvider()` who is sending. Unset means the
+ * school's own WhatsApp number, which refuses until this deployment is
+ * connected and the feature is switched on (rule 8: sending costs money). `MESSAGE_PROVIDER=mock` is how a QA run
  * gets a 429 or a timeout without a handset or an invoice, and it is refused
  * outright on a live deployment.
  *
@@ -423,10 +423,10 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
           : "No messaging provider is configured.",
     };
   }
-  // Only AiSensy's path asks the parent-send gate, which is where test-only
+  // Only the WhatsApp path asks the parent-send gate, which is where test-only
   // mode's allowlist lives; the mock would record a "sent" no gate checked.
-  if (testOnly && provider.id !== "aisensy") {
-    return { ok: false, outcome: "rejected", error: "Parent messages are in test-only mode, which sends only through the AiSensy gate. Not sent." };
+  if (testOnly && provider.id !== "whatsapp") {
+    return { ok: false, outcome: "rejected", error: "Parent messages are in test-only mode, which sends only through the school's WhatsApp and its gate. Not sent." };
   }
 
   // A single conditional UPDATE is the cross-request claim. It commits before
@@ -459,7 +459,7 @@ export async function dispatchTeacherTaskMessage(actorId: string, id: string): P
   const available = taskDeliveryAvailability();
   if (available !== "ready") return { ok: false, reason: available };
   const provider = selectProvider();
-  if (provider.id !== "aisensy") return { ok: false, reason: "test_mode" };
+  if (provider.id !== "whatsapp") return { ok: false, reason: "test_mode" };
   // The staff gate (go-live Phase F): consent, the teacher_task switch, their
   // own switch and the test allowlist, asked before anything is claimed. A
   // refusal leaves the task free for the WhatsApp link (manual mode).

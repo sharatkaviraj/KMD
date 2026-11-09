@@ -128,7 +128,7 @@ a provider or the network:
   `supabase db push`.
 - Live-source and historical cutover tooling: `replica:*`, `migrate:*`.
 - Paid AI providers: `ai:eval`, `ai:fixtures`, `ai:smoke`.
-- Anything that sends WhatsApp/AiSensy messages, posts a real payment or
+- Anything that sends WhatsApp messages, posts a real payment or
   calls Razorpay — never, without the owner.
 
 ## Delivery

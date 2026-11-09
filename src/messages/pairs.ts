@@ -950,8 +950,8 @@ export const messagesQueue = /* @__PURE__ */ t("भेजने की सूच
 export const messagesNone = /* @__PURE__ */ t("कोई संदेश नहीं है।", "No messages.");
 export const messagesTemplateCode = /* @__PURE__ */ t("प्रदाता का नाम", "Provider name");
 export const messagesTemplateCodeHint = /* @__PURE__ */ t(
-    "AiSensy में यही नाम होना चाहिए।",
-    "This must match the campaign name in AiSensy exactly.",
+    "WhatsApp में स्वीकृत टेम्पलेट का यही नाम होना चाहिए।",
+    "This must match the approved template's name on WhatsApp exactly.",
   );
 export const messagesBody = /* @__PURE__ */ t("संदेश", "Message");
 export const messagesBodyHint = /* @__PURE__ */ t(

@@ -103,7 +103,7 @@ describe("the send action", () => {
     // nothing at all.
     const source = read(RUN_SENDER);
     const openIndex = source.indexOf("openRun(");
-    const sendIndex = source.indexOf("sendAisensyCampaignMessage(");
+    const sendIndex = source.indexOf("sendParentTemplate(");
     expect(openIndex).toBeGreaterThan(-1);
     expect(sendIndex).toBeGreaterThan(-1);
     expect(openIndex).toBeLessThan(sendIndex);
@@ -115,7 +115,7 @@ describe("the send action", () => {
     const source = read(RUN_SENDER);
     const claim = source.slice(
       source.indexOf('.from("whatsapp_reminder_sends")'),
-      source.indexOf("sendAisensyCampaignMessage("),
+      source.indexOf("sendParentTemplate("),
     );
     expect(claim).toContain("run_id: runId");
   });

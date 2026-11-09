@@ -20,9 +20,9 @@ vi.mock("@/modules/payments/data/online/service", () => ({ onlineLedgerRecheck: 
 vi.mock("@/modules/whatsapp/data/document-store", () => ({ signDocumentUrl: async () => null }));
 
 const send = vi.fn();
-vi.mock("@/modules/whatsapp/data/aisensy", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/modules/whatsapp/data/aisensy")>()),
-  sendAisensyCampaignMessage: (args: unknown) => send(args),
+vi.mock("@/modules/whatsapp/data/parent-send", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/whatsapp/data/parent-send")>()),
+  sendParentTemplate: (args: unknown) => send(args),
 }));
 
 // Since fees 3cc2de4b (ported in Phase F) the run page's retry hands its

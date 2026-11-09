@@ -32,18 +32,18 @@ try {
     await expect(page.getByText("Active local templates: 6")).toBeVisible();await expect(page.getByText(/Automated task messages are off/)).toBeVisible();
     await shot("integrations-pending");
     await page.getByRole("link",{name:"Open tasks and share a link"}).click();await button("Review message").click();
-    await expect(button("Send through AiSensy")).toBeDisabled();await expect(page.getByText("Students: 2",{exact:true})).toBeVisible();
+    await expect(button("Send on WhatsApp")).toBeDisabled();await expect(page.getByText("Students: 2",{exact:true})).toBeVisible();
     await button("Prepare WhatsApp link").click();await expect(page.getByRole("link",{name:"Open WhatsApp",exact:true})).toHaveAttribute("href",/^https:\/\/wa.me\//);
     await expect(page.getByText("WhatsApp link prepared — sending unconfirmed").first()).toBeVisible();await shot("manual-sharing");
     assert.equal(await page.evaluate(()=>window.acceptance.calls.filter(c=>c.kind==="deliveryConfirm").length),1);
     await go("delivery","&ready=1");await button("Review message").click();await page.evaluate(()=>window.acceptance.outcome="unknown");
-    await button("Send through AiSensy").dblclick();await expect(page.getByText("Provider result unknown",{exact:false}).first()).toBeVisible();
+    await button("Send on WhatsApp").dblclick();await expect(page.getByText("Provider result unknown",{exact:false}).first()).toBeVisible();
     assert.equal(await page.evaluate(()=>window.acceptance.calls.filter(c=>c.kind==="deliveryConfirm").length),1);
     await expect(button("Review message")).toHaveCount(0);await expect(button("Prepare WhatsApp link")).toHaveCount(0);
     await shot("provider-unknown");await page.locator("textarea").fill("Synthetic log checked: provider did not send.");
     await button("Confirm not sent in log").click();await expect(button("Review message")).toBeVisible();await button("Review message").click();
     await page.evaluate(()=>{window.acceptance.summary={...window.acceptance.summary,pending:false};window.acceptance.outcome="ok";});
-    await button("Send through AiSensy").click();await expect(page.getByText(/No teacher work remains pending/).first()).toBeVisible();
+    await button("Send on WhatsApp").click();await expect(page.getByText(/No teacher work remains pending/).first()).toBeVisible();
     await go("students");await expect(page.getByText("QA-001").filter({visible:true}).first()).toBeVisible();await shot("students-no-photo");
     await page.getByRole("button",{name:"Assign work (2)",exact:true}).click();
     // Ask teachers is four questions since D-522: what, which children, who fills it in, by when.

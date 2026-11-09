@@ -5,5 +5,5 @@ export type DeliveryPreview = { ok: true; id: string; digest: string; taskId: st
 };
 export type DeliverySummary = {
   pending?: boolean; openedAt?: string | null; expected?: number; answered?: number; approved?: number; rejected?: number;
-  deliveries: { id: string; state: "ready" | "unknown" | "rejected" | "accepted" | "manual_opened" | "human_confirmed" | "legacy_recorded"; transport: "aisensy" | "manual" | null; phone: string; at: string; round: string; attempt: string | null; history: { event: string; actor: string; at: string; note?: string; resolution?: string }[] }[];
+  deliveries: { id: string; state: "ready" | "unknown" | "rejected" | "accepted" | "manual_opened" | "human_confirmed" | "legacy_recorded"; transport: "aisensy" | "whatsapp" | "manual" | null; phone: string; at: string; round: string; attempt: string | null; history: { event: string; actor: string; at: string; note?: string; resolution?: string }[] }[];
 };

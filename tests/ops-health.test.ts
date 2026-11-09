@@ -112,8 +112,8 @@ const QUIET = {
   online_events_pending_old: 0,
   receipt_notices_month: 0,
   one_sends_month: 6,
-  aisensy_month_total: 6,
-  aisensy_plan_cap: null,
+  whatsapp_month_total: 6,
+  whatsapp_plan_cap: null,
   cutover_rows: 0,
 };
 
@@ -189,13 +189,13 @@ describe("what is a problem", () => {
     expect(evaluateHealth({ ...QUIET, staff_cap: null, staff_month: 5000 }).problems).toEqual([]);
   });
 
-  it("AiSensy across every lane: judged only once the owner sets the plan's allowance", () => {
-    expect(evaluateHealth({ ...QUIET, aisensy_month_total: 9000 }).problems).toEqual([]);
-    const capped = evaluateHealth({ ...QUIET, aisensy_plan_cap: 10000, aisensy_month_total: 8000 });
-    expect(capped.problems.map((f) => f.key)).toEqual(["aisensy_month_total"]);
+  it("school WhatsApp across every lane: judged only once the owner sets the plan's allowance", () => {
+    expect(evaluateHealth({ ...QUIET, whatsapp_month_total: 9000 }).problems).toEqual([]);
+    const capped = evaluateHealth({ ...QUIET, whatsapp_plan_cap: 10000, whatsapp_month_total: 8000 });
+    expect(capped.problems.map((f) => f.key)).toEqual(["whatsapp_month_total"]);
     expect(capped.problems[0].detail?.en).toBe("8000 of 10000");
     // A lane that could not be read makes the total unreadable, never a smaller number.
-    expect(evaluateHealth({ ...QUIET, aisensy_month_total: null }).unreadable.map((f) => f.key)).toEqual(["aisensy_month_total"]);
+    expect(evaluateHealth({ ...QUIET, whatsapp_month_total: null }).unreadable.map((f) => f.key)).toEqual(["whatsapp_month_total"]);
   });
 
   it("the webhook probe: 401 is healthy; 404 is 'not configured yet' before the line and a problem after; no answer is unreadable", () => {
@@ -364,8 +364,10 @@ describe("the migrations", () => {
   });
 
   it("reads every count on its own, so one broken source is null and not a failed check", () => {
-    // aisensy_month_total is a sum of lanes read on their own: null when any of them is.
-    const keys = HEALTH_CHECKS.map((check) => check.key).filter((key) => key !== "aisensy_month_total");
+    // The month's total is a sum of lanes read on their own: null when any of
+    // them is. It was named aisensy_month_total in this file and renamed by
+    // 20261109062459, which patched the function in place.
+    const keys = HEALTH_CHECKS.map((check) => check.key).filter((key) => key !== "whatsapp_month_total");
     for (const key of keys) expect(sql, key).toMatch(new RegExp(`'${key}', null`));
     for (const lane of ["parent_reminders_month", "school_notices_month", "receipt_notices_month", "one_sends_month", "staff_month"]) {
       expect(sql, lane).toContain(`(v_out ->> '${lane}')::bigint`);

@@ -5,7 +5,7 @@ import { getFeePolicySummary } from "@/modules/fees/data/policy";
 import { logError, logInfo, logWarn } from "@/platform/observability/log";
 import { insertDefaulterContacts } from "@/modules/defaulters/data/contacts";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
-import { isAisensyConfigured } from "@/modules/whatsapp/data/aisensy";
+import { isParentWhatsAppConfigured } from "@/modules/whatsapp/data/parent-send";
 import { loadGuardFacts } from "@/modules/whatsapp/data/guard-context";
 import {
   getCampaign,
@@ -279,7 +279,7 @@ export async function GET(request: Request) {
 
       // The same list the office is held to.
       const guards = evaluateSendGuards({
-        providerReady: isAisensyConfigured(),
+        providerReady: isParentWhatsAppConfigured(),
         campaignApproved: isCampaignApproved(
           filters.situation as NoticeSituation,
           filters.language as NoticeLanguage,

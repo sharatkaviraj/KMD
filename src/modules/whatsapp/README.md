@@ -13,7 +13,9 @@ Fee reminders and the message templates behind them.
 - **Who a message goes to** (`domain/audience.ts`), which is a different question
   from **what it says** (`domain/campaigns.ts`)
 - Reminder cadence — which families to remind, and how often
-- The AiSensy send path
+- The parent send path (`data/parent-send.ts`): the parent-send gate, then the
+  school's own WhatsApp through `src/platform/whatsapp/` (D-562). AiSensy is
+  the Fees app's, never One's
 - The fee calendar's read of who is due a reminder today (`domain/installment-calendar.ts`)
 - Grouping the audience into families, one message per family: a shared number or linked siblings (`domain/family-grouping.ts`)
 - Turning the same audience into paper a teacher can carry (`domain/collection-list.ts`)
@@ -189,7 +191,7 @@ Fee reminders and the message templates behind them.
   about the ledger, and the counter will ask for something different.
   `describeLateFeeDrift` takes `statesAccountBalance` for exactly that, and it
   still warns rather than blocks — it is the owner's school and the owner's call.
-- **A failed send is retried the same day, but only a definite rejection.** `sendOne` takes a `failed` row back to `pending` on the next run (fees 1b932785). In a real session a failure whose fate is unknown — a network error or a 5xx, recorded with the `delivery-unknown:` prefix (`DELIVERY_UNKNOWN_PREFIX` in `data/aisensy.ts`) — stays claimed: AiSensy may already have accepted it, and one parent missed beats one parent messaged twice. A TEST session retries any row, `sent` included, and its `pay_code` is rotated, which retires the earlier message's link (fees 31e85d27). One differs from the fees app here (D-352).
+- **A failed send is retried the same day, but only a definite rejection.** `sendOne` takes a `failed` row back to `pending` on the next run (fees 1b932785). In a real session a failure whose fate is unknown — a network error or a 5xx, recorded with the `delivery-unknown:` prefix (`DELIVERY_UNKNOWN_PREFIX` in `data/parent-send.ts`) — stays claimed: WhatsApp may already have accepted it, and one parent missed beats one parent messaged twice. A TEST session retries any row, `sent` included, and its `pay_code` is rotated, which retires the earlier message's link (fees 31e85d27). One differs from the fees app here (D-352).
 - **The ledger-quoted notices never take a late fee from the screen.** `late_fee_applied` and the two waiver notices quote `late_fee_pending` per family (`LEDGER_QUOTED_SITUATIONS`); the control is replaced by hidden inputs. `promise_due` prints each family's own promised date (`RUN_DATE_FREE_SITUATIONS`), so the run's date is neither shown nor guarded on it.
 
 - **A reminder profile is an audience filter, never a property of the template.**
@@ -244,14 +246,14 @@ and the one thing that fixes it. `data/fix-desk.ts` reads it, and
 `domain/fix-desk.ts` holds the rules.
 
 - **Five lanes.**
-  - Refused: `status = 'failed'`, AiSensy said no.
+  - Refused: `status = 'failed'`, WhatsApp said no.
   - Not delivered: `sent` and `delivery_status = 'failed'`, from the report CSV or the webhook.
   - No answer: still `pending` after 15 minutes.
   - No usable number.
   - Left out: owes on passed installments and has a number, but has not been reached since the latest passed due date.
 
   The tab's red count is the number of cards: the tab and the page both read `loadFixDesk`, under `cache()`.
-- **One cause rule.** `domain/failure-cause.ts` turns AiSensy's text, WhatsApp's
+- **One cause rule.** `domain/failure-cause.ts` turns the error text, WhatsApp's
   code (131026 …) and the HTTP status into one of nine causes. The sender, the
   report import and the webhook all write `failure_cause` through it. Each
   cause sets the row's words (English and Hindi), its button, and whether
@@ -298,7 +300,8 @@ and the one thing that fixes it. `data/fix-desk.ts` reads it, and
   The ledger and the send log decide, so the desk cannot disagree with them.
   `resolution` stores only what a person says: called, slip_sent, or dismissed
   with a reason.
-- **One report import covers the session.** An AiSensy campaign report spans
+- **One report import covers the session.** A campaign report (exported
+  before D-562, when One sent through AiSensy) spans
   every run that used the template. Rows are matched by message id. The
   phone + day fallback fires only for a report row with NO id: a row whose id
   matches nothing is a message since resent, and matching it by phone would

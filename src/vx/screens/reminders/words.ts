@@ -2,13 +2,13 @@ import { p, type Pair } from "@/vx/text";
 
 /** The words on /reminders, English with Hindi (src/vx/text.ts). */
 export const W = {
-  crumb: p("Money · WhatsApp through AiSensy", "पैसा · AiSensy से WhatsApp"),
+  crumb: p("Money · the school's WhatsApp", "पैसा · स्कूल का WhatsApp"),
   crumbShort: p("Fee reminders", "फीस याद"),
   crumbResults: p("Fee reminders · results", "फीस याद · नतीजा"),
   title: p("Fee reminders", "फीस याद"),
   newReminder: p("New reminder", "नई याद"),
   newShort: p("New", "नई"),
-  topUp: p("Top up AiSensy", "AiSensy रिचार्ज"),
+  topUp: p("WhatsApp settings", "WhatsApp सेटिंग"),
   sent30: p("Sent · last 30 days", "भेजे · पिछले 30 दिन"),
   spent: p("spent", "ख़र्च"),
   readRate: p("Read rate", "पढ़ने की दर"),
@@ -16,8 +16,8 @@ export const W = {
   of: p("of", "में से"),
   paid7: p("Paid within 7 days", "7 दिन में जमा"),
   familiesAfter: p("families after a reminder", "परिवार, याद के बाद"),
-  balance: p("AiSensy balance", "AiSensy बैलेंस"),
-  balanceSub: p("check in AiSensy", "AiSensy में देखें"),
+  balance: p("WhatsApp balance", "WhatsApp बैलेंस"),
+  balanceSub: p("check on the school's WhatsApp dashboard", "स्कूल के WhatsApp डैशबोर्ड पर देखें"),
   // Nothing reads fee_reminder_rules yet: no job in either app sends from
   // them, so a rule switched on is a saved setting, not a sender (smoke 6 Nov).
   automaticOn: p("automatic set · not sending yet", "अपने-आप तय · अभी नहीं भेजे जाते"),
@@ -112,8 +112,8 @@ export const W = {
   leftShort: p("left", "छोड़ गए"),
   message: p("Message", "संदेश"),
   cost: p("Cost", "ख़र्च"),
-  balanceAfter: p("AiSensy balance after", "बाद में AiSensy बैलेंस"),
-  notKnown: p("Check in AiSensy · not known here", "AiSensy में देखें · यहाँ पता नहीं"),
+  balanceAfter: p("WhatsApp balance after", "बाद में WhatsApp बैलेंस"),
+  notKnown: p("Check the school's WhatsApp dashboard · not known here", "स्कूल के WhatsApp डैशबोर्ड पर देखें · यहाँ पता नहीं"),
   when: p("When", "कब"),
   sendNow: p("Send now", "अभी"),
   schedule: p("Schedule", "समय तय करें"),
@@ -134,7 +134,7 @@ export const W = {
   familiesTile: p("Families", "परिवार"),
   balanceTile: p("Balance after", "बाद में बैलेंस"),
   notKnownShort: p("not known here", "यहाँ पता नहीं"),
-  cfHindiFirst: p("Hindi first, English below · approved AiSensy template", "पहले हिंदी, नीचे अंग्रेज़ी · स्वीकृत AiSensy टेम्पलेट"),
+  cfHindiFirst: p("Hindi first, English below · approved WhatsApp template", "पहले हिंदी, नीचे अंग्रेज़ी · स्वीकृत WhatsApp टेम्पलेट"),
   cfLeftOut: p("Families who promised or paid in the last 3 days are left out", "वादा करने वाले और 3 दिन में जमा करने वाले परिवार छोड़े गए"),
   confirmNote: p(
     "Messages cannot be taken back once they are sent. Nothing is sent from here: the batch waits in Messages → To send.",

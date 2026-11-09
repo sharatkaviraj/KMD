@@ -13,7 +13,8 @@ import {
   V6_CAMPAIGNS,
 } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { campaignFor, type NoticeValues } from "@/modules/whatsapp/domain/campaigns";
-import { aisensyTemplateParams, payNowButton } from "@/modules/whatsapp/data/aisensy";
+import { payNowButton } from "@/modules/whatsapp/data/parent-send";
+import { templateMessageBody } from "@/platform/whatsapp/payload";
 
 // The fees app mocks these once in tests/setup.ts; One has no shared setup
 // file, so each ported test carries the same three (go-live Phase D).
@@ -32,7 +33,7 @@ afterEach(() => {
 });
 
 
-const AISENSY = readFileSync(join(process.cwd(), "src/modules/whatsapp/data/aisensy.ts"), "utf8");
+const PARENT_SEND = readFileSync(join(process.cwd(), "src/modules/whatsapp/data/parent-send.ts"), "utf8");
 
 /**
  * The `_v6` fee notices, as they will be submitted to Meta.
@@ -196,7 +197,7 @@ describe("filling a v6 notice", () => {
 });
 
 describe("the Pay now button", () => {
-  it("is AiSensy's URL-button parameter carrying the send's pay code", () => {
+  it("is a URL button whose parameter is the send's own pay code", () => {
     expect(payNowButton("abc123")).toEqual({
       type: "button",
       sub_type: "url",
@@ -205,19 +206,20 @@ describe("the Pay now button", () => {
     });
   });
 
-  it("goes on the wire as the param after the body's, never as a buttons key", () => {
-    // AiSensy counts Pay now as {{6}} on a five-slot body. Five params plus a
-    // `buttons` entry was refused on 2026-10-26 ("Template params does not
-    // match the campaign"); six params and no `buttons` key was delivered.
+  it("goes on the wire as its own button component, never as one of the body's values", () => {
+    // AiSensy counted Pay now as {{6}} on a five-slot body. Meta's own format,
+    // which the school's WhatsApp speaks (D-562), keeps the body's five and
+    // puts the pay code in a `button` component of its own.
     const body = ["9,125", "Aarav · Class 2", "Installment 3", "30-10-2026", "Rs. 1,000"];
-    expect(aisensyTemplateParams({ templateParams: body, buttons: [payNowButton("abc123")] })).toEqual(
-      [...body, "abc123"],
-    );
-    expect(aisensyTemplateParams({ templateParams: body })).toBe(body);
-    expect(aisensyTemplateParams({ templateParams: body, buttons: [] })).toBe(body);
-
-    const wire = AISENSY.slice(AISENSY.indexOf("body: JSON.stringify"));
-    expect(wire).not.toMatch(/\bbuttons:/);
+    const wire = templateMessageBody({ to: "+919000000001", name: "vpps_app_fee_due_en_v7", languageCode: "en", bodyParams: body, urlButtonSuffix: "abc123" }) as {
+      template: { components: Array<{ type: string; parameters: Array<{ text?: string }>; sub_type?: string; index?: string }> };
+    };
+    const components = wire.template.components;
+    expect(components.find((part) => part.type === "body")!.parameters.map((p) => p.text)).toEqual(body);
+    expect(components.find((part) => part.type === "button")).toEqual({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: "abc123" }] });
+    // parent-send hands the button's code to the service separately from the body.
+    expect(PARENT_SEND).toContain("urlButton: button?.parameters[0]?.text ?? null");
+    expect(PARENT_SEND).not.toMatch(/templateParams:\s*\[\.\.\.args\.templateParams/);
   });
 
   it("is the sixth param on every v6 notice that shows it", () => {

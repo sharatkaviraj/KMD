@@ -16,7 +16,7 @@ it("an interrupted send recovers immediately after attributed not-sent reconcili
   calls.preview.mockResolvedValue({ok:true,id:"preview",digest:"digest",name:"Synthetic Teacher",phone:"9000000000",title:"Synthetic task"});
   calls.confirm.mockRejectedValue(new Error("finish response lost"));calls.reconcile.mockResolvedValue(true);
   const click=async(label:string)=>act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent===label)!.click());
-  await act(async()=>render());await click("Review message");await click("Send through AiSensy");
+  await act(async()=>render());await click("Review message");await click("Send on WhatsApp");
   summary.deliveries=[{id:"send",state:"unknown",transport:"aisensy",phone:"9000000000",at:"2026-10-16",round:"initial",attempt:"attempt:synthetic",history:[]}];
   await act(async()=>render());
   await act(async()=>{const input=host.querySelector("textarea")!;Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value")!.set!.call(input,"Verified synthetic provider log: no send");input.dispatchEvent(new Event("input",{bubbles:true}));});
@@ -29,8 +29,8 @@ it("shows the actual reviewed number and a typed changed-recipient refusal",asyn
   await act(async()=>root.render(<TaskDelivery id="task" language="en" availability="ready" summary={{pending:true,deliveries:[]}}/>));
   await act(async()=>host.querySelector<HTMLButtonElement>("button")!.click());
   expect(host.textContent).toContain("+91 9000000000");
-  const send=[...host.querySelectorAll("button")].find(b=>b.textContent==="Send through AiSensy")!;
-  await act(async()=>send.click());expect(host.textContent).toContain("changed");expect(host.textContent).not.toContain("Accepted by AiSensy");
+  const send=[...host.querySelectorAll("button")].find(b=>b.textContent==="Send on WhatsApp")!;
+  await act(async()=>send.click());expect(host.textContent).toContain("changed");expect(host.textContent).not.toContain("Accepted by WhatsApp");
 });
 it("unknown blocks ordinary API/manual resend and exposes attributed reconciliation controls",async()=>{
   await act(async()=>root.render(<TaskDelivery id="task" language="en" availability="ready" summary={{pending:true,deliveries:[{id:"send",state:"unknown",transport:"aisensy",phone:"9000000000",at:"2026-10-16",round:"initial",attempt:"attempt:synthetic",history:[]}]}}/>));

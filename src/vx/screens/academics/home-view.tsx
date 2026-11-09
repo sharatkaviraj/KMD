@@ -146,7 +146,7 @@ export function AcadHomeView(props: AcadHomeProps) {
           )}
           unit={{ one: { en: "class", hi: "कक्षा" }, many: { en: "classes", hi: "कक्षाएँ" } }}
           costEach={COST_PER_MESSAGE}
-          channel={{ en: "AiSensy · WhatsApp", hi: "AiSensy · WhatsApp" }}
+          channel={{ en: "School WhatsApp", hi: "स्कूल का WhatsApp" }}
           note={{ en: "Sent once per class per day. If the register is saved before it goes, it is not sent.", hi: "हर कक्षा के लिए दिन में एक बार। रजिस्टर पहले सहेजा गया तो नहीं जाएगा।" }}
         />
       );
@@ -174,7 +174,7 @@ export function AcadHomeView(props: AcadHomeProps) {
           previews={previews}
           unit={{ one: { en: "teacher", hi: "शिक्षक" }, many: { en: "teachers", hi: "शिक्षक" } }}
           costEach={COST_PER_MESSAGE}
-          channel={{ en: "AiSensy · WhatsApp", hi: "AiSensy · WhatsApp" }}
+          channel={{ en: "School WhatsApp", hi: "स्कूल का WhatsApp" }}
           note={{ en: "One message per teacher, naming every paper still open. You can undo for a few seconds after sending.", hi: "हर शिक्षक को एक संदेश, सभी बाकी पेपरों के नाम के साथ। भेजने के बाद कुछ सेकंड तक वापस ले सकते हैं।" }}
         />
       );

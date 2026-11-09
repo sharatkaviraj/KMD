@@ -60,9 +60,10 @@ Production, Preview and Development.
 
 Not carried over, because Vercel will not decrypt Secret-type values and the
 fee app's backup stores them as `[SENSITIVE]`:
-`AISENSY_API_KEY`, `AISENSY_CAMPAIGN`, `SENTRY_AUTH_TOKEN`, `CRON_SECRET`.
-Add them from AiSensy and Sentry directly when Phase 5 / Phase 7 needs them;
-`CRON_SECRET` should be a fresh value, not the fee app's.
+`SENTRY_AUTH_TOKEN`, `CRON_SECRET`. Add them from Sentry directly when
+Phase 7 needs them; `CRON_SECRET` should be a fresh value, not the fee app's.
+`AISENSY_*` are not read by One any more: it sends from the school's own
+WhatsApp number, set up as in [whatsapp/SETUP.md](whatsapp/SETUP.md) (D-562).
 
 ### The AI helper's key (D-324)
 

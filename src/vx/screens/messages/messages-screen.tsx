@@ -64,7 +64,7 @@ import {
  * family; a family message is never sent by the app — it waits in To send
  * until a person sends it from their own WhatsApp (UI-71, D-10). Drawn as the
  * design: the sent log, delivery, compose with a live phone preview, the
- * outcome, AiSensy templates and parent replies.
+ * outcome, WhatsApp templates and parent replies.
  */
 
 export type MessagesView = "sent" | "outbox" | "replies" | "templates" | "staff";
@@ -300,7 +300,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, staffLog = nu
             steps={[
               { icon: "megaphone", title: tx(p("Write once", "एक बार लिखें")), body: tx(p("Every family gets its own copy with their name and child filled in. Siblings share one message.", "हर परिवार को अपने नाम और बच्चे के साथ अपनी प्रति मिलती है। भाई-बहनों का एक संदेश।")) },
               { icon: "send", title: tx(p("You press send", "भेजते आप हैं")), body: tx(p("Family messages wait in To send. Each one opens your WhatsApp with the text filled in, and is marked sent by you. Nothing reaches a parent by accident.", "परिवारों के संदेश ‘भेजने को’ में रहते हैं। हर एक आपके व्हाट्सऐप में भरा हुआ खुलता है और आप उसे भेजा हुआ दर्ज करते हैं।")) },
-              { icon: "rupee", title: tx(p("Cost", "ख़र्च")), body: tx(p("AiSensy charges about ₹0.88 a message. The cost is shown before you queue.", "AiSensy लगभग ₹0.88 प्रति संदेश लेता है। कतार से पहले ख़र्च दिखता है।")) },
+              { icon: "rupee", title: tx(p("Cost", "ख़र्च")), body: tx(p("WhatsApp charges about ₹0.88 a message. The cost is shown before you queue.", "WhatsApp लगभग ₹0.88 प्रति संदेश लेता है। कतार से पहले ख़र्च दिखता है।")) },
             ]}
           />
         </span>
@@ -625,7 +625,7 @@ function Outcome({ campaign: c, done, parentDispatchOn, pending, onStop }: { cam
   const sentPct = pct(c.counts.sent, total);
   const family = c.audience !== "staff";
   const waitingByHand = family && !parentDispatchOn;
-  const line = c.status === "cancelled" ? p("Stopped", "रोका गया") : c.counts.queued ? (waitingByHand ? p("Waiting in To send", "‘भेजने को’ में प्रतीक्षा") : p("Sending through AiSensy", "AiSensy से जा रहा है")) : p("Done", "पूरा");
+  const line = c.status === "cancelled" ? p("Stopped", "रोका गया") : c.counts.queued ? (waitingByHand ? p("Waiting in To send", "‘भेजने को’ में प्रतीक्षा") : p("Sending on WhatsApp", "WhatsApp से जा रहा है")) : p("Done", "पूरा");
   const counts: [Pair, number, string][] = [
     [p(`Sent of ${c.counts.total}`, `${c.counts.total} में से भेजे`), c.counts.sent, "var(--fg)"],
     [p("Waiting", "बाकी"), c.counts.queued, "var(--ok)"],
@@ -981,13 +981,13 @@ function Templates({ templates, tabs, onNew }: { templates: TemplateView[]; tabs
         <section className="pad mx-pg" style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column" }}>
-              <span style={h15}>{tx(p("AiSensy templates", "AiSensy टेम्पलेट"))}</span>
+              <span style={h15}>{tx(p("WhatsApp templates", "WhatsApp टेम्पलेट"))}</span>
               <span style={m12}>{tx(p("WhatsApp must approve a template before it can go to parents.", "अभिभावकों को भेजने से पहले व्हाट्सऐप टेम्पलेट को मंज़ूर करता है।"))}</span>
             </span>
             <Btn variant="soft" icon="plus" onClick={onNew}>{tx(p("New template", "नया टेम्पलेट"))}</Btn>
           </div>
           <div className="card" style={{ overflow: "hidden" }}>
-            {templates.length === 0 ? <div style={{ padding: "24px 16px", ...m13 }}>{tx(p("No templates yet. Add one to send notices through AiSensy.", "अभी कोई टेम्पलेट नहीं। AiSensy से सूचना भेजने के लिए एक जोड़ें।"))}</div> : null}
+            {templates.length === 0 ? <div style={{ padding: "24px 16px", ...m13 }}>{tx(p("No templates yet. Add one to send notices on WhatsApp.", "अभी कोई टेम्पलेट नहीं। WhatsApp से सूचना भेजने के लिए एक जोड़ें।"))}</div> : null}
             {templates.map((t, i) => {
               const tone = stateTone(t);
               return (

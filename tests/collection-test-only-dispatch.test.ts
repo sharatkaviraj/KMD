@@ -19,7 +19,7 @@ const REAL_PARENT = "9876543210";
 
 const state = vi.hoisted(() => ({
   mode: "test_only" as "on" | "test_only" | "off",
-  provider: "aisensy" as string,
+  provider: "whatsapp" as string,
   row: {} as Record<string, unknown>,
   transport: [] as string[],
 }));
@@ -44,12 +44,12 @@ vi.mock("@/modules/collection/data/parent-messages-repo", () => ({
   snapshotNow: vi.fn(),
   staleness: async () => ({ reasons: [], extras: { category: "general", snapshot: null, approved_at: null } }),
 }));
-// AiSensy's choke point, with the REAL gate and a reader in the shape the
+// The parent-send choke point, with the REAL gate and a reader in the shape the
 // migration leaves: parent_dispatch off, test-only on, one allowlisted number.
-vi.mock("@/modules/whatsapp/data/aisensy", async () => {
+vi.mock("@/modules/whatsapp/data/parent-send", async () => {
   const { checkParentSend } = await import("@/platform/messaging/parent-send-gate");
   return {
-    sendAisensyCampaignMessage: async (args: { campaignName: string; destination: string; gate: object }) => {
+    sendParentTemplate: async (args: { campaignName: string; destination: string; gate: object }) => {
       const verdict = await checkParentSend(
         { ...(args.gate as ParentSendGate), campaignName: args.campaignName, destination: args.destination },
         {
@@ -64,7 +64,7 @@ vi.mock("@/modules/whatsapp/data/aisensy", async () => {
       );
       if (!verdict.ok) return { ok: false, status: 0, error: `Not sent: ${verdict.reason}`, refused: true, refusalCode: verdict.code };
       state.transport.push(args.destination);
-      return { ok: true, status: 200, messageId: "aisensy-qa" };
+      return { ok: true, status: 200, messageId: "wamid.qa" };
     },
   };
 });
@@ -104,7 +104,7 @@ function parentSend(toPhone: string): MessageSend {
 
 beforeEach(() => {
   state.mode = "test_only";
-  state.provider = "aisensy";
+  state.provider = "whatsapp";
   state.transport = [];
 });
 
@@ -122,11 +122,11 @@ describe("/collection parent messages in test-only mode", () => {
     expect(state.transport).toEqual([]);
   });
 
-  it("lets an allowlisted number through to AiSensy", async () => {
+  it("lets an allowlisted number through to the school's WhatsApp", async () => {
     const send = parentSend(ALLOWLISTED);
     rowFor(send);
     const result = await dispatch(send);
-    expect(result).toEqual({ ok: true, providerMessageId: "aisensy-qa" });
+    expect(result).toEqual({ ok: true, providerMessageId: "wamid.qa" });
     expect(state.transport).toEqual([`+91${ALLOWLISTED}`]);
   });
 
@@ -146,7 +146,7 @@ describe("/collection parent messages in test-only mode", () => {
     rowFor(send);
     const result = await dispatch(send);
     expect(result.ok).toBe(false);
-    expect(result.ok ? "" : result.error).toMatch(/only through the AiSensy gate/);
+    expect(result.ok ? "" : result.error).toMatch(/only through the school's WhatsApp and its gate/);
     expect(state.row.provider_message_id).toBeNull();
   });
 });
