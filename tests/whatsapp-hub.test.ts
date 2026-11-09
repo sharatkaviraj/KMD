@@ -34,7 +34,7 @@ import { POST as hubWebhook } from "@/app/api/webhooks/whatsapp-hub/route";
 import { APPROVED_HUB, V7_SITUATIONS, V8_SITUATIONS, activeCampaignName, v7CampaignName, v8CampaignName } from "@/modules/whatsapp/domain/campaign-generation";
 import { V7_CAMPAIGNS, V8_CAMPAIGNS } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { classifyFailure } from "@/modules/whatsapp/domain/failure-cause";
-import { HUB_TEMPLATE_SUBMISSIONS, hubExpectedBodies } from "@/modules/whatsapp/domain/hub-templates";
+import { HUB_TEMPLATE_SUBMISSIONS, hubExpectedBodies, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
 import { describeError } from "@/platform/whatsapp/errors";
 import { HUB_CODES, providerFor, readHubStatus, refusalCode } from "@/platform/whatsapp/providers";
@@ -250,6 +250,23 @@ describe("the _v8 set", () => {
       }
     }
     expect(v7CampaignName("fee_due", "hi")).toBe("vpps_app_fee_due_hi_v7");
+  });
+
+  it("counts a feature's approvals against the hub's names once it has them, not every old generation", () => {
+    // 9 Nov: Fee reminders read "20 of 76 approved" with 20 of the 22 _v8 approved.
+    const feeReminders = [
+      { key: "vpps_app_fee_due_hi_v8", status: "approved" },
+      { key: "vpps_app_upcoming_hi_v8", status: "pending" },
+      { key: "vpps_app_fee_due_hi_v7", status: "not_submitted" },
+      { key: "vpps_fee_due_hi_v3", status: "not_submitted" },
+    ];
+    expect(templatesThatCount(feeReminders).map((row) => row.key)).toEqual(["vpps_app_fee_due_hi_v8", "vpps_app_upcoming_hi_v8"]);
+    // A feature with nothing on the hub yet is counted against all of its rows.
+    const receipts = [
+      { key: "vpps_receipt_hi_v5", status: "not_submitted" },
+      { key: "vpps_receipt_en_v5", status: "not_submitted" },
+    ];
+    expect(templatesThatCount(receipts)).toEqual(receipts);
   });
 });
 

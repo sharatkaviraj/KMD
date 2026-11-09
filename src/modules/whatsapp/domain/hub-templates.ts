@@ -41,6 +41,23 @@ export function hubTemplateSubmission(entry: V6Descriptor): TemplateSubmission {
 /** The 22 `_v8` templates, Hindi and English, ready for the hub. */
 export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = V8_CAMPAIGNS.map(hubTemplateSubmission);
 
+const HUB_NAMES: ReadonlySet<string> = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
+
+/**
+ * The templates a feature's "N of M approved" is counted against. One sends
+ * only through the hub, and the hub carries only the names it was given, so
+ * once a feature has hub templates its older generations (AiSensy-era names
+ * that will never be on the hub) are history, not "still to approve". A
+ * feature with no hub templates yet is counted against all of its rows.
+ *
+ * 9 Nov 2026: on the day 20 of the 22 sent were approved, Settings ->
+ * WhatsApp said "Fee reminders: 20 of 76 approved".
+ */
+export function templatesThatCount<T extends { key: string }>(rows: readonly T[]): T[] {
+  const onHub = rows.filter((row) => HUB_NAMES.has(row.key));
+  return onHub.length > 0 ? onHub : [...rows];
+}
+
 /** Registry key → the exact approved wording One expects, for the sync's byte check. */
 export function hubExpectedBodies(): ReadonlyMap<string, string> {
   return new Map(V8_CAMPAIGNS.map((entry) => [entry.campaignName, entry.body]));

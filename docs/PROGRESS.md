@@ -39,7 +39,11 @@ a refusal puts it back with the hub's own words, three go at a time.
 By 09:16 UTC Meta had approved 20 of the 22, every one also passing One's
 own check (button host, five blanks, the `_v7` wording to the byte);
 `APPROVED_HUB` lists those 20, so the fee reminder screens use their `_v8`
-names. Still with Meta: `upcoming_hi_v8`, `promise_lapsed_hi_v8`.
+names (PR 340, `69c0d66`; Vercel missed the push and the production deploy
+was started by hand). Still with Meta: `upcoming_hi_v8`, `promise_lapsed_hi_v8`.
+The "Which messages" row read "Fee reminders: 20 of 76 approved", counting
+every AiSensy-era generation; it now counts a feature against its hub names
+once it has any (`templatesThatCount`), so it reads 20 of 22.
 **Remains:** add those two once they read approved; then the owner's written
 go-ahead (SETUP.md "What is left to fill in"): practice mode off, one feature
 on, a test to his own number, the hub to live, and only then real recipients.

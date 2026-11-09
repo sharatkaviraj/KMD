@@ -1,7 +1,7 @@
 import Link from "@/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
-import { HUB_TEMPLATE_SUBMISSIONS } from "@/modules/whatsapp/domain/hub-templates";
+import { HUB_TEMPLATE_SUBMISSIONS, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
 import { featureLabels, messageStatusLabels, noteFor, templateStatusLabels, waMessages as w } from "@/messages/whatsapp-settings";
 import { requirePermission } from "@/platform/auth/current-staff";
 import type { Language, Localized } from "@/platform/i18n/language";
@@ -278,7 +278,7 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
               <ul style={list}>
                 {WHATSAPP_FEATURES.map((feature) => {
                   const on = switches?.features[feature] === true;
-                  const rows = byFeature.get(feature) ?? [];
+                  const rows = templatesThatCount(byFeature.get(feature) ?? []);
                   const approved = rows.filter((row) => row.status === "approved").length;
                   return (
                     <li key={feature} style={rowStyle}>
