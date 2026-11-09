@@ -77,11 +77,16 @@ of "Done. This family has ended." The family page now holds the family while
 a change it started is saving, then shows "This family has ended" (or "joined
 with another" when adding a child folded it into an older family, where Done
 opens the joined family). `tests/vx-family-ends.test.tsx` (fails on the old code).
-**Remains:** the Fees migration for those routes (source functions and the
-`can_link_family` grant flag) waits for the owner's go-ahead on the live Fees
-database; it is written and proved on a local Postgres replay of every Fees
-migration (`/mnt/project-files/families-2026-11-08/fees-pr-b/`). Until it is
-applied a real admin sees "not switched on yet". The family statement PDF is
+**Real year switched on (9 Nov 2026, 03:33 UTC):** on the owner's go-ahead
+the Fees migration for those routes was applied to the live Fees database
+(`20261109033321_one_bridge_family_commands`, schoolfees PR 155) and
+`can_link_family` turned on for the two real Fees admins only (not the QA
+admin: test accounts stay in the test year). A no-write preview on live
+allowed both admins and refused the QA admin, an accountant and a TEST-year
+request. Test accounts cannot open the real year, so the first real link or
+take-out from One is a real admin's. BrowserStack 03:45 UTC (QA admin, TEST
+year, no save): Windows Chrome and Galaxy M32 both opened Families, a family
+and the take-out fee check, and closed it with nothing changed. **Remains:** the family statement PDF is
 still a Fees screen. `tests/sentry-lite.test.ts` fails in a checkout under
 `/home/user` (the path holds "user"), as on main.
 
