@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
   previewing: false,
   setPracticeMode: vi.fn(async () => true),
   setFeatureSwitch: vi.fn(async () => true),
+  submitHubTemplateSet: vi.fn(async () => ({ ok: true as const, sent: 22, skipped: 0, failed: [] as Array<{ name: string; problem: string }> })),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -42,16 +43,18 @@ vi.mock("@/vx/view-as", () => ({
   },
 }));
 vi.mock("@/platform/env", () => ({ getSiteUrl: () => "https://one.example.test" }));
-vi.mock("@/platform/whatsapp/service", () => ({ checkConnection: vi.fn(), retryMessage: vi.fn(), syncTemplates: vi.fn() }));
+vi.mock("@/platform/whatsapp/service", () => ({ checkConnection: vi.fn(), retryMessage: vi.fn() }));
 vi.mock("@/platform/whatsapp/store", () => ({
   readMessage: vi.fn(),
   setFeatureSwitch: state.setFeatureSwitch,
   setPracticeMode: state.setPracticeMode,
-  setTemplateStatus: vi.fn(),
 }));
+vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ submitHubTemplateSet: state.submitHubTemplateSet, syncHubTemplates: vi.fn() }));
 vi.mock("@/modules/whatsapp/data/whatsapp-source-sync", () => ({ syncSettledToSource: vi.fn() }));
 
-import { setFeatureAction, setPracticeModeAction } from "@/app/(app)/settings/whatsapp/actions";
+import * as actions from "@/app/(app)/settings/whatsapp/actions";
+
+const { setFeatureAction, setPracticeModeAction, submitHubTemplatesAction } = actions;
 
 function form(values: Record<string, string>) {
   const data = new FormData();
@@ -75,6 +78,7 @@ beforeEach(() => {
   state.previewing = false;
   state.setPracticeMode.mockClear();
   state.setFeatureSwitch.mockClear();
+  state.submitHubTemplateSet.mockClear();
 });
 
 describe("Settings → WhatsApp refuses in plain words", () => {
@@ -107,5 +111,33 @@ describe("Settings → WhatsApp refuses in plain words", () => {
     }
     expect(noteFor("practice_locked", { why: "test" })?.text.en).toMatch(/practice account/);
     expect(noteFor("feature_locked", { why: "preview" })?.text.en).toMatch(/seeing One as someone else/);
+  });
+});
+
+describe("Settings → WhatsApp and the hub's templates (D-566)", () => {
+  it("has no way to mark a template approved by hand: only the hub's list does that", () => {
+    expect(Object.keys(actions)).not.toContain("markTemplateAction");
+  });
+
+  it("an admin sends the _v8 set for approval and is told how many went", async () => {
+    const to = await landing(submitHubTemplatesAction());
+    expect(to).toBe("/settings/whatsapp?note=hub_sent&sent=22&skipped=0&failed=0#hub");
+    expect(state.submitHubTemplateSet).toHaveBeenCalledWith({ staffId: "staff-qa" });
+    expect(noteFor("hub_sent", { sent: "22", failed: "0" })?.text.en).toBe("Sent 22 to Meta for approval. Approval shows here as soon as it comes.");
+  });
+
+  it("a practice account cannot send the school's templates to Meta", async () => {
+    state.testAccount = true;
+    const to = await landing(submitHubTemplatesAction());
+    expect(to).toBe("/settings/whatsapp?note=hub_locked&why=test#hub");
+    expect(state.submitHubTemplateSet).not.toHaveBeenCalled();
+  });
+
+  it("says what went wrong when the hub refuses, in both languages", () => {
+    const note = noteFor("hub_bad", { why: "The hub refused One's key." });
+    expect(note?.tone).toBe("bad");
+    expect(note?.text.en).toMatch(/refused One's key/);
+    expect(note?.text.hi).toMatch(/refused One's key/);
+    expect(noteFor("hub_sent", { sent: "20", failed: "2", why: "bad" })?.tone).toBe("warn");
   });
 });

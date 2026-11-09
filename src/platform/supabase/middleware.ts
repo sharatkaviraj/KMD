@@ -76,7 +76,8 @@ function isPublicPath(pathname: string) {
  *                         random pay code is the only input;
  *  - `/api/webhooks/*`    Razorpay's webhook — its HMAC signature, and a 404
  *    `/api/fees/webhooks/*` until `RAZORPAY_WEBHOOK_SECRET` is set — and the
- *                         school WhatsApp's, by `x-hub-signature-256` (D-562);
+ *                         school WhatsApp's (Meta's and the hub's), by
+ *                         `x-hub-signature-256` (D-562, D-566);
  *  - `/api/fees/cron/*`   pg_cron and Vercel cron — `CRON_SECRET` or the
  *                         route's own secret, refused without one.
  *

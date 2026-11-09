@@ -207,6 +207,7 @@ describe("a cold request with no cookie", () => {
     "/api/webhooks/razorpay",
     "/api/fees/webhooks/razorpay",
     "/api/webhooks/whatsapp",
+    "/api/webhooks/whatsapp-hub",
     "/api/jobs/whatsapp-queue",
     "/api/fees/cron/online-payments",
     "/api/fees/cron/whatsapp-scheduled-runs",

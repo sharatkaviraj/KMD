@@ -10,19 +10,30 @@ import {
   type WhatsAppRefusal,
   type WhatsAppSwitches,
 } from "@/platform/whatsapp/policy";
-import { providerFor, type ProviderConnection, type ProviderSendResult, type WhatsAppProvider } from "@/platform/whatsapp/providers";
+import {
+  providerFor,
+  type ProviderConnection,
+  type ProviderSendResult,
+  type ProviderStatus,
+  type TemplateSubmission,
+  type WhatsAppProvider,
+} from "@/platform/whatsapp/providers";
 import {
   claimSend,
   readMessage,
   readSwitches,
   readTemplateRow,
   recordAttempt,
+  recordStatus,
   takeDue,
+  takePollable,
   whatsappDb,
   wroteWithin24h,
   type MessageRow,
   type MessageStatus,
+  type StatusAnswer,
 } from "@/platform/whatsapp/store";
+import type { WebhookTemplateEvent } from "@/platform/whatsapp/webhook";
 
 /**
  * The one WhatsApp service in One (D-562). Everything that messages anybody
@@ -33,8 +44,8 @@ import {
  *   sendText(phone, text, { feature, … })
  *   getStatus(messageId)
  *
- * It talks to the school's own WhatsApp server or straight to Meta's Cloud
- * API (config.ts), in Meta's message format either way, and it writes every
+ * It talks to the school's WhatsApp hub or straight to Meta's Cloud API
+ * (config.ts), in Meta's message format either way, and it writes every
  * message to `vppsone.whatsapp_messages` — sent, refused, practice or queued.
  *
  * It does NOT decide whether a parent should hear about something: the
@@ -87,14 +98,15 @@ const RETRY_DELAYS_MINUTES = [5, 20, 60, 180] as const;
  * Meta is asked, once per server instance every ten minutes, which number
  * this phone-number ID sends from. A deployment whose ID belongs to any other
  * number than the school's sends nothing, whatever WHATSAPP_SENDER_NUMBER
- * says. The school's own server is held to the same answer when it gives one.
+ * says. The hub is not asked: it owns +91 83022 07823 and no other number,
+ * and it never uses the fees app's (its API doc, 9 Nov).
  */
 let senderCheck: { at: number; key: string; connection: ProviderConnection } | null = null;
 const SENDER_CHECK_MS = 10 * 60 * 1000;
 
 async function senderProblem(config: Extract<WhatsAppConfig, { ok: true }>, provider: WhatsAppProvider): Promise<string | null> {
-  if (config.provider === "mock") return null;
-  const key = config.provider === "meta_cloud" ? `meta:${config.phoneNumberId}` : `server:${config.apiUrl}`;
+  if (config.provider !== "meta_cloud") return null;
+  const key = `meta:${config.phoneNumberId}`;
   if (!senderCheck || senderCheck.key !== key || Date.now() - senderCheck.at > SENDER_CHECK_MS) {
     senderCheck = { at: Date.now(), key, connection: await provider.checkConnection() };
   }
@@ -102,7 +114,7 @@ async function senderProblem(config: Extract<WhatsAppConfig, { ok: true }>, prov
   if (connection.displayNumber && connection.displayNumber !== SCHOOL_WHATSAPP_NUMBER) {
     return "The WhatsApp server sends from a different number than the school's. Nothing was sent.";
   }
-  if (config.provider === "meta_cloud" && !connection.ok) {
+  if (!connection.ok) {
     // Not cached as a pass: try again next time.
     senderCheck = null;
     return connection.problem ?? "Could not confirm the school's number with Meta. Nothing was sent.";
@@ -347,10 +359,19 @@ export type MessageStatusView = {
   problem: { hi: string; en: string } | null;
 };
 
-/** Where a message is now, by the log's id or WhatsApp's own message id. Kept current by the webhook. */
-export async function getStatus(messageId: string): Promise<MessageStatusView | null> {
-  const row = await readMessage(messageId);
+/**
+ * Where a message is now, by the log's id or WhatsApp's own message id. Kept
+ * current by the webhook; `refresh` asks the hub first
+ * (`GET /v1/status/{wamid}`), for anything that cannot wait for a webhook
+ * the hub delivers only best-effort.
+ */
+export async function getStatus(messageId: string, options: { refresh?: boolean } = {}): Promise<MessageStatusView | null> {
+  let row = await readMessage(messageId);
   if (!row) return null;
+  if (options.refresh && row.provider_message_id && ["accepted", "sent", "delivered", "unknown"].includes(row.status)) {
+    const polled = await pollOne(row.provider_message_id).catch(() => null);
+    if (polled?.changed) row = (await readMessage(row.id)) ?? row;
+  }
   const troubled = ["failed", "unknown", "held", "retry_wait"].includes(row.status);
   return {
     id: row.id,
@@ -538,14 +559,22 @@ const STATUS_FROM_META: Record<string, string> = {
 };
 
 /**
- * Read every template's status from the school's WhatsApp account and write
- * it to the registry. A template whose URL button opens anywhere but One is
- * marked disabled whatever Meta says: a Pay now link to the wrong host is how
- * a parent pays the wrong app.
+ * Read every template's status from the school's WhatsApp account (the hub's
+ * `GET /v1/templates`, or Meta's own list) and write it to the registry. The
+ * hub's list is the source of truth: a row reads `approved` only when that
+ * list says APPROVED, and only once it passes three more checks, each failing
+ * to `disabled` with the reason on screen:
+ *
+ *  - a URL button opens One's own host: a Pay now link to the wrong host is
+ *    how a parent pays the wrong app;
+ *  - the blanks and the PDF header are the ones One fills;
+ *  - where the caller knows the wording (`expectedBodies`, the `_v8` set),
+ *    the approved body is that wording to the byte.
  */
 export async function syncTemplates(
   actor: { staffId: string | null },
   siteOrigin: string,
+  options: { expectedBodies?: ReadonlyMap<string, string> } = {},
 ): Promise<{ ok: true; checked: number; approved: number; missing: number } | { ok: false; problem: string }> {
   const config = readWhatsAppConfig();
   if (!config.ok) return { ok: false, problem: config.reason };
@@ -553,7 +582,9 @@ export async function syncTemplates(
   if (!listed.ok) return { ok: false, problem: listed.problem };
 
   const db = whatsappDb();
-  const { data: rows, error } = await db.from("whatsapp_templates").select("key, provider_name, language_code, body_params, header, url_button");
+  const { data: rows, error } = await db
+    .from("whatsapp_templates")
+    .select("key, provider_name, language_code, body_params, header, url_button, status, submitted_at");
   if (error || !rows) return { ok: false, problem: "Could not read the template list." };
 
   let approved = 0;
@@ -566,10 +597,16 @@ export async function syncTemplates(
     }
   })();
   const now = new Date().toISOString();
-  for (const row of rows as Array<{ key: string; provider_name: string; language_code: string; body_params: number; header: string; url_button: boolean }>) {
+  type Row = { key: string; provider_name: string; language_code: string; body_params: number; header: string; url_button: boolean; status: string; submitted_at: string | null };
+  for (const row of rows as Row[]) {
     const found = listed.templates.find((template) => template.name === row.provider_name && template.language === row.language_code);
     let status = found ? (STATUS_FROM_META[found.status] ?? "pending") : "not_submitted";
     let reason: string | null = found?.rejectedReason ?? null;
+    if (!found && row.submitted_at) {
+      // Sent for approval from here, and not in the list yet: still Meta's.
+      status = "pending";
+      reason = "Sent for approval; not in the hub's list yet.";
+    }
     if (found && status === "approved") {
       const buttonHost = (() => {
         try {
@@ -578,6 +615,7 @@ export async function syncTemplates(
           return "unreadable";
         }
       })();
+      const expected = options.expectedBodies?.get(row.key);
       if (row.url_button && buttonHost !== host) {
         status = "disabled";
         reason = `Its button opens ${buttonHost ?? "nothing"}, not ${host}.`;
@@ -587,16 +625,191 @@ export async function syncTemplates(
       } else if ((found.header === "document") !== (row.header === "document")) {
         status = "disabled";
         reason = row.header === "document" ? "The approved template has no PDF header." : "The approved template expects a PDF.";
+      } else if (expected !== undefined && found.bodyText !== expected) {
+        status = "disabled";
+        reason = "The approved wording is not the wording One sends.";
       }
     }
     if (status === "approved") approved += 1;
     if (!found) missing += 1;
+    const category = found?.category && ["utility", "marketing", "authentication"].includes(found.category) ? found.category : null;
     await db
       .from("whatsapp_templates")
-      .update({ status, status_reason: reason, status_checked_at: now, updated_at: now, updated_by: actor.staffId })
+      .update({
+        status,
+        status_reason: reason,
+        status_checked_at: now,
+        quality: found?.quality ?? null,
+        ...(category ? { category } : {}),
+        updated_at: now,
+        updated_by: actor.staffId,
+      })
       .eq("key", row.key);
   }
   return { ok: true, checked: rows.length, approved, missing };
+}
+
+/* ------------------------------------------------------------- the hub's status */
+
+/** A status from the hub, as the log's never-backwards write takes it. `accepted` is not news. */
+export function statusWrite(status: ProviderStatus): { status: "sent" | "delivered" | "read" | "failed"; errorCode: string | null } | null {
+  if (status.status === "accepted") return null;
+  if (status.status === "blocked") return { status: "failed", errorCode: status.errorCode ?? "blocked" };
+  return { status: status.status, errorCode: status.status === "failed" ? (status.errorCode ?? null) : null };
+}
+
+/** Ask the hub where one message is, and write it to the log. Null when the hub cannot say. */
+export async function pollOne(wamid: string): Promise<(StatusAnswer & { status: ProviderStatus }) | null> {
+  const config = readWhatsAppConfig();
+  if (!config.ok) return null;
+  const provider = providerFor(config);
+  if (!provider.fetchStatus) return null;
+  const answer = await provider.fetchStatus(wamid);
+  if (!answer.ok) return null;
+  const write = statusWrite(answer.status);
+  if (!write) return { matched: true, changed: false, id: null, previous: null, source_table: null, source_id: null, status: answer.status };
+  const recorded = await recordStatus({
+    providerMessageId: wamid,
+    status: write.status,
+    at: answer.status.at,
+    errorCode: write.errorCode,
+    errorTitle: answer.status.errorTitle,
+    detail: { via: "hub_status_poll", hub_status: answer.status.status },
+  });
+  return recorded ? { ...recorded, status: answer.status } : null;
+}
+
+export type PolledRow = { row: MessageRow; answer: (StatusAnswer & { status: ProviderStatus }) | null };
+
+/**
+ * The queue job's second half: ask the hub about messages it has not heard
+ * back on. Each message is asked at most four times — ten minutes, an hour,
+ * four hours and sixteen hours after it went (`whatsapp_take_pollable`) — so
+ * a phone that is switched off for a day costs four reads, not hundreds.
+ */
+export async function pollPendingStatuses(limit = 20): Promise<PolledRow[]> {
+  const config = readWhatsAppConfig();
+  if (!config.ok || config.provider !== "hub") return [];
+  const rows = await takePollable(limit);
+  const polled: PolledRow[] = [];
+  for (const row of rows) {
+    if (!row.provider_message_id) continue;
+    polled.push({ row, answer: await pollOne(row.provider_message_id).catch(() => null) });
+  }
+  return polled;
+}
+
+/* --------------------------------------------------- templates on the hub */
+
+const STATUS_FROM_EVENT: Record<string, string> = {
+  REJECTED: "rejected",
+  PAUSED: "paused",
+  DISABLED: "disabled",
+  PENDING_DELETION: "disabled",
+  DELETED: "disabled",
+  LIMIT_EXCEEDED: "disabled",
+  PENDING: "pending",
+  IN_APPEAL: "pending",
+};
+
+/**
+ * A template's review changed (the webhook). A step DOWN — rejected, paused,
+ * disabled, back to pending — is written at once: refusing to send is always
+ * safe. A step UP (approved, reinstated) is never taken from the event alone:
+ * `needsSync` asks the caller to read the hub's list, where the button host,
+ * the blanks and the wording are checked before a row reads approved.
+ */
+export async function applyTemplateEvents(events: readonly WebhookTemplateEvent[]): Promise<{ written: number; needsSync: boolean }> {
+  const db = whatsappDb();
+  const now = new Date().toISOString();
+  let written = 0;
+  let needsSync = false;
+  for (const event of events) {
+    if (event.kind === "category") {
+      if (event.newCategory && ["utility", "marketing", "authentication"].includes(event.newCategory)) {
+        const { data } = await db
+          .from("whatsapp_templates")
+          .update({ category: event.newCategory, status_reason: `Meta moved it to ${event.newCategory}.`, status_checked_at: now, updated_at: now })
+          .eq("provider_name", event.name)
+          .eq("language_code", event.language)
+          .select("key");
+        written += Array.isArray(data) ? data.length : 0;
+      }
+      continue;
+    }
+    const down = event.event ? STATUS_FROM_EVENT[event.event] : undefined;
+    if (!down) {
+      if (event.event === "APPROVED" || event.event === "REINSTATED") needsSync = true;
+      continue;
+    }
+    const { data } = await db
+      .from("whatsapp_templates")
+      .update({ status: down, status_reason: event.reason ?? `Meta: ${event.event?.toLowerCase()}.`, status_checked_at: now, updated_at: now })
+      .eq("provider_name", event.name)
+      .eq("language_code", event.language)
+      .select("key");
+    written += Array.isArray(data) ? data.length : 0;
+  }
+  return { written, needsSync };
+}
+
+/**
+ * Hand templates to Meta for review on the hub's account (`POST /v1/templates`).
+ * Only a registry row that is not yet with Meta — `not_submitted` or
+ * `rejected` — is sent: a pending or approved one is never resubmitted. Each
+ * row sent reads `pending` until the hub's list or its webhook says more.
+ */
+export async function submitTemplates(
+  submissions: readonly TemplateSubmission[],
+  actor: { staffId: string | null },
+): Promise<{ ok: true; sent: number; skipped: number; failed: Array<{ name: string; problem: string }> } | { ok: false; problem: string }> {
+  const config = readWhatsAppConfig();
+  if (!config.ok) return { ok: false, problem: config.reason };
+  const provider = providerFor(config);
+  if (!provider.submitTemplate) return { ok: false, problem: "Only the school's WhatsApp hub takes templates from One." };
+  const db = whatsappDb();
+  const { data: rows, error } = await db
+    .from("whatsapp_templates")
+    .select("key, provider_name, language_code, status")
+    .in("provider_name", submissions.map((submission) => submission.name));
+  if (error || !rows) return { ok: false, problem: "Could not read the template list." };
+
+  let sent = 0;
+  let skipped = 0;
+  const failed: Array<{ name: string; problem: string }> = [];
+  for (const submission of submissions) {
+    const row = (rows as Array<{ key: string; provider_name: string; language_code: string; status: string }>).find(
+      (candidate) => candidate.provider_name === submission.name && candidate.language_code === submission.language,
+    );
+    if (!row || !["not_submitted", "rejected"].includes(row.status)) {
+      skipped += 1;
+      continue;
+    }
+    const answer = await provider.submitTemplate(submission);
+    const now = new Date().toISOString();
+    if (!answer.ok) {
+      failed.push({ name: submission.name, problem: answer.problem });
+      await db
+        .from("whatsapp_templates")
+        .update({ status_reason: `Not sent for approval: ${answer.problem}`.slice(0, 300), status_checked_at: now, updated_at: now, updated_by: actor.staffId })
+        .eq("key", row.key);
+      continue;
+    }
+    sent += 1;
+    const status = answer.status === "APPROVED" ? "pending" : (STATUS_FROM_EVENT[answer.status ?? ""] ?? "pending");
+    await db
+      .from("whatsapp_templates")
+      .update({
+        status,
+        status_reason: answer.status === "APPROVED" ? "Approved on submission; press Check templates to confirm." : "Sent to Meta for approval.",
+        submitted_at: now,
+        status_checked_at: now,
+        updated_at: now,
+        updated_by: actor.staffId,
+      })
+      .eq("key", row.key);
+  }
+  return { ok: true, sent, skipped, failed };
 }
 
 /** Is the school's WhatsApp connected, from which number, and how healthy? */

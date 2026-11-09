@@ -3,8 +3,9 @@ import { t, type Localized } from "@/platform/i18n/language";
 /**
  * Why a WhatsApp message did not go, in words the office can act on (D-562).
  *
- * Meta answers with numbers (131026, 132001 …); the log keeps the number and
- * this turns it into one sentence in English and Hindi plus what to do next.
+ * Meta answers with numbers (131026, 132001 …) and the school's hub with
+ * words (`window_closed`, `test_mode` …); the log keeps the code and this
+ * turns it into one sentence in English and Hindi plus what to do next.
  * `retryable` is whether trying the same message again later can work without
  * anybody changing anything: a busy server can, a number that is not on
  * WhatsApp cannot. Pure.
@@ -113,6 +114,51 @@ const MESSAGES: Record<string, PlainError> = {
   "131057": BUSY,
   "1": BUSY,
   "2": BUSY,
+  // The school's WhatsApp hub (its API doc, 9 Nov 2026). Each is the hub's own
+  // decision, made before Meta was asked: nothing went.
+  window_closed: plain(
+    "It is more than 24 hours since this person last wrote, so only an approved template can go.",
+    "इस व्यक्ति के पिछले संदेश को 24 घंटे से ज़्यादा हो गए, इसलिए अब केवल स्वीकृत टेम्पलेट ही जा सकता है।",
+    false,
+    "none",
+  ),
+  opted_out: plain(
+    "This parent replied STOP, so the school's WhatsApp will not send them this kind of message.",
+    "इस अभिभावक ने STOP लिखा था, इसलिए विद्यालय का WhatsApp उन्हें इस तरह का संदेश नहीं भेजेगा।",
+    false,
+    "call_parent",
+  ),
+  not_approved: plain(
+    "This template is not approved on the school's WhatsApp hub yet.",
+    "यह टेम्पलेट अभी विद्यालय के WhatsApp हब पर स्वीकृत नहीं है।",
+    false,
+    "fix_template",
+  ),
+  sending_off: plain(
+    "Sending is switched off on the school's WhatsApp hub. Nothing went.",
+    "विद्यालय के WhatsApp हब पर भेजना बंद है। कुछ नहीं गया।",
+    false,
+    "settings",
+  ),
+  test_mode: plain(
+    "The school's WhatsApp hub is in test mode: only the owner's own number gets messages.",
+    "विद्यालय का WhatsApp हब जाँच मोड में है: केवल मालिक के अपने नंबर पर संदेश जाते हैं।",
+    false,
+    "settings",
+  ),
+  bad_number: plain("The hub says this is not a WhatsApp number it can send to.", "हब के अनुसार इस नंबर पर WhatsApp नहीं भेजा जा सकता।", false, "check_number"),
+  bad_api_key: plain(
+    "The school's WhatsApp hub refused One's key. An admin needs to set WHATSAPP_HUB_KEY again.",
+    "विद्यालय के WhatsApp हब ने One की कुंजी नहीं मानी। किसी एडमिन को WHATSAPP_HUB_KEY फिर से डालनी होगी।",
+    false,
+    "settings",
+  ),
+  blocked: plain(
+    "WhatsApp blocked this message before it reached the phone.",
+    "WhatsApp ने यह संदेश फ़ोन तक पहुँचने से पहले रोक दिया।",
+    false,
+    "call_parent",
+  ),
   // One's own reasons. None of these ever reached WhatsApp.
   network: plain(
     "One could not reach the WhatsApp server. The message may or may not have gone. Check before sending again.",
@@ -175,8 +221,8 @@ const MESSAGES: Record<string, PlainError> = {
     "none",
   ),
   not_configured: plain(
-    "The school's WhatsApp server is not connected yet.",
-    "विद्यालय का WhatsApp सर्वर अभी जुड़ा नहीं है।",
+    "The school's WhatsApp hub is not connected yet.",
+    "विद्यालय का WhatsApp हब अभी जुड़ा नहीं है।",
     false,
     "settings",
   ),

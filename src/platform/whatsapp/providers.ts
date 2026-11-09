@@ -7,23 +7,23 @@ import { fromWaId, SCHOOL_WHATSAPP_NUMBER } from "@/platform/whatsapp/numbers";
 import { acceptedMessageId, graphError } from "@/platform/whatsapp/payload";
 
 /**
- * The two ways out to WhatsApp, behind one shape (D-562).
+ * The ways out to WhatsApp, behind one shape (D-562, D-566).
  *
- * Both take Meta's Cloud API message JSON (payload.ts) unchanged:
+ * Both real ones take Meta's Cloud API message JSON (payload.ts) unchanged:
  *
- *   meta_cloud     POST https://graph.facebook.com/{version}/{phone-number-id}/messages
- *                  Authorization: Bearer WHATSAPP_ACCESS_TOKEN
- *   school_server  POST {WHATSAPP_API_URL}/messages
- *                  Authorization: Bearer WHATSAPP_API_KEY
- *
- * The school server's paths are the Meta-compatible default Janmejay agreed on
- * 9 Nov while its own API is being finished; docs/whatsapp/SETUP.md lists what
- * is still to confirm.
+ *   hub         POST {WHATSAPP_HUB_URL}/v1/messages
+ *               Authorization: Bearer WHATSAPP_HUB_KEY
+ *               The school's own WhatsApp hub, which owns +91 83022 07823 and
+ *               nothing else. Also GET/POST /v1/templates and
+ *               GET /v1/status/{wamid} (the hub's API doc, 9 Nov 2026).
+ *   meta_cloud  POST https://graph.facebook.com/{version}/{phone-number-id}/messages
+ *               Authorization: Bearer WHATSAPP_ACCESS_TOKEN
  *
  * The answer is one of three things, and only a definite refusal is safe to
  * send again: accepted (with Meta's message id), rejected (a 4xx Meta or the
- * server actually returned), or unknown (no answer, a timeout, a 5xx a gateway
- * may have sent after the message went, or a 2xx without an id).
+ * hub actually returned, or the hub's 502 carrying Meta's own error code), or
+ * unknown (no answer, a timeout, a 5xx a gateway may have sent after the
+ * message went, or a 2xx without an id).
  */
 
 export type ProviderSendResult =
@@ -40,12 +40,15 @@ export type ProviderTemplate = {
   /** The URL on the template's URL button, when it has one. */
   buttonUrl: string | null;
   bodyParams: number;
+  /** The approved body, exactly, for the byte-for-byte check against One's own. */
+  bodyText: string | null;
   header: "none" | "document" | "image" | "text";
+  quality: string | null;
 };
 
 export type ProviderConnection = {
   ok: boolean;
-  /** The number the server or Meta says it sends from, when it says. */
+  /** The number the hub or Meta says it sends from, when it says. */
   displayNumber: string | null;
   verifiedName: string | null;
   quality: string | null;
@@ -53,16 +56,78 @@ export type ProviderConnection = {
   problem: string | null;
 };
 
+/** Where a message is now, as the hub tells it (`GET /v1/status/{wamid}`). Meta's own statuses and codes. */
+export type ProviderStatus = {
+  wamid: string;
+  status: "accepted" | "sent" | "delivered" | "read" | "failed" | "blocked";
+  errorCode: string | null;
+  errorTitle: string | null;
+  at: string | null;
+};
+
+/** One template for `POST /v1/templates`, in the hub's own format. */
+export type TemplateSubmission = {
+  name: string;
+  language: string;
+  category: "UTILITY" | "MARKETING";
+  body: string;
+  examples: string[];
+  footer?: string;
+  buttons: Array<{ type: "URL"; text: string; url: string } | { type: "PHONE_NUMBER"; text: string; phone_number: string }>;
+};
+
+export type SubmitResult =
+  | { ok: true; id: string | null; status: string | null; category: string | null }
+  | { ok: false; code: string | null; problem: string };
+
+export type StatusResult = { ok: true; status: ProviderStatus } | { ok: false; notFound: boolean; problem: string };
+
 export type WhatsAppProvider = {
-  name: "school_server" | "meta_cloud" | "mock";
+  name: "hub" | "meta_cloud" | "mock";
   send(body: Record<string, unknown>): Promise<ProviderSendResult>;
   listTemplates(): Promise<{ ok: true; templates: ProviderTemplate[] } | { ok: false; problem: string }>;
   checkConnection(): Promise<ProviderConnection>;
+  /** The hub only: Meta's latest status for one message. */
+  fetchStatus?(wamid: string): Promise<StatusResult>;
+  /** The hub only: hand one template to Meta for review on the hub's account. */
+  submitTemplate?(template: TemplateSubmission): Promise<SubmitResult>;
 };
 
 const TIMEOUT_MS = 15_000;
 
-async function postJson(url: string, token: string, body: Record<string, unknown>): Promise<ProviderSendResult> {
+/** The hub's own refusals, each meaning nothing went (the hub's API doc). */
+export const HUB_CODES = ["window_closed", "opted_out", "not_approved", "sending_off", "test_mode", "bad_number"] as const;
+const HUB_CODE_SET: ReadonlySet<string> = new Set(HUB_CODES);
+
+/**
+ * The one code a refusal is filed under. The hub's own reason first (it names
+ * what the hub decided, before Meta was asked); then Meta's number, which the
+ * failure desk and errors.ts read; then whatever else either said.
+ */
+export function refusalCode(parsed: unknown, httpStatus: number): string | null {
+  const error = graphError(parsed);
+  if (error.hubCode && HUB_CODE_SET.has(error.hubCode)) return error.hubCode;
+  if (error.code && /^\d+$/.test(error.code)) return error.code;
+  // The hub's key check answers `{ ok: false, error: "bad_api_key" }`.
+  const flat = parsed && typeof parsed === "object" ? (parsed as { error?: unknown }).error : null;
+  if (typeof flat === "string" && /^[a-z][a-z0-9_]{1,40}$/.test(flat)) return flat;
+  return error.hubCode ?? error.code ?? (httpStatus === 429 ? "130429" : httpStatus === 401 ? "bad_api_key" : null);
+}
+
+function parseText(text: string): unknown {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function postJson(
+  url: string,
+  token: string,
+  body: Record<string, unknown>,
+  options: { hub: boolean },
+): Promise<ProviderSendResult> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -82,32 +147,32 @@ async function postJson(url: string, token: string, body: Record<string, unknown
     };
   }
   const text = await response.text().catch(() => "");
-  let parsed: unknown = null;
-  try {
-    parsed = text ? JSON.parse(text) : null;
-  } catch {
-    parsed = null;
-  }
+  const parsed = parseText(text);
   if (response.ok) {
     const id = acceptedMessageId(parsed);
     return id
       ? { outcome: "accepted", messageId: id, httpStatus: response.status }
       : { outcome: "unknown", httpStatus: response.status, errorCode: "no_receipt", errorTitle: "Answered without a message id" };
   }
-  if (response.status >= 500) {
+  const error = graphError(parsed);
+  // The hub answers 502 when Meta refused the message and passes Meta's code
+  // on: that is Meta's definite no. A 5xx with no code may have gone.
+  const metaSaidNo = options.hub && response.status === 502 && Boolean(error.code && /^\d+$/.test(error.code));
+  if (response.status >= 500 && !metaSaidNo) {
     return { outcome: "unknown", httpStatus: response.status, errorCode: "server_error", errorTitle: `Server error ${response.status}` };
   }
-  const error = graphError(parsed);
   return {
     outcome: "rejected",
     httpStatus: response.status,
-    errorCode: error.code ?? (response.status === 429 ? "130429" : null),
+    errorCode: refusalCode(parsed, response.status),
     errorTitle: error.title ?? (text.slice(0, 300) || `Refused (${response.status})`),
     errorDetail: error.detail,
   };
 }
 
-async function getJson(url: string, token: string): Promise<{ ok: true; body: unknown } | { ok: false; problem: string }> {
+type GetAnswer = { ok: true; body: unknown } | { ok: false; httpStatus: number | null; problem: string };
+
+async function getJson(url: string, token: string): Promise<GetAnswer> {
   try {
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
@@ -115,14 +180,30 @@ async function getJson(url: string, token: string): Promise<{ ok: true; body: un
       cache: "no-store",
     });
     const body: unknown = await response.json().catch(() => null);
-    if (!response.ok) return { ok: false, problem: graphError(body).title ?? `The server answered ${response.status}.` };
+    if (!response.ok) {
+      const problem =
+        response.status === 401
+          ? "The WhatsApp server refused One's key."
+          : (graphError(body).title ?? `The server answered ${response.status}.`);
+      return { ok: false, httpStatus: response.status, problem };
+    }
     return { ok: true, body };
   } catch (caught) {
-    return { ok: false, problem: caught instanceof Error ? caught.message : "No answer." };
+    return { ok: false, httpStatus: null, problem: caught instanceof Error ? caught.message : "No answer." };
   }
 }
 
-/** Meta's template list entry, as `GET /{waba-id}/message_templates` returns it. */
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function quality(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim().toUpperCase();
+  const score = asRecord(value).score;
+  return typeof score === "string" && score.trim() ? score.trim().toUpperCase() : null;
+}
+
+/** A template list entry, as Meta's `message_templates` and the hub's `GET /v1/templates` both give it. */
 export function readTemplate(raw: unknown): ProviderTemplate | null {
   if (!raw || typeof raw !== "object") return null;
   const record = raw as Record<string, unknown>;
@@ -136,39 +217,53 @@ export function readTemplate(raw: unknown): ProviderTemplate | null {
   const urlButton = (Array.isArray(buttons?.buttons) ? (buttons.buttons as Array<Record<string, unknown>>) : []).find(
     (button) => String(button.type).toUpperCase() === "URL",
   );
-  const bodyText = typeof body?.text === "string" ? body.text : "";
-  const slots = new Set([...bodyText.matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((match) => match[1]));
+  const bodyText = typeof body?.text === "string" ? body.text : typeof record.body === "string" ? record.body : null;
+  const slots = new Set([...(bodyText ?? "").matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((match) => match[1]));
   const format = String(header?.format ?? "").toUpperCase();
+  const reason = typeof record.rejected_reason === "string" ? record.rejected_reason.trim() : "";
   return {
     name,
     language,
     status: String(record.status ?? "").toUpperCase(),
     category: typeof record.category === "string" ? record.category.toLowerCase() : null,
-    rejectedReason: typeof record.rejected_reason === "string" && record.rejected_reason !== "NONE" ? record.rejected_reason : null,
+    rejectedReason: reason && reason.toUpperCase() !== "NONE" ? reason : null,
     buttonUrl: typeof urlButton?.url === "string" ? urlButton.url : null,
     bodyParams: slots.size,
+    bodyText,
     header: !header ? "none" : format === "DOCUMENT" ? "document" : format === "IMAGE" ? "image" : "text",
+    quality: quality(record.quality ?? record.quality_score),
   };
 }
 
+/** The list wherever the answer keeps it: Meta's `data`, the hub's `templates`, or the answer itself. */
+function templateList(body: unknown): unknown[] {
+  if (Array.isArray(body)) return body;
+  const record = asRecord(body);
+  if (Array.isArray(record.templates)) return record.templates;
+  if (Array.isArray(record.data)) return record.data;
+  return [];
+}
+
 async function pagedTemplates(firstUrl: string, token: string): Promise<{ ok: true; templates: ProviderTemplate[] } | { ok: false; problem: string }> {
+  const origin = new URL(firstUrl).origin;
   const templates: ProviderTemplate[] = [];
   let url: string | null = firstUrl;
   for (let page = 0; url && page < 20; page += 1) {
     const answer = await getJson(url, token);
-    if (!answer.ok) return answer;
-    const body = (answer.body ?? {}) as { data?: unknown; paging?: { next?: unknown } };
-    for (const raw of Array.isArray(body.data) ? body.data : []) {
+    if (!answer.ok) return { ok: false, problem: answer.problem };
+    for (const raw of templateList(answer.body)) {
       const template = readTemplate(raw);
       if (template) templates.push(template);
     }
-    url = typeof body.paging?.next === "string" ? body.paging.next : null;
+    const next = asRecord(asRecord(answer.body).paging).next;
+    // The key goes with every page: never to a host it was not meant for.
+    url = typeof next === "string" && URL.canParse(next) && new URL(next).origin === origin ? next : null;
   }
   return { ok: true, templates };
 }
 
 function connectionFrom(body: unknown): ProviderConnection {
-  const record = (body ?? {}) as Record<string, unknown>;
+  const record = asRecord(body);
   const displayNumber = fromWaId(typeof record.display_phone_number === "string" ? record.display_phone_number : null);
   const ok = displayNumber === SCHOOL_WHATSAPP_NUMBER;
   return {
@@ -180,19 +275,103 @@ function connectionFrom(body: unknown): ProviderConnection {
     problem: ok
       ? null
       : displayNumber
-        ? "The server sends from a different number than the school's (+91 83022 07823)."
-        : "The server did not say which number it sends from.",
+        ? "Meta sends from a different number than the school's (+91 83022 07823)."
+        : "Meta did not say which number it sends from.",
   };
 }
 
-const TEMPLATE_FIELDS = "name,language,status,category,components,rejected_reason";
+const PROVIDER_STATUSES = new Set(["accepted", "sent", "delivered", "read", "failed", "blocked"]);
+
+/** The hub's `GET /v1/status/{wamid}` answer. */
+export function readHubStatus(body: unknown, wamid: string): ProviderStatus | null {
+  const record = asRecord(body);
+  const status = typeof record.status === "string" ? record.status.trim().toLowerCase() : "";
+  if (!PROVIDER_STATUSES.has(status)) return null;
+  const code = record.error_code;
+  const at = typeof record.status_at === "string" || typeof record.status_at === "number" ? record.status_at : null;
+  const iso = (() => {
+    if (at === null) return null;
+    const asNumber = Number(at);
+    const date = Number.isFinite(asNumber) && String(at).trim() !== "" ? new Date(asNumber < 1e12 ? asNumber * 1000 : asNumber) : new Date(String(at));
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  })();
+  return {
+    wamid: typeof record.wamid === "string" && record.wamid ? record.wamid : wamid,
+    status: status as ProviderStatus["status"],
+    errorCode: code === null || code === undefined || String(code).trim() === "" ? null : String(code).trim(),
+    errorTitle: typeof record.error_title === "string" && record.error_title.trim() ? record.error_title.trim().slice(0, 300) : null,
+    at: iso,
+  };
+}
+
+const TEMPLATE_FIELDS = "name,language,status,category,components,rejected_reason,quality_score";
+
+function hubProvider(config: Extract<WhatsAppConfig, { ok: true; provider: "hub" }>): WhatsAppProvider {
+  const base = `${config.hubUrl}/v1`;
+  return {
+    name: "hub",
+    send: (body) => postJson(`${base}/messages`, config.hubKey, body, { hub: true }),
+    listTemplates: () => pagedTemplates(`${base}/templates`, config.hubKey),
+    // The hub owns the school's number and no other (its API doc), and has no
+    // health route: a template list read with One's key is the connection.
+    checkConnection: async () => {
+      const answer = await getJson(`${base}/templates`, config.hubKey);
+      return answer.ok
+        ? { ok: true, displayNumber: SCHOOL_WHATSAPP_NUMBER, verifiedName: "Veer Patta School", quality: null, limitTier: null, problem: null }
+        : {
+            ok: false,
+            displayNumber: null,
+            verifiedName: null,
+            quality: null,
+            limitTier: null,
+            problem: answer.httpStatus === 401 ? "The school's WhatsApp hub refused One's key (WHATSAPP_HUB_KEY)." : answer.problem,
+          };
+    },
+    fetchStatus: async (wamid) => {
+      const answer = await getJson(`${base}/status/${encodeURIComponent(wamid)}`, config.hubKey);
+      if (!answer.ok) return { ok: false, notFound: answer.httpStatus === 404, problem: answer.problem };
+      const status = readHubStatus(answer.body, wamid);
+      return status ? { ok: true, status } : { ok: false, notFound: false, problem: "The hub's answer had no status." };
+    },
+    submitTemplate: async (template) => {
+      let response: Response;
+      try {
+        response = await fetch(`${base}/templates`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.hubKey}` },
+          body: JSON.stringify(template),
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+          cache: "no-store",
+        });
+      } catch (caught) {
+        return { ok: false, code: "network", problem: caught instanceof Error ? caught.message : "No answer from the hub." };
+      }
+      const parsed = parseText(await response.text().catch(() => ""));
+      const record = asRecord(parsed);
+      if (response.ok && record.ok !== false) {
+        return {
+          ok: true,
+          id: typeof record.id === "string" || typeof record.id === "number" ? String(record.id) : null,
+          status: typeof record.status === "string" ? record.status.toUpperCase() : null,
+          category: typeof record.category === "string" ? record.category.toLowerCase() : null,
+        };
+      }
+      return {
+        ok: false,
+        code: refusalCode(parsed, response.status),
+        problem: graphError(parsed).title ?? `The hub answered ${response.status}.`,
+      };
+    },
+  };
+}
 
 export function providerFor(config: Extract<WhatsAppConfig, { ok: true }>): WhatsAppProvider {
+  if (config.provider === "hub") return hubProvider(config);
   if (config.provider === "meta_cloud") {
     const base = `https://graph.facebook.com/${config.graphVersion}`;
     return {
       name: "meta_cloud",
-      send: (body) => postJson(`${base}/${config.phoneNumberId}/messages`, config.accessToken, body),
+      send: (body) => postJson(`${base}/${config.phoneNumberId}/messages`, config.accessToken, body, { hub: false }),
       listTemplates: async () =>
         config.businessAccountId
           ? pagedTemplates(`${base}/${config.businessAccountId}/message_templates?fields=${TEMPLATE_FIELDS}&limit=100`, config.accessToken)
@@ -202,19 +381,6 @@ export function providerFor(config: Extract<WhatsAppConfig, { ok: true }>): What
           `${base}/${config.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier`,
           config.accessToken,
         );
-        return answer.ok
-          ? connectionFrom(answer.body)
-          : { ok: false, displayNumber: null, verifiedName: null, quality: null, limitTier: null, problem: answer.problem };
-      },
-    };
-  }
-  if (config.provider === "school_server") {
-    return {
-      name: "school_server",
-      send: (body) => postJson(`${config.apiUrl}/messages`, config.apiKey, body),
-      listTemplates: () => pagedTemplates(`${config.apiUrl}/templates`, config.apiKey),
-      checkConnection: async () => {
-        const answer = await getJson(`${config.apiUrl}/health`, config.apiKey);
         return answer.ok
           ? connectionFrom(answer.body)
           : { ok: false, displayNumber: null, verifiedName: null, quality: null, limitTier: null, problem: answer.problem };

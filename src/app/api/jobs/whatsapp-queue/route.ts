@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { isPlatformCron } from "@/modules/jobs/domain/token";
-import { syncSettledToSource } from "@/modules/whatsapp/data/whatsapp-source-sync";
+import { syncDeliveryToSource, syncSettledToSource } from "@/modules/whatsapp/data/whatsapp-source-sync";
 import { logWarn } from "@/platform/observability/log";
-import { drainQueue } from "@/platform/whatsapp/service";
+import { drainQueue, pollPendingStatuses, statusWrite } from "@/platform/whatsapp/service";
 import { queueSecretMatches } from "@/platform/whatsapp/store";
 
 /**
@@ -11,8 +11,12 @@ import { queueSecretMatches } from "@/platform/whatsapp/store";
  * and busy-server failures whose wait is over — and writes each answer back
  * to the row that asked for it.
  *
+ * Then it asks the school's hub (`GET /v1/status/{wamid}`) about messages it
+ * has not heard back on — the hub's webhook is best-effort — at most four
+ * times each, and writes what it learns the same way the webhook would.
+ *
  * Called by pg_cron every five minutes, and only when something is due
- * (`whatsapp-queue` in migration 20261109062459). Its Bearer secret lives in
+ * (`whatsapp-queue`, migrations 20261109062459 and 20261109082705). Its Bearer secret lives in
  * Vault and is checked in Postgres (`whatsapp_queue_secret_matches`), so no
  * copy sits in Vercel; `CRON_SECRET` also opens it, for an operator.
  * Anything else is a 404. Every message is checked against today's switches
@@ -44,7 +48,29 @@ export async function POST(request: Request) {
     }
     const counts: Record<string, number> = {};
     for (const { outcome } of settled) counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
-    return NextResponse.json({ ok: true, taken, ...counts }, { headers: { "Cache-Control": "no-store" } });
+
+    const polled = await pollPendingStatuses(20).catch(() => []);
+    let updated = 0;
+    for (const { row, answer } of polled) {
+      const write = answer ? statusWrite(answer.status) : null;
+      if (!answer?.changed || !write || !row.provider_message_id) continue;
+      updated += 1;
+      await syncDeliveryToSource({
+        providerMessageId: row.provider_message_id,
+        status: write.status,
+        at: answer.status.at,
+        errorCode: write.errorCode,
+        errorTitle: answer.status.errorTitle,
+        sourceTable: answer.source_table,
+        sourceId: answer.source_id,
+      }).catch((caught) => {
+        logWarn("jobs.whatsapp_queue.poll_sync_failed", { error: caught instanceof Error ? caught.message : "unknown" });
+      });
+    }
+    return NextResponse.json(
+      { ok: true, taken, ...counts, polled: polled.length, updated },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (caught) {
     logWarn("jobs.whatsapp_queue.failed", { error: caught instanceof Error ? caught.message : "unknown" });
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Cache-Control": "no-store" } });

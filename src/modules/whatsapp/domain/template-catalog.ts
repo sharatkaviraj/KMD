@@ -5,7 +5,7 @@ import {
   RECEIPT_DOCUMENT_CAMPAIGNS,
   REVERSAL_CAMPAIGNS,
 } from "@/modules/whatsapp/domain/campaign-bodies-v5";
-import { V7_CAMPAIGNS } from "@/modules/whatsapp/domain/campaign-bodies-v6";
+import { V7_CAMPAIGNS, V8_CAMPAIGNS } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { SCHOOL_NOTICE_TEMPLATES } from "@/modules/whatsapp/domain/school-notice-bodies";
 
 /**
@@ -83,6 +83,18 @@ export function catalogRows(): CatalogRow[] {
       header: "none",
       urlButton: campaign.buttons.includes("pay_url"),
       labelEn: `Fee reminder with Pay now: ${situationLabel(campaign.situation)} (${campaign.language})`,
+    });
+  }
+  for (const campaign of V8_CAMPAIGNS) {
+    add({
+      key: campaign.campaignName,
+      languageCode: campaign.language,
+      feature: "fee_reminder",
+      bodyParams: campaign.slotOrder.length,
+      paramNames: campaign.slotOrder,
+      header: "none",
+      urlButton: campaign.buttons.includes("pay_url"),
+      labelEn: `Fee reminder with Pay now, on the hub: ${situationLabel(campaign.situation)} (${campaign.language})`,
     });
   }
   for (const campaign of RECEIPT_DOCUMENT_CAMPAIGNS) {

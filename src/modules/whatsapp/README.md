@@ -14,8 +14,13 @@ Fee reminders and the message templates behind them.
   from **what it says** (`domain/campaigns.ts`)
 - Reminder cadence — which families to remind, and how often
 - The parent send path (`data/parent-send.ts`): the parent-send gate, then the
-  school's own WhatsApp through `src/platform/whatsapp/` (D-562). AiSensy is
-  the Fees app's, never One's
+  school's own WhatsApp through `src/platform/whatsapp/` and the school's hub
+  (D-562, D-566). AiSensy is the Fees app's, never One's
+- The hub's `_v8` set (`domain/hub-templates.ts`, `data/hub-templates.ts`): the
+  `_v7` fee reminders word for word, sent to Meta for approval through the hub
+  and checked word for word when they come back approved. `APPROVED_HUB`
+  (`domain/campaign-generation.ts`) is filled only from APPROVED statuses
+- Both WhatsApp webhooks (`data/whatsapp-webhook.ts`): Meta's and the hub's
 - The fee calendar's read of who is due a reminder today (`domain/installment-calendar.ts`)
 - Grouping the audience into families, one message per family: a shared number or linked siblings (`domain/family-grouping.ts`)
 - Turning the same audience into paper a teacher can carry (`domain/collection-list.ts`)

@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { readWhatsAppConfig, webhookSecrets, type WhatsAppConfig } from "@/platform/whatsapp/config";
+import { DEFAULT_HUB_URL, hubWebhookSecrets, readWhatsAppConfig, webhookSecrets, type WhatsAppConfig } from "@/platform/whatsapp/config";
 import { describeError, isRetryableCode } from "@/platform/whatsapp/errors";
 import { FEES_AISENSY_NUMBER, maskNumber, SCHOOL_WHATSAPP_NUMBER } from "@/platform/whatsapp/numbers";
 import { acceptedMessageId, cleanParam, graphError, templateMessageBody, textMessageBody } from "@/platform/whatsapp/payload";
@@ -10,7 +10,7 @@ import { checkWhatsAppSend, switchesFromFlags, type PolicyInput, type TemplateRo
 import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
 
 /**
- * The school's own WhatsApp (D-562), the pure half: which server, may this
+ * The school's own WhatsApp (D-562, D-566), the pure half: which server, may this
  * message go, the exact JSON, the plain words for Meta's codes, and the
  * webhook. Every number here is a test value (rule 6) except the school's own
  * number and the fees app's AiSensy number, which are the point.
@@ -18,15 +18,22 @@ import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
 
 const OWNER = "+919000000001";
 const PARENT = "+919000000002";
-const SERVER = { WHATSAPP_API_URL: "https://wa.example.test/api/", WHATSAPP_API_KEY: "k", WHATSAPP_SENDER_NUMBER: "+91 83022 07823" };
+const SERVER = { WHATSAPP_HUB_URL: "https://hub.example.test/v1/", WHATSAPP_HUB_KEY: "k", WHATSAPP_SENDER_NUMBER: "+91 83022 07823" };
 
 describe("which server this deployment talks to", () => {
   it("is not configured with nothing set, and says what is missing", () => {
     expect(readWhatsAppConfig({})).toMatchObject({ ok: false, code: "not_configured", provider: null });
   });
 
-  it("reads the school's server, trimming the trailing slash", () => {
-    expect(readWhatsAppConfig(SERVER)).toEqual({ ok: true, provider: "school_server", apiUrl: "https://wa.example.test/api", apiKey: "k", senderNumber: SCHOOL_WHATSAPP_NUMBER });
+  it("reads the school's hub, trimming a trailing slash and a pasted /v1", () => {
+    expect(readWhatsAppConfig(SERVER)).toEqual({ ok: true, provider: "hub", hubUrl: "https://hub.example.test", hubKey: "k", senderNumber: SCHOOL_WHATSAPP_NUMBER });
+  });
+
+  it("needs only the hub's key: the address defaults, and the hub sends from the school's number only", () => {
+    expect(readWhatsAppConfig({ WHATSAPP_HUB_KEY: "k" })).toEqual({ ok: true, provider: "hub", hubUrl: DEFAULT_HUB_URL, hubKey: "k", senderNumber: SCHOOL_WHATSAPP_NUMBER });
+    expect(DEFAULT_HUB_URL).toMatch(/^https:\/\//);
+    expect(readWhatsAppConfig({ WHATSAPP_HUB_URL: "https://hub.example.test" })).toMatchObject({ ok: false, code: "not_configured", provider: "hub" });
+    expect(readWhatsAppConfig({ WHATSAPP_PROVIDER: "school_server", WHATSAPP_HUB_KEY: "k" })).toMatchObject({ ok: false, code: "not_configured" });
   });
 
   it("reads Meta's Cloud API, with the default Graph version", () => {
@@ -41,12 +48,15 @@ describe("which server this deployment talks to", () => {
 
   it("refuses any sender but the school's number, and a missing one", () => {
     expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_SENDER_NUMBER: "+919000000009" })).toMatchObject({ ok: false, code: "sender_wrong" });
-    expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_SENDER_NUMBER: "" })).toMatchObject({ ok: false, code: "sender_missing" });
+    const direct = { WHATSAPP_PHONE_NUMBER_ID: "123456789012345", WHATSAPP_ACCESS_TOKEN: "t" };
+    expect(readWhatsAppConfig({ ...direct, WHATSAPP_SENDER_NUMBER: "" })).toMatchObject({ ok: false, code: "sender_missing" });
+    expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_SENDER_NUMBER: "" })).toMatchObject({ ok: true, provider: "hub" });
   });
 
   it("refuses a key over plain http, and the mock on a live deployment", () => {
-    expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_API_URL: "http://wa.example.test" })).toMatchObject({ ok: false, code: "bad_url" });
-    expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_API_URL: "http://localhost:8080" })).toMatchObject({ ok: true });
+    expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_HUB_URL: "http://hub.example.test" })).toMatchObject({ ok: false, code: "bad_url" });
+    expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_HUB_URL: "http://localhost:8787" })).toMatchObject({ ok: true });
+    expect(readWhatsAppConfig({ ...SERVER, WHATSAPP_HUB_URL: "http://localhost:8787", VERCEL_ENV: "production" })).toMatchObject({ ok: false, code: "bad_url" });
     expect(readWhatsAppConfig({ WHATSAPP_PROVIDER: "mock", VERCEL_ENV: "production" })).toMatchObject({ ok: false, code: "mock_on_live" });
     expect(readWhatsAppConfig({ WHATSAPP_PROVIDER: "mock" })).toMatchObject({ ok: true, provider: "mock" });
   });
@@ -55,9 +65,11 @@ describe("which server this deployment talks to", () => {
     expect(readWhatsAppConfig({ WHATSAPP_PHONE_NUMBER_ID: "+91 83022 07823", WHATSAPP_ACCESS_TOKEN: "t", WHATSAPP_SENDER_NUMBER: "8302207823" })).toMatchObject({ ok: false });
   });
 
-  it("collects both webhook secrets", () => {
-    expect(webhookSecrets({ WHATSAPP_APP_SECRET: "a", WHATSAPP_WEBHOOK_SECRET: " b " })).toEqual(["a", "b"]);
+  it("signs Meta's webhook with the app secret, and the hub's with One's own hub key", () => {
+    expect(webhookSecrets({ WHATSAPP_APP_SECRET: "a", WHATSAPP_HUB_KEY: "b" })).toEqual(["a"]);
     expect(webhookSecrets({})).toEqual([]);
+    expect(hubWebhookSecrets({ WHATSAPP_APP_SECRET: "a", WHATSAPP_HUB_KEY: " b " })).toEqual(["b"]);
+    expect(hubWebhookSecrets({})).toEqual([]);
   });
 });
 
@@ -161,7 +173,9 @@ describe("the message, in Meta's Cloud API format", () => {
     expect(acceptedMessageId({ messages: [{ id: " wamid.1 " }] })).toBe("wamid.1");
     expect(acceptedMessageId({ messages: [] })).toBeNull();
     expect(acceptedMessageId({ status: "ok" })).toBeNull();
-    expect(graphError({ error: { code: 131026, message: "Receiver is incapable", error_data: { details: "not on WhatsApp" } } })).toEqual({ code: "131026", title: "Receiver is incapable", detail: "not on WhatsApp" });
+    expect(graphError({ error: { code: 131026, message: "Receiver is incapable", error_data: { details: "not on WhatsApp" } } })).toEqual({ code: "131026", hubCode: null, title: "Receiver is incapable", detail: "not on WhatsApp" });
+    expect(graphError({ error: { message: "Only the owner's test number while the hub is in test mode", type: "VppsHubError", code: "test_mode", hub_code: "test_mode" } })).toMatchObject({ code: "test_mode", hubCode: "test_mode" });
+    expect(graphError({ error: { message: "x", hub_code: "Not A Code!" } })).toMatchObject({ hubCode: null });
   });
 });
 
@@ -233,7 +247,7 @@ describe("the webhook", () => {
   });
 
   it("survives a payload of the wrong shape", () => {
-    expect(parseWebhook(null)).toEqual({ numbers: [], statuses: [], inbound: [], otherNumber: 0 });
+    expect(parseWebhook(null)).toEqual({ numbers: [], statuses: [], inbound: [], templates: [], otherNumber: 0 });
     expect(parseWebhook({ entry: "nope" }).statuses).toEqual([]);
   });
 });

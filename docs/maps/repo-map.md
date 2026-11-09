@@ -93,7 +93,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `/reminders` | vx (current) |
 | `/reports` | vx (current) |
 | `/school-office` | vx (current) |
-| `/settings` | One (pre-vx) + redirect + vx (current) |
+| `/settings` | One (pre-vx) + ported Fees screens (classic) + redirect + vx (current) |
 | `/smoke` | vx (current) |
 | `/staff` | One (pre-vx) + vx (current) |
 | `/student-tools` | vx (current) |

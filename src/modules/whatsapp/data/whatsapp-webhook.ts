@@ -1,0 +1,142 @@
+import "server-only";
+
+import { after, NextResponse } from "next/server";
+
+import { syncHubTemplates } from "@/modules/whatsapp/data/hub-templates";
+import { syncDeliveryToSource } from "@/modules/whatsapp/data/whatsapp-source-sync";
+import { getSiteUrl } from "@/platform/env";
+import { logWarn } from "@/platform/observability/log";
+import { applyTemplateEvents } from "@/platform/whatsapp/service";
+import { recordStatus, storeInbound } from "@/platform/whatsapp/store";
+import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
+
+/**
+ * One handler for both WhatsApp webhooks (D-562, D-566):
+ *
+ *   /api/webhooks/whatsapp      Meta itself, signed with WHATSAPP_APP_SECRET
+ *   /api/webhooks/whatsapp-hub  the school's hub, forwarding Meta's JSON
+ *                               unchanged, signed with WHATSAPP_HUB_KEY
+ *
+ * The body is Meta's webhook either way. The signature is checked over the
+ * exact bytes before anything is parsed, timing-safe, and nothing is read
+ * without it. Then:
+ *
+ *  - each status goes onto the message log (`whatsapp_record_status`: one row
+ *    per message id, never moved backwards, so a repeat or a late "sent"
+ *    changes nothing) and from there onto the row that asked for it;
+ *  - each reply into `vppsone.whatsapp_inbound`, once per message id;
+ *  - each template event onto the registry. A step down (rejected, paused)
+ *    is written at once; an approval only after the hub's own list is read
+ *    and checked, after the answer has gone back.
+ *
+ * A database failure answers 500, so the sender delivers it again; a payload
+ * this does not understand answers 200, so it is not retried forever.
+ */
+
+export const MAX_WEBHOOK_BYTES = 512 * 1024;
+
+export type WebhookSource = "meta" | "hub";
+
+function later(task: () => Promise<unknown>) {
+  const run = () => task().catch((caught) => logWarn("webhook.whatsapp.after_failed", { error: caught instanceof Error ? caught.message : "unknown" }));
+  try {
+    after(run);
+  } catch {
+    // Outside a request (a test): just run it.
+    void run();
+  }
+}
+
+/**
+ * `signature` is the request's `x-hub-signature-256`, read by the route so
+ * each route says which credential lets it in (tests/public-routes.test.ts).
+ */
+export async function handleWhatsAppWebhook(
+  request: Request,
+  check: { secrets: readonly string[]; signature: string | null },
+  source: WebhookSource,
+): Promise<Response> {
+  const { secrets, signature } = check;
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (declared > MAX_WEBHOOK_BYTES) return NextResponse.json({ error: "Too large" }, { status: 413 });
+
+  const raw = await request.text();
+  if (raw.length > MAX_WEBHOOK_BYTES) return NextResponse.json({ error: "Too large" }, { status: 413 });
+
+  if (!verifySignature(raw, signature, secrets)) {
+    logWarn("webhook.whatsapp.unauthorized", { source, reason: "Signature missing or does not match." });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return NextResponse.json({ ok: true, ignored: true });
+  }
+
+  const parsed = parseWebhook(payload);
+  let statuses = 0;
+  let replies = 0;
+  let failedWrites = 0;
+
+  for (const status of parsed.statuses) {
+    const answer = await recordStatus({
+      providerMessageId: status.providerMessageId,
+      status: status.status,
+      at: status.at,
+      errorCode: status.errorCode,
+      errorTitle: status.errorTitle,
+      detail: { recipient: status.recipient, error_detail: status.errorDetail, via: source },
+    }).catch(() => null);
+    if (!answer) {
+      failedWrites += 1;
+      continue;
+    }
+    if (!answer.matched) continue;
+    statuses += 1;
+    if (!answer.changed) continue;
+    await syncDeliveryToSource({
+      providerMessageId: status.providerMessageId,
+      status: status.status,
+      at: status.at,
+      errorCode: status.errorCode,
+      errorTitle: status.errorTitle,
+      sourceTable: answer.source_table,
+      sourceId: answer.source_id,
+    }).catch((caught) => {
+      logWarn("webhook.whatsapp.source_sync_failed", { error: caught instanceof Error ? caught.message : "unknown" });
+    });
+  }
+
+  for (const reply of parsed.inbound) {
+    const stored = await storeInbound({
+      provider_message_id: reply.providerMessageId,
+      from_e164: reply.from,
+      from_name: reply.fromName,
+      message_type: reply.type,
+      text_body: reply.text,
+      reply_to_provider_id: reply.replyTo,
+      received_at: reply.at,
+      payload: reply.raw,
+    }).catch(() => false);
+    if (stored) replies += 1;
+    else failedWrites += 1;
+  }
+
+  let templates = 0;
+  if (parsed.templates.length > 0) {
+    const applied = await applyTemplateEvents(parsed.templates).catch(() => null);
+    if (!applied) failedWrites += 1;
+    else {
+      templates = applied.written;
+      if (applied.needsSync) later(() => syncHubTemplates({ staffId: null }, getSiteUrl()));
+    }
+  }
+
+  if (failedWrites > 0) {
+    logWarn("webhook.whatsapp.write_failed", { source, failedWrites });
+    return NextResponse.json({ ok: false, error: "Could not write everything; send again." }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, statuses, replies, templates, otherNumber: parsed.otherNumber });
+}

@@ -117,12 +117,49 @@ export function isV7Approved(situation: NoticeSituation, language: NoticeLanguag
   return V7_SITUATIONS.includes(situation) && APPROVED_V7.has(v7CampaignName(situation, language));
 }
 
+/* ------------------------------------------------------------------ _v8 */
+
 /**
- * The campaign NAME a notice goes out under today in VPPS One: the `_v7` one
- * once it is approved, the earlier text-only generation until then. Never
- * `_v6`. Throws, like `campaignFor`, when neither is sendable.
+ * The `_v8` notices: the `_v7` set on the school's WhatsApp hub (D-566).
+ *
+ * Templates are approved per WhatsApp Business Account. `_v7` was submitted
+ * on the fees app's AiSensy account (the +91 80 4713 6289 number), which One
+ * never sends from, so the hub's account (+91 83022 07823) needs its own
+ * copy. `_v8` is `_v7` byte for byte — the body, the five slots, the samples,
+ * the Pay now and Call office buttons — under a new name, submitted through
+ * the hub's `POST /v1/templates` (Settings → WhatsApp).
+ */
+export const V8_SITUATIONS: readonly NoticeSituation[] = V7_SITUATIONS;
+
+/** `vpps_app_fee_due_hi_v8` — the template's name on the hub's account. */
+export function v8CampaignName(situation: NoticeSituation, language: NoticeLanguage): string {
+  return `vpps_app_${situation}_${language}_v8`;
+}
+
+/**
+ * The `_v8` templates the hub's own list (`GET /v1/templates`, shown in
+ * Settings → WhatsApp) reads as APPROVED. Kept apart from `APPROVED_V7`, which
+ * is the AiSensy account's, and filled only from an APPROVED status there —
+ * never PENDING, never a template approved somewhere else. Flipped in code
+ * and deployed, like every generation before it; the registry row must ALSO
+ * read approved before anything goes (platform/whatsapp/policy.ts).
+ *
+ * Empty until the hub reports the first approvals.
+ */
+export const APPROVED_HUB: ReadonlySet<string> = new Set<string>([]);
+
+export function isHubApproved(situation: NoticeSituation, language: NoticeLanguage): boolean {
+  return V8_SITUATIONS.includes(situation) && APPROVED_HUB.has(v8CampaignName(situation, language));
+}
+
+/**
+ * The campaign NAME a notice goes out under today in VPPS One: the hub's
+ * `_v8` one once it is approved there, then `_v7` (never while One has no
+ * AiSensy: `APPROVED_V7` stays empty), then the earlier text-only generation.
+ * Never `_v6`. Throws, like `campaignFor`, when none is sendable.
  */
 export function activeCampaignName(situation: NoticeSituation, language: NoticeLanguage): string {
+  if (isHubApproved(situation, language)) return v8CampaignName(situation, language);
   return isV7Approved(situation, language)
     ? v7CampaignName(situation, language)
     : campaignFor(situation, language).campaignName;
@@ -133,6 +170,7 @@ export function activeCampaignNameOrNull(
   situation: NoticeSituation,
   language: NoticeLanguage,
 ): string | null {
+  if (isHubApproved(situation, language)) return v8CampaignName(situation, language);
   return isV7Approved(situation, language)
     ? v7CampaignName(situation, language)
     : campaignNameFor(situation, language);

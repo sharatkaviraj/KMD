@@ -1,8 +1,9 @@
 import { t, type Localized } from "@/platform/i18n/language";
 
 /**
- * Settings → WhatsApp (D-562): the school's own WhatsApp number, its safety
- * switches, the approved templates, the message log and parents' replies.
+ * Settings → WhatsApp (D-562, D-566): the school's own WhatsApp number, its
+ * safety switches, the approved templates, the hub's Pay now set, the message
+ * log and parents' replies.
  *
  * Rule 9 pairs in a module of their own, like `ai-connection.ts`: only this
  * server page imports it, so none of it ships on a budgeted route.
@@ -21,7 +22,7 @@ export const waMessages = {
   connected: t("जुड़ा है", "Connected"),
   notConnected: t("अभी जुड़ा नहीं", "Not connected yet"),
   practiceBadge: t("अभ्यास चालू", "Practice mode on"),
-  providerSchool: t("स्कूल का अपना WhatsApp सर्वर", "The school's own WhatsApp server"),
+  providerHub: t("स्कूल का अपना WhatsApp हब", "The school's own WhatsApp hub"),
   providerMeta: t("Meta Cloud API, सीधे", "Meta Cloud API, directly"),
   providerMock: t("नकली (कुछ बाहर नहीं जाता)", "Mock (nothing leaves)"),
   providerNone: t("तय नहीं", "Not set"),
@@ -31,8 +32,8 @@ export const waMessages = {
   webhookOn: t("मिल रही है", "Coming in"),
   webhookOff: t("अभी नहीं (webhook तैयार नहीं)", "Not yet (webhook not set up)"),
   notConnectedHelp: t(
-    "सर्वर का पता और चाबी अभी भरनी है। तब तक कोई संदेश नहीं जाएगा।",
-    "The server's address and key are still to be filled in. Until then no message goes.",
+    "हब की चाबी (WHATSAPP_HUB_KEY) अभी Vercel में भरनी है। तब तक कोई संदेश नहीं जाएगा।",
+    "The hub's key (WHATSAPP_HUB_KEY) is still to be added in Vercel. Until then no message goes.",
   ),
   checkConnection: t("जुड़ाव जाँचें", "Check connection"),
   checking: t("जाँच रहे हैं…", "Checking…"),
@@ -68,20 +69,33 @@ export const waMessages = {
   // templates
   templatesTitle: t("मंज़ूर संदेश (टेम्पलेट)", "Approved messages (templates)"),
   templatesHelp: t(
-    "हर संदेश पहले Meta से मंज़ूर होता है। जो मंज़ूर नहीं है, वह नहीं भेजा जाता — स्टाफ़ को भेजने से पहले यहीं दिखता है।",
-    "Every message is approved by Meta first. One that is not approved is never sent, and staff see that here before they send.",
+    "हर संदेश पहले Meta से मंज़ूर होता है। जो मंज़ूर नहीं है, वह नहीं भेजा जाता — स्टाफ़ को भेजने से पहले यहीं दिखता है। मंज़ूरी सिर्फ़ हब की सूची से आती है, हाथ से नहीं।",
+    "Every message is approved by Meta first. One that is not approved is never sent, and staff see that here before they send. Approval comes only from the hub's list, never by hand.",
   ),
   checkTemplates: t("WhatsApp से जाँचें", "Check with WhatsApp"),
   checkingTemplates: t("जाँच रहे हैं…", "Checking…"),
-  markApproved: t("मंज़ूर मानें", "Mark approved"),
-  markApprovedHelp: t(
-    "जब सर्वर अभी सूची नहीं दे सकता: Meta में मंज़ूरी देखकर ही दबाएँ।",
-    "For when the server cannot list templates yet: press only after you have seen the approval in Meta.",
-  ),
-  undoApproved: t("मंज़ूरी हटाएँ", "Remove approval"),
   noTemplates: t("कोई टेम्पलेट नहीं", "No templates"),
   templateCounts: (approved: number, total: number) => t(`${total} में से ${approved} मंज़ूर`, `${approved} of ${total} approved`),
   showAll: t("सब दिखाएँ", "Show all"),
+  quality: (value: string) => t(`गुणवत्ता: ${value}`, `Quality: ${value}`),
+
+  // the hub's Pay now set (_v8)
+  hubTitle: t("Pay now वाले फ़ीस संदेश", "Fee reminders with Pay now"),
+  hubHelp: t(
+    "ये 22 संदेश (हिंदी और English) पुराने संदेशों जैसे ही हैं, शब्द-शब्द वही, पर स्कूल के अपने नंबर के लिए। पहले Meta इन्हें मंज़ूर करता है — इसमें कुछ घंटे से एक-दो दिन लगते हैं। भेजने पर किसी अभिभावक को कुछ नहीं जाता।",
+    "These 22 messages (Hindi and English) are the same as the old ones, word for word, but for the school's own number. Meta approves them first, which takes a few hours to a day or two. Sending them for approval sends nothing to any parent.",
+  ),
+  hubCounts: (approved: number, waiting: number, notSent: number) =>
+    t(`${approved} मंज़ूर · ${waiting} मंज़ूरी बाकी · ${notSent} अभी नहीं भेजे`, `${approved} approved · ${waiting} waiting for Meta · ${notSent} not sent yet`),
+  hubSend: (n: number) => t(`${n} संदेश मंज़ूरी के लिए भेजें`, `Send ${n} for approval`),
+  hubSending: t("Meta को भेज रहे हैं…", "Sending to Meta…"),
+  hubSendConfirm: t(
+    "ये संदेश Meta को मंज़ूरी के लिए जाएँगे। किसी अभिभावक को कुछ नहीं जाएगा। भेजें?",
+    "These go to Meta for approval. Nothing goes to any parent. Send them?",
+  ),
+  hubAllSent: t("सब भेजे जा चुके हैं। मंज़ूरी आते ही यहाँ दिखेगी।", "All have been sent. Approval shows here as soon as it comes."),
+  hubNeedsHub: t("पहले हब जोड़ें (ऊपर 'जुड़ाव जाँचें'), फिर यहाँ से भेजें।", "Connect the hub first (Check connection above), then send from here."),
+  hubList: t("सभी 22 देखें", "See all 22"),
 
   // log
   problemsTitle: t("जो नहीं पहुँचे", "Did not arrive"),
@@ -144,8 +158,18 @@ export function noteFor(note: string, params: Record<string, string | undefined>
       };
     case "templates_bad":
       return { tone: "bad", text: t(`जाँच नहीं हो सकी: ${why}`, `Could not check: ${why}`) };
-    case "templates_marked":
-      return { tone: "ok", text: t("टेम्पलेट की स्थिति बदल दी।", "Template status changed.") };
+    case "hub_sent": {
+      const failed = Number(params.failed ?? 0);
+      return {
+        tone: failed > 0 ? "warn" : "ok",
+        text: t(
+          `${params.sent ?? 0} संदेश Meta को मंज़ूरी के लिए भेजे।${failed > 0 ? ` ${failed} नहीं जा सके: ${why}` : ""} मंज़ूरी आते ही यहाँ दिखेगी।`,
+          `Sent ${params.sent ?? 0} to Meta for approval.${failed > 0 ? ` ${failed} could not go: ${why}` : ""} Approval shows here as soon as it comes.`,
+        ),
+      };
+    }
+    case "hub_bad":
+      return { tone: "bad", text: t(`मंज़ूरी के लिए नहीं भेजा जा सका: ${why}`, `Could not send for approval: ${why}`) };
     case "retry_accepted":
       return { tone: "ok", text: t("फिर भेज दिया। WhatsApp ने ले लिया।", "Sent again. WhatsApp took it.") };
     case "retry_dry_run":

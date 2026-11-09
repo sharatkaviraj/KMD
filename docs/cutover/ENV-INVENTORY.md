@@ -16,7 +16,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 |---|---|---|---|---|---|---|
 | `AISENSY_API_KEY` | — | `src/modules/whatsapp/data/aisensy.ts` | — | yes | fees | fees only — One left AiSensy on 9 Nov 2026 (D-562); never set it on One |
 | `AISENSY_CAMPAIGN` | — | — | — | yes | fees | fees only — not read by either codebase; not needed |
-| `AISENSY_WEBHOOK_SECRET` | — | `src/app/api/webhooks/aisensy/route.ts` | — | — | fees | fees only — One's delivery webhook is /api/webhooks/whatsapp |
+| `AISENSY_WEBHOOK_SECRET` | — | `src/app/api/webhooks/aisensy/route.ts` | — | — | fees | fees only — One's delivery webhook is /api/webhooks/whatsapp-hub |
 | `ANALYZE` | — | `next.config.ts` | — | — | fees build flag | fees only (bundle analyzer); not needed |
 | `ANTHROPIC_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` +2 | — | yes | — | owner | set — `assist` reading real data needs the owner's yes (MCP-AND-NOTION.md, Q13) |
 | `APP_MODE` | `src/platform/config/school.ts`, `src/platform/env.ts` | `src/modules/one-bridge/data/auth.ts`, `src/platform/config/school.ts` +1 | yes | yes | owner | add at C5: `production` — required together with VPPSONE_ENV=live (`getFeeSchema()` throws otherwise) |
@@ -117,17 +117,16 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `VPPSONE_SESSION_LABEL` | `src/modules/academics/data/academics-repo.ts` | — | — | — | owner | leave unset — the active session comes from app_settings (rule 3a) |
 | `VPPS_OBSERVABILITY_VERBOSE` | `src/platform/observability/log.ts` | `src/platform/observability/log.ts` | — | — | owner | leave unset (off) |
 | `WHATSAPP_ACCESS_TOKEN` | `src/platform/whatsapp/config.ts` | — | — | — | Meta system-user token (owner) | only with WHATSAPP_PHONE_NUMBER_ID |
-| `WHATSAPP_API_KEY` | `src/platform/whatsapp/config.ts` | — | — | — | the school's WhatsApp server (owner) | add with WHATSAPP_API_URL — sent as a Bearer token |
-| `WHATSAPP_API_URL` | `src/platform/whatsapp/config.ts` | — | — | — | the school's WhatsApp server (owner) | add when the server is ready — its base URL, https only |
-| `WHATSAPP_APP_SECRET` | `src/platform/whatsapp/config.ts` | — | — | — | Meta app secret (owner) | add to accept Meta's webhook — unset with no other secret, /api/webhooks/whatsapp answers 404 |
-| `WHATSAPP_BUSINESS_ACCOUNT_ID` | `src/platform/whatsapp/config.ts` | — | — | — | Meta WhatsApp Manager (owner) | optional — lets “Check templates” read approvals from Meta |
+| `WHATSAPP_APP_SECRET` | `src/platform/whatsapp/config.ts` | — | — | — | Meta app secret (owner) | Meta direct only — unset, /api/webhooks/whatsapp answers 404 |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | `src/platform/whatsapp/config.ts` | — | — | — | Meta WhatsApp Manager (owner) | Meta direct only — lets “Check templates” read approvals from Meta |
 | `WHATSAPP_CRON_SECRET` | `src/app/api/fees/cron/whatsapp-scheduled-runs/route.ts` | `src/app/api/cron/whatsapp-run-drain/route.ts`, `src/app/api/cron/whatsapp-scheduled-runs/route.ts` +1 | — | — | owner | leave unset — the pg_cron job sends Vault's VPPS_WHATSAPP_CRON_SECRET (whatsapp_cron_secret_matches) |
-| `WHATSAPP_GRAPH_VERSION` | `src/platform/whatsapp/config.ts` | — | — | — | owner | optional — default v21.0 |
+| `WHATSAPP_GRAPH_VERSION` | `src/platform/whatsapp/config.ts` | — | — | — | owner | Meta direct only — default v21.0 |
+| `WHATSAPP_HUB_KEY` | `src/platform/whatsapp/config.ts` | — | — | — | the school's WhatsApp hub (owner's secrets note, `one:`) | set 9 Nov 2026 — Sensitive, server-only; also signs the hub's webhook (D-566) |
+| `WHATSAPP_HUB_URL` | `src/platform/whatsapp/config.ts` | — | — | — | owner | optional — defaults to https://vpps-whatsapp-hub.raj-39e.workers.dev; https only |
 | `WHATSAPP_PHONE_NUMBER_ID` | `src/platform/whatsapp/config.ts` | — | — | — | Meta WhatsApp Manager (owner) | only to send through Meta directly — the number's ID, not the phone number |
-| `WHATSAPP_PROVIDER` | `src/platform/whatsapp/config.ts` | — | — | — | owner | optional — `school_server` or `meta_cloud`; unset, inferred from which credentials are present (docs/whatsapp/SETUP.md) |
-| `WHATSAPP_SENDER_NUMBER` | `src/platform/whatsapp/config.ts` | — | — | — | owner | add — must be +918302207823, the school's number; anything else, and the fees app's number above all, refuses every send |
-| `WHATSAPP_VERIFY_TOKEN` | `src/platform/whatsapp/config.ts` | — | — | — | owner | add — any long random string, typed into Meta's webhook setup as the verify token |
-| `WHATSAPP_WEBHOOK_SECRET` | `src/platform/whatsapp/config.ts` | — | — | — | the school's WhatsApp server (owner) | add to accept the school server's webhook (same X-Hub-Signature-256 HMAC) |
+| `WHATSAPP_PROVIDER` | `src/platform/whatsapp/config.ts` | — | — | — | owner | optional — `hub` or `meta_cloud`; unset, inferred from which credentials are present, the hub first (docs/whatsapp/SETUP.md) |
+| `WHATSAPP_SENDER_NUMBER` | `src/platform/whatsapp/config.ts` | — | — | — | owner | optional for the hub; if set it must be +918302207823, the school's number — anything else, and the fees app's number above all, refuses every send |
+| `WHATSAPP_VERIFY_TOKEN` | `src/platform/whatsapp/config.ts` | — | — | — | owner | Meta direct only — any long random string, typed into Meta's webhook setup as the verify token |
 
 ## The fees MCP worker (Cloudflare)
 

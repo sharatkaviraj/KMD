@@ -11,9 +11,11 @@ import {
 import type { ReminderFamily } from "@/modules/whatsapp/domain/family-grouping";
 import {
   isV6Approved,
+  isHubApproved,
   isV7Approved,
   v6CampaignName,
   v7CampaignName,
+  v8CampaignName,
 } from "@/modules/whatsapp/domain/campaign-generation";
 import { lateFeePhrase, type LateFeeBasis } from "@/modules/whatsapp/domain/late-fee";
 
@@ -132,5 +134,7 @@ export function campaignNamesForNotice(
   // family the fees app messaged under `_v6` this morning is not un-contacted
   // under `_v7` (the run-sender's cross-campaign check is the hard stop).
   if (isV7Approved(situation, language)) names.push(v7CampaignName(situation, language));
+  // And the hub's `_v8`, the same notice on the school's own number.
+  if (isHubApproved(situation, language)) names.push(v8CampaignName(situation, language));
   return names.filter(Boolean);
 }

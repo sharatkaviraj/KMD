@@ -6,14 +6,17 @@ import { describe, expect, it } from "vitest";
 import { catalogRows } from "@/modules/whatsapp/domain/template-catalog";
 
 /**
- * The template registry's seed (`20261109062459_school_whatsapp.sql`) is the
+ * The template registry's seed (`20261109062459_school_whatsapp.sql`, and the
+ * hub's `_v8` set in `20261109082705_whatsapp_hub.sql`, D-566) is the
  * catalogue `scripts/whatsapp-template-catalog.mjs` printed from the app's own
  * descriptors (D-562). A descriptor that gains a slot without a new registry
  * row would be refused at send time as a mismatch — safe, but silent until a
  * parent goes without a message — so the two are held together here.
  */
 
-const SQL = readFileSync(join(process.cwd(), "supabase/migrations/20261109062459_school_whatsapp.sql"), "utf8");
+const SQL = ["20261109062459_school_whatsapp.sql", "20261109082705_whatsapp_hub.sql"]
+  .map((file) => readFileSync(join(process.cwd(), "supabase/migrations", file), "utf8"))
+  .join("\n");
 const SEED = /^\s*\('([a-z0-9_]+)', '([a-z0-9_]+)', '(hi|en)', '([a-z_]+)', (\d+), array\[([^\]]*)\]::text\[\], '(none|document)', (true|false), /gm;
 
 const seeded = new Map(

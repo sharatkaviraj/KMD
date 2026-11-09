@@ -4,9 +4,9 @@ import { waDigits } from "@/platform/whatsapp/numbers";
  * The message JSON, in Meta's WhatsApp Cloud API format (D-562).
  *
  * Both providers take exactly this body: Meta's own `/{phone-number-id}/messages`,
- * and the school's WhatsApp server, which speaks the same format (Janmejay,
- * 9 Nov). Pure, so the exact bytes are pinned by tests rather than discovered
- * in a refusal from Meta.
+ * and the school's WhatsApp hub's `POST /v1/messages`, a pass-through of the
+ * same format (the hub's API doc, 9 Nov). Pure, so the exact bytes are pinned
+ * by tests rather than discovered in a refusal from Meta.
  *
  * What AiSensy hid and this now has to say itself:
  *  - a template is named with its LANGUAGE; the same name in Hindi and English
@@ -102,15 +102,22 @@ export function acceptedMessageId(body: unknown): string | null {
   return typeof id === "string" && id.trim() ? id.trim() : null;
 }
 
-/** Meta's error envelope: `{ error: { code, message, error_data: { details } } }`. */
-export function graphError(body: unknown): { code: string | null; title: string | null; detail: string | null } {
+/**
+ * Meta's error envelope, `{ error: { code, message, error_data: { details } } }`,
+ * and the hub's, which is Meta's with `hub_code` beside the code
+ * (`window_closed`, `opted_out`, `not_approved`, `sending_off`, `test_mode`,
+ * `bad_number` …) and `type: "VppsHubError"`.
+ */
+export function graphError(body: unknown): { code: string | null; hubCode: string | null; title: string | null; detail: string | null } {
   const error = body && typeof body === "object" ? (body as { error?: unknown }).error : null;
-  if (!error || typeof error !== "object") return { code: null, title: null, detail: null };
+  if (!error || typeof error !== "object") return { code: null, hubCode: null, title: null, detail: null };
   const record = error as Record<string, unknown>;
   const data = (record.error_data ?? {}) as Record<string, unknown>;
   const code = record.code ?? null;
+  const hubCode = typeof record.hub_code === "string" && /^[a-z][a-z0-9_]{1,40}$/.test(record.hub_code.trim()) ? record.hub_code.trim() : null;
   return {
-    code: code === null || code === undefined ? null : String(code),
+    code: code === null || code === undefined || String(code).trim() === "" ? null : String(code).trim(),
+    hubCode,
     title: typeof record.message === "string" ? record.message.slice(0, 300) : null,
     detail: typeof data.details === "string" ? data.details.slice(0, 500) : null,
   };

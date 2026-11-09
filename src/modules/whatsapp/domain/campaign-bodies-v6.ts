@@ -9,11 +9,13 @@ import {
 } from "@/modules/whatsapp/domain/campaigns";
 import type { LateFeeBasis, LateFeeSource } from "@/modules/whatsapp/domain/late-fee";
 import {
+  APPROVED_HUB,
   APPROVED_V6,
   APPROVED_V7,
   V7_SITUATIONS,
   v6CampaignName,
   v7CampaignName,
+  v8CampaignName,
 } from "@/modules/whatsapp/domain/campaign-generation";
 
 /**
@@ -59,8 +61,11 @@ import {
 export type V6Button = "pay_url" | "call_office";
 
 export type V6Descriptor = CampaignDescriptor & {
-  /** `v7` is the same template with One's Pay now host (see `V7_CAMPAIGNS`). */
-  generation: "v6" | "v7";
+  /**
+   * `v7` is the same template with One's Pay now host (see `V7_CAMPAIGNS`);
+   * `v8` is `v7` on the school's WhatsApp hub (see `V8_CAMPAIGNS`).
+   */
+  generation: "v6" | "v7" | "v8";
   /** Exactly as submitted, `{{n}}` placeholders and all. */
   body: string;
   buttons: readonly V6Button[];
@@ -641,6 +646,27 @@ export const V7_CAMPAIGNS: readonly V6Descriptor[] = V6_CAMPAIGNS.filter((entry)
   return { ...entry, generation: "v7", campaignName, approved: APPROVED_V7.has(campaignName) };
 });
 
+/**
+ * The `_v8` notices: every `_v7` one, byte for byte, under the name the
+ * school's WhatsApp hub knows it by, approved only when `APPROVED_HUB` lists
+ * it (D-566). tests/whatsapp-hub-templates.test.ts holds the two to the same
+ * body, samples, slots and buttons.
+ */
+export const V8_CAMPAIGNS: readonly V6Descriptor[] = V7_CAMPAIGNS.map((entry): V6Descriptor => {
+  const campaignName = v8CampaignName(entry.situation, entry.language);
+  return { ...entry, generation: "v8", campaignName, approved: APPROVED_HUB.has(campaignName) };
+});
+
+export function describeV8Campaign(
+  situation: NoticeSituation,
+  language: NoticeLanguage,
+): V6Descriptor | null {
+  return (
+    V8_CAMPAIGNS.find((entry) => entry.situation === situation && entry.language === language) ??
+    null
+  );
+}
+
 export function describeV7Campaign(
   situation: NoticeSituation,
   language: NoticeLanguage,
@@ -661,19 +687,20 @@ export function describeV6Campaign(
   );
 }
 
-/** Does this campaign name carry the Pay now button? Only `_v6` and `_v7` ones do. */
+/** Does this campaign name carry the Pay now button? Only `_v6`, `_v7` and `_v8` ones do. */
 export function hasPayNowButton(campaignName: string): boolean {
   return Boolean(
-    [...V6_CAMPAIGNS, ...V7_CAMPAIGNS]
+    [...V6_CAMPAIGNS, ...V7_CAMPAIGNS, ...V8_CAMPAIGNS]
       .find((entry) => entry.campaignName === campaignName)
       ?.buttons.includes("pay_url"),
   );
 }
 
 /**
- * The Pay now template this notice goes out under in VPPS One — the `_v7`
- * one, once it is approved and Live — or null, and then the earlier text-only
- * generation goes instead.
+ * The Pay now template this notice goes out under in VPPS One — the hub's
+ * `_v8` one once `APPROVED_HUB` lists it, else the `_v7` one once it is
+ * approved and Live — or null, and then the earlier text-only generation
+ * goes instead.
  *
  * Named as in the fees app, so its callers (the run sender, the test send, the
  * screen's preview) read exactly as there; in the fees app it hands out
@@ -684,6 +711,8 @@ export function approvedV6Campaign(
   situation: NoticeSituation,
   language: NoticeLanguage,
 ): V6Descriptor | null {
+  const hub = describeV8Campaign(situation, language);
+  if (hub?.approved) return hub;
   const found = describeV7Campaign(situation, language);
   return found?.approved ? found : null;
 }

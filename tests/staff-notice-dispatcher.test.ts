@@ -279,8 +279,8 @@ describe("never a real send from a test run", () => {
 
   it.each(["whatsapp", "aisensy"])("the real transport (%s) is never chosen under a test runner, even when declared and connected", (declared) => {
     vi.stubEnv("STAFF_NOTICE_TRANSPORT", declared);
-    vi.stubEnv("WHATSAPP_API_URL", "https://wa.example.test");
-    vi.stubEnv("WHATSAPP_API_KEY", "test-key-not-real");
+    vi.stubEnv("WHATSAPP_HUB_URL", "https://hub.example.test");
+    vi.stubEnv("WHATSAPP_HUB_KEY", "test-key-not-real");
     vi.stubEnv("WHATSAPP_SENDER_NUMBER", "+918302207823");
     expect(staffTransportName()).toBe("disabled");
   });

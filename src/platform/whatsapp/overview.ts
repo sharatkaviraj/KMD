@@ -1,6 +1,6 @@
 import "server-only";
 
-import { readWhatsAppConfig, webhookSecrets, webhookVerifyToken, type WhatsAppProviderName } from "@/platform/whatsapp/config";
+import { hubWebhookSecrets, readWhatsAppConfig, webhookSecrets, webhookVerifyToken, type WhatsAppProviderName } from "@/platform/whatsapp/config";
 import { describeError, type PlainError } from "@/platform/whatsapp/errors";
 import { maskNumber, SCHOOL_WHATSAPP_NUMBER } from "@/platform/whatsapp/numbers";
 import { WHATSAPP_FEATURES, type WhatsAppFeature, type WhatsAppSwitches } from "@/platform/whatsapp/policy";
@@ -8,7 +8,7 @@ import { RETRY_FROM_OWN_SCREEN } from "@/platform/whatsapp/service";
 import { readSwitches, whatsappDb, type MessageStatus } from "@/platform/whatsapp/store";
 
 /**
- * Everything Settings → WhatsApp shows, in one read (D-562). Admin only: the
+ * Everything Settings → WhatsApp shows, in one read (D-562, D-566). Admin only: the
  * page checks `settings:manage` before it calls this. Numbers are masked here,
  * before they reach a screen; the log keeps them whole.
  */
@@ -21,6 +21,10 @@ export type TemplateView = {
   reason: string | null;
   label: string;
   checkedAt: string | null;
+  /** The hub's quality rating for an approved template (GREEN / YELLOW / RED). */
+  quality: string | null;
+  /** When One sent it to Meta for approval through the hub. */
+  submittedAt: string | null;
 };
 
 export type MessageView = {
@@ -109,11 +113,21 @@ export async function loadWhatsAppOverview(): Promise<WhatsAppOverview> {
     readSwitches(db),
     db
       .from("whatsapp_templates")
-      .select("key, feature, language_code, status, status_reason, label_en, status_checked_at")
+      .select("key, feature, language_code, status, status_reason, label_en, status_checked_at, quality, submitted_at")
       .order("feature")
       .order("key")
       .then(
-        ({ data, error }) => (error ? null : (data ?? [])) as Array<{ key: string; feature: string; language_code: string; status: string; status_reason: string | null; label_en: string | null; status_checked_at: string | null }> | null,
+        ({ data, error }) => (error ? null : (data ?? [])) as Array<{
+          key: string;
+          feature: string;
+          language_code: string;
+          status: string;
+          status_reason: string | null;
+          label_en: string | null;
+          status_checked_at: string | null;
+          quality: string | null;
+          submitted_at: string | null;
+        }> | null,
         () => null,
       ),
     db
@@ -160,7 +174,10 @@ export async function loadWhatsAppOverview(): Promise<WhatsAppOverview> {
     provider: config.ok ? config.provider : null,
     connected: config.ok,
     connectionProblem: config.ok ? null : config.reason,
-    webhookReady: webhookSecrets().length > 0 && Boolean(webhookVerifyToken()),
+    // The hub signs what it forwards with One's own key; Meta direct needs its
+    // app secret and the verify token it echoes when the webhook is set up.
+    webhookReady:
+      config.ok && config.provider === "hub" ? hubWebhookSecrets().length > 0 : webhookSecrets().length > 0 && Boolean(webhookVerifyToken()),
     switches,
     ownerNumberMasked: switches?.ownerTestNumber ? maskNumber(switches.ownerTestNumber) : null,
     sentToday: today,
@@ -173,6 +190,8 @@ export async function loadWhatsAppOverview(): Promise<WhatsAppOverview> {
           reason: row.status_reason,
           label: row.label_en ?? row.key,
           checkedAt: row.status_checked_at,
+          quality: row.quality,
+          submittedAt: row.submitted_at,
         }))
       : null,
     messages: messages ? messages.map(messageView) : null,

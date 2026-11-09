@@ -3,12 +3,18 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { fromWaId, SCHOOL_WHATSAPP_NUMBER } from "@/platform/whatsapp/numbers";
 
 /**
- * The status webhook, read (D-562). Pure: no database, no request object.
+ * The status webhook, read (D-562, D-566). Pure: no database, no request object.
  *
- * Meta, and the school's WhatsApp server in the same format, POST a
- * `whatsapp_business_account` payload signed with HMAC-SHA256 of the RAW body
- * in `X-Hub-Signature-256: sha256=<hex>`. The signature is checked over the
- * exact bytes received; parsing first and re-serialising would change them.
+ * Meta, and the school's WhatsApp hub forwarding Meta's JSON unchanged, POST
+ * a `whatsapp_business_account` payload signed with HMAC-SHA256 of the RAW
+ * body in `X-Hub-Signature-256: sha256=<hex>` (Meta: the app secret; the hub:
+ * One's own hub key). The signature is checked over the exact bytes
+ * received; parsing first and re-serialising would change them.
+ *
+ * Three kinds of change are read: `messages` (statuses and replies),
+ * `message_template_status_update` (Meta approved, rejected or paused a
+ * template) and `template_category_update` (Meta moved one to another
+ * category). Anything else is left unread.
  */
 
 export type WebhookStatus = {
@@ -32,11 +38,24 @@ export type WebhookInbound = {
   raw: Record<string, unknown>;
 };
 
+/** A template's review or category changed on the school's account. */
+export type WebhookTemplateEvent = {
+  name: string;
+  language: string;
+  kind: "status" | "category";
+  /** Meta's event, upper case: APPROVED, REJECTED, PAUSED, PENDING, DISABLED, FLAGGED, REINSTATED … */
+  event: string | null;
+  reason: string | null;
+  /** The category Meta moved it to, lower case. */
+  newCategory: string | null;
+};
+
 export type ParsedWebhook = {
   /** The receiving number as each change states it, for the route to check. */
   numbers: Array<{ displayNumber: string | null; phoneNumberId: string | null }>;
   statuses: WebhookStatus[];
   inbound: WebhookInbound[];
+  templates: WebhookTemplateEvent[];
   /** Changes for any number but the school's, left unread. */
   otherNumber: number;
 };
@@ -90,13 +109,41 @@ function inboundText(message: Record<string, unknown>): string | null {
   return stringOf(media.caption);
 }
 
+/** A template change's value, as Meta sends it for either field. */
+function templateEvent(field: string, value: Record<string, unknown>): WebhookTemplateEvent | null {
+  const name = stringOf(value.message_template_name);
+  const language = stringOf(value.message_template_language);
+  if (!name || !language || !/^[a-z0-9_]{1,512}$/.test(name)) return null;
+  if (field === "message_template_status_update") {
+    const reason = stringOf(value.reason) ?? stringOf(asRecord(value.other_info).description);
+    return {
+      name,
+      language,
+      kind: "status",
+      event: stringOf(value.event)?.toUpperCase() ?? null,
+      reason: reason && reason.toUpperCase() !== "NONE" ? reason.slice(0, 300) : null,
+      newCategory: null,
+    };
+  }
+  const category = stringOf(value.new_category) ?? stringOf(value.correct_category);
+  return { name, language, kind: "category", event: null, reason: null, newCategory: category ? category.toLowerCase() : null };
+}
+
+const TEMPLATE_FIELDS = new Set(["message_template_status_update", "template_category_update"]);
+
 export function parseWebhook(payload: unknown, nowIso: string = new Date().toISOString()): ParsedWebhook {
-  const parsed: ParsedWebhook = { numbers: [], statuses: [], inbound: [], otherNumber: 0 };
+  const parsed: ParsedWebhook = { numbers: [], statuses: [], inbound: [], templates: [], otherNumber: 0 };
   const root = asRecord(payload);
   for (const entry of asArray(root.entry)) {
     for (const change of asArray(asRecord(entry).changes)) {
       const changeRecord = asRecord(change);
-      if (changeRecord.field !== undefined && changeRecord.field !== "messages") continue;
+      const field = typeof changeRecord.field === "string" ? changeRecord.field : undefined;
+      if (field && TEMPLATE_FIELDS.has(field)) {
+        const event = templateEvent(field, asRecord(changeRecord.value));
+        if (event) parsed.templates.push(event);
+        continue;
+      }
+      if (field !== undefined && field !== "messages") continue;
       const value = asRecord(changeRecord.value);
       const metadata = asRecord(value.metadata);
       const displayNumber = fromWaId(stringOf(metadata.display_phone_number));

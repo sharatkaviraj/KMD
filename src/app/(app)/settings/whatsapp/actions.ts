@@ -2,32 +2,34 @@
 
 import { redirect } from "next/navigation";
 
+import { submitHubTemplateSet, syncHubTemplates } from "@/modules/whatsapp/data/hub-templates";
 import { syncSettledToSource } from "@/modules/whatsapp/data/whatsapp-source-sync";
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { assertNotTestAccount, isSessionAccessDenied } from "@/platform/auth/test-session-access";
 import { getSiteUrl } from "@/platform/env";
 import { rethrowNextSignal } from "@/platform/helpers/next-signals";
 import { isWhatsAppFeature } from "@/platform/whatsapp/policy";
-import { checkConnection, retryMessage, syncTemplates } from "@/platform/whatsapp/service";
-import { readMessage, setFeatureSwitch, setPracticeMode, setTemplateStatus } from "@/platform/whatsapp/store";
+import { checkConnection, retryMessage } from "@/platform/whatsapp/service";
+import { readMessage, setFeatureSwitch, setPracticeMode } from "@/platform/whatsapp/store";
 import { assertNotPreviewing } from "@/vx/view-as";
 
 /*
- * Settings → WhatsApp (D-562). Every action: `settings:manage` and an admin by
- * role, not previewing another role. Anything that changes what the whole
- * school sends — a switch, a template's status, a Retry — also refuses a
- * test account. "Check connection" only reads, so a test admin may press it.
+ * Settings → WhatsApp (D-562, D-566). Every action: `settings:manage` and an
+ * admin by role, not previewing another role. Anything that changes what the
+ * whole school sends — a switch, a template check, sending templates to Meta
+ * for approval, a Retry — also refuses a test account. "Check connection" only
+ * reads, so a test admin may press it.
  *
  * No action here can let a message reach a real parent: real recipients and
- * the owner's test number are not switches this page has.
+ * the owner's test number are not switches this page has. Nor can one mark a
+ * template approved: only the hub's own list does that (D-566).
  */
 
 const PAGE = "/settings/whatsapp";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TEMPLATE_KEY = /^[a-z0-9_]{1,120}$/;
 
 /** The card a button sits on: a refusal is answered beside it, like any other answer. */
-type Area = "conn" | "practice" | "feature" | "templates" | "retry";
+type Area = "conn" | "practice" | "feature" | "hub" | "templates" | "retry";
 
 /**
  * After `assertPermission("settings:manage")`, which every action calls first
@@ -88,18 +90,17 @@ export async function setFeatureAction(formData: FormData): Promise<void> {
 
 export async function syncTemplatesAction(): Promise<void> {
   const actor = await adminOnly(await assertPermission("settings:manage"), "templates", { changesSchool: true });
-  const answer = await syncTemplates({ staffId: actor.id }, getSiteUrl()).catch(() => ({ ok: false as const, problem: "No answer." }));
+  const answer = await syncHubTemplates({ staffId: actor.id }, getSiteUrl()).catch(() => ({ ok: false as const, problem: "No answer." }));
   if (answer.ok) back("templates_ok", { approved: answer.approved, checked: answer.checked, missing: answer.missing });
   back("templates_bad", { why: answer.problem });
 }
 
-export async function markTemplateAction(formData: FormData): Promise<void> {
-  const actor = await adminOnly(await assertPermission("settings:manage"), "templates", { changesSchool: true });
-  const key = String(formData.get("key") ?? "");
-  const status = String(formData.get("status") ?? "");
-  if (!TEMPLATE_KEY.test(key) || (status !== "approved" && status !== "not_submitted")) back("save_bad");
-  const ok = await setTemplateStatus(key, status as "approved" | "not_submitted", actor.id);
-  back(ok ? "templates_marked" : "save_bad", { key });
+/** The `_v8` set to Meta for review through the hub. Templates only: nothing reaches a parent. */
+export async function submitHubTemplatesAction(): Promise<void> {
+  const actor = await adminOnly(await assertPermission("settings:manage"), "hub", { changesSchool: true });
+  const answer = await submitHubTemplateSet({ staffId: actor.id }).catch(() => ({ ok: false as const, problem: "No answer." }));
+  if (!answer.ok) back("hub_bad", { why: answer.problem });
+  back("hub_sent", { sent: answer.sent, skipped: answer.skipped, failed: answer.failed.length, why: answer.failed[0]?.problem });
 }
 
 export async function retryMessageAction(formData: FormData): Promise<void> {

@@ -3,10 +3,9 @@
 ## The school's own WhatsApp replaces AiSensy in One — 9 November 2026
 
 Owner asked (9 Nov) that One stop using AiSensy and send from the school's own
-WhatsApp number, +91 83022 07823, through the school's server (being built) or
-Meta directly, with a switch per feature and nothing to real parents until he
+WhatsApp number, +91 83022 07823, through the school's own WhatsApp hub, with a switch per feature and nothing to real parents until he
 approves. Fees keeps its AiSensy setup and was not touched. Branch
-`claude/project-thread-09w5sv`, D-562 to D-565. **Done:** one service
+`claude/project-thread-09w5sv`, D-562 to D-566. **Done:** one service
 (`src/platform/whatsapp/`: `sendTemplate`, `sendText`, `getStatus`) in Meta's
 Cloud API format, used by every One send path; the signed webhook
 `/api/webhooks/whatsapp`; the template registry, message log, events,
@@ -17,12 +16,20 @@ approvals, failed messages in plain words with "Send again", the log and
 replies; Pay now kept and the message marked Paid on Razorpay's confirmation.
 Setup, env vars and the fill-in list: `docs/whatsapp/SETUP.md`.
 **Live:** PR 336, merge `814d84e`, serving about 07:34 UTC 9 Nov. BrowserStack (Galaxy M32, QA admin, TEST-2026-27): the page loads with no sideways scroll and "Check connection" answers beside its card, but a practice account pressing "Turn practice off" got the error screen; fixed in the follow-up PR (a plain note, nothing changed).
+**The hub (D-566, same branch, later on 9 Nov):** the owner's WhatsApp hub
+(`veerpatta/vpps-whatsapp-hub`) is now One's only way out: `WHATSAPP_HUB_KEY`
+(added in Vercel by Janmejay; the URL defaults in code), the hub's refusals
+and Meta's codes in plain words and on the failure desk, the signed webhook
+`/api/webhooks/whatsapp-hub` (on the hub's `APP_WEBHOOKS`), template events,
+status polling from the queue job, and the 22 `_v8` templates (the `_v7` set
+word for word) with Send for approval on Settings → WhatsApp; the manual
+"Mark approved" is gone. Migration `20261109082705` applied to One 9 Nov.
 **State of the switches:** practice mode on, every feature off, real
-recipients off (owner's test number only), 250 a day. No env var is set on
-Vercel yet, so nothing can be sent.
-**Remains:** the school server's base URL, key and endpoints (or Meta's IDs
-and token) and template approval on the school's account, then the owner's
-written go-ahead (SETUP.md "What still needs the server's details").
+recipients off (owner's test number only), 250 a day; the hub itself is in
+test mode.
+**Remains:** send the `_v8` set for approval and wait for Meta, fill
+`APPROVED_HUB` from the APPROVED statuses, then the owner's written go-ahead
+(SETUP.md "What is left to fill in").
 `tests/sentry-lite.test.ts` fails in a checkout under `/home/user`; it passes in CI.
 
 ## Test accounts only in the test session — 8 November 2026

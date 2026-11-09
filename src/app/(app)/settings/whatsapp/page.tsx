@@ -1,11 +1,12 @@
 import Link from "@/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { HUB_TEMPLATE_SUBMISSIONS } from "@/modules/whatsapp/domain/hub-templates";
 import { featureLabels, messageStatusLabels, noteFor, templateStatusLabels, waMessages as w } from "@/messages/whatsapp-settings";
 import { requirePermission } from "@/platform/auth/current-staff";
 import type { Language, Localized } from "@/platform/i18n/language";
 import { WHATSAPP_FEATURES } from "@/platform/whatsapp/policy";
-import { loadWhatsAppOverview, type MessageView } from "@/platform/whatsapp/overview";
+import { loadWhatsAppOverview, type MessageView, type TemplateView } from "@/platform/whatsapp/overview";
 import { Ic, type IconName } from "@/vx/icons";
 import { lead, under } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -14,10 +15,10 @@ import { Card, CardHead, EmptyState, Pill } from "@/vx/ui/primitives";
 
 import {
   checkConnectionAction,
-  markTemplateAction,
   retryMessageAction,
   setFeatureAction,
   setPracticeModeAction,
+  submitHubTemplatesAction,
   syncTemplatesAction,
 } from "./actions";
 
@@ -55,7 +56,11 @@ const TEMPLATE_TONE: Record<string, Tone> = {
 const NOTE_ICON: Record<string, IconName> = { ok: "checkCircle", warn: "alert", bad: "alert", info: "info" };
 
 /** The cards an action's answer can land on (`back()` in actions.ts). */
-const ANCHORS = new Set(["conn", "practice", "feature", "templates", "retry"]);
+const ANCHORS = new Set(["conn", "practice", "feature", "hub", "templates", "retry"]);
+
+/** The `_v8` Pay now set, by registry key (= the name it has on the hub). */
+const HUB_SET = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
+const QUALITY_TONE: Record<string, Tone> = { GREEN: "ok", YELLOW: "warn", RED: "bad" };
 const anchorStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 76 };
 
 const istTime = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
@@ -123,10 +128,24 @@ function MessageRow({ m, language, canChange }: { m: MessageView; language: Lang
   );
 }
 
+/** A template's review on the school's account, and its quality once approved. */
+function TemplateStatus({ row, language }: { row: TemplateView; language: Language }) {
+  const say = (text: Localized) => lead(text, language);
+  return (
+    <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <Pill tone={TEMPLATE_TONE[row.status] ?? "mut"}>{say(templateStatusLabels[row.status] ?? { hi: row.status, en: row.status })}</Pill>
+      {row.status === "approved" && row.quality && row.quality !== "UNKNOWN" ? (
+        <Pill tone={QUALITY_TONE[row.quality] ?? "mut"}>{say(w.quality(row.quality))}</Pill>
+      ) : null}
+    </span>
+  );
+}
+
 /**
- * Settings → WhatsApp (D-562): the school's own number (+91 83022 07823),
+ * Settings → WhatsApp (D-562, D-566): the school's own number (+91 83022 07823),
  * whether this deployment is connected to it, who may receive a message, which
- * kinds of message are switched on, which templates Meta has approved, what
+ * kinds of message are switched on, which templates Meta has approved (and the
+ * hub's Pay now set, sent for approval from here), what
  * did not arrive (in plain words, with Send again) and parents' replies.
  * Admin only (`settings:manage`); the actions also require the admin role.
  */
@@ -146,6 +165,11 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
   const byFeature = new Map<string, typeof templates>();
   for (const template of templates) byFeature.set(template.feature, [...(byFeature.get(template.feature) ?? []), template]);
   const approvedCount = templates.filter((template) => template.status === "approved").length;
+  const hubRows = templates.filter((template) => HUB_SET.has(template.key));
+  const hubApproved = hubRows.filter((row) => row.status === "approved").length;
+  const hubWaiting = hubRows.filter((row) => row.status === "pending").length;
+  const hubToSend = hubRows.filter((row) => row.status === "not_submitted" || row.status === "rejected").length;
+  const onHub = view.connected && view.provider === "hub";
 
   const noteAt = typeof params.note === "string" ? params.note.split("_")[0] : "";
   const banner = note ? (
@@ -172,7 +196,7 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
   const here = (id: string) => (noteAt === id ? banner : null);
 
   const providerText =
-    view.provider === "school_server" ? w.providerSchool : view.provider === "meta_cloud" ? w.providerMeta : view.provider === "mock" ? w.providerMock : w.providerNone;
+    view.provider === "hub" ? w.providerHub : view.provider === "meta_cloud" ? w.providerMeta : view.provider === "mock" ? w.providerMock : w.providerNone;
 
   return (
     <VxPage>
@@ -277,6 +301,46 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
             </Card>
           </div>
 
+          <div id="hub" style={anchorStyle}>
+            {here("hub")}
+            <Card>
+              <CardHead title={say(w.hubTitle)} badge={<Pill tone={hubApproved === hubRows.length && hubRows.length > 0 ? "ok" : hubWaiting > 0 ? "warn" : "mut"}>{say(w.templateCounts(hubApproved, hubRows.length))}</Pill>} />
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+                <Sub text={w.hubHelp} language={language} />
+                {hubRows.length > 0 ? <span style={{ fontSize: 14, fontWeight: 600 }}>{say(w.hubCounts(hubApproved, hubWaiting, hubToSend))}</span> : null}
+                {!canChange ? null : !onHub ? (
+                  <Sub text={w.hubNeedsHub} language={language} />
+                ) : hubToSend > 0 ? (
+                  <form action={submitHubTemplatesAction}>
+                    <PendingBtn label={say(w.hubSend(hubToSend))} pendingLabel={say(w.hubSending)} icon="send" big confirm={say(w.hubSendConfirm)} />
+                  </form>
+                ) : hubRows.length > 0 ? (
+                  <Sub text={w.hubAllSent} language={language} />
+                ) : null}
+              </div>
+              {hubRows.length > 0 ? (
+                <details style={{ marginTop: 12, border: "1px solid var(--bd)", borderRadius: 14, padding: "10px 14px" }}>
+                  <summary className="tap" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 15, fontWeight: 650, listStyle: "none" }}>
+                    <Ic n="chevDown" size={18} />
+                    <span style={{ flex: 1, minWidth: 0 }}>{say(w.hubList)}</span>
+                  </summary>
+                  <ul style={{ ...list, marginTop: 8 }}>
+                    {hubRows.map((row) => (
+                      <li key={row.key} style={{ ...rowStyle, padding: "10px 0" }}>
+                        <span style={{ flex: "1 1 220px", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                          <span style={{ fontSize: 14, fontWeight: 600 }}>{row.label}</span>
+                          <code style={{ fontSize: 12, color: "var(--mut)", overflowWrap: "anywhere" }}>{row.key}</code>
+                          {row.reason ? <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{row.reason}</span> : null}
+                        </span>
+                        <TemplateStatus row={row} language={language} />
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </Card>
+          </div>
+
           <div id="templates" style={anchorStyle}>
             {here("templates")}
             <Card>
@@ -312,19 +376,7 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                               <code style={{ fontSize: 12, color: "var(--mut)", overflowWrap: "anywhere" }}>{row.key}</code>
                               {row.reason ? <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{row.reason}</span> : null}
                             </span>
-                            <Pill tone={TEMPLATE_TONE[row.status] ?? "mut"}>{say(templateStatusLabels[row.status] ?? { hi: row.status, en: row.status })}</Pill>
-                            {canChange ? (
-                              <form action={markTemplateAction}>
-                                <input type="hidden" name="key" value={row.key} />
-                                <input type="hidden" name="status" value={row.status === "approved" ? "not_submitted" : "approved"} />
-                                <PendingBtn
-                                  label={say(row.status === "approved" ? w.undoApproved : w.markApproved)}
-                                  pendingLabel={say(w.saving)}
-                                  variant="ghost"
-                                  confirm={row.status === "approved" ? undefined : say(w.markApprovedHelp)}
-                                />
-                              </form>
-                            ) : null}
+                            <TemplateStatus row={row} language={language} />
                           </li>
                         ))}
                       </ul>

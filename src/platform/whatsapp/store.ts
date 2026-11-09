@@ -200,6 +200,17 @@ export async function takeDue(limit: number, db: Db = whatsappDb()): Promise<Mes
   return data as MessageRow[];
 }
 
+/**
+ * Messages the hub has not reported on, due for a `GET /v1/status/{wamid}`
+ * (`whatsapp_take_pollable`, which stamps each one so two runs never ask
+ * twice, and stops after the fourth ask).
+ */
+export async function takePollable(limit: number, db: Db = whatsappDb()): Promise<MessageRow[]> {
+  const { data, error } = await db.rpc("whatsapp_take_pollable", { p_limit: limit });
+  if (error || !Array.isArray(data)) return [];
+  return data as MessageRow[];
+}
+
 export type StatusAnswer = {
   matched: boolean;
   changed: boolean;
@@ -319,15 +330,4 @@ export async function setFeatureSwitch(feature: string, on: boolean, staffId: st
     .update({ value, updated_by: staffId, updated_at: new Date().toISOString() })
     .eq("key", "whatsapp_features");
   return !writeError;
-}
-
-/** An admin's own word on one template, when the school's server cannot list them yet. */
-export async function setTemplateStatus(key: string, status: "approved" | "pending" | "not_submitted" | "disabled", staffId: string, db: Db = whatsappDb()): Promise<boolean> {
-  const now = new Date().toISOString();
-  const { data, error } = await db
-    .from("whatsapp_templates")
-    .update({ status, status_reason: status === "approved" ? "Marked approved by an admin." : null, status_checked_at: now, updated_at: now, updated_by: staffId })
-    .eq("key", key)
-    .select("key");
-  return !error && Array.isArray(data) && data.length === 1;
 }

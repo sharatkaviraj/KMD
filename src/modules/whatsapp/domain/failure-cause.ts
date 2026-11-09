@@ -91,7 +91,8 @@ const RULES: readonly Rule[] = [
   // is a decision, and the other parent's handset is still worth trying.
   {
     cause: "opted_out",
-    codes: ["131050"],
+    // `opted_out` is the school hub's word for a parent who replied STOP.
+    codes: ["131050", "opted_out"],
     // "blocked" alone would also catch "account blocked", which is the
     // school's problem, not the family's — so only the phrasings about a USER.
     words: [
@@ -108,7 +109,7 @@ const RULES: readonly Rule[] = [
   },
   {
     cause: "not_on_whatsapp",
-    codes: ["131026", "131021", "1006"],
+    codes: ["131026", "131021", "1006", "bad_number"],
     words: [
       "not on whatsapp",
       "not a whatsapp",
@@ -142,7 +143,10 @@ const RULES: readonly Rule[] = [
   },
   {
     cause: "template",
-    codes: ["132000", "132001", "132005", "132007", "132012", "132015", "132016", "131008", "131009"],
+    // `not_approved`: the hub has no approved template by that name. 131047 /
+    // `window_closed`: outside the 24 hours only a template can go, so the
+    // fix is the template, not the number.
+    codes: ["132000", "132001", "132005", "132007", "132012", "132015", "132016", "131008", "131009", "not_approved", "131047", "window_closed"],
     words: [
       "template",
       "params does not match",
@@ -155,7 +159,9 @@ const RULES: readonly Rule[] = [
   },
   {
     cause: "account",
-    codes: ["131031", "131042", "131005", "190", "10", "200"],
+    // The hub's own switches (`sending_off`, `test_mode`) and a refused key
+    // are the school's to fix, for every message at once.
+    codes: ["131031", "131042", "131005", "190", "10", "200", "sending_off", "test_mode", "bad_api_key"],
     words: [
       "aisensy_api_key",
       "api key",

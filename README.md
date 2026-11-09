@@ -47,10 +47,11 @@ environment inventory is `docs/cutover/ENV-INVENTORY.md` (names only).
 ## WhatsApp
 
 One sends WhatsApp from the school's own number, +91 83022 07823, through one
-service in `src/platform/whatsapp/`; the Fees app keeps its own AiSensy setup.
-Setup, the environment variables (`WHATSAPP_SENDER_NUMBER`,
-`WHATSAPP_API_URL`, `WHATSAPP_API_KEY`, or Meta's `WHATSAPP_PHONE_NUMBER_ID`
-and `WHATSAPP_ACCESS_TOKEN`, plus the webhook secrets), the safety switches
-and what still needs the school server's details are in
-[docs/whatsapp/SETUP.md](docs/whatsapp/SETUP.md). Nothing reaches a parent
-until the owner switches real recipients on in the database (D-563).
+service in `src/platform/whatsapp/` and the school's own WhatsApp hub
+(`veerpatta/vpps-whatsapp-hub`, D-566); the Fees app keeps its own AiSensy
+setup. Setup, the environment variables (`WHATSAPP_HUB_KEY`, and optionally
+`WHATSAPP_HUB_URL`), the hub's webhook
+(`/api/webhooks/whatsapp-hub`), the `_v8` templates, the safety switches and
+what is left to fill in are in [docs/whatsapp/SETUP.md](docs/whatsapp/SETUP.md).
+Nothing reaches a parent until the owner switches real recipients on in the
+database (D-563).

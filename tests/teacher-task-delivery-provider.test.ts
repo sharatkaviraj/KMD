@@ -25,8 +25,8 @@ it("task delivery is unavailable with absent or mock configuration, even on dev"
 it("task transport needs the school's WhatsApp connected, and stays in test mode under a test runner", () => {
   config.values = { MESSAGE_PROVIDER: "whatsapp" };
   expect(taskDeliveryAvailability()).toBe("unavailable");
-  vi.stubEnv("WHATSAPP_API_URL", "https://wa.example.test");
-  vi.stubEnv("WHATSAPP_API_KEY", "synthetic-key");
+  vi.stubEnv("WHATSAPP_HUB_URL", "https://hub.example.test");
+  vi.stubEnv("WHATSAPP_HUB_KEY", "synthetic-key");
   vi.stubEnv("WHATSAPP_SENDER_NUMBER", "+918047136289");
   // The fees app's AiSensy number is refused as a sender, whatever else is set.
   expect(taskDeliveryAvailability()).toBe("unavailable");
