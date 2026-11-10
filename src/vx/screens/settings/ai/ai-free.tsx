@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { checkFreeModelsAction } from "@/app/(app)/settings/actions";
 import type { AiPageData } from "@/modules/assist/data/panel";
+import { NOT_COUNTED } from "@/modules/assist/domain/apinex";
 import type { FreeCheckRow } from "@/modules/assist/domain/free-check";
 import { modelName } from "@/modules/assist/domain/overview";
 import type { FreeCheckResult } from "@/modules/assist/domain/routes";
@@ -102,7 +103,8 @@ export function FreeModelsCard({ data }: { data: AiPageData }) {
   const [all, setAll] = useState(false);
   const elapsed = useElapsed(checking);
   const f = data.freeModels;
-  const checkedModels = f.rows.filter((r) => r.writing || r.quick);
+  // A model APInex bills on this account, or one that cannot write, is listed but not counted (D-568).
+  const checkedModels = f.rows.filter((r) => (r.writing || r.quick) && !(r.writing?.problem && NOT_COUNTED.has(r.writing.problem)));
   const good = checkedModels.filter((r) => r.writing?.ok || r.quick?.ok).length;
   const rows = all ? f.rows : f.rows.slice(0, FIRST);
 

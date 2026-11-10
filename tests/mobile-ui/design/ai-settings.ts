@@ -52,22 +52,29 @@ const raw: OverviewRaw = {
 
 const overview = buildOverview(raw, { inrPerUsd: 90, from: "2026-11-01", today: "2026-11-07" });
 
-/** APInex's free models as a made-up check found them (D-567): some answer, one is slow, one writes no Hindi. */
+/**
+ * APInex's free models as a made-up check found them (D-567, D-568): some
+ * answer, one is slow, one writes no Hindi, and two that APInex lists as
+ * free are billed on this account.
+ */
 const NOW = Date.parse("2026-11-07T06:00:00Z");
 const result = (model: string, probe: "writing" | "quick", ms: number, problem?: string): FreeCheckResult =>
   problem ? { model, probe, ok: false, ms, problem } : { model, probe, ok: true, ms };
 const freeCheck: FreeCheck = {
   at: "2026-11-07T05:30:00Z",
   blocked: false,
-  models: ["free/claude-opus-4.6", "free/claude-sonnet-4.6", "free/deepseek-v4.1-flash", "free/glm-5.3", "free/kimi-k2.5", "free/qwen-3.5-plus", "free/minimax-m2.5", "free/llama-4.1-maverick"],
+  models: ["free/claude-sonnet-4.6", "free/deepseek-v4-pro-0813", "free/deepseek-v4.1-flash", "free/gemini-3.8-flash", "free/glm-5.3", "free/glm-5.3-flash", "free/jev-1.13", "free/kimi-k2.8", "free/kimi-k3", "free/qwen-3.8-max"],
   results: [
-    result("free/claude-sonnet-4.6", "writing", 6200), result("free/claude-sonnet-4.6", "quick", 4100),
-    result("free/glm-5.3", "writing", 8400), result("free/glm-5.3", "quick", 5200),
+    result("free/qwen-3.8-max", "writing", 6200), result("free/qwen-3.8-max", "quick", 4100),
+    result("free/gemini-3.8-flash", "writing", 4400), result("free/gemini-3.8-flash", "quick", 2600),
     result("free/deepseek-v4.1-flash", "writing", 3900), result("free/deepseek-v4.1-flash", "quick", 2300),
-    result("free/claude-opus-4.6", "writing", 11800), result("free/claude-opus-4.6", "quick", 18000, "timeout"),
-    result("free/kimi-k2.5", "writing", 7100, "not_hindi"), result("free/kimi-k2.5", "quick", 6000),
-    result("free/qwen-3.5-plus", "writing", 9300), result("free/qwen-3.5-plus", "quick", 5800),
-    result("free/minimax-m2.5", "writing", 1200, "model"), result("free/minimax-m2.5", "quick", 900, "model"),
+    result("free/glm-5.3-flash", "writing", 3100), result("free/glm-5.3-flash", "quick", 1900),
+    result("free/deepseek-v4-pro-0813", "writing", 11800), result("free/deepseek-v4-pro-0813", "quick", 18000, "timeout"),
+    result("free/kimi-k3", "writing", 7100, "not_hindi"), result("free/kimi-k3", "quick", 6000),
+    result("free/glm-5.3", "writing", 9300), result("free/glm-5.3", "quick", 5800),
+    result("free/claude-sonnet-4.6", "writing", 210, "not_free"), result("free/claude-sonnet-4.6", "quick", 210, "not_free"),
+    result("free/kimi-k2.8", "writing", 190, "not_free"), result("free/kimi-k2.8", "quick", 190, "not_free"),
+    result("free/jev-1.13", "writing", 0, "decision"), result("free/jev-1.13", "quick", 0, "decision"),
   ],
 };
 

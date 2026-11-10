@@ -11,6 +11,7 @@ import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can, canAny } from "@/platform/auth/permissions";
 import { groupsFor } from "@/vx/nav";
 
+import { apinexRefusal } from "../domain/apinex";
 import { costUsd } from "../domain/cost";
 import { dailyCapFor, FEATURE_PERMISSIONS, type AssistOutcome, type AssistProblem } from "../domain/features";
 import { readsAsHindi } from "../domain/hindi-check";
@@ -248,6 +249,12 @@ async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promis
       const reply = await chatDraft({
         url: APINEX_CHAT_URL, apiKey: config.apiKey, model: stage.model,
         instructions: ask.instructions, text: ask.text, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
+      }).catch((error: unknown) => {
+        // A 402 is either this model not being free on the account or the day's free allowance (D-568).
+        const e = error as { status?: number; said?: string; problem?: string } | null;
+        const refusal = e ? apinexRefusal(e.status, e.said) : null;
+        if (e && refusal) e.problem = refusal === "not_free" ? "model" : refusal;
+        throw error;
       });
       // The log keeps the `free/…` name One asked for, which the free models' check uses too.
       return { ...reply, model: stage.model };

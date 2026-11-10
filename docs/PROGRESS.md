@@ -11,10 +11,17 @@ Cost → **Check free models** (any admin; invented notice and cover plan per
 model, from the server; names, times and problem words kept on
 `assist_settings.free_check`) and the Free models card with each model's
 result and the jobs it is used for. Migration `20261110071216_apinex_free.sql`, applied to One 10 Nov.
-**Waiting on:** `APINEX_API_KEY` in One's Vercel production (owner chose the
-vault's "send to Vercel" button), then the check from production, which
-answers whether APInex's firewall lets Vercel in and which model is best for
-each job.
+PR 342 merged 10 Nov 07:24 UTC (392ba62). The owner sent `APINEX_API_KEY`
+from the vault at 10:53 UTC; One was redeployed (live 10:56). **First check
+from production (10:57):** the firewall lets Vercel in and 21 free models are
+listed, but no model answered: ~17 calls 402, the rest 429. **D-568** (this
+branch again): APInex's refusals read from its own words (a model billed on
+the account rests alone; the day's allowance and the per-minute limit rest
+all of APInex), the check reads APInex's public catalogue first and asks only the models it serves free (the vault's rule, vpps-platform PR 13), paced to 15 a minute (up to two minutes, settings
+page 150 s), a not-free model skipped for a week, and defaults moved to
+models APInex marks free. **Next:** re-run the check from production, read
+`free_check.results[].said` for the 402s, try a real free draft as a test
+account, BrowserStack phone + desktop.
 
 ## The school's own WhatsApp replaces AiSensy in One — 9 November 2026
 

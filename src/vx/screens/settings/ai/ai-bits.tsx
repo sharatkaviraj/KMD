@@ -50,7 +50,7 @@ export const AI_CSS = `
 :is(.vx,.vxt) .aip-st.now .aip-no{background:var(--acc);color:#fff}
 :is(.vx,.vxt) .aip-ring{position:absolute;inset:-3px;border-radius:16px;border:2px solid var(--pv);pointer-events:none;animation:aipGlow 2.2s ease-out infinite}
 @keyframes aipGlow{from{transform:scale(1);opacity:.7}to{transform:scale(1.07);opacity:0}}
-:is(.vx,.vxt) .aip-fill{display:block;height:100%;border-radius:6px;background:var(--pv-apinex-free);animation:aipFill 50s cubic-bezier(.2,.7,.3,1) forwards}
+:is(.vx,.vxt) .aip-fill{display:block;height:100%;border-radius:6px;background:var(--pv-apinex-free);animation:aipFill 110s cubic-bezier(.2,.7,.3,1) forwards}
 @keyframes aipFill{from{width:3%}to{width:94%}}
 :is(.vx,.vxt) .aip-free-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;border-radius:14px;background:var(--s2);animation:xIn .3s var(--ease) both}
 @media (prefers-reduced-motion:reduce){:is(.vx,.vxt) .aip-ring{animation:none;opacity:.6}:is(.vx,.vxt) .aip-fill{animation:none;width:50%}}

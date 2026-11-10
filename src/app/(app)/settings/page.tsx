@@ -7,7 +7,8 @@ import { isAiView } from "@/vx/screens/settings/ai/words";
 
 export const runtime = "nodejs";
 // Settings → AI helper → Check keys sends every probe at once; each stops at 25 seconds.
-export const maxDuration = 60;
+// "Check free models" paces its probes to APInex's 15 a minute and may take two minutes (D-568).
+export const maxDuration = 150;
 
 export const metadata = { title: "Settings" };
 

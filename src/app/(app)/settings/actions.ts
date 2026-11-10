@@ -10,6 +10,7 @@ import { createArchive, runRestoreDrill } from "@/modules/archives/data/archive-
 import { checkBuiltinAiKeys, mayChangeBuiltinAiLimit, mayCheckBuiltinAiKeys, setBuiltinAiDailyLimit } from "@/lib/ai/admin";
 import { builtinAiPilot } from "@/lib/ai/config";
 import { runFreeCheck } from "@/modules/assist/data/free-check";
+import { NOT_COUNTED } from "@/modules/assist/domain/apinex";
 import { getAssistSettings, saveAssistSettings } from "@/modules/assist/data/settings";
 import { isAssistFeature } from "@/modules/assist/domain/features";
 import { schoolToday } from "@/vx/format";
@@ -194,11 +195,11 @@ export async function checkFreeModelsAction(): Promise<SettingsResult> {
   const actor = await assertPermission("settings:manage");
   await assertNotPreviewing();
   if (actor.role !== "admin") return { ok: false, message: p("Only an admin can check the free models.", "मुफ़्त मॉडल सिर्फ़ प्रशासक जाँच सकते हैं।") };
-  const last = (await getAssistSettings().catch(() => null))?.freeCheck?.at;
-  if (last && Date.now() - Date.parse(last) < 120_000) {
+  const previous = (await getAssistSettings().catch(() => null))?.freeCheck ?? null;
+  if (previous && Date.now() - Date.parse(previous.at) < 120_000) {
     return { ok: false, message: p("They were checked a moment ago. Try again in two minutes.", "अभी-अभी जाँचे गए हैं। दो मिनट बाद फिर कोशिश करें।") };
   }
-  const outcome = await runFreeCheck().catch(() => ({ ok: false as const, problem: "unavailable" as const }));
+  const outcome = await runFreeCheck(fetch, () => Date.now(), { previous }).catch(() => ({ ok: false as const, problem: "unavailable" as const }));
   revalidatePath("/settings");
   if (!outcome.ok) {
     if (outcome.problem === "no_key") return { ok: false, message: p("The APInex key is not set up on this server.", "इस सर्वर पर APInex कुंजी नहीं जुड़ी है।") };
@@ -207,7 +208,8 @@ export async function checkFreeModelsAction(): Promise<SettingsResult> {
   }
   const { check } = outcome;
   if (check.blocked) return { ok: false, message: p("APInex's firewall turned this server away. Its free models are skipped for now.", "APInex की फ़ायरवॉल ने इस सर्वर को रोका। अभी इसके मुफ़्त मॉडल छोड़े जा रहे हैं।") };
-  const models = [...new Set(check.results.map((r) => r.model))];
+  // A model APInex bills on this account, or one that cannot write, is not counted as a free model that failed (D-568).
+  const models = [...new Set(check.results.filter((r) => !(r.problem && NOT_COUNTED.has(r.problem))).map((r) => r.model))];
   const good = models.filter((m) => check.results.some((r) => r.model === m && r.ok)).length;
   return { ok: good > 0, message: p(`${good} of ${models.length} free models answered`, `${models.length} में से ${good} मुफ़्त मॉडलों ने जवाब दिया`) };
 }

@@ -165,6 +165,8 @@ export function nvidiaConfig(env: Env = process.env): { apiKey: string; model: s
  */
 export const APINEX_CHAT_URL = "https://api.apinex.bond/v1/chat/completions";
 export const APINEX_MODELS_URL = "https://api.apinex.bond/v1/models";
+/** APInex's public catalogue (no key): `allowFree` says whether a `free/…` model is really served free (D-568). */
+export const APINEX_CATALOG_URL = "https://api.apinex.bond/api/public/models";
 const APINEX_FREE_MODEL = /^free\/[a-z0-9][a-z0-9._-]{0,60}$/u;
 const APINEX_KEY_SHAPE = /^sk-apx-[A-Za-z0-9_-]{8,200}$/u;
 

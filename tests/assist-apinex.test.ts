@@ -9,10 +9,12 @@ vi.mock("@/modules/assist/data/run", async () => {
   return { apinexModels: () => APINEX_MODELS, taskInstructions: () => "Write the draft." };
 });
 
-import { APINEX_CHAT_URL, APINEX_MODELS_URL, apinexConfig, isFreeApinexModel } from "@/lib/ai/config";
+import { APINEX_CATALOG_URL, APINEX_CHAT_URL, APINEX_MODELS_URL, apinexConfig, isFreeApinexModel } from "@/lib/ai/config";
 import { chatDraft } from "@/modules/assist/data/chat-draft";
 import { runFreeCheck } from "@/modules/assist/data/free-check";
-import { FREE_CHECK_BUDGET_MS, FREE_CHECK_PROBES, freeCheckRows, inBatches, readFreeCheck } from "@/modules/assist/domain/free-check";
+import { apinexRefusal, cleanSaid, retryAfterSeconds } from "@/modules/assist/domain/apinex";
+import { FREE_CHECK_BUDGET_MS, FREE_CHECK_PROBES, freeCheckRows, NOT_FREE_KEPT_MS, paced, readFreeCheck } from "@/modules/assist/domain/free-check";
+import { failureOf } from "@/lib/ai/router";
 import { modelName, providerOf } from "@/modules/assist/domain/overview";
 import {
   APINEX_MODELS,
@@ -48,6 +50,13 @@ const NOW = Date.parse("2026-11-10T08:00:00Z");
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
 const ok = (model: string, probe: "writing" | "quick", ms: number): FreeCheckResult => ({ model, probe, ok: true, ms });
 const bad = (model: string, probe: "writing" | "quick", problem: string, ms = 2_000): FreeCheckResult => ({ model, probe, ok: false, ms, problem });
+/** The D-567 picks, kept as a fixed list so these tests do not move with the defaults. */
+const PICKS = {
+  quick: ["free/deepseek-v4.1-flash", "free/claude-sonnet-4.6"],
+  writing: ["free/claude-sonnet-4.6", "free/glm-5.3"],
+  careful: ["free/claude-opus-4.6", "free/claude-sonnet-4.6"],
+} as const;
+const instant = { gapMs: 0, sleep: async () => {} };
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -78,12 +87,17 @@ describe("free providers per kind of job", () => {
 
   it("starts notices and summaries on APInex, two models at most, and quick jobs on NVIDIA", () => {
     expect(assistChain("message.write", every).map((s) => `${s.provider}:${s.model}`)).toEqual([
-      "apinex-free:free/claude-sonnet-4.6", "apinex-free:free/glm-5.3",
+      "apinex-free:free/qwen-3.8-max", "apinex-free:free/gemini-3.8-flash",
       "nvidia-free:nvidia/nemotron-3.5-super-vl", "openrouter-free:openrouter/free", "gemini-free:gemini-3.5-flash-lite",
       expect.stringMatching(/^anthropic:/), expect.stringMatching(/^openai:/), expect.stringMatching(/^gemini-paid:/),
     ]);
-    expect(assistChain("results.summary", every).slice(0, 3).map((s) => s.model)).toEqual(["free/claude-opus-4.6", "free/claude-sonnet-4.6", "nvidia/nemotron-3.5-super-vl"]);
-    expect(assistChain("cover.plan", every).slice(0, 3).map((s) => s.model)).toEqual(["nvidia/nemotron-3.5-super-vl", "free/deepseek-v4.1-flash", "free/claude-sonnet-4.6"]);
+    expect(assistChain("results.summary", every).slice(0, 3).map((s) => s.model)).toEqual(["free/deepseek-v4-pro-0813", "free/kimi-k3", "nvidia/nemotron-3.5-super-vl"]);
+    expect(assistChain("cover.plan", every).slice(0, 3).map((s) => s.model)).toEqual(["nvidia/nemotron-3.5-super-vl", "free/deepseek-v4.1-flash", "free/glm-5.3-flash"]);
+  });
+
+  it("defaults only to models APInex does not bill on a $0 account (D-568)", () => {
+    const billed = ["claude-sonnet-4.6", "claude-opus-4.6", "gemini-3.1-pro", "kimi-k2.8", "minimax-m3", "mimo-v2.6-flash", "mimo-v2.6-pro", "glm-5.3-flashx", "jev-1.13"];
+    for (const model of Object.values(APINEX_MODELS).flat()) expect(billed.map((m) => `free/${m}`)).not.toContain(model);
   });
 
   it("gives each APInex stage its job's time limit", () => {
@@ -109,8 +123,8 @@ describe("free providers per kind of job", () => {
   it("rests one APInex model for its own failures, and the whole of APInex for the account's", () => {
     expect(restsWholeProvider("apinex-free", "timeout")).toBe(false);
     expect(restsWholeProvider("apinex-free", "model")).toBe(false);
-    expect(restsWholeProvider("apinex-free", "quota")).toBe(false);
-    for (const problem of ["credential", "permission", "billing", "quota_daily", "network"] as const) expect(restsWholeProvider("apinex-free", problem)).toBe(true);
+    // The per-minute limit counts the whole account (D-568).
+    for (const problem of ["credential", "permission", "billing", "quota_daily", "quota", "network"] as const) expect(restsWholeProvider("apinex-free", problem)).toBe(true);
     expect(restsWholeProvider("nvidia-free", "timeout")).toBe(true);
   });
 });
@@ -120,23 +134,23 @@ describe("which APInex models a job uses after the check", () => {
   const check = (results: FreeCheckResult[], extra: Partial<FreeCheck> = {}): FreeCheck => ({ at: at(60_000), blocked: false, models, results, ...extra });
 
   it("uses the job's own list without a recent check", () => {
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, null, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
+    expect(pickApinexModels("writing", PICKS.writing, null, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
     const old = check([bad("free/claude-sonnet-4.6", "writing", "timeout")], { at: at(FREE_CHECK_FRESH_MS + 1) });
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, old, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
+    expect(pickApinexModels("writing", PICKS.writing, old, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
   });
 
   it("drops a model that failed, was too slow or is no longer listed", () => {
     const c = check([bad("free/claude-sonnet-4.6", "writing", "not_hindi"), ok("free/glm-5.3", "writing", 9_000), ok("free/kimi-k2.5", "writing", 4_000)]);
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, c, NOW)).toEqual(["free/glm-5.3"]);
+    expect(pickApinexModels("writing", PICKS.writing, c, NOW)).toEqual(["free/glm-5.3"]);
     const slow = check([ok("free/deepseek-v4.1-flash", "quick", APINEX_TIMEOUT_MS.quick + 1), ok("free/claude-sonnet-4.6", "quick", 3_000)]);
-    expect(pickApinexModels("quick", APINEX_MODELS.quick, slow, NOW)).toEqual(["free/claude-sonnet-4.6"]);
+    expect(pickApinexModels("quick", PICKS.quick, slow, NOW)).toEqual(["free/claude-sonnet-4.6"]);
     const gone = check([], { models: ["free/glm-5.3"] });
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, gone, NOW)).toEqual(["free/glm-5.3"]);
+    expect(pickApinexModels("writing", PICKS.writing, gone, NOW)).toEqual(["free/glm-5.3"]);
   });
 
   it("keeps a model a rate limit stopped from being checked", () => {
     const c = check([bad("free/claude-sonnet-4.6", "writing", "quota"), ok("free/glm-5.3", "writing", 5_000)]);
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, c, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
+    expect(pickApinexModels("writing", PICKS.writing, c, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
   });
 
   it("falls back to the fastest models that passed when none of the list did", () => {
@@ -144,17 +158,27 @@ describe("which APInex models a job uses after the check", () => {
       bad("free/claude-sonnet-4.6", "writing", "timeout"), bad("free/glm-5.3", "writing", "schema"),
       ok("free/kimi-k2.5", "writing", 6_000), ok("free/deepseek-v4.1-flash", "writing", 3_000), ok("free/claude-opus-4.6", "writing", 20_000),
     ]);
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, c, NOW)).toEqual(["free/deepseek-v4.1-flash", "free/kimi-k2.5"]);
+    expect(pickApinexModels("writing", PICKS.writing, c, NOW)).toEqual(["free/deepseek-v4.1-flash", "free/kimi-k2.5"]);
     // The careful job is judged on the writing probe, with its own longer limit.
     expect(pickApinexModels("careful", ["free/glm-5.3"], c, NOW)).toEqual(["free/deepseek-v4.1-flash", "free/kimi-k2.5"]);
   });
 
+  it("lets a quick job read a model's notice until its plan is checked (D-568)", () => {
+    const c = check([ok("free/deepseek-v4.1-flash", "writing", 4_000), bad("free/claude-sonnet-4.6", "writing", "not_free", 200)]);
+    expect(pickApinexModels("quick", PICKS.quick, c, NOW)).toEqual(["free/deepseek-v4.1-flash"]);
+    const slowNotice = check([ok("free/deepseek-v4.1-flash", "writing", APINEX_TIMEOUT_MS.quick + 1), ok("free/kimi-k2.5", "writing", 3_000)]);
+    expect(pickApinexModels("quick", ["free/deepseek-v4.1-flash"], slowNotice, NOW)).toEqual(["free/kimi-k2.5"]);
+    // The plan's own result wins once there is one.
+    const both = check([bad("free/deepseek-v4.1-flash", "writing", "not_hindi"), ok("free/deepseek-v4.1-flash", "quick", 2_000)]);
+    expect(pickApinexModels("quick", ["free/deepseek-v4.1-flash"], both, NOW)).toEqual(["free/deepseek-v4.1-flash"]);
+  });
+
   it("keeps APInex out for six hours after its firewall turned the server away", () => {
     const blocked = check([], { blocked: true, models: [] });
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, blocked, NOW)).toEqual([]);
+    expect(pickApinexModels("writing", PICKS.writing, blocked, NOW)).toEqual([]);
     expect(assistChain("message.write", every, {}, { freeCheck: blocked, now: NOW })[0].provider).toBe("nvidia-free");
     const later = { ...blocked, at: at(FREE_CHECK_BLOCKED_MS + 1) };
-    expect(pickApinexModels("writing", APINEX_MODELS.writing, later, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
+    expect(pickApinexModels("writing", PICKS.writing, later, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
   });
 });
 
@@ -175,24 +199,89 @@ describe("the stored check", () => {
       models: ["free/a", "free/b", "free/c", "free/claude-sonnet-4.6", "free/glm-5.3"],
       results: [ok("free/a", "writing", 9_000), ok("free/b", "writing", 2_000), bad("free/c", "writing", "schema"), ok("free/claude-sonnet-4.6", "writing", 5_000), ok("free/glm-5.3", "quick", 4_000)],
     };
-    const rows = freeCheckRows(check, APINEX_MODELS, NOW);
+    const rows = freeCheckRows(check, PICKS, NOW);
     expect(rows.map((r) => r.model)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3", "free/b", "free/a", "free/c"]);
     expect(rows[0].jobs).toEqual(["writing", "careful", "quick"]);
     expect(rows[0].writing?.ms).toBe(5_000);
     expect(rows[1].quick?.ok).toBe(true);
   });
 
+  it("keeps APInex's own words for a refusal, short and with nothing shaped like a key", () => {
+    const c: FreeCheck = { ...good, results: [{ ...bad("free/glm-5.3", "writing", "not_free", 200), httpStatus: 402, said: "Insufficient balance" }] };
+    expect(readFreeCheck(c)).toEqual(c);
+    expect(readFreeCheck({ ...c, results: [{ ...c.results[0], said: "x".repeat(161) }] })).toBeNull();
+  });
+});
+
+describe("a paced run", () => {
+  function clock() {
+    let t = 0;
+    const starts: number[] = [];
+    return { now: () => t, sleep: async (ms: number) => void (t += ms), starts, tick: (ms: number) => void (t += ms), at: () => t };
+  }
+
   it("runs a few at a time and starts none once told to stop", async () => {
     let running = 0, most = 0, done = 0;
-    const out = await inBatches([1, 2, 3, 4, 5, 6, 7], 3, async (n) => {
+    const out = await paced([1, 2, 3, 4, 5, 6, 7], { parallel: 3, gapMs: 0, stop: () => done >= 4, now: Date.now, sleep: async () => {} }, async (n) => {
       running++; most = Math.max(most, running);
       await new Promise((r) => setTimeout(r, 5));
       running--; done++;
-      return n * 2;
-    }, () => done >= 4);
+      return { result: n * 2 };
+    });
     expect(most).toBeLessThanOrEqual(3);
-    expect(out.slice(0, 4)).toEqual([2, 4, 6, 8]);
-    expect(out.filter((v) => v === null).length).toBeGreaterThan(0);
+    expect(out.length).toBeGreaterThanOrEqual(4);
+    expect(out.length).toBeLessThan(7);
+  });
+
+  it("starts each probe at least the gap after the one before", async () => {
+    const c = clock();
+    const out = await paced([1, 2, 3, 4, 5, 6, 7], { parallel: 1, gapMs: 4_000, stop: () => c.at() > 13_000, now: c.now, sleep: c.sleep }, async (n) => {
+      c.starts.push(c.at());
+      return { result: n };
+    });
+    expect(c.starts).toEqual([0, 4_000, 8_000, 12_000]);
+    expect(out).toEqual([1, 2, 3, 4]);
+  });
+
+  it("waits as long as a 429 asks, tries once more, and queues the work an answer leads to", async () => {
+    const c = clock();
+    const seen: string[] = [];
+    const out = await paced(["a", "b"], { parallel: 1, gapMs: 1_000, stop: () => false, now: c.now, sleep: c.sleep }, async (item) => {
+      seen.push(`${item}@${c.at()}`);
+      if (item === "b") return { result: `${item}:busy`, retryAfterMs: 20_000 };
+      return { result: `${item}:ok`, then: item === "a" ? ["a2"] : [] };
+    });
+    // b is tried twice, the second time 20 s later; its second answer stands. a's follow-up runs after b.
+    expect(seen).toEqual(["a@0", "b@1000", "b@21000", "a2@22000"]);
+    expect(out).toEqual(["a:ok", "b:busy", "a2:ok"]);
+  });
+});
+
+describe("APInex's refusals", () => {
+  it("tells a model that is billed on the account from the day's free allowance and the minute's limit", () => {
+    expect(apinexRefusal(402, "Insufficient balance")).toBe("not_free");
+    expect(apinexRefusal(402, "API key spend limit reached")).toBe("not_free");
+    expect(apinexRefusal(402, "Free daily limit reached. Buy a subscription to continue: https://apinex.bond/subscriptions")).toBe("quota_daily");
+    expect(apinexRefusal(429, "Rate limit exceeded. Max 15 requests per minute for this account. Retry in 4s.")).toBe("quota");
+    expect(apinexRefusal(402, undefined)).toBeNull();
+    expect(apinexRefusal(500, "Insufficient balance")).toBeNull();
+  });
+
+  it("keeps a short message and takes out anything shaped like a key", () => {
+    expect(cleanSaid("Invalid key sk-apx-abcdef0123456789 for free/glm-5.3")).toBe("Invalid key … for free/glm-5.3");
+    expect(cleanSaid("token " + "A".repeat(40))).toBe("token …");
+    expect(cleanSaid("  Insufficient\n balance ")).toBe("Insufficient balance");
+    expect(cleanSaid("limit ".repeat(60))?.length).toBe(140);
+    expect(cleanSaid(42)).toBeUndefined();
+    expect(retryAfterSeconds("4")).toBe(4);
+    expect(retryAfterSeconds("soon")).toBeUndefined();
+    expect(retryAfterSeconds("9999")).toBeUndefined();
+  });
+
+  it("lets a caller that knows what a refusal meant say so", () => {
+    expect(failureOf(Object.assign(new Error("Free model unavailable"), { status: 402 })).problem).toBe("billing");
+    expect(failureOf(Object.assign(new Error("Free model unavailable"), { status: 402, problem: "model" }))).toEqual({ httpStatus: 402, problem: "model" });
+    expect(failureOf(Object.assign(new Error("x"), { status: 402, problem: "nonsense" })).problem).toBe("billing");
   });
 });
 
@@ -207,6 +296,15 @@ describe("chatDraft against APInex", () => {
     await expect(chatDraft({ ...opts, fetcher: json403 })).rejects.not.toMatchObject({ firewall: true });
   });
 
+  it("carries APInex's words and a 429's Retry-After on the error, never the key", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ error: { message: `Insufficient balance for ${KEY}`, type: "billing_error" } }), { status: 402, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    const error = (await chatDraft({ ...opts, fetcher }).then(() => null, (e: unknown) => e)) as { status: number; said?: string; message: string };
+    expect(error).toMatchObject({ status: 402, said: "Insufficient balance for …" });
+    expect(JSON.stringify(error) + error.message).not.toContain(KEY);
+    const busy = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Rate limit exceeded." } }), { status: 429, headers: { "content-type": "application/json", "retry-after": "7" } })) as unknown as typeof fetch;
+    await expect(chatDraft({ ...opts, fetcher: busy })).rejects.toMatchObject({ status: 429, retryAfterSec: 7 });
+  });
+
   it("takes Anthropic's end_turn as finished", async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ choices: [{ finish_reason: "end_turn", message: { content: "{\"answer\":\"हाँ\"}" } }] }), { headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
     expect((await chatDraft({ ...opts, fetcher })).candidate).toEqual({ answer: "हाँ" });
@@ -219,13 +317,17 @@ describe("the free models check", () => {
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const answer = (value: unknown) => json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(value) } }] });
 
-  function fakeApinex(listed: string[], behave: (model: string, probe: "writing" | "quick") => Response) {
+  function fakeApinex(listed: string[], behave: (model: string, probe: "writing" | "quick") => Response, catalog?: () => Response) {
     const calls: { url: string; model?: string; auth?: string }[] = [];
     const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
       const auth = new Headers(init?.headers).get("authorization") ?? undefined;
       if (url === APINEX_MODELS_URL) {
         calls.push({ url, auth });
         return json({ data: listed.map((id) => ({ id })) });
+      }
+      if (url === APINEX_CATALOG_URL) {
+        calls.push({ url, auth });
+        return catalog ? catalog() : new Response("not found", { status: 404 });
       }
       const body = JSON.parse(String(init?.body)) as { model: string; messages: { content: string }[] };
       calls.push({ url, model: body.model, auth });
@@ -243,7 +345,7 @@ describe("the free models check", () => {
       if (model === "free/glm-5.3" && probe === "quick") return answer({ nope: true });
       return answer(probe === "writing" ? notice : plan);
     });
-    const outcome = await runFreeCheck(fetcher, () => NOW);
+    const outcome = await runFreeCheck(fetcher, () => NOW, instant);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     const { check } = outcome;
@@ -258,10 +360,83 @@ describe("the free models check", () => {
     // The models One prefers go first; a paid model is never asked; every call carries the key.
     expect(calls.filter((c) => c.model).map((c) => c.model)[0]).toBe("free/claude-sonnet-4.6");
     expect(calls.some((c) => c.model?.startsWith("paid/"))).toBe(false);
-    expect(calls.every((c) => c.auth === `Bearer ${KEY}`)).toBe(true);
+    expect(calls.filter((c) => c.url !== APINEX_CATALOG_URL).every((c) => c.auth === `Bearer ${KEY}`)).toBe(true);
     // What is kept is what the settings page reads back: no answer text anywhere.
     expect(readFreeCheck(saved.checks[0])).toEqual(check);
     expect(JSON.stringify(saved.checks[0])).not.toMatch(/विद्यालय|Saturday|बोर्ड/u);
+  });
+
+  it("asks a model APInex bills on the account for nothing more, and skips it for a week (D-568)", async () => {
+    vi.stubEnv("APINEX_API_KEY", KEY);
+    const listed = ["free/claude-sonnet-4.6", "free/glm-5.3", "free/kimi-k2.8"];
+    const { fetcher, calls } = fakeApinex(listed, (model, probe) => {
+      if (model === "free/claude-sonnet-4.6" || model === "free/kimi-k2.8") return json({ error: { message: "Insufficient balance", type: "billing_error" } }, 402);
+      return answer(probe === "writing" ? notice : plan);
+    });
+    const first = await runFreeCheck(fetcher, () => NOW, instant);
+    if (!first.ok) throw new Error("check failed");
+    const of = (check: FreeCheck, model: string, probe: string) => check.results.find((r) => r.model === model && r.probe === probe);
+    expect(of(first.check, "free/claude-sonnet-4.6", "writing")).toMatchObject({ ok: false, problem: "not_free", httpStatus: 402, said: "Insufficient balance" });
+    // Not free reads the same for its plan, which is never asked for.
+    expect(of(first.check, "free/claude-sonnet-4.6", "quick")).toMatchObject({ problem: "not_free" });
+    expect(calls.filter((c) => c.model === "free/claude-sonnet-4.6")).toHaveLength(1);
+    expect(of(first.check, "free/glm-5.3", "quick")).toMatchObject({ ok: true });
+    // The next check, two days on, carries the finding over and asks only the free model.
+    calls.length = 0;
+    const later = NOW + 2 * 24 * 60 * 60_000;
+    const second = await runFreeCheck(fetcher, () => later, { ...instant, previous: first.check });
+    if (!second.ok) throw new Error("check failed");
+    expect(calls.filter((c) => c.model).map((c) => c.model)).toEqual(["free/glm-5.3", "free/glm-5.3"]);
+    expect(of(second.check, "free/kimi-k2.8", "writing")).toMatchObject({ problem: "not_free" });
+    // After a week it is asked again.
+    calls.length = 0;
+    await runFreeCheck(fetcher, () => NOW + NOT_FREE_KEPT_MS + 1, { ...instant, previous: first.check });
+    expect(calls.some((c) => c.model === "free/kimi-k2.8")).toBe(true);
+    // A job whose models are all billed falls back to the free one that answered.
+    expect(pickApinexModels("writing", ["free/claude-sonnet-4.6", "free/kimi-k2.8"], first.check, NOW)).toEqual(["free/glm-5.3"]);
+  });
+
+  it("reads APInex's public catalogue first, and asks only the models it serves free (D-568)", async () => {
+    vi.stubEnv("APINEX_API_KEY", KEY);
+    const listed = ["free/claude-sonnet-4.6", "free/glm-5.3-flash", "free/jev-1.13", "free/qwen-3.8-max", "free/unlisted"];
+    const { fetcher, calls } = fakeApinex(
+      listed,
+      (_model, probe) => answer(probe === "writing" ? notice : plan),
+      () => json({ models: [
+        { id: "free/claude-sonnet-4.6", provider: "Free", allowFree: false },
+        { id: "free/glm-5.3-flash", provider: "Free", allowFree: true },
+        { id: "free/jev-1.13", provider: "Free", allowFree: true, tags: ["decision", "free"] },
+        { id: "free/qwen-3.8-max", provider: "Free", allowFree: true },
+        { id: "gpt-paid", provider: "GPT", allowFree: true },
+      ] }),
+    );
+    const outcome = await runFreeCheck(fetcher, () => NOW, { ...instant, previous: null });
+    if (!outcome.ok) throw new Error("check failed");
+    const of = (model: string, probe: string) => outcome.check.results.find((r) => r.model === model && r.probe === probe);
+    // Billed, decision and uncatalogued models are recorded without a single call.
+    const asked = new Set(calls.filter((c) => c.model).map((c) => c.model));
+    expect([...asked].sort()).toEqual(["free/glm-5.3-flash", "free/qwen-3.8-max"]);
+    for (const probe of ["writing", "quick"]) {
+      expect(of("free/claude-sonnet-4.6", probe)).toMatchObject({ ok: false, problem: "not_free" });
+      expect(of("free/unlisted", probe)).toMatchObject({ ok: false, problem: "not_free" });
+      expect(of("free/jev-1.13", probe)).toMatchObject({ ok: false, problem: "decision" });
+    }
+    expect(of("free/qwen-3.8-max", "quick")).toMatchObject({ ok: true });
+    // The catalogue is public: no key is sent for it.
+    const catalogCall = calls.find((c) => c.url === APINEX_CATALOG_URL);
+    expect(catalogCall && catalogCall.auth).toBeUndefined();
+    expect(readFreeCheck(saved.checks[0])).toEqual(outcome.check);
+  });
+
+  it("asks every model when the catalogue cannot be read or names none of them", async () => {
+    vi.stubEnv("APINEX_API_KEY", KEY);
+    const listed = ["free/glm-5.3-flash", "free/qwen-3.8-max"];
+    for (const catalog of [() => new Response("<html>wall</html>", { status: 403, headers: { "content-type": "text/html" } }), () => json({ models: [{ id: "free/other", allowFree: false }] }), () => json({ nope: 1 })]) {
+      const { fetcher, calls } = fakeApinex(listed, (_model, probe) => answer(probe === "writing" ? notice : plan), catalog);
+      const outcome = await runFreeCheck(fetcher, () => NOW, instant);
+      expect(outcome.ok && outcome.check.results.every((r) => r.ok)).toBe(true);
+      expect(new Set(calls.filter((c) => c.model).map((c) => c.model)).size).toBe(2);
+    }
   });
 
   it("probes only invented, nameless jobs", () => {
@@ -273,7 +448,7 @@ describe("the free models check", () => {
   it("records a firewall's page as blocked, and asks no model", async () => {
     vi.stubEnv("APINEX_API_KEY", KEY);
     const fetcher = vi.fn(async () => new Response("<html>Attention required</html>", { status: 403, headers: { "content-type": "text/html" } })) as unknown as typeof fetch;
-    const outcome = await runFreeCheck(fetcher, () => NOW);
+    const outcome = await runFreeCheck(fetcher, () => NOW, instant);
     expect(outcome).toMatchObject({ ok: true, check: { blocked: true, models: [], results: [] } });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
@@ -284,7 +459,7 @@ describe("the free models check", () => {
     expect(await runFreeCheck(vi.fn() as unknown as typeof fetch)).toEqual({ ok: false, problem: "no_key" });
     vi.stubEnv("APINEX_API_KEY", KEY);
     const refused = vi.fn(async () => json({ error: { code: "invalid_api_key" } }, 401)) as unknown as typeof fetch;
-    expect(await runFreeCheck(refused)).toEqual({ ok: false, problem: "credential" });
+    expect(await runFreeCheck(refused, Date.now, instant)).toEqual({ ok: false, problem: "credential" });
     expect(saved.checks).toHaveLength(0);
   });
 
@@ -295,7 +470,7 @@ describe("the free models check", () => {
       clock += FREE_CHECK_BUDGET_MS / 2;
       return answer(probe === "writing" ? notice : plan);
     });
-    const outcome = await runFreeCheck(fetcher, () => clock);
+    const outcome = await runFreeCheck(fetcher, () => clock, instant);
     expect(outcome.ok && outcome.check.results.length).toBeLessThan(8);
     expect(calls.filter((c) => c.model).length).toBeLessThan(8);
   });

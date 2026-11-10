@@ -34,14 +34,20 @@ export type FailureProblem =
   | "quota_daily" | "quota" | "billing" | "credential" | "permission" | "model"
   | "timeout" | "schema" | "server" | "network" | "other";
 
+const PROBLEMS: ReadonlySet<string> = new Set<FailureProblem>([
+  "quota_daily", "quota", "billing", "credential", "permission", "model", "timeout", "schema", "server", "network", "other",
+]);
+
 /**
  * A provider error as a fixed category. Only the HTTP status and this
  * category are kept; an upstream message can quote the request or a key.
  */
 export function failureOf(error: unknown): { httpStatus?: number; problem: FailureProblem } {
-  const raw = (error as { status?: unknown; code?: unknown } | null) ?? {};
+  const raw = (error as { status?: unknown; code?: unknown; problem?: unknown } | null) ?? {};
   const status = typeof raw.status === "number" ? raw.status : typeof raw.code === "number" ? raw.code : undefined;
   const httpStatus = status !== undefined && Number.isInteger(status) && status >= 400 && status <= 599 ? status : undefined;
+  // A caller that already knows what the provider meant says so (APInex's 402s, D-568).
+  if (typeof raw.problem === "string" && PROBLEMS.has(raw.problem)) return { httpStatus, problem: raw.problem as FailureProblem };
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const text = message.toLowerCase();
   if (/timed out|timeout|aborted/u.test(text) && httpStatus === undefined) return { problem: "timeout" };

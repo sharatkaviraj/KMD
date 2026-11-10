@@ -142,9 +142,9 @@ const FREE_ORDER: Record<FreeJob, readonly FreeProvider[]> = {
  * drops one that did not answer, or not in time.
  */
 export const APINEX_MODELS: Record<FreeJob, readonly string[]> = {
-  quick: ["free/deepseek-v4.1-flash", "free/claude-sonnet-4.6"],
-  writing: ["free/claude-sonnet-4.6", "free/glm-5.3"],
-  careful: ["free/claude-opus-4.6", "free/claude-sonnet-4.6"],
+  quick: ["free/deepseek-v4.1-flash", "free/glm-5.3-flash"],
+  writing: ["free/qwen-3.8-max", "free/gemini-3.8-flash"],
+  careful: ["free/deepseek-v4-pro-0813", "free/kimi-k3"],
 };
 
 /** How long an APInex model may take on each kind of work. A careful summary from Opus needs the longest. */
@@ -156,7 +156,16 @@ export const APINEX_TIMEOUT_MS: Record<FreeJob, number> = { quick: 10_000, writi
  * Kept on `assist_settings.free_check`; nothing in it is a key or anybody's data.
  */
 export type FreeCheckProbe = "writing" | "quick";
-export type FreeCheckResult = { model: string; probe: FreeCheckProbe; ok: boolean; ms: number; problem?: string; httpStatus?: number };
+export type FreeCheckResult = {
+  model: string;
+  probe: FreeCheckProbe;
+  ok: boolean;
+  ms: number;
+  problem?: string;
+  httpStatus?: number;
+  /** APInex's own words for a refusal, shortened and with nothing shaped like a key (D-568). Never shown. */
+  said?: string;
+};
 export type FreeCheck = {
   at: string;
   /** APInex's firewall turned the server away: no model could be asked. */
@@ -188,11 +197,19 @@ export function pickApinexModels(job: FreeJob, preferred: readonly string[], che
   const probe: FreeCheckProbe = job === "quick" ? "quick" : "writing";
   const limit = APINEX_TIMEOUT_MS[job];
   const passed = (r: FreeCheckResult | undefined) => !!r && r.ok && r.ms <= limit;
-  const resultOf = (model: string) => fresh.results.find((r) => r.model === model && r.probe === probe && !(r.problem && UNDECIDED.has(r.problem)));
+  const decided = (model: string, kind: FreeCheckProbe) =>
+    fresh.results.find((r) => r.model === model && r.probe === kind && !(r.problem && UNDECIDED.has(r.problem)));
+  // A paced check may reach a model's plan only on the next run (D-568): its notice stands in until then.
+  const resultOf = (model: string) => decided(model, probe) ?? (probe === "quick" ? decided(model, "writing") : undefined);
   const listed = new Set(fresh.models);
   const kept = preferred.filter((m) => listed.has(m) && (resultOf(m) === undefined || passed(resultOf(m))));
   if (kept.length) return kept.slice(0, 2);
-  return fresh.results.filter((r) => r.probe === probe && passed(r)).sort((a, b) => a.ms - b.ms).map((r) => r.model).slice(0, 2);
+  return [...listed]
+    .map((model) => ({ model, result: resultOf(model) }))
+    .filter((c): c is { model: string; result: FreeCheckResult } => passed(c.result))
+    .sort((a, b) => a.result.ms - b.result.ms)
+    .map((c) => c.model)
+    .slice(0, 2);
 }
 
 /**
@@ -253,12 +270,15 @@ export function restAfter(problem: FailureProblem): number {
 
 /**
  * Failures of the whole account or connection rather than one model: a
- * wrong key, no credit, the firewall, the day's allowance spent. For these
+ * wrong key, no credit, the firewall, the day's allowance spent, or the
+ * account's per-minute limit (APInex counts requests per account, D-568).
+ * A model that is not free on the account is the model's own failure
+ * ("model"), so the free ones still answer. For these
  * the provider rests; for anything else only APInex's model that failed
  * rests, and its other models still answer (D-567). The other free
  * providers have one model each, so they always rest whole.
  */
-const ACCOUNT_PROBLEMS: ReadonlySet<FailureProblem> = new Set<FailureProblem>(["credential", "billing", "permission", "quota_daily", "network"]);
+const ACCOUNT_PROBLEMS: ReadonlySet<FailureProblem> = new Set<FailureProblem>(["credential", "billing", "permission", "quota_daily", "quota", "network"]);
 
 export function restsWholeProvider(provider: AssistProvider, problem: FailureProblem): boolean {
   return provider !== "apinex-free" || ACCOUNT_PROBLEMS.has(problem);

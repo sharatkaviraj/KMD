@@ -170,6 +170,8 @@ export const PROBLEM_WORDS: Record<string, Pair> = {
   no_answer: p("gave no answer", "कोई जवाब नहीं"),
   not_hindi: p("Hindi not right", "हिंदी ठीक नहीं"),
   firewall: p("blocked by its firewall", "फ़ायरवॉल ने रोका"),
+  not_free: p("not free on this account", "इस खाते पर मुफ़्त नहीं"),
+  decision: p("not a writing model", "लिखने वाला मॉडल नहीं"),
   failed: p("failed", "विफल"),
   other: p("failed", "विफल"),
 };
@@ -304,8 +306,8 @@ export const W = {
   freeCheck: p("Check free models", "मुफ़्त मॉडल जाँचें"),
   freeChecking: p("Checking…", "जाँच रहे हैं…"),
   freeCheckingLong: p(
-    "Every free model is writing a made-up notice and plan. This takes up to a minute; you can wait here.",
-    "हर मुफ़्त मॉडल एक काल्पनिक सूचना और योजना लिख रहा है। इसमें एक मिनट तक लगता है; यहीं रुकें।",
+    "Each free model in turn is writing a made-up notice and plan. APInex allows only a few a minute, so this takes up to two minutes; you can wait here.",
+    "हर मुफ़्त मॉडल बारी-बारी से एक काल्पनिक सूचना और योजना लिख रहा है। APInex एक मिनट में कुछ ही अनुरोध लेता है, इसलिए इसमें दो मिनट तक लगते हैं; यहीं रुकें।",
   ),
   freeCheckLost: p("The check did not finish in time. Try again in a few minutes.", "जाँच समय पर पूरी नहीं हुई। कुछ मिनट बाद फिर कोशिश करें।"),
   freeCheckSub: p("Costs nothing and sends no school record: the notice and the plan are made up.", "कोई खर्च नहीं, स्कूल का कोई रिकॉर्ड नहीं जाता: सूचना और योजना काल्पनिक हैं।"),

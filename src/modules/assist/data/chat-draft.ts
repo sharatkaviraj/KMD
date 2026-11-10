@@ -2,13 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 
+import { cleanSaid, retryAfterSeconds } from "../domain/apinex";
 import type { StageReply } from "./openai-draft";
 
 type ChatBody = {
   model?: string;
   choices?: { finish_reason?: string | null; message?: { content?: string | null } }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number };
-  error?: { code?: unknown } | null;
+  error?: { code?: unknown; message?: unknown } | null;
+  message?: unknown;
 };
 
 const count = (value: unknown) => (typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0);
@@ -39,7 +41,10 @@ export function jsonFrom(text: string): unknown {
  * instructions; the task's Zod schema validates the answer in `run.ts`. A
  * free model's decline is not a refusal of the task: the next stage tries.
  *
- * Errors carry the HTTP status and a short code only, for `failureOf()`.
+ * Errors carry the HTTP status and a short code for `failureOf()`. They
+ * also carry the provider's own words, shortened and with anything shaped
+ * like a key taken out (`said`), and a 429's Retry-After: APInex says which
+ * of its refusals it means only in words (D-568). Neither is logged.
  */
 export async function chatDraft(opts: {
   url: string;
@@ -94,12 +99,16 @@ export async function chatDraft(opts: {
     throw Object.assign(new Error("Free model blocked by firewall"), { status: 403, firewall: true });
   }
   if (!response.ok) {
-    throw Object.assign(new Error(`Free model unavailable ${codeOf(body?.error?.code)}`.trim()), { status: response.status });
+    throw Object.assign(new Error(`Free model unavailable ${codeOf(body?.error?.code)}`.trim()), {
+      status: response.status,
+      said: cleanSaid(body?.error?.message ?? body?.message),
+      retryAfterSec: retryAfterSeconds(response.headers.get("retry-after")),
+    });
   }
   // OpenRouter can answer 200 with an error from the upstream model.
   if (body?.error) {
     const status = typeof body.error.code === "number" && body.error.code >= 400 && body.error.code <= 599 ? body.error.code : 502;
-    throw Object.assign(new Error("Free model unavailable"), { status });
+    throw Object.assign(new Error("Free model unavailable"), { status, said: cleanSaid(body.error.message) });
   }
 
   const choice = body?.choices?.[0];
