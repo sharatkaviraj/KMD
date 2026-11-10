@@ -27,10 +27,18 @@ export const PROVIDER_WORDS: Record<AiProvider, { name: string; short: string; a
     short: "NVIDIA",
     about: p("A free AI from NVIDIA. Writes drafts that name nobody.", "NVIDIA का मुफ़्त AI। ऐसे मसौदे लिखता है जिनमें किसी का नाम नहीं।"),
   },
+  "apinex-free": {
+    name: "APInex Free",
+    short: "APInex",
+    about: p(
+      "Free models through APInex, each picked for its kind of job. Writes notices and summaries first; the best ones are found by “Check free models”.",
+      "APInex के ज़रिए मुफ़्त मॉडल, हर काम के लिए अलग चुना गया। सूचनाएँ और सारांश पहले यही लिखता है; सबसे अच्छे मॉडल “मुफ़्त मॉडल जाँचें” से तय होते हैं।",
+    ),
+  },
   "openrouter-free": {
     name: "OpenRouter Free",
     short: "OpenRouter",
-    about: p("Free AI models through OpenRouter. Tried when NVIDIA is busy.", "OpenRouter के ज़रिए मुफ़्त AI। NVIDIA व्यस्त हो तो इसे आज़माया जाता है।"),
+    about: p("Free AI models through OpenRouter. Tried when NVIDIA and APInex are busy.", "OpenRouter के ज़रिए मुफ़्त AI। NVIDIA और APInex व्यस्त हों तो इसे आज़माया जाता है।"),
   },
   "gemini-free": {
     name: "Gemini Free",
@@ -159,6 +167,9 @@ export const PROBLEM_WORDS: Record<string, Pair> = {
   server: p("service error", "सेवा में गड़बड़ी"),
   network: p("network error", "नेटवर्क गड़बड़ी"),
   unavailable: p("not available", "उपलब्ध नहीं"),
+  no_answer: p("gave no answer", "कोई जवाब नहीं"),
+  not_hindi: p("Hindi not right", "हिंदी ठीक नहीं"),
+  firewall: p("blocked by its firewall", "फ़ायरवॉल ने रोका"),
   failed: p("failed", "विफल"),
   other: p("failed", "विफल"),
 };
@@ -283,6 +294,40 @@ export const W = {
     "ये अनुमान हर AI सेवा के बताए उपयोग पर हैं। सटीक शुल्क उनकी बिलिंग में देखें।",
   ),
   rate: (rate: number) => p(`Dollars are turned into rupees at ₹${rate} to the dollar.`, `डॉलर को ₹${rate} प्रति डॉलर पर रुपये में बदला गया है।`),
+
+  // Free models (APInex, D-567)
+  freeTitle: p("Free models (APInex)", "मुफ़्त मॉडल (APInex)"),
+  freeSub: p(
+    "Each free model writes a made-up notice and a made-up cover plan. The ones that write well and quickly are used first, each for the kind of job it is best at.",
+    "हर मुफ़्त मॉडल एक काल्पनिक सूचना और एक काल्पनिक सब्स्टिट्यूट योजना लिखता है। जो अच्छा और जल्दी लिखें, वही पहले लगते हैं, हर एक उस काम पर जिसमें वह सबसे अच्छा है।",
+  ),
+  freeCheck: p("Check free models", "मुफ़्त मॉडल जाँचें"),
+  freeChecking: p("Checking…", "जाँच रहे हैं…"),
+  freeCheckingLong: p(
+    "Every free model is writing a made-up notice and plan. This takes up to a minute; you can wait here.",
+    "हर मुफ़्त मॉडल एक काल्पनिक सूचना और योजना लिख रहा है। इसमें एक मिनट तक लगता है; यहीं रुकें।",
+  ),
+  freeCheckLost: p("The check did not finish in time. Try again in a few minutes.", "जाँच समय पर पूरी नहीं हुई। कुछ मिनट बाद फिर कोशिश करें।"),
+  freeCheckSub: p("Costs nothing and sends no school record: the notice and the plan are made up.", "कोई खर्च नहीं, स्कूल का कोई रिकॉर्ड नहीं जाता: सूचना और योजना काल्पनिक हैं।"),
+  freeNoKey: p(
+    "The APInex key is not set up on this server yet. Until it is, NVIDIA, OpenRouter and Gemini Free write the free drafts.",
+    "इस सर्वर पर APInex कुंजी अभी नहीं जुड़ी। तब तक मुफ़्त मसौदे NVIDIA, OpenRouter और Gemini Free लिखते हैं।",
+  ),
+  freeNever: p("Not checked yet. Until they are, One uses the models it expects to be best.", "अभी जाँचे नहीं गए। तब तक One वे मॉडल लगाता है जो सबसे अच्छे होने चाहिए।"),
+  freeBlocked: p(
+    "At the last check APInex's firewall turned this server away. Its free models are skipped for now; the other free AIs write instead.",
+    "पिछली जाँच में APInex की फ़ायरवॉल ने इस सर्वर को रोका। अभी इसके मुफ़्त मॉडल छोड़े जा रहे हैं; बाक़ी मुफ़्त AI लिखते हैं।",
+  ),
+  freeSummary: (good: number, n: number, listed: number) =>
+    p(`${good} of ${n} checked models answered · ${listed} free models listed`, `जाँचे गए ${n} में से ${good} मॉडलों ने जवाब दिया · ${listed} मुफ़्त मॉडल`),
+  probeNotice: p("Notice", "सूचना"),
+  probePlan: p("Plan", "योजना"),
+  notChecked: p("not checked", "जाँचा नहीं"),
+  inUseFor: p("Used for", "इसमें लगा"),
+  notUsed: p("Spare", "अतिरिक्त"),
+  showAll: (n: number) => p(`Show all ${n}`, `सभी ${n} दिखाएँ`),
+  showFewer: p("Show fewer", "कम दिखाएँ"),
+  seconds: (s: number) => p(`${s}s`, `${s} सेकंड`),
 
   // Switches
   writtenTitle: p("Written drafts", "लिखित मसौदे"),

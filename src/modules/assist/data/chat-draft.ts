@@ -33,7 +33,8 @@ export function jsonFrom(text: string): unknown {
 
 /**
  * One draft from an OpenAI-compatible Chat Completions endpoint on a free
- * tier: OpenRouter's `:free` models or NVIDIA's API catalogue (D-490). These
+ * tier: OpenRouter's `:free` models, NVIDIA's API catalogue (D-490) or
+ * APInex's `free/…` models (D-567). These
  * cost nothing, so the reply's cost is always 0. The schema is sent in the
  * instructions; the task's Zod schema validates the answer in `run.ts`. A
  * free model's decline is not a refusal of the task: the next stage tries.
@@ -84,8 +85,14 @@ export async function chatDraft(opts: {
     signal: AbortSignal.timeout(opts.timeoutMs),
     redirect: "error",
   });
+  const json = (response.headers.get("content-type") ?? "").toLowerCase().includes("json");
   const body = (await response.json().catch(() => null)) as ChatBody | null;
   const codeOf = (value: unknown) => (typeof value === "string" && /^[a-z_]{1,48}$/u.test(value) ? value : "");
+  // A web page instead of JSON is the company's firewall turning a data-centre caller away,
+  // not a verdict on the key (D-567). It is reported as such, and never worked around.
+  if (!response.ok && !json && response.status === 403) {
+    throw Object.assign(new Error("Free model blocked by firewall"), { status: 403, firewall: true });
+  }
   if (!response.ok) {
     throw Object.assign(new Error(`Free model unavailable ${codeOf(body?.error?.code)}`.trim()), { status: response.status });
   }
@@ -104,6 +111,7 @@ export async function chatDraft(opts: {
     refused: false,
     model: typeof body?.model === "string" && body.model.length >= 3 && body.model.length <= 60 ? body.model : opts.model,
   };
-  const finished = !choice?.finish_reason || choice.finish_reason === "stop" || choice.finish_reason === "eos";
+  // "end_turn" is how a gateway in front of Claude may pass on Anthropic's own word for "finished".
+  const finished = !choice?.finish_reason || ["stop", "eos", "end_turn"].includes(choice.finish_reason);
   return { ...reply, candidate: finished ? jsonFrom(choice?.message?.content ?? "") : undefined };
 }

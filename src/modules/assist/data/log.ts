@@ -177,7 +177,7 @@ export type ProviderUsage = {
   costUsd: number;
 };
 
-const PROVIDERS = new Set<string>(["nvidia-free", "openrouter-free", "gemini-free", "anthropic", "openai", "gemini-paid"]);
+const PROVIDERS = new Set<string>(["nvidia-free", "apinex-free", "openrouter-free", "gemini-free", "anthropic", "openai", "gemini-paid"]);
 
 /** Drafts per provider and task since a moment (D-496): what the free models wrote, and its tokens. */
 export async function usageByProvider(since: Date): Promise<ProviderUsage[]> {

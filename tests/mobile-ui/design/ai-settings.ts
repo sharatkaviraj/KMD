@@ -1,13 +1,15 @@
 import type { AiPageData } from "@/modules/assist/data/panel";
 import { aiLanes } from "@/modules/assist/domain/ai-map";
 import { buildOverview, type OverviewRaw } from "@/modules/assist/domain/overview";
+import { freeCheckRows } from "@/modules/assist/domain/free-check";
+import { APINEX_MODELS, type FreeCheck, type FreeCheckResult } from "@/modules/assist/domain/routes";
 
 /*
  * Settings → AI helper on synthetic numbers (D-501): every kind of job, both
  * free and paid answers, a failed try, a test job. No person in it is real.
  */
 
-const keys = { anthropic: true, openai: true, geminiPaidModel: "gemini-3.5-flash", geminiFreeModel: "gemini-3.5-flash-lite", nvidiaModel: "nvidia/nemotron-3.5-super-vl", openRouterModel: "openrouter/free" };
+const keys = { anthropic: true, openai: true, geminiPaidModel: "gemini-3.5-flash", geminiFreeModel: "gemini-3.5-flash-lite", nvidiaModel: "nvidia/nemotron-3.5-super-vl", openRouterModel: "openrouter/free", apinexModels: APINEX_MODELS };
 const route = { mode: "live" as const, claudeImageModel: "claude-sonnet-5-5", claudeVoiceModel: "claude-haiku-5-5", openAiListenModel: "gpt-transcribe", geminiPaidModel: "gemini-3.5-flash", geminiFreeModel: "gemini-3.5-flash-lite" };
 
 const day = (d: number) => `2026-11-0${d}`;
@@ -50,9 +52,28 @@ const raw: OverviewRaw = {
 
 const overview = buildOverview(raw, { inrPerUsd: 90, from: "2026-11-01", today: "2026-11-07" });
 
+/** APInex's free models as a made-up check found them (D-567): some answer, one is slow, one writes no Hindi. */
+const NOW = Date.parse("2026-11-07T06:00:00Z");
+const result = (model: string, probe: "writing" | "quick", ms: number, problem?: string): FreeCheckResult =>
+  problem ? { model, probe, ok: false, ms, problem } : { model, probe, ok: true, ms };
+const freeCheck: FreeCheck = {
+  at: "2026-11-07T05:30:00Z",
+  blocked: false,
+  models: ["free/claude-opus-4.6", "free/claude-sonnet-4.6", "free/deepseek-v4.1-flash", "free/glm-5.3", "free/kimi-k2.5", "free/qwen-3.5-plus", "free/minimax-m2.5", "free/llama-4.1-maverick"],
+  results: [
+    result("free/claude-sonnet-4.6", "writing", 6200), result("free/claude-sonnet-4.6", "quick", 4100),
+    result("free/glm-5.3", "writing", 8400), result("free/glm-5.3", "quick", 5200),
+    result("free/deepseek-v4.1-flash", "writing", 3900), result("free/deepseek-v4.1-flash", "quick", 2300),
+    result("free/claude-opus-4.6", "writing", 11800), result("free/claude-opus-4.6", "quick", 18000, "timeout"),
+    result("free/kimi-k2.5", "writing", 7100, "not_hindi"), result("free/kimi-k2.5", "quick", 6000),
+    result("free/qwen-3.5-plus", "writing", 9300), result("free/qwen-3.5-plus", "quick", 5800),
+    result("free/minimax-m2.5", "writing", 1200, "model"), result("free/minimax-m2.5", "quick", 900, "model"),
+  ],
+};
+
 export const aiSettingsData: AiPageData = {
   configured: true,
-  settings: { enabled: true, monthlyBudgetUsd: 25, dailyCapPerStaff: 60, disabledFeatures: ["brief"], updatedAt: "2026-11-05T10:00:00Z", updatedBy: null },
+  settings: { enabled: true, monthlyBudgetUsd: 25, dailyCapPerStaff: 60, disabledFeatures: ["brief"], updatedAt: "2026-11-05T10:00:00Z", updatedBy: null, freeCheck },
   features: [
     { feature: "note", uses: 56, costUsd: 0.55, kept: 41, edited: 9, discarded: 6, refused: 0, failed: 0 },
     { feature: "ask", uses: 13, costUsd: 0, kept: 13, edited: 0, discarded: 0, refused: 0, failed: 0 },
@@ -64,7 +85,15 @@ export const aiSettingsData: AiPageData = {
     { name: "Teacher C", uses: 9, costInr: 6.6 },
   ],
   overview,
-  lanes: aiLanes(keys, {}, route),
+  lanes: aiLanes(keys, {}, route, { freeCheck, now: NOW }),
+  freeModels: {
+    available: true,
+    mayCheck: true,
+    checkedAt: freeCheck.at,
+    blocked: false,
+    listed: freeCheck.models.length,
+    rows: freeCheckRows(freeCheck, APINEX_MODELS, NOW),
+  },
   builtin: {
     mode: "live",
     dailyLimit: 40,

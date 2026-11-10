@@ -221,6 +221,8 @@ export const ANNOTATIONS = {
   NVIDIA_KIMI_API_KEY: [OWNER, "set — free NVIDIA API key for the AI helper's open tasks only (D-490)"],
   NVIDIA_API_KEY: [OWNER, "optional alias if NVIDIA_KIMI_API_KEY is absent"],
   OPENROUTER_API_KEY: [OWNER, "set — OpenRouter key, `:free` models only, for the AI helper's open tasks (D-490)"],
+  APINEX_API_KEY: [OWNER, "to set — APInex key, `free/` models only, for the AI helper's open tasks and test accounts (D-567)"],
+  FREE_API_KEY: [OWNER, "optional alias for APINEX_API_KEY (the vault's name for it); used only when shaped like an APInex key"],
   VPPSONE_NVIDIA_MODEL: [OWNER, "optional — NVIDIA model (default nvidia/nemotron-3.5-super-vl-120b-a12b)"],
   VPPSONE_OPENROUTER_MODELS: [OWNER, "optional — up to three `:free` OpenRouter models, comma-separated"],
   VPPSONE_CLAUDE_IMAGE_MODEL: [OWNER, "pinned image extraction model; defaults to Claude Sonnet 5.5"],

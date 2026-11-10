@@ -11,6 +11,8 @@ import {
   isAssistFeature,
   type AssistFeature,
 } from "../domain/features";
+import { readFreeCheck } from "../domain/free-check";
+import type { FreeCheck } from "../domain/routes";
 
 export type AssistSettings = {
   enabled: boolean;
@@ -19,6 +21,8 @@ export type AssistSettings = {
   disabledFeatures: AssistFeature[];
   updatedAt: string | null;
   updatedBy: string | null;
+  /** The last check of the free models (D-567); decides which APInex models each job uses. */
+  freeCheck: FreeCheck | null;
 };
 
 type SettingsRow = {
@@ -28,6 +32,7 @@ type SettingsRow = {
   disabled_features: string[] | null;
   updated_at: string | null;
   updated_by: string | null;
+  free_check?: unknown;
 };
 
 /**
@@ -46,7 +51,7 @@ export const getAssistSettings = sharedCache(
   async (): Promise<AssistSettings> => {
     const { data, error } = await createAdminClient()
       .from("assist_settings")
-      .select("enabled, monthly_budget_usd, daily_cap_per_staff, disabled_features, updated_at, updated_by")
+      .select("enabled, monthly_budget_usd, daily_cap_per_staff, disabled_features, updated_at, updated_by, free_check")
       .eq("id", 1)
       .maybeSingle<SettingsRow>();
     if (error) throw new Error(error.message);
@@ -58,6 +63,7 @@ export const getAssistSettings = sharedCache(
       disabledFeatures: (data.disabled_features ?? []).filter(isAssistFeature),
       updatedAt: data.updated_at,
       updatedBy: data.updated_by,
+      freeCheck: readFreeCheck(data.free_check),
     };
   },
   ["vx-assist-settings"],
@@ -86,7 +92,7 @@ export async function assistFeaturesFor(
 }
 
 export async function saveAssistSettings(
-  input: Omit<AssistSettings, "updatedAt" | "updatedBy">,
+  input: Omit<AssistSettings, "updatedAt" | "updatedBy" | "freeCheck">,
   staffProfileId: string,
 ): Promise<void> {
   const { error } = await createAdminClient()
@@ -100,6 +106,13 @@ export async function saveAssistSettings(
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);
+  if (error) throw new Error(error.message);
+  expireTag(CACHE_TAGS.assist);
+}
+
+/** Keep the free models' last check (D-567). Only the server writes it; nobody's data is in it. */
+export async function saveFreeCheck(check: FreeCheck): Promise<void> {
+  const { error } = await createAdminClient().from("assist_settings").update({ free_check: check }).eq("id", 1);
   if (error) throw new Error(error.message);
   expireTag(CACHE_TAGS.assist);
 }

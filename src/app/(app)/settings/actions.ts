@@ -9,7 +9,8 @@ import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { createArchive, runRestoreDrill } from "@/modules/archives/data/archive-repo";
 import { checkBuiltinAiKeys, mayChangeBuiltinAiLimit, mayCheckBuiltinAiKeys, setBuiltinAiDailyLimit } from "@/lib/ai/admin";
 import { builtinAiPilot } from "@/lib/ai/config";
-import { saveAssistSettings } from "@/modules/assist/data/settings";
+import { runFreeCheck } from "@/modules/assist/data/free-check";
+import { getAssistSettings, saveAssistSettings } from "@/modules/assist/data/settings";
 import { isAssistFeature } from "@/modules/assist/domain/features";
 import { schoolToday } from "@/vx/format";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -180,6 +181,35 @@ export async function saveBuiltinAiLimitAction(limit: number): Promise<SettingsR
   if (!ok) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया।") };
   revalidatePath("/settings");
   return { ok: true, message: p("Photo and voice limit saved", "फ़ोटो व आवाज़ की सीमा सहेजी गई") };
+}
+
+/**
+ * Settings → AI in One → Cost → Check free models (D-567): every APInex free
+ * model writes an invented notice and an invented cover plan, from this
+ * server. It costs nothing and sends no school record, so any admin may run
+ * it, a practice admin too; once in two minutes, so taps cannot spend the
+ * free day's allowance.
+ */
+export async function checkFreeModelsAction(): Promise<SettingsResult> {
+  const actor = await assertPermission("settings:manage");
+  await assertNotPreviewing();
+  if (actor.role !== "admin") return { ok: false, message: p("Only an admin can check the free models.", "मुफ़्त मॉडल सिर्फ़ प्रशासक जाँच सकते हैं।") };
+  const last = (await getAssistSettings().catch(() => null))?.freeCheck?.at;
+  if (last && Date.now() - Date.parse(last) < 120_000) {
+    return { ok: false, message: p("They were checked a moment ago. Try again in two minutes.", "अभी-अभी जाँचे गए हैं। दो मिनट बाद फिर कोशिश करें।") };
+  }
+  const outcome = await runFreeCheck().catch(() => ({ ok: false as const, problem: "unavailable" as const }));
+  revalidatePath("/settings");
+  if (!outcome.ok) {
+    if (outcome.problem === "no_key") return { ok: false, message: p("The APInex key is not set up on this server.", "इस सर्वर पर APInex कुंजी नहीं जुड़ी है।") };
+    if (outcome.problem === "credential") return { ok: false, message: p("APInex did not accept the key.", "APInex ने कुंजी नहीं मानी।") };
+    return { ok: false, message: p("APInex did not answer. Try again later.", "APInex ने जवाब नहीं दिया। बाद में कोशिश करें।") };
+  }
+  const { check } = outcome;
+  if (check.blocked) return { ok: false, message: p("APInex's firewall turned this server away. Its free models are skipped for now.", "APInex की फ़ायरवॉल ने इस सर्वर को रोका। अभी इसके मुफ़्त मॉडल छोड़े जा रहे हैं।") };
+  const models = [...new Set(check.results.map((r) => r.model))];
+  const good = models.filter((m) => check.results.some((r) => r.model === m && r.ok)).length;
+  return { ok: good > 0, message: p(`${good} of ${models.length} free models answered`, `${models.length} में से ${good} मुफ़्त मॉडलों ने जवाब दिया`) };
 }
 
 /** Settings → AI helper → Cost → Check keys now: one tiny request per key and model, on the server. */

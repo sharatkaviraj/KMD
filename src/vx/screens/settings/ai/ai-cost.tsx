@@ -16,6 +16,7 @@ import { CountUp } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
 
 import { box, Dot, Head, inr, PayTag, pv, Tile } from "./ai-bits";
+import { FreeModelsCard } from "./ai-free";
 import { problemWords, providerName, W } from "./words";
 
 /** The photo and voice keys, in the order the router prefers them. */
@@ -27,7 +28,7 @@ const when = (at: string): Pair => {
   return p(`${d.en}, ${t.en}`, `${d.hi}, ${t.hi}`);
 };
 
-/** "Cost": this month's money, the budget, what each model cost per job, and how the keys are. */
+/** "Cost": this month's money, the budget, what each model cost per job, the free models' last check, and how the keys are. */
 export function CostView({ data }: { data: AiPageData }) {
   const { tx } = useVx();
   const toast = useToast();
@@ -119,6 +120,8 @@ export function CostView({ data }: { data: AiPageData }) {
           <span style={{ fontSize: 13.5, color: "var(--mut)" }}>{tx(o ? W.nothing : W.unread)}</span>
         )}
       </div>
+
+      <FreeModelsCard data={data} />
 
       <div className="card" style={box}>
         <Head

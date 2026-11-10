@@ -17,7 +17,7 @@ import type { AssistTaskId } from "./tasks";
 export type AiProvider = AssistProvider;
 
 /** Every provider, in the order the free-first route tries them. */
-export const AI_PROVIDERS: readonly AiProvider[] = ["nvidia-free", "openrouter-free", "gemini-free", "anthropic", "openai", "gemini-paid"];
+export const AI_PROVIDERS: readonly AiProvider[] = ["nvidia-free", "apinex-free", "openrouter-free", "gemini-free", "anthropic", "openai", "gemini-paid"];
 
 const KNOWN = new Set<string>(AI_PROVIDERS);
 
@@ -35,6 +35,7 @@ export function providerOf(model: string | null | undefined, provider: string | 
   const m = (model ?? "").trim().toLowerCase();
   if (!m) return null;
   if (m.endsWith(":free") || m.startsWith("openrouter/")) return "openrouter-free";
+  if (m.startsWith("free/")) return "apinex-free";
   if (m.startsWith("claude")) return "anthropic";
   if (m.startsWith("gpt") || m.startsWith("whisper")) return "openai";
   if (m.includes("nemotron") || m.startsWith("nvidia/") || m.startsWith("private/nvidia/")) return "nvidia-free";
@@ -61,6 +62,7 @@ export function isListeningModel(model: string | null | undefined): boolean {
 }
 
 const cap = (word: string) => (word ? word[0].toUpperCase() + word.slice(1) : word);
+const BRAND: Record<string, string> = { deepseek: "DeepSeek", glm: "GLM", gpt: "GPT", qwen: "Qwen", kimi: "Kimi", minimax: "MiniMax", llama: "Llama", grok: "Grok" };
 
 /** A model id as a person reads it: "Claude Haiku 5.5", "Nemotron 3.5 Super", "Gemini 3.5 Flash-Lite". */
 export function modelName(model: string | null | undefined): string {
@@ -76,7 +78,8 @@ export function modelName(model: string | null | undefined): string {
   if (gemma) return `Gemma ${gemma[1]} ${gemma[2]}B`;
   const gemini = /^gemini-(\d[\d.]*)-(.+)$/.exec(last);
   if (gemini) return `Gemini ${gemini[1]} ${gemini[2].split("-").map(cap).join("-")}`;
-  return last.split("-").map(cap).join(" ");
+  // APInex's free models (D-567): "free/claude-sonnet-4.6" is "Claude Sonnet 4.6", "free/deepseek-v4.1-flash" "DeepSeek V4.1 Flash".
+  return last.split("-").map((word) => BRAND[word] ?? cap(word)).join(" ");
 }
 
 /* --------------------------------------------------------------- raw rows */

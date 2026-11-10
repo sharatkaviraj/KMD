@@ -151,6 +151,42 @@ export function nvidiaConfig(env: Env = process.env): { apiKey: string; model: s
   return { apiKey, model: NVIDIA_MODEL.test(model) ? model : NVIDIA_DEFAULT_MODEL };
 }
 
+/**
+ * APInex (api.apinex.bond), free models only (owner, 10 Nov 2026). An
+ * OpenAI-compatible gateway whose `free/…` models cost nothing; the account
+ * holds no credit, and One never names a model that is not `free/…`, so a
+ * paid one can never be asked for. The key lives in the owner's vault as
+ * `FREE_API_KEY` and in Vercel as `APINEX_API_KEY`; the vault's name is read
+ * too, but only when the value has APInex's own shape, so another company's
+ * "free" key is never sent here.
+ *
+ * Which free model writes which job is `APINEX_MODELS` in `assist/domain/routes.ts`;
+ * `VPPSONE_APINEX_QUICK`, `…_WRITING` and `…_CAREFUL` override a job's list.
+ */
+export const APINEX_CHAT_URL = "https://api.apinex.bond/v1/chat/completions";
+export const APINEX_MODELS_URL = "https://api.apinex.bond/v1/models";
+const APINEX_FREE_MODEL = /^free\/[a-z0-9][a-z0-9._-]{0,60}$/u;
+const APINEX_KEY_SHAPE = /^sk-apx-[A-Za-z0-9_-]{8,200}$/u;
+
+export function isFreeApinexModel(id: string): boolean {
+  return APINEX_FREE_MODEL.test(id);
+}
+
+export type ApinexJob = "quick" | "writing" | "careful";
+
+export function apinexConfig(env: Env = process.env): { apiKey: string; overrides: Partial<Record<ApinexJob, string[]>> } | null {
+  const named = env.APINEX_API_KEY?.trim();
+  const vault = env.FREE_API_KEY?.trim();
+  const apiKey = named || (vault && APINEX_KEY_SHAPE.test(vault) ? vault : "");
+  if (!apiKey) return null;
+  const overrides: Partial<Record<ApinexJob, string[]>> = {};
+  for (const job of ["quick", "writing", "careful"] as const) {
+    const listed = (env[`VPPSONE_APINEX_${job.toUpperCase()}`] ?? "").split(",").map((m) => m.trim().toLowerCase()).filter(isFreeApinexModel);
+    if (listed.length) overrides[job] = [...new Set(listed)].slice(0, 3);
+  }
+  return { apiKey, overrides };
+}
+
 /** The OpenAI API Platform key (the plan's monthly credits). Vercel's name first, then the usual alias. */
 export function openAiKey(env: Env = process.env): string | undefined {
   return env.OPEN_AI_API_KEY?.trim() || env.OPENAI_API_KEY?.trim() || undefined;

@@ -19,6 +19,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `AISENSY_WEBHOOK_SECRET` | — | `src/app/api/webhooks/aisensy/route.ts` | — | — | fees | fees only — One's delivery webhook is /api/webhooks/whatsapp-hub |
 | `ANALYZE` | — | `next.config.ts` | — | — | fees build flag | fees only (bundle analyzer); not needed |
 | `ANTHROPIC_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` +2 | — | yes | — | owner | set — `assist` reading real data needs the owner's yes (MCP-AND-NOTION.md, Q13) |
+| `APINEX_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | to set — APInex key, `free/` models only, for the AI helper's open tasks and test accounts (D-567) |
 | `APP_MODE` | `src/platform/config/school.ts`, `src/platform/env.ts` | `src/modules/one-bridge/data/auth.ts`, `src/platform/config/school.ts` +1 | yes | yes | owner | add at C5: `production` — required together with VPPSONE_ENV=live (`getFeeSchema()` throws otherwise) |
 | `CI` | `src/platform/supabase/target-guard.ts` | `next.config.ts` | — | — | CI runner | CI only — never set on Vercel |
 | `CRON_SECRET` | `src/app/api/fees/admin/repair-discount-drift/route.ts`, `src/app/api/fees/admin/revalidate-after-bulk/route.ts` +7 | `src/app/api/admin/repair-discount-drift/route.ts`, `src/app/api/admin/revalidate-after-bulk/route.ts` +6 | yes | yes | owner | set — Vercel cron bearer; also stored in Vault as VPPS_CRON_SECRET for the pg_cron jobs that call `/api/fees/cron/*` (one-live-cron-jobs.sql) |
@@ -30,6 +31,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `FEES_BRIDGE_ORIGIN` | `src/modules/coexistence/data/sync.ts`, `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | One production; exact canonical Fees HTTPS origin only |
 | `FEES_BRIDGE_SYNC_KEY` | `src/modules/coexistence/data/sync.ts`, `src/modules/transport/data/routes.ts` | — | yes | — | deployment operator | separate source sync credential; production only |
 | `FEES_BRIDGE_WRITES_ENABLED` | `src/platform/fees-bridge/policy.ts` | — | yes | — | owner | false until canonical TEST command acceptance and named actor grants; never enables local real fee writes |
+| `FREE_API_KEY` | `src/lib/ai/config.ts` | — | — | — | owner | optional alias for APINEX_API_KEY (the vault's name for it); used only when shaped like an APInex key |
 | `GEMINI_API_KEY` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — server-only Gemini paid-fallback slot for built-in AI |
 | `GEMINI_API_KEY_FREE` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | yes | — | owner | set — free Gemini key; used only for TEST-session (fictional) media, never real records |
 | `GEMINI_API_KEY_PAID` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | optional override for the existing GEMINI_API_KEY fallback slot |

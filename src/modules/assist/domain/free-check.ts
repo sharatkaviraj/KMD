@@ -1,0 +1,117 @@
+import { z } from "zod";
+
+import { APINEX_TIMEOUT_MS, pickApinexModels, type FreeCheck, type FreeCheckProbe, type FreeCheckResult, type FreeJob } from "./routes";
+import type { AssistTaskId } from "./tasks";
+
+/**
+ * The free models' check (D-567). Pure: which jobs a model is tried on, the
+ * shape the check is kept in, and how a check reads on the settings page.
+ * `assist/data/free-check.ts` runs it.
+ *
+ * Every model gets the same two jobs, built from One's own tasks so the
+ * check measures what staff will see: a notice to all parents in Hindi and
+ * English (writing) and a cover-period plan in Hindi (quick, held to a
+ * shape). The inputs are invented and name nobody, so the check sends no
+ * school record, and an admin of either kind may run it.
+ */
+
+export const FREE_CHECK_PROBES: Record<FreeCheckProbe, { task: AssistTaskId; input: unknown }> = {
+  writing: {
+    task: "message.write",
+    input: { brief: "School stays closed on Friday for a local holiday. Classes start again on Saturday at the usual time.", audience: "parents", kind: "holiday" },
+  },
+  quick: {
+    task: "cover.plan",
+    input: { classLabel: "Class 7 A", subject: "Science", minutes: 40, language: "hi" },
+  },
+};
+
+/** How long one probe may take: past the slowest job's limit there is nothing more to learn. */
+export const FREE_CHECK_PROBE_MS = Math.max(...Object.values(APINEX_TIMEOUT_MS));
+/** Probes in flight at once, so a check of twenty models fits the settings page's minute. */
+export const FREE_CHECK_PARALLEL = 8;
+/**
+ * No probe starts after this; the rest are left out of the check, as not
+ * checked. With the model list's 8 s and the last probe's 18 s it stays
+ * inside the settings page's 60 s.
+ */
+export const FREE_CHECK_BUDGET_MS = 32_000;
+/** At most this many models are checked. */
+export const FREE_CHECK_MAX_MODELS = 24;
+
+const PROBLEM = /^[a-z_]{1,24}$/u;
+const MODEL = /^free\/[a-z0-9][a-z0-9._-]{0,60}$/u;
+
+const resultSchema = z.object({
+  model: z.string().regex(MODEL),
+  probe: z.enum(["writing", "quick"]),
+  ok: z.boolean(),
+  ms: z.number().int().min(0).max(600_000),
+  problem: z.string().regex(PROBLEM).optional(),
+  httpStatus: z.number().int().min(100).max(599).optional(),
+});
+
+const checkSchema = z.object({
+  at: z.string().refine((v) => Number.isFinite(Date.parse(v))),
+  blocked: z.boolean(),
+  models: z.array(z.string().regex(MODEL)).max(200),
+  results: z.array(resultSchema).max(400),
+});
+
+/** The stored check, or null when there is none or it is not one. */
+export function readFreeCheck(raw: unknown): FreeCheck | null {
+  const parsed = checkSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+export type FreeCheckRow = {
+  model: string;
+  writing: FreeCheckResult | null;
+  quick: FreeCheckResult | null;
+  /** The kinds of work that use this model now, after the check. */
+  jobs: FreeJob[];
+};
+
+/**
+ * The check as the settings page lists it: the models in use first (in the
+ * order the jobs try them), then every other model that answered, fastest
+ * first, then the ones that did not.
+ */
+export function freeCheckRows(check: FreeCheck, preferred: Readonly<Record<FreeJob, readonly string[]>>, now = Date.now()): FreeCheckRow[] {
+  const jobsOf = new Map<string, FreeJob[]>();
+  const used: string[] = [];
+  for (const job of ["writing", "careful", "quick"] as const) {
+    for (const model of pickApinexModels(job, preferred[job], check, now)) {
+      jobsOf.set(model, [...(jobsOf.get(model) ?? []), job]);
+      if (!used.includes(model)) used.push(model);
+    }
+  }
+  const models = [...new Set([...used, ...check.models, ...check.results.map((r) => r.model)])];
+  const rows = models.map((model): FreeCheckRow => ({
+    model,
+    writing: check.results.find((r) => r.model === model && r.probe === "writing") ?? null,
+    quick: check.results.find((r) => r.model === model && r.probe === "quick") ?? null,
+    jobs: jobsOf.get(model) ?? [],
+  }));
+  const ok = (r: FreeCheckRow) => (r.writing?.ok ? 1 : 0) + (r.quick?.ok ? 1 : 0);
+  const best = (r: FreeCheckRow) => Math.min(r.writing?.ok ? r.writing.ms : Infinity, r.quick?.ok ? r.quick.ms : Infinity);
+  return rows.sort((a, b) => {
+    const ua = used.indexOf(a.model), ub = used.indexOf(b.model);
+    if (ua >= 0 || ub >= 0) return (ua < 0 ? Infinity : ua) - (ub < 0 ? Infinity : ub);
+    return ok(b) - ok(a) || best(a) - best(b) || a.model.localeCompare(b.model);
+  });
+}
+
+/** Run `work` over `items`, at most `limit` at once, starting none once `stop()` says so. */
+export async function inBatches<T, R>(items: readonly T[], limit: number, work: (item: T) => Promise<R>, stop: () => boolean): Promise<(R | null)[]> {
+  const out: (R | null)[] = items.map(() => null);
+  let next = 0;
+  const lane = async () => {
+    while (next < items.length && !stop()) {
+      const i = next++;
+      out[i] = await work(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, lane));
+  return out;
+}

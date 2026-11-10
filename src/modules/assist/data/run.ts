@@ -3,7 +3,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 
-import { freeGeminiConfig, nvidiaConfig, nvidiaGuidedJson, openAiKey, openRouterConfig, paidGeminiConfig } from "@/lib/ai/config";
+import { APINEX_CHAT_URL, apinexConfig, freeGeminiConfig, nvidiaConfig, nvidiaGuidedJson, openAiKey, openRouterConfig, paidGeminiConfig } from "@/lib/ai/config";
 import { oneInstructions, type OneWorkflow } from "@/lib/ai/one-knowledge";
 import { freeKeyBlocked, saveStatuses, statusRow } from "@/lib/ai/provider-status";
 import { failureOf, type FailureProblem } from "@/lib/ai/router";
@@ -16,6 +16,7 @@ import { dailyCapFor, FEATURE_PERMISSIONS, type AssistOutcome, type AssistProble
 import { readsAsHindi } from "../domain/hindi-check";
 import { hasStrayToken, maskPersonal, restoreDeep } from "../domain/redact";
 import {
+  APINEX_MODELS,
   assistChain,
   CHAIN_DEADLINE_MS,
   FREE_PROVIDERS,
@@ -23,9 +24,11 @@ import {
   hasFreeStage,
   MIN_FREE_STAGE_MS,
   restAfter,
+  restsWholeProvider,
   TASK_TIER,
   type AssistStage,
   type AvailableKeys,
+  type FreeJob,
 } from "../domain/routes";
 import {
   ASSIST_TASKS,
@@ -60,6 +63,18 @@ export function availableKeys(env: Readonly<Record<string, string | undefined>> 
     geminiFreeModel: freeGeminiConfig(env)?.model ?? null,
     nvidiaModel: nvidiaConfig(env)?.model ?? null,
     openRouterModel: openRouterConfig(env)?.models[0] ?? null,
+    apinexModels: apinexModels(env),
+  };
+}
+
+/** APInex's free models per kind of work: the deployment's overrides, else One's picks (D-567). Null without the key. */
+export function apinexModels(env: Readonly<Record<string, string | undefined>> = process.env): Record<FreeJob, readonly string[]> | null {
+  const config = apinexConfig(env);
+  if (!config) return null;
+  return {
+    quick: config.overrides.quick ?? APINEX_MODELS.quick,
+    writing: config.overrides.writing ?? APINEX_MODELS.writing,
+    careful: config.overrides.careful ?? APINEX_MODELS.careful,
   };
 }
 
@@ -100,7 +115,7 @@ export async function runAssistTask<K extends AssistTaskId>(
   // A budget that cannot be read is treated as spent: the cap is the only thing between a loop and the bill.
   if (!budget) return { ok: false, problem: "failed" };
   // Spent: only a task with a free stage goes on, and `draftThroughChain` starts no paid one.
-  if (budget.spentUsd >= settings.monthlyBudgetUsd && !hasFreeStage(taskId, availableKeys(), process.env, { testMaterial })) {
+  if (budget.spentUsd >= settings.monthlyBudgetUsd && !hasFreeStage(taskId, availableKeys(), process.env, { testMaterial, freeCheck: settings.freeCheck })) {
     return { ok: false, problem: "budget" };
   }
   if (budget.staffToday >= dailyCapFor(settings.dailyCapPerStaff, staff)) return { ok: false, problem: "daily_cap" };
@@ -148,12 +163,18 @@ export async function prepareAssistDraft<K extends AssistTaskId>(
   if (!settings?.enabled || settings.disabledFeatures.includes(spec.feature)) return { ok: false, problem: "off" };
   const budget = await budgetState(staffProfileId).catch(() => null);
   if (!budget) return { ok: false, problem: "failed" };
-  if (budget.spentUsd >= settings.monthlyBudgetUsd && !hasFreeStage(taskId, availableKeys(), process.env, { testMaterial })) {
+  if (budget.spentUsd >= settings.monthlyBudgetUsd && !hasFreeStage(taskId, availableKeys(), process.env, { testMaterial, freeCheck: settings.freeCheck })) {
     return { ok: false, problem: "budget" };
   }
   const parsed = spec.input.safeParse(rawInput);
   if (!parsed.success) return { ok: false, problem: "invalid" };
   return draftThroughChain(staffProfileId, taskId, spec, parsed.data, settings, budget.spentUsd, { testMaterial });
+}
+
+/** A task's whole system prompt: the shared rules, the task's own, and what One knows about that kind of work. */
+export function taskInstructions(spec: Pick<TaskSpec<unknown, unknown>, "feature" | "instructions">, permittedHrefs?: string[]): string {
+  const workflow = spec.feature as OneWorkflow;
+  return oneInstructions(`${SHARED_RULES}\n\n${spec.instructions}`, GROUNDED_WORKFLOWS.has(workflow) ? workflow : undefined, permittedHrefs);
 }
 
 type Ask = {
@@ -219,6 +240,18 @@ async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promis
         },
       });
     }
+    case "apinex-free": {
+      const config = apinexConfig();
+      if (!config) throw Object.assign(new Error("APInex key missing"), { status: 401 });
+      // The schema goes in the instructions only: whether APInex passes `response_format` on to
+      // every model behind it is not known, and a refused option would fail the whole draft.
+      const reply = await chatDraft({
+        url: APINEX_CHAT_URL, apiKey: config.apiKey, model: stage.model,
+        instructions: ask.instructions, text: ask.text, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
+      });
+      // The log keeps the `free/…` name One asked for, which the free models' check uses too.
+      return { ...reply, model: stage.model };
+    }
     case "anthropic":
       return claudeStage(stage, ask, timeoutMs);
     case "openai":
@@ -256,14 +289,13 @@ async function draftThroughChain<K extends AssistTaskId>(
   const { permittedHrefs, testMaterial = false } = options;
   const feature = spec.feature;
   const masked = maskPersonal(spec.prompt(input), spec.names?.(input) ?? []);
-  const workflow = feature as OneWorkflow;
   const ask: Ask = {
-    instructions: oneInstructions(`${SHARED_RULES}\n\n${spec.instructions}`, GROUNDED_WORKFLOWS.has(workflow) ? workflow : undefined, permittedHrefs),
+    instructions: taskInstructions(spec, permittedHrefs),
     text: masked.text,
     image: spec.image?.(input) ?? null,
     spec: spec as TaskSpec<unknown, unknown>,
   };
-  const stages = assistChain(taskId, availableKeys(), process.env, { testMaterial });
+  const stages = assistChain(taskId, availableKeys(), process.env, { testMaterial, freeCheck: settings.freeCheck });
 
   let model = stages[0]?.model ?? "none";
   let provider = stages[0]?.provider ?? null;
@@ -295,7 +327,7 @@ async function draftThroughChain<K extends AssistTaskId>(
     const geminiFree = stage.provider === "gemini-free";
     // Charge everything already spent to this draft, and start no further paid call once at the cap.
     if (!free && spentUsd + spend >= settings.monthlyBudgetUsd) return reject("budget");
-    if (free && (freeLeft < MIN_FREE_STAGE_MS || isResting(stage.provider))) continue;
+    if (free && (freeLeft < MIN_FREE_STAGE_MS || isResting(stage.provider) || isResting(`${stage.provider}:${stage.model}`))) continue;
     if (geminiFree && (await freeKeyBlocked())) continue;
     const stageStarted = Date.now();
     const allowed = Math.min(stage.timeoutMs, left - 2_000, free ? freeLeft : Infinity);
@@ -318,7 +350,11 @@ async function draftThroughChain<K extends AssistTaskId>(
       const failure = failureOf(error);
       if (BUSY.includes(failure.problem) || error instanceof Anthropic.APIConnectionError) busy = true;
       // A stage cut short by the time left is not the provider's fault; a full-length timeout is.
-      if (free && !(failure.problem === "timeout" && allowed < stage.timeoutMs)) rest(stage.provider, restAfter(failure.problem));
+      if (free && !(failure.problem === "timeout" && allowed < stage.timeoutMs)) {
+        rest(restsWholeProvider(stage.provider, failure.problem) ? stage.provider : `${stage.provider}:${stage.model}`, restAfter(failure.problem));
+      }
+      // Fixed words only: which free stage failed and why, never the request or the provider's message.
+      if (free) console.warn(`[assist] free stage failed provider=${stage.provider} model=${stage.model} problem=${(error as { firewall?: boolean } | null)?.firewall ? "firewall" : failure.problem} status=${failure.httpStatus ?? "-"}`);
       if (geminiFree) void saveStatuses([statusRow("gemini-free", { outcome: "unavailable", model: stage.model, ...failure }, new Date())]);
     } finally {
       if (free) freeLeft -= Date.now() - stageStarted;

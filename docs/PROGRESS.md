@@ -1,5 +1,21 @@
 # VPPS One — progress
 
+## APInex's free models, each kind of job on its best free model — 10 November 2026
+
+Owner asked (10 Nov) to put the free API key into One "smartly, the models
+which is best for each work". Branch `claude/project-thread-nrz4za`, D-567.
+**Done:** `apinex-free` in the AI helper's free chain, ordered per kind of
+job (quick jobs NVIDIA first; notices, summaries and results APInex first),
+two APInex models at most per draft, rests per model; Settings → AI in One →
+Cost → **Check free models** (any admin; invented notice and cover plan per
+model, from the server; names, times and problem words kept on
+`assist_settings.free_check`) and the Free models card with each model's
+result and the jobs it is used for. Migration `20261110071216_apinex_free.sql`, applied to One 10 Nov.
+**Waiting on:** `APINEX_API_KEY` in One's Vercel production (owner chose the
+vault's "send to Vercel" button), then the check from production, which
+answers whether APInex's firewall lets Vercel in and which model is best for
+each job.
+
 ## The school's own WhatsApp replaces AiSensy in One — 9 November 2026
 
 Owner asked (9 Nov) that One stop using AiSensy and send from the school's own

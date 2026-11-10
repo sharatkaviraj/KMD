@@ -1,5 +1,5 @@
 import { isFreeProvider, type AiProvider, type TaskRow } from "./overview";
-import { assistChain, OPEN_TASKS, TASK_TIER, type AssistStage, type AvailableKeys } from "./routes";
+import { assistChain, OPEN_TASKS, TASK_TIER, type AssistStage, type AvailableKeys, type ChainOptions } from "./routes";
 import type { AssistTaskId } from "./tasks";
 
 /**
@@ -73,15 +73,20 @@ function merge(chains: AssistStage[][], locked: Station["locked"] = null): Stati
 
 const TEXT_TASKS = (Object.keys(TASK_TIER) as AssistTaskId[]).filter((t) => t !== "form.read");
 
-export function aiLanes(keys: AvailableKeys, env: Readonly<Record<string, string | undefined>>, builtin: BuiltinRoute): Lane[] {
+export function aiLanes(
+  keys: AvailableKeys,
+  env: Readonly<Record<string, string | undefined>>,
+  builtin: BuiltinRoute,
+  options: Pick<ChainOptions, "freeCheck" | "now"> = {},
+): Lane[] {
   const openTasks = TEXT_TASKS.filter((t) => OPEN_TASKS.has(t));
   const peopleTasks = TEXT_TASKS.filter((t) => !OPEN_TASKS.has(t));
 
-  const open = merge(openTasks.map((t) => assistChain(t, keys, env)));
+  const open = merge(openTasks.map((t) => assistChain(t, keys, env, options)));
 
   // Real records go paid only. The free stations are drawn, locked, because a test account's practice uses them.
-  const lockedFree = merge([assistChain(peopleTasks[0], keys, env, { testMaterial: true }).filter((s) => isFreeProvider(s.provider))], "test");
-  const people = [...lockedFree, ...merge(peopleTasks.map((t) => assistChain(t, keys, env)))];
+  const lockedFree = merge(peopleTasks.map((t) => assistChain(t, keys, env, { ...options, testMaterial: true }).filter((s) => isFreeProvider(s.provider))), "test");
+  const people = [...lockedFree, ...merge(peopleTasks.map((t) => assistChain(t, keys, env, options)))];
 
   const on = builtin.mode !== "off";
   const imageChain: AssistStage[] = on

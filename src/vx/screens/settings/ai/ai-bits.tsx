@@ -17,8 +17,8 @@ import { providerName, W } from "./words";
 
 /** Each provider's colour: greens for the free ones, warm and cool for the paid. Both themes. */
 export const AI_CSS = `
-:is(.vx,.vxt) .aip{--pv-nvidia-free:#3B8A1E;--pv-openrouter-free:#17876A;--pv-gemini-free:#5DA67B;--pv-anthropic:#C2602F;--pv-openai:#475867;--pv-gemini-paid:#2D5FC4;--pv-none:#9AAAB6}
-.dark :is(.vx,.vxt) .aip,:is(.vx,.vxt).dark .aip{--pv-nvidia-free:#8FD46C;--pv-openrouter-free:#5FD1AE;--pv-gemini-free:#A8DDBC;--pv-anthropic:#F0A17A;--pv-openai:#B4C1CD;--pv-gemini-paid:#8FB0F5;--pv-none:#6E7F8C}
+:is(.vx,.vxt) .aip{--pv-nvidia-free:#3B8A1E;--pv-apinex-free:#0E7C86;--pv-openrouter-free:#17876A;--pv-gemini-free:#5DA67B;--pv-anthropic:#C2602F;--pv-openai:#475867;--pv-gemini-paid:#2D5FC4;--pv-none:#9AAAB6}
+.dark :is(.vx,.vxt) .aip,:is(.vx,.vxt).dark .aip{--pv-nvidia-free:#8FD46C;--pv-apinex-free:#6CD3DB;--pv-openrouter-free:#5FD1AE;--pv-gemini-free:#A8DDBC;--pv-anthropic:#F0A17A;--pv-openai:#B4C1CD;--pv-gemini-paid:#8FB0F5;--pv-none:#6E7F8C}
 :is(.vx,.vxt) .aip-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:5px;border-radius:16px;background:var(--s2);border:1px solid var(--bd);position:sticky;top:72px;z-index:5}
 :is(.vx,.vxt) .aip-tab{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:6px 8px;border:0;border-radius:12px;background:transparent;color:var(--mut);font-weight:600;font-size:14px;line-height:1.2;text-align:center;transition:background .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease)}
 :is(.vx,.vxt) .aip-tab[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
@@ -50,7 +50,10 @@ export const AI_CSS = `
 :is(.vx,.vxt) .aip-st.now .aip-no{background:var(--acc);color:#fff}
 :is(.vx,.vxt) .aip-ring{position:absolute;inset:-3px;border-radius:16px;border:2px solid var(--pv);pointer-events:none;animation:aipGlow 2.2s ease-out infinite}
 @keyframes aipGlow{from{transform:scale(1);opacity:.7}to{transform:scale(1.07);opacity:0}}
-@media (prefers-reduced-motion:reduce){:is(.vx,.vxt) .aip-ring{animation:none;opacity:.6}}
+:is(.vx,.vxt) .aip-fill{display:block;height:100%;border-radius:6px;background:var(--pv-apinex-free);animation:aipFill 50s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes aipFill{from{width:3%}to{width:94%}}
+:is(.vx,.vxt) .aip-free-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;border-radius:14px;background:var(--s2);animation:xIn .3s var(--ease) both}
+@media (prefers-reduced-motion:reduce){:is(.vx,.vxt) .aip-ring{animation:none;opacity:.6}:is(.vx,.vxt) .aip-fill{animation:none;width:50%}}
 :is(.vx,.vxt) .aip-walker{display:inline-block;width:10px;height:10px;border-radius:9px;background:var(--acc);animation:xPulse 1s ease-in-out infinite}
 :is(.vx,.vxt) .aip-trail{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
 :is(.vx,.vxt) .aip-feed>li{animation:xIn .32s var(--ease) both}

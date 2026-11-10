@@ -9,9 +9,10 @@ import { createAdminClient } from "@/platform/supabase/admin";
 
 import { aiLanes, type BuiltinRoute, type Lane } from "../domain/ai-map";
 import { monthStartIst } from "../domain/cost";
+import { freeCheckRows, type FreeCheckRow } from "../domain/free-check";
 import { buildOverview, EMPTY_RAW, readRaw, type Overview } from "../domain/overview";
 import { usageSince, type FeatureUsage } from "./log";
-import { availableKeys } from "./run";
+import { apinexModels, availableKeys } from "./run";
 import { getAssistSettings, isAssistConfigured, type AssistSettings } from "./settings";
 
 /** What one key last did, for the Cost view (`builtin_ai_provider_status`). */
@@ -39,6 +40,15 @@ export type AiPageData = {
     keys: KeyLine[];
     lastCheckAt: string | null;
     missing: string[];
+  };
+  /** APInex's free models (D-567): whether the key is here, who may check them, and the last check. */
+  freeModels: {
+    available: boolean;
+    mayCheck: boolean;
+    checkedAt: string | null;
+    blocked: boolean;
+    listed: number;
+    rows: FreeCheckRow[];
   };
   /** Rupees to the dollar, as the deployment prices AI (`GEMINI_INR_PER_USD`, ₹90 unless set). */
   inrPerUsd: number;
@@ -89,10 +99,8 @@ export async function loadAiPage(staff: Pick<CurrentStaff, "role" | "isTestAccou
   const today = ist.format(now);
   const keys = availableKeys();
   const route = builtinRoute();
-  const lanes = aiLanes(keys, process.env, route);
   const base = {
     configured: isAssistConfigured(),
-    lanes,
     inrPerUsd: rate,
     from,
     today,
@@ -119,12 +127,27 @@ export async function loadAiPage(staff: Pick<CurrentStaff, "role" | "isTestAccou
     for (const row of (data ?? []) as { id: string; display_name: string }[]) names.set(row.id, row.display_name);
   }
 
+  // The roads are drawn from the same chains the helper runs, after the free models' last check (D-567).
+  const freeCheck = settings?.freeCheck ?? null;
+  const lanes = aiLanes(keys, process.env, route, { freeCheck, now: now.getTime() });
+  const preferred = apinexModels();
+  const freeModels = {
+    available: preferred !== null,
+    mayCheck: preferred !== null && staff.role === "admin",
+    checkedAt: freeCheck?.at ?? null,
+    blocked: freeCheck?.blocked ?? false,
+    listed: freeCheck?.models.length ?? 0,
+    rows: freeCheck && preferred ? freeCheckRows(freeCheck, preferred, now.getTime()) : [],
+  };
+
   const failedRead = raw instanceof Error ? raw.message : null;
   const built = buildOverview(raw instanceof Error ? EMPTY_RAW : raw, { inrPerUsd: rate, from, today, env: process.env });
   const overview = { ...built, recent: built.recent.filter((job) => job.test === testSession) };
 
   return {
     ...base,
+    lanes,
+    freeModels,
     settings,
     features: usage?.features ?? [],
     people: (usage?.staff ?? [])
