@@ -212,6 +212,15 @@ describe("the stored check", () => {
     expect(rows[1].quick?.ok).toBe(true);
   });
 
+  it("puts models APInex bills, and ones that cannot write, below the ones that are only waiting", () => {
+    const check: FreeCheck = {
+      at: at(0), blocked: false,
+      models: ["free/a-billed", "free/b-decides", "free/c-waits"],
+      results: [bad("free/a-billed", "writing", "not_free"), bad("free/b-decides", "writing", "decision"), bad("free/c-waits", "writing", "check_in")],
+    };
+    expect(freeCheckRows(check, PICKS, NOW).map((r) => r.model)).toEqual(["free/c-waits", "free/a-billed", "free/b-decides"]);
+  });
+
   it("keeps APInex's own words for a refusal, short and with nothing shaped like a key", () => {
     const c: FreeCheck = { ...good, results: [{ ...bad("free/glm-5.3", "writing", "not_free", 200), httpStatus: 402, said: "Insufficient balance" }] };
     expect(readFreeCheck(c)).toEqual(c);

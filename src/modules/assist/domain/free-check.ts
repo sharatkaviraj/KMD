@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { NOT_COUNTED } from "./apinex";
 import { APINEX_TIMEOUT_MS, pickApinexModels, type FreeCheck, type FreeCheckProbe, type FreeCheckResult, type FreeJob } from "./routes";
 import type { AssistTaskId } from "./tasks";
 
@@ -113,10 +114,12 @@ export function freeCheckRows(check: FreeCheck, preferred: Readonly<Record<FreeJ
   }));
   const ok = (r: FreeCheckRow) => (r.writing?.ok ? 1 : 0) + (r.quick?.ok ? 1 : 0);
   const best = (r: FreeCheckRow) => Math.min(r.writing?.ok ? r.writing.ms : Infinity, r.quick?.ok ? r.quick.ms : Infinity);
+  // A model APInex bills on this account, or one that cannot write, goes to the bottom: it is never used.
+  const unusable = (r: FreeCheckRow) => (NOT_COUNTED.has(r.writing?.problem ?? "") || NOT_COUNTED.has(r.quick?.problem ?? "") ? 1 : 0);
   return rows.sort((a, b) => {
     const ua = used.indexOf(a.model), ub = used.indexOf(b.model);
     if (ua >= 0 || ub >= 0) return (ua < 0 ? Infinity : ua) - (ub < 0 ? Infinity : ub);
-    return ok(b) - ok(a) || best(a) - best(b) || a.model.localeCompare(b.model);
+    return unusable(a) - unusable(b) || ok(b) - ok(a) || best(a) - best(b) || a.model.localeCompare(b.model);
   });
 }
 

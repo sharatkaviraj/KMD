@@ -25,10 +25,14 @@ account, BrowserStack phone + desktop.
 PR 343 merged 11:31 UTC (1385c25), live 11:34. **Check at 11:34:** the
 catalogue worked (nine billed/decision models recorded without a call), and
 all twelve free models answered 402 "Daily check-in required to use free
-models" (apinex.bond/overview, behind a human check). **D-569** (this branch):
-`check_in` rests all of APInex for half an hour and decides nothing about the
-models; the card and the check's answer say what is needed in plain words; a
-lost answer is picked up by the card re-reading. **Waiting on:** the owner's
+models" (apinex.bond/overview, behind a human check). **D-569** (PR 344,
+275defd, live 11:49 UTC): `check_in` rests all of APInex for half an hour and
+decides nothing about the models; the card and the check's answer say what is
+needed in plain words; a lost answer is picked up by the card re-reading.
+**BrowserStack phone (Galaxy M32, 11:51 UTC):** Check free models ran in the
+real browser and answered in about 50 s, with the check-in note and toast; no
+sideways scroll. It showed billed models above ones only waiting, so the list
+now puts billed and decision models last (this branch). **Waiting on:** the owner's
 choice to check in on APInex each day (asked in the thread) or leave APInex
 as a spare; drafts are unaffected either way.
 
