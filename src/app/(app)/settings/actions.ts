@@ -211,6 +211,9 @@ export async function checkFreeModelsAction(): Promise<SettingsResult> {
   // A model APInex bills on this account, or one that cannot write, is not counted as a free model that failed (D-568).
   const models = [...new Set(check.results.filter((r) => !(r.problem && NOT_COUNTED.has(r.problem))).map((r) => r.model))];
   const good = models.filter((m) => check.results.some((r) => r.model === m && r.ok)).length;
+  if (!good && check.results.some((r) => r.problem === "check_in")) {
+    return { ok: false, message: p("APInex is waiting for today's check-in on apinex.bond. The other free AIs write until then.", "APInex पर आज का चेक-इन बाक़ी है। तब तक बाक़ी मुफ़्त AI लिखते हैं।") };
+  }
   return { ok: good > 0, message: p(`${good} of ${models.length} free models answered`, `${models.length} में से ${good} मुफ़्त मॉडलों ने जवाब दिया`) };
 }
 

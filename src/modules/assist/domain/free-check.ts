@@ -54,7 +54,7 @@ export const NOT_FREE_KEPT_MS = 7 * 24 * 60 * 60_000;
  * all, or not on this account. A notice that was merely slow or not right
  * still lets the plan be tried.
  */
-export const NO_PLAN_AFTER: ReadonlySet<string> = new Set(["not_free", "decision", "model", "credential", "billing", "permission", "firewall", "quota_daily"]);
+export const NO_PLAN_AFTER: ReadonlySet<string> = new Set(["not_free", "decision", "check_in", "model", "credential", "billing", "permission", "firewall", "quota_daily"]);
 
 const PROBLEM = /^[a-z_]{1,24}$/u;
 const MODEL = /^free\/[a-z0-9][a-z0-9._-]{0,60}$/u;

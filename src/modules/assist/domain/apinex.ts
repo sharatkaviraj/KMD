@@ -9,9 +9,16 @@
  * daily free allowance says "Free daily limit reached": that is the whole
  * account until 00:00 UTC. Its 429 is a per-minute limit for the whole
  * account (15 a minute on a free account), not for one model.
+ *
+ * Its free models also wait for the account holder's check-in (D-569): until
+ * someone signed in to APInex taps "Check in" on apinex.bond that day, every
+ * free model answers 402 "Daily check-in required to use free models". That
+ * is the whole account, and it lifts by itself once the check-in is done.
+ * The check-in sits behind a human check on APInex's own page; One never
+ * tries to do it.
  */
 
-export type ApinexRefusal = "not_free" | "quota_daily" | "quota";
+export type ApinexRefusal = "not_free" | "quota_daily" | "quota" | "check_in";
 
 /**
  * Findings about a model rather than its answer: billed on this account, or
@@ -46,6 +53,7 @@ export function retryAfterSeconds(header: string | null | undefined): number | u
 /** Which of APInex's refusals this is, from its status and words; null when it is none of them. */
 export function apinexRefusal(status: number | undefined, said: string | undefined): ApinexRefusal | null {
   const text = (said ?? "").toLowerCase();
+  if (/check-?in/u.test(text)) return "check_in";
   if (/daily limit|daily free|free tier.*(?:exhausted|used)/u.test(text)) return "quota_daily";
   if (status === 402 && /balance|spend limit/u.test(text)) return "not_free";
   if (status === 429 && /per minute|rate limit/u.test(text)) return "quota";

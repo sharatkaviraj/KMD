@@ -250,10 +250,11 @@ async function runStage(stage: AssistStage, ask: Ask, timeoutMs: number): Promis
         url: APINEX_CHAT_URL, apiKey: config.apiKey, model: stage.model,
         instructions: ask.instructions, text: ask.text, output: ask.spec.output, maxTokens: ask.spec.maxTokens, timeoutMs,
       }).catch((error: unknown) => {
-        // A 402 is either this model not being free on the account or the day's free allowance (D-568).
+        // A 402 is this model not being free on the account, the day's free allowance (D-568), or the
+        // account's check-in still to do today (D-569): that rests all of APInex for half an hour, like no credit.
         const e = error as { status?: number; said?: string; problem?: string } | null;
         const refusal = e ? apinexRefusal(e.status, e.said) : null;
-        if (e && refusal) e.problem = refusal === "not_free" ? "model" : refusal;
+        if (e && refusal) e.problem = refusal === "not_free" ? "model" : refusal === "check_in" ? "billing" : refusal;
         throw error;
       });
       // The log keeps the `free/…` name One asked for, which the free models' check uses too.

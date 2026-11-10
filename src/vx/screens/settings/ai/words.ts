@@ -172,6 +172,7 @@ export const PROBLEM_WORDS: Record<string, Pair> = {
   firewall: p("blocked by its firewall", "फ़ायरवॉल ने रोका"),
   not_free: p("not free on this account", "इस खाते पर मुफ़्त नहीं"),
   decision: p("not a writing model", "लिखने वाला मॉडल नहीं"),
+  check_in: p("waiting for today's check-in", "आज का चेक-इन बाक़ी"),
   failed: p("failed", "विफल"),
   other: p("failed", "विफल"),
 };
@@ -309,7 +310,14 @@ export const W = {
     "Each free model in turn is writing a made-up notice and plan. APInex allows only a few a minute, so this takes up to two minutes; you can wait here.",
     "हर मुफ़्त मॉडल बारी-बारी से एक काल्पनिक सूचना और योजना लिख रहा है। APInex एक मिनट में कुछ ही अनुरोध लेता है, इसलिए इसमें दो मिनट तक लगते हैं; यहीं रुकें।",
   ),
-  freeCheckLost: p("The check did not finish in time. Try again in a few minutes.", "जाँच समय पर पूरी नहीं हुई। कुछ मिनट बाद फिर कोशिश करें।"),
+  freeCheckLost: p(
+    "The answer did not come back in time. The check carries on, and its results appear here within two minutes.",
+    "जवाब समय पर नहीं लौटा। जाँच चलती रहती है; उसके नतीजे दो मिनट में यहीं दिखेंगे।",
+  ),
+  freeCheckIn: p(
+    "APInex lends its free models only after the account holder checks in on apinex.bond that day. Until then One writes with the other free AIs, and nobody waits.",
+    "APInex अपने मुफ़्त मॉडल तभी देता है जब खाते वाला उस दिन apinex.bond पर चेक-इन करे। तब तक One बाक़ी मुफ़्त AI से लिखता है, किसी को रुकना नहीं पड़ता।",
+  ),
   freeCheckSub: p("Costs nothing and sends no school record: the notice and the plan are made up.", "कोई खर्च नहीं, स्कूल का कोई रिकॉर्ड नहीं जाता: सूचना और योजना काल्पनिक हैं।"),
   freeNoKey: p(
     "The APInex key is not set up on this server yet. Until it is, NVIDIA, OpenRouter and Gemini Free write the free drafts.",

@@ -179,8 +179,13 @@ export type FreeCheck = {
 export const FREE_CHECK_FRESH_MS = 3 * 24 * 60 * 60_000;
 /** A check the firewall turned away keeps APInex out for six hours; the router's own rests do the rest. */
 export const FREE_CHECK_BLOCKED_MS = 6 * 60 * 60_000;
-/** A probe that hit a rate limit says nothing about the model: it is treated as not checked. */
-const UNDECIDED = new Set(["quota"]);
+/**
+ * A probe that hit the account's limits says nothing about the model: a rate
+ * limit, the day's allowance, or a check-in still to do (D-569). It is treated
+ * as not checked, so the job keeps its usual models and the router's rests
+ * decide, and a check-in done later in the day takes effect by itself.
+ */
+const UNDECIDED = new Set(["quota", "quota_daily", "check_in"]);
 
 /**
  * The APInex models one kind of work uses, after the last check (D-567):

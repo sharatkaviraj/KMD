@@ -106,16 +106,20 @@ export function FreeModelsCard({ data }: { data: AiPageData }) {
   // A model APInex bills on this account, or one that cannot write, is listed but not counted (D-568).
   const checkedModels = f.rows.filter((r) => (r.writing || r.quick) && !(r.writing?.problem && NOT_COUNTED.has(r.writing.problem)));
   const good = checkedModels.filter((r) => r.writing?.ok || r.quick?.ok).length;
+  // The free models wait for the account's check-in on APInex that day (D-569); nothing here can do it.
+  const needsCheckIn = good === 0 && f.rows.some((r) => r.writing?.problem === "check_in" || r.quick?.problem === "check_in");
   const rows = all ? f.rows : f.rows.slice(0, FIRST);
 
   const check = () =>
     start(async () => {
       cue("tap");
-      // A check that outlives the server's minute ends without an answer, and the card says so.
+      // An answer lost on a slow connection does not stop the check on the server, which saves its
+      // results when it ends; the card looks again a few times so they appear without a tap.
       const result = await checkFreeModelsAction().catch(() => null);
       cue(result?.ok ? "success" : "error");
       toast.show({ text: tx(result?.message ?? W.freeCheckLost), tone: result?.ok ? "ok" : "bad" });
       router.refresh();
+      if (!result) for (const s of [30, 70, 130]) window.setTimeout(() => router.refresh(), s * 1000);
     });
 
   return (
@@ -161,6 +165,12 @@ export function FreeModelsCard({ data }: { data: AiPageData }) {
       ) : (
         <>
           <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.freeSummary(good, checkedModels.length, f.listed))}</span>
+          {needsCheckIn ? (
+            <span role="note" style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13.5, lineHeight: 1.5, padding: "10px 12px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)" }}>
+              <Ic n="calendar" size={18} />
+              <span style={{ flex: 1 }}>{tx(W.freeCheckIn)}</span>
+            </span>
+          ) : null}
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8, opacity: checking ? 0.55 : 1, transition: "opacity .2s" }}>
             {rows.map((row, i) => (
               <Row key={row.model} row={row} index={i} />

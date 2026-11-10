@@ -148,6 +148,12 @@ describe("which APInex models a job uses after the check", () => {
     expect(pickApinexModels("writing", PICKS.writing, gone, NOW)).toEqual(["free/glm-5.3"]);
   });
 
+  it("keeps the job's models when the check met only the account's check-in or limits (D-569)", () => {
+    const waiting = check(models.flatMap((m) => [bad(m, "writing", "check_in"), bad(m, "quick", "quota_daily")]));
+    expect(pickApinexModels("writing", PICKS.writing, waiting, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
+    expect(pickApinexModels("quick", PICKS.quick, waiting, NOW)).toEqual(PICKS.quick.slice(0, 2));
+  });
+
   it("keeps a model a rate limit stopped from being checked", () => {
     const c = check([bad("free/claude-sonnet-4.6", "writing", "quota"), ok("free/glm-5.3", "writing", 5_000)]);
     expect(pickApinexModels("writing", PICKS.writing, c, NOW)).toEqual(["free/claude-sonnet-4.6", "free/glm-5.3"]);
@@ -263,6 +269,7 @@ describe("APInex's refusals", () => {
     expect(apinexRefusal(402, "API key spend limit reached")).toBe("not_free");
     expect(apinexRefusal(402, "Free daily limit reached. Buy a subscription to continue: https://apinex.bond/subscriptions")).toBe("quota_daily");
     expect(apinexRefusal(429, "Rate limit exceeded. Max 15 requests per minute for this account. Retry in 4s.")).toBe("quota");
+    expect(apinexRefusal(402, "Daily check-in required to use free models. Please visit https://apinex.bond/overview to check in.")).toBe("check_in");
     expect(apinexRefusal(402, undefined)).toBeNull();
     expect(apinexRefusal(500, "Insufficient balance")).toBeNull();
   });
@@ -437,6 +444,19 @@ describe("the free models check", () => {
       expect(outcome.ok && outcome.check.results.every((r) => r.ok)).toBe(true);
       expect(new Set(calls.filter((c) => c.model).map((c) => c.model)).size).toBe(2);
     }
+  });
+
+  it("records a check-in still to do as the account's, with APInex's words, and asks no plan (D-569)", async () => {
+    vi.stubEnv("APINEX_API_KEY", KEY);
+    const said = "Daily check-in required to use free models. Please visit https://apinex.bond/overview to check in.";
+    const { fetcher, calls } = fakeApinex(["free/glm-5.3-flash", "free/qwen-3.8-max"], () => json({ error: { message: said, type: "billing_error" } }, 402));
+    const outcome = await runFreeCheck(fetcher, () => NOW, instant);
+    if (!outcome.ok) throw new Error("check failed");
+    expect(outcome.check.results).toHaveLength(2);
+    for (const r of outcome.check.results) expect(r).toMatchObject({ probe: "writing", ok: false, problem: "check_in", httpStatus: 402, said });
+    expect(calls.filter((c) => c.model)).toHaveLength(2);
+    // Nothing about the models was learnt, so the jobs keep their usual ones.
+    expect(pickApinexModels("writing", ["free/qwen-3.8-max", "free/glm-5.3-flash"], outcome.check, NOW)).toEqual(["free/qwen-3.8-max", "free/glm-5.3-flash"]);
   });
 
   it("probes only invented, nameless jobs", () => {

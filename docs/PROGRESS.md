@@ -22,6 +22,15 @@ page 150 s), a not-free model skipped for a week, and defaults moved to
 models APInex marks free. **Next:** re-run the check from production, read
 `free_check.results[].said` for the 402s, try a real free draft as a test
 account, BrowserStack phone + desktop.
+PR 343 merged 11:31 UTC (1385c25), live 11:34. **Check at 11:34:** the
+catalogue worked (nine billed/decision models recorded without a call), and
+all twelve free models answered 402 "Daily check-in required to use free
+models" (apinex.bond/overview, behind a human check). **D-569** (this branch):
+`check_in` rests all of APInex for half an hour and decides nothing about the
+models; the card and the check's answer say what is needed in plain words; a
+lost answer is picked up by the card re-reading. **Waiting on:** the owner's
+choice to check in on APInex each day (asked in the thread) or leave APInex
+as a spare; drafts are unaffected either way.
 
 ## The school's own WhatsApp replaces AiSensy in One — 9 November 2026
 
