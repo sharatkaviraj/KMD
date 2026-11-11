@@ -5,7 +5,7 @@ import { HUB_TEMPLATE_SUBMISSIONS, templatesThatCount } from "@/modules/whatsapp
 import { featureLabels, messageStatusLabels, noteFor, templateStatusLabels, waMessages as w } from "@/messages/whatsapp-settings";
 import { requirePermission } from "@/platform/auth/current-staff";
 import type { Language, Localized } from "@/platform/i18n/language";
-import { WHATSAPP_FEATURES } from "@/platform/whatsapp/policy";
+import { sentByFeesApp, WHATSAPP_FEATURES } from "@/platform/whatsapp/policy";
 import { loadWhatsAppOverview, type MessageView, type TemplateView } from "@/platform/whatsapp/overview";
 import { Ic, type IconName } from "@/vx/icons";
 import { lead, under } from "@/vx/text";
@@ -280,14 +280,16 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                   const on = switches?.features[feature] === true;
                   const rows = templatesThatCount(byFeature.get(feature) ?? []);
                   const approved = rows.filter((row) => row.status === "approved").length;
+                  // The Fees app sends these from its own number; One shows that instead of a switch.
+                  const feesApp = sentByFeesApp(feature, switches?.feeSender);
                   return (
                     <li key={feature} style={rowStyle}>
                       <span style={{ flex: "1 1 200px", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                         <span style={{ fontSize: 15, fontWeight: 650 }}>{say(featureLabels[feature] ?? { hi: feature, en: feature })}</span>
-                        <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{say(w.templateCounts(approved, rows.length))}</span>
+                        <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{say(feesApp ? w.feesAppSendsHelp : w.templateCounts(approved, rows.length))}</span>
                       </span>
-                      <Pill tone={on ? "ok" : "mut"}>{say(on ? w.on : w.off)}</Pill>
-                      {canChange && switches ? (
+                      <Pill tone={feesApp ? "info" : on ? "ok" : "mut"}>{say(feesApp ? w.feesAppSends : on ? w.on : w.off)}</Pill>
+                      {feesApp ? null : canChange && switches ? (
                         <form action={setFeatureAction}>
                           <input type="hidden" name="feature" value={feature} />
                           <input type="hidden" name="on" value={on ? "false" : "true"} />

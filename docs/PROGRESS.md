@@ -83,11 +83,17 @@ are in.
 The "Which messages" row read "Fee reminders: 20 of 76 approved", counting
 every AiSensy-era generation; it now counts a feature against its hub names
 once it has any (`templatesThatCount`).
-One has not yet sent a single message through the hub (practice mode is on),
-so One → hub → phone is still unproven end to end.
+**11 Nov:** the end-to-end test passed. With the owner's OK, one typed message
+from One's own queue went to his number through the hub at 02:55 UTC, was
+delivered 2 s later, and the delivery came back to One by the webhook;
+practice mode was back on a minute later. The hub review's gaps are fixed:
+the hub retries a hand-off One did not take and keeps each app to its own
+messages (hub PR 2); One keeps only replies to its own messages, checks the
+hub's templates hourly, and leaves fee reminders, receipts, reversals and fee
+statements to the Fees app while `whatsapp_fee_sender` is `fees` (D-570..D-572).
 **Remains:** the owner's written
-go-ahead (SETUP.md "What is left to fill in"): practice mode off, one feature
-on, a test to his own number, the hub to live, and only then real recipients.
+go-ahead (SETUP.md "What is left to fill in"): which feature goes first, practice
+mode off, the hub to live, and only then real recipients.
 `tests/sentry-lite.test.ts` fails in a checkout under `/home/user`; it passes in CI.
 
 ## Test accounts only in the test session — 8 November 2026

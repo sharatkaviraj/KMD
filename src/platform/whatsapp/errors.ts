@@ -226,6 +226,12 @@ const MESSAGES: Record<string, PlainError> = {
     false,
     "settings",
   ),
+  fees_app_sends: plain(
+    "The Fees app sends this message to parents from its own number. One does not send it too, so parents never get it twice.",
+    "यह संदेश फ़ीस ऐप अपने नंबर से अभिभावकों को भेजता है। One इसे दोबारा नहीं भेजता, ताकि अभिभावकों को दो बार न मिले।",
+    false,
+    "none",
+  ),
   fees_number: plain(
     "That is the fees app's number. One never sends to it or from it.",
     "यह फ़ीस ऐप का नंबर है। One इस पर या इससे कभी संदेश नहीं भेजता।",

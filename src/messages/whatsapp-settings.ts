@@ -65,6 +65,11 @@ export const waMessages = {
   off: t("बंद", "Off"),
   turnOn: t("चालू करें", "Switch on"),
   turnOff: t("बंद करें", "Switch off"),
+  feesAppSends: t("फ़ीस ऐप", "Fees app"),
+  feesAppSendsHelp: t(
+    "यह संदेश फ़ीस ऐप अपने नंबर से भेजता है, इसलिए One नहीं भेजता। अभिभावकों को दो बार नहीं मिलेगा।",
+    "The Fees app sends this from its own number, so One does not. Parents never get it twice.",
+  ),
 
   // templates
   templatesTitle: t("मंज़ूर संदेश (टेम्पलेट)", "Approved messages (templates)"),
@@ -148,6 +153,8 @@ export function noteFor(note: string, params: Record<string, string | undefined>
       return { tone: "ok", text: t("सहेज लिया।", "Saved.") };
     case "save_bad":
       return { tone: "bad", text: waMessages.failedToSave };
+    case "feature_fees_app":
+      return { tone: "info", text: waMessages.feesAppSendsHelp };
     case "templates_ok":
       return {
         tone: "ok",

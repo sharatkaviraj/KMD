@@ -12,6 +12,8 @@ import { FEES_AISENSY_NUMBER, SCHOOL_WHATSAPP_NUMBER, toE164 } from "@/platform/
  *  1. The number is a mobile number, is not the fees app's AiSensy number and
  *     is not the school's own.
  *  2. Every switch could be read.
+ *  2a. This kind of message is One's to send, not the Fees app's
+ *     (`FEES_APP_FEATURES`, `whatsapp_fee_sender`).
  *  3. This feature is switched on (`whatsapp_features`).
  *  4. A template message names a registry row that is APPROVED, with the same
  *     number of blanks, the same PDF header and the same button. A typed
@@ -43,6 +45,29 @@ export const WHATSAPP_FEATURES = [
 ] as const;
 export type WhatsAppFeature = (typeof WHATSAPP_FEATURES)[number];
 
+/**
+ * The messages the Fees app sends to parents from its own number (AiSensy,
+ * +91 80 4713 6289): fee reminders, receipts, reversal notices and fee
+ * statements. The owner, 11 Nov 2026: "keep both the apps separate", each on
+ * its own number, sending different messages. So while the Fees app sends
+ * these, One refuses them, whatever its own switches say, and a parent never
+ * gets the same message from two numbers.
+ *
+ * `whatsapp_fee_sender` in `runtime_flags` says who sends them: `fees` (and a
+ * missing or unreadable row) means the Fees app; only `one`, written on the
+ * owner's word once the Fees app has stopped sending them, lets One. The Fees
+ * app's number is temporary: when it is retired, the Fees app joins the
+ * school's hub with its own key, or One takes these over by that one row.
+ */
+export const FEES_APP_FEATURES: ReadonlySet<WhatsAppFeature> = new Set<WhatsAppFeature>(["fee_reminder", "receipt", "reversal", "fee_statement"]);
+
+export type FeeSender = "fees" | "one";
+
+/** Is this kind of message the Fees app's to send while `sender` says so? */
+export function sentByFeesApp(feature: WhatsAppFeature, sender: FeeSender | undefined): boolean {
+  return FEES_APP_FEATURES.has(feature) && sender !== "one";
+}
+
 export function isWhatsAppFeature(value: unknown): value is WhatsAppFeature {
   return typeof value === "string" && (WHATSAPP_FEATURES as readonly string[]).includes(value);
 }
@@ -53,6 +78,8 @@ export type WhatsAppSwitches = {
   realRecipients: boolean;
   ownerTestNumber: string | null;
   dailyLimit: number;
+  /** Who sends the fee messages (`FEES_APP_FEATURES`). Missing means the Fees app. */
+  feeSender?: FeeSender;
 };
 
 export type TemplateRow = {
@@ -69,6 +96,7 @@ export type TemplateRow = {
 export type WhatsAppRefusal =
   | "bad_destination"
   | "fees_number"
+  | "fees_app_sends"
   | "own_number"
   | "read_failed"
   | "feature_off"
@@ -119,6 +147,10 @@ export function checkWhatsAppSend(input: PolicyInput): PolicyVerdict {
 
   const switches = input.switches;
   if (!switches) return refuse("read_failed", "Could not read the WhatsApp switches. Not sent.", to);
+
+  if (sentByFeesApp(input.feature, switches.feeSender)) {
+    return refuse("fees_app_sends", "The Fees app sends this message from its own number. One does not send it too.", to);
+  }
 
   if (switches.features[input.feature] !== true) {
     return refuse("feature_off", `WhatsApp for "${input.feature}" is switched off in Settings.`, to);
@@ -176,6 +208,7 @@ export function switchesFromFlags(
   const real = byKey.get("whatsapp_real_recipients");
   const owner = byKey.get("whatsapp_owner_test_number");
   const limit = byKey.get("whatsapp_daily_limit");
+  const feeSender = byKey.get("whatsapp_fee_sender");
   if (!dryRun || !features || !real || !owner || !limit) return null;
 
   const featureValue = features.value;
@@ -194,5 +227,7 @@ export function switchesFromFlags(
     realRecipients: real.enabled === true,
     ownerTestNumber: owner.enabled === true && typeof owner.value === "string" ? owner.value : null,
     dailyLimit: limit.enabled === true && Number.isInteger(limitValue) && limitValue >= 0 ? limitValue : 0,
+    // The Fees app's unless the row says, in so many words, that One sends them.
+    feeSender: feeSender?.enabled === true && feeSender.value === "one" ? "one" : "fees",
   };
 }

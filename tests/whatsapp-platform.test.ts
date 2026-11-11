@@ -6,7 +6,7 @@ import { DEFAULT_HUB_URL, hubWebhookSecrets, readWhatsAppConfig, webhookSecrets,
 import { describeError, isRetryableCode } from "@/platform/whatsapp/errors";
 import { FEES_AISENSY_NUMBER, maskNumber, SCHOOL_WHATSAPP_NUMBER } from "@/platform/whatsapp/numbers";
 import { acceptedMessageId, cleanParam, graphError, templateMessageBody, textMessageBody } from "@/platform/whatsapp/payload";
-import { checkWhatsAppSend, switchesFromFlags, type PolicyInput, type TemplateRow, type WhatsAppSwitches } from "@/platform/whatsapp/policy";
+import { checkWhatsAppSend, FEES_APP_FEATURES, switchesFromFlags, type PolicyInput, type TemplateRow, type WhatsAppSwitches } from "@/platform/whatsapp/policy";
 import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
 
 /**
@@ -75,7 +75,8 @@ describe("which server this deployment talks to", () => {
 
 describe("may this message go", () => {
   const config = readWhatsAppConfig(SERVER) as WhatsAppConfig;
-  const switches: WhatsAppSwitches = { dryRun: false, features: { fee_reminder: true }, realRecipients: false, ownerTestNumber: OWNER, dailyLimit: 250 };
+  // These cases are about the other checks, so the fee messages are One's here.
+  const switches: WhatsAppSwitches = { dryRun: false, features: { fee_reminder: true }, realRecipients: false, ownerTestNumber: OWNER, dailyLimit: 250, feeSender: "one" };
   const row: TemplateRow = { key: "vpps_app_fee_due_hi_v7", provider_name: "vpps_app_fee_due_hi_v7", language_code: "hi", feature: "fee_reminder", body_params: 5, header: "none", url_button: true, status: "approved" };
   const input = (over: Partial<PolicyInput> & Record<string, unknown> = {}): PolicyInput =>
     ({ feature: "fee_reminder", to: OWNER, switches, config, kind: "template", template: row, language: null, bodyParamCount: 5, hasDocument: false, hasUrlButton: true, ...over }) as PolicyInput;
@@ -122,6 +123,22 @@ describe("may this message go", () => {
     expect(checkWhatsAppSend(text(null))).toMatchObject({ code: "outside_24h" });
   });
 
+  it("leaves the Fees app's messages to the Fees app unless the owner moved them to One", () => {
+    // 11 Nov 2026: the Fees app sends fee reminders, receipts, reversals and statements from its own number.
+    for (const feeSender of [undefined, "fees" as const]) {
+      for (const feature of ["fee_reminder", "receipt", "reversal", "fee_statement"] as const) {
+        const verdict = checkWhatsAppSend(input({ feature, switches: { ...switches, feeSender, features: { [feature]: true } } }));
+        expect(verdict).toMatchObject({ decision: "refuse", code: "fees_app_sends" });
+      }
+    }
+    // The school's own messages are One's whatever the row says.
+    const notice = { ...row, feature: "school_notice" };
+    expect(
+      checkWhatsAppSend(input({ feature: "school_notice", template: notice, switches: { ...switches, feeSender: "fees", features: { school_notice: true } } })),
+    ).toEqual({ decision: "send", to: OWNER });
+    expect(FEES_APP_FEATURES.has("collection_request")).toBe(false);
+  });
+
   it("reads the switches from runtime_flags, practice mode on unless it says off", () => {
     const rows = [
       { key: "whatsapp_dry_run", enabled: null, value: null },
@@ -132,6 +149,11 @@ describe("may this message go", () => {
     ];
     expect(switchesFromFlags(rows)).toMatchObject({ dryRun: true, realRecipients: false, ownerTestNumber: OWNER, dailyLimit: 250, features: { receipt: true, fee_reminder: false } });
     expect(switchesFromFlags(rows.slice(1))).toBeNull();
+    // Who sends fee messages: the Fees app unless the row says "one" in so many words.
+    expect(switchesFromFlags(rows)!.feeSender).toBe("fees");
+    expect(switchesFromFlags([...rows, { key: "whatsapp_fee_sender", enabled: true, value: "fees" }])!.feeSender).toBe("fees");
+    expect(switchesFromFlags([...rows, { key: "whatsapp_fee_sender", enabled: false, value: "one" }])!.feeSender).toBe("fees");
+    expect(switchesFromFlags([...rows, { key: "whatsapp_fee_sender", enabled: true, value: "one" }])!.feeSender).toBe("one");
     expect(switchesFromFlags(rows.map((r) => (r.key === "whatsapp_features" ? { ...r, enabled: false } : r)))!.features.receipt).toBe(false);
   });
 });

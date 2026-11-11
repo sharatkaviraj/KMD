@@ -7,7 +7,7 @@ import { syncDeliveryToSource } from "@/modules/whatsapp/data/whatsapp-source-sy
 import { getSiteUrl } from "@/platform/env";
 import { logWarn } from "@/platform/observability/log";
 import { applyTemplateEvents } from "@/platform/whatsapp/service";
-import { recordStatus, storeInbound } from "@/platform/whatsapp/store";
+import { isReplyToOne, recordStatus, storeInbound } from "@/platform/whatsapp/store";
 import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
 
 /**
@@ -24,7 +24,10 @@ import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
  *  - each status goes onto the message log (`whatsapp_record_status`: one row
  *    per message id, never moved backwards, so a repeat or a late "sent"
  *    changes nothing) and from there onto the row that asked for it;
- *  - each reply into `vppsone.whatsapp_inbound`, once per message id;
+ *  - each reply TO ONE into `vppsone.whatsapp_inbound`, once per message id.
+ *    Whatever else people write to the school's number stays in the hub's own
+ *    inbox (`isReplyToOne`), and a status for a message One did not send
+ *    leaves no trace here (`whatsapp_record_status`);
  *  - each template event onto the registry. A step down (rejected, paused)
  *    is written at once; an approval only after the hub's own list is read
  *    and checked, after the answer has gone back.
@@ -78,6 +81,7 @@ export async function handleWhatsAppWebhook(
   const parsed = parseWebhook(payload);
   let statuses = 0;
   let replies = 0;
+  let notForOne = 0;
   let failedWrites = 0;
 
   for (const status of parsed.statuses) {
@@ -110,6 +114,15 @@ export async function handleWhatsAppWebhook(
   }
 
   for (const reply of parsed.inbound) {
+    const ours = await isReplyToOne({ from: reply.from, replyTo: reply.replyTo, at: reply.at }).catch(() => null);
+    if (ours === null) {
+      failedWrites += 1;
+      continue;
+    }
+    if (!ours) {
+      notForOne += 1;
+      continue;
+    }
     const stored = await storeInbound({
       provider_message_id: reply.providerMessageId,
       from_e164: reply.from,
@@ -138,5 +151,5 @@ export async function handleWhatsAppWebhook(
     logWarn("webhook.whatsapp.write_failed", { source, failedWrites });
     return NextResponse.json({ ok: false, error: "Could not write everything; send again." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, statuses, replies, templates, otherNumber: parsed.otherNumber });
+  return NextResponse.json({ ok: true, statuses, replies, notForOne, templates, otherNumber: parsed.otherNumber });
 }

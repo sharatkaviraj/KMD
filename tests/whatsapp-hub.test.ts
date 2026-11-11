@@ -18,12 +18,19 @@ vi.mock("server-only", () => ({}));
 const store = vi.hoisted(() => ({
   recordStatus: vi.fn(async () => ({ matched: true, changed: true, id: "m1", previous: "accepted", source_table: null, source_id: null })),
   storeInbound: vi.fn(async () => true),
+  isReplyToOne: vi.fn(async (): Promise<boolean | null> => true),
+  queueSecretMatches: vi.fn(async (secret: string) => secret === "queue-secret-for-tests-0123456789"),
   applyTemplateEvents: vi.fn(async () => ({ written: 0, needsSync: false })),
   syncHubTemplates: vi.fn(async () => ({ ok: true as const, checked: 0, approved: 0, missing: 0 })),
   syncDeliveryToSource: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/platform/whatsapp/store", () => ({ recordStatus: store.recordStatus, storeInbound: store.storeInbound }));
+vi.mock("@/platform/whatsapp/store", () => ({
+  recordStatus: store.recordStatus,
+  storeInbound: store.storeInbound,
+  isReplyToOne: store.isReplyToOne,
+  queueSecretMatches: store.queueSecretMatches,
+}));
 vi.mock("@/platform/whatsapp/service", () => ({ applyTemplateEvents: store.applyTemplateEvents }));
 vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ syncHubTemplates: store.syncHubTemplates }));
 vi.mock("@/modules/whatsapp/data/whatsapp-source-sync", () => ({ syncDeliveryToSource: store.syncDeliveryToSource }));
@@ -31,6 +38,7 @@ vi.mock("@/platform/env", () => ({ getSiteUrl: () => "https://one.vpps.co.in" })
 vi.mock("@/platform/observability/log", () => ({ logWarn: vi.fn() }));
 
 import { POST as hubWebhook } from "@/app/api/webhooks/whatsapp-hub/route";
+import { POST as templatesJob } from "@/app/api/jobs/whatsapp-templates/route";
 import { APPROVED_HUB, V7_SITUATIONS, V8_SITUATIONS, activeCampaignName, v7CampaignName, v8CampaignName } from "@/modules/whatsapp/domain/campaign-generation";
 import { V7_CAMPAIGNS, V8_CAMPAIGNS } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { classifyFailure } from "@/modules/whatsapp/domain/failure-cause";
@@ -338,10 +346,58 @@ describe("the hub's webhook", () => {
     ]);
   });
 
+  const parentWrites = (replyTo: string | null) =>
+    payload("messages", {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "918302207823", phone_number_id: "1" },
+      contacts: [{ wa_id: "919876543210", profile: { name: "Parent" } }],
+      messages: [{ from: "919876543210", id: "wamid.IN1", timestamp: "1762650000", type: "text", text: { body: "ok" }, ...(replyTo ? { context: { id: replyTo } } : {}) }],
+    });
+
+  it("keeps only replies to One; anything else written to the school's number stays on the hub (11 Nov 2026)", async () => {
+    vi.stubEnv("WHATSAPP_HUB_KEY", KEY);
+    store.isReplyToOne.mockResolvedValueOnce(false);
+    const other = parentWrites(null);
+    const answer = await post(other, sign(other, KEY));
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toMatchObject({ replies: 0, notForOne: 1 });
+    expect(store.storeInbound).not.toHaveBeenCalled();
+
+    const reply = parentWrites("wamid.FROM_ONE");
+    expect((await post(reply, sign(reply, KEY))).status).toBe(200);
+    expect(store.isReplyToOne).toHaveBeenLastCalledWith(expect.objectContaining({ from: "+919876543210", replyTo: "wamid.FROM_ONE" }));
+    expect(store.storeInbound).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the hub to send again when it cannot tell whether a message is a reply, rather than drop it", async () => {
+    vi.stubEnv("WHATSAPP_HUB_KEY", KEY);
+    store.isReplyToOne.mockResolvedValueOnce(null);
+    const body = parentWrites(null);
+    expect((await post(body, sign(body, KEY))).status).toBe(500);
+    expect(store.storeInbound).not.toHaveBeenCalled();
+  });
+
   it("reads both kinds of template event", () => {
     const status = JSON.parse(payload("message_template_status_update", { event: "approved", message_template_name: "vpps_app_fee_due_hi_v8", message_template_language: "hi", reason: "NONE" }));
     expect(parseWebhook(status).templates).toEqual([{ name: "vpps_app_fee_due_hi_v8", language: "hi", kind: "status", event: "APPROVED", reason: null, newCategory: null }]);
     const category = JSON.parse(payload("template_category_update", { message_template_name: "vpps_app_fee_due_hi_v8", message_template_language: "hi", new_category: "MARKETING" }));
     expect(parseWebhook(category).templates).toEqual([{ name: "vpps_app_fee_due_hi_v8", language: "hi", kind: "category", event: null, reason: null, newCategory: "marketing" }]);
+  });
+});
+
+describe("the hourly template check", () => {
+  const run = (authorization: string | null) =>
+    templatesJob(new Request("https://one.vpps.co.in/api/jobs/whatsapp-templates", { method: "POST", headers: authorization ? { Authorization: authorization } : {} }));
+
+  it("is not there without the queue's secret", async () => {
+    expect((await run(null)).status).toBe(404);
+    expect((await run("Bearer a-wrong-secret")).status).toBe(404);
+    expect(store.syncHubTemplates).not.toHaveBeenCalled();
+  });
+
+  it("reads the hub's list with One's own check, as nobody", async () => {
+    const answer = await run("Bearer queue-secret-for-tests-0123456789");
+    expect(answer.status).toBe(200);
+    expect(store.syncHubTemplates).toHaveBeenCalledWith({ staffId: null }, "https://one.vpps.co.in");
   });
 });

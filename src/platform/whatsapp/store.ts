@@ -75,6 +75,7 @@ export const SWITCH_KEYS = [
   "whatsapp_real_recipients",
   "whatsapp_owner_test_number",
   "whatsapp_daily_limit",
+  "whatsapp_fee_sender",
 ] as const;
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -241,6 +242,45 @@ export async function recordStatus(
   });
   if (error || !data) return null;
   return data as StatusAnswer;
+}
+
+/** Days after One messages a number in which that number's messages count as replies to One. */
+export const REPLY_WINDOW_DAYS = 7;
+
+/**
+ * Is a message written to the school's number One's business? Only a reply to
+ * One: it quotes a message One sent, or One sent that number a message in the
+ * REPLY_WINDOW_DAYS before it arrived. Everything else people write to the
+ * school's number stays in the hub's own inbox and is not copied into One
+ * (owner, 11 Nov 2026). null: could not tell, so the webhook asks to be sent
+ * again rather than drop a reply.
+ */
+export async function isReplyToOne(
+  args: { from: string; replyTo: string | null; at: string },
+  db: Db = whatsappDb(),
+): Promise<boolean | null> {
+  if (args.replyTo) {
+    const { data, error } = await db
+      .from("whatsapp_messages")
+      .select("id")
+      .eq("provider_message_id", args.replyTo)
+      .limit(1);
+    if (error) return null;
+    if ((data ?? []).length > 0) return true;
+  }
+  const at = Date.parse(args.at);
+  const until = Number.isFinite(at) ? new Date(at) : new Date();
+  const since = new Date(until.getTime() - REPLY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const { data, error } = await db
+    .from("whatsapp_messages")
+    .select("id")
+    .eq("to_e164", args.from)
+    .not("provider_message_id", "is", null)
+    .gte("created_at", since.toISOString())
+    .lte("created_at", until.toISOString())
+    .limit(1);
+  if (error) return null;
+  return (data ?? []).length > 0;
 }
 
 export async function storeInbound(
