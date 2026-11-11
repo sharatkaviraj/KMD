@@ -15,7 +15,7 @@ import { queueSecretMatches } from "@/platform/whatsapp/store";
  * button host and blanks (`syncHubTemplates`). Nothing is sent to anyone.
  *
  * Called by pg_cron at minute 17 (`whatsapp-templates`, migration
- * 20261111030000). Its Bearer secret is the queue's, kept in Vault and checked
+ * 20261111060151). Its Bearer secret is the queue's, kept in Vault and checked
  * in Postgres (`whatsapp_queue_secret_matches`); `CRON_SECRET` also opens it,
  * for an operator. Anything else is a 404.
  */

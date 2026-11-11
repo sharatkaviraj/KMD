@@ -91,6 +91,11 @@ the hub retries a hand-off One did not take and keeps each app to its own
 messages (hub PR 2); One keeps only replies to its own messages, checks the
 hub's templates hourly, and leaves fee reminders, receipts, reversals and fee
 statements to the Fees app while `whatsapp_fee_sender` is `fees` (D-570..D-572).
+Live: PR 347 and migration `20261111060151` (statuses, hourly check). Waiting:
+`20261111060200` (the flag row and the cleanup of 16 copied messages and 24
+stray statuses): it deletes rows, so the Supabase connector asks the owner to
+confirm, and twice nobody was there to. A missing flag row already reads as
+`fees`. The hub's PR 2 is merged but not deployed (no auto-deploy; `/health` 404).
 **Remains:** the owner's written
 go-ahead (SETUP.md "What is left to fill in"): which feature goes first, practice
 mode off, the hub to live, and only then real recipients.
