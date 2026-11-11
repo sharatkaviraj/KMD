@@ -235,10 +235,9 @@ describe("the _v8 set", () => {
     // Every name is one of the 22, so a typo cannot quietly switch nothing on.
     const v8Names = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
     for (const name of APPROVED_HUB) expect(v8Names.has(name)).toBe(true);
-    // 9 Nov 2026: the 20 the hub read APPROVED and One's own check passed.
-    expect(APPROVED_HUB.size).toBe(20);
-    expect(APPROVED_HUB.has("vpps_app_upcoming_hi_v8")).toBe(false);
-    expect(APPROVED_HUB.has("vpps_app_promise_lapsed_hi_v8")).toBe(false);
+    // 9 Nov 2026: 20 read APPROVED; the last two Hindi ones followed on 10 Nov.
+    expect(APPROVED_HUB.size).toBe(22);
+    expect(APPROVED_HUB.size).toBe(v8Names.size);
   });
 
   it("switches a notice to its _v8 name only once that name is approved", () => {

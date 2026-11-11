@@ -147,8 +147,9 @@ export function v8CampaignName(situation: NoticeSituation, language: NoticeLangu
  * Filled 9 Nov 2026 (09:16 UTC) from the hub's list: these 20 read APPROVED
  * there AND passed One's own check (button opens one.vpps.co.in, five blanks,
  * the `_v7` wording to the byte), so their registry rows read approved too.
- * Still waiting for Meta then: `vpps_app_upcoming_hi_v8` and
- * `vpps_app_promise_lapsed_hi_v8` — add them only once they read approved.
+ * The last two, `vpps_app_upcoming_hi_v8` and `vpps_app_promise_lapsed_hi_v8`,
+ * read approved at 08:05 UTC on 10 Nov: Meta's status reached the hub, the hub
+ * forwarded it, and One's own check passed them. All 22 are in.
  */
 export const APPROVED_HUB: ReadonlySet<string> = new Set<string>([
   "vpps_app_balance_en_v8",
@@ -166,9 +167,11 @@ export const APPROVED_HUB: ReadonlySet<string> = new Set<string>([
   "vpps_app_promise_due_en_v8",
   "vpps_app_promise_due_hi_v8",
   "vpps_app_promise_lapsed_en_v8",
+  "vpps_app_promise_lapsed_hi_v8",
   "vpps_app_upcoming_en_v8",
   "vpps_app_upcoming_final_en_v8",
   "vpps_app_upcoming_final_hi_v8",
+  "vpps_app_upcoming_hi_v8",
   "vpps_app_waiver_last_call_en_v8",
   "vpps_app_waiver_last_call_hi_v8",
 ]);

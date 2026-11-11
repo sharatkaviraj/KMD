@@ -76,11 +76,16 @@ By 09:16 UTC Meta had approved 20 of the 22, every one also passing One's
 own check (button host, five blanks, the `_v7` wording to the byte);
 `APPROVED_HUB` lists those 20, so the fee reminder screens use their `_v8`
 names (PR 340, `69c0d66`; Vercel missed the push and the production deploy
-was started by hand). Still with Meta: `upcoming_hi_v8`, `promise_lapsed_hi_v8`.
+was started by hand). The last two, `upcoming_hi_v8` and `promise_lapsed_hi_v8`,
+read approved at 08:05 UTC on 10 Nov, arriving by themselves through the
+hub's webhook and One's check; added to `APPROVED_HUB` on 11 Nov, so all 22
+are in.
 The "Which messages" row read "Fee reminders: 20 of 76 approved", counting
 every AiSensy-era generation; it now counts a feature against its hub names
-once it has any (`templatesThatCount`), so it reads 20 of 22.
-**Remains:** add those two once they read approved; then the owner's written
+once it has any (`templatesThatCount`).
+One has not yet sent a single message through the hub (practice mode is on),
+so One → hub → phone is still unproven end to end.
+**Remains:** the owner's written
 go-ahead (SETUP.md "What is left to fill in"): practice mode off, one feature
 on, a test to his own number, the hub to live, and only then real recipients.
 `tests/sentry-lite.test.ts` fails in a checkout under `/home/user`; it passes in CI.

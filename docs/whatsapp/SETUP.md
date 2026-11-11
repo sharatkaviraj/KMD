@@ -194,9 +194,9 @@ anything.
 2. ~~One's webhook on the hub's `APP_WEBHOOKS`~~ — done by Janmejay on 9 Nov.
 3. ~~Send the `_v8` set for approval~~ — Janmejay, 9 Nov; Meta's answers
    are coming in through the webhook.
-4. ~~Fill `APPROVED_HUB`~~ — 20 of 22 on 9 Nov (09:16 UTC). Still with Meta:
-   `vpps_app_upcoming_hi_v8`, `vpps_app_promise_lapsed_hi_v8`; add each once
-   its row reads approved (that notice keeps its old name until then).
+4. ~~Fill `APPROVED_HUB`~~ — 20 of 22 on 9 Nov (09:16 UTC); the last two,
+   `vpps_app_upcoming_hi_v8` and `vpps_app_promise_lapsed_hi_v8`, read
+   approved at 08:05 UTC on 10 Nov and were added on 11 Nov. All 22 are in.
 5. **Going live** needs Janmejay's written go-ahead, then: practice mode off,
    one feature switched on, a test to his own number, the hub switched to
    live, and only then `whatsapp_real_recipients` on, in the database.
