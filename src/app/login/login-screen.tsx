@@ -23,7 +23,7 @@ const CSS = `
 .vx-login .lg-brand{position:relative;overflow:hidden;background:#082F49;color:#F7F6F3;padding:44px 56px;display:flex;flex-direction:column;justify-content:space-between;min-height:100dvh}
 .vx-login .lg-side{display:flex;flex-direction:column;min-height:100dvh;background:var(--bg)}
 .vx-login .lg-form{margin:auto;width:100%;max-width:440px;padding:28px 20px 32px;display:flex;flex-direction:column;gap:18px}
-@container vx (max-width:899px){.vx-login .lg-grid{grid-template-columns:minmax(0,1fr)}}
+@container vx (max-width:899px){.vx-login .lg-grid{grid-template-columns:minmax(0,1fr)}.vx-login .lg-form:has(.lg-code){margin:0 auto auto;padding-top:20px}}
 `;
 
 /** The design's jaali pattern and slow rings behind the brand panel. */

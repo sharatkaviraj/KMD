@@ -98,10 +98,11 @@ describe("login essential secondary text contrast", () => {
     expectFullTextStrength(html);
   });
 
-  it("says the tries left and the paste hint in both languages, not only the first (D-585)", () => {
+  it("says the tries left and how to paste the code in both languages, not only the first (D-585)", () => {
     const source = readFileSync("src/app/login/code-form.tsx", "utf8");
     expect(source).toContain("under(extra, language)");
-    expect(source).toContain("<Two pair={T.pasteHint} language={language} small />");
+    // The paste steps are now said once, under "Code sent", in both languages (12 Nov redraw).
+    expect(source).toContain("<Two pair={T.sentBody} language={language} small />");
     expect(source).toContain("<Two pair={T.phoneHint} language={language} small />");
   });
 

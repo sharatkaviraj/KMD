@@ -18,6 +18,12 @@ word before all staff. **Surprised:** none of the 5 real staff accounts has a
 mobile number on file yet, so even all staff would reach nobody until numbers
 are added (Staff, or Link my WhatsApp).
 
+**Redrawn 12 Nov evening (D-596):** the owner found the code screen "not
+optimised" on his phone and asked to keep code sign-in for himself only (it
+already is). Both steps now fit one phone screen, the code card sits at the
+top on a phone, and Send code / Sign in stay above the keyboard; checked by
+`tests/login-ui/code.spec.ts`.
+
 ## Veer Patta AI, the WhatsApp helper for parents — 12 November 2026
 
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers

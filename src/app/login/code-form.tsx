@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, ArrowRight, ClipboardPaste, Info, KeyRound, MessageCircle, RefreshCw, TriangleAlert } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { ArrowRight, ClipboardPaste, Info, KeyRound, MessageCircle, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { requestCodeAction, verifyCodeAction, type CodeActionState, type CodeProblem } from "@/app/login/actions";
 import type { Language } from "@/platform/i18n/language";
@@ -30,8 +30,8 @@ export const CODE_TEXT = {
   sentTitle: p("Code sent on WhatsApp", "WhatsApp पर कोड भेज दिया"),
   sentTo: p("To", "नंबर"),
   sentBody: p(
-    `If this number is on your staff record, a ${SIGN_IN_CODE_LENGTH}-digit code from Veer Patta School arrives on WhatsApp in a few seconds. It works for ${SIGN_IN_CODE_MINUTES} minutes.`,
-    `अगर यह नंबर आपके स्टाफ़ रिकॉर्ड में है, तो Veer Patta School से ${SIGN_IN_CODE_LENGTH} अंकों का कोड कुछ ही सेकंड में WhatsApp पर आएगा। यह ${SIGN_IN_CODE_MINUTES} मिनट तक चलेगा।`,
+    `If this number is on your staff record, the code arrives in a few seconds. In WhatsApp tap Copy code, come back, tap Paste code. It works for ${SIGN_IN_CODE_MINUTES} minutes.`,
+    `अगर यह नंबर आपके स्टाफ़ रिकॉर्ड में है, तो कोड कुछ ही सेकंड में आएगा। WhatsApp में 'कोड कॉपी करें' दबाएँ, यहाँ आकर 'कोड चिपकाएँ' दबाएँ। यह ${SIGN_IN_CODE_MINUTES} मिनट तक चलेगा।`,
   ),
   openWhatsApp: p("Open WhatsApp", "WhatsApp खोलें"),
   code: p("The code from WhatsApp", "WhatsApp वाला कोड"),
@@ -40,15 +40,17 @@ export const CODE_TEXT = {
   signIn: p("Sign in", "साइन इन करें"),
   checking: p("Checking code…", "कोड जाँच रहे हैं…"),
   again: p("Send a new code", "नया कोड भेजें"),
-  againIn: p("Send a new code in", "नया कोड भेज सकते हैं"),
+  againShort: p("New code", "नया कोड"),
   seconds: p("s", "से."),
   change: p("Change number", "नंबर बदलें"),
+  changeShort: p("Change", "बदलें"),
   usePassword: p("Use email and password instead", "ईमेल और पासवर्ड से साइन इन करें"),
+  usePasswordShort: p("Email and password", "ईमेल और पासवर्ड"),
   remember: p("Remember this phone", "यह फ़ोन याद रखें"),
   rememberSub: p("Keeps your number here for next time.", "अगली बार के लिए आपका नंबर यहाँ रहेगा।"),
   noCode: p(
-    "No code after a minute? The office may not have your number yet. Use your email and password, or ask the office to add your WhatsApp number.",
-    "एक मिनट में कोड नहीं आया? हो सकता है ऑफ़िस के पास अभी आपका नंबर न हो। ईमेल और पासवर्ड से साइन इन करें, या ऑफ़िस से अपना WhatsApp नंबर जुड़वाएँ।",
+    "No code yet? The office may not have your number. Use your email and password, or ask the office to add your WhatsApp number.",
+    "अभी तक कोड नहीं आया? हो सकता है ऑफ़िस के पास अभी आपका नंबर न हो। ईमेल और पासवर्ड से साइन इन करें, या ऑफ़िस से अपना WhatsApp नंबर जुड़वाएँ।",
   ),
 } satisfies Record<string, Pair>;
 const T = CODE_TEXT;
@@ -148,6 +150,45 @@ function Problem({ state, language, id }: { state: CodeActionState; language: La
   );
 }
 
+/**
+ * With the phone's keyboard up, keep the step's big button in sight above it
+ * (12 Nov: on a Galaxy M32 the keyboard covered Send code and Sign in, and the
+ * page gave no sign there was anything below the box). The keyboard only
+ * shrinks the visual viewport, so this listens there, and only while a box in
+ * this card has focus.
+ */
+function useButtonAboveKeyboard(area: RefObject<HTMLElement | null>, button: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    let last = viewport.height;
+    let timer = 0;
+    const reveal = () => {
+      const active = document.activeElement;
+      if (!(active instanceof HTMLInputElement) || !area.current?.contains(active)) return;
+      button.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    };
+    const later = (wait: number) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(reveal, wait);
+    };
+    const onResize = () => {
+      if (viewport.height < last - 80) later(120);
+      last = viewport.height;
+    };
+    const onFocus = (event: FocusEvent) => {
+      if (event.target instanceof HTMLInputElement && area.current?.contains(event.target)) later(320);
+    };
+    viewport.addEventListener("resize", onResize);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      viewport.removeEventListener("resize", onResize);
+      document.removeEventListener("focusin", onFocus);
+      window.clearTimeout(timer);
+    };
+  }, [area, button]);
+}
+
 /** A tick that draws itself: the code has gone. */
 function SentTick() {
   return (
@@ -173,6 +214,10 @@ export function CodeSignInForm({
   const [code, setCode] = useState("");
   const codeRef = useRef<HTMLInputElement>(null);
   const verifyForm = useRef<HTMLFormElement>(null);
+  // Whichever step is showing: its card, and the one button that finishes it.
+  const stepRef = useRef<HTMLDivElement>(null);
+  const finishRef = useRef<HTMLButtonElement>(null);
+  useButtonAboveKeyboard(stepRef, finishRef);
 
   // A new code went: a short "done" buzz and chime, the box cleared and ready.
   // A refusal: the error cue, and a wrong code cleared for the next try.
@@ -247,13 +292,8 @@ export function CodeSignInForm({
 
   if (!onCodeStep) {
     return (
-      <form
-        action={requestAction}
-        onSubmit={keepPhone}
-        style={{ display: "flex", flexDirection: "column", gap: 18 }}
-        aria-busy={requesting || undefined}
-        className="fadein"
-      >
+      <div ref={stepRef} className="fadein lg-code" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <form action={requestAction} onSubmit={keepPhone} style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-busy={requesting || undefined}>
         <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
@@ -295,6 +335,17 @@ export function CodeSignInForm({
 
         <Problem state={finished === sent.sends && sent.sends > 0 && sent.status === "sent" ? checked : sent} language={language} id="code-request-error" />
 
+        <button ref={finishRef} type="submit" className="tap btn pri" disabled={requesting} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
+          {requesting ? <RefreshCw size={20} className="spin" aria-hidden /> : <MessageCircle size={22} aria-hidden />}
+          {lead(requesting ? T.sending : T.send, language)}
+        </button>
+      </form>
+
+        <button type="button" className="tap btn sec" onClick={onUsePassword} style={{ height: 48, fontSize: 15, borderRadius: 14 }}>
+          <KeyRound size={18} aria-hidden />
+          {lead(T.usePassword, language)}
+        </button>
+
         <button
           type="button"
           role="switch"
@@ -309,42 +360,45 @@ export function CodeSignInForm({
           </span>
           <span className={`sw${remember ? " on" : ""}`}><span /></span>
         </button>
-
-        <button type="submit" className="tap btn pri" disabled={requesting} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
-          {requesting ? <RefreshCw size={20} className="spin" aria-hidden /> : <MessageCircle size={22} aria-hidden />}
-          {lead(requesting ? T.sending : T.send, language)}
-        </button>
-
-        <button type="button" className="tap btn sec" onClick={onUsePassword} style={{ height: 48, fontSize: 15, borderRadius: 14 }}>
-          <KeyRound size={18} aria-hidden />
-          {lead(T.usePassword, language)}
-        </button>
-      </form>
+      </div>
     );
   }
 
   const masked = sent.masked ?? (phoneKey ? maskSignInPhone(phoneKey) : "");
+  // One screen on a phone, keyboard up (12 Nov): what happened and to which
+  // number, what to do, the two buttons that do it, the box, Sign in. The
+  // rest waits below, and "no code?" only once a new code could be asked for.
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }} className="rise">
-      <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
-
-      <div role="status" style={{ ...noteStyle, alignItems: "center", gap: 14, background: "var(--oks)", color: "var(--fg)" }}>
+    <div ref={stepRef} style={{ display: "flex", flexDirection: "column", gap: 14 }} className="rise lg-code">
+      <div role="status" style={{ ...noteStyle, alignItems: "center", gap: 12, padding: "10px 6px 10px 12px", background: "var(--oks)", color: "var(--fg)" }}>
         <SentTick key={sent.sends} />
-        <span style={{ display: "flex", flexDirection: "column", minWidth: 0, gap: 2 }}>
-          <strong style={{ fontSize: 16 }}>{lead(T.sentTitle, language)}</strong>
+        <span style={{ display: "flex", flexDirection: "column", minWidth: 0, gap: 1, flex: 1 }}>
+          <h1 id="login-heading" style={{ margin: 0, fontSize: 17, fontWeight: 700, lineHeight: 1.25 }}>{lead(T.sentTitle, language)}</h1>
           <span style={{ fontSize: 14 }}>
             {lead(T.sentTo, language)} <span style={{ fontWeight: 650, letterSpacing: "0.02em", whiteSpace: "nowrap" }}>{masked}</span>
           </span>
         </span>
+        <button type="button" className="tap btn ghost" onClick={() => setChanging(sent.sends)} aria-label={lead(T.change, language)} style={{ flex: "none", height: 44, padding: "0 10px", fontSize: 14, color: "var(--accfg)" }}>
+          {lead(T.changeShort, language)}
+        </button>
       </div>
-      <span style={{ fontSize: 13, color: "var(--mut)", lineHeight: 1.5 }}><Two pair={T.sentBody} language={language} small /></span>
 
-      <a href={SCHOOL_CHAT} target="_blank" rel="noopener noreferrer" className="tap btn sec" style={{ height: 48, fontSize: 15, borderRadius: 14, textDecoration: "none" }}>
-        <MessageCircle size={20} aria-hidden />
-        {lead(T.openWhatsApp, language)}
-      </a>
+      <span id="code-paste-hint" style={{ fontSize: 13, color: "var(--mut)", lineHeight: 1.45 }}>
+        <Two pair={T.sentBody} language={language} small />
+      </span>
 
-      <form ref={verifyForm} action={verifyAction} style={{ display: "flex", flexDirection: "column", gap: 14 }} aria-busy={verifying || undefined}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10 }}>
+        <a href={SCHOOL_CHAT} target="_blank" rel="noopener noreferrer" className="tap btn sec" style={{ height: 52, fontSize: 15, borderRadius: 14, textDecoration: "none", padding: "0 10px" }}>
+          <MessageCircle size={20} aria-hidden />
+          {lead(T.openWhatsApp, language)}
+        </a>
+        <button type="button" className="tap btn sec" onClick={pasteCode} disabled={verifying} style={{ height: 52, fontSize: 15, borderRadius: 14, padding: "0 10px", color: "var(--accfg)" }}>
+          <ClipboardPaste size={20} aria-hidden />
+          {lead(T.paste, language)}
+        </button>
+      </div>
+
+      <form ref={verifyForm} action={verifyAction} style={{ display: "flex", flexDirection: "column", gap: 12 }} aria-busy={verifying || undefined}>
         <input type="hidden" name="next" value={next} />
         <input type="hidden" name="round" value={sent.sends} />
         <label htmlFor="code" className="field">
@@ -368,17 +422,9 @@ export function CodeSignInForm({
           />
         </label>
 
-        <button type="button" className="tap btn ghost" onClick={pasteCode} disabled={verifying} style={{ alignSelf: "flex-start", padding: "0 10px", marginLeft: -10, color: "var(--accfg)" }}>
-          <ClipboardPaste size={18} aria-hidden />
-          {lead(T.paste, language)}
-        </button>
-        <span id="code-paste-hint" style={{ fontSize: 12, color: "var(--mut)", marginTop: -10 }}>
-          <Two pair={T.pasteHint} language={language} small />
-        </span>
-
         <Problem state={checked} language={language} id="code-verify-error" />
 
-        <button type="submit" className="tap btn pri" disabled={verifying} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
+        <button ref={finishRef} type="submit" className="tap btn pri" disabled={verifying} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
           {verifying ? <RefreshCw size={20} className="spin" aria-hidden /> : <ArrowRight size={22} aria-hidden />}
           {lead(verifying ? T.checking : T.signIn, language)}
         </button>
@@ -386,29 +432,26 @@ export function CodeSignInForm({
 
       <Problem state={sent} language={language} id="code-resend-error" />
 
-      <form action={requestAction} style={{ display: "contents" }}>
-        <input type="hidden" name="phone" value={phoneKey ?? ""} />
-        <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
-        <button type="submit" className="tap btn sec" disabled={countdown > 0 || requesting} style={{ height: 48, fontSize: 15, borderRadius: 14 }}>
-          <RefreshCw size={18} className={requesting ? "spin" : undefined} aria-hidden />
-          {countdown > 0 ? `${lead(T.againIn, language)} ${countdown}${lead(T.seconds, language)}` : lead(T.again, language)}
-        </button>
-      </form>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <button type="button" className="tap btn ghost" onClick={() => setChanging(sent.sends)} style={{ padding: "0 8px", marginLeft: -8 }}>
-          <ArrowLeft size={18} aria-hidden />
-          {lead(T.change, language)}
-        </button>
-        <button type="button" className="tap btn ghost" onClick={onUsePassword} style={{ padding: "0 8px", color: "var(--accfg)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10 }}>
+        <form action={requestAction} style={{ display: "contents" }}>
+          <input type="hidden" name="phone" value={phoneKey ?? ""} />
+          <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
+          <button type="submit" className="tap btn sec" disabled={countdown > 0 || requesting} aria-label={lead(T.again, language)} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
+            <RefreshCw size={18} className={requesting ? "spin" : undefined} aria-hidden />
+            {countdown > 0 ? `${lead(T.againShort, language)} (${countdown}${lead(T.seconds, language)})` : lead(T.againShort, language)}
+          </button>
+        </form>
+        <button type="button" className="tap btn sec" onClick={onUsePassword} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
           <KeyRound size={18} aria-hidden />
-          {lead(T.usePassword, language)}
+          {lead(T.usePasswordShort, language)}
         </button>
       </div>
 
-      <div style={{ ...noteStyle, background: "var(--infos)", color: "var(--info)", fontSize: 13 }}>
-        <span><Two pair={T.noCode} language={language} small /></span>
-      </div>
+      {countdown === 0 ? (
+        <div className="fadein" style={{ ...noteStyle, background: "var(--infos)", color: "var(--info)", fontSize: 13 }}>
+          <span><Two pair={T.noCode} language={language} small /></span>
+        </div>
+      ) : null}
     </div>
   );
 }
