@@ -262,6 +262,12 @@ export function readTemplate(raw: unknown): ProviderTemplate | null {
   );
   const bodyText = typeof body?.text === "string" ? body.text : typeof record.body === "string" ? record.body : null;
   const slots = new Set([...(bodyText ?? "").matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((match) => match[1]));
+  // Meta writes an AUTHENTICATION template's words itself ("{{1}} is your
+  // verification code."): exactly one blank, the code. The hub lists back what
+  // it submitted, `add_security_recommendation` and no text, so a missing
+  // wording there is still one blank, not none (D-587, 12 Nov 2026).
+  const authentication = String(record.category ?? "").toUpperCase() === "AUTHENTICATION";
+  const bodyParams = authentication && bodyText === null ? 1 : slots.size;
   const format = String(header?.format ?? "").toUpperCase();
   const reason = typeof record.rejected_reason === "string" ? record.rejected_reason.trim() : "";
   return {
@@ -271,7 +277,7 @@ export function readTemplate(raw: unknown): ProviderTemplate | null {
     category: typeof record.category === "string" ? record.category.toLowerCase() : null,
     rejectedReason: reason && reason.toUpperCase() !== "NONE" ? reason : null,
     buttonUrl: typeof urlButton?.url === "string" ? urlButton.url : null,
-    bodyParams: slots.size,
+    bodyParams,
     bodyText,
     header: !header ? "none" : format === "DOCUMENT" ? "document" : format === "IMAGE" ? "image" : "text",
     quality: quality(record.quality ?? record.quality_score),

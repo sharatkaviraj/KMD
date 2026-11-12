@@ -186,6 +186,28 @@ describe("templates on the hub", () => {
     ]);
   });
 
+  it("an authentication template with no wording listed still has one blank, the code (D-587)", async () => {
+    // What the hub keeps for a sign-in code template: what it submitted, never Meta's text.
+    const signIn = (category: string) => ({
+      name: "vpps_sign_in_code_en_v1",
+      language: "en",
+      category,
+      status: "APPROVED",
+      components: [
+        { type: "BODY", add_security_recommendation: true },
+        { type: "FOOTER", code_expiration_minutes: 10 },
+        { type: "BUTTONS", buttons: [{ type: "OTP", otp_type: "COPY_CODE", text: "Copy code" }] },
+      ],
+    });
+    fakeHub(() => ({ status: 200, body: { data: [signIn("AUTHENTICATION"), { ...signIn("UTILITY"), name: "not_auth" }] } }));
+    const answer = await hub().listTemplates();
+    expect(answer.ok && answer.templates).toEqual([
+      expect.objectContaining({ name: "vpps_sign_in_code_en_v1", category: "authentication", bodyParams: 1, bodyText: null, buttonUrl: null }),
+      // Only Meta's own authentication kind gets the blank it writes; anything else with no words has none.
+      expect.objectContaining({ name: "not_auth", bodyParams: 0 }),
+    ]);
+  });
+
   it("a template list read is the connection check: the hub has no health route", async () => {
     fakeHub(() => ({ status: 200, body: listed }));
     expect(await hub().checkConnection()).toMatchObject({ ok: true, displayNumber: "+918302207823", verifiedName: "Veer Patta School" });

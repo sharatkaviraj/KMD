@@ -6,15 +6,17 @@ Owner asked (12 Nov) for "phone number and OTP on WhatsApp via the hub" as the
 default sign-in, email and password kept as the other way. Branch
 `claude/project-thread-i5gzwb`, D-585..D-587. **Done:** hub PRs 4 and 5
 (codes hidden in the hub's chats, codes only to the owner's number until
-`auth_send_mode` is live, authentication templates); One's database part
-(`20261112111705`, applied 11:17 UTC with the owner's yes, setting starts at
-owner only); the sign-in page (phone first when the setting is all staff),
-Settings → WhatsApp card. **Remains:** the hub deploy on the owner's PC
-(`git pull` and `npm run deploy` in the hub folder), then the two registry
-rows for the templates and Meta's approval, a test sign-in on the owner's
-number, and his word before all staff. **Surprised:** none of the 5 real
-staff accounts has a mobile number on file yet, so even all staff would reach
-nobody until numbers are added (Staff, or Link my WhatsApp).
+`auth_send_mode` is live, authentication templates), deployed; One's database
+part (`20261112111705` and the template rows `20261112112417`, applied with
+the owner's yes; the setting starts at owner only); One PR 355, live 12 Nov
+11:37 UTC: the sign-in page (phone first only when the setting is all staff;
+until then `/login?with=code`), Settings → WhatsApp card. Meta approved both
+templates at 11:38 UTC; the template check then switched them off for "0
+blanks" because the hub lists no wording for an authentication template, fixed
+in the follow-up PR. **Remains:** a test sign-in on the owner's number, and his
+word before all staff. **Surprised:** none of the 5 real staff accounts has a
+mobile number on file yet, so even all staff would reach nobody until numbers
+are added (Staff, or Link my WhatsApp).
 
 ## Veer Patta AI, the WhatsApp helper for parents — 12 November 2026
 
