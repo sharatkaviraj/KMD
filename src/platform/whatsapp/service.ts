@@ -15,7 +15,7 @@ import {
   type ProviderConnection,
   type ProviderSendResult,
   type ProviderStatus,
-  type TemplateSubmission,
+  type HubTemplateSubmission,
   type WhatsAppProvider,
 } from "@/platform/whatsapp/providers";
 import {
@@ -775,7 +775,7 @@ export async function applyTemplateEvents(events: readonly WebhookTemplateEvent[
  * row sent reads `pending` until the hub's list or its webhook says more.
  */
 export async function submitTemplates(
-  submissions: readonly TemplateSubmission[],
+  submissions: readonly HubTemplateSubmission[],
   actor: { staffId: string | null },
   options: {
     /** At most this many go in one call; the rest wait for the next. */
@@ -802,7 +802,7 @@ export async function submitTemplates(
   let sent = 0;
   let skipped = 0;
   const failed: Array<{ name: string; problem: string }> = [];
-  const todo: Array<{ submission: TemplateSubmission; row: { key: string; status: string } }> = [];
+  const todo: Array<{ submission: HubTemplateSubmission; row: { key: string; status: string } }> = [];
   const limit = options.limit ?? Number.POSITIVE_INFINITY;
   for (const submission of submissions) {
     const row = (rows as Array<{ key: string; provider_name: string; language_code: string; status: string; status_reason: string | null }>).find(

@@ -20,8 +20,9 @@ vi.mock("react", async (importOriginal) => {
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams({ reason: fixture.reason, next: "/teach" }),
 }));
-vi.mock("@/app/login/actions", () => ({ loginAction: vi.fn() }));
+vi.mock("@/app/login/actions", () => ({ loginAction: vi.fn(), requestCodeAction: vi.fn(), verifyCodeAction: vi.fn() }));
 
+import { CODE_TEXT } from "@/app/login/code-form";
 import { LOGIN_TEXT, LoginForm } from "@/app/login/login-form";
 import * as m from "@/messages/pairs";
 
@@ -84,9 +85,32 @@ describe("login essential secondary text contrast", () => {
     expectFullTextStrength(html);
   });
 
+  it("opens on the mobile number when code sign-in is on for all staff, both languages at full strength (D-585)", () => {
+    const html = renderToStaticMarkup(<LoginForm language="both" codeSignIn="default" />);
+    expectBilingual(html, CODE_TEXT.phone as { hi: string; en: string });
+    expectBilingual(html, { hi: CODE_TEXT.welcome.hi ?? "(no Hindi)", en: CODE_TEXT.welcome.en.replace("'", "&#x27;") });
+    expect(html).toContain('for="phone"');
+    expect(html).toContain('autoComplete="tel-national"');
+    expect(html).toContain(CODE_TEXT.usePassword.en);
+    expect(html).not.toContain('for="password"');
+    expectFullTextStrength(html);
+  });
+
+  it("keeps email and password first, with the code one tap away, until the setting says all staff", () => {
+    const off = renderToStaticMarkup(<LoginForm language="en" codeSignIn="none" />);
+    expect(off).toContain('for="password"');
+    expect(off).not.toContain("WhatsApp code");
+    // Owner only: the code waits behind ?with=code, so staff are not offered a code that cannot come.
+    const ownerOnly = renderToStaticMarkup(<LoginForm language="en" codeSignIn="offered" />);
+    expect(ownerOnly).toContain('for="password"');
+    expect(ownerOnly).not.toContain("WhatsApp code");
+    const allStaff = renderToStaticMarkup(<LoginForm language="en" codeSignIn="default" />);
+    expect(allStaff).not.toContain('for="password"');
+  });
+
   it("keeps the login page wrapper free of inherited text opacity", () => {
     const page = readFileSync("src/app/login/page.tsx", "utf8");
-    expect(page).toContain('<LoginForm language={language} />');
+    expect(page).toContain("<LoginForm language={language} codeSignIn={codeSignIn} />");
     expect(page).not.toMatch(/\bopacity-\d+\b|text-[\w-]+\/(?:75|80|90)/);
   });
 });

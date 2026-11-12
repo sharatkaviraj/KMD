@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
   setPracticeMode: vi.fn(async () => true),
   setFeatureSwitch: vi.fn(async () => true),
   submitHubTemplateSet: vi.fn(async () => ({ ok: true as const, sent: 22, skipped: 0, failed: [] as Array<{ name: string; problem: string }> })),
+  writeSignInMode: vi.fn(async () => true),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -51,10 +52,11 @@ vi.mock("@/platform/whatsapp/store", () => ({
 }));
 vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ submitHubTemplateSet: state.submitHubTemplateSet, syncHubTemplates: vi.fn() }));
 vi.mock("@/modules/whatsapp/data/whatsapp-source-sync", () => ({ syncSettledToSource: vi.fn() }));
+vi.mock("@/modules/whatsapp/data/sign-in-codes", () => ({ writeSignInMode: state.writeSignInMode }));
 
 import * as actions from "@/app/(app)/settings/whatsapp/actions";
 
-const { setFeatureAction, setPracticeModeAction, submitHubTemplatesAction } = actions;
+const { setFeatureAction, setPracticeModeAction, setSignInModeAction, submitHubTemplatesAction } = actions;
 
 function form(values: Record<string, string>) {
   const data = new FormData();
@@ -79,6 +81,7 @@ beforeEach(() => {
   state.setPracticeMode.mockClear();
   state.setFeatureSwitch.mockClear();
   state.submitHubTemplateSet.mockClear();
+  state.writeSignInMode.mockClear();
 });
 
 describe("Settings → WhatsApp refuses in plain words", () => {
@@ -139,5 +142,34 @@ describe("Settings → WhatsApp and the hub's templates (D-566)", () => {
     expect(note?.text.en).toMatch(/refused One's key/);
     expect(note?.text.hi).toMatch(/refused One's key/);
     expect(noteFor("hub_sent", { sent: "20", failed: "2", why: "bad" })?.tone).toBe("warn");
+  });
+});
+
+describe("Settings → WhatsApp: sign in with a WhatsApp code (D-585)", () => {
+  it("an admin picks who may sign in with a code", async () => {
+    const to = await landing(setSignInModeAction(form({ mode: "owner_only" })));
+    expect(to).toBe("/settings/whatsapp?note=signin_saved#signin");
+    expect(state.writeSignInMode).toHaveBeenCalledWith("owner_only", "staff-qa");
+  });
+
+  it("a practice account cannot change the school's sign-in page", async () => {
+    state.testAccount = true;
+    const to = await landing(setSignInModeAction(form({ mode: "all_staff" })));
+    expect(to).toBe("/settings/whatsapp?note=signin_locked&why=test#signin");
+    expect(state.writeSignInMode).not.toHaveBeenCalled();
+  });
+
+  it("refuses a choice that is not one of the three", async () => {
+    const to = await landing(setSignInModeAction(form({ mode: "everyone" })));
+    expect(to).toBe("/settings/whatsapp?note=save_bad#save");
+    expect(state.writeSignInMode).not.toHaveBeenCalled();
+  });
+
+  it("says when it could not save", async () => {
+    state.writeSignInMode.mockResolvedValueOnce(false);
+    const to = await landing(setSignInModeAction(form({ mode: "off" })));
+    expect(to).toBe("/settings/whatsapp?note=signin_bad#signin");
+    expect(noteFor("signin_bad", {})?.tone).toBe("bad");
+    expect(noteFor("signin_saved", {})?.tone).toBe("ok");
   });
 });

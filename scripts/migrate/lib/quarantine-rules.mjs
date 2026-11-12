@@ -196,6 +196,10 @@ export const TABLES = {
   // minutes. A used row keeps the number it linked, whole: it is the record
   // of where the yes came from.
   staff_whatsapp_links: { bucket: "K", why: "post go-live one-time codes staff send from their own phone to link their WhatsApp number; service-role only" },
+  // Sign in with a WhatsApp code (D-585, D-586): the setting, and each ask
+  // (a hash of the code, never the code), cleared after 30 days by the app.
+  staff_sign_in_settings: { bucket: "K", why: "post go-live who may sign in with a WhatsApp code (off / owner only / all staff); one row" },
+  staff_sign_in_codes: { bucket: "K", why: "post go-live asks for a WhatsApp sign-in code: number, hashed code, outcome; kept 30 days, service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

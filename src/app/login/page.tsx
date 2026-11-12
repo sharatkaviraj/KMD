@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
-import { LoginForm } from "@/app/login/login-form";
+import { LoginForm, type CodeSignInOffer } from "@/app/login/login-form";
 import { LoginInstallHint } from "@/app/login/install-hint";
 import { LoginScreen } from "@/app/login/login-screen";
 import * as m from "@/messages/pairs";
@@ -45,7 +45,7 @@ export default async function LoginPage() {
   }
 
   // Signed out there is no profile, so the device remembers instead (D-36).
-  const language = await readLanguageCookie();
+  const [language, codeSignIn] = await Promise.all([readLanguageCookie(), readCodeSignInOffer()]);
 
   return (
     <LoginScreen language={language} badge={<EnvironmentBadgeOnPaper language={language} className="self-start" />}>
@@ -53,10 +53,25 @@ export default async function LoginPage() {
         {/* useSearchParams() needs a boundary; without one the whole route is
           forced dynamic at build time. */}
         <Suspense fallback={<div style={{ height: 420 }} aria-label={flat(m.loading, language)} />}>
-          <LoginForm language={language} />
+          <LoginForm language={language} codeSignIn={codeSignIn} />
         </Suspense>
         <LoginInstallHint />
       </section>
     </LoginScreen>
   );
+}
+
+/**
+ * Sign in with a WhatsApp code (D-585): the page opens on it once Settings →
+ * WhatsApp says all staff; for the owner's number only it waits behind
+ * `?with=code`; off, or unreadable, the page is email and password only.
+ */
+async function readCodeSignInOffer(): Promise<CodeSignInOffer> {
+  try {
+    const { readSignInModeForPage } = await import("@/modules/whatsapp/data/sign-in-codes");
+    const mode = await readSignInModeForPage();
+    return mode === "all_staff" ? "default" : mode === "owner_only" ? "offered" : "none";
+  } catch {
+    return "none";
+  }
 }

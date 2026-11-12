@@ -76,6 +76,24 @@ export type TemplateSubmission = {
   buttons: Array<{ type: "URL"; text: string; url: string } | { type: "PHONE_NUMBER"; text: string; phone_number: string }>;
 };
 
+/**
+ * A sign-in code template (D-585): Meta's AUTHENTICATION kind, as the hub
+ * takes it since hub PR 4. Meta writes the words itself ("123456 is your
+ * verification code. For your security, do not share this code."), adds the
+ * expiry footer and a Copy code button; One gives only the minutes.
+ */
+export type SignInTemplateSubmission = {
+  name: string;
+  language: string;
+  category: "AUTHENTICATION";
+  code_expiration_minutes: number;
+  message_send_ttl_seconds: number;
+  button_text?: string;
+};
+
+/** Anything One hands the hub's `POST /v1/templates`. */
+export type HubTemplateSubmission = TemplateSubmission | SignInTemplateSubmission;
+
 export type SubmitResult =
   | { ok: true; id: string | null; status: string | null; category: string | null }
   | { ok: false; code: string | null; problem: string };
@@ -111,7 +129,7 @@ export type WhatsAppProvider = {
   /** The hub only: Meta's latest status for one message. */
   fetchStatus?(wamid: string): Promise<StatusResult>;
   /** The hub only: hand one template to Meta for review on the hub's account. */
-  submitTemplate?(template: TemplateSubmission): Promise<SubmitResult>;
+  submitTemplate?(template: HubTemplateSubmission): Promise<SubmitResult>;
   /** The hub only: claim a parent's message so One answers it, and show the typing dots. */
   claimMessage?(wamid: string): Promise<ClaimResult>;
 };

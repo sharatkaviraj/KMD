@@ -1,4 +1,4 @@
-import type { TemplateSubmission } from "@/platform/whatsapp/providers";
+import type { HubTemplateSubmission, SignInTemplateSubmission, TemplateSubmission } from "@/platform/whatsapp/providers";
 
 import {
   OFFICE_PHONE,
@@ -9,6 +9,7 @@ import {
 } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { HELPER_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/helper-hub-templates";
 import { SCHOOL_NOTICE_TEMPLATES } from "@/modules/whatsapp/domain/school-notice-bodies";
+import { SIGN_IN_CODE_MINUTES, SIGN_IN_TEMPLATE } from "@/modules/whatsapp/domain/sign-in-code";
 import { STAFF_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/staff-hub-templates";
 
 /**
@@ -73,6 +74,26 @@ export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
 ];
 
 /**
+ * The sign-in code, Hindi and English (D-585): Meta's AUTHENTICATION kind.
+ * Meta writes the words and the Copy code button; One says only how long a
+ * code works. The message is dropped if WhatsApp cannot deliver it within
+ * those same ten minutes, because a code that arrives late is no use. No
+ * body, so there is no wording to hold an approval to (`hubExpectedBodies`
+ * leaves them out).
+ */
+export const SIGN_IN_HUB_SUBMISSIONS: readonly SignInTemplateSubmission[] = (["hi", "en"] as const).map((language) => ({
+  name: SIGN_IN_TEMPLATE[language],
+  language,
+  category: "AUTHENTICATION" as const,
+  code_expiration_minutes: SIGN_IN_CODE_MINUTES,
+  message_send_ttl_seconds: SIGN_IN_CODE_MINUTES * 60,
+  button_text: language === "hi" ? "कोड कॉपी करें" : "Copy code",
+}));
+
+/** Everything "Send for approval" and the hourly check send: the list above and the two sign-in codes. */
+export const ALL_HUB_SUBMISSIONS: readonly HubTemplateSubmission[] = [...HUB_TEMPLATE_SUBMISSIONS, ...SIGN_IN_HUB_SUBMISSIONS];
+
+/**
  * How many one press of "Send for approval" sends, and how many the hourly
  * check sends by itself. Each takes the hub about five seconds, three at a
  * time; the hourly job shares its minute with the template check and pg_net
@@ -81,7 +102,7 @@ export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
 export const HUB_SUBMIT_PER_PRESS = 24;
 export const HUB_SUBMIT_PER_HOUR = 15;
 
-const HUB_NAMES: ReadonlySet<string> = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
+const HUB_NAMES: ReadonlySet<string> = new Set(ALL_HUB_SUBMISSIONS.map((submission) => submission.name));
 
 /**
  * The templates a feature's "N of M approved" is counted against. One sends

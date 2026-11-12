@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 
 import { submitHubTemplateSet, syncHubTemplates } from "@/modules/whatsapp/data/hub-templates";
+import { writeSignInMode } from "@/modules/whatsapp/data/sign-in-codes";
 import { syncSettledToSource } from "@/modules/whatsapp/data/whatsapp-source-sync";
+import { isSignInMode } from "@/modules/whatsapp/domain/sign-in-code";
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { assertNotTestAccount, isSessionAccessDenied } from "@/platform/auth/test-session-access";
 import { getSiteUrl } from "@/platform/env";
@@ -29,7 +31,7 @@ const PAGE = "/settings/whatsapp";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The card a button sits on: a refusal is answered beside it, like any other answer. */
-type Area = "conn" | "practice" | "feature" | "hub" | "templates" | "retry";
+type Area = "conn" | "practice" | "feature" | "hub" | "templates" | "retry" | "signin";
 
 /**
  * After `assertPermission("settings:manage")`, which every action calls first
@@ -88,6 +90,21 @@ export async function setFeatureAction(formData: FormData): Promise<void> {
   if (on === "true" && sentByFeesApp(feature, (await readSwitches())?.feeSender)) back("feature_fees_app", { feature });
   const ok = await setFeatureSwitch(feature, on === "true", actor.id);
   back(ok ? "feature_saved" : "save_bad", { feature });
+}
+
+/**
+ * Who may sign in with a WhatsApp code (D-585). Changes the whole school's
+ * sign-in page, so a practice account is refused. The hub keeps its own
+ * switch for codes to numbers other than the owner's (`auth_send_mode`), so
+ * "all staff" here cannot by itself send a code to a number the hub has not
+ * been told is allowed.
+ */
+export async function setSignInModeAction(formData: FormData): Promise<void> {
+  const actor = await adminOnly(await assertPermission("settings:manage"), "signin", { changesSchool: true });
+  const mode = String(formData.get("mode") ?? "");
+  if (!isSignInMode(mode)) back("save_bad");
+  const ok = await writeSignInMode(mode, actor.id).catch(() => false);
+  back(ok ? "signin_saved" : "signin_bad");
 }
 
 export async function syncTemplatesAction(): Promise<void> {

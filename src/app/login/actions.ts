@@ -9,8 +9,17 @@ import * as m from "@/messages/pairs";
 import type { Localized } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
 import { endViewAsPerson } from "@/platform/auth/view-as-session";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { VIEW_AS_COOKIE } from "@/vx/view-as";
+import {
+  maskSignInPhone,
+  signInCodeIn,
+  signInPhoneKey,
+  signInTemplateLanguage,
+  SIGN_IN_CODE_MINUTES,
+  SIGN_IN_RESEND_SECONDS,
+} from "@/modules/whatsapp/domain/sign-in-code";
 
 export type LoginActionState = {
   status: "idle" | "error";
@@ -164,4 +173,159 @@ export async function testSignInAction(formData: FormData): Promise<void> {
 
   revalidatePath("/", "layout");
   redirect(landingFor({ role: admitted.staff.role, preferredStart: admitted.staff.preferredStart, requested: undefined }));
+}
+
+/* ------------------------------------------------ Sign in with a WhatsApp code (D-585) */
+
+/**
+ * Which ask the browser is answering: the row id, in a cookie the page's
+ * script cannot read, so a code typed here can only ever be checked against
+ * the code sent to *this* browser. Ten minutes, like the code.
+ */
+const SIGN_IN_CHALLENGE_COOKIE = "vx_sign_in_code";
+
+/** Why the code card says what it says. The form has the words. */
+export type CodeProblem =
+  | "bad_number"
+  | "off"
+  | "limited"
+  | "busy"
+  | "unavailable"
+  | "type_code"
+  | "wrong"
+  | "start_again"
+  | "not_staff"
+  | "admission";
+
+export type CodeActionState = {
+  status: "idle" | "sent" | "error";
+  problem: CodeProblem | null;
+  /** The admission check's own sentence, when that is what refused. */
+  message: Localized | null;
+  /** `+91 ••••• •3124`: the number the person typed, for "sent to". */
+  masked: string | null;
+  /** Epoch ms when Send again may be pressed. */
+  resendAt: number | null;
+  /** Minutes to wait, when a limit refused. */
+  waitMinutes: number | null;
+  /** Wrong tries left on this code. */
+  triesLeft: number | null;
+  /** Goes up by one each time a code is asked for, so the form knows a new one went. */
+  sends: number;
+};
+
+function codeState(previous: CodeActionState, patch: Partial<CodeActionState>): CodeActionState {
+  return { status: "error", problem: null, message: null, masked: previous.masked, resendAt: previous.resendAt, waitMinutes: null, triesLeft: null, sends: previous.sends, ...patch };
+}
+
+async function browserAddress(): Promise<string> {
+  const list = await headers();
+  // Vercel sets x-real-ip itself; x-forwarded-for's first hop is the fallback off Vercel.
+  return list.get("x-real-ip")?.trim() || (list.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
+}
+
+/**
+ * Send code. Whether or not the number is on a staff record, the answer is
+ * the same "sent" (`requestAnswer`), the cookie is set the same way, and the
+ * send itself happens after the answer (`after`), so neither the words nor
+ * the time it takes tell anybody whose number is on file.
+ */
+export async function requestCodeAction(previous: CodeActionState, formData: FormData): Promise<CodeActionState> {
+  const phone = (formData.get("phone") ?? "").toString();
+  const language = signInTemplateLanguage((formData.get("language") ?? "").toString());
+  const key = signInPhoneKey(phone);
+  if (!key) return codeState(previous, { problem: "bad_number", masked: null });
+
+  const { readSignInMode, requestSignInCode, signInClientKey } = await import("@/modules/whatsapp/data/sign-in-codes");
+  if ((await readSignInMode()) === "off") return codeState(previous, { problem: "off" });
+
+  const asked = await requestSignInCode({ phone: key, language, clientKey: signInClientKey(await browserAddress()) });
+  if (asked.answer === "limited") {
+    const seconds = Math.max(1, asked.retryAfterSeconds ?? SIGN_IN_RESEND_SECONDS);
+    return codeState(previous, {
+      problem: "limited",
+      masked: maskSignInPhone(key),
+      resendAt: Date.now() + seconds * 1000,
+      waitMinutes: Math.ceil(seconds / 60),
+    });
+  }
+  if (asked.answer !== "sent" || !asked.challengeId) {
+    return codeState(previous, { problem: asked.answer === "sent" ? "unavailable" : asked.answer });
+  }
+
+  (await cookies()).set({
+    name: SIGN_IN_CHALLENGE_COOKIE,
+    value: asked.challengeId,
+    path: "/login",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: SIGN_IN_CODE_MINUTES * 60,
+  });
+  if (asked.deliver) after(asked.deliver);
+
+  return {
+    status: "sent",
+    problem: null,
+    message: null,
+    masked: maskSignInPhone(key),
+    resendAt: Date.now() + SIGN_IN_RESEND_SECONDS * 1000,
+    waitMinutes: null,
+    triesLeft: null,
+    sends: previous.sends + 1,
+  };
+}
+
+/**
+ * Sign in with the code. The database checks the code once, and checks the
+ * person again (still active, still that number). Then the session is made
+ * the way the QA door makes one — a one-time magic-link token minted and
+ * spent here, with this request's cookie client — and the same admission
+ * check every door runs decides, held to the profile the code was for.
+ */
+export async function verifyCodeAction(last: CodeActionState, formData: FormData): Promise<CodeActionState> {
+  // Which send this code belongs to, so the form knows a refusal is about the code on screen.
+  const previous: CodeActionState = { ...last, sends: Math.max(0, Math.floor(Number(formData.get("round")) || 0)) };
+  const code = signInCodeIn((formData.get("code") ?? "").toString());
+  const requested = formData.get("next")?.toString();
+  if (!code) return codeState(previous, { status: "sent", problem: "type_code" });
+
+  const store = await cookies();
+  const challengeId = store.get(SIGN_IN_CHALLENGE_COOKIE)?.value ?? "";
+  if (!/^[0-9a-f-]{36}$/i.test(challengeId)) return codeState(previous, { problem: "start_again" });
+
+  const { verifySignInCode } = await import("@/modules/whatsapp/data/sign-in-codes");
+  const checked = await verifySignInCode(challengeId, code);
+  if (checked.answer === "wrong") return codeState(previous, { status: "sent", problem: "wrong", triesLeft: checked.triesLeft });
+  if (checked.answer !== "ok" || !checked.userId || !checked.staffProfileId) {
+    if (checked.answer !== "unavailable") store.delete({ name: SIGN_IN_CHALLENGE_COOKIE, path: "/login" });
+    return codeState(previous, { problem: checked.answer === "ok" ? "unavailable" : checked.answer });
+  }
+  store.delete({ name: SIGN_IN_CHALLENGE_COOKIE, path: "/login" });
+
+  const { createAdminClient } = await import("@/platform/supabase/admin");
+  const admin = createAdminClient();
+  const { data: account } = await admin.auth.admin.getUserById(checked.userId);
+  const email = account?.user?.email;
+  if (!email) return codeState(previous, { problem: "unavailable" });
+
+  const supabase = await createClient();
+  // Supabase keeps only the newest one-time token per user: a short, jittered
+  // retry settles two sign-ins for one account at the same moment (as on the QA door).
+  let userId: string | null = null;
+  for (let attempt = 0; attempt < 3 && !userId; attempt++) {
+    if (attempt > 0) await new Promise((done) => setTimeout(done, 300 + Math.floor(Math.random() * 900) * attempt));
+    const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+    const tokenHash = data?.properties?.hashed_token;
+    if (error || !tokenHash) break;
+    const verified = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: tokenHash });
+    if (!verified.error && verified.data.user) userId = verified.data.user.id;
+  }
+  if (!userId || userId !== checked.userId) return codeState(previous, { problem: "unavailable" });
+
+  const admitted = await admitSignedInUser(supabase, userId, { signOutScope: "local", expectedStaffProfileId: checked.staffProfileId });
+  if (!admitted.ok) return codeState(previous, { problem: "admission", message: admitted.message });
+
+  revalidatePath("/", "layout");
+  redirect(landingFor({ role: admitted.staff.role, preferredStart: admitted.staff.preferredStart, requested }));
 }

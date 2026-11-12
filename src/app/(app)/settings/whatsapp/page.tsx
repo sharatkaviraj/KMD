@@ -1,7 +1,9 @@
 import Link from "@/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
-import { HUB_SUBMIT_PER_PRESS, HUB_TEMPLATE_SUBMISSIONS, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
+import { readSignInOverview } from "@/modules/whatsapp/data/sign-in-codes";
+import { ALL_HUB_SUBMISSIONS, HUB_SUBMIT_PER_PRESS, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
+import { SIGN_IN_MODES, SIGN_IN_TEMPLATE, type SignInMode } from "@/modules/whatsapp/domain/sign-in-code";
 import { featureLabels, marketingLabel, messageStatusLabels, noteFor, templateStatusLabels, waMessages as w } from "@/messages/whatsapp-settings";
 import { requirePermission } from "@/platform/auth/current-staff";
 import type { Language, Localized } from "@/platform/i18n/language";
@@ -18,6 +20,7 @@ import {
   retryMessageAction,
   setFeatureAction,
   setPracticeModeAction,
+  setSignInModeAction,
   submitHubTemplatesAction,
   syncTemplatesAction,
 } from "./actions";
@@ -56,10 +59,10 @@ const TEMPLATE_TONE: Record<string, Tone> = {
 const NOTE_ICON: Record<string, IconName> = { ok: "checkCircle", warn: "alert", bad: "alert", info: "info" };
 
 /** The cards an action's answer can land on (`back()` in actions.ts). */
-const ANCHORS = new Set(["conn", "practice", "feature", "hub", "templates", "retry"]);
+const ANCHORS = new Set(["conn", "practice", "feature", "hub", "templates", "retry", "signin"]);
 
 /** The `_v8` Pay now set, by registry key (= the name it has on the hub). */
-const HUB_SET = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
+const HUB_SET = new Set(ALL_HUB_SUBMISSIONS.map((submission) => submission.name));
 const QUALITY_TONE: Record<string, Tone> = { GREEN: "ok", YELLOW: "warn", RED: "bad" };
 const anchorStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 76 };
 
@@ -142,6 +145,73 @@ function TemplateStatus({ row, language }: { row: TemplateView; language: Langua
   );
 }
 
+const SIGN_IN_TONE: Record<SignInMode, Tone> = { off: "mut", owner_only: "info", all_staff: "ok" };
+const SIGN_IN_ICON: Record<SignInMode, IconName> = { off: "lock", owner_only: "user", all_staff: "users" };
+
+/**
+ * Sign in with a WhatsApp code (D-585): who may, three big choices, and what
+ * it rests on (staff with a number, the two Meta templates, how it went this
+ * week). Nothing here sends anything.
+ */
+function SignInCard({ overview, language, canChange }: { overview: Awaited<ReturnType<typeof readSignInOverview>> | null; language: Language; canChange: boolean }) {
+  const say = (text: Localized) => lead(text, language);
+  const mode: SignInMode = overview?.mode ?? "off";
+  const status = (key: string) => overview?.templates.find((row) => row.key === key)?.status ?? "not_submitted";
+  const hi = status(SIGN_IN_TEMPLATE.hi);
+  const en = status(SIGN_IN_TEMPLATE.en);
+  const anyApproved = hi === "approved" || en === "approved";
+  return (
+    <Card>
+      <CardHead title={say(w.signInTitle)} badge={<Pill tone={SIGN_IN_TONE[mode]} icon={SIGN_IN_ICON[mode]}>{say(w.signInModes[mode])}</Pill>} />
+      <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+        <Sub text={w.signInHelp} language={language} />
+        {overview ? <Sub text={w.signInModeHelp[mode]} language={language} /> : <Sub text={w.signInUnread} language={language} />}
+        <div>
+          <Fact label={say(w.signInStaff)}>
+            {overview?.staffWithNumber !== null && overview?.staffWithNumber !== undefined && overview.staffTotal !== null ? say(w.signInStaffCount(overview.staffWithNumber, overview.staffTotal)) : "—"}
+          </Fact>
+          <Fact label={say(w.signInTemplates)}>
+            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
+              <Pill tone={TEMPLATE_TONE[hi] ?? "mut"}>{say(templateStatusLabels[hi] ?? { hi, en: hi })}</Pill>
+              <Pill tone={TEMPLATE_TONE[en] ?? "mut"}>{say(templateStatusLabels[en] ?? { hi: en, en })}</Pill>
+            </span>
+          </Fact>
+          <Fact label={say(w.signInUsed)}>{overview?.signedInThisWeek ?? "—"}</Fact>
+          {overview?.refusedThisWeek ? <Fact label={say(w.signInRefused)}>{overview.refusedThisWeek}</Fact> : null}
+        </div>
+        {anyApproved ? null : <Sub text={w.signInNoTemplate} language={language} />}
+        {canChange && overview ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 650 }}>{say(w.signInPick)}</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {SIGN_IN_MODES.map((choice) =>
+                choice === mode ? (
+                  <span key={choice} className="btn pri" aria-current="true" style={{ height: 48, borderRadius: 14, display: "inline-flex", alignItems: "center", gap: 8, padding: "0 16px", fontWeight: 650 }}>
+                    <Ic n="check" size={18} />
+                    {say(w.signInModes[choice])}
+                    <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.85 }}>· {say(w.signInCurrent)}</span>
+                  </span>
+                ) : (
+                  <form key={choice} action={setSignInModeAction}>
+                    <input type="hidden" name="mode" value={choice} />
+                    <PendingBtn
+                      label={say(w.signInModes[choice])}
+                      pendingLabel={say(w.saving)}
+                      icon={SIGN_IN_ICON[choice]}
+                      big
+                      confirm={choice === "all_staff" ? say(w.signInAllConfirm) : undefined}
+                    />
+                  </form>
+                ),
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
 /**
  * Settings → WhatsApp (D-562, D-566): the school's own number (+91 83022 07823),
  * whether this deployment is connected to it, who may receive a message, which
@@ -158,7 +228,7 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
   const raw = await searchParams;
   const params = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
   const note = typeof params.note === "string" ? noteFor(params.note, params) : null;
-  const view = await loadWhatsAppOverview();
+  const [view, signIn] = await Promise.all([loadWhatsAppOverview(), readSignInOverview().catch(() => null)]);
   const switches = view.switches;
   const practice = switches?.dryRun !== false;
 
@@ -345,6 +415,11 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                 </details>
               ) : null}
             </Card>
+          </div>
+
+          <div id="signin" style={anchorStyle}>
+            {here("signin")}
+            <SignInCard overview={signIn} language={language} canChange={canChange && view.connected} />
           </div>
 
           <div id="templates" style={anchorStyle}>

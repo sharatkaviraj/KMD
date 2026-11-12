@@ -1,0 +1,409 @@
+"use client";
+
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { ArrowLeft, ArrowRight, ClipboardPaste, Info, KeyRound, MessageCircle, RefreshCw, TriangleAlert } from "lucide-react";
+
+import { requestCodeAction, verifyCodeAction, type CodeActionState, type CodeProblem } from "@/app/login/actions";
+import type { Language } from "@/platform/i18n/language";
+import { cue, primeFeedback } from "@/ui/feedback/cue";
+import { maskSignInPhone, signInCodeIn, signInPhoneKey, SIGN_IN_CODE_LENGTH, SIGN_IN_CODE_MINUTES } from "@/modules/whatsapp/domain/sign-in-code";
+import { lead, p, under, type Pair } from "@/vx/text";
+
+/*
+ * Sign in with a WhatsApp code (D-585): type your mobile number, get a
+ * six-digit code on WhatsApp from the school's number, type it here. Two
+ * steps on one card, each with one big button and the next step spelled
+ * out, and "Use email and password" always one tap away.
+ *
+ * What the page says after Send code is the same whoever's number it is
+ * ("if this number is on your staff record…"): the server gives it nothing
+ * else to say (`requestAnswer`).
+ */
+
+export const CODE_TEXT = {
+  title: p("Sign in", "साइन इन"),
+  welcome: p("Type your mobile number. We'll send a code on WhatsApp.", "अपना मोबाइल नंबर लिखें। हम WhatsApp पर एक कोड भेजेंगे।"),
+  phone: p("Mobile number", "मोबाइल नंबर"),
+  phoneHint: p("The number the school has for you", "जो नंबर विद्यालय के पास आपका है"),
+  send: p("Send code on WhatsApp", "WhatsApp पर कोड भेजें"),
+  sending: p("Sending code…", "कोड भेज रहे हैं…"),
+  sentTitle: p("Code sent on WhatsApp", "WhatsApp पर कोड भेज दिया"),
+  sentTo: p("To", "नंबर"),
+  sentBody: p(
+    `If this number is on your staff record, a ${SIGN_IN_CODE_LENGTH}-digit code from Veer Patta School arrives on WhatsApp in a few seconds. It works for ${SIGN_IN_CODE_MINUTES} minutes.`,
+    `अगर यह नंबर आपके स्टाफ़ रिकॉर्ड में है, तो Veer Patta School से ${SIGN_IN_CODE_LENGTH} अंकों का कोड कुछ ही सेकंड में WhatsApp पर आएगा। यह ${SIGN_IN_CODE_MINUTES} मिनट तक चलेगा।`,
+  ),
+  openWhatsApp: p("Open WhatsApp", "WhatsApp खोलें"),
+  code: p("The code from WhatsApp", "WhatsApp वाला कोड"),
+  paste: p("Paste code", "कोड चिपकाएँ"),
+  pasteHint: p("In WhatsApp tap Copy code, then come back and tap Paste code.", "WhatsApp में 'कोड कॉपी करें' दबाएँ, फिर यहाँ आकर 'कोड चिपकाएँ' दबाएँ।"),
+  signIn: p("Sign in", "साइन इन करें"),
+  checking: p("Checking code…", "कोड जाँच रहे हैं…"),
+  again: p("Send a new code", "नया कोड भेजें"),
+  againIn: p("Send a new code in", "नया कोड भेज सकते हैं"),
+  seconds: p("s", "से."),
+  change: p("Change number", "नंबर बदलें"),
+  usePassword: p("Use email and password instead", "ईमेल और पासवर्ड से साइन इन करें"),
+  remember: p("Remember this phone", "यह फ़ोन याद रखें"),
+  rememberSub: p("Keeps your number here for next time.", "अगली बार के लिए आपका नंबर यहाँ रहेगा।"),
+  noCode: p(
+    "No code after a minute? The office may not have your number yet. Use your email and password, or ask the office to add your WhatsApp number.",
+    "एक मिनट में कोड नहीं आया? हो सकता है ऑफ़िस के पास अभी आपका नंबर न हो। ईमेल और पासवर्ड से साइन इन करें, या ऑफ़िस से अपना WhatsApp नंबर जुड़वाएँ।",
+  ),
+} satisfies Record<string, Pair>;
+const T = CODE_TEXT;
+
+const PROBLEM: Record<Exclude<CodeProblem, "admission">, Pair> = {
+  bad_number: p("That is not a 10-digit mobile number. Check it and try again.", "यह 10 अंकों का मोबाइल नंबर नहीं है। जाँचकर फिर से लिखें।"),
+  off: p("Sign-in by WhatsApp code is off right now. Use your email and password.", "WhatsApp कोड से साइन इन अभी बंद है। ईमेल और पासवर्ड से साइन इन करें।"),
+  limited: p("Too many codes for this number. Wait a little, or use your email and password.", "इस नंबर पर बहुत कोड भेजे जा चुके हैं। थोड़ी देर रुकें, या ईमेल और पासवर्ड से साइन इन करें।"),
+  busy: p("WhatsApp sign-in is busy. Try again in a few minutes, or use your email and password.", "WhatsApp साइन इन अभी व्यस्त है। कुछ मिनट बाद फिर कोशिश करें, या ईमेल और पासवर्ड से साइन इन करें।"),
+  unavailable: p("WhatsApp sign-in is not working right now. Use your email and password.", "WhatsApp साइन इन अभी काम नहीं कर रहा। ईमेल और पासवर्ड से साइन इन करें।"),
+  type_code: p(`Type the ${SIGN_IN_CODE_LENGTH} digits from WhatsApp.`, `WhatsApp वाले ${SIGN_IN_CODE_LENGTH} अंक लिखें।`),
+  wrong: p("That code is not right. Check it and type it again.", "यह कोड सही नहीं है। जाँचकर फिर से लिखें।"),
+  start_again: p("This code no longer works. Send a new code.", "यह कोड अब नहीं चलेगा। नया कोड भेजें।"),
+  not_staff: p("This number cannot sign in to VPPS One. Use your email and password, or ask the office.", "इस नंबर से VPPS One में साइन इन नहीं हो सकता। ईमेल और पासवर्ड से साइन इन करें, या ऑफ़िस से पूछें।"),
+};
+
+/** Refusals after which the code on screen can never work: the card goes back to the number. */
+const ENDS_CODE: ReadonlySet<CodeProblem> = new Set<CodeProblem>(["start_again", "not_staff", "off", "admission"]);
+
+const triesPair = (left: number) => p(`${left} ${left === 1 ? "try" : "tries"} left.`, `${left} बार और कोशिश कर सकते हैं।`);
+const waitPair = (minutes: number) => p(`Wait about ${minutes} minute${minutes === 1 ? "" : "s"}.`, `लगभग ${minutes} मिनट रुकें।`);
+
+/** The school's number on WhatsApp: the chat the code arrives in. */
+const SCHOOL_CHAT = "https://wa.me/918302207823";
+
+const PHONE_KEY = "vx:login:phone";
+const PHONE_OFF_KEY = "vx:login:phone-off";
+
+function readStore(key: string): string {
+  try {
+    return window.localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStore(key: string, value: string | null) {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch {
+    // Private windows and blocked storage: nothing is remembered.
+  }
+}
+
+const noSubscribe = () => () => undefined;
+
+const initialCodeState: CodeActionState = { status: "idle", problem: null, message: null, masked: null, resendAt: null, waitMinutes: null, triesLeft: null, sends: 0 };
+
+function Two({ pair, language, small }: { pair: Pair; language: Language; small?: boolean }) {
+  const second = under(pair, language);
+  return (
+    <>
+      <span lang={language === "hi" ? "hi" : "en"}>{lead(pair, language)}</span>
+      {second ? (
+        <span lang={language === "hi" ? "en" : "hi"} style={{ display: "block", fontSize: small ? 11 : 12, color: "var(--mut)", fontWeight: 500 }}>
+          {second}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+const noteStyle = { display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 14, lineHeight: 1.5 } as const;
+
+/** Seconds until `at`, ticking once a second; 0 once it has passed. */
+function useCountdown(at: number | null): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!at) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [at]);
+  return at ? Math.max(0, Math.ceil((at - now) / 1000)) : 0;
+}
+
+function Problem({ state, language, id }: { state: CodeActionState; language: Language; id: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const shown = state.problem;
+  useEffect(() => {
+    if (shown) ref.current?.focus();
+  }, [shown, state]);
+  if (!shown) return null;
+  const pair: Pair | null = shown === "admission" ? (state.message ? { en: state.message.en, hi: state.message.hi } : null) : PROBLEM[shown];
+  if (!pair) return null;
+  const extra = shown === "wrong" && state.triesLeft !== null ? triesPair(state.triesLeft) : shown === "limited" && state.waitMinutes ? waitPair(state.waitMinutes) : null;
+  return (
+    <div id={id} ref={ref} tabIndex={-1} role="alert" className="fadein" style={{ ...noteStyle, background: "var(--bads)", color: "var(--bad)", outline: "none" }}>
+      <TriangleAlert size={18} aria-hidden style={{ flex: "none", marginTop: 2 }} />
+      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <span style={{ fontWeight: 600 }}>{lead(pair, language)}</span>
+        {extra ? <span style={{ fontSize: 13 }}>{lead(extra, language)}</span> : null}
+        {under(pair, language) ? <span style={{ fontSize: 12 }}>{under(pair, language)}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+/** A tick that draws itself: the code has gone. */
+function SentTick() {
+  return (
+    <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden style={{ flex: "none" }}>
+      <circle cx="22" cy="22" r="20" style={{ fill: "var(--oks)", stroke: "var(--ok)", strokeWidth: 2, animation: "xFade .3s var(--ease) both" }} />
+      <path d="M13 22.5l6 6 12-13" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 3.2, strokeLinecap: "round", strokeLinejoin: "round", strokeDasharray: 30, ["--len" as string]: "30", animation: "xDraw .5s .15s var(--ease) both" }} />
+    </svg>
+  );
+}
+
+export function CodeSignInForm({
+  language,
+  next,
+  notice = null,
+  onUsePassword,
+}: {
+  language: Language;
+  next: string;
+  /** Why the visitor is here (`?reason=`), as the password form shows it. */
+  notice?: Pair | null;
+  onUsePassword: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const codeRef = useRef<HTMLInputElement>(null);
+  const verifyForm = useRef<HTMLFormElement>(null);
+
+  // A new code went: a short "done" buzz and chime, the box cleared and ready.
+  // A refusal: the error cue, and a wrong code cleared for the next try.
+  const [sent, requestAction, requesting] = useActionState<CodeActionState, FormData>(async (previous, data) => {
+    const answer = await requestCodeAction(previous, data);
+    if (answer.status === "sent" && answer.sends !== previous.sends) {
+      setCode("");
+      cue("success");
+      window.setTimeout(() => codeRef.current?.focus(), 350);
+    } else if (answer.problem) {
+      cue("error");
+    }
+    return answer;
+  }, initialCodeState);
+  const [checked, verifyAction, verifying] = useActionState<CodeActionState, FormData>(async (previous, data) => {
+    const answer = await verifyCodeAction(previous, data);
+    if (answer.problem) {
+      cue(answer.problem === "type_code" ? "warn" : "error");
+      if (answer.problem === "wrong") setCode("");
+    }
+    return answer;
+  }, initialCodeState);
+  useEffect(() => primeFeedback(), []);
+
+  const storedPhone = useSyncExternalStore(noSubscribe, () => readStore(PHONE_KEY), () => "");
+  const storedOff = useSyncExternalStore(noSubscribe, () => readStore(PHONE_OFF_KEY) === "1", () => false);
+  const [typedPhone, setTypedPhone] = useState<string | null>(null);
+  const [rememberChoice, setRememberChoice] = useState<boolean | null>(null);
+  const phone = typedPhone ?? storedPhone;
+  const remember = rememberChoice ?? !storedOff;
+  const phoneKey = signInPhoneKey(phone);
+
+  // Which step the card is on. The code step once a code has gone (a "wait"
+  // for a second code keeps it: the first one still works), until the person
+  // changes the number or the server says this code is finished with.
+  const [changing, setChanging] = useState<number>(-1);
+  const finished = checked.problem !== null && ENDS_CODE.has(checked.problem) ? checked.sends : -1;
+  const onCodeStep =
+    sent.sends > 0 &&
+    changing !== sent.sends &&
+    finished !== sent.sends &&
+    (sent.status === "sent" || sent.problem === "limited" || sent.problem === "busy");
+
+  const countdown = useCountdown(onCodeStep ? sent.resendAt : null);
+
+  const keepPhone = () => {
+    writeStore(PHONE_OFF_KEY, remember ? null : "1");
+    writeStore(PHONE_KEY, remember && phoneKey ? phoneKey : null);
+  };
+
+  const typeCode = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, SIGN_IN_CODE_LENGTH);
+    setCode(digits);
+    // Six digits is the whole code: sign in without another tap.
+    if (signInCodeIn(digits) && digits !== code && !verifying) window.setTimeout(() => verifyForm.current?.requestSubmit(), 120);
+  };
+
+  const pasteCode = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const found = text.match(new RegExp(`\\d{${SIGN_IN_CODE_LENGTH}}`))?.[0];
+      if (found) {
+        cue("tap");
+        typeCode(found);
+        return;
+      }
+    } catch {
+      // The browser said no to reading the clipboard: the box is the way.
+    }
+    codeRef.current?.focus();
+  };
+
+  if (!onCodeStep) {
+    return (
+      <form
+        action={requestAction}
+        onSubmit={keepPhone}
+        style={{ display: "flex", flexDirection: "column", gap: 18 }}
+        aria-busy={requesting || undefined}
+        className="fadein"
+      >
+        <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}><Two pair={T.welcome} language={language} small /></span>
+        </div>
+
+        {notice && !sent.problem ? (
+          <div role="status" style={{ ...noteStyle, background: "var(--warns)", color: "var(--warnfg)" }}>
+            <Info size={18} aria-hidden style={{ flex: "none", marginTop: 2 }} />
+            <span style={{ minWidth: 0 }}><Two pair={notice} language={language} /></span>
+          </div>
+        ) : null}
+
+        <label htmlFor="phone" className="field">
+          <span><Two pair={T.phone} language={language} small /></span>
+          <span style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
+            <span aria-hidden className="inp" style={{ flex: "none", width: "auto", display: "flex", alignItems: "center", padding: "0 12px", fontSize: 16, fontWeight: 600, color: "var(--mut)" }}>+91</span>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              className={`inp${sent.problem === "bad_number" ? " err" : ""}`}
+              value={phone}
+              onChange={(event) => setTypedPhone(event.target.value)}
+              required
+              autoComplete="tel-national"
+              inputMode="numeric"
+              maxLength={16}
+              placeholder="98765 43210"
+              aria-describedby={sent.problem ? "code-request-error" : "phone-hint"}
+              aria-invalid={sent.problem === "bad_number" || undefined}
+              style={{ fontSize: 20, letterSpacing: "0.04em", flex: 1, minWidth: 0 }}
+            />
+          </span>
+          <span id="phone-hint" style={{ fontSize: 12, color: "var(--mut)" }}>{lead(T.phoneHint, language)}</span>
+        </label>
+
+        <Problem state={finished === sent.sends && sent.sends > 0 && sent.status === "sent" ? checked : sent} language={language} id="code-request-error" />
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={remember}
+          className="tap"
+          onClick={() => setRememberChoice(!remember)}
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0", width: "100%", border: 0, background: "transparent", color: "var(--fg)", textAlign: "left" }}
+        >
+          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{lead(T.remember, language)}</span>
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>{lead(T.rememberSub, language)}</span>
+          </span>
+          <span className={`sw${remember ? " on" : ""}`}><span /></span>
+        </button>
+
+        <button type="submit" className="tap btn pri" disabled={requesting} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
+          {requesting ? <RefreshCw size={20} className="spin" aria-hidden /> : <MessageCircle size={22} aria-hidden />}
+          {lead(requesting ? T.sending : T.send, language)}
+        </button>
+
+        <button type="button" className="tap btn sec" onClick={onUsePassword} style={{ height: 48, fontSize: 15, borderRadius: 14 }}>
+          <KeyRound size={18} aria-hidden />
+          {lead(T.usePassword, language)}
+        </button>
+      </form>
+    );
+  }
+
+  const masked = sent.masked ?? (phoneKey ? maskSignInPhone(phoneKey) : "");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }} className="rise">
+      <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
+
+      <div role="status" style={{ ...noteStyle, alignItems: "center", gap: 14, background: "var(--oks)", color: "var(--fg)" }}>
+        <SentTick key={sent.sends} />
+        <span style={{ display: "flex", flexDirection: "column", minWidth: 0, gap: 2 }}>
+          <strong style={{ fontSize: 16 }}>{lead(T.sentTitle, language)}</strong>
+          <span style={{ fontSize: 14 }}>
+            {lead(T.sentTo, language)} <span style={{ fontWeight: 650, letterSpacing: "0.02em", whiteSpace: "nowrap" }}>{masked}</span>
+          </span>
+        </span>
+      </div>
+      <span style={{ fontSize: 13, color: "var(--mut)", lineHeight: 1.5 }}><Two pair={T.sentBody} language={language} small /></span>
+
+      <a href={SCHOOL_CHAT} target="_blank" rel="noopener noreferrer" className="tap btn sec" style={{ height: 48, fontSize: 15, borderRadius: 14, textDecoration: "none" }}>
+        <MessageCircle size={20} aria-hidden />
+        {lead(T.openWhatsApp, language)}
+      </a>
+
+      <form ref={verifyForm} action={verifyAction} style={{ display: "flex", flexDirection: "column", gap: 14 }} aria-busy={verifying || undefined}>
+        <input type="hidden" name="next" value={next} />
+        <input type="hidden" name="round" value={sent.sends} />
+        <label htmlFor="code" className="field">
+          <span><Two pair={T.code} language={language} small /></span>
+          <input
+            id="code"
+            ref={codeRef}
+            name="code"
+            className={`inp${checked.problem === "wrong" || checked.problem === "type_code" ? " err" : ""}`}
+            value={code}
+            onChange={(event) => typeCode(event.target.value)}
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            pattern={`\\d{${SIGN_IN_CODE_LENGTH}}`}
+            maxLength={SIGN_IN_CODE_LENGTH + 2}
+            placeholder={"•".repeat(SIGN_IN_CODE_LENGTH)}
+            aria-describedby={checked.problem ? "code-verify-error" : "code-paste-hint"}
+            aria-invalid={checked.problem === "wrong" || undefined}
+            readOnly={verifying}
+            style={{ fontSize: 28, fontWeight: 650, letterSpacing: "0.5em", textAlign: "center", fontVariantNumeric: "tabular-nums", height: 64 }}
+          />
+        </label>
+
+        <button type="button" className="tap btn ghost" onClick={pasteCode} disabled={verifying} style={{ alignSelf: "flex-start", padding: "0 10px", marginLeft: -10, color: "var(--accfg)" }}>
+          <ClipboardPaste size={18} aria-hidden />
+          {lead(T.paste, language)}
+        </button>
+        <span id="code-paste-hint" style={{ fontSize: 12, color: "var(--mut)", marginTop: -10 }}>{lead(T.pasteHint, language)}</span>
+
+        <Problem state={checked} language={language} id="code-verify-error" />
+
+        <button type="submit" className="tap btn pri" disabled={verifying} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
+          {verifying ? <RefreshCw size={20} className="spin" aria-hidden /> : <ArrowRight size={22} aria-hidden />}
+          {lead(verifying ? T.checking : T.signIn, language)}
+        </button>
+      </form>
+
+      <Problem state={sent} language={language} id="code-resend-error" />
+
+      <form action={requestAction} style={{ display: "contents" }}>
+        <input type="hidden" name="phone" value={phoneKey ?? ""} />
+        <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
+        <button type="submit" className="tap btn sec" disabled={countdown > 0 || requesting} style={{ height: 48, fontSize: 15, borderRadius: 14 }}>
+          <RefreshCw size={18} className={requesting ? "spin" : undefined} aria-hidden />
+          {countdown > 0 ? `${lead(T.againIn, language)} ${countdown}${lead(T.seconds, language)}` : lead(T.again, language)}
+        </button>
+      </form>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <button type="button" className="tap btn ghost" onClick={() => setChanging(sent.sends)} style={{ padding: "0 8px", marginLeft: -8 }}>
+          <ArrowLeft size={18} aria-hidden />
+          {lead(T.change, language)}
+        </button>
+        <button type="button" className="tap btn ghost" onClick={onUsePassword} style={{ padding: "0 8px", color: "var(--accfg)" }}>
+          <KeyRound size={18} aria-hidden />
+          {lead(T.usePassword, language)}
+        </button>
+      </div>
+
+      <div style={{ ...noteStyle, background: "var(--infos)", color: "var(--info)", fontSize: 13 }}>
+        <span><Two pair={T.noCode} language={language} small /></span>
+      </div>
+    </div>
+  );
+}

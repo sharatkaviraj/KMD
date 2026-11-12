@@ -49,7 +49,8 @@ with
     'restore_drills','sampark_import_batches','sampark_import_rows','smoke_findings','smoke_passes','smoke_pool','smoke_runs',
     'teacher_task_previews','whatsapp_inbound','whatsapp_message_events','whatsapp_messages','whatsapp_templates',
     'parent_helper_settings','parent_helper_chats','parent_helper_turns',
-    'parent_helper_handoffs','parent_helper_alerts','parent_helper_deliveries','staff_whatsapp_links'])),
+    'parent_helper_handoffs','parent_helper_alerts','parent_helper_deliveries','staff_whatsapp_links',
+    'staff_sign_in_settings','staff_sign_in_codes'])),
   -- @buckets-end
   -- References with no foreign key that the catalog does not find by name
   -- (lib/quarantine-rules.mjs TABLES: staffRefs, classRefs, staffArrays,

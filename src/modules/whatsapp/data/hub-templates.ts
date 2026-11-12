@@ -1,9 +1,9 @@
 import "server-only";
 
 import {
+  ALL_HUB_SUBMISSIONS,
   HUB_SUBMIT_PER_HOUR,
   HUB_SUBMIT_PER_PRESS,
-  HUB_TEMPLATE_SUBMISSIONS,
   hubExpectedBodies,
 } from "@/modules/whatsapp/domain/hub-templates";
 import { submitTemplates, syncTemplates } from "@/platform/whatsapp/service";
@@ -26,7 +26,7 @@ export function syncHubTemplates(actor: { staffId: string | null }, siteOrigin: 
  * one press's worth. Nothing is sent to a parent or a member of staff.
  */
 export function submitHubTemplateSet(actor: { staffId: string | null }) {
-  return submitTemplates(HUB_TEMPLATE_SUBMISSIONS, actor, { limit: HUB_SUBMIT_PER_PRESS });
+  return submitTemplates(ALL_HUB_SUBMISSIONS, actor, { limit: HUB_SUBMIT_PER_PRESS });
 }
 
 /**
@@ -35,5 +35,5 @@ export function submitHubTemplateSet(actor: { staffId: string | null }) {
  * an admin's "Send for approval", so a refusal is never repeated every hour.
  */
 export function submitNewHubTemplates() {
-  return submitTemplates(HUB_TEMPLATE_SUBMISSIONS, { staffId: null }, { limit: HUB_SUBMIT_PER_HOUR, newOnly: true });
+  return submitTemplates(ALL_HUB_SUBMISSIONS, { staffId: null }, { limit: HUB_SUBMIT_PER_HOUR, newOnly: true });
 }

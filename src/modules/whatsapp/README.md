@@ -24,6 +24,10 @@ Fee reminders and the message templates behind them.
 - Veer Patta AI, the helper that answers parents on the school's number,
   and its hand-offs to staff and their answers back
   (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584); see below
+- Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
+  D-585..D-587): the code, its hash, the send through the hub. The page is
+  `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
+  The code is never stored or logged, and never goes to `whatsapp_messages`
 - The fee calendar's read of who is due a reminder today (`domain/installment-calendar.ts`)
 - Grouping the audience into families, one message per family: a shared number or linked siblings (`domain/family-grouping.ts`)
 - Turning the same audience into paper a teacher can carry (`domain/collection-list.ts`)

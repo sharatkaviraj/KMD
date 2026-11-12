@@ -128,6 +128,45 @@ export const waMessages = {
   repliesHelp: t("स्कूल के नंबर पर आए जवाब। One अपने-आप कोई जवाब नहीं भेजता।", "Replies to the school's number. One never answers by itself."),
   replyTo: t("इसका जवाब:", "Answers:"),
 
+  // sign in with a WhatsApp code (D-585)
+  signInTitle: t("WhatsApp कोड से साइन इन", "Sign in with a WhatsApp code"),
+  signInHelp: t(
+    "स्टाफ़ साइन-इन पेज पर अपना मोबाइल नंबर लिखते हैं और स्कूल के नंबर से WhatsApp पर 6 अंकों का कोड पाते हैं। नंबर उनके स्टाफ़ रिकॉर्ड में होना चाहिए। ईमेल और पासवर्ड हमेशा चलते रहेंगे।",
+    "Staff type their mobile number on the sign-in page and get a 6-digit code on WhatsApp from the school's number. The number must be on their staff record. Email and password always keep working.",
+  ),
+  signInModes: {
+    off: t("बंद", "Off"),
+    owner_only: t("सिर्फ़ मालिक का जाँच नंबर", "Owner's test number only"),
+    all_staff: t("सभी स्टाफ़", "All staff"),
+  },
+  signInModeHelp: {
+    off: t("साइन-इन पेज पर सिर्फ़ ईमेल और पासवर्ड।", "The sign-in page shows email and password only."),
+    owner_only: t(
+      "कोड सिर्फ़ मालिक के जाँच नंबर पर जाता है। साइन-इन पेज पहले ईमेल और पासवर्ड दिखाता है; कोड वाला तरीका /login?with=code पर है।",
+      "Codes go to the owner's test number only. The sign-in page opens on email and password; the code is at /login?with=code.",
+    ),
+    all_staff: t(
+      "साइन-इन पेज कोड से खुलता है। जिस स्टाफ़ का नंबर रिकॉर्ड में है, उसे माँगने पर कोड मिलेगा।",
+      "The sign-in page opens on the code. Any staff member whose number is on their record gets a code when they ask.",
+    ),
+  },
+  signInPick: t("कौन कोड से साइन इन कर सकता है", "Who can sign in with a code"),
+  signInCurrent: t("अभी यही", "Current"),
+  signInAllConfirm: t(
+    "सभी स्टाफ़ के लिए चालू करें? साइन-इन पेज कोड से खुलेगा, और जिसका नंबर रिकॉर्ड में है उसे माँगने पर कोड जाएगा।",
+    "Turn on for all staff? The sign-in page will open on the code, and anyone whose number is on their record gets a code when they ask.",
+  ),
+  signInStaff: t("मोबाइल नंबर वाले स्टाफ़", "Staff with a mobile number"),
+  signInStaffCount: (withNumber: number, total: number) => t(`${total} में से ${withNumber}`, `${withNumber} of ${total}`),
+  signInUsed: t("इस हफ़्ते कोड से साइन इन", "Signed in with a code this week"),
+  signInRefused: t("इस हफ़्ते WhatsApp ने कोड नहीं लिया", "Codes WhatsApp refused this week"),
+  signInTemplates: t("Meta टेम्पलेट (हिंदी · English)", "Meta templates (Hindi · English)"),
+  signInNoTemplate: t(
+    "Meta जब तक साइन-इन टेम्पलेट मंज़ूर नहीं करता, कोई कोड नहीं जाएगा। ये ऊपर 'हब' कार्ड से मंज़ूरी के लिए जाते हैं।",
+    "No code can go until Meta approves the sign-in templates. They go for approval from the hub card above.",
+  ),
+  signInUnread: t("यह सेटिंग अभी पढ़ी नहीं जा सकी, इसलिए कोड से साइन इन बंद माना गया।", "This setting could not be read just now, so code sign-in counts as off."),
+
   // results of actions
   done: t("हो गया", "Done"),
   failedToSave: t("सहेजा नहीं जा सका। फिर कोशिश करें।", "Could not save. Try again."),
@@ -157,6 +196,7 @@ export function noteFor(note: string, params: Record<string, string | undefined>
     case "feature_saved":
       return { tone: "ok", text: t("सहेज लिया।", "Saved.") };
     case "save_bad":
+    case "signin_bad":
       return { tone: "bad", text: waMessages.failedToSave };
     case "feature_fees_app":
       return { tone: "info", text: waMessages.feesAppSendsHelp };
@@ -180,6 +220,8 @@ export function noteFor(note: string, params: Record<string, string | undefined>
         ),
       };
     }
+    case "signin_saved":
+      return { tone: "ok", text: t("सहेज लिया। साइन-इन पेज आधे मिनट में बदल जाएगा।", "Saved. The sign-in page changes within half a minute.") };
     case "hub_bad":
       return { tone: "bad", text: t(`मंज़ूरी के लिए नहीं भेजा जा सका: ${why}`, `Could not send for approval: ${why}`) };
     case "retry_accepted":
@@ -222,6 +264,7 @@ export const featureLabels: Record<string, Localized> = {
   staff_notice: t("स्टाफ़ सूचनाएँ", "Staff notices"),
   teacher_task: t("शिक्षक कार्य", "Teacher tasks"),
   parent_helper: t("Veer Patta AI (अभिभावकों के सवाल)", "Veer Patta AI (parents' questions)"),
+  staff_login: t("साइन-इन कोड (स्टाफ़)", "Sign-in codes (staff)"),
 };
 
 export const messageStatusLabels: Record<string, Localized> = {

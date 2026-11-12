@@ -5,8 +5,9 @@ import { preservePasswordViewport } from "@/ui/auth/preserve-password-viewport";
 import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
+import { CodeSignInForm } from "@/app/login/code-form";
 import type { Language } from "@/platform/i18n/language";
-import { ArrowRight, Eye, EyeOff, Info, KeyRound, RefreshCw, TriangleAlert } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Info, KeyRound, MessageCircle, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { lead, p, under, type Pair } from "@/vx/text";
 
@@ -48,6 +49,8 @@ export const LOGIN_TEXT = {
   ),
   ok: p("OK", "ठीक है"),
   badHelp: p("Try again or ask the admin to reset it. Check that Caps Lock is off.", "फिर से कोशिश करें या प्रशासक से पासवर्ड बदलवाएँ। देखें कि Caps Lock बंद है।"),
+  useCode: p("Sign in with a WhatsApp code", "WhatsApp कोड से साइन इन करें"),
+  useCodeSub: p("No password needed", "पासवर्ड की ज़रूरत नहीं"),
 } satisfies Record<string, Pair>;
 const T = LOGIN_TEXT;
 
@@ -67,6 +70,19 @@ const BAD_CREDENTIALS_EN = "That email and password do not match an account.";
 
 const REMEMBER_KEY = "vx:login:email";
 const REMEMBER_OFF_KEY = "vx:login:remember-off";
+/** The way this phone last chose: "code" or "password". */
+const WAY_KEY = "vx:login:way";
+
+/**
+ * How sign-in by WhatsApp code shows on this page (D-585), from Settings →
+ * WhatsApp: `default` (all staff: the page opens on the code), `offered`
+ * (owner's number only: reachable with `?with=code`, and remembered on that
+ * phone), `none` (off: email and password only).
+ */
+export type CodeSignInOffer = "default" | "offered" | "none";
+
+type Way = "code" | "password";
+const isWay = (value: string | null | undefined): value is Way => value === "code" || value === "password";
 
 function readStore(key: string): string {
   try {
@@ -106,7 +122,41 @@ const noteStyle = { display: "flex", alignItems: "flex-start", gap: 10, padding:
 
 const eyeStyle = { position: "absolute", right: 4, bottom: 2, width: 40, height: 40, padding: 0, border: 0, borderRadius: 10, background: "transparent", color: "var(--mut)", display: "flex", alignItems: "center", justifyContent: "center" } as const;
 
-export function LoginForm({ language, initial = initialLoginState }: { language: Language; /** The design fixture draws the error state with this. */ initial?: LoginActionState }) {
+export function LoginForm({
+  language,
+  initial = initialLoginState,
+  codeSignIn = "none",
+}: {
+  language: Language;
+  /** The design fixture draws the error state with this. */
+  initial?: LoginActionState;
+  codeSignIn?: CodeSignInOffer;
+}) {
+  const searchParams = useSearchParams();
+  const asked = searchParams.get("with");
+  const storedWay = useSyncExternalStore(noSubscribe, () => readStore(WAY_KEY), () => "");
+  const [picked, setPicked] = useState<Way | null>(null);
+
+  // The person's own tap wins, then the link, then what this phone chose last,
+  // then the school's setting.
+  const chosen: Way = picked ?? (isWay(asked) ? asked : null) ?? (isWay(storedWay) ? storedWay : null) ?? (codeSignIn === "default" ? "code" : "password");
+  const way: Way = codeSignIn === "none" ? "password" : chosen;
+  const codeOffered = codeSignIn === "default" || (codeSignIn === "offered" && (asked === "code" || storedWay === "code" || picked !== null));
+
+  const pick = (next: Way) => {
+    writeStore(WAY_KEY, next);
+    setPicked(next);
+  };
+
+  const next = searchParams.get("next") ?? "";
+  const reason = REASONS[searchParams.get("reason") ?? ""];
+  if (way === "code") {
+    return <CodeSignInForm language={language} next={next} notice={reason ?? null} onUsePassword={() => pick("password")} />;
+  }
+  return <PasswordSignInForm language={language} initial={initial} onUseCode={codeOffered ? () => pick("code") : null} />;
+}
+
+function PasswordSignInForm({ language, initial, onUseCode }: { language: Language; initial: LoginActionState; onUseCode: (() => void) | null }) {
   const searchParams = useSearchParams();
   const [state, formAction, isPending] = useActionState<LoginActionState, FormData>(loginAction, initial);
 
@@ -254,6 +304,16 @@ export function LoginForm({ language, initial = initialLoginState }: { language:
         {isPending ? <RefreshCw size={20} className="spin" aria-hidden /> : <ArrowRight size={20} aria-hidden />}
         {lead(isPending ? T.signingIn : T.signIn, language)}
       </button>
+
+      {onUseCode ? (
+        <button type="button" className="tap btn sec" onClick={onUseCode} style={{ height: 52, fontSize: 15, borderRadius: 14, flexDirection: "column", gap: 0, lineHeight: 1.2 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <MessageCircle size={18} aria-hidden />
+            {lead(T.useCode, language)}
+          </span>
+          <span style={{ fontSize: 12, color: "var(--mut)", fontWeight: 500 }}>{lead(T.useCodeSub, language)}</span>
+        </button>
+      ) : null}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <button type="button" className="tap btn ghost" onClick={() => setForgot((v) => !v)} aria-expanded={forgot} aria-controls="login-forgot" style={{ padding: "0 8px", marginLeft: -8, color: "var(--accfg)" }}>

@@ -35,6 +35,8 @@ jobs:
         run: node tests/sql/staff-whatsapp-link.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
       - name: Exercise Did this answer help? (asked once, the tap kept, one office hand-off per no)
         run: node tests/sql/parent-helper-ratings.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+      - name: Exercise sign in with a WhatsApp code (limits, one-time check, no enumeration, grants)
+        run: node tests/sql/staff-sign-in-codes.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
   lock-order:
     runs-on: ubuntu-latest
     timeout-minutes: 5
