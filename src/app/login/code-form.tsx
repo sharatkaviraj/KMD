@@ -196,11 +196,11 @@ function useButtonAboveKeyboard(area: RefObject<HTMLElement | null>, button: Ref
  * the keyboard went, the page dropped back by about 200px and the button was
  * no longer under the finger, so nothing was sent until a second tap. Keeping
  * the box focused through the tap keeps the page still; the step that follows
- * moves focus itself. The password eye does the same (login-form.tsx). A mouse
- * is left alone.
+ * moves focus itself. The password eye does the same (login-form.tsx). Every
+ * kind of pointer, not only a finger: BrowserStack's taps arrive as a mouse
+ * press and a separate release, and the page moved between the two.
  */
 function keepTypingThroughTap(event: ReactPointerEvent<HTMLElement>) {
-  if (event.pointerType === "mouse") return;
   const active = document.activeElement;
   if (!(active instanceof HTMLInputElement) || !event.currentTarget.contains(active)) return;
   const target = event.target instanceof Element ? event.target : null;

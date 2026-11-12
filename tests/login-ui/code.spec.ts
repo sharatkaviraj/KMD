@@ -99,5 +99,11 @@ test.describe("on a touch screen", () => {
     await page.getByRole("button", { name: "Change number" }).tap();
     expect(await focusAtClick()).toBe("code");
     await expect(page.locator("#phone")).toBeVisible();
+
+    // A press and release sent separately, as BrowserStack's driver sends
+    // them, which is how the Galaxy M32 check met it: the box keeps focus.
+    await page.locator("#phone").focus();
+    await page.getByRole("button", { name: "Use email and password instead" }).click();
+    expect(await focusAtClick()).toBe("phone");
   });
 });
