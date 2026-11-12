@@ -72,3 +72,32 @@ for (const lang of ["en", "hi"]) {
     expect(code.y).toBeGreaterThanOrEqual(0);
   });
 }
+
+// A Galaxy M32 on BrowserStack (12 Nov): with the keyboard up, the first tap
+// on Send code, and on Change, only closed the keyboard. The tap moved focus
+// off the box, the keyboard went and the page dropped back under the finger.
+// A desktop Chromium has no keyboard to close, so this checks the cause: at
+// the moment of the click the box being typed into still has focus.
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+  test("a tap on Send code, then on Change, leaves the box focused until the click", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.goto("/?code=1&sent=1&lang=en");
+    await settle(page);
+    await page.evaluate(() => document.addEventListener("click", () => {
+      (window as unknown as { focusAtClick: string }).focusAtClick = document.activeElement?.id || document.activeElement?.tagName || "";
+    }, { capture: true }));
+    const focusAtClick = () => page.evaluate(() => (window as unknown as { focusAtClick: string }).focusAtClick);
+
+    await page.locator("#phone").fill("9876543210");
+    await page.locator("#phone").focus();
+    await page.locator('form button[type="submit"]').first().tap();
+    expect(await focusAtClick()).toBe("phone");
+    await expect(page.locator("#code")).toBeVisible();
+
+    await page.locator("#code").focus();
+    await page.getByRole("button", { name: "Change number" }).tap();
+    expect(await focusAtClick()).toBe("code");
+    await expect(page.locator("#phone")).toBeVisible();
+  });
+});

@@ -22,7 +22,9 @@ are added (Staff, or Link my WhatsApp).
 optimised" on his phone and asked to keep code sign-in for himself only (it
 already is). Both steps now fit one phone screen, the code card sits at the
 top on a phone, and Send code / Sign in stay above the keyboard; checked by
-`tests/login-ui/code.spec.ts`.
+`tests/login-ui/code.spec.ts`. BrowserStack (Galaxy M32, Windows Chrome) passed
+every step but one: with the keyboard up, the first tap on Send code or Change
+only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 
 ## Veer Patta AI, the WhatsApp helper for parents — 12 November 2026
 

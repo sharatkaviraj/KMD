@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { ArrowRight, ClipboardPaste, Info, KeyRound, MessageCircle, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { requestCodeAction, verifyCodeAction, type CodeActionState, type CodeProblem } from "@/app/login/actions";
@@ -189,6 +189,25 @@ function useButtonAboveKeyboard(area: RefObject<HTMLElement | null>, button: Ref
   }, [area, button]);
 }
 
+/**
+ * A finger on a button while the keyboard is up must not close the keyboard
+ * first. On a Galaxy M32 (BrowserStack, 12 Nov) the first tap on Send code,
+ * and on Change, only closed the keyboard: the tap moved focus off the box,
+ * the keyboard went, the page dropped back by about 200px and the button was
+ * no longer under the finger, so nothing was sent until a second tap. Keeping
+ * the box focused through the tap keeps the page still; the step that follows
+ * moves focus itself. The password eye does the same (login-form.tsx). A mouse
+ * is left alone.
+ */
+function keepTypingThroughTap(event: ReactPointerEvent<HTMLElement>) {
+  if (event.pointerType === "mouse") return;
+  const active = document.activeElement;
+  if (!(active instanceof HTMLInputElement) || !event.currentTarget.contains(active)) return;
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || target.closest("input, textarea, select") || !target.closest("button, a")) return;
+  event.preventDefault();
+}
+
 /** A tick that draws itself: the code has gone. */
 function SentTick() {
   return (
@@ -292,7 +311,7 @@ export function CodeSignInForm({
 
   if (!onCodeStep) {
     return (
-      <div ref={stepRef} className="fadein lg-code" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div ref={stepRef} onPointerDown={keepTypingThroughTap} className="fadein lg-code" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <form action={requestAction} onSubmit={keepPhone} style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-busy={requesting || undefined}>
         <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -369,7 +388,7 @@ export function CodeSignInForm({
   // number, what to do, the two buttons that do it, the box, Sign in. The
   // rest waits below, and "no code?" only once a new code could be asked for.
   return (
-    <div ref={stepRef} style={{ display: "flex", flexDirection: "column", gap: 14 }} className="rise lg-code">
+    <div ref={stepRef} onPointerDown={keepTypingThroughTap} style={{ display: "flex", flexDirection: "column", gap: 14 }} className="rise lg-code">
       <div role="status" style={{ ...noteStyle, alignItems: "center", gap: 12, padding: "10px 6px 10px 12px", background: "var(--oks)", color: "var(--fg)" }}>
         <SentTick key={sent.sends} />
         <span style={{ display: "flex", flexDirection: "column", minWidth: 0, gap: 1, flex: 1 }}>
