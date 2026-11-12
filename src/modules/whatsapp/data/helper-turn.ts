@@ -54,8 +54,10 @@ import {
   readChat,
   readChildFacts,
   readHelperSettings,
+  saveAbsenceNotes,
   saveChat,
   startTurn,
+  type AbsenceRow,
   type HelperSettings,
   type TurnFinish,
 } from "./helper-store";
@@ -131,6 +133,8 @@ export type HelperDeps = {
   staffLink?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
   /** A tap on "Did this answer help?", kept against this number's own hand-offs (D-584). */
   rateAnswer?: (input: { from: string; key: string; value: RatingValue }) => Promise<RateResult>;
+  /** A child the parent says will be away, kept for the register (D-588); true when kept. */
+  saveAbsence?: (row: AbsenceRow) => Promise<boolean>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -173,6 +177,7 @@ export function liveHelperDeps(): HelperDeps {
     openHandoff: (input) => openHandoff(input, relay),
     staffLink: (message) => handleStaffLink(message, link),
     rateAnswer: (input) => rateAnswer(input, relay),
+    saveAbsence: (row) => saveAbsenceNotes(row),
   };
 }
 
@@ -271,6 +276,27 @@ async function compose(input: {
     else {
       reply = { ...reply, message: handoffFailedReply({ ...context, firstContact: false }) };
       note = "handoff_not_saved";
+    }
+    // A child who will be away: the register shows it once the hand-off is in Messages (D-588).
+    // The parent is told about the register only when the days were kept.
+    const away = handoff.absence;
+    if (parentReplyId && away && handoff.child) {
+      const kept = deps.saveAbsence
+        ? await deps
+            .saveAbsence({
+              studentId: handoff.child.studentId,
+              sessionLabel: handoff.child.sessionLabel,
+              days: away.days,
+              reason: away.reason,
+              parentReplyId,
+              practice: family.practice,
+            })
+            .catch(() => false)
+        : false;
+      if (!kept) {
+        reply = { ...reply, message: away.unsaved };
+        note = "absence_not_saved";
+      }
     }
   }
   return { reply, claude, parentReplyId, handedTo, note, followUp: null };

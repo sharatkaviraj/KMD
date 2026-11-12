@@ -1,6 +1,7 @@
 import "server-only";
 
 import { dayStartIst, monthStartIst } from "@/modules/assist/domain/cost";
+import type { AbsenceReason } from "@/modules/whatsapp/domain/helper-absence";
 import { childFactsFromRow, type ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import { EMPTY_CHAT, type ChatPatch, type ChatState, type TurnRoute } from "@/modules/whatsapp/domain/helper-plan";
 import type { HandoffTarget } from "@/modules/whatsapp/domain/helper-replies";
@@ -12,7 +13,8 @@ import { whatsappDb } from "@/platform/whatsapp/store";
  * Veer Patta AI's reads and writes in One's database (D-574), all in
  * `vppsone` through the service role. Nothing here stores what a parent wrote
  * except a hand-off, which is the parent's message put in front of the school
- * on purpose (`parent_replies`, One's Messages inbox).
+ * on purpose (`parent_replies`, One's Messages inbox). A note that a child
+ * will be away keeps the days and a word for why, never the words (D-588).
  */
 
 type Db = ReturnType<typeof whatsappDb>;
@@ -251,4 +253,58 @@ export async function insertHandoff(
   } catch {
     return null;
   }
+}
+
+export type AbsenceRow = {
+  studentId: string;
+  sessionLabel: string;
+  days: readonly string[];
+  reason: AbsenceReason;
+  /** The hand-off the note came with. */
+  parentReplyId: string | null;
+  practice: boolean;
+};
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A parent's word that a child will be away (D-588): one row per day, which
+ * the class's register shows as "Parent informed". A day already noted keeps
+ * its first note. An absent alert still waiting in Messages → To send for one
+ * of those days is stopped, because the parent told the school first; that
+ * step is best effort, as the register's own save stops it again. True when
+ * the days are kept.
+ */
+export async function saveAbsenceNotes(row: AbsenceRow, db: Db = whatsappDb()): Promise<boolean> {
+  const days = [...new Set(row.days)].filter((day) => DAY.test(day));
+  if (!UUID.test(row.studentId) || days.length === 0) return false;
+  try {
+    const { error } = await db.from("parent_absence_notes").upsert(
+      days.map((day) => ({
+        student_id: row.studentId,
+        session_label: row.sessionLabel,
+        day,
+        reason: row.reason,
+        parent_reply_id: row.parentReplyId,
+        practice: row.practice,
+      })),
+      { onConflict: "student_id,day", ignoreDuplicates: true },
+    );
+    if (error) return false;
+  } catch {
+    return false;
+  }
+  try {
+    await db
+      .from("parent_message_queue")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+      .eq("session_label", row.sessionLabel)
+      .eq("kind", "absent_alert")
+      .eq("status", "queued")
+      .eq("student_id", row.studentId)
+      .in("day", days);
+  } catch {
+    // The register's next save drops it too.
+  }
+  return true;
 }

@@ -1,5 +1,6 @@
 import { sameNumber } from "@/platform/whatsapp/numbers";
 
+import type { AbsenceNote } from "./helper-absence";
 import { istHour, type ChildFacts } from "./helper-facts";
 import type { HelperMessage } from "./helper-messages";
 import {
@@ -73,6 +74,11 @@ export type HandoffPlan = {
   body: string;
   /** What it is about, in a word: message_teacher, office, complaint, fees, request … */
   topic: string;
+  /**
+   * The child will be away (D-588): the days for the register, kept once the
+   * hand-off is, and the reply to send instead when they could not be kept.
+   */
+  absence?: (AbsenceNote & { unsaved: HelperMessage }) | null;
 };
 
 /** How a reply was decided: a rule, a tap, Claude (quick or careful), or the menu when nothing else could. */
@@ -136,7 +142,12 @@ export function settleHandoff(target: HandoffTarget, child: ChildFacts | null): 
   return { target, child };
 }
 
-/** The plan for a message the helper has decided to put in front of the school. */
+/**
+ * The plan for a message the helper has decided to put in front of the
+ * school. With `absence` (a child the parent says will be away, D-588) and a
+ * child to keep it for, the reply says which register shows it; the reply
+ * without that line goes instead when the note could not be kept.
+ */
 export function handoffReply(
   context: ReplyContext,
   wanted: HandoffTarget,
@@ -145,15 +156,21 @@ export function handoffReply(
   topic: string,
   now: Date,
   aiReply?: string | null,
+  absence?: AbsenceNote | null,
 ): { message: HelperMessage; handoff: HandoffPlan } {
   const settled = settleHandoff(wanted, child);
-  const message = handoffAck(context, settled.target, {
+  const detail = {
     child: settled.child,
     teacherName: settled.target === "class_teacher" ? settled.child?.classTeacher?.name ?? null : null,
     lateHour: isLateHour(now),
     aiReply: aiReply ?? null,
-  });
-  return { message, handoff: { target: settled.target, child: settled.child, body, topic } };
+  };
+  const message = handoffAck(context, settled.target, detail);
+  if (!absence || !settled.child) return { message, handoff: { target: settled.target, child: settled.child, body, topic } };
+  return {
+    message: handoffAck(context, settled.target, { ...detail, absence }),
+    handoff: { target: settled.target, child: settled.child, body, topic, absence: { ...absence, unsaved: message } },
+  };
 }
 
 /**

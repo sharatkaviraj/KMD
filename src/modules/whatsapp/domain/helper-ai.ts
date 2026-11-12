@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { formatInr } from "@/platform/helpers/currency";
 
+import { ABSENCE_REASONS, absenceNote } from "./helper-absence";
 import type { ChildFacts } from "./helper-facts";
 import { childByKey, handoffReply, type TurnPlan } from "./helper-plan";
 import { aiAnswer, cardFor, fallbackReply, menuCard, OFFICE_PHONE, type Family, type HandoffTarget, type ReplyContext } from "./helper-replies";
@@ -21,6 +22,10 @@ import type { HelperLanguage } from "./helper-text";
  * moment before, and never a photo. It writes words, never figures: for fees,
  * receipts, attendance and results it names the card, and the card, built
  * from the same records, says the numbers.
+ *
+ * A parent's word that a child will be away (D-588) is read here too: Claude
+ * says from when, for how many school days and why, the message goes to the
+ * class teacher, and the reply says which day's register shows it.
  */
 
 export const HELPER_MODELS = { quick: "claude-haiku-5-5", careful: "claude-opus-5-5" } as const;
@@ -51,6 +56,15 @@ export const helperAnswerSchema = z.object({
   child: z.string().nullable(),
   needs_care: z.boolean(),
   summary: z.string().nullable(),
+  // A child the parent says will be away (D-588). No bounds here: the API is
+  // not told them, so a 10 would fail the whole answer; `absenceDays` keeps it to 1-7.
+  absence: z
+    .object({
+      from: z.enum(["today", "tomorrow"]),
+      days: z.number(),
+      reason: z.enum(ABSENCE_REASONS),
+    })
+    .nullable(),
 });
 
 export type HelperAnswer = z.infer<typeof helperAnswerSchema>;
@@ -84,6 +98,10 @@ export function helperSystemPrompt(helperName: string): string {
     '- Admission, transfer certificate, documents, transport, timings, and anything else for the office -> "office".',
     '- A question you can fully answer from FACTS and the cards -> "none".',
     'When you hand off, "reply" says in one sentence that you have understood. Do not say it has been sent or forwarded: the next line of the message says that. For a hand-off, "summary" is one line in English for the member of staff: what the parent wants, naming the child by first name only. Otherwise "summary" is null.',
+    "",
+    'A CHILD WHO WILL BE AWAY (set "absence")',
+    '- Only when the parent tells the school that a child will not come to school: ill, a family matter, travel, a wedding. Set "from" to "today" or "tomorrow" as the parent means it (read TODAY and the time in FACTS: "kal" with a future verb is tomorrow), "days" to how many school days (1 when the parent does not say, at most 7), and "reason" to "sick" for any illness, otherwise "other". Hand it off to "class_teacher" with topic "leave", and set "child".',
+    '- Otherwise "absence" is null: a question about attendance, a child who was away on a day that has passed, coming late or leaving early, or a holiday the whole school has.',
     "",
     "OTHER FIELDS",
     '- "child": the key of the child the message is about, exactly as in FACTS, or null.',
@@ -173,10 +191,15 @@ export function planFromAnswer(
   const words = answer.reply.trim().slice(0, MAX_REPLY_CHARS).trim();
   const named = childByKey(input.family, answer.child);
   const child = named ?? (input.family.children.length === 1 ? input.family.children[0] : null);
+  // A child who will be away goes to the class teacher and onto the register (D-588);
+  // with no child to keep it for, it is a hand-off like any other.
+  const away = child ? absenceNote(answer.absence, input.now) : null;
+  const target: HandoffTarget | "none" = answer.handoff !== "none" ? answer.handoff : away ? "class_teacher" : "none";
 
-  if (answer.handoff !== "none") {
-    const handed = handoffReply(context, answer.handoff as HandoffTarget, child, input.text, answer.topic, input.now, words || null);
-    return { action: "reply", intent: answer.topic, route: "ai", language, message: handed.message, chat: { language }, handoff: handed.handoff };
+  if (target !== "none") {
+    const topic = answer.handoff !== "none" ? answer.topic : "leave";
+    const handed = handoffReply(context, target, child, input.text, topic, input.now, words || null, away);
+    return { action: "reply", intent: topic, route: "ai", language, message: handed.message, chat: { language }, handoff: handed.handoff };
   }
   if (!words) {
     return { action: "reply", intent: "fallback", route: "fallback", language, message: fallbackReply(context), chat: { language }, handoff: null };

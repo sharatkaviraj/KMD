@@ -23,7 +23,7 @@ are added (Staff, or Link my WhatsApp).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -91,8 +91,20 @@ rated again. `ratingQuestion`, `ratingReply`, `ratingKey`, `followUpBody`
 (domain), `askRating`, `rateAnswer`, `composeRating` (data). Migration
 `20261112110044_parent_helper_ratings.sql` applied to One 12 Nov 11:00 UTC
 before the code merged (checked: four new columns, the rules and the unique
-index, still service role only). No new screen. **Next:** sick-day notes
-shown as "parent informed" on the register.
+index, still service role only). No new screen. PR 354 merged 12 Nov 11:11
+UTC (1a54ead), live 11:12 UTC (`dpl_29vEfKA38vTeKcfBXzCgtRuzVXaU`).
+
+**Step 2b, sick-day notes (D-588), practice only:** "Riya bimar hai, aaj nahi
+aayegi" goes to the class teacher and keeps the days the parent named (today
+or tomorrow, school days, Sundays skipped, up to 7). The register for that
+day shows "Parent informed" (· sick) beside the child, starts the child as
+Absent (the teacher can change it), and queues no absent WhatsApp for that
+family; the save sheet says so. The parent is told which day's register shows
+it once the days are kept. `domain/helper-absence.ts`, `saveAbsenceNotes`,
+`modules/attendance/data/parent-notes.ts`, the register screen. Migration
+`20261112113517_parent_absence_notes.sql` applied to One 12 Nov 11:35 UTC
+before the code merged. Counted as Absent, not Leave, until the owner says
+otherwise. **Next:** step 3.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

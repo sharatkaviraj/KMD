@@ -11,6 +11,7 @@ vi.mock("@/modules/whatsapp/data/helper-store", () => ({
   readChat: vi.fn(),
   readChildFacts: vi.fn(),
   readHelperSettings: vi.fn(),
+  saveAbsenceNotes: vi.fn(),
   saveChat: vi.fn(),
   startTurn: vi.fn(),
 }));
@@ -83,7 +84,7 @@ function inbound(over: Partial<WebhookInbound> = {}): WebhookInbound {
 }
 
 function answer(over: Partial<HelperAnswer> = {}): HelperAnswer {
-  return { language: "en", topic: "other", reply: "Happy to help.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, ...over };
+  return { language: "en", topic: "other", reply: "Happy to help.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, absence: null, ...over };
 }
 
 const CLAIMED: ClaimResult = { ok: true, claimed: true, typing: true, staff: false, stale: false, takenBy: null };
@@ -309,6 +310,63 @@ describe("when Veer Patta AI answers", () => {
     askClaude.mockResolvedValueOnce({ answer: answer({ topic: "complaint", handoff: "accounts", reply: "Sorry." }), model: "claude-haiku-5-5", careful: false, costUsd: 0.002, problem: null });
     expect(await runHelperTurn(inbound({ text: DISPUTE }), deps)).toMatchObject({ outcome: "answered", handoff: "accounts" });
     expect(calls.handoffs[0]).toMatchObject({ assignedStaffId: null, regarding: `Veer Patta AI · complaint: ${DISPUTE}` });
+  });
+
+  describe("a child who will be away (D-588)", () => {
+    const AWAY = "Aarav is unwell and will not come today";
+    const sickToday = {
+      answer: answer({ topic: "leave", handoff: "class_teacher", reply: "I hope Aarav feels better soon.", child: aarav.key, summary: "Aarav is unwell, away today.", absence: { from: "today" as const, days: 1, reason: "sick" as const } }),
+      model: null,
+      careful: false,
+      costUsd: 0.002,
+      problem: null,
+    };
+
+    it("keeps the day once the hand-off is in Messages, and tells the parent the register will show it", async () => {
+      const kept: unknown[] = [];
+      const { deps, calls, askClaude } = fakes({
+        saveAbsence: async (row) => {
+          kept.push({ row, handoffsBefore: calls.handoffs.length });
+          return true;
+        },
+      });
+      askClaude.mockResolvedValueOnce(sickToday);
+      expect(await runHelperTurn(inbound({ text: AWAY }), deps)).toEqual({ outcome: "answered", route: "ai", intent: "leave", handoff: "class_teacher" });
+      expect(kept).toEqual([
+        { row: { studentId: AARAV_ID, sessionLabel: "TEST-2026-27", days: ["2026-11-12"], reason: "sick", parentReplyId: REPLY_ID, practice: true }, handoffsBefore: 1 },
+      ]);
+      expect(calls.handoffs[0]).toMatchObject({ studentId: AARAV_ID, body: AWAY, regarding: "Veer Patta AI · leave: Aarav is unwell, away today." });
+      const sent = bodyText(calls.sent[0]);
+      expect(sent).toContain(`passed to *${aarav.firstName}*'s class teacher (TEST Teacher One)`);
+      expect(sent).toContain("Today's register will show that you told the school.");
+      expect(sent).toContain(`We hope *${aarav.firstName}* feels better soon.`);
+      expect(calls.finished[0][1]).toMatchObject({ status: "answered", handoff: "class_teacher", parentReplyId: REPLY_ID, reason: null });
+    });
+
+    it.each<[string, Partial<HelperDeps>]>([
+      ["could not be written", { saveAbsence: async () => false }],
+      ["threw", { saveAbsence: async () => Promise.reject(new Error("down")) }],
+      ["has nowhere to go", { saveAbsence: undefined }],
+    ])("never promises the register when the note %s, and still passes the message on", async (_label, over) => {
+      const { deps, calls, askClaude } = fakes(over);
+      askClaude.mockResolvedValueOnce(sickToday);
+      expect(await runHelperTurn(inbound({ text: AWAY }), deps)).toMatchObject({ outcome: "answered", handoff: "class_teacher" });
+      const sent = bodyText(calls.sent[0]);
+      expect(sent).toContain(`passed to *${aarav.firstName}*'s class teacher`);
+      expect(sent).not.toContain("register");
+      expect(sent).toContain("The school will get back to you.");
+      expect(calls.finished[0][1]).toMatchObject({ handoff: "class_teacher", parentReplyId: REPLY_ID, reason: "absence_not_saved" });
+    });
+
+    it("keeps no note when the message itself could not be passed on", async () => {
+      const saveAbsence = vi.fn(async () => true);
+      const { deps, calls, askClaude } = fakes({ insertHandoff: async () => null, saveAbsence });
+      askClaude.mockResolvedValueOnce(sickToday);
+      expect(await runHelperTurn(inbound({ text: AWAY }), deps)).toMatchObject({ outcome: "answered", handoff: null });
+      expect(saveAbsence).not.toHaveBeenCalled();
+      expect(bodyText(calls.sent[0])).toContain("could not be passed on just now");
+      expect(calls.finished[0][1]).toMatchObject({ reason: "handoff_not_saved" });
+    });
   });
 
   it("falls back to the menu when Claude has no answer, and says why in the ledger", async () => {

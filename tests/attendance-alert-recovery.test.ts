@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-const state = vi.hoisted(() => ({ stage: "", save: vi.fn(), queries: [] as string[], sentDuringCancel: false, queueStatus: "queued" }));
+const state = vi.hoisted(() => ({ stage: "", save: vi.fn(), queries: [] as string[], sentDuringCancel: false, queueStatus: "queued", told: new Map<string, "sick" | "other">() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/vx/screens/settings/parent-switches", () => ({ readParentSwitches: async () => ({ absentAlert: "ask_on", note: true, supportPlan: true, birthday: true }) }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: vi.fn() }));
@@ -14,6 +14,8 @@ vi.mock("@/modules/attendance/data/teaching-repo", () => ({ heldClassIds: vi.fn(
 vi.mock("@/modules/students/data/student-repo", () => ({ enrolmentForStudent: vi.fn() }));
 vi.mock("@/vx/screens/teach/students", () => ({ childBasics: async () => new Map([["qa-child", { fullName: "QA Child" }]]) }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({ from: () => query() }) }));
+// A parent's WhatsApp note that the child would be away (D-588): read on its own, so the queue's reads stay countable here.
+vi.mock("@/modules/attendance/data/parent-notes", () => ({ parentNotesOn: async (_session: string, _day: string, ids: readonly string[]) => new Map([...state.told].filter(([id]) => ids.includes(id))) }));
 function query() {
   let operation = "read";
   let statusFilter: string | null = null;
@@ -29,7 +31,7 @@ function query() {
   }; return api;
 }
 import { saveRegisterVx } from "@/vx/screens/teach/actions";
-beforeEach(() => { state.stage = ""; state.queries = []; state.sentDuringCancel = false; state.queueStatus = "queued"; state.save.mockReset().mockResolvedValue({ status: "saved", receipt: { registerId: "qa-register" } }); });
+beforeEach(() => { state.stage = ""; state.queries = []; state.sentDuringCancel = false; state.queueStatus = "queued"; state.told = new Map(); state.save.mockReset().mockResolvedValue({ status: "saved", receipt: { registerId: "qa-register" } }); });
 describe("attendance and parent queue have truthful separate outcomes", () => {
   it.each(["read", "cancel", "insert"])("keeps the attendance receipt and warns when queue %s fails", async stage => {
     state.stage = stage;
@@ -41,6 +43,12 @@ describe("attendance and parent queue have truthful separate outcomes", () => {
     const result = await saveRegisterVx(JSON.stringify({ classId: "class", day: "2026-10-10", kind: "save" }), true);
     expect(result).toMatchObject({ status: "saved", queued: 1 }); expect(result.queueWarning).toBeUndefined();
     expect(state.queries).toEqual(["read", "cancel", "insert"]);
+  });
+  it("queues no absent message for a child whose parent already told the school on WhatsApp (D-588)", async () => {
+    state.told = new Map([["qa-child", "sick"]]);
+    const result = await saveRegisterVx(JSON.stringify({ classId: "class", day: "2026-10-10", kind: "save" }), true);
+    expect(result).toMatchObject({ status: "saved", queued: 0 }); expect(result.queueWarning).toBeUndefined();
+    expect(state.queries).toEqual(["read", "cancel"]);
   });
   it("preserves a queued alert marked sent by PR #63's manual sender before cancellation", async () => {
     state.sentDuringCancel = true;

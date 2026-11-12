@@ -19,6 +19,7 @@ import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { attendanceCalendar, listMarks } from "@/modules/attendance/data/attendance-repo";
+import { parentNotesOn } from "@/modules/attendance/data/parent-notes";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attendance/domain/attendance-receipt";
@@ -137,7 +138,10 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
       .returns<{ id: string; student_id: string; status: string }[]>(),
   ]);
   if (existing.error) throw existing.error;
-  const absent = [...marks.entries()].filter(([, m]) => m.status === "absent").map(([id]) => id);
+  const marked = [...marks.entries()].filter(([, m]) => m.status === "absent").map(([id]) => id);
+  // A parent who told the school on WhatsApp that the child would be away is not told the child is absent (D-588).
+  const told = await parentNotesOn(input.sessionLabel, input.day, marked);
+  const absent = marked.filter((id) => !told.has(id));
   // A sent message counts as the child's message: a correction never queues it again.
   const { drop, add, keep } = absentAlertChanges(absent, input.wanted, (existing.data ?? []).map((row) => ({ id: row.id, studentId: row.student_id, status: row.status })));
   for (const ids of chunkArray(drop, IN_FILTER_CHUNK_SIZE)) {

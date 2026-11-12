@@ -1,5 +1,6 @@
 import { formatInr } from "@/platform/helpers/currency";
 
+import type { AbsenceNote } from "./helper-absence";
 import type { AttendanceStatus, ChildFacts, ReceiptFact } from "./helper-facts";
 import type { HelperButton, HelperMessage, HelperRow } from "./helper-messages";
 import { helperId, type HelperLanguage } from "./helper-text";
@@ -433,10 +434,46 @@ export function officePrompt(context: ReplyContext): HelperMessage {
 /* -------------------------------------------------------------- hand-off */
 
 /** The words after a message has been put in front of the school. */
+/**
+ * What a parent is told once the school has a child's absence on the
+ * register (D-588): which day's register shows it, and, for an illness, a
+ * kind word. Only said after the note is kept.
+ */
+export function absenceLines(child: ChildFacts, note: AbsenceNote, language: HelperLanguage): string {
+  const day = (iso: string) => dateText(iso, language, child.today);
+  const first = note.days[0] ?? child.today;
+  const last = note.days[note.days.length - 1] ?? first;
+  const register =
+    first === last
+      ? first === child.today
+        ? say(language, {
+            hi: "📋 आज की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।",
+            hx: "📋 Aaj ki hazri mein likha rahega ki aapne school ko bata diya tha.",
+            en: "📋 Today's register will show that you told the school.",
+          })
+        : say(language, {
+            hi: `📋 ${day(first)} की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।`,
+            hx: `📋 ${day(first)} ki hazri mein likha rahega ki aapne school ko bata diya tha.`,
+            en: `📋 The register for ${day(first)} will show that you told the school.`,
+          })
+      : say(language, {
+          hi: `📋 ${day(first)} से ${day(last)} तक की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।`,
+          hx: `📋 ${day(first)} se ${day(last)} tak ki hazri mein likha rahega ki aapne school ko bata diya tha.`,
+          en: `📋 The register from ${day(first)} to ${day(last)} will show that you told the school.`,
+        });
+  if (note.reason !== "sick") return register;
+  const wish = say(language, {
+    hi: `🌼 *${child.firstName}* जल्दी ठीक हो जाए, यही कामना है।`,
+    hx: `🌼 *${child.firstName}* jaldi theek ho jaye, yahi kaamna hai.`,
+    en: `🌼 We hope *${child.firstName}* feels better soon.`,
+  });
+  return `${register}\n${wish}`;
+}
+
 export function handoffAck(
   context: ReplyContext,
   target: HandoffTarget,
-  detail: { child: ChildFacts | null; teacherName: string | null; lateHour: boolean; aiReply?: string | null },
+  detail: { child: ChildFacts | null; teacherName: string | null; lateHour: boolean; aiReply?: string | null; absence?: AbsenceNote | null },
 ): HelperMessage {
   const { language } = context;
   const child = detail.child;
@@ -467,7 +504,11 @@ export function handoffAck(
       en: "✅ Your message has been passed to the school office.",
     });
   }
-  const next = say(language, { hi: "स्कूल आपसे संपर्क करेगा।", hx: "School aapse sampark karega.", en: "The school will get back to you." });
+  // A note of absence needs no answer: the register line says what happens to it instead.
+  const next =
+    detail.absence && child
+      ? `\n${absenceLines(child, detail.absence, language)}`
+      : ` ${say(language, { hi: "स्कूल आपसे संपर्क करेगा।", hx: "School aapse sampark karega.", en: "The school will get back to you." })}`;
   const late = detail.lateHour
     ? `\n${say(language, {
         hi: "🌙 अभी देर हो चुकी है, इसलिए इसे सुबह 6 बजे के बाद देखा जाएगा।",
@@ -476,7 +517,7 @@ export function handoffAck(
       })}`
     : "";
   const before = detail.aiReply ? `${detail.aiReply}\n\n` : "";
-  return { kind: "buttons", body: `${before}${line} ${next}${late}`, buttons: [MENU_BUTTON(language)], footer: footer(context) };
+  return { kind: "buttons", body: `${before}${line}${next}${late}`, buttons: [MENU_BUTTON(language)], footer: footer(context) };
 }
 
 /** The hand-off could not be written: say so, and give the office's number. Never claim it was passed on. */

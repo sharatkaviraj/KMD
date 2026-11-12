@@ -27,6 +27,7 @@ import {
   rosterOn,
   studentAttendance,
 } from "@/modules/attendance/data/attendance-repo";
+import { parentNotesOn, type ParentNoteReason } from "@/modules/attendance/data/parent-notes";
 import { attendanceScopeFor, classScopeFor, dayHeaders, heldClassIds, ownClassIds, periodsOn } from "@/modules/attendance/data/teaching-repo";
 import { attendancePercent, compareRoll, registerAuthority, type AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
@@ -783,6 +784,12 @@ export async function loadHome(staff: CurrentStaff) {
 
 /* ------------------------------------------------------------- Attendance */
 
+/** What the register says beside a child whose parent told the school on WhatsApp (D-588). */
+const INFORMED: Record<ParentNoteReason, Pair> = {
+  sick: p("Parent informed · sick", "अभिभावक ने बताया · बीमार"),
+  other: p("Parent informed", "अभिभावक ने बताया"),
+};
+
 export async function loadAttendance(staff: CurrentStaff, input: { classId: string | null; day: string; month: string | null }) {
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { kind: "no-session" as const };
@@ -847,10 +854,12 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
 
   // The month view. An asked-for month that is not "YYYY-MM" falls back to the day's.
   const month = input.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.month) ? input.month : day.slice(0, 7);
-  const [range, basics, parentSwitches] = await Promise.all([
+  const [range, basics, parentSwitches, told] = await Promise.all([
     classAttendanceRange(classId, sessionLabel, `${month}-01`, monthEnd(month)),
     childBasics(roll.map((r) => r.studentId)),
     readParentSwitches(),
+    // A parent who told the school on WhatsApp that the child would be away (D-588).
+    parentNotesOn(sessionLabel, day, roll.map((r) => r.studentId)),
   ]);
   const closedDays = [...calendar.entries()].filter(([d]) => d.startsWith(month)).filter(([d]) => !isSchoolOpen(d, calendar)).map(([d]) => d);
 
@@ -874,8 +883,10 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     reason: authority.reason ?? null,
     /** Settings → Parent messages: whether the absent-child WhatsApp is offered, and where its switch starts. */
     parentAlerts: parentSwitches.absentAlert,
+    ...(told.size ? { informedNote: p("No absent message goes to a parent who told the school on WhatsApp.", "जिन अभिभावकों ने व्हाट्सऐप पर स्कूल को बता दिया है, उन्हें अनुपस्थिति का संदेश नहीं जाएगा।") } : {}),
     roll: sorted.map((r) => {
       const dob = basics.get(r.studentId)?.dateOfBirth ?? null;
+      const why = told.get(r.studentId);
       return {
         id: r.studentId,
         name: r.fullName,
@@ -884,6 +895,8 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
         hint: apart.get(r.studentId) ?? null,
         gender: basics.get(r.studentId)?.gender ?? null,
         birthday: Boolean(dob && dob.slice(5, 10) === day.slice(5, 10)),
+        // The child starts as Absent and the card says why; the teacher can still change it.
+        ...(why ? { informed: INFORMED[why] } : {}),
       };
     }),
     registerId: register?.id ?? null,

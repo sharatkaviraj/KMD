@@ -390,6 +390,17 @@ its own work, for messages from the hub only.
   the parent's reply has gone (`composeRating`, `data/helper-turn.ts`). The
   office's answer to it quotes the first question (`quoteOf`) and is never
   rated.
+- **A child who will be away (D-588).** Claude reads "Riya bimar hai, aaj
+  nahi aayegi" into `absence` (from today or tomorrow, how many school days,
+  sick or other); `helper-absence` turns it into the days, in India, Sundays
+  skipped, one to seven. It is a hand-off to the class teacher with topic
+  `leave`; once that is in Messages, `saveAbsenceNotes` keeps one row per
+  child per day in `parent_absence_notes` (the first note for a day stands)
+  and stops that day's absent alert still waiting in To send. The parent is
+  told which day's register shows it only once the days are kept. The
+  register reads the notes (`modules/attendance/data/parent-notes.ts`): the
+  child starts as Absent with "Parent informed" beside the name, and the
+  save queues no absent alert for that child.
 
 ## Never
 
@@ -411,6 +422,9 @@ its own work, for messages from the hub only.
 - Rate a hand-off from a tap without matching its key among the tapping
   number's own hand-offs (`readRecentHandoffs`), ask about the office's answer
   to a "no", or tell a parent a "no" was passed on before Messages holds it.
+- Keep a parent's words in `parent_absence_notes`, write a note for a child
+  the helper could not name, or tell the parent the register shows it before
+  the days are kept. A note never decides attendance: the teacher's mark does.
 - Take a reply for a staff answer unless it quotes one of the helper's sent
   alerts and comes from the number that alert went to, or tell staff outside
   6 am to 9 pm India time: `nextAlertMoment` is asked again when a step runs,

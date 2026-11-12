@@ -200,6 +200,9 @@ export const TABLES = {
   // (a hash of the code, never the code), cleared after 30 days by the app.
   staff_sign_in_settings: { bucket: "K", why: "post go-live who may sign in with a WhatsApp code (off / owner only / all staff); one row" },
   staff_sign_in_codes: { bucket: "K", why: "post go-live asks for a WhatsApp sign-in code: number, hashed code, outcome; kept 30 days, service-role only" },
+  // Sick-day notes (D-588): the days a parent said on WhatsApp that a child
+  // would be away, and the reason in a word. Never the parent's words.
+  parent_absence_notes: { bucket: "K", why: "post go-live parent's WhatsApp word that a child will be away (days and sick/other, never the words); service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

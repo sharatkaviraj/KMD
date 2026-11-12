@@ -1,5 +1,15 @@
 # Decisions
 
+## Veer Patta AI, step 2b: sick-day notes on the register — 12 November 2026
+
+The plan's step 2 row: a parent's "Riya bimar hai, aaj nahi aayegi" shows as
+"parent informed" on the day's register. Practice only, as for step 2:
+practice mode on, the `parent_helper` switch off, real recipients off.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-588 | **When a parent tells the school on WhatsApp that a child will not come, the helper passes the message to the class teacher, as a leave application, and keeps the days the parent named. That day's register shows "Parent informed" (or "Parent informed · sick") beside the child, the child starts there as Absent, and saving it queues no "your child is absent" WhatsApp for that family; one already waiting in To send for that day is stopped. The save sheet says why no message goes. The parent's reply names the register ("Today's register will show that you told the school", or the date, or the first and last date) and wishes an ill child well by first name.** The teacher's mark still decides: a child who comes anyway is marked Present like any other, and a saved mark is never changed by a note. The days are school days in India from today or tomorrow, Sundays skipped, one to seven; a longer absence is for the class teacher to hear about. Only Claude reads an absence, and only for a child it can name (the family's one child, or the one the parent named); a message the rules answer, or one about two children with neither named, is a hand-off with no note | Absent, not Leave: Leave would change how attendance is counted, which is the school's call (a switch can make it Leave later). The note is the parent's word, not the school's record, so the register shows it beside the mark instead of making the mark. A day keeps its first note, so a second message about it changes nothing. Nothing new is kept about the parent: a note is a child, a day and a word (`sick` or `other`); the words stay in the hand-off (`parent_replies`). The parent is told about the register only once the days are kept; otherwise the reply is the plain hand-off one and the ledger says `absence_not_saved`. A holiday inside the span counts as one of the days, so a note never reaches past what the parent named. Migration `20261112113517_parent_absence_notes.sql` (one table, service-role only, quarantine K), applied to One 12 Nov 2026 11:35 UTC (checked: row-level security on, no grant to anon or signed-in users, the two rules in place). `domain/helper-absence.ts`, `absenceLines` in `domain/helper-replies.ts`, `absence` in `domain/helper-ai.ts`, `saveAbsenceNotes` in `data/helper-store.ts`, `modules/attendance/data/parent-notes.ts`, the register (`vx/screens/teach/data.ts`, `ui/attend.tsx`, `actions.ts`); `tests/whatsapp-parent-helper-absence.test.ts`, `tests/attendance-parent-informed.test.tsx`, `tests/attendance-alert-recovery.test.ts`, `tests/sql/parent-absence-notes.mjs` |
+
 ## Sign in with a WhatsApp code — 12 November 2026
 
 Janmejay, 12 Nov 2026: "make phone number and otp authentication on WhatsApp

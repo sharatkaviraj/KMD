@@ -296,7 +296,9 @@ export function TeachAttend({
   const queuedCount = local ? (local.queued ?? 0) : data.queuedAlerts.length;
   const recorded = revision >= 1;
   const ids = useMemo(() => data.roll.map((r) => r.id), [data.roll]);
-  const fresh = useMemo(() => Object.fromEntries(ids.map((id) => [id, "present" as Mark])), [ids]);
+  // A child whose parent told the school on WhatsApp starts as Absent (D-588); the teacher can still change it.
+  const toldAway = useMemo(() => Object.fromEntries(data.roll.filter((r) => r.informed).map((r) => [r.id, "absent" as Mark])), [data.roll]);
+  const fresh = useMemo(() => ({ ...Object.fromEntries(ids.map((id) => [id, "present" as Mark])), ...toldAway }), [ids, toldAway]);
   // The number on each card: the roll number, or the child's place in the
   // full list when the class has none — never renumbered by a search.
   const serialOf = useMemo(() => new Map(data.roll.map((r, i) => [r.id, i + 1])), [data.roll]);
@@ -375,6 +377,8 @@ export function TeachAttend({
   const nH = counts.halfDay + counts.leave;
   const total = Math.max(1, counts.total);
   const absentKids = data.roll.filter((r) => marks[r.id] === "absent");
+  // The absent WhatsApp goes to these parents: not to one who told the school (D-588).
+  const alertKids = absentKids.filter((r) => !r.informed);
   const halfKids = data.roll.filter((r) => sOf(marks[r.id]) === "H");
   const often = useMemo(() => new Map(absentOften(data.monthMarks, 3).map((o) => [o.studentId, o.absent])), [data.monthMarks]);
   const yesterdayIds = Object.entries(data.yesterday).filter(([, m]) => m === "absent").map(([id]) => id);
@@ -530,7 +534,7 @@ export function TeachAttend({
   const changed = editing === "change" ? data.roll.filter((r) => (marks[r.id] ?? "present") !== (savedMarks[r.id] ?? "present")) : [];
 
   const shown = data.roll.filter((r) => childMatches({ ...r, serial: serialOf.get(r.id) ?? null }, query));
-  const preview = absentKids[0] ? absentAlert({ childName: absentKids[0].name, classLabel: data.classLabel, day: data.day, today, school }) : null;
+  const preview = alertKids[0] ? absentAlert({ childName: alertKids[0].name, classLabel: data.classLabel, day: data.day, today, school }) : null;
   const nameOf = new Map(data.roll.map((r) => [r.id, r.name]));
   const rollOf = new Map(data.roll.map((r) => [r.id, r.rollNo]));
   // "Roll 4", or "No. 4" — the child's place in the list — when the class has
@@ -542,7 +546,7 @@ export function TeachAttend({
     return n ? tx(p(`No. ${n}`, `क्रम ${n}`)) : "";
   };
   // The number, and the SR and father for children who share a name (BUG-05).
-  const whoLine = (k: AttendData["roll"][number]) => [numLabel(k.id), k.hint ? tx(k.hint) : null].filter(Boolean).join(" · ");
+  const whoLine = (k: AttendData["roll"][number]) => [numLabel(k.id), k.hint ? tx(k.hint) : null, k.informed ? tx(k.informed) : null].filter(Boolean).join(" · ");
   // A Hindi reader is not given the English underneath (smoke run: English
   // lines under every heading doubled the reading).
   const T = (t: Pair) => `${tx(t)}${language !== "hi" && sub(t) ? ` · ${sub(t)}` : ""}`;
@@ -569,7 +573,10 @@ export function TeachAttend({
     const lk = LOOK[s];
     const n = often.get(r.id);
     const num = r.rollNo ?? String(serialOf.get(r.id) ?? i + 1);
-    const hint: { text: string; icon: IconName; color: string } | null = n
+    const told = r.informed ? tx(r.informed) : null;
+    const hint: { text: string; icon: IconName; color: string } | null = told
+      ? { text: told, icon: "message", color: V("info") }
+      : n
       ? { text: tx(p(`${n} days absent · call parents?`, `${n} दिन अनुपस्थित · माता-पिता को फ़ोन?`)), icon: "phone", color: V("warnfg") }
       : r.birthday
         ? { text: tx(p("Birthday today", "आज जन्मदिन")), icon: "cake", color: V("acc") }
@@ -584,7 +591,7 @@ export function TeachAttend({
           disabled={!editing || !ready}
           onClick={() => tap(r.id)}
           className={`tap tc-akid ${lk.cls}`}
-          aria-label={`${r.name}, ${r.rollNo ? tx(p(`roll ${r.rollNo}`, `रोल ${r.rollNo}`)) : tx(p(`number ${num}`, `क्रम ${num}`))}${r.hint ? `, ${tx(r.hint)}` : ""}, ${tx(lk.t)}. ${tx(p("Tap to change.", "बदलने के लिए टैप करें।"))}`}
+          aria-label={`${r.name}, ${r.rollNo ? tx(p(`roll ${r.rollNo}`, `रोल ${r.rollNo}`)) : tx(p(`number ${num}`, `क्रम ${num}`))}${r.hint ? `, ${tx(r.hint)}` : ""}, ${tx(lk.t)}${told ? `, ${told}` : ""}. ${tx(p("Tap to change.", "बदलने के लिए टैप करें।"))}`}
           aria-pressed={s !== "P"}
           style={{ background: lk.bg, borderColor: lk.bd, opacity: editing && !ready ? 0.6 : 1, animationDelay: `${Math.min(i, 16) * 22}ms` }}
         >
@@ -593,7 +600,7 @@ export function TeachAttend({
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
             <span className="tc-el2" style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.25 }}>{r.name}</span>
             {r.hint ? <span className="tc-el" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(r.hint)}</span> : null}
-            <span className="only-d" style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: s === "P" && hint ? hint.color : lk.fg }}>{s === "P" && hint ? hint.text : tx(lk.t)}</span>
+            <span className="only-d" style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: s === "P" && hint ? hint.color : lk.fg }}>{told ? `${tx(lk.t)} · ${told}` : s === "P" && hint ? hint.text : tx(lk.t)}</span>
             {hint ? (
               <span className="only-m" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: hint.color }}>
                 <Ic n={hint.icon} size={13} />
@@ -701,7 +708,7 @@ export function TeachAttend({
                       return;
                     }
                     rememberChanges(ids);
-                    const next = copyYesterday(ids, data.yesterday);
+                    const next = { ...copyYesterday(ids, data.yesterday), ...toldAway };
                     latest.current = next;
                     setMarks(next);
                     keep(next);
@@ -811,6 +818,7 @@ export function TeachAttend({
   // Everything on the saved card comes from what the office has — the save's
   // own answer or the page's data — never from taps on this phone (P1).
   const savedAway = data.roll.filter((r) => sOf(savedMarks[r.id]) !== "P");
+  const awayName = (k: AttendData["roll"][number]) => (k.informed ? `${k.name} (${tx(k.informed)})` : k.name);
   const outboxMarks = useMemo<Record<string, Mark>>(() => {
     if (!outbox) return {};
     try {
@@ -863,8 +871,8 @@ export function TeachAttend({
                   kids.length ? (
                     <span key={i} style={{ display: "block" }}>
                       {tx(i === 0
-                        ? p(`Away: ${andList(kids.map((k) => k.name))}`, `अनुपस्थित: ${andList(kids.map((k) => k.name), "और")}`)
-                        : p(`Half day: ${andList(kids.map((k) => k.name))}`, `आधा दिन: ${andList(kids.map((k) => k.name), "और")}`))}
+                        ? p(`Away: ${andList(kids.map(awayName))}`, `अनुपस्थित: ${andList(kids.map(awayName), "और")}`)
+                        : p(`Half day: ${andList(kids.map(awayName))}`, `आधा दिन: ${andList(kids.map(awayName), "और")}`))}
                     </span>
                   ) : null,
                 )}
@@ -1236,7 +1244,7 @@ export function TeachAttend({
         }
       : SAVE_IDLE;
   const absentLabel = isToday ? p("Absent today", "आज अनुपस्थित") : p(`Absent on ${dayShortP(data.day).en}`, `${dayShortP(data.day).hi} को अनुपस्थित`);
-  const alertSwitch = absentKids.length && !parentOff ? (
+  const alertSwitch = alertKids.length && !parentOff ? (
     <>
       <button
         type="button"
@@ -1257,7 +1265,7 @@ export function TeachAttend({
           <span className="tc-p" style={{ fontWeight: 600 }}>{tx(p(`Send WhatsApp to their parents ${when.en}`, `उनके माता-पिता को ${when.hi ?? when.en} व्हाट्सऐप`))}</span>
           <span className="tc-s num">
             {alerts
-              ? tx(p(`On · ${absentKids.length} ${absentKids.length === 1 ? "parent" : "parents"} · Hindi first. Tap to stop.`, `चालू · ${absentKids.length} अभिभावक · पहले हिंदी। रोकने के लिए दबाएँ।`))
+              ? tx(p(`On · ${alertKids.length} ${alertKids.length === 1 ? "parent" : "parents"} · Hindi first. Tap to stop.`, `चालू · ${alertKids.length} अभिभावक · पहले हिंदी। रोकने के लिए दबाएँ।`))
               : editing === "change" && queuedCount > 0
                 ? tx(p(`Off · the ${queuedCount} ${queuedCount === 1 ? "message" : "messages"} already waiting will be stopped too`, `बंद · पहले से रखे ${queuedCount} संदेश भी रुक जाएँगे`))
                 : tx(p("Off · no message will go to parents. Tap to turn on.", "बंद · अभिभावकों को कोई संदेश नहीं। चालू करने के लिए दबाएँ।"))}
@@ -1274,11 +1282,13 @@ export function TeachAttend({
               <span className="num" style={{ display: "block", textAlign: "right", fontSize: 11, opacity: 0.6 }}>{tx(when)}</span>
             </div>
           </div>
-          <span className="tc-s" style={{ marginTop: -6 }}>{absentKids.length > 1 ? tx(p(`The same message goes to ${absentKids.length - 1} more ${absentKids.length === 2 ? "family" : "families"} with their child’s name.`, `यही संदेश ${absentKids.length - 1} और परिवारों को उनके बच्चे के नाम से।`)) : tx(p("Only this family gets a message.", "सिर्फ़ इस परिवार को संदेश जाएगा।"))}</span>
+          <span className="tc-s" style={{ marginTop: -6 }}>{alertKids.length > 1 ? tx(p(`The same message goes to ${alertKids.length - 1} more ${alertKids.length === 2 ? "family" : "families"} with their child’s name.`, `यही संदेश ${alertKids.length - 1} और परिवारों को उनके बच्चे के नाम से।`)) : tx(p("Only this family gets a message.", "सिर्फ़ इस परिवार को संदेश जाएगा।"))}</span>
         </>
       ) : null}
     </>
   ) : null;
+  // Why no WhatsApp goes for a child whose parent told the school (D-588).
+  const toldLine = data.informedNote && absentKids.some((k) => k.informed) ? <span className="tc-s">{tx(data.informedNote)}</span> : null;
   const closedBanner = !online || outbox || (data.reason && !data.canSave && !data.canCorrect) || (state && (state.status === "stale" || state.status === "roster_changed" || state.status === "refused"));
   return (
     <VxPage className="tc">
@@ -1449,11 +1459,13 @@ export function TeachAttend({
                 />
               </label>
               {alertSwitch}
+              {toldLine}
               <span className="tc-s">{tx(p(`Saving again replaces what you saved${savedTime ? ` at ${savedTime.en}` : ""}. The office is told it was changed.`, "दोबारा सेव करने से पहले वाली हाज़िरी बदल जाएगी। ऑफ़िस को बताया जाएगा।"))}</span>
             </>
           ) : (
             <>
               {alertSwitch}
+              {toldLine}
               <span className="tc-s">{tx(p("After saving you can still change it whenever needed.", "सेव करने के बाद भी ज़रूरत हो तो कभी भी बदल सकते हैं।"))}</span>
             </>
           )}

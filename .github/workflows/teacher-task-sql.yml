@@ -37,6 +37,8 @@ jobs:
         run: node tests/sql/parent-helper-ratings.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
       - name: Exercise sign in with a WhatsApp code (limits, one-time check, no enumeration, grants)
         run: node tests/sql/staff-sign-in-codes.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+      - name: Exercise sick-day notes (one per child per day, the first stands, service role only)
+        run: node tests/sql/parent-absence-notes.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
   lock-order:
     runs-on: ubuntu-latest
     timeout-minutes: 5
