@@ -5,7 +5,7 @@
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-577. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-580. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -20,10 +20,30 @@ so the two never both reply; hand-offs land in Messages. The hub's claim
 applied to One 12 Nov; checked as the service role: both practice children
 read, a real child does not. **Off until the owner says:** the `parent_helper`
 switch (Settings → WhatsApp) and practice mode; real recipients stay off.
-**Next:** the owner's live test from his number; then the staff alert on
-WhatsApp (6 am to 9 pm), the staff answer back to the parent, a complaint
-moving from the class teacher to an admin, real families by number through
-the Fees bridge, and the chats kept on Drive.
+**Live test, 12 Nov 04:58-05:18 UTC** (the owner's typed OK, his number
+only): six messages (greeting, fees and receipts taps, a receipt question
+handed to the office, a results question, the menu), six answers, no double
+answer from the hub's bot, AI about $0.001; 7 to 13 seconds an answer, the
+claim 2 to 4 s after the hub received it (faster is still to do). Both
+switches were put back at 05:18 UTC.
+
+**Step 2, hand-offs (D-578..D-580), practice only:** the person a hand-off is
+for is told on WhatsApp from 6 am to 9 pm (class teacher; accountant and an
+admin for fees; an admin for the principal; the office), reminded after 3
+hours, and a complaint passes up to an admin after a day. They answer by
+swiping on the alert, or from Messages; the answer goes to the parent while
+their chat is open, else the approved "your answer is ready" note and the
+answer when they next write. `domain/helper-handoff.ts`,
+`domain/helper-hub-templates.ts` (four templates, sent for approval by the
+hourly check), `data/helper-{handoffs,relay}.ts`, the job
+`/api/jobs/parent-helper` (pg_cron `parent-helper`, every 5 minutes when a
+step is due). Migration `20261112052103_parent_helper_handoffs.sql` applied
+to One 12 Nov 05:21 UTC (three tables, `parent_helper_take_due`, the job, four
+registry rows `not_submitted`). In practice a hand-off tells one person, on
+the owner's number. **Next:** a practice run of step 2 on the owner's number
+once he says so (no template needed: he writes first, so the alert and the
+answer can be typed); then real families by number through the Fees bridge,
+faster answers, and the chats kept on Drive.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

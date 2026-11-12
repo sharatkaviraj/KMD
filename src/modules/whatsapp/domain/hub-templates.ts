@@ -7,6 +7,7 @@ import {
   V8_CAMPAIGNS,
   type V6Descriptor,
 } from "@/modules/whatsapp/domain/campaign-bodies-v6";
+import { HELPER_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/helper-hub-templates";
 import { SCHOOL_NOTICE_TEMPLATES } from "@/modules/whatsapp/domain/school-notice-bodies";
 import { STAFF_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/staff-hub-templates";
 
@@ -60,13 +61,15 @@ export const SCHOOL_NOTICE_HUB_SUBMISSIONS: readonly TemplateSubmission[] = SCHO
 
 /**
  * Everything One asks the hub to carry: the `_v8` fee set, the parents'
- * school notices, and the staff and teacher-task set (`staff-hub-templates.ts`).
- * "Send for approval" and the hourly check both work from this list.
+ * school notices, the staff and teacher-task set (`staff-hub-templates.ts`),
+ * and Veer Patta AI's two (`helper-hub-templates.ts`, D-578). "Send for
+ * approval" and the hourly check both work from this list.
  */
 export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
   ...V8_HUB_SUBMISSIONS,
   ...SCHOOL_NOTICE_HUB_SUBMISSIONS,
   ...STAFF_HUB_SUBMISSIONS,
+  ...HELPER_HUB_SUBMISSIONS,
 ];
 
 /**

@@ -48,7 +48,8 @@ with
     'qa_dayrun_accounts','qa_dayrun_pairs','qa_dayrun_runs','qa_dayrun_sessions','qa_runs','qa_undo','rate_limits',
     'restore_drills','sampark_import_batches','sampark_import_rows','smoke_findings','smoke_passes','smoke_pool','smoke_runs',
     'teacher_task_previews','whatsapp_inbound','whatsapp_message_events','whatsapp_messages','whatsapp_templates',
-    'parent_helper_settings','parent_helper_chats','parent_helper_turns'])),
+    'parent_helper_settings','parent_helper_chats','parent_helper_turns',
+    'parent_helper_handoffs','parent_helper_alerts','parent_helper_deliveries'])),
   -- @buckets-end
   -- References with no foreign key that the catalog does not find by name
   -- (lib/quarantine-rules.mjs TABLES: staffRefs, classRefs, staffArrays,

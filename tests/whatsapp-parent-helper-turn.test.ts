@@ -341,6 +341,80 @@ describe("when Veer Patta AI answers", () => {
 
 /* ------------------------------------------------------ when sending fails */
 
+describe("step 2: hand-offs reach a person, and answers come back (D-578)", () => {
+  it("a swiped reply to one of the helper's alerts is a staff answer, handled before anything else", async () => {
+    const staffAnswer = vi.fn(async () => ({ outcome: "answered" as const, route: "rule" as const, intent: "staff_answer", handoff: "class_teacher" as const }));
+    const { deps, calls } = fakes({ staffAnswer });
+    const reply = inbound({ from: STRANGER, replyTo: "wamid.ALERT1", text: "Will send it tonight." });
+    expect(await runHelperTurn(reply, deps)).toEqual({ outcome: "answered", route: "rule", intent: "staff_answer", handoff: "class_teacher" });
+    expect(staffAnswer).toHaveBeenCalledWith(reply);
+    expect(calls.started).toEqual([]);
+    expect(calls.sent).toEqual([]);
+  });
+
+  it("any other message goes on as before, and a message that quotes nothing never asks", async () => {
+    const staffAnswer = vi.fn(async () => null);
+    expect(await runHelperTurn(inbound({ from: STRANGER, replyTo: "wamid.OTHER" }), fakes({ staffAnswer }).deps)).toEqual({ outcome: "skipped", reason: "unknown_number" });
+    expect(staffAnswer).toHaveBeenCalledTimes(1);
+    await runHelperTurn(inbound(), fakes({ staffAnswer }).deps);
+    expect(staffAnswer).toHaveBeenCalledTimes(1);
+  });
+
+  it("an answer that waited goes first, and a bare 'ok' needs nothing more", async () => {
+    const deliverWaiting = vi.fn(async () => 1);
+    const { deps, calls, askClaude } = fakes({ deliverWaiting });
+    expect(await runHelperTurn(inbound({ text: "ok thanks" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "answer_delivered", handoff: null });
+    expect(deliverWaiting).toHaveBeenCalledWith(OWNER);
+    // After the claim: the hub's bot must not answer as well.
+    expect(calls.claims).toEqual(["wamid.TEST1"]);
+    expect(calls.sent).toEqual([]);
+    expect(askClaude).not.toHaveBeenCalled();
+    expect(calls.finished).toEqual([["wamid.TEST1", expect.objectContaining({ status: "answered", intent: "answer_delivered", route: "rule" })]]);
+  });
+
+  it("a new question after a waiting answer is answered too", async () => {
+    const { deps, calls } = fakes({ deliverWaiting: async () => 1 });
+    expect(await runHelperTurn(inbound({ text: "fees" }), deps)).toMatchObject({ outcome: "answered", intent: "fees" });
+    expect(calls.sent).toHaveLength(1);
+  });
+
+  it("once the parent is told it was passed on, the person it is for is told", async () => {
+    const openHandoff = vi.fn(async () => undefined);
+    const { deps, askClaude } = fakes({ openHandoff });
+    askClaude.mockResolvedValueOnce({
+      answer: answer({ topic: "complaint", handoff: "accounts", reply: "I am sorry about this.", summary: "Payment not showing." }),
+      model: "claude-opus-5-5",
+      careful: true,
+      costUsd: 0.03,
+      problem: null,
+    });
+    await runHelperTurn(inbound({ text: DISPUTE }), deps);
+    expect(openHandoff).toHaveBeenCalledWith({
+      parentReplyId: REPLY_ID,
+      parentE164: OWNER,
+      language: "en",
+      target: "accounts",
+      topic: "complaint",
+      child: aarav,
+      sessionLabel: "TEST-2026-27",
+      fromName: "TEST Parent",
+      practice: true,
+    });
+  });
+
+  it("nobody is told when the parent's reply did not go, or nothing was passed on", async () => {
+    const openHandoff = vi.fn(async () => undefined);
+    const refused = fakes({
+      openHandoff,
+      send: async () => ({ outcome: "rejected", httpStatus: 400, errorCode: "131047", errorTitle: null, errorDetail: null }),
+    });
+    refused.askClaude.mockResolvedValueOnce({ answer: answer({ topic: "complaint", handoff: "accounts", reply: "Sorry." }), model: "claude-haiku-5-5", careful: false, costUsd: 0.002, problem: null });
+    await runHelperTurn(inbound({ text: DISPUTE }), refused.deps);
+    await runHelperTurn(inbound({ providerMessageId: "wamid.TEST2", text: "fees" }), fakes({ openHandoff }).deps);
+    expect(openHandoff).not.toHaveBeenCalled();
+  });
+});
+
 describe("when the reply cannot be sent", () => {
   it("sends plain words once when Meta refuses the buttons", async () => {
     const results: ProviderSendResult[] = [

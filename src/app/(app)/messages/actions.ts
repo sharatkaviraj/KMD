@@ -6,6 +6,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { contentHash } from "@/modules/collection/data/parent-messages-repo";
+import { liveRelayDeps, relayFromMessages } from "@/modules/whatsapp/data/helper-relay";
 import { generalPolicyVersion, NOTICE_TEMPLATE, queueNotice, templateId } from "@/vx/screens/messages/queue";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { p, type Pair } from "@/vx/text";
@@ -195,6 +196,23 @@ export async function answerReplyAction(input: { replyId: string; body: string }
     .eq("id", input.replyId)
     .maybeSingle<{ id: string; session_label: string; from_name: string; from_phone: string; student_id: string | null }>();
   if (!reply) return fail(p("That message is gone.", "संदेश नहीं मिला।"));
+
+  // A message Veer Patta AI passed on is answered the helper's way: on WhatsApp
+  // while the parent's chat is open, else the approved "your answer is ready"
+  // note, the answer following when they reply (D-579). With the helper
+  // switched off or in practice mode it falls through to the queue below.
+  const relayed = await relayFromMessages({ replyId: reply.id, body, staffId: actor.id }, liveRelayDeps()).catch(() => null);
+  if (relayed) {
+    if (relayed.result === "not_saved") return fail(p("Not saved. Try again.", "सहेजा नहीं गया।"));
+    revalidatePath("/messages");
+    const said: Record<typeof relayed.result, Pair> = {
+      sent: p("Sent to the parent on WhatsApp", "अभिभावक को WhatsApp पर भेजा गया"),
+      waiting: p("Saved · the parent was told an answer is ready", "सहेजा गया · अभिभावक को बताया गया कि जवाब तैयार है"),
+      failed: p("Saved · could not go on WhatsApp just now", "सहेजा गया · अभी WhatsApp पर नहीं जा सका"),
+    };
+    return { ok: true, message: said[relayed.result] };
+  }
+
   const phone = tenDigits(reply.from_phone);
   const id = await templateId(NOTICE_TEMPLATE.parent);
   let sendId: string | null = null;

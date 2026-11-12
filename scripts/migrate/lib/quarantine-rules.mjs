@@ -187,6 +187,11 @@ export const TABLES = {
   parent_helper_settings: { bucket: "K", why: "post go-live WhatsApp helper's name and practice children (TEST students only), service-role only" },
   parent_helper_chats: { bucket: "K", why: "post go-live WhatsApp helper's per-number language and what it waits for; never the words, service-role only" },
   parent_helper_turns: { bucket: "K", why: "post go-live ledger of the WhatsApp helper's answers (route, cost, hand-off); never the words, service-role only" },
+  // Its hand-offs (D-578): who was told and how each answer reached the
+  // parent. Numbers stay whole: a swiped reply is matched on them.
+  parent_helper_handoffs: { bucket: "K", why: "post go-live WhatsApp helper's hand-offs to staff (who, how far, the next step); service-role only" },
+  parent_helper_alerts: { bucket: "K", why: "post go-live WhatsApp alerts that told a member of staff about a hand-off (number, message id); service-role only" },
+  parent_helper_deliveries: { bucket: "K", why: "post go-live way each staff answer reached the parent (sent or waiting); the words stay in parent_reply_answers, service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

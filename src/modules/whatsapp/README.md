@@ -21,8 +21,9 @@ Fee reminders and the message templates behind them.
   and checked word for word when they come back approved. `APPROVED_HUB`
   (`domain/campaign-generation.ts`) is filled only from APPROVED statuses
 - Both WhatsApp webhooks (`data/whatsapp-webhook.ts`): Meta's and the hub's
-- Veer Patta AI, the helper that answers parents on the school's number
-  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-577); see below
+- Veer Patta AI, the helper that answers parents on the school's number,
+  and its hand-offs to staff and their answers back
+  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-580); see below
 - The fee calendar's read of who is due a reminder today (`domain/installment-calendar.ts`)
 - Grouping the audience into families, one message per family: a shared number or linked siblings (`domain/family-grouping.ts`)
 - Turning the same audience into paper a teacher can carry (`domain/collection-list.ts`)
@@ -345,6 +346,25 @@ its own work, for messages from the hub only.
   for (`parent_helper_chats`) and how each message was answered
   (`parent_helper_turns`); a hand-off is the one message written down, into
   Messages (`parent_replies`). The hub keeps the conversation.
+- **A hand-off reaches a person (step 2, D-578..D-580).** `openHandoff`
+  (`data/helper-relay.ts`) writes it to `parent_helper_handoffs` and tells the
+  people `peopleFor` names (`domain/helper-handoff.ts`), now in the day or at
+  6 am; `nextStep` plans the reminder at 3 hours and, for a complaint, the
+  pass up to an admin at a day, always inside 6 am to 9 pm India time. The
+  job `/api/jobs/parent-helper` runs what is due (`runDueHandoffs`, pg_cron
+  `parent-helper`). An alert is typed while the person's chat is open, else
+  the approved template (`domain/helper-hub-templates.ts`), and its message id
+  is kept (`parent_helper_alerts`).
+- **The answer comes back.** A reply that quotes an alert, from the number it
+  went to, is that person's answer (`handleStaffAnswer`, step 1a of the turn);
+  an answer typed in Messages to a helper hand-off goes the same way
+  (`relayFromMessages`). It goes to the parent while their chat is open, else
+  the "your answer is ready" note and the answer waits
+  (`parent_helper_deliveries`) until they next write (`deliverWaitingAnswers`,
+  before anything else in the turn).
+- **Practice.** A practice hand-off tells one person, on the owner's number,
+  so the owner can play both sides. Practice mode or the switch off stops the
+  hand-off quietly, and Messages answers the old way.
 
 ## Never
 
@@ -359,6 +379,10 @@ its own work, for messages from the hub only.
   into `whatsapp_inbound`. The helper's own ledger has the reply ids.
 - Let Claude, or any model but Anthropic's, write a figure a parent reads, or
   give a free model a child's record.
+- Take a reply for a staff answer unless it quotes one of the helper's sent
+  alerts and comes from the number that alert went to, or tell staff outside
+  6 am to 9 pm India time: `nextAlertMoment` is asked again when a step runs,
+  whatever time was planned.
 - Insert into `student_collection_flags` without passing `no_call: false` explicitly. Its default is TRUE, so a row written to record a cadence or a language would silently drop the family out of the call queue.
 
 ## Layout
