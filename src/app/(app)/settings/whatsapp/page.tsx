@@ -286,7 +286,9 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                     <li key={feature} style={rowStyle}>
                       <span style={{ flex: "1 1 200px", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                         <span style={{ fontSize: 15, fontWeight: 650 }}>{say(featureLabels[feature] ?? { hi: feature, en: feature })}</span>
-                        <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{say(feesApp ? w.feesAppSendsHelp : w.templateCounts(approved, rows.length))}</span>
+                        <span style={{ fontSize: 12.5, color: "var(--mut)" }}>
+                          {say(feesApp ? w.feesAppSendsHelp : feature === "parent_helper" ? w.helperHelp : w.templateCounts(approved, rows.length))}
+                        </span>
                       </span>
                       <Pill tone={feesApp ? "info" : on ? "ok" : "mut"}>{say(feesApp ? w.feesAppSends : on ? w.on : w.off)}</Pill>
                       {feesApp ? null : canChange && switches ? (

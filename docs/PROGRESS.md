@@ -1,5 +1,30 @@
 # VPPS One — progress
 
+## Veer Patta AI, the WhatsApp helper for parents — 12 November 2026
+
+Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
+parents day and night with their children's fees, receipts, attendance and
+results, and hands anything else to the right person; named "Veer Patta AI".
+Branch `claude/project-thread-1a26la`, D-574..D-577. **Step 1, practice only:**
+the owner's test number stands for two TEST children
+(`parent_helper_settings`); every other number is left to the hub's own bot.
+**Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
+Hinglish and English; fee, receipt, attendance, result and teacher cards from
+the records; the menu, the office, a message for the class teacher; Claude
+Haiku 5.5, then Opus 5.5 when care is needed, for the rest); the turn
+(`data/helper-turn.ts`): One claims the message from the hub before answering,
+so the two never both reply; hand-offs land in Messages. The hub's claim
+(`POST /v1/typing`, `app_claims`) is deployed (`/health`: build
+`2026-11-12.helper-claims`). Migration `20261112041158_parent_helper.sql`
+(settings, chats, turns, `parent_helper_child`, `parent_helper_budget`)
+applied to One 12 Nov; checked as the service role: both practice children
+read, a real child does not. **Off until the owner says:** the `parent_helper`
+switch (Settings → WhatsApp) and practice mode; real recipients stay off.
+**Next:** the owner's live test from his number; then the staff alert on
+WhatsApp (6 am to 9 pm), the staff answer back to the parent, a complaint
+moving from the class teacher to an admin, real families by number through
+the Fees bridge, and the chats kept on Drive.
+
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 
 Owner asked (10 Nov) to put the free API key into One "smartly, the models

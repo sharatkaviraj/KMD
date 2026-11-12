@@ -1,0 +1,211 @@
+/**
+ * Veer Patta AI reading a parent's message (D-574): which language it is in,
+ * and, for a short message or a tap on one of its own buttons, what it is
+ * asking for. Pure: no database, no request.
+ *
+ * Rules answer only the plain asks ("fees", "हाज़िरी", "receipt bhejo"), and
+ * only when the message is short, because they are instant and free and
+ * cannot misread a number. Anything longer, or anything the rules do not
+ * know, goes to Claude (`helper-ai.ts`): "teacher ne mere bete ko daanta"
+ * mentions a teacher and is a complaint, not a request for her name.
+ */
+
+/** hi = Hindi in Devanagari, hx = Hindi in Roman letters ("fees kitni baki hai"), en = English. */
+export type HelperLanguage = "hi" | "hx" | "en";
+
+export const HELPER_LANGUAGES: readonly HelperLanguage[] = ["hi", "hx", "en"];
+
+export function isHelperLanguage(value: unknown): value is HelperLanguage {
+  return value === "hi" || value === "hx" || value === "en";
+}
+
+const DEVANAGARI = /[ऀ-ॿ]/;
+const LATIN = /[a-z]/i;
+
+/**
+ * Words that mark Roman-letter Hindi. Each one is chosen because English
+ * almost never uses it on its own: "me" and "to" are left out on purpose.
+ */
+const ROMAN_HINDI = new Set([
+  "hai", "hain", "hu", "hoon", "tha", "thi", "kya", "kyu", "kyun", "kyon", "kab", "kaise", "kaisa", "kaun", "kitna", "kitni", "kitne",
+  "baki", "baaki", "bakaya", "mera", "meri", "mere", "hamara", "hamari", "hamare", "apna", "apni", "bachcha", "bachche", "bacche",
+  "baccha", "beta", "beti", "aaj", "kal", "nahi", "nahin", "haan", "ji", "ka", "ki", "ke", "ko", "mein", "aur", "bhi", "hazri",
+  "hajri", "haziri", "rasid", "raseed", "paisa", "paise", "jama", "karna", "karo", "kijiye", "dijiye", "batao", "bataiye", "bataye",
+  "chahiye", "wala", "wali", "accha", "achha", "theek", "thik", "namaste", "namaskar", "pranam", "dhanyavad", "dhanyawad", "shukriya",
+  "chutti", "chhutti", "kaksha", "fees", "ab", "abhi", "kuch", "sab", "bhejo", "bhejiye", "dekho", "dekhna", "padhai", "school",
+  // Greetings: "Ram Ram", "Jai Jinendra", "Radhe Radhe" are Hindi however they are typed.
+  "jai", "ram", "radhe", "jinendra", "shree", "shri", "krishna",
+]);
+
+/**
+ * "fees" and "school" are in the list only to break a tie towards Hindi when
+ * another Roman-Hindi word is present; on their own they are English. So a
+ * message needs at least one word that is NOT in this set to read as Hindi.
+ */
+const SHARED_WITH_ENGLISH = new Set(["fees", "school", "ab"]);
+
+function words(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9ऀ-ॿ\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * The parent's language, or null when the message does not say (a bare "Hi",
+ * "ok", a number, an emoji): then the chat's last language stands.
+ */
+export function detectLanguage(text: string | null | undefined): HelperLanguage | null {
+  const value = String(text ?? "").trim();
+  if (!value) return null;
+  if (DEVANAGARI.test(value)) return "hi";
+  if (!LATIN.test(value)) return null;
+  const list = words(value);
+  const hindi = list.filter((word) => ROMAN_HINDI.has(word));
+  if (hindi.some((word) => !SHARED_WITH_ENGLISH.has(word))) return "hx";
+  // Two or more English words and no Hindi marker: English. One word ("hello",
+  // "fees") says nothing about the language.
+  return list.length >= 2 ? "en" : null;
+}
+
+/* ---------------------------------------------------------------- intents */
+
+export type HelperIntent =
+  | "greeting"
+  | "menu"
+  | "fees"
+  | "receipts"
+  | "attendance"
+  | "results"
+  | "teacher"
+  | "office"
+  | "thanks"
+  | "stop";
+
+export const HELPER_INTENTS: readonly HelperIntent[] = [
+  "greeting", "menu", "fees", "receipts", "attendance", "results", "teacher", "office", "thanks", "stop",
+];
+
+/** Longer than this, a message goes to Claude even when a rule would match. */
+export const RULE_MAX_WORDS = 5;
+
+type Rule = { intent: HelperIntent; patterns: RegExp[] };
+
+/**
+ * In order: the first rule that matches wins. `stop` first, so "stop fees
+ * messages" is never read as a fees question.
+ */
+const RULES: Rule[] = [
+  { intent: "stop", patterns: [/^(stop|unsubscribe|band karo|बंद करो|बंद करें)$/i] },
+  {
+    intent: "receipts",
+    patterns: [/\b(receipts?|reciepts?|reciept|raseed|rasid|rashid)\b/i, /रसीद/],
+  },
+  {
+    intent: "fees",
+    patterns: [
+      /\b(fee|fees|fess|phees|dues?|baki|baaki|bakaya|installments?|kist|kisht)\b/i,
+      /फ़?फीस|फ़ीस|शुल्क|बाकी|बकाया|किस्त|क़िस्त/,
+    ],
+  },
+  {
+    intent: "attendance",
+    patterns: [/\b(attendance|attendence|hazri|hajri|haziri|present|absent)\b/i, /हाज़िरी|हाजिरी|उपस्थिति|अनुपस्थित/],
+  },
+  {
+    intent: "results",
+    patterns: [/\b(results?|marks?|report ?card|scores?|grades?)\b/i, /परिणाम|रिजल्ट|रिज़ल्ट|अंक|नंबर|मार्क्स/],
+  },
+  {
+    intent: "teacher",
+    patterns: [/\b(class ?teacher|teacher|madam|ma'am|maam)\b/i, /कक्षा अध्यापक|अध्यापक|अध्यापिका|शिक्षक|शिक्षिका|टीचर|मैडम/],
+  },
+  {
+    intent: "office",
+    patterns: [
+      /\b(office|principal|staff|human|person|call me|talk to|baat karni|baat karna)\b/i,
+      /कार्यालय|ऑफिस|ऑफ़िस|प्रिंसिपल|प्रधानाचार्य|बात करनी|बात करना/,
+    ],
+  },
+  {
+    intent: "menu",
+    patterns: [/^(menu|help|madad|options?|start|\?)$/i, /^(मेनू|मदद|सहायता)$/],
+  },
+  {
+    intent: "thanks",
+    patterns: [
+      /^(ok(ay)?\s*)?(thanks?|thank you|thx|ty|dhanyavad|dhanyawad|shukriya)(\s*(ji|sir|madam))?[\s!.]*$/i,
+      /^(ok|okay|okk|done|theek hai|thik hai|accha|achha)[\s!.]*$/i,
+      /^(धन्यवाद|शुक्रिया|ठीक है|अच्छा)[\s!।.]*$/,
+      /^[\u{1F44D}\u{1F64F}\u{2764}\u{FE0F}\u{1F60A}\u{1F642}\s]+$/u,
+    ],
+  },
+  {
+    intent: "greeting",
+    patterns: [
+      /^(hi+|hello+|helo|hey|hlo|namaste|namaskar|pranam|good (morning|afternoon|evening)|gm|jai (shree|shri) krishna|ram ram|jai jinendra|radhe radhe)(\s+(sir|madam|ji|ma'am))?[\s!.]*$/i,
+      /^(नमस्ते|नमस्कार|प्रणाम|राम राम|जय जिनेन्द्र|जय श्री कृष्ण|राधे राधे|सुप्रभात)(\s+जी)?[\s!।.]*$/,
+    ],
+  },
+];
+
+/** What a short, plain message asks for, or null: then Claude reads it. */
+export function ruleIntent(text: string | null | undefined): HelperIntent | null {
+  const value = String(text ?? "").trim();
+  if (!value) return null;
+  if (words(value).length > RULE_MAX_WORDS) return null;
+  for (const rule of RULES) {
+    if (rule.patterns.some((pattern) => pattern.test(value))) return rule.intent;
+  }
+  return null;
+}
+
+/* --------------------------------------------------------- button replies */
+
+/**
+ * Every button and list row Veer Patta AI sends carries an id of this shape,
+ * so a tap is read without asking Claude: `vpai:<intent>` or
+ * `vpai:<intent>:<child key>`.
+ */
+export const HELPER_ID_PREFIX = "vpai";
+
+export type HelperTap = { intent: HelperIntent | "message_teacher"; childKey: string | null };
+
+const TAP = /^vpai:([a-z_]{2,20})(?::([a-z0-9]{4,16}))?$/;
+
+export function helperId(intent: HelperTap["intent"], childKey?: string | null): string {
+  return childKey ? `${HELPER_ID_PREFIX}:${intent}:${childKey}` : `${HELPER_ID_PREFIX}:${intent}`;
+}
+
+/** The parent's tap, from the raw WhatsApp message, or null when it was not one of ours. */
+export function readTap(raw: Record<string, unknown> | null | undefined): HelperTap | null {
+  if (!raw || raw.type !== "interactive") return null;
+  const interactive = raw.interactive && typeof raw.interactive === "object" ? (raw.interactive as Record<string, unknown>) : {};
+  const reply = (interactive.button_reply ?? interactive.list_reply) as Record<string, unknown> | undefined;
+  const id = typeof reply?.id === "string" ? reply.id.trim() : "";
+  const match = TAP.exec(id);
+  if (!match) return null;
+  const intent = match[1];
+  if (intent !== "message_teacher" && !(HELPER_INTENTS as readonly string[]).includes(intent)) return null;
+  return { intent: intent as HelperTap["intent"], childKey: match[2] ?? null };
+}
+
+/* ------------------------------------------------------------- what kind */
+
+/**
+ * What kind of message this is, for the helper. A voice note gets a kind
+ * answer ("please type"), a reaction or a sticker gets none, and nothing the
+ * helper cannot read is claimed from the hub.
+ */
+export type MessageKind = "text" | "tap" | "voice" | "media" | "ignore";
+
+export function messageKind(type: string, raw: Record<string, unknown> | null | undefined): MessageKind {
+  if (type === "text") return "text";
+  if (type === "interactive") return readTap(raw) ? "tap" : "text";
+  // A quick-reply button on a template: its words are the message.
+  if (type === "button") return "text";
+  if (type === "audio") return "voice";
+  if (type === "image" || type === "video" || type === "document") return "media";
+  return "ignore";
+}

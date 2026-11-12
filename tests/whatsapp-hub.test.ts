@@ -24,6 +24,7 @@ const store = vi.hoisted(() => ({
   syncHubTemplates: vi.fn(async () => ({ ok: true as const, checked: 0, approved: 0, missing: 0 })),
   submitNewHubTemplates: vi.fn(async (): Promise<unknown> => ({ ok: true as const, sent: 0, skipped: 0, failed: [] as Array<{ name: string; problem: string }> })),
   syncDeliveryToSource: vi.fn(async () => undefined),
+  runHelperTurns: vi.fn(async () => []),
 }));
 
 vi.mock("@/platform/whatsapp/store", () => ({
@@ -35,11 +36,13 @@ vi.mock("@/platform/whatsapp/store", () => ({
 vi.mock("@/platform/whatsapp/service", () => ({ applyTemplateEvents: store.applyTemplateEvents }));
 vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ syncHubTemplates: store.syncHubTemplates, submitNewHubTemplates: store.submitNewHubTemplates }));
 vi.mock("@/modules/whatsapp/data/whatsapp-source-sync", () => ({ syncDeliveryToSource: store.syncDeliveryToSource }));
+vi.mock("@/modules/whatsapp/data/helper-turn", () => ({ runHelperTurns: store.runHelperTurns }));
 vi.mock("@/platform/env", () => ({ getSiteUrl: () => "https://one.vpps.co.in" }));
 vi.mock("@/platform/observability/log", () => ({ logWarn: vi.fn() }));
 
 import { POST as hubWebhook } from "@/app/api/webhooks/whatsapp-hub/route";
 import { POST as templatesJob } from "@/app/api/jobs/whatsapp-templates/route";
+import { handleWhatsAppWebhook } from "@/modules/whatsapp/data/whatsapp-webhook";
 import { APPROVED_HUB, V7_SITUATIONS, V8_SITUATIONS, activeCampaignName, v7CampaignName, v8CampaignName } from "@/modules/whatsapp/domain/campaign-generation";
 import { V7_CAMPAIGNS, V8_CAMPAIGNS } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { classifyFailure } from "@/modules/whatsapp/domain/failure-cause";
@@ -370,6 +373,30 @@ describe("the hub's webhook", () => {
     expect((await post(reply, sign(reply, KEY))).status).toBe(200);
     expect(store.isReplyToOne).toHaveBeenLastCalledWith(expect.objectContaining({ from: "+919876543210", replyTo: "wamid.FROM_ONE" }));
     expect(store.storeInbound).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands every message a parent wrote to Veer Patta AI at once, a reply to One or not (D-574)", async () => {
+    vi.stubEnv("WHATSAPP_HUB_KEY", KEY);
+    store.isReplyToOne.mockResolvedValueOnce(false);
+    const body = parentWrites(null);
+    expect((await post(body, sign(body, KEY))).status).toBe(200);
+    await vi.waitFor(() => expect(store.runHelperTurns).toHaveBeenCalledTimes(1));
+    expect(store.runHelperTurns).toHaveBeenCalledWith([expect.objectContaining({ providerMessageId: "wamid.IN1", from: "+919876543210", text: "ok" })]);
+  });
+
+  it("never hands the helper a message that came straight from Meta: only the hub can give One a claim", async () => {
+    const body = parentWrites(null);
+    const request = new Request("https://one.vpps.co.in/api/webhooks/whatsapp", { method: "POST", body, headers: { "Content-Type": "application/json" } });
+    expect((await handleWhatsAppWebhook(request, { secrets: [KEY], signature: sign(body, KEY) }, "meta")).status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.runHelperTurns).not.toHaveBeenCalled();
+  });
+
+  it("never hands the helper a delivery report", async () => {
+    vi.stubEnv("WHATSAPP_HUB_KEY", KEY);
+    expect((await post(delivered, sign(delivered, KEY))).status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.runHelperTurns).not.toHaveBeenCalled();
   });
 
   it("asks the hub to send again when it cannot tell whether a message is a reply, rather than drop it", async () => {
