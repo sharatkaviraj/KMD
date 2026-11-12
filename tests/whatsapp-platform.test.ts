@@ -111,6 +111,18 @@ describe("may this message go", () => {
     expect(checkWhatsAppSend(input({ template: { ...row, key: "vpps_app_fee_due_hi_v6" } }))).toMatchObject({ code: "template_mismatch" });
   });
 
+  it("never pays marketing price for a template Meta re-filed as marketing, unless the owner allows it (D-581)", () => {
+    // 12 Nov 2026: Meta moved twelve approved staff copies UTILITY -> MARKETING, about 7 times the price.
+    const marketing = { ...row, category: "marketing" };
+    expect(checkWhatsAppSend(input({ template: marketing }))).toMatchObject({ decision: "refuse", code: "marketing_price" });
+    expect(checkWhatsAppSend(input({ template: marketing, switches: { ...switches, dryRun: true } }))).toMatchObject({ code: "marketing_price" });
+    expect(checkWhatsAppSend(input({ template: marketing, switches: { ...switches, allowMarketing: true } }))).toEqual({ decision: "send", to: OWNER });
+    expect(checkWhatsAppSend(input({ template: { ...row, category: "utility" } }))).toEqual({ decision: "send", to: OWNER });
+    // A row read before the column was selected counts as utility.
+    expect(checkWhatsAppSend(input({ template: { ...row, category: null } }))).toEqual({ decision: "send", to: OWNER });
+    expect(describeError("marketing_price").text.hi).toMatch(/मार्केटिंग/);
+  });
+
   it("practice mode logs and sends nothing; an unconnected deployment refuses", () => {
     expect(checkWhatsAppSend(input({ switches: { ...switches, dryRun: true } }))).toEqual({ decision: "dry_run", to: OWNER });
     expect(checkWhatsAppSend(input({ config: readWhatsAppConfig({}) }))).toMatchObject({ code: "not_configured" });
@@ -155,6 +167,10 @@ describe("may this message go", () => {
     expect(switchesFromFlags([...rows, { key: "whatsapp_fee_sender", enabled: false, value: "one" }])!.feeSender).toBe("fees");
     expect(switchesFromFlags([...rows, { key: "whatsapp_fee_sender", enabled: true, value: "one" }])!.feeSender).toBe("one");
     expect(switchesFromFlags(rows.map((r) => (r.key === "whatsapp_features" ? { ...r, enabled: false } : r)))!.features.receipt).toBe(false);
+    // Marketing price: never, unless a row says so in so many words.
+    expect(switchesFromFlags(rows)!.allowMarketing).toBe(false);
+    expect(switchesFromFlags([...rows, { key: "whatsapp_allow_marketing", enabled: false, value: null }])!.allowMarketing).toBe(false);
+    expect(switchesFromFlags([...rows, { key: "whatsapp_allow_marketing", enabled: true, value: null }])!.allowMarketing).toBe(true);
   });
 });
 

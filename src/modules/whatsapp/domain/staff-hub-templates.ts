@@ -45,6 +45,13 @@ export type StaffHubEntry = {
   label: string;
   parts: Record<StaffHubLanguage, Parts>;
   samples: Record<StaffHubLanguage, readonly string[]>;
+  /**
+   * The copy's generation on the hub, per language, when it is not the
+   * first. Meta never takes a name twice, so a copy it turned down, or
+   * re-filed as marketing, is reworded under the next name (D-581). The
+   * earlier name stays in the registry as history and is never sent.
+   */
+  version?: Partial<Record<StaffHubLanguage, number>>;
 };
 
 export const STAFF_SCHOOL_LINE: Record<StaffHubLanguage, string> = {
@@ -109,6 +116,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "cover_cancelled",
+    version: { hi: 2 },
     feature: "staff_notice",
     codes: ["vppsone_cover_cancelled"],
     variables: COVER_VARIABLES,
@@ -117,7 +125,8 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     label: "Cover cancelled",
     parts: {
       en: { title: "Cover duty cancelled", intro: "you no longer need to cover this period.", lines: COVER_LINES.en, action: "Details: {{6}}" },
-      hi: { title: "व्यवस्था रद्द", intro: "यह कालांश अब आपको नहीं लेना है।", lines: COVER_LINES.hi, action: "विवरण: {{6}}" },
+      // v2 (D-581): Meta filed v1 ("व्यवस्था रद्द") as marketing; the English copy stayed utility.
+      hi: { title: "कवर ड्यूटी रद्द", intro: "आपको दी गई यह कवर ड्यूटी रद्द कर दी गई है।", lines: COVER_LINES.hi, action: "ड्यूटी का विवरण: {{6}}" },
     },
     samples: COVER_SAMPLES,
   },
@@ -171,6 +180,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "weekly_summary",
+    version: { hi: 2 },
     feature: "staff_notice",
     codes: ["vppsone_weekly_summary"],
     variables: ["name", "summary", "from"],
@@ -179,7 +189,8 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     label: "Weekly academic summary",
     parts: {
       en: { title: "Weekly academic summary", intro: "here is this week's academic summary.", lines: ["Summary: {{2}}", "From: {{3}}"], action: "Please open VPPS One for details." },
-      hi: { title: "साप्ताहिक शैक्षणिक सारांश", intro: "इस सप्ताह का शैक्षणिक सारांश यह है।", lines: ["सारांश: {{2}}", "भेजने वाले: {{3}}"], action: "पूरी जानकारी के लिए VPPS One खोलें।" },
+      // v2 (D-581): Meta filed v1 as marketing; no "open the app" line now.
+      hi: { title: "साप्ताहिक शैक्षणिक रिपोर्ट", intro: "आपके काम से जुड़ी इस सप्ताह की शैक्षणिक रिपोर्ट नीचे है।", lines: ["रिपोर्ट: {{2}}", "भेजने वाले: {{3}}"], action: "यह रिपोर्ट केवल आपकी जानकारी के लिए है।" },
     },
     samples: {
       en: ["Anita Verma", "Attendance 94%, 3 tests marked, 2 papers pending", "Academic office"],
@@ -188,6 +199,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "notice",
+    version: { hi: 2, en: 2 },
     feature: "staff_notice",
     codes: ["vx_staff_notice"],
     variables: ["text"],
@@ -195,8 +207,9 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     taskButton: false,
     label: "Staff notice",
     parts: {
-      en: { title: "Staff notice", lines: ["{{1}}"], action: "Please open VPPS One for details." },
-      hi: { title: "स्टाफ़ सूचना", lines: ["{{1}}"], action: "पूरी जानकारी के लिए VPPS One खोलें।" },
+      // v2 (D-581): Meta filed both v1 copies as marketing; no "open the app" line now.
+      en: { title: "Notice for school staff", lines: ["{{1}}"], action: "This notice is for the school's staff only and comes from the school office." },
+      hi: { title: "विद्यालय स्टाफ़ के लिए सूचना", lines: ["{{1}}"], action: "यह सूचना केवल विद्यालय के स्टाफ़ के लिए है और कार्यालय से भेजी गई है।" },
     },
     samples: {
       en: ["Staff meeting in the library at 2:30 PM today."],
@@ -205,6 +218,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "online_payment_check",
+    version: { hi: 2 },
     feature: "staff_notice",
     codes: ["vx_staff_online_review_v1"],
     variables: ["name", "amount", "student or class", "link"],
@@ -213,7 +227,8 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     label: "Online payment needs review",
     parts: {
       en: { title: "Online payment to check", intro: "an online fee payment could not be posted automatically.", lines: ["Amount: {{2}}", "For: {{3}}"], action: "Please check it and post it here: {{4}}" },
-      hi: { title: "ऑनलाइन भुगतान जाँचें", intro: "एक ऑनलाइन फ़ीस भुगतान अपने-आप दर्ज नहीं हो सका।", lines: ["राशि: {{2}}", "किसका: {{3}}"], action: "कृपया जाँच कर यहाँ दर्ज करें: {{4}}" },
+      // v2 (D-581): Meta turned v1 down as the wrong category.
+      hi: { title: "ऑनलाइन भुगतान दर्ज करना है", intro: "विद्यालय को मिला एक ऑनलाइन फ़ीस भुगतान रसीद में अपने-आप दर्ज नहीं हुआ।", lines: ["राशि: {{2}}", "किसका: {{3}}"], action: "कृपया जाँचकर यहाँ दर्ज करें: {{4}}" },
     },
     samples: {
       en: ["Anita Verma", "₹5,000", "a student of 7A", "https://one.vpps.co.in/fees/payments/online"],
@@ -273,6 +288,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "money_request",
+    version: { hi: 2, en: 2 },
     feature: "staff_notice",
     codes: ["vx_staff_money_request_v1"],
     variables: ["name", "what", "amount", "student or class", "asked by", "link"],
@@ -280,8 +296,9 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     taskButton: false,
     label: "Reversal or write-off requested",
     parts: {
-      en: { title: "Decision needed", intro: "a request is waiting for your decision.", lines: ["Request: {{2}}", "Amount: {{3}}", "For: {{4}}", "Asked by: {{5}}"], action: "Please decide here: {{6}}" },
-      hi: { title: "निर्णय चाहिए", intro: "एक अनुरोध आपके निर्णय की प्रतीक्षा में है।", lines: ["अनुरोध: {{2}}", "राशि: {{3}}", "किसका: {{4}}", "किसने माँगा: {{5}}"], action: "कृपया यहाँ निर्णय करें: {{6}}" },
+      // v2 (D-581): Meta filed both v1 copies as marketing.
+      en: { title: "Fee record approval", intro: "a member of staff has asked you to approve this change to a fee record.", lines: ["Change: {{2}}", "Amount: {{3}}", "For: {{4}}", "Asked by: {{5}}"], action: "Approve or decline it here: {{6}}" },
+      hi: { title: "फ़ीस रिकॉर्ड की मंज़ूरी", intro: "स्टाफ़ के एक सदस्य ने फ़ीस रिकॉर्ड के इस बदलाव पर आपकी मंज़ूरी माँगी है।", lines: ["बदलाव: {{2}}", "राशि: {{3}}", "किसका: {{4}}", "किसने माँगा: {{5}}"], action: "यहाँ मंज़ूर या नामंज़ूर करें: {{6}}" },
     },
     samples: {
       en: ["Anita Verma", "receipt reversal", "₹2,000", "a student of 7A", "Office desk", "https://one.vpps.co.in/inbox"],
@@ -290,6 +307,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "money_decision",
+    version: { hi: 2 },
     feature: "staff_notice",
     codes: ["vx_staff_money_decision_v1"],
     variables: ["name", "what", "decision", "amount", "student or class", "link"],
@@ -298,7 +316,8 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     label: "Reversal or write-off decided",
     parts: {
       en: { title: "Request decided", intro: "your request has been decided.", lines: ["Request: {{2}}", "Decision: {{3}}", "Amount: {{4}}", "For: {{5}}"], action: "Details: {{6}}" },
-      hi: { title: "अनुरोध पर निर्णय", intro: "आपके अनुरोध पर निर्णय हो गया है।", lines: ["अनुरोध: {{2}}", "निर्णय: {{3}}", "राशि: {{4}}", "किसका: {{5}}"], action: "विवरण: {{6}}" },
+      // v2 (D-581): Meta filed v1 as marketing.
+      hi: { title: "फ़ीस रिकॉर्ड पर निर्णय", intro: "फ़ीस रिकॉर्ड के बदलाव का आपका अनुरोध तय हो गया है।", lines: ["बदलाव: {{2}}", "निर्णय: {{3}}", "राशि: {{4}}", "किसका: {{5}}"], action: "विवरण: {{6}}" },
     },
     samples: {
       en: ["Anita Verma", "receipt reversal", "approved", "₹2,000", "a student of 7A", "https://one.vpps.co.in/inbox"],
@@ -341,6 +360,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "system_check",
+    version: { hi: 2, en: 2 },
     feature: "staff_notice",
     codes: ["vx_staff_ops_alert_v1"],
     variables: ["name", "day", "count", "what", "link"],
@@ -348,8 +368,9 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     taskButton: false,
     label: "System check",
     parts: {
-      en: { title: "System check", intro: "the daily system check found things to look at.", lines: ["Day: {{2}}", "How many: {{3}}", "What: {{4}}"], action: "Details: {{5}}" },
-      hi: { title: "सिस्टम जाँच", intro: "रोज़ की सिस्टम जाँच में कुछ बातें देखनी हैं।", lines: ["दिन: {{2}}", "कितनी: {{3}}", "क्या: {{4}}"], action: "विवरण: {{5}}" },
+      // v2 (D-581): Meta filed both v1 copies as marketing.
+      en: { title: "System check alert", intro: "the automatic daily check of the school's systems found problems for an admin to fix.", lines: ["Date checked: {{2}}", "Problems found: {{3}}", "Found: {{4}}"], action: "Check log: {{5}}" },
+      hi: { title: "सिस्टम जाँच की चेतावनी", intro: "विद्यालय के सिस्टम की रोज़ की अपने-आप जाँच में कुछ समस्याएँ मिली हैं, जिन्हें एडमिन को ठीक करना है।", lines: ["जाँच की तारीख: {{2}}", "समस्याएँ: {{3}}", "क्या मिला: {{4}}"], action: "जाँच का लॉग: {{5}}" },
     },
     samples: {
       en: ["Anita Verma", "Mon 16 Nov", "2", "a backup did not finish", "https://one.vpps.co.in/jobs"],
@@ -358,6 +379,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "digest",
+    version: { hi: 2, en: 2 },
     feature: "staff_notice",
     codes: ["vx_staff_digest_v1"],
     variables: ["name", "count", "what", "link"],
@@ -365,8 +387,9 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     taskButton: false,
     label: "Several messages at once",
     parts: {
-      en: { title: "New messages for you", intro: "you have new messages in VPPS One.", lines: ["How many: {{2}}", "About: {{3}}"], action: "See them all here: {{4}}" },
-      hi: { title: "आपके लिए नए संदेश", intro: "VPPS One में आपके लिए नए संदेश हैं।", lines: ["कितने: {{2}}", "विषय: {{3}}"], action: "सब यहाँ देखें: {{4}}" },
+      // v2 (D-581): Meta filed both v1 copies as marketing.
+      en: { title: "Your staff alerts", intro: "the school office has these work alerts for you.", lines: ["Alerts: {{2}}", "About: {{3}}"], action: "Read the alerts here: {{4}}" },
+      hi: { title: "आपकी स्टाफ़ सूचनाएँ", intro: "विद्यालय कार्यालय की ओर से आपके काम की ये सूचनाएँ हैं।", lines: ["सूचनाएँ: {{2}}", "विषय: {{3}}"], action: "सूचनाएँ यहाँ पढ़ें: {{4}}" },
     },
     samples: {
       en: ["Anita Verma", "3", "Cover assigned", "https://one.vpps.co.in/inbox"],
@@ -375,6 +398,7 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
   },
   {
     slug: "task",
+    version: { hi: 2 },
     feature: "teacher_task",
     codes: ["vppsone_teacher_task_en_v1", "vppsone_teacher_task_hi_v1", "vppsone_teacher_task_both_v1"],
     variables: TASK_VARIABLES,
@@ -383,7 +407,8 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
     label: "Teacher task",
     parts: {
       en: { title: "New task", intro: "you have a new task.", lines: TASK_LINES.en, action: "Please tap Open task to see your work." },
-      hi: { title: "नया कार्य", intro: "आपके लिए एक नया कार्य है।", lines: TASK_LINES.hi, action: "अपना काम देखने के लिए \"कार्य खोलें\" दबाएँ।" },
+      // v2 (D-581): Meta filed v1 as marketing; the English copy stayed utility.
+      hi: { title: "नया कार्य सौंपा गया", intro: "विद्यालय ने आपको यह कार्य सौंपा है।", lines: TASK_LINES.hi, action: "कार्य देखने और पूरा करने के लिए \"कार्य खोलें\" दबाएँ।" },
     },
     samples: TASK_SAMPLES,
   },
@@ -405,8 +430,13 @@ export const STAFF_HUB_ENTRIES: readonly StaffHubEntry[] = [
 
 export const STAFF_HUB_LANGUAGES: readonly StaffHubLanguage[] = ["hi", "en"];
 
-export function staffHubName(slug: string, language: StaffHubLanguage): string {
-  return `vpps_staff_${slug}_${language}_v1`;
+export function staffHubName(slug: string, language: StaffHubLanguage, version = 1): string {
+  return `vpps_staff_${slug}_${language}_v${version}`;
+}
+
+/** The name an entry's copy carries on the hub now: its latest generation. */
+export function staffHubEntryName(entry: StaffHubEntry, language: StaffHubLanguage): string {
+  return staffHubName(entry.slug, language, entry.version?.[language] ?? 1);
 }
 
 /** The exact body submitted to Meta, and the one the hourly check holds an approval to. */
@@ -418,7 +448,7 @@ export function staffHubBody(entry: StaffHubEntry, language: StaffHubLanguage): 
 
 export function staffHubSubmission(entry: StaffHubEntry, language: StaffHubLanguage): TemplateSubmission {
   return {
-    name: staffHubName(entry.slug, language),
+    name: staffHubEntryName(entry, language),
     language,
     category: "UTILITY",
     body: staffHubBody(entry, language),
@@ -455,5 +485,5 @@ export function staffHubKey(code: string, language: string | null | undefined, v
   else if (language === "en") chosen = "en";
   else if (language === "hi" || language === "both") chosen = "hi";
   else chosen = values.some((value) => DEVANAGARI.test(value)) ? "hi" : "en";
-  return staffHubName(entry.slug, chosen);
+  return staffHubEntryName(entry, chosen);
 }

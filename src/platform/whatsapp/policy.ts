@@ -83,6 +83,11 @@ export type WhatsAppSwitches = {
   dailyLimit: number;
   /** Who sends the fee messages (`FEES_APP_FEATURES`). Missing means the Fees app. */
   feeSender?: FeeSender;
+  /**
+   * May One send a template Meta has filed as marketing (about 7x the price,
+   * and capped per person by Meta)? Missing means no (D-581).
+   */
+  allowMarketing?: boolean;
 };
 
 export type TemplateRow = {
@@ -94,6 +99,8 @@ export type TemplateRow = {
   header: string;
   url_button: boolean;
   status: string;
+  /** Meta's category for the approved copy: `utility`, `marketing`… Missing on rows read before D-581. */
+  category?: string | null;
 };
 
 export type WhatsAppRefusal =
@@ -105,6 +112,7 @@ export type WhatsAppRefusal =
   | "feature_off"
   | "template_not_approved"
   | "template_mismatch"
+  | "marketing_price"
   | "outside_24h"
   | "not_owner_test_number"
   | "not_configured"
@@ -164,6 +172,18 @@ export function checkWhatsAppSend(input: PolicyInput): PolicyVerdict {
     if (!row || row.status !== "approved") {
       return refuse("template_not_approved", "This template is not approved on the school's WhatsApp yet.", to);
     }
+    // Meta re-files a template as marketing on its own, after approving it as
+    // utility: the same message then costs about 7 times as much, and Meta
+    // holds some back from people who get many. One never pays that silently
+    // (D-581): the message stays inside One until the template is reworded and
+    // approved as utility, or the owner allows marketing.
+    if (row.category === "marketing" && switches.allowMarketing !== true) {
+      return refuse(
+        "marketing_price",
+        "Meta filed this template as marketing, which costs about 7 times more. One does not send it unless the owner allows marketing messages.",
+        to,
+      );
+    }
     if (/_v6$/i.test(row.key) || /_v6$/i.test(row.provider_name)) {
       return refuse("template_mismatch", "One never sends a _v6 template: its Pay now link belongs to the fees app.", to);
     }
@@ -212,6 +232,7 @@ export function switchesFromFlags(
   const owner = byKey.get("whatsapp_owner_test_number");
   const limit = byKey.get("whatsapp_daily_limit");
   const feeSender = byKey.get("whatsapp_fee_sender");
+  const marketing = byKey.get("whatsapp_allow_marketing");
   if (!dryRun || !features || !real || !owner || !limit) return null;
 
   const featureValue = features.value;
@@ -232,5 +253,7 @@ export function switchesFromFlags(
     dailyLimit: limit.enabled === true && Number.isInteger(limitValue) && limitValue >= 0 ? limitValue : 0,
     // The Fees app's unless the row says, in so many words, that One sends them.
     feeSender: feeSender?.enabled === true && feeSender.value === "one" ? "one" : "fees",
+    // Never marketing unless a row says so in so many words.
+    allowMarketing: marketing?.enabled === true,
   };
 }

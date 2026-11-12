@@ -1,5 +1,14 @@
 # Decisions
 
+## Never marketing price for One's staff messages, and thirteen copies reworded — 12 November 2026
+
+Janmejay, 12 Nov 2026, asked whether staff messages Meta had filed as
+marketing should still go out: "Reword them".
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-581 | **One never sends a template Meta has filed as marketing, unless the owner allows it (`runtime_flags.whatsapp_allow_marketing`, missing = no). Such a message stays inside One, with the plain reason "filed as marketing", and Settings → WhatsApp marks the template "Filed as marketing: not sent" and leaves it out of the feature's ready count. The thirteen staff copies Meta re-filed or turned down are reworded under `_v2` names (a per-language `version` in `staff-hub-templates.ts`), and the hourly check sends them to Meta** | Of the 40 staff and teacher-task copies sent on 12 Nov (D-573), Meta approved them as UTILITY and then re-filed 12 as MARKETING within minutes (the hub's webhook log, `template_category_update`): both copies of the staff notice, the system check, the reversal or write-off request and the several-messages digest, and the Hindi copies of cover cancelled, weekly summary, reversal decided and new task. It turned down the Hindi online-payment check as `INCORRECT_CATEGORY`. Marketing costs about 7 times as much (the `_v8` note in `campaigns.ts`) and Meta holds marketing back from people who get many, so a cover or task alert could silently not arrive. Meta's call differed between the Hindi and English copies of the same message, so rewording is worth a try: no "open the app" lines, each says whose work it is. Meta never takes a name twice, so the `_v1` rows stay as history and are never sent. Registry rows `20261112064013_whatsapp_staff_hub_reworded.sql` (13, `not_submitted`); `tests/whatsapp-platform.test.ts` (the guard) and `tests/whatsapp-staff-hub-templates.test.ts` (the `_v2` set) |
+
 ## Veer Patta AI, step 2: a hand-off reaches a person, and the answer comes back — 12 November 2026
 
 Janmejay, 12 Nov 2026: complaints go to the class teacher first, then to an

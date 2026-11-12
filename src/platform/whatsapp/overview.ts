@@ -25,6 +25,8 @@ export type TemplateView = {
   quality: string | null;
   /** When One sent it to Meta for approval through the hub. */
   submittedAt: string | null;
+  /** Meta's category: `utility`, or `marketing` when Meta re-filed it (D-581). */
+  category: string | null;
 };
 
 export type MessageView = {
@@ -113,7 +115,7 @@ export async function loadWhatsAppOverview(): Promise<WhatsAppOverview> {
     readSwitches(db),
     db
       .from("whatsapp_templates")
-      .select("key, feature, language_code, status, status_reason, label_en, status_checked_at, quality, submitted_at")
+      .select("key, feature, language_code, status, status_reason, label_en, status_checked_at, quality, submitted_at, category")
       .order("feature")
       .order("key")
       .then(
@@ -127,6 +129,7 @@ export async function loadWhatsAppOverview(): Promise<WhatsAppOverview> {
           status_checked_at: string | null;
           quality: string | null;
           submitted_at: string | null;
+          category: string | null;
         }> | null,
         () => null,
       ),
@@ -192,6 +195,7 @@ export async function loadWhatsAppOverview(): Promise<WhatsAppOverview> {
           checkedAt: row.status_checked_at,
           quality: row.quality,
           submittedAt: row.submitted_at,
+          category: row.category ?? null,
         }))
       : null,
     messages: messages ? messages.map(messageView) : null,

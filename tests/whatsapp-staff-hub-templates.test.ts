@@ -17,6 +17,7 @@ import {
   STAFF_HUB_SUBMISSIONS,
   TASK_BUTTON_URL,
   staffHubBody,
+  staffHubEntryName,
   staffHubKey,
   staffHubName,
 } from "@/modules/whatsapp/domain/staff-hub-templates";
@@ -28,7 +29,11 @@ import {
  * that the existing renderers fill unchanged.
  */
 
-const MIGRATIONS = ["20261109062459_school_whatsapp.sql", "20261112024037_whatsapp_staff_hub_templates.sql"]
+const MIGRATIONS = [
+  "20261109062459_school_whatsapp.sql",
+  "20261112024037_whatsapp_staff_hub_templates.sql",
+  "20261112064013_whatsapp_staff_hub_reworded.sql",
+]
   .map((file) => readFileSync(join(process.cwd(), "supabase/migrations", file), "utf8"))
   .join("\n");
 const SEED =
@@ -87,7 +92,7 @@ describe("the staff and teacher-task set on the hub", () => {
   });
 
   it.each(STAFF_HUB_SUBMISSIONS.map((submission) => [submission.name, submission] as const))("%s is a body Meta accepts", (name, submission) => {
-    expect(name).toMatch(/^vpps_staff_[a-z_]+_(hi|en)_v1$/);
+    expect(name).toMatch(/^vpps_staff_[a-z_]+_(hi|en)_v[12]$/);
     expect(submission.category).toBe("UTILITY");
     expect(metaShapeProblems(submission.body, submission.examples)).toEqual([]);
     const lines = submission.body.split("\n");
@@ -105,14 +110,14 @@ describe("the staff and teacher-task set on the hub", () => {
   it("only the teacher tasks carry the Open task button", () => {
     for (const entry of STAFF_HUB_ENTRIES) {
       for (const language of STAFF_HUB_LANGUAGES) {
-        const submission = STAFF_HUB_SUBMISSIONS.find((candidate) => candidate.name === staffHubName(entry.slug, language))!;
+        const submission = STAFF_HUB_SUBMISSIONS.find((candidate) => candidate.name === staffHubEntryName(entry, language))!;
         expect(submission.buttons.length).toBe(entry.feature === "teacher_task" ? 1 : 0);
       }
     }
   });
 
   it.each(STAFF_HUB_SUBMISSIONS.map((submission) => [submission.name, submission] as const))("%s has a registry row that matches it", (name, submission) => {
-    const entry = STAFF_HUB_ENTRIES.find((candidate) => STAFF_HUB_LANGUAGES.some((language) => staffHubName(candidate.slug, language) === name))!;
+    const entry = STAFF_HUB_ENTRIES.find((candidate) => STAFF_HUB_LANGUAGES.some((language) => staffHubEntryName(candidate, language) === name))!;
     expect(seeded.get(name)).toEqual({
       providerName: name,
       language: submission.language,
@@ -130,20 +135,20 @@ describe("which name a staff message goes out under", () => {
     expect(staffHubKey("vppsone_cover_assigned", "hi")).toBe("vpps_staff_cover_assigned_hi_v1");
     // The renderers fill `both` with the Hindi values (notices.ts fromTemplate).
     expect(staffHubKey("vppsone_cover_assigned", "both")).toBe("vpps_staff_cover_assigned_hi_v1");
-    expect(staffHubKey("vx_staff_digest_v1", "en")).toBe("vpps_staff_digest_en_v1");
+    expect(staffHubKey("vx_staff_digest_v1", "en")).toBe("vpps_staff_digest_en_v2");
   });
 
   it("a teacher task's code carries its language; both is Hindi first", () => {
     expect(staffHubKey("vppsone_teacher_task_en_v1", "hi")).toBe("vpps_staff_task_en_v1");
-    expect(staffHubKey("vppsone_teacher_task_hi_v1", null)).toBe("vpps_staff_task_hi_v1");
-    expect(staffHubKey("vppsone_teacher_task_both_v1", null)).toBe("vpps_staff_task_hi_v1");
+    expect(staffHubKey("vppsone_teacher_task_hi_v1", null)).toBe("vpps_staff_task_hi_v2");
+    expect(staffHubKey("vppsone_teacher_task_both_v1", null)).toBe("vpps_staff_task_hi_v2");
     expect(staffHubKey("vppsone_teacher_task_reminder_en_v1", null)).toBe("vpps_staff_task_reminder_en_v1");
     expect(staffHubKey("vppsone_teacher_task_reminder_both_v1", "en")).toBe("vpps_staff_task_reminder_hi_v1");
   });
 
   it("with no reader's language, the words decide", () => {
-    expect(staffHubKey("vx_staff_notice", null, ["Staff meeting at 2:30 PM."])).toBe("vpps_staff_notice_en_v1");
-    expect(staffHubKey("vx_staff_notice", null, ["आज 2:30 बजे स्टाफ़ बैठक है।"])).toBe("vpps_staff_notice_hi_v1");
+    expect(staffHubKey("vx_staff_notice", null, ["Staff meeting at 2:30 PM."])).toBe("vpps_staff_notice_en_v2");
+    expect(staffHubKey("vx_staff_notice", null, ["आज 2:30 बजे स्टाफ़ बैठक है।"])).toBe("vpps_staff_notice_hi_v2");
   });
 
   it("a code with no hub copy keeps its own name (and is refused as not approved)", () => {
@@ -159,6 +164,45 @@ describe("which name a staff message goes out under", () => {
         for (const language of ["hi", "en", "both", null] as const) expect(names.has(staffHubKey(code, language)!)).toBe(true);
       }
     }
+  });
+});
+
+describe("copies Meta re-filed as marketing or turned down (D-581)", () => {
+  // 12 Nov 2026: twelve approved copies re-filed UTILITY -> MARKETING, and
+  // the Hindi online-payment check rejected INCORRECT_CATEGORY.
+  const REWORDED = [
+    "cover_cancelled_hi",
+    "weekly_summary_hi",
+    "notice_hi",
+    "notice_en",
+    "online_payment_check_hi",
+    "money_request_hi",
+    "money_request_en",
+    "money_decision_hi",
+    "system_check_hi",
+    "system_check_en",
+    "digest_hi",
+    "digest_en",
+    "task_hi",
+  ];
+
+  it("goes again under _v2, and only those", () => {
+    const v2 = STAFF_HUB_SUBMISSIONS.filter((submission) => submission.name.endsWith("_v2")).map((submission) => submission.name.replace(/^vpps_staff_|_v2$/g, ""));
+    expect(v2.sort()).toEqual([...REWORDED].sort());
+    expect(staffHubName("notice", "en", 2)).toBe("vpps_staff_notice_en_v2");
+  });
+
+  it("no longer asks the reader to open the app", () => {
+    for (const submission of STAFF_HUB_SUBMISSIONS) {
+      if (!submission.name.endsWith("_v2")) continue;
+      expect(submission.body, submission.name).not.toMatch(/open VPPS One|VPPS One खोलें|new messages|नए संदेश/i);
+    }
+  });
+
+  it("the _v1 names are never sent again", () => {
+    const names = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
+    for (const old of REWORDED) expect(names.has(`vpps_staff_${old}_v1`)).toBe(false);
+    expect(templatesThatCount([{ key: "vpps_staff_notice_hi_v1" }, { key: "vpps_staff_notice_hi_v2" }]).map((row) => row.key)).toEqual(["vpps_staff_notice_hi_v2"]);
   });
 });
 

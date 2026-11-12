@@ -151,6 +151,11 @@ under those names in the reader's language. The hourly check sends any
 never-sent one for approval, 15 an hour. Migration `20261112024037` (40
 registry rows, applied to One 12 Nov 02:40 UTC). Not included: free-text parent messages (Meta files them as
 MARKETING) and the teacher collection link.
+By 06:25 UTC all 48 had gone: 41 approved (all 8 school notices), 6 in review,
+1 turned down, and Meta re-filed 12 approved staff copies as MARKETING.
+**12 Nov (D-581, owner: "Reword them"):** One never sends a template Meta
+filed as marketing unless the owner allows it; the 13 are reworded under `_v2`
+names and go to Meta through the hourly check (migration `20261112064013`).
 **Remains:** the owner's written
 go-ahead (SETUP.md "What is left to fill in"): which feature goes first, practice
 mode off, the hub to live, and only then real recipients.

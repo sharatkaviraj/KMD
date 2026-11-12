@@ -208,6 +208,12 @@ const MESSAGES: Record<string, PlainError> = {
     false,
     "fix_template",
   ),
+  marketing_price: plain(
+    "Meta filed this message as marketing, which costs about 7 times more, so One kept it inside One. It goes on WhatsApp again once the reworded copy is approved.",
+    "Meta ने इस संदेश को मार्केटिंग माना है, जिसकी कीमत लगभग 7 गुना है, इसलिए One ने इसे One में ही रखा। नया लिखा संदेश मंज़ूर होने पर यह फिर WhatsApp पर जाएगा।",
+    false,
+    "fix_template",
+  ),
   not_owner_test_number: plain(
     "While testing, One may message only the owner's own number. Real parents are switched off.",
     "जाँच के दौरान One केवल मालिक के अपने नंबर पर संदेश भेज सकता है। असली अभिभावक बंद हैं।",

@@ -239,6 +239,9 @@ export const messageStatusLabels: Record<string, Localized> = {
   cancelled: t("रद्द", "Cancelled"),
 };
 
+/** An approved template Meta re-filed as marketing: One keeps it inside One (D-581). */
+export const marketingLabel: Localized = t("मार्केटिंग माना गया: नहीं भेजा जाता", "Filed as marketing: not sent");
+
 export const templateStatusLabels: Record<string, Localized> = {
   approved: t("मंज़ूर", "Approved"),
   pending: t("Meta की मंज़ूरी बाकी", "Waiting for Meta"),
