@@ -22,6 +22,7 @@ const store = vi.hoisted(() => ({
   queueSecretMatches: vi.fn(async (secret: string) => secret === "queue-secret-for-tests-0123456789"),
   applyTemplateEvents: vi.fn(async () => ({ written: 0, needsSync: false })),
   syncHubTemplates: vi.fn(async () => ({ ok: true as const, checked: 0, approved: 0, missing: 0 })),
+  submitNewHubTemplates: vi.fn(async (): Promise<unknown> => ({ ok: true as const, sent: 0, skipped: 0, failed: [] as Array<{ name: string; problem: string }> })),
   syncDeliveryToSource: vi.fn(async () => undefined),
 }));
 
@@ -32,7 +33,7 @@ vi.mock("@/platform/whatsapp/store", () => ({
   queueSecretMatches: store.queueSecretMatches,
 }));
 vi.mock("@/platform/whatsapp/service", () => ({ applyTemplateEvents: store.applyTemplateEvents }));
-vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ syncHubTemplates: store.syncHubTemplates }));
+vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ syncHubTemplates: store.syncHubTemplates, submitNewHubTemplates: store.submitNewHubTemplates }));
 vi.mock("@/modules/whatsapp/data/whatsapp-source-sync", () => ({ syncDeliveryToSource: store.syncDeliveryToSource }));
 vi.mock("@/platform/env", () => ({ getSiteUrl: () => "https://one.vpps.co.in" }));
 vi.mock("@/platform/observability/log", () => ({ logWarn: vi.fn() }));
@@ -42,7 +43,7 @@ import { POST as templatesJob } from "@/app/api/jobs/whatsapp-templates/route";
 import { APPROVED_HUB, V7_SITUATIONS, V8_SITUATIONS, activeCampaignName, v7CampaignName, v8CampaignName } from "@/modules/whatsapp/domain/campaign-generation";
 import { V7_CAMPAIGNS, V8_CAMPAIGNS } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { classifyFailure } from "@/modules/whatsapp/domain/failure-cause";
-import { HUB_TEMPLATE_SUBMISSIONS, hubExpectedBodies, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
+import { HUB_TEMPLATE_SUBMISSIONS, V8_HUB_SUBMISSIONS, hubExpectedBodies, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
 import { describeError } from "@/platform/whatsapp/errors";
 import { HUB_CODES, providerFor, readHubStatus, refusalCode } from "@/platform/whatsapp/providers";
@@ -224,9 +225,11 @@ describe("the _v8 set", () => {
   });
 
   it("goes to the hub as UTILITY, with five samples, no footer, and Pay now then Call office", () => {
-    expect(HUB_TEMPLATE_SUBMISSIONS).toHaveLength(22);
-    expect(new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => `${submission.name}:${submission.language}`)).size).toBe(22);
-    for (const submission of HUB_TEMPLATE_SUBMISSIONS) {
+    expect(V8_HUB_SUBMISSIONS).toHaveLength(22);
+    expect(new Set(V8_HUB_SUBMISSIONS.map((submission) => `${submission.name}:${submission.language}`)).size).toBe(22);
+    // The whole hub list starts with them, in the same order.
+    expect(HUB_TEMPLATE_SUBMISSIONS.slice(0, 22)).toEqual(V8_HUB_SUBMISSIONS);
+    for (const submission of V8_HUB_SUBMISSIONS) {
       expect(submission.name).toMatch(/^vpps_app_[a-z_]+_(hi|en)_v8$/);
       expect(submission.category).toBe("UTILITY");
       expect(submission.examples).toHaveLength(5);
@@ -241,7 +244,7 @@ describe("the _v8 set", () => {
 
   it("is approved only from the hub's list: APPROVED_HUB holds only real _v8 names", () => {
     // Every name is one of the 22, so a typo cannot quietly switch nothing on.
-    const v8Names = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
+    const v8Names = new Set(V8_HUB_SUBMISSIONS.map((submission) => submission.name));
     for (const name of APPROVED_HUB) expect(v8Names.has(name)).toBe(true);
     // 9 Nov 2026: 20 read APPROVED; the last two Hindi ones followed on 10 Nov.
     expect(APPROVED_HUB.size).toBe(22);
@@ -399,5 +402,20 @@ describe("the hourly template check", () => {
     const answer = await run("Bearer queue-secret-for-tests-0123456789");
     expect(answer.status).toBe(200);
     expect(store.syncHubTemplates).toHaveBeenCalledWith({ staffId: null }, "https://one.vpps.co.in");
+  });
+
+  it("then sends One's never-sent templates for approval, and says how many (D-573)", async () => {
+    store.submitNewHubTemplates.mockResolvedValueOnce({ ok: true, sent: 15, skipped: 55, failed: [{ name: "x", problem: "Body has a typo" }] });
+    const answer = await run("Bearer queue-secret-for-tests-0123456789");
+    expect(answer.status).toBe(200);
+    expect(store.submitNewHubTemplates).toHaveBeenCalledTimes(1);
+    expect(await answer.json()).toMatchObject({ ok: true, submitted: 15, refused: 1 });
+  });
+
+  it("a failed submission never fails the check", async () => {
+    store.submitNewHubTemplates.mockRejectedValueOnce(new Error("hub down"));
+    const answer = await run("Bearer queue-secret-for-tests-0123456789");
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toMatchObject({ ok: true, submitted: 0 });
   });
 });

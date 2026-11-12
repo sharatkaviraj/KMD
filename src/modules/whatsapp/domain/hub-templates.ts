@@ -7,6 +7,8 @@ import {
   V8_CAMPAIGNS,
   type V6Descriptor,
 } from "@/modules/whatsapp/domain/campaign-bodies-v6";
+import { SCHOOL_NOTICE_TEMPLATES } from "@/modules/whatsapp/domain/school-notice-bodies";
+import { STAFF_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/staff-hub-templates";
 
 /**
  * The `_v8` set as the school's WhatsApp hub takes it (`POST /v1/templates`,
@@ -39,7 +41,42 @@ export function hubTemplateSubmission(entry: V6Descriptor): TemplateSubmission {
 }
 
 /** The 22 `_v8` templates, Hindi and English, ready for the hub. */
-export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = V8_CAMPAIGNS.map(hubTemplateSubmission);
+export const V8_HUB_SUBMISSIONS: readonly TemplateSubmission[] = V8_CAMPAIGNS.map(hubTemplateSubmission);
+
+/**
+ * The parents' school notices — absent today, school closed, exam schedule,
+ * PTM — as they are, Hindi and English (D-573). They were written for Meta
+ * from the start (a bold title, the school's name, a labelled line per value,
+ * Call office), and their registry rows already carry these names.
+ */
+export const SCHOOL_NOTICE_HUB_SUBMISSIONS: readonly TemplateSubmission[] = SCHOOL_NOTICE_TEMPLATES.map((entry) => ({
+  name: entry.campaignName,
+  language: entry.language,
+  category: "UTILITY" as const,
+  body: entry.body,
+  examples: [...entry.metaSamples],
+  buttons: [{ type: "PHONE_NUMBER" as const, text: V6_BUTTON_LABELS[entry.language].call_office, phone_number: OFFICE_PHONE }],
+}));
+
+/**
+ * Everything One asks the hub to carry: the `_v8` fee set, the parents'
+ * school notices, and the staff and teacher-task set (`staff-hub-templates.ts`).
+ * "Send for approval" and the hourly check both work from this list.
+ */
+export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
+  ...V8_HUB_SUBMISSIONS,
+  ...SCHOOL_NOTICE_HUB_SUBMISSIONS,
+  ...STAFF_HUB_SUBMISSIONS,
+];
+
+/**
+ * How many one press of "Send for approval" sends, and how many the hourly
+ * check sends by itself. Each takes the hub about five seconds, three at a
+ * time; the hourly job shares its minute with the template check and pg_net
+ * gives up after 55 seconds.
+ */
+export const HUB_SUBMIT_PER_PRESS = 24;
+export const HUB_SUBMIT_PER_HOUR = 15;
 
 const HUB_NAMES: ReadonlySet<string> = new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => submission.name));
 
@@ -60,5 +97,5 @@ export function templatesThatCount<T extends { key: string }>(rows: readonly T[]
 
 /** Registry key → the exact approved wording One expects, for the sync's byte check. */
 export function hubExpectedBodies(): ReadonlyMap<string, string> {
-  return new Map(V8_CAMPAIGNS.map((entry) => [entry.campaignName, entry.body]));
+  return new Map(HUB_TEMPLATE_SUBMISSIONS.map((submission) => [submission.name, submission.body]));
 }

@@ -3,6 +3,7 @@ import "server-only";
 import { getOptionalEnvVar, getVppsOneEnvironment } from "@/platform/env";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
 import { sendParentTemplate } from "@/modules/whatsapp/data/parent-send";
+import { staffHubKey } from "@/modules/whatsapp/domain/staff-hub-templates";
 import type { ParentCategory } from "@/modules/collection/domain/parent-policy";
 import {
   nativeParentGate,
@@ -151,7 +152,10 @@ const whatsappProvider: MessageProvider = {
       .then((staff) => staff?.userId ?? null)
       .catch(() => null);
     try {
-      const outcome = await sendTemplate(`+91${send.toPhone}`, send.templateCode, null, send.variables ?? [], {
+      // A teacher task or a staff notice goes under the hub's own name for it
+      // (D-573): same blanks, a body Meta accepts, in the reader's language.
+      const name = staffHubKey(send.templateCode, null, send.variables ?? []) ?? send.templateCode;
+      const outcome = await sendTemplate(`+91${send.toPhone}`, name, null, send.variables ?? [], {
         feature: send.taskId ? "teacher_task" : "staff_notice",
         toName: send.toName ?? null,
         // A task's button opens that task; nothing else here carries one.

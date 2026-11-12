@@ -584,7 +584,7 @@ export async function syncTemplates(
   const db = whatsappDb();
   const { data: rows, error } = await db
     .from("whatsapp_templates")
-    .select("key, provider_name, language_code, body_params, header, url_button, status, submitted_at");
+    .select("key, provider_name, language_code, body_params, header, url_button, status, status_reason, submitted_at");
   if (error || !rows) return { ok: false, problem: "Could not read the template list." };
 
   let approved = 0;
@@ -597,11 +597,26 @@ export async function syncTemplates(
     }
   })();
   const now = new Date().toISOString();
-  type Row = { key: string; provider_name: string; language_code: string; body_params: number; header: string; url_button: boolean; status: string; submitted_at: string | null };
+  type Row = {
+    key: string;
+    provider_name: string;
+    language_code: string;
+    body_params: number;
+    header: string;
+    url_button: boolean;
+    status: string;
+    status_reason: string | null;
+    submitted_at: string | null;
+  };
   for (const row of rows as Row[]) {
     const found = listed.templates.find((template) => template.name === row.provider_name && template.language === row.language_code);
     let status = found ? (STATUS_FROM_META[found.status] ?? "pending") : "not_submitted";
     let reason: string | null = found?.rejectedReason ?? null;
+    if (!found && !row.submitted_at && row.status === "not_submitted") {
+      // Never with Meta: keep why the hub refused it, if it did. That reason
+      // is what keeps the hourly check from sending it again (D-573).
+      reason = row.status_reason;
+    }
     if (!found && row.submitted_at) {
       // Sent for approval from here, and not in the list yet: still Meta's.
       status = "pending";
@@ -762,6 +777,15 @@ export async function applyTemplateEvents(events: readonly WebhookTemplateEvent[
 export async function submitTemplates(
   submissions: readonly TemplateSubmission[],
   actor: { staffId: string | null },
+  options: {
+    /** At most this many go in one call; the rest wait for the next. */
+    limit?: number;
+    /**
+     * Only rows never sent and never refused (`not_submitted` with no reason):
+     * the hourly check's rule, so a refusal is not repeated every hour.
+     */
+    newOnly?: boolean;
+  } = {},
 ): Promise<{ ok: true; sent: number; skipped: number; failed: Array<{ name: string; problem: string }> } | { ok: false; problem: string }> {
   const config = readWhatsAppConfig();
   if (!config.ok) return { ok: false, problem: config.reason };
@@ -771,7 +795,7 @@ export async function submitTemplates(
   const db = whatsappDb();
   const { data: rows, error } = await db
     .from("whatsapp_templates")
-    .select("key, provider_name, language_code, status")
+    .select("key, provider_name, language_code, status, status_reason")
     .in("provider_name", submissions.map((submission) => submission.name));
   if (error || !rows) return { ok: false, problem: "Could not read the template list." };
 
@@ -779,11 +803,13 @@ export async function submitTemplates(
   let skipped = 0;
   const failed: Array<{ name: string; problem: string }> = [];
   const todo: Array<{ submission: TemplateSubmission; row: { key: string; status: string } }> = [];
+  const limit = options.limit ?? Number.POSITIVE_INFINITY;
   for (const submission of submissions) {
-    const row = (rows as Array<{ key: string; provider_name: string; language_code: string; status: string }>).find(
+    const row = (rows as Array<{ key: string; provider_name: string; language_code: string; status: string; status_reason: string | null }>).find(
       (candidate) => candidate.provider_name === submission.name && candidate.language_code === submission.language,
     );
-    if (!row || !SUBMITTABLE.includes(row.status)) skipped += 1;
+    const wanted = row && (options.newOnly ? row.status === "not_submitted" && !row.status_reason : SUBMITTABLE.includes(row.status));
+    if (!row || !wanted || todo.length >= limit) skipped += 1;
     else todo.push({ submission, row });
   }
 

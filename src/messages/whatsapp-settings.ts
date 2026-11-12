@@ -84,23 +84,23 @@ export const waMessages = {
   showAll: t("सब दिखाएँ", "Show all"),
   quality: (value: string) => t(`गुणवत्ता: ${value}`, `Quality: ${value}`),
 
-  // the hub's Pay now set (_v8)
-  hubTitle: t("Pay now वाले फ़ीस संदेश", "Fee reminders with Pay now"),
+  // everything One asks the hub to carry (D-566, D-573)
+  hubTitle: t("स्कूल के नंबर के संदेश", "Messages on the school's number"),
   hubHelp: t(
-    "ये 22 संदेश (हिंदी और English) पुराने संदेशों जैसे ही हैं, शब्द-शब्द वही, पर स्कूल के अपने नंबर के लिए। पहले Meta इन्हें मंज़ूर करता है — इसमें कुछ घंटे से एक-दो दिन लगते हैं। भेजने पर किसी अभिभावक को कुछ नहीं जाता।",
-    "These 22 messages (Hindi and English) are the same as the old ones, word for word, but for the school's own number. Meta approves them first, which takes a few hours to a day or two. Sending them for approval sends nothing to any parent.",
+    "Pay now वाले फ़ीस संदेश, अभिभावकों के लिए स्कूल सूचनाएँ (आज अनुपस्थित, अवकाश, परीक्षा, PTM), और स्टाफ़ व अध्यापकों के संदेश — हिंदी और English में। पहले Meta हर संदेश मंज़ूर करता है, इसमें कुछ मिनट से एक-दो दिन लगते हैं। नए संदेश एक घंटे के अंदर अपने-आप मंज़ूरी के लिए चले जाते हैं। मंज़ूरी के लिए भेजने पर किसी को कोई संदेश नहीं जाता।",
+    "Fee reminders with Pay now, school notices for parents (absent today, school closed, exams, PTM), and messages for staff and teachers, in Hindi and English. Meta approves each one first, which takes a few minutes to a day or two. New ones go for approval by themselves within the hour. Sending for approval sends nothing to anyone.",
   ),
   hubCounts: (approved: number, waiting: number, notSent: number) =>
     t(`${approved} मंज़ूर · ${waiting} मंज़ूरी बाकी · ${notSent} अभी नहीं भेजे`, `${approved} approved · ${waiting} waiting for Meta · ${notSent} not sent yet`),
   hubSend: (n: number) => t(`${n} संदेश मंज़ूरी के लिए भेजें`, `Send ${n} for approval`),
   hubSending: t("Meta को भेज रहे हैं… करीब आधा मिनट", "Sending to Meta… about half a minute"),
   hubSendConfirm: t(
-    "ये संदेश Meta को मंज़ूरी के लिए जाएँगे। किसी अभिभावक को कुछ नहीं जाएगा। भेजें?",
-    "These go to Meta for approval. Nothing goes to any parent. Send them?",
+    "ये संदेश Meta को मंज़ूरी के लिए जाएँगे। किसी अभिभावक या स्टाफ़ को कुछ नहीं जाएगा। भेजें?",
+    "These go to Meta for approval. Nothing goes to any parent or member of staff. Send them?",
   ),
   hubAllSent: t("सब भेजे जा चुके हैं। मंज़ूरी आते ही यहाँ दिखेगी।", "All have been sent. Approval shows here as soon as it comes."),
   hubNeedsHub: t("पहले हब जोड़ें (ऊपर 'जुड़ाव जाँचें'), फिर यहाँ से भेजें।", "Connect the hub first (Check connection above), then send from here."),
-  hubList: t("सभी 22 देखें", "See all 22"),
+  hubList: (n: number) => t(`सभी ${n} देखें`, `See all ${n}`),
 
   // log
   problemsTitle: t("जो नहीं पहुँचे", "Did not arrive"),

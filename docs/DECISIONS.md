@@ -1,5 +1,20 @@
 # Decisions
 
+## One and Fees apart on WhatsApp, and One's own templates on the hub — 11 and 12 November 2026
+
+Janmejay, 11 Nov 2026: "Yes, fix them ... keep both the apps separate and sending
+the message from both the apps should be different now." The Fees app keeps its
+own AiSensy number for now (it retires in a few months), so no number is
+hard-wired. Then, 12 Nov, asked whether One's own messages should get templates
+on the school's number: "Yes submit them".
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-573 | **One's own messages get templates on the school's hub: the parents' school notices as they are (absent today, school closed, exam schedule, PTM; Hindi and English, Call office), and a hub copy of every staff notice and teacher task, one name per message and language (`vpps_staff_<slug>_<hi\|en>_v1`). One sends a staff notice or task under its hub name at the last step (`staffHubKey`): the reader's language for a staff notice (`both` reads Hindi, as the renderers fill it), the code's own language for a task, and for a free-text notice with no reader the words (any Devanagari is Hindi). The hourly template check also sends any of One's templates that has never been sent for approval, up to 15 an hour; one the hub refused or Meta rejected waits for an admin's Send for approval (24 a press)** | The staff templates were AiSensy's: one English body per name, most starting with the name (`{{1}}, …`) and ending with a link (`… {{6}}`). Meta refuses a body that starts or ends with a blank, and a Hindi reader would have had English words around Hindi values. The hub copies keep every blank in its old order, so `notices.ts` and the task delivery fill them unchanged; each gets a bold title, the school's name, a labelled line per value and a closing line, like the approved `_v8` set. `src/modules/whatsapp/domain/staff-hub-templates.ts`; registry rows `20261112024037_whatsapp_staff_hub_templates.sql` (40 rows, `not_submitted`); `tests/whatsapp-staff-hub-templates.test.ts` checks every body against Meta's shape rules (no blank first or last, none side by side, numbered in order, an example each) and every row against the catalogue. Not included: the free-text parent messages (`vx_school_notice`, `vppsone_parent_notice`), which Meta files as MARKETING at several times the price, and the teacher collection link. Settings → WhatsApp's hub card now covers the whole list ("Messages on the school's number"). Nothing reaches anyone: practice mode, every feature switch off and real recipients off are unchanged |
+| D-572 | **One checks the hub's templates by itself once an hour (`POST /api/jobs/whatsapp-templates`, pg_cron job `whatsapp-templates` at minute 17, the queue's Vault secret)** | So a template never sits as "waiting" for days when a webhook event was missed. Migration `20261111060151`; first run 11 Nov 06:17 UTC, 22 approved |
+| D-571 | **One keeps only what is its own from the hub: a reply to One (it quotes a message One sent, or comes within 7 days after One messaged that number), and statuses only for messages One sent** | The hub forwards everything it receives on the school's number; the rest belongs to the hub's own inbox. `isReplyToOne` in `platform/whatsapp/store.ts`; `whatsapp_record_status` writes nothing for a message One never sent (`20261111060151`) |
+| D-570 | **The Fees app sends fee reminders, receipts, reversal notices and fee statements to parents, from its own number; One refuses them while `runtime_flags.whatsapp_fee_sender` is `fees` (a missing row reads as `fees`). Only `one`, on the owner's word once the Fees app has stopped, lets One send them** | No family gets the same reminder twice from two numbers. `FEES_APP_FEATURES` and `sentByFeesApp` in `platform/whatsapp/policy.ts`; Settings → WhatsApp shows "Fees app" on those four rows. PR 347. The Fees app can later join the hub with its own key |
+
 ## APInex's free models in the AI helper — 10 November 2026
 
 Janmejay, 10 Nov 2026: "Also deploy the free api in the one app smartly the

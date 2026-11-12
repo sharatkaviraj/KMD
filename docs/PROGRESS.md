@@ -95,7 +95,17 @@ Live: PR 347 and migration `20261111060151` (statuses, hourly check). Waiting:
 `20261111060200` (the flag row and the cleanup of 16 copied messages and 24
 stray statuses): it deletes rows, so the Supabase connector asks the owner to
 confirm, and twice nobody was there to. A missing flag row already reads as
-`fees`. The hub's PR 2 is merged but not deployed (no auto-deploy; `/health` 404).
+`fees`. The hub's PR 2 was deployed by Janmejay at about 17:05 UTC on 11 Nov
+(`/health` answers build `2026-11-11.app-forwards`; the hub has no auto-deploy).
+**12 Nov (D-573):** One's own messages get templates on the hub, on the owner's
+"Yes submit them": the parents' school notices as they are (absent today,
+school closed, exam schedule, PTM), and a hub copy of every staff notice and
+teacher task, Hindi and English, that Meta accepts (no blank first or last)
+and the existing renderers fill unchanged; One sends staff notices and tasks
+under those names in the reader's language. The hourly check sends any
+never-sent one for approval, 15 an hour. Migration `20261112024037` (40
+registry rows, applied to One 12 Nov 02:40 UTC). Not included: free-text parent messages (Meta files them as
+MARKETING) and the teacher collection link.
 **Remains:** the owner's written
 go-ahead (SETUP.md "What is left to fill in"): which feature goes first, practice
 mode off, the hub to live, and only then real recipients.

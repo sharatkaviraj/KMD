@@ -11,6 +11,7 @@ import { resolveLanguage, type Language } from "@/platform/i18n/language";
 import { currentBells } from "@/modules/substitutions/data/cover-repo";
 import { evaluateStaffSend, MIN_SEND_GAP_MS, paceDelay, type StaffGateFacts } from "@/modules/staff-notices/domain/gates";
 import { isOutboxKind, type OutboxKind } from "@/modules/staff-notices/domain/kinds";
+import { staffHubKey } from "@/modules/whatsapp/domain/staff-hub-templates";
 import {
   classifyResponse,
   mockBehaviourFor,
@@ -63,7 +64,15 @@ import {
 
 export type StaffTransportName = "disabled" | "mock" | "whatsapp";
 
-type SendInput = { destination: string; templateCode: string; params: string[]; userName: string; attemptId: string };
+type SendInput = {
+  destination: string;
+  templateCode: string;
+  params: string[];
+  userName: string;
+  attemptId: string;
+  /** The reader's language: which of the hub's two copies goes (`staffHubKey`). */
+  language?: Language;
+};
 
 export type StaffTransport = {
   name: Exclude<StaffTransportName, "disabled">;
@@ -115,9 +124,12 @@ const mockTransport: StaffTransport = {
  */
 const whatsappTransport: StaffTransport = {
   name: "whatsapp",
-  async send({ destination, templateCode, params, userName, attemptId }) {
+  async send({ destination, templateCode, params, userName, attemptId, language }) {
     try {
-      const outcome = await sendTemplate(`+91${destination}`, templateCode, null, params, {
+      // The hub carries each staff message under its own name per language
+      // (D-573); the blanks are the same, so only the name changes here.
+      const name = staffHubKey(templateCode, language ?? null, params) ?? templateCode;
+      const outcome = await sendTemplate(`+91${destination}`, name, null, params, {
         feature: "staff_notice",
         toName: userName,
         link: { table: "staff_notice_attempts", id: attemptId },
@@ -406,6 +418,7 @@ export async function dispatchStaffNotices(options: DispatchOptions = {}): Promi
       params: rendered.params,
       userName: claimed.staff.display_name,
       attemptId: claimed.attempt_id,
+      language,
     });
 
     await admin.rpc("finish_staff_notice", {

@@ -1,7 +1,7 @@
 import Link from "@/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
-import { HUB_TEMPLATE_SUBMISSIONS, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
+import { HUB_SUBMIT_PER_PRESS, HUB_TEMPLATE_SUBMISSIONS, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
 import { featureLabels, messageStatusLabels, noteFor, templateStatusLabels, waMessages as w } from "@/messages/whatsapp-settings";
 import { requirePermission } from "@/platform/auth/current-staff";
 import type { Language, Localized } from "@/platform/i18n/language";
@@ -314,7 +314,7 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                   <Sub text={w.hubNeedsHub} language={language} />
                 ) : hubToSend > 0 ? (
                   <form action={submitHubTemplatesAction}>
-                    <PendingBtn label={say(w.hubSend(hubToSend))} pendingLabel={say(w.hubSending)} icon="send" big confirm={say(w.hubSendConfirm)} />
+                    <PendingBtn label={say(w.hubSend(Math.min(hubToSend, HUB_SUBMIT_PER_PRESS)))} pendingLabel={say(w.hubSending)} icon="send" big confirm={say(w.hubSendConfirm)} />
                   </form>
                 ) : hubRows.length > 0 ? (
                   <Sub text={w.hubAllSent} language={language} />
@@ -324,7 +324,7 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                 <details style={{ marginTop: 12, border: "1px solid var(--bd)", borderRadius: 14, padding: "10px 14px" }}>
                   <summary className="tap" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 15, fontWeight: 650, listStyle: "none" }}>
                     <Ic n="chevDown" size={18} />
-                    <span style={{ flex: 1, minWidth: 0 }}>{say(w.hubList)}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>{say(w.hubList(hubRows.length))}</span>
                   </summary>
                   <ul style={{ ...list, marginTop: 8 }}>
                     {hubRows.map((row) => (

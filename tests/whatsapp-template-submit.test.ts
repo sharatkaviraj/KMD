@@ -163,6 +163,34 @@ describe("Send for approval", () => {
     expect(state.rows[1]!.status).toBe("approved");
   });
 
+  it("sends at most the limit in one go, and the rest on the next (D-573)", async () => {
+    const sent: string[] = [];
+    state.submit = async (template) => {
+      sent.push(template.name);
+      return { ok: true, id: "1", status: "PENDING", category: "utility" };
+    };
+    expect(await submitTemplates(SET, { staffId: "s1" }, { limit: 5 })).toMatchObject({ ok: true, sent: 5, skipped: 3 });
+    expect(await submitTemplates(SET, { staffId: "s1" }, { limit: 5 })).toMatchObject({ ok: true, sent: 3 });
+    expect(new Set(sent).size).toBe(NAMES.length);
+  });
+
+  it("the hourly check sends only rows never sent and never refused: a refusal waits for an admin", async () => {
+    state.rows[0]!.status = "rejected";
+    state.rows[1]!.status_reason = "Not sent for approval: Body has a typo";
+    state.rows[2]!.status = "pending";
+    const sent: string[] = [];
+    state.submit = async (template) => {
+      sent.push(template.name);
+      return { ok: true, id: "1", status: "PENDING", category: "utility" };
+    };
+    await submitTemplates(SET, { staffId: null }, { newOnly: true });
+    expect(sent).toEqual(NAMES.slice(3));
+    // An admin's press still sends the refused and the rejected one.
+    sent.length = 0;
+    await submitTemplates(SET, { staffId: "s1" });
+    expect(sent.sort()).toEqual([NAMES[0], NAMES[1]].sort());
+  });
+
   it("sends three at a time, not one after another", async () => {
     let inFlight = 0;
     let most = 0;
