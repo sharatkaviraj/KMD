@@ -17,7 +17,7 @@ import {
   type HandoffTarget,
   type ReplyContext,
 } from "./helper-replies";
-import { detectLanguage, ruleIntent, type HelperLanguage, type HelperTap, type MessageKind } from "./helper-text";
+import { detectLanguage, ruleIntent, type HelperLanguage, type HelperTap, type MessageKind, type RatingValue } from "./helper-text";
 
 /**
  * What Veer Patta AI does with one message (D-574), decided without a
@@ -33,6 +33,8 @@ import { detectLanguage, ruleIntent, type HelperLanguage, type HelperTap, type M
  *    off, over budget, no key), to the menu and the office.
  *  - "stop" is never answered: the hub keeps the school's opt-out list, and a
  *    parent who says stop is not sent a menu.
+ *  - A tap on "Did this answer help?" (D-584) is a rating: the data layer
+ *    finds which of this number's hand-offs it names, and keeps it.
  */
 
 /** How long the helper waits for the message it asked for. */
@@ -87,7 +89,9 @@ export type TurnPlan =
       chat: ChatPatch;
       handoff: HandoffPlan | null;
     }
-  | { action: "ask_ai"; language: HelperLanguage; firstContact: boolean; chat: ChatPatch };
+  | { action: "ask_ai"; language: HelperLanguage; firstContact: boolean; chat: ChatPatch }
+  /** A tap on "Did this answer help?": `key` names the hand-off (`ratingKey`), among this number's own only. */
+  | { action: "rate"; value: RatingValue; key: string; language: HelperLanguage; chat: ChatPatch };
 
 export type PlanInput = {
   kind: MessageKind;
@@ -190,11 +194,15 @@ export function planTurn(input: PlanInput): TurnPlan {
   if (input.kind === "tap") {
     const tap = input.tap;
     if (!tap) return { action: "skip", reason: "not_our_tap" };
-    const scoped = tap.childKey ? childByKey(family, tap.childKey) : null;
+    const scoped = tap.key ? childByKey(family, tap.key) : null;
     const children = scoped ? [scoped] : family.children;
     switch (tap.intent) {
       case "stop":
         return { action: "skip", reason: "stop" };
+      case "helped":
+      case "not_helped":
+        if (!tap.key) return { action: "skip", reason: "not_our_tap" };
+        return { action: "rate", value: tap.intent, key: tap.key, language, chat: { ...remember, ...clearAwait } };
       case "message_teacher": {
         if (!scoped) return reply("menu", "tap", menuCard(context, false), clearAwait);
         if (!scoped.classTeacher) {

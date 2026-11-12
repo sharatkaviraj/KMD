@@ -493,6 +493,92 @@ export function handoffFailedReply(context: ReplyContext): HelperMessage {
   };
 }
 
+/* --------------------------------------------- did this help (D-584) */
+
+/**
+ * Asked once, right after a staff answer reaches the parent. Two buttons, and
+ * the body says what "No" does, so nobody has to guess.
+ */
+export function ratingQuestion(context: ReplyContext, key: string): HelperMessage {
+  const { language } = context;
+  return {
+    kind: "buttons",
+    body: say(language, {
+      hi: "क्या इस जवाब से आपकी मदद हुई?\nअगर नहीं, तो *नहीं* दबाएँ: स्कूल ऑफ़िस इसे देखेगा।",
+      hx: "Kya is jawab se aapki madad hui?\nAgar nahi, to *Nahi* dabaiye: school office ise dekhega.",
+      en: "Did this answer help?\nIf not, tap *No* and the school office will look at it.",
+    }),
+    buttons: [
+      { id: helperId("helped", key), title: say(language, { hi: "👍 हाँ, मदद हुई", hx: "👍 Haan, madad hui", en: "👍 Yes, it helped" }) },
+      { id: helperId("not_helped", key), title: say(language, { hi: "👎 नहीं", hx: "👎 Nahi", en: "👎 No" }) },
+    ],
+    footer: footer(context),
+  };
+}
+
+/**
+ * What became of a parent's tap on "Did this answer help?":
+ *  - `helped`: a yes, kept (or a yes to a question too old to find: thanked all the same).
+ *  - `already`: they had answered this one before.
+ *  - `passed_on`: a no, now with the school office.
+ *  - `already_passed_on`: a no the office already has.
+ *  - `not_passed_on`: a no that could not be written down: never claimed as passed on.
+ *  - `ask_office`: a no to a question too old to find: they are shown the way to the office.
+ */
+export type RatingOutcome = "helped" | "already" | "passed_on" | "already_passed_on" | "not_passed_on" | "ask_office";
+
+const OFFICE_BUTTON = (language: HelperLanguage): HelperButton => ({
+  id: helperId("office"),
+  title: say(language, { hi: "🏫 ऑफ़िस से बात", hx: "🏫 Office se baat", en: "🏫 Talk to office" }),
+});
+
+/** The helper's answer to the tap, with the menu under it. */
+export function ratingReply(context: ReplyContext, outcome: RatingOutcome, lateHour: boolean): HelperMessage {
+  const { language } = context;
+  const late = lateHour
+    ? `\n${say(language, {
+        hi: "🌙 अभी देर हो चुकी है, इसलिए इसे सुबह 6 बजे के बाद देखा जाएगा।",
+        hx: "🌙 Abhi der ho chuki hai, isliye ise subah 6 baje ke baad dekha jayega.",
+        en: "🌙 It is late now, so it will be seen after 6 am.",
+      })}`
+    : "";
+  const words: Record<RatingOutcome, Words> = {
+    helped: {
+      hi: "🙏 बताने के लिए धन्यवाद! हमें ख़ुशी है कि इससे मदद हुई। कभी भी लिखें।",
+      hx: "🙏 Batane ke liye dhanyavad! Humein khushi hai ki isse madad hui. Kabhi bhi likhiye.",
+      en: "🙏 Thank you for telling us! We're glad it helped. Write any time.",
+    },
+    already: {
+      hi: "🙏 धन्यवाद, यह पहले ही दर्ज हो चुका है।",
+      hx: "🙏 Dhanyavad, yeh pehle hi darj ho chuka hai.",
+      en: "🙏 Thank you, that is already noted.",
+    },
+    passed_on: {
+      hi: "🙏 माफ़ कीजिए कि इससे मदद नहीं हुई। आपका सवाल और यह जवाब स्कूल ऑफ़िस तक पहुँचा दिया गया है, वहाँ से आपको यहीं जवाब मिलेगा।",
+      hx: "🙏 Maaf kijiye ki isse madad nahi hui. Aapka sawal aur yeh jawab school office tak pahuncha diya gaya hai, wahan se aapko yahin jawab milega.",
+      en: "🙏 Sorry that did not help. Your question and this answer have been passed to the school office, and they will answer you here.",
+    },
+    already_passed_on: {
+      hi: "🙏 आपका सवाल स्कूल ऑफ़िस के पास पहले से है, वहाँ से आपको यहीं जवाब मिलेगा।",
+      hx: "🙏 Aapka sawal school office ke paas pehle se hai, wahan se aapko yahin jawab milega.",
+      en: "🙏 The school office already has your question, and will answer you here.",
+    },
+    not_passed_on: {
+      hi: `माफ़ कीजिए कि इससे मदद नहीं हुई 🙏 अभी इसे आगे नहीं भेजा जा सका। कृपया ऑफ़िस को फ़ोन करें: ${OFFICE_PHONE}`,
+      hx: `Maaf kijiye ki isse madad nahi hui 🙏 Abhi ise aage nahi bheja ja saka. Kripya office ko phone kariye: ${OFFICE_PHONE}`,
+      en: `Sorry that did not help 🙏 It could not be passed on just now. Please call the office: ${OFFICE_PHONE}`,
+    },
+    ask_office: {
+      hi: "माफ़ कीजिए 🙏 नीचे *ऑफ़िस से बात* दबाएँ और बताएँ कि आपको और क्या जानना है।",
+      hx: "Maaf kijiye 🙏 Neeche *Office se baat* dabaiye aur bataiye ki aapko aur kya jaanna hai.",
+      en: "Sorry about that 🙏 Tap *Talk to office* below and tell us what you still need.",
+    },
+  };
+  const body = `${say(language, words[outcome])}${outcome === "passed_on" ? late : ""}`;
+  const buttons = outcome === "ask_office" ? [OFFICE_BUTTON(language), MENU_BUTTON(language)] : [MENU_BUTTON(language)];
+  return { kind: "buttons", body, buttons, footer: footer(context) };
+}
+
 /* ------------------------------------------------------- everything else */
 
 export function voiceReply(context: ReplyContext): HelperMessage {

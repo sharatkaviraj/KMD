@@ -13,6 +13,8 @@ import {
   handoffFailedReply,
   modeText,
   OFFICE_PHONE,
+  ratingQuestion,
+  ratingReply,
   receiptsCard,
   resultsCard,
   teacherCard,
@@ -134,10 +136,15 @@ describe("reading a parent's message", () => {
 
   it("reads a tap on its own buttons, and nobody else's", () => {
     const tap = (id: string) => ({ type: "interactive", interactive: { type: "button_reply", button_reply: { id, title: "x" } } });
-    expect(readTap(tap(helperId("message_teacher", aarav.key)))).toEqual({ intent: "message_teacher", childKey: aarav.key });
-    expect(readTap({ type: "interactive", interactive: { type: "list_reply", list_reply: { id: helperId("fees"), title: "Fees" } } })).toEqual({ intent: "fees", childKey: null });
+    expect(readTap(tap(helperId("message_teacher", aarav.key)))).toEqual({ intent: "message_teacher", key: aarav.key });
+    expect(readTap({ type: "interactive", interactive: { type: "list_reply", list_reply: { id: helperId("fees"), title: "Fees" } } })).toEqual({ intent: "fees", key: null });
     expect(readTap(tap("pay_now_123"))).toBeNull();
     expect(readTap(tap("vpai:delete_everything"))).toBeNull();
+    // "Did this answer help?" (D-584) always names the hand-off it rates.
+    expect(readTap(tap(helperId("helped", "9f8e7d6c5b4a")))).toEqual({ intent: "helped", key: "9f8e7d6c5b4a" });
+    expect(readTap(tap("vpai:not_helped:h100"))).toEqual({ intent: "not_helped", key: "h100" });
+    expect(readTap(tap("vpai:not_helped"))).toBeNull();
+    expect(readTap(tap("vpai:helped:H100"))).toBeNull();
     expect(messageKind("interactive", tap(helperId("fees")))).toBe("tap");
     expect(messageKind("interactive", tap("someone_elses_button"))).toBe("text");
     expect(messageKind("button", {})).toBe("text");
@@ -277,6 +284,46 @@ describe("the cards", () => {
 
 /* ----------------------------------------------------------- the message */
 
+describe("did this answer help? (D-584)", () => {
+  const buttonsOf = (message: HelperMessage) => (message.kind === "buttons" ? message.buttons : []);
+
+  it("asks with two buttons that carry the hand-off's key, in all three languages, and says what No does", () => {
+    const en = ratingQuestion(context("en"), "h100");
+    expect(bodyOf(en)).toBe("Did this answer help?\nIf not, tap *No* and the school office will look at it.");
+    expect(buttonsOf(en)).toEqual([
+      { id: "vpai:helped:h100", title: "👍 Yes, it helped" },
+      { id: "vpai:not_helped:h100", title: "👎 No" },
+    ]);
+    expect(bodyOf(ratingQuestion(context("hi"), "h100"))).toContain("स्कूल ऑफ़िस इसे देखेगा");
+    expect(bodyOf(ratingQuestion(context("hx"), "h100"))).toContain("school office ise dekhega");
+    for (const language of ["hi", "hx", "en"] as const) {
+      const question = ratingQuestion(context(language), "9f8e7d6c5b4a");
+      // WhatsApp's own limits: nothing is cut off on the way.
+      expect(fitMessage(question)).toEqual(question);
+      for (const button of buttonsOf(question)) {
+        expect(button.title.length).toBeLessThanOrEqual(WA_LIMITS.buttonTitle);
+        expect(readTap({ type: "interactive", interactive: { type: "button_reply", button_reply: { id: button.id, title: button.title } } })).toMatchObject({ key: "9f8e7d6c5b4a" });
+      }
+    }
+  });
+
+  it("answers each tap honestly: a no is only called passed on when it was", () => {
+    const en = (outcome: Parameters<typeof ratingReply>[1], late = false) => bodyOf(ratingReply(context("en"), outcome, late));
+    expect(en("helped")).toContain("We're glad it helped");
+    expect(en("already")).toContain("already noted");
+    expect(en("passed_on")).toBe("🙏 Sorry that did not help. Your question and this answer have been passed to the school office, and they will answer you here.");
+    expect(en("passed_on", true)).toContain("🌙 It is late now, so it will be seen after 6 am.");
+    expect(en("already_passed_on")).toContain("already has your question");
+    expect(en("not_passed_on")).toBe(`Sorry that did not help 🙏 It could not be passed on just now. Please call the office: ${OFFICE_PHONE}`);
+    expect(en("not_passed_on", true)).not.toContain("🌙");
+    expect(en("ask_office")).toContain("Tap *Talk to office* below");
+    expect(buttonsOf(ratingReply(context("en"), "ask_office", false)).map((button) => button.id)).toEqual(["vpai:office", "vpai:menu"]);
+    expect(buttonsOf(ratingReply(context("en"), "helped", false)).map((button) => button.id)).toEqual(["vpai:menu"]);
+    expect(bodyOf(ratingReply(context("hi"), "passed_on", false))).toContain("स्कूल ऑफ़िस तक पहुँचा दिया गया है");
+    expect(bodyOf(ratingReply(context("hx"), "ask_office", false))).toContain("*Office se baat*");
+  });
+});
+
 describe("what goes to WhatsApp", () => {
   it("cuts every part to Meta's limits", () => {
     const message = fitMessage({
@@ -365,7 +412,7 @@ describe("what the helper does with one message", () => {
   it("never answers stop, and stays out when it knows no child", () => {
     expect(plan({ text: "stop" })).toEqual({ action: "skip", reason: "stop" });
     expect(plan({ text: "fees", family: { children: [], practice: true } })).toEqual({ action: "skip", reason: "no_children" });
-    expect(plan({ kind: "tap", tap: { intent: "stop", childKey: null } })).toEqual({ action: "skip", reason: "stop" });
+    expect(plan({ kind: "tap", tap: { intent: "stop", key: null } })).toEqual({ action: "skip", reason: "stop" });
   });
 
   it("asks Claude about anything longer, and falls back to the menu when Claude cannot be asked", () => {
@@ -375,7 +422,7 @@ describe("what the helper does with one message", () => {
   });
 
   it("puts the next typed message in front of the class teacher after Message: <child>", () => {
-    const prompt = plan({ kind: "tap", tap: { intent: "message_teacher", childKey: aarav.key } });
+    const prompt = plan({ kind: "tap", tap: { intent: "message_teacher", key: aarav.key } });
     expect(prompt).toMatchObject({ action: "reply", intent: "message_teacher", chat: { awaiting: `teacher:${aarav.key}` } });
     const chat: ChatState = { ...EMPTY_CHAT, language: "en", greetedAt: NOON.toISOString(), lastTurnAt: NOON.toISOString(), awaiting: `teacher:${aarav.key}`, awaitingUntil: "2026-11-12T07:00:00Z" };
     const handed = plan({ text: "Please send the homework for this week, he was absent", chat });
@@ -394,8 +441,21 @@ describe("what the helper does with one message", () => {
     expect(plan({ text: "Please call me about the bus timings tomorrow", chat: expired })).toMatchObject({ action: "ask_ai" });
   });
 
+  it("a tap on Did this answer help? is a rating for the data layer, and ends any wait (D-584)", () => {
+    const chat: ChatState = { ...EMPTY_CHAT, language: "hi", greetedAt: NOON.toISOString(), lastTurnAt: NOON.toISOString(), awaiting: "office", awaitingUntil: "2026-11-12T07:00:00Z" };
+    expect(plan({ kind: "tap", tap: { intent: "not_helped", key: "h100" }, chat })).toEqual({
+      action: "rate",
+      value: "not_helped",
+      key: "h100",
+      language: "hi",
+      chat: { awaiting: null, awaitingUntil: null },
+    });
+    expect(plan({ kind: "tap", tap: { intent: "helped", key: "h100" } })).toMatchObject({ action: "rate", value: "helped", language: "en" });
+    expect(plan({ kind: "tap", tap: { intent: "helped", key: null } })).toEqual({ action: "skip", reason: "not_our_tap" });
+  });
+
   it("a class teacher the child does not have becomes the office", () => {
-    const prompt = plan({ kind: "tap", tap: { intent: "message_teacher", childKey: mira.key }, family: twoChildren });
+    const prompt = plan({ kind: "tap", tap: { intent: "message_teacher", key: mira.key }, family: twoChildren });
     expect(prompt).toMatchObject({ action: "reply", intent: "office", chat: { awaiting: "office" } });
   });
 

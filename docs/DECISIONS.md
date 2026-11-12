@@ -1,5 +1,16 @@
 # Decisions
 
+## Veer Patta AI, step 2b: "Did this answer help?" — 12 November 2026
+
+The plan for the helper (12 Nov): after each hand-off the parent is asked
+"Did this help?" with two buttons, and a low rating goes to the office.
+Practice only, as for step 2: practice mode on, the `parent_helper` switch
+off, real recipients off.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-584 | **Once a staff answer reaches a parent, the helper asks once: "Did this answer help?", on two buttons, "👍 Yes, it helped" and "👎 No", and the question says what No does. A "no" goes to the school office as a new message in Messages, holding what the parent asked and the answer that did not help, and as a hand-off to the office handled as a complaint (a reminder at 3 hours, an admin told at a day). The parent is told it has gone to the office, and after 9 pm that it will be seen after 6 am.** Asked only where the answer itself just went, so the parent's chat is open; never on the office's answer to a "no", so nothing goes round twice. A "no" may follow a "yes" (a wrong tap put right); a "yes" never takes a "no" back, and a second "no" is not passed on twice. A tap that matches none of the number's hand-offs (too old, or not theirs) changes nothing: a yes is thanked, a no is shown the "Talk to office" button | The question follows the answer in the same open chat, so it needs no template. A button names its hand-off by twelve letters of the hand-off's id, and a tap is matched only among the tapping number's own hand-offs (the newest 20), so no tap can reach another family's message. The office's answer quotes the parent's first question, not the note the office was given. The office's note labels both languages (अभिभावक / Parent, जवाब / Answer), so whoever opens it can read it, and names who answered. Nothing new is kept about the parent: the tap is a word and a time on the hand-off, the words stay in `parent_replies` and `parent_reply_answers`. A "no" that could not be written into Messages is never called passed on: the parent gets the office's number instead. Migration `20261112110044_parent_helper_ratings.sql` (four columns on `parent_helper_handoffs` and a unique index, additive), applied to One 12 Nov 2026 11:00 UTC. `ratingQuestion`, `ratingReply` in `domain/helper-replies.ts`; `ratingKey`, `followUpBody`, `NOT_HELPED_TOPIC` in `domain/helper-handoff.ts`; `askRating`, `rateAnswer` in `data/helper-relay.ts`; `composeRating` in `data/helper-turn.ts`; the four `tests/whatsapp-parent-helper*.test.ts` files and `tests/sql/parent-helper-ratings.mjs` |
+
 ## Veer Patta AI, step 2b: staff link their own WhatsApp — 12 November 2026
 
 A hand-off (D-578) tells a member of staff on WhatsApp, and One had almost

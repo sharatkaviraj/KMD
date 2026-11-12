@@ -7,16 +7,26 @@ import { helperMessageBody, plainVersion, type HelperMessage } from "@/modules/w
 import {
   MAX_MESSAGE_AGE_MINUTES,
   MAX_TURNS_PER_NUMBER_PER_DAY,
+  isLateHour,
   planTurn,
   practiceIdsFor,
   type ChatPatch,
   type ChatState,
   type HandoffPlan,
+  type TurnPlan,
   type TurnRoute,
 } from "@/modules/whatsapp/domain/helper-plan";
-import { fallbackReply, handoffFailedReply, type Family, type HandoffTarget, type ReplyContext } from "@/modules/whatsapp/domain/helper-replies";
-import { isAcknowledgement } from "@/modules/whatsapp/domain/helper-handoff";
-import { messageKind, readTap, type MessageKind } from "@/modules/whatsapp/domain/helper-text";
+import {
+  fallbackReply,
+  handoffFailedReply,
+  ratingReply,
+  type Family,
+  type HandoffTarget,
+  type RatingOutcome,
+  type ReplyContext,
+} from "@/modules/whatsapp/domain/helper-replies";
+import { NOT_HELPED_TOPIC, isAcknowledgement } from "@/modules/whatsapp/domain/helper-handoff";
+import { messageKind, readTap, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
 import { logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
 import { maskNumber } from "@/platform/whatsapp/numbers";
@@ -26,7 +36,15 @@ import { readSwitches } from "@/platform/whatsapp/store";
 import type { WebhookInbound } from "@/platform/whatsapp/webhook";
 
 import { askHelperClaude, hasClaudeKey, type ClaudeTurn } from "./helper-claude";
-import { deliverWaitingAnswers, handleStaffAnswer, liveRelayDeps, openHandoff, type OpenHandoffInput } from "./helper-relay";
+import {
+  deliverWaitingAnswers,
+  handleStaffAnswer,
+  liveRelayDeps,
+  openHandoff,
+  rateAnswer,
+  type OpenHandoffInput,
+  type RateResult,
+} from "./helper-relay";
 import { handleStaffLink, liveStaffLinkDeps } from "./staff-link";
 import {
   finishTurn,
@@ -111,6 +129,8 @@ export type HelperDeps = {
   openHandoff?: (input: OpenHandoffInput) => Promise<unknown>;
   /** A member of staff linking their WhatsApp with the code One gave them (D-582); null when the message carries none. */
   staffLink?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
+  /** A tap on "Did this answer help?", kept against this number's own hand-offs (D-584). */
+  rateAnswer?: (input: { from: string; key: string; value: RatingValue }) => Promise<RateResult>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -152,6 +172,7 @@ export function liveHelperDeps(): HelperDeps {
     deliverWaiting: (from) => deliverWaitingAnswers(from, relay),
     openHandoff: (input) => openHandoff(input, relay),
     staffLink: (message) => handleStaffLink(message, link),
+    rateAnswer: (input) => rateAnswer(input, relay),
   };
 }
 
@@ -180,12 +201,14 @@ type Composed = {
   parentReplyId: string | null;
   handedTo: HandoffTarget | null;
   note: string | null;
+  /** A "no" to an answer, written into Messages: the office's hand-off to open once the parent has been told (D-584). */
+  followUp: OpenHandoffInput | null;
 };
 
 /** The reply, once the message is One's: Claude's answer or the planned card, and any hand-off written first. */
 async function compose(input: {
   message: WebhookInbound;
-  plan: Exclude<ReturnType<typeof planTurn>, { action: "skip" }>;
+  plan: Exclude<TurnPlan, { action: "skip" } | { action: "rate" }>;
   settings: HelperSettings;
   family: Family;
   children: ChildFacts[];
@@ -250,7 +273,88 @@ async function compose(input: {
       note = "handoff_not_saved";
     }
   }
-  return { reply, claude, parentReplyId, handedTo, note };
+  return { reply, claude, parentReplyId, handedTo, note, followUp: null };
+}
+
+/**
+ * A tap on "Did this answer help?" (D-584). The tap is kept against the
+ * number's own hand-off; a "no" is written into Messages for the school
+ * office before the parent is told it has been passed on, with what they
+ * asked and the answer that did not help, and the office is told once the
+ * reply has gone. A tap that names none of this number's hand-offs changes
+ * nothing: a yes is thanked, a no is shown the way to the office.
+ */
+async function composeRating(input: {
+  message: WebhookInbound;
+  plan: Extract<TurnPlan, { action: "rate" }>;
+  settings: HelperSettings;
+  context: ReplyContext;
+  deps: HelperDeps;
+  now: Date;
+  sentAt: number;
+}): Promise<Composed> {
+  const { message, plan, settings, deps, now } = input;
+  const unknown: RateResult = { outcome: "unknown" };
+  const rated = deps.rateAnswer ? await deps.rateAnswer({ from: message.from, key: plan.key, value: plan.value }).catch(() => unknown) : unknown;
+  // The reply in the language the question was asked in.
+  const context: ReplyContext = rated.outcome === "unknown" ? input.context : { ...input.context, language: rated.handoff.language, firstContact: false };
+  const reply = (outcome: RatingOutcome, intent: string): Reply => ({
+    message: ratingReply(context, outcome, isLateHour(now)),
+    intent,
+    route: "tap",
+    chat: plan.chat,
+    handoff: null,
+  });
+  const none = { claude: null, parentReplyId: null, handedTo: null, note: null, followUp: null };
+  switch (rated.outcome) {
+    case "unknown":
+      return { ...none, reply: reply(plan.value === "helped" ? "helped" : "ask_office", "rating_unknown") };
+    case "helped":
+      return { ...none, reply: reply("helped", "rated_helped") };
+    case "already":
+      return { ...none, reply: reply("already", "rating_already") };
+    case "already_passed_on":
+      return { ...none, reply: reply("already_passed_on", "rating_passed_already") };
+    case "not_saved":
+      return { ...none, reply: reply("not_passed_on", "rating_not_saved"), note: "rating_not_saved" };
+    case "pass_on": {
+      const first = rated.handoff;
+      const staffId = await deps.pickHandoffStaff("office", null, first.sessionLabel).catch(() => null);
+      const parentReplyId = await deps
+        .insertHandoff({
+          sessionLabel: first.sessionLabel,
+          fromName: first.fromName,
+          fromPhone: message.from,
+          studentId: first.studentId,
+          studentLabel: first.studentLabel,
+          regarding: handoffRegarding(settings.helperName, "👎 answer did not help", first.body, rated.body),
+          body: rated.body,
+          receivedAt: new Date(input.sentAt).toISOString(),
+          assignedStaffId: staffId,
+        })
+        .catch(() => null);
+      if (!parentReplyId) return { ...none, reply: reply("not_passed_on", "rating_not_saved"), note: "handoff_not_saved" };
+      return {
+        ...none,
+        reply: reply("passed_on", "rated_not_helped"),
+        parentReplyId,
+        handedTo: "office",
+        followUp: {
+          parentReplyId,
+          parentE164: message.from,
+          language: first.language,
+          target: "office",
+          topic: NOT_HELPED_TOPIC,
+          child: null,
+          aboutName: first.aboutName,
+          followUpOf: first.id,
+          sessionLabel: first.sessionLabel,
+          fromName: first.fromName,
+          practice: first.practice,
+        },
+      };
+    }
+  }
 }
 
 export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = liveHelperDeps()): Promise<HelperOutcome> {
@@ -342,7 +446,10 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   const context: ReplyContext = { language: plan.language, helperName: settings.helperName, family, firstContact };
   let composed: Composed;
   try {
-    composed = await compose({ message, plan, settings, family, children, context, deps, now: started, sentAt });
+    composed =
+      plan.action === "rate"
+        ? await composeRating({ message, plan, settings, context, deps, now: started, sentAt })
+        : await compose({ message, plan, settings, family, children, context, deps, now: started, sentAt });
   } catch (caught) {
     logWarn("whatsapp.helper.compose_crashed", { error: caught instanceof Error ? caught.message : "unknown" });
     composed = {
@@ -351,6 +458,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
       parentReplyId: null,
       handedTo: null,
       note: "compose_crashed",
+      followUp: null,
     };
   }
   const { reply, claude, parentReplyId, handedTo } = composed;
@@ -401,6 +509,8 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
       })
       .catch(() => undefined);
   }
+  // A "no" to an answer: the office is told the same way (D-584).
+  if (composed.followUp && deps.openHandoff) await deps.openHandoff(composed.followUp).catch(() => undefined);
   return { outcome: "answered", route: reply.route, intent: reply.intent, handoff: handedTo };
 }
 

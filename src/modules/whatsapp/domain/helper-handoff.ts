@@ -82,9 +82,26 @@ export function windowOpen(lastWroteAt: string | null | undefined, now: Date): b
   return now.getTime() - at < OPEN_WINDOW_HOURS * HOUR;
 }
 
-/** Whether a hand-off is a complaint: one the AI called that, or one asking for the principal. */
+/**
+ * The topic of the office's hand-off made when a parent says an answer did
+ * not help (D-584). It is handled as a complaint: a "no" the office has not
+ * answered in a day goes up to an admin.
+ */
+export const NOT_HELPED_TOPIC = "not_helped";
+
+/** Whether a hand-off is a complaint: one the AI called that, one asking for the principal, or a "no" to an answer. */
 export function isComplaint(target: HandoffTarget, topic: string): boolean {
-  return target === "principal" || topic === "complaint";
+  return target === "principal" || topic === "complaint" || topic === NOT_HELPED_TOPIC;
+}
+
+/**
+ * The hand-off a "Did this answer help?" button rates, as its id carries it
+ * (D-584): twelve letters and digits of the hand-off's id. A tap is matched
+ * only against the tapping number's own hand-offs, so the key never needs to
+ * be secret, only distinct among one family's.
+ */
+export function ratingKey(handoffId: string): string {
+  return handoffId.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12).padEnd(4, "0");
 }
 
 /** Who is told, by role, at each level. `class_teacher` means the child's own class teacher. */
@@ -156,6 +173,7 @@ const TOPIC_WORDS: Record<string, Pair> = {
   admission: { hi: "प्रवेश", en: "Admission" },
   message_teacher: { hi: "कक्षा अध्यापक के लिए संदेश", en: "Message for the class teacher" },
   office: { hi: "ऑफ़िस के लिए संदेश", en: "Message for the office" },
+  [NOT_HELPED_TOPIC]: { hi: "जवाब से मदद नहीं हुई", en: "The answer did not help" },
 };
 
 /** What a hand-off is about, in a word or three, for the person told. */
@@ -285,6 +303,7 @@ const ABOUT_WORDS: Record<string, Pair> = {
   leave: { hi: "छुट्टी", en: "leave" },
   complaint: { hi: "शिकायत", en: "your complaint" },
   admission: { hi: "प्रवेश", en: "admission" },
+  [NOT_HELPED_TOPIC]: { hi: "आपके सवाल", en: "your question" },
 };
 
 /**
@@ -319,6 +338,39 @@ export function parentAnswerText(input: ParentAnswerWords): string {
       }
     : { hi: `_आपका संदेश: “${quote}”_`, hx: `_Aapka sandesh: “${quote}”_`, en: `_Your message: “${quote}”_` };
   return `💬 *${answerHead(input.who, input.language)}*\n${about[input.language]}\n\n${clip(input.answer.trim(), MAX_ANSWER_CHARS)}`;
+}
+
+/** Who gave an answer, as a member of staff reads it, in both languages. */
+function answererLabel(who: Answerer): string {
+  switch (who.kind) {
+    case "class_teacher":
+      return `कक्षा अध्यापक / Class teacher ${oneLine(who.name, 40)}`;
+    case "accounts":
+      return "अकाउंट्स / Accounts";
+    case "principal":
+      return "प्रधानाचार्य कार्यालय / Principal's office";
+    case "office":
+      return "ऑफ़िस / Office";
+  }
+}
+
+/** The parent's words in a "no" hand-off, and the answer's: enough to act on, short enough to read on a phone. */
+export const FOLLOW_UP_WORDS = { parent: 300, answer: 500 } as const;
+
+/**
+ * What the school office reads when a parent says an answer did not help
+ * (D-584): what the parent asked, and the answer they were given, so the
+ * office does not have to go looking for either. One row in Messages is read
+ * by Hindi and English readers alike, so the labels carry both.
+ */
+export function followUpBody(input: { parentWords: string; answer: string | null; who: Answerer | null }): string {
+  const lines = [`अभिभावक / Parent: “${oneLine(input.parentWords, FOLLOW_UP_WORDS.parent)}”`];
+  const answer = input.answer?.trim();
+  if (answer) {
+    const by = input.who ? ` (${answererLabel(input.who)})` : "";
+    lines.push(`जवाब / Answer${by}: “${oneLine(answer, FOLLOW_UP_WORDS.answer)}”`);
+  }
+  return lines.join("\n");
 }
 
 export type RelayResult = "sent" | "waiting" | "failed";

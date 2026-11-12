@@ -5,7 +5,7 @@
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-580. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -58,9 +58,23 @@ hand-off now tells only staff who said yes. `domain/staff-link.ts`,
 (checked: the table and function exist, only the service role can use them,
 the consent rule is unchanged). The first try replaced the consent check and
 waited on a confirmation nobody could see; it was reworked to add only the new
-table and function, and applied after the owner's yes. **Next:**
-"Did this help?" on the helper's answers, and sick-day notes shown on the
-register.
+table and function, and applied after the owner's yes. PR 353 merged 12 Nov
+10:23 UTC (2ee4928), live 10:26 UTC (`dpl_3ik75MKLxzWWDLPR1gsPbpFSVPnP`).
+Checked live as the QA teacher with local Playwright, a Pixel 7 and a desktop
+at 1280 px (BrowserStack needed a new sign-in that day): a code in about 2 s,
+WhatsApp opening to the school's number, the QR code on the desktop only,
+Cancel, no console errors.
+
+**Step 2b, "Did this answer help?" (D-584), practice only:** after a staff
+answer reaches the parent, two buttons, asked once; a "no" goes into Messages
+for the office with the question and the answer, and the office is alerted
+as for a complaint; the office's answer quotes the first question and is not
+rated again. `ratingQuestion`, `ratingReply`, `ratingKey`, `followUpBody`
+(domain), `askRating`, `rateAnswer`, `composeRating` (data). Migration
+`20261112110044_parent_helper_ratings.sql` applied to One 12 Nov 11:00 UTC
+before the code merged (checked: four new columns, the rules and the unique
+index, still service role only). No new screen. **Next:** sick-day notes
+shown as "parent informed" on the register.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

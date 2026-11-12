@@ -18,6 +18,7 @@ import {
   deliverWaitingAnswers,
   handleStaffAnswer,
   openHandoff,
+  rateAnswer,
   relayFromMessages,
   runDueHandoffs,
   reachOf,
@@ -26,6 +27,7 @@ import {
 } from "@/modules/whatsapp/data/helper-relay";
 import type { TurnFinish } from "@/modules/whatsapp/data/helper-store";
 import { childFactsFromRow, type ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
+import { NOT_HELPED_TOPIC } from "@/modules/whatsapp/domain/helper-handoff";
 import { EMPTY_CHAT, type ChatState } from "@/modules/whatsapp/domain/helper-plan";
 import type { WhatsAppConfig } from "@/platform/whatsapp/config";
 import type { TemplateRow, WhatsAppSwitches } from "@/platform/whatsapp/policy";
@@ -117,11 +119,24 @@ function handoffRow(over: Partial<Handoff> = {}): Handoff {
     fromName: "TEST Parent",
     body: "Please share today's homework",
     replyDone: false,
+    studentId: "11111111-1111-4111-8111-111111111111",
+    ratingAskedAt: null,
+    rating: null,
+    followUpOf: null,
     ...over,
   };
 }
 
-function world(over: { now?: Date; switches?: WhatsAppSwitches | null; templates?: Record<string, TemplateRow | null>; send?: RelayDeps["send"]; people?: Person[] | null } = {}) {
+function world(
+  over: {
+    now?: Date;
+    switches?: WhatsAppSwitches | null;
+    templates?: Record<string, TemplateRow | null>;
+    send?: RelayDeps["send"];
+    people?: Person[] | null;
+    ratingWrites?: "fail";
+  } = {},
+) {
   let clock = over.now ?? NOON;
   const w: World = {
     handoffs: new Map(),
@@ -172,6 +187,7 @@ function world(over: { now?: Date; switches?: WhatsAppSwitches | null; templates
           ...row,
           studentLabel: row.aboutName === "Aarav" ? "Aarav · Class 6" : null,
           levelAlertedAt: null,
+          followUpOf: row.followUpOf ?? null,
         }),
       );
       return id;
@@ -246,6 +262,28 @@ function world(over: { now?: Date; switches?: WhatsAppSwitches | null; templates
         }),
     takeDueHandoffs: async () =>
       [...w.handoffs.values()].filter((row) => row.nextAction && row.nextActionAt && Date.parse(row.nextActionAt) <= clock.getTime()).map((row) => row.id),
+    // Newest first, this number's only, as the table is read.
+    readRecentHandoffs: async (parentE164) => [...w.handoffs.values()].filter((row) => row.parentE164 === parentE164).reverse(),
+    setRating: async (id, value) => {
+      if (over.ratingWrites === "fail") return "failed";
+      const row = w.handoffs.get(id);
+      if (!row) return "already";
+      const may = value === "helped" ? row.rating === null : row.rating === null || row.rating === "helped";
+      if (!may) return "already";
+      w.handoffs.set(id, { ...row, rating: value });
+      return "set";
+    },
+    claimRatingQuestion: async (id, at) => {
+      const row = w.handoffs.get(id);
+      if (!row || row.ratingAskedAt) return false;
+      w.handoffs.set(id, { ...row, ratingAskedAt: at });
+      return true;
+    },
+    readLatestAnswer: async (handoffId) => {
+      const sent = [...w.deliveries.values()].filter((row) => row.handoffId === handoffId && row.status === "sent").at(-1);
+      const answer = sent ? w.answers.find((row) => row.id === sent.answerId) : undefined;
+      return sent && answer ? { body: answer.body, answererKind: sent.answererKind, answererName: sent.answererName } : null;
+    },
   };
   return { deps, w, setNow: (at: Date) => (clock = at) };
 }
@@ -471,15 +509,17 @@ describe("a swiped answer goes back to the parent", () => {
     const outcome = await handleStaffAnswer(staffReply(), deps);
     expect(outcome).toEqual({ outcome: "answered", route: "rule", intent: "staff_answer", handoff: "class_teacher" });
     expect(w.answers).toEqual([{ id: "a1", replyId: REPLY_ID, body: "Pages 12 and 13 of the maths book.", answeredBy: TEACHER_ID }]);
-    expect(w.sent.map((body) => body.to)).toEqual(["919000000001", "919000000002"]);
+    // The answer, "Did this answer help?" (D-584), then the teacher's thanks.
+    expect(w.sent.map((body) => body.to)).toEqual(["919000000001", "919000000001", "919000000002"]);
     expect(textOf(w.sent[0]!)).toBe(
       "💬 *Answer from TEST Teacher One, class teacher*\n_Your message about Aarav: “Please share today's homework”_\n\nPages 12 and 13 of the maths book.",
     );
-    expect(textOf(w.sent[1]!)).toBe("✅ Your answer has gone to the parent of Aarav · Class 6. Thank you!");
+    expect(w.sent[1]!.type).toBe("interactive");
+    expect(textOf(w.sent[2]!)).toBe("✅ Your answer has gone to the parent of Aarav · Class 6. Thank you!");
     expect(w.deliveries.get("a1")).toMatchObject({ status: "sent", via: "text", answererKind: "class_teacher", answererName: "TEST Teacher One" });
     expect(w.handoffs.get("h1")).toMatchObject({ answeredAt: NOON.toISOString(), nextAction: null });
     expect(w.done).toEqual([[REPLY_ID, TEACHER_ID]]);
-    expect(w.finished).toEqual([["wamid.ANSWER1", expect.objectContaining({ status: "answered", intent: "staff_answer", route: "rule", replyMessageId: "wamid.OUT3" })]]);
+    expect(w.finished).toEqual([["wamid.ANSWER1", expect.objectContaining({ status: "answered", intent: "staff_answer", route: "rule", replyMessageId: "wamid.OUT4" })]]);
     expect(w.saved).toEqual([TEACHER_PHONE]);
   });
 
@@ -493,9 +533,10 @@ describe("a swiped answer goes back to the parent", () => {
     expect(textOf(w.sent[1]!)).toContain("they get yours the moment they reply");
     expect(w.deliveries.get("a1")).toMatchObject({ status: "waiting", via: "template" });
 
-    // The parent writes again: the answer goes first, once.
+    // The parent writes again: the answer goes first, once, and then the question.
     expect(await deliverWaitingAnswers(OWNER, deps)).toBe(1);
-    expect(textOf(w.sent.at(-1)!)).toContain("Pages 12 and 13 of the maths book.");
+    expect(textOf(w.sent.at(-2)!)).toContain("Pages 12 and 13 of the maths book.");
+    expect(w.sent.at(-1)!.type).toBe("interactive");
     expect(await deliverWaitingAnswers(OWNER, deps)).toBe(0);
     expect(w.deliveries.get("a1")!.status).toBe("sent");
   });
@@ -546,7 +587,8 @@ describe("a swiped answer goes back to the parent", () => {
     const outcome = await handleStaffAnswer(staffReply({ from: OWNER }), deps);
     expect(outcome).toMatchObject({ outcome: "answered" });
     expect(w.answers[0]!.answeredBy).toBe(TEACHER_ID);
-    expect(w.sent.slice(1).map((body) => body.to)).toEqual(["919000000001", "919000000001"]);
+    // The answer, the question and the thanks, all on the owner's number.
+    expect(w.sent.slice(1).map((body) => body.to)).toEqual(["919000000001", "919000000001", "919000000001"]);
   });
 });
 
@@ -590,5 +632,136 @@ describe("who an alert can reach (D-583)", () => {
   it("practice: the owner's number, whatever the test account has", () => {
     expect(reachOf({ ...teacher, e164: null, consented: false }, true, OWNER)).toEqual({ to: OWNER, why: null });
     expect(reachOf(teacher, true, null)).toEqual({ to: null, why: "no_number" });
+  });
+});
+
+describe("did this answer help? (D-584)", () => {
+  const FOLLOW_REPLY = "88888888-8888-4888-8888-888888888888";
+  const QUESTION = "Please share today's homework";
+  const ANSWER = "Pages 12 and 13 of the maths book.";
+
+  /** h1, answered by its class teacher on WhatsApp while the parent's chat is open. */
+  async function answered(options: Parameters<typeof world>[0] = {}) {
+    const made = world(options);
+    made.w.chats.set(TEACHER_PHONE, new Date(NOON.getTime() - HOUR).toISOString());
+    made.w.chats.set(OWNER, new Date(NOON.getTime() - 2 * HOUR).toISOString());
+    await openHandoff(openInput(), made.deps);
+    await handleStaffAnswer(staffReply(), made.deps);
+    made.w.sent.length = 0;
+    return made;
+  }
+
+  /** The office's hand-off for a "no" to h1, as the turn opens it. */
+  const followUp = (over: Partial<Parameters<typeof openHandoff>[0]> = {}) =>
+    openInput({ parentReplyId: FOLLOW_REPLY, target: "office", topic: NOT_HELPED_TOPIC, child: null, aboutName: "Aarav", followUpOf: "h1", ...over });
+
+  const buttonsOf = (body: Record<string, unknown>) =>
+    (body.interactive as { action: { buttons: Array<{ reply: { id: string; title: string } }> } }).action.buttons.map((button) => button.reply);
+  const questionText = (body: Record<string, unknown>) => (body.interactive as { body: { text: string } }).body.text;
+
+  it("is asked once, right after the answer, on two buttons that name this hand-off", async () => {
+    const { deps, w } = world();
+    w.chats.set(TEACHER_PHONE, new Date(NOON.getTime() - HOUR).toISOString());
+    w.chats.set(OWNER, new Date(NOON.getTime() - 2 * HOUR).toISOString());
+    await openHandoff(openInput(), deps);
+    w.sent.length = 0;
+    await handleStaffAnswer(staffReply(), deps);
+
+    const question = w.sent[1]!;
+    expect(question.to).toBe("919000000001");
+    expect(questionText(question)).toBe("Did this answer help?\nIf not, tap *No* and the school office will look at it.");
+    expect(buttonsOf(question)).toEqual([
+      { id: "vpai:helped:h100", title: "👍 Yes, it helped" },
+      { id: "vpai:not_helped:h100", title: "👎 No" },
+    ]);
+    expect(w.handoffs.get("h1")!.ratingAskedAt).toBe(NOON.toISOString());
+
+    // A second answer to the same message, typed in Messages: it goes, and nothing is asked again.
+    w.sent.length = 0;
+    expect(await relayFromMessages({ replyId: REPLY_ID, body: "Also bring the notebook.", staffId: ADMIN_ID }, deps)).toEqual({ result: "sent" });
+    expect(w.sent.map((body) => body.type)).toEqual(["text"]);
+  });
+
+  it("is not asked when the answer itself did not reach the parent", async () => {
+    const { deps, w } = world({ templates: { vpps_parent_answer_ready_en_v1: null } });
+    w.chats.set(TEACHER_PHONE, new Date(NOON.getTime() - HOUR).toISOString());
+    await openHandoff(openInput(), deps);
+    w.sent.length = 0;
+    await handleStaffAnswer(staffReply(), deps);
+    expect(w.sent.map((body) => body.type)).toEqual(["text"]);
+    expect(w.handoffs.get("h1")!.ratingAskedAt).toBeNull();
+  });
+
+  it("a no reaches the school office as a complaint, told what did not help", async () => {
+    const { deps, w } = await answered({ people: [{ ...admin, language: "en" }] });
+    w.chats.set(ADMIN_PHONE, new Date(NOON.getTime() - HOUR).toISOString());
+    const opened = await openHandoff(followUp(), deps);
+    expect(opened.handoffId).toBe("h2");
+    expect(w.handoffs.get("h2")).toMatchObject({ target: "office", topic: "not_helped", complaint: true, classTeacherId: null, followUpOf: "h1", nextAction: "remind" });
+    expect(textOf(w.sent.at(-1)!)).toContain("Aarav · Class 6 · The answer did not help");
+  });
+
+  it("the office's answer quotes what the parent first asked, and asks nothing more", async () => {
+    const { deps, w } = await answered();
+    await openHandoff(followUp(), deps);
+    const note = `अभिभावक / Parent: “${QUESTION}”\nजवाब / Answer (कक्षा अध्यापक / Class teacher TEST Teacher One): “${ANSWER}”`;
+    w.handoffs.set("h2", { ...w.handoffs.get("h2")!, body: note });
+    w.sent.length = 0;
+
+    expect(await relayFromMessages({ replyId: FOLLOW_REPLY, body: "The homework is on the class board as well.", staffId: ADMIN_ID }, deps)).toEqual({ result: "sent" });
+    expect(w.sent).toHaveLength(1);
+    expect(textOf(w.sent[0]!)).toBe(
+      `💬 *Answer from the principal's office*\n_Your message about Aarav: “${QUESTION}”_\n\nThe homework is on the class board as well.`,
+    );
+    expect(w.handoffs.get("h2")!.ratingAskedAt).toBeNull();
+  });
+
+  it("a yes is kept once; a second tap changes nothing", async () => {
+    const { deps, w } = await answered();
+    expect(await rateAnswer({ from: OWNER, key: "h100", value: "helped" }, deps)).toMatchObject({ outcome: "helped", handoff: { id: "h1" } });
+    expect(w.handoffs.get("h1")!.rating).toBe("helped");
+    expect(await rateAnswer({ from: OWNER, key: "h100", value: "helped" }, deps)).toMatchObject({ outcome: "already" });
+  });
+
+  it("a no, even after a yes, comes back with the parent's words and the answer, for the office", async () => {
+    const { deps, w } = await answered();
+    await rateAnswer({ from: OWNER, key: "h100", value: "helped" }, deps);
+    const rated = await rateAnswer({ from: OWNER, key: "h100", value: "not_helped" }, deps);
+    expect(rated).toMatchObject({ outcome: "pass_on", handoff: { id: "h1" } });
+    expect(rated.outcome === "pass_on" ? rated.body : null).toBe(
+      `अभिभावक / Parent: “${QUESTION}”\nजवाब / Answer (कक्षा अध्यापक / Class teacher TEST Teacher One): “${ANSWER}”`,
+    );
+    expect(w.handoffs.get("h1")!.rating).toBe("not_helped");
+    // A yes after the no does not take the no back.
+    expect(await rateAnswer({ from: OWNER, key: "h100", value: "helped" }, deps)).toMatchObject({ outcome: "already" });
+    expect(w.handoffs.get("h1")!.rating).toBe("not_helped");
+  });
+
+  it("an answer that cannot be read leaves the parent's words for the office", async () => {
+    const { deps } = await answered();
+    const rated = await rateAnswer({ from: OWNER, key: "h100", value: "not_helped" }, { ...deps, readLatestAnswer: async () => null });
+    expect(rated.outcome === "pass_on" ? rated.body : null).toBe(`अभिभावक / Parent: “${QUESTION}”`);
+  });
+
+  it("a no the office already has is not passed on twice", async () => {
+    const { deps } = await answered();
+    await openHandoff(followUp(), deps);
+    expect(await rateAnswer({ from: OWNER, key: "h100", value: "not_helped" }, deps)).toMatchObject({ outcome: "already_passed_on" });
+  });
+
+  it("rates only this number's own hand-offs: another number, a made-up key or the office's own hand-off rate nothing", async () => {
+    const { deps, w } = await answered();
+    expect(await rateAnswer({ from: "+919000000009", key: "h100", value: "not_helped" }, deps)).toEqual({ outcome: "unknown" });
+    expect(await rateAnswer({ from: OWNER, key: "zzzz", value: "not_helped" }, deps)).toEqual({ outcome: "unknown" });
+    await openHandoff(followUp(), deps);
+    expect(await rateAnswer({ from: OWNER, key: "h200", value: "not_helped" }, deps)).toEqual({ outcome: "unknown" });
+    expect(await rateAnswer({ from: OWNER, key: "h100", value: "helped" }, { ...deps, readRecentHandoffs: async () => null })).toEqual({ outcome: "unknown" });
+    expect([...w.handoffs.values()].map((row) => row.rating)).toEqual([null, null]);
+  });
+
+  it("a no that cannot be written down is never called passed on; a yes is thanked all the same", async () => {
+    const { deps } = await answered({ ratingWrites: "fail" });
+    expect(await rateAnswer({ from: OWNER, key: "h100", value: "not_helped" }, deps)).toMatchObject({ outcome: "not_saved" });
+    expect(await rateAnswer({ from: OWNER, key: "h100", value: "helped" }, deps)).toMatchObject({ outcome: "helped" });
   });
 });

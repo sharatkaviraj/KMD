@@ -7,6 +7,8 @@ import {
   answererFor,
   answerReadyParams,
   canPassUp,
+  followUpBody,
+  FOLLOW_UP_WORDS,
   isAcknowledgement,
   isComplaint,
   nextAlertMoment,
@@ -14,11 +16,13 @@ import {
   oneLine,
   parentAnswerText,
   peopleFor,
+  ratingKey,
   staffAlertParams,
   staffAlertText,
   staffConfirmText,
   staffLanguage,
   templateLanguage,
+  topicWords,
   windowOpen,
   type AlertWords,
   type HandoffState,
@@ -87,6 +91,8 @@ describe("who is told (the owner, 12 Nov 2026)", () => {
     expect(isComplaint("class_teacher", "complaint")).toBe(true);
     expect(isComplaint("principal", "request")).toBe(true);
     expect(isComplaint("class_teacher", "homework")).toBe(false);
+    // A "no" to an answer (D-584) is the office's, and goes up to an admin when it is left a day.
+    expect(isComplaint("office", "not_helped")).toBe(true);
     expect(canPassUp("class_teacher", true)).toBe(true);
     expect(canPassUp("office", true)).toBe(true);
     // Fees go to an admin with the accountant from the start; the principal's are an admin's already.
@@ -238,6 +244,60 @@ describe("the answer, as the parent reads it", () => {
   it("one line, never empty", () => {
     expect(oneLine("  a\n\nb  ", 10)).toBe("a b");
     expect(oneLine("", 10)).toBe("-");
+  });
+});
+
+describe("a no to an answer (D-584)", () => {
+  it("the button carries twelve letters of the hand-off's id, which is all a tap is matched by", () => {
+    expect(ratingKey("9F8E7D6C-5B4A-4321-8FED-CBA987654321")).toBe("9f8e7d6c5b4a");
+    expect(ratingKey("h1")).toBe("h100");
+    expect(ratingKey("9f8e7d6c-5b4a-4321-8fed-cba987654321")).toMatch(/^[a-z0-9]{4,16}$/);
+  });
+
+  it("the office is given what the parent asked and the answer that did not help, in both languages' labels", () => {
+    expect(
+      followUpBody({ parentWords: "Please share   today's homework", answer: " Pages 12 and 13. ", who: { kind: "class_teacher", name: "TEST Teacher One" } }),
+    ).toBe("अभिभावक / Parent: “Please share today's homework”\nजवाब / Answer (कक्षा अध्यापक / Class teacher TEST Teacher One): “Pages 12 and 13.”");
+    expect(followUpBody({ parentWords: "रसीद चाहिए", answer: "भेज दी है।", who: { kind: "accounts" } })).toBe(
+      "अभिभावक / Parent: “रसीद चाहिए”\nजवाब / Answer (अकाउंट्स / Accounts): “भेज दी है।”",
+    );
+    // No answer to be found: the parent's words on their own.
+    expect(followUpBody({ parentWords: "q", answer: null, who: null })).toBe("अभिभावक / Parent: “q”");
+    expect(followUpBody({ parentWords: "q", answer: "   ", who: null })).toBe("अभिभावक / Parent: “q”");
+    // Long words are cut, not the note.
+    const long = followUpBody({ parentWords: "a".repeat(900), answer: "b".repeat(900), who: { kind: "office" } });
+    expect(long.length).toBeLessThan(FOLLOW_UP_WORDS.parent + FOLLOW_UP_WORDS.answer + 80);
+  });
+
+  it("is called what it is, for the person told", () => {
+    expect(topicWords("not_helped", "en")).toBe("The answer did not help");
+    expect(topicWords("not_helped", "hi")).toBe("जवाब से मदद नहीं हुई");
+    expect(answerReadyParams({ kind: "office" }, { childName: null, topic: "not_helped" }, "en")).toEqual(["The school office", "your question"]);
+  });
+});
+
+describe("the ratings migration (D-584)", () => {
+  const dir = join(process.cwd(), "supabase/migrations");
+  const file = readdirSync(dir).filter((name) => name.endsWith("_parent_helper_ratings.sql"));
+  const sql = readFileSync(join(dir, file[0] ?? "missing"), "utf8").replace(/--[^\n]*/g, "");
+
+  it("is one file, and only adds: it applies without anybody standing by to confirm", () => {
+    expect(file).toHaveLength(1);
+    expect(sql).not.toMatch(/\b(drop|truncate|rename)\b/i);
+    expect(sql).not.toMatch(/\bdelete\s+from\b/i);
+    expect(sql.match(/alter table [a-z_.]+/gi)).toEqual(["alter table vppsone.parent_helper_handoffs"]);
+    expect(sql).not.toMatch(/\b(grant|revoke)\b/i);
+  });
+
+  it("adds every column the helper reads and writes, with its rules", () => {
+    for (const column of ["rating_asked_at timestamptz", "rating text", "rated_at timestamptz", "follow_up_of uuid references vppsone.parent_helper_handoffs(id) on delete set null"]) {
+      expect(sql).toContain(`add column ${column}`);
+    }
+    expect(sql).toContain("check (rating is null or rating in ('helped', 'not_helped'))");
+    expect(sql).toContain("check ((rating is null) = (rated_at is null))");
+    expect(sql).toMatch(/create unique index parent_helper_handoffs_one_follow_up on vppsone\.parent_helper_handoffs \(follow_up_of\)\s+where follow_up_of is not null;/);
+    const source = readFileSync(join(process.cwd(), "src/modules/whatsapp/data/helper-handoffs.ts"), "utf8");
+    for (const column of ["rating_asked_at", "rating", "rated_at", "follow_up_of"]) expect(source).toContain(column);
   });
 });
 

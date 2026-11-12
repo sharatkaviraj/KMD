@@ -166,16 +166,30 @@ export function ruleIntent(text: string | null | undefined): HelperIntent | null
 /**
  * Every button and list row Veer Patta AI sends carries an id of this shape,
  * so a tap is read without asking Claude: `vpai:<intent>` or
- * `vpai:<intent>:<child key>`.
+ * `vpai:<intent>:<key>`.
  */
 export const HELPER_ID_PREFIX = "vpai";
 
-export type HelperTap = { intent: HelperIntent | "message_teacher"; childKey: string | null };
+/** A parent's answer to "Did this answer help?", asked after a staff answer (D-584). */
+export type RatingValue = "helped" | "not_helped";
+
+export function isRatingValue(value: unknown): value is RatingValue {
+  return value === "helped" || value === "not_helped";
+}
+
+export type HelperTap = {
+  intent: HelperIntent | "message_teacher" | RatingValue;
+  /**
+   * The child a button is about (`childKey` in `helper-facts.ts`), or, on a
+   * "Did this answer help?" button, the hand-off it rates (`ratingKey`).
+   */
+  key: string | null;
+};
 
 const TAP = /^vpai:([a-z_]{2,20})(?::([a-z0-9]{4,16}))?$/;
 
-export function helperId(intent: HelperTap["intent"], childKey?: string | null): string {
-  return childKey ? `${HELPER_ID_PREFIX}:${intent}:${childKey}` : `${HELPER_ID_PREFIX}:${intent}`;
+export function helperId(intent: HelperTap["intent"], key?: string | null): string {
+  return key ? `${HELPER_ID_PREFIX}:${intent}:${key}` : `${HELPER_ID_PREFIX}:${intent}`;
 }
 
 /** The parent's tap, from the raw WhatsApp message, or null when it was not one of ours. */
@@ -187,8 +201,11 @@ export function readTap(raw: Record<string, unknown> | null | undefined): Helper
   const match = TAP.exec(id);
   if (!match) return null;
   const intent = match[1];
+  const key = match[2] ?? null;
+  // A rating always names the hand-off it rates; without one it rates nothing.
+  if (isRatingValue(intent)) return key ? { intent, key } : null;
   if (intent !== "message_teacher" && !(HELPER_INTENTS as readonly string[]).includes(intent)) return null;
-  return { intent: intent as HelperTap["intent"], childKey: match[2] ?? null };
+  return { intent: intent as HelperTap["intent"], key };
 }
 
 /* ------------------------------------------------------------- what kind */

@@ -23,7 +23,7 @@ Fee reminders and the message templates behind them.
 - Both WhatsApp webhooks (`data/whatsapp-webhook.ts`): Meta's and the hub's
 - Veer Patta AI, the helper that answers parents on the school's number,
   and its hand-offs to staff and their answers back
-  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-580); see below
+  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584); see below
 - The fee calendar's read of who is due a reminder today (`domain/installment-calendar.ts`)
 - Grouping the audience into families, one message per family: a shared number or linked siblings (`domain/family-grouping.ts`)
 - Turning the same audience into paper a teacher can carry (`domain/collection-list.ts`)
@@ -375,6 +375,17 @@ its own work, for messages from the hub only.
 - **Only staff who said yes are told (D-583).** `reachOf` turns a person with
   a number but no yes into `no_consent`, noted on the alert like a missing
   number. Practice still goes to the owner's number.
+- **"Did this answer help?" (D-584).** Once an answer reaches the parent,
+  `askRating` (`data/helper-relay.ts`) asks once, on two buttons whose ids
+  carry `ratingKey` (twelve letters of the hand-off's id). The tap is a
+  `rate` plan (`helper-plan`); `rateAnswer` matches it among the tapping
+  number's own hand-offs only and keeps it (`rating`, a "no" may replace a
+  "yes", never the other way). A "no" becomes a new message in Messages for
+  the office, with the parent's words and the answer (`followUpBody`), and a
+  hand-off to the office with topic `not_helped`, a complaint, opened after
+  the parent's reply has gone (`composeRating`, `data/helper-turn.ts`). The
+  office's answer to it quotes the first question (`quoteOf`) and is never
+  rated.
 
 ## Never
 
@@ -393,6 +404,9 @@ its own work, for messages from the hub only.
   from, or let a test account link a number that is not on the test list.
 - Message a member of staff about a hand-off on a number alone: they must
   have said yes and not stopped it (`reachOf`).
+- Rate a hand-off from a tap without matching its key among the tapping
+  number's own hand-offs (`readRecentHandoffs`), ask about the office's answer
+  to a "no", or tell a parent a "no" was passed on before Messages holds it.
 - Take a reply for a staff answer unless it quotes one of the helper's sent
   alerts and comes from the number that alert went to, or tell staff outside
   6 am to 9 pm India time: `nextAlertMoment` is asked again when a step runs,

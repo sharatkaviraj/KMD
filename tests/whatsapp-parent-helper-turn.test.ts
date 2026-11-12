@@ -19,6 +19,8 @@ const log = vi.hoisted(() => ({ logInfo: vi.fn(), logWarn: vi.fn() }));
 vi.mock("@/platform/observability/log", () => log);
 
 import type { ClaudeTurn } from "@/modules/whatsapp/data/helper-claude";
+import type { Handoff } from "@/modules/whatsapp/data/helper-handoffs";
+import type { RateResult } from "@/modules/whatsapp/data/helper-relay";
 import type { TurnFinish } from "@/modules/whatsapp/data/helper-store";
 import { runHelperTurn, runHelperTurns, type HelperDeps } from "@/modules/whatsapp/data/helper-turn";
 import type { HelperAnswer } from "@/modules/whatsapp/domain/helper-ai";
@@ -412,6 +414,151 @@ describe("step 2: hand-offs reach a person, and answers come back (D-578)", () =
     await runHelperTurn(inbound({ text: DISPUTE }), refused.deps);
     await runHelperTurn(inbound({ providerMessageId: "wamid.TEST2", text: "fees" }), fakes({ openHandoff }).deps);
     expect(openHandoff).not.toHaveBeenCalled();
+  });
+});
+
+describe("did this answer help? (D-584)", () => {
+  const ANSWERED_ID = "9f8e7d6c-5b4a-4321-8fed-cba987654321";
+  const KEY = "9f8e7d6c5b4a";
+  /** The class teacher's answer the parent was asked about, in Hindi. */
+  const ANSWERED: Handoff = {
+    id: ANSWERED_ID,
+    parentReplyId: "99999999-9999-4999-8999-999999999999",
+    parentE164: OWNER,
+    language: "hi",
+    target: "class_teacher",
+    topic: "message_teacher",
+    complaint: false,
+    practice: true,
+    classTeacherId: "22222222-2222-4222-8222-222222222222",
+    aboutName: "Aarav",
+    level: 0,
+    reminders: 0,
+    levelAlertedAt: "2026-11-12T05:00:00.000Z",
+    nextAction: null,
+    nextActionAt: null,
+    answeredAt: "2026-11-12T06:00:00.000Z",
+    closedAt: null,
+    sessionLabel: "TEST-2026-27",
+    studentLabel: "Aarav · Class 6",
+    fromName: "TEST Parent",
+    body: "Please share today's homework",
+    replyDone: true,
+    studentId: AARAV_ID,
+    ratingAskedAt: "2026-11-12T06:00:00.000Z",
+    rating: "not_helped",
+    followUpOf: null,
+  };
+  const NOTE = "अभिभावक / Parent: “Please share today's homework”\nजवाब / Answer (कक्षा अध्यापक / Class teacher TEST Teacher One): “Pages 12 and 13.”";
+
+  function rateTap(id: string, title = "👎 No"): WebhookInbound {
+    return inbound({ type: "interactive", text: title, raw: { type: "interactive", interactive: { type: "button_reply", button_reply: { id, title } } } });
+  }
+  const buttonIds = (body: Record<string, unknown> | undefined) =>
+    (body?.interactive as { action: { buttons: Array<{ reply: { id: string } }> } }).action.buttons.map((button) => button.reply.id);
+
+  it("a no is put in Messages for the school office, the parent is told in the question's language, and then the office is told", async () => {
+    let sentWhenOpened = -1;
+    const openHandoff = vi.fn(async () => {
+      sentWhenOpened = made.calls.sent.length;
+    });
+    const rateAnswer = vi.fn(async (): Promise<RateResult> => ({ outcome: "pass_on", handoff: ANSWERED, body: NOTE }));
+    const made = fakes({ openHandoff, rateAnswer });
+    const { deps, calls, askClaude } = made;
+
+    expect(await runHelperTurn(rateTap(`vpai:not_helped:${KEY}`), deps)).toEqual({ outcome: "answered", route: "tap", intent: "rated_not_helped", handoff: "office" });
+    expect(rateAnswer).toHaveBeenCalledWith({ from: OWNER, key: KEY, value: "not_helped" });
+    expect(askClaude).not.toHaveBeenCalled();
+    expect(calls.picked).toEqual([["office", null, "TEST-2026-27"]]);
+    expect(calls.handoffs).toEqual([
+      {
+        sessionLabel: "TEST-2026-27",
+        fromName: "TEST Parent",
+        fromPhone: OWNER,
+        studentId: AARAV_ID,
+        studentLabel: "Aarav · Class 6",
+        regarding: expect.stringContaining("answer did not help"),
+        body: NOTE,
+        receivedAt: new Date(NOW.getTime() - 3_000).toISOString(),
+        assignedStaffId: STAFF_ID,
+      },
+    ]);
+    expect(bodyText(calls.sent[0])).toContain("आपका सवाल और यह जवाब स्कूल ऑफ़िस तक पहुँचा दिया गया है");
+    expect(calls.finished).toEqual([
+      ["wamid.TEST1", expect.objectContaining({ status: "answered", intent: "rated_not_helped", route: "tap", handoff: "office", parentReplyId: REPLY_ID })],
+    ]);
+    expect(openHandoff).toHaveBeenCalledWith({
+      parentReplyId: REPLY_ID,
+      parentE164: OWNER,
+      language: "hi",
+      target: "office",
+      topic: "not_helped",
+      child: null,
+      aboutName: "Aarav",
+      followUpOf: ANSWERED_ID,
+      sessionLabel: "TEST-2026-27",
+      fromName: "TEST Parent",
+      practice: true,
+    });
+    expect(sentWhenOpened).toBe(1);
+  });
+
+  it("a yes is thanked, and nothing goes to the office", async () => {
+    const openHandoff = vi.fn(async () => undefined);
+    const rateAnswer = vi.fn(async (): Promise<RateResult> => ({ outcome: "helped", handoff: { ...ANSWERED, language: "en", rating: "helped" } }));
+    const { deps, calls } = fakes({ openHandoff, rateAnswer });
+    expect(await runHelperTurn(rateTap(`vpai:helped:${KEY}`, "👍 Yes, it helped"), deps)).toEqual({ outcome: "answered", route: "tap", intent: "rated_helped", handoff: null });
+    expect(bodyText(calls.sent[0])).toContain("We're glad it helped");
+    expect(calls.handoffs).toEqual([]);
+    expect(openHandoff).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["already", "rating_already", "that is already noted"],
+    ["already_passed_on", "rating_passed_already", "The school office already has your question"],
+    ["not_saved", "rating_not_saved", "It could not be passed on just now. Please call the office: 9352205884"],
+  ] as const)("%s: answered as %s, and nothing new is written", async (outcome, intent, words) => {
+    const openHandoff = vi.fn(async () => undefined);
+    const rateAnswer = vi.fn(async (): Promise<RateResult> => ({ outcome, handoff: { ...ANSWERED, language: "en" } }));
+    const { deps, calls } = fakes({ openHandoff, rateAnswer });
+    expect(await runHelperTurn(rateTap(`vpai:not_helped:${KEY}`), deps)).toMatchObject({ outcome: "answered", intent, handoff: null });
+    expect(bodyText(calls.sent[0])).toContain(words);
+    expect(calls.handoffs).toEqual([]);
+    expect(openHandoff).not.toHaveBeenCalled();
+  });
+
+  it("a no the helper cannot match to an answer is shown the way to the office; nothing is written", async () => {
+    const rateAnswer = vi.fn(async (): Promise<RateResult> => ({ outcome: "unknown" }));
+    const { deps, calls } = fakes({ rateAnswer });
+    expect(await runHelperTurn(rateTap(`vpai:not_helped:${KEY}`), deps)).toEqual({ outcome: "answered", route: "tap", intent: "rating_unknown", handoff: null });
+    expect(bodyText(calls.sent[0])).toContain("Tap *Talk to office* below");
+    expect(buttonIds(calls.sent[0])).toEqual(["vpai:office", "vpai:menu"]);
+    expect(calls.handoffs).toEqual([]);
+    // A yes to one it cannot match is simply thanked.
+    const yes = fakes({ rateAnswer: async () => ({ outcome: "unknown" }) });
+    expect(await runHelperTurn(rateTap(`vpai:helped:${KEY}`, "👍 Yes, it helped"), yes.deps)).toMatchObject({ intent: "rating_unknown" });
+    expect(bodyText(yes.calls.sent[0])).toContain("We're glad it helped");
+  });
+
+  it("a no that cannot be put in Messages is never called passed on, and nobody is told", async () => {
+    const openHandoff = vi.fn(async () => undefined);
+    const { deps, calls } = fakes({
+      openHandoff,
+      rateAnswer: async () => ({ outcome: "pass_on", handoff: { ...ANSWERED, language: "en" }, body: NOTE }),
+      insertHandoff: async () => null,
+    });
+    expect(await runHelperTurn(rateTap(`vpai:not_helped:${KEY}`), deps)).toMatchObject({ outcome: "answered", intent: "rating_not_saved", handoff: null });
+    expect(bodyText(calls.sent[0])).toContain("Please call the office: 9352205884");
+    expect(calls.finished[0]![1]).toMatchObject({ reason: "handoff_not_saved", parentReplyId: null });
+    expect(openHandoff).not.toHaveBeenCalled();
+  });
+
+  it("a rating that names no answer is not one of the helper's buttons: it is read as its words, and rates nothing", async () => {
+    const rateAnswer = vi.fn(async (): Promise<RateResult> => ({ outcome: "unknown" }));
+    const { deps, askClaude } = fakes({ rateAnswer });
+    expect(await runHelperTurn(rateTap("vpai:not_helped"), deps)).toMatchObject({ outcome: "answered", route: "ai" });
+    expect(rateAnswer).not.toHaveBeenCalled();
+    expect(askClaude).toHaveBeenCalledTimes(1);
   });
 });
 

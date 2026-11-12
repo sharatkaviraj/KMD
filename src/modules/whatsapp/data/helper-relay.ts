@@ -5,10 +5,12 @@ import {
   answererFor,
   answerReadyParams,
   canPassUp,
+  followUpBody,
   isComplaint,
   nextAlertMoment,
   nextStep,
   parentAnswerText,
+  ratingKey,
   staffAlertParams,
   staffAlertText,
   staffConfirmText,
@@ -22,9 +24,10 @@ import {
   type RelayResult,
 } from "@/modules/whatsapp/domain/helper-handoff";
 import { ANSWER_READY_TEMPLATE, HELPER_TEMPLATE_PARAMS, STAFF_ALERT_TEMPLATE } from "@/modules/whatsapp/domain/helper-hub-templates";
+import { helperMessageBody } from "@/modules/whatsapp/domain/helper-messages";
 import { MAX_MESSAGE_AGE_MINUTES, type ChatPatch, type ChatState } from "@/modules/whatsapp/domain/helper-plan";
-import type { HandoffTarget } from "@/modules/whatsapp/domain/helper-replies";
-import { messageKind, type HelperLanguage, type MessageKind } from "@/modules/whatsapp/domain/helper-text";
+import { ratingQuestion, type HandoffTarget } from "@/modules/whatsapp/domain/helper-replies";
+import { messageKind, type HelperLanguage, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
 import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
 import { logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
@@ -36,6 +39,7 @@ import { readSwitches, readTemplateRow } from "@/platform/whatsapp/store";
 import type { WebhookInbound } from "@/platform/whatsapp/webhook";
 
 import {
+  claimRatingQuestion,
   createHandoff,
   findAlert,
   insertAlert,
@@ -44,16 +48,20 @@ import {
   markReplyDone,
   readHandoff,
   readHandoffForReply,
+  readLatestAnswer,
   readPeopleToTell,
   readPerson,
+  readRecentHandoffs,
   readWaitingAnswers,
   finishDelivery,
+  setRating,
   takeDueHandoffs,
   takeWaiting,
   updateHandoff,
   type AlertRecord,
   type Handoff,
   type Person,
+  type SentAnswer,
 } from "./helper-handoffs";
 import { finishTurn, readChat, readHelperSettings, saveChat, startTurn, type TurnFinish } from "./helper-store";
 
@@ -72,6 +80,10 @@ import { finishTurn, readChat, readHelperSettings, saveChat, startTurn, type Tur
  *    again, sent the moment they do.
  *  - `relayFromMessages`: an answer typed in One's Messages to a message the
  *    helper passed on goes back the same way.
+ *  - After an answer reaches the parent, they are asked once "Did this answer
+ *    help?" (D-584). `rateAnswer` keeps their tap; a "no" goes to the school
+ *    office as a hand-off of its own, with what they asked and what they were
+ *    told, and the office's answer comes back the same way.
  *
  * Every message still passes `checkWhatsAppSend`: practice mode, the helper's
  * switch, and the owner-only rule while real recipients are off. A member of
@@ -110,6 +122,11 @@ export type RelayDeps = {
   finishDelivery: typeof finishDelivery;
   readWaitingAnswers: typeof readWaitingAnswers;
   takeDueHandoffs: typeof takeDueHandoffs;
+  /** "Did this answer help?" (D-584). */
+  readRecentHandoffs: (parentE164: string) => Promise<Handoff[] | null>;
+  setRating: (id: string, value: RatingValue, at: string) => ReturnType<typeof setRating>;
+  claimRatingQuestion: (id: string, at: string) => Promise<boolean>;
+  readLatestAnswer: (handoffId: string) => Promise<SentAnswer | null>;
 };
 
 /** The real database and the real hub. */
@@ -147,6 +164,10 @@ export function liveRelayDeps(): RelayDeps {
     finishDelivery: (answerId, write) => finishDelivery(answerId, write),
     readWaitingAnswers: (parentE164) => readWaitingAnswers(parentE164),
     takeDueHandoffs: (limit) => takeDueHandoffs(limit),
+    readRecentHandoffs: (parentE164) => readRecentHandoffs(parentE164),
+    setRating: (id, value, at) => setRating(id, value, at),
+    claimRatingQuestion: (id, at) => claimRatingQuestion(id, at),
+    readLatestAnswer: (handoffId) => readLatestAnswer(handoffId),
   };
 }
 
@@ -370,6 +391,10 @@ export type OpenHandoffInput = {
   sessionLabel: string;
   fromName: string;
   practice: boolean;
+  /** Who it is about, when not the child's first name: the earlier hand-off's, for a "no" (D-584). */
+  aboutName?: string;
+  /** A "no" to an answer (D-584): the hand-off whose answer did not help. */
+  followUpOf?: string | null;
 };
 
 /**
@@ -392,7 +417,8 @@ export async function openHandoff(input: OpenHandoffInput, deps: RelayDeps): Pro
       complaint: isComplaint(input.target, input.topic),
       practice: input.practice,
       classTeacherId: teacher && staffBelongsToSession(teacher.isTest, input.sessionLabel) ? teacher.staffId : null,
-      aboutName: input.child?.firstName ?? input.fromName,
+      aboutName: input.aboutName ?? input.child?.firstName ?? input.fromName,
+      followUpOf: input.followUpOf ?? null,
       nextAction: "alert",
       // Told right away is held like a job's step, so the job leaves it alone meanwhile.
       nextActionAt: (alertNow ? new Date(now.getTime() + LEASE_MINUTES * MINUTE) : first).toISOString(),
@@ -436,6 +462,38 @@ function childName(handoff: Handoff): string | null {
 }
 
 /**
+ * The parent's own words, quoted above an answer. On the office's answer to a
+ * "no" (D-584) that is what they first asked, not the note the office was
+ * given about it.
+ */
+async function quoteOf(handoff: Handoff, deps: RelayDeps): Promise<string> {
+  if (!handoff.followUpOf) return handoff.body;
+  const first = await deps.readHandoff(handoff.followUpOf).catch(() => null);
+  return first?.body ?? handoff.body;
+}
+
+/**
+ * "Did this answer help?", once per hand-off, right after its answer reached
+ * the parent (D-584). Not on the office's answer to a "no": the parent is
+ * asked about each message once, and a second "no" would only go round again.
+ * Sent only where the answer just went, so the parent's chat is open and the
+ * send rules have already said yes.
+ */
+async function askRating(handoff: Handoff, ctx: Shared, deps: RelayDeps): Promise<boolean> {
+  if (handoff.followUpOf || handoff.ratingAskedAt || handoff.rating) return false;
+  if (!(await deps.claimRatingQuestion(handoff.id, ctx.now.toISOString()).catch(() => false))) return false;
+  const helperName = await deps.readHelperName().catch(() => "Veer Patta AI");
+  const question = ratingQuestion(
+    { language: handoff.language, helperName, family: { children: [], practice: handoff.practice } },
+    ratingKey(handoff.id),
+  );
+  const sent = await deps.send(helperMessageBody(handoff.parentE164, question)).catch(() => null);
+  const asked = sent?.outcome === "accepted";
+  logInfo("whatsapp.helper.rating_asked", { asked, practice: handoff.practice });
+  return asked;
+}
+
+/**
  * An answer on its way to the parent: typed while their chat is open, else the
  * approved "your answer is ready" note, the answer waiting for their reply.
  */
@@ -461,10 +519,11 @@ async function relayAnswer(
       await deliver({ status: "failed", via: null, reason: stopped.reason });
       return "failed";
     }
-    const text = parentAnswerText({ language: handoff.language, who, aboutName: childName(handoff), quote: handoff.body, answer });
+    const text = parentAnswerText({ language: handoff.language, who, aboutName: childName(handoff), quote: await quoteOf(handoff, deps), answer });
     const sent = await deps.send(textMessageBody(to, text));
     if (sent.outcome === "accepted") {
       await deliver({ status: "sent", via: "text", messageId: sent.messageId, sentAt: ctx.now.toISOString() });
+      await askRating(handoff, ctx, deps);
       return "sent";
     }
     if (!windowClosed(sent)) {
@@ -609,12 +668,14 @@ export async function deliverWaitingAnswers(parentE164: string, deps: RelayDeps)
     if (verdict.decision !== "send") break;
     if (!(await deps.takeWaiting(item.answerId, ctx.now.toISOString()))) continue;
     const who = answererFromRecord(item.answererKind, item.answererName);
-    const text = parentAnswerText({ language: handoff.language, who, aboutName: childName(handoff), quote: handoff.body, answer: item.answerBody });
+    const quote = await quoteOf(handoff, deps);
+    const text = parentAnswerText({ language: handoff.language, who, aboutName: childName(handoff), quote, answer: item.answerBody });
     const sent = await deps.send(textMessageBody(parentE164, text));
     if (sent.outcome === "accepted") {
       delivered += 1;
       await deps.finishDelivery(item.answerId, { status: "sent", messageId: sent.messageId, reason: null, at: ctx.now.toISOString() });
       if (item.answeredBy) await deps.markReplyDone(handoff.parentReplyId, item.answeredBy, ctx.now.toISOString()).catch(() => undefined);
+      await askRating(handoff, ctx, deps);
     } else {
       await deps.finishDelivery(item.answerId, { status: "waiting", messageId: null, reason: sendFailure(sent), at: ctx.now.toISOString() });
     }
@@ -650,4 +711,38 @@ export async function relayFromMessages(
   const person = await deps.readPerson(input.staffId, handoff.classTeacherId);
   const result = await answerHandoff({ handoff, staffId: input.staffId, person, answer: input.body.trim() }, ctx, deps);
   return { result };
+}
+
+/**
+ * What became of a tap on "Did this answer help?" (D-584):
+ *  - `unknown`: none of this number's hand-offs has that key (or they could not be read). Nothing changes.
+ *  - `helped` / `already`: a yes kept, or an earlier tap stands.
+ *  - `already_passed_on`: a no the office already has.
+ *  - `not_saved`: a no that could not be written down.
+ *  - `pass_on`: a no, kept. The turn writes it into Messages for the office (`body`) and opens the hand-off.
+ */
+export type RateResult =
+  | { outcome: "unknown" }
+  | { outcome: "helped" | "already" | "already_passed_on" | "not_saved"; handoff: Handoff }
+  | { outcome: "pass_on"; handoff: Handoff; body: string };
+
+/**
+ * A parent's tap on "Did this answer help?". The button names one of the
+ * tapping number's own hand-offs and nothing else: a key none of them carries
+ * is thanked and changes nothing, so no tap can reach another family's
+ * message. The office's own hand-off for a "no" is never rated.
+ */
+export async function rateAnswer(input: { from: string; key: string; value: RatingValue }, deps: RelayDeps): Promise<RateResult> {
+  const recent = await deps.readRecentHandoffs(input.from).catch(() => null);
+  const handoff = recent?.find((row) => !row.followUpOf && ratingKey(row.id) === input.key) ?? null;
+  if (!recent || !handoff) return { outcome: "unknown" };
+  const kept = await deps.setRating(handoff.id, input.value, deps.now().toISOString()).catch(() => "failed" as const);
+  logInfo("whatsapp.helper.rated", { value: input.value, kept, practice: handoff.practice });
+  if (input.value === "helped") return { outcome: kept === "already" ? "already" : "helped", handoff };
+  if (recent.some((row) => row.followUpOf === handoff.id)) return { outcome: "already_passed_on", handoff };
+  if (kept === "failed") return { outcome: "not_saved", handoff };
+  // "already" here is a no kept earlier whose hand-off to the office was never written: it is written now.
+  const answer = await deps.readLatestAnswer(handoff.id).catch(() => null);
+  const who = answer ? answererFromRecord(answer.answererKind, answer.answererName) : null;
+  return { outcome: "pass_on", handoff, body: followUpBody({ parentWords: handoff.body, answer: answer?.body ?? null, who }) };
 }

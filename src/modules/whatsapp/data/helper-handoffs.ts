@@ -10,7 +10,7 @@ import {
   type StaffLanguage,
 } from "@/modules/whatsapp/domain/helper-handoff";
 import type { HandoffTarget } from "@/modules/whatsapp/domain/helper-replies";
-import { isHelperLanguage, type HelperLanguage } from "@/modules/whatsapp/domain/helper-text";
+import { isHelperLanguage, isRatingValue, type HelperLanguage, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
 import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
 import { toE164 } from "@/platform/whatsapp/numbers";
 import { whatsappDb } from "@/platform/whatsapp/store";
@@ -21,6 +21,10 @@ import { whatsappDb } from "@/platform/whatsapp/store";
  * the parent. All in `vppsone`, through the service role. The parent's words
  * stay where step 1 put them (`parent_replies`, One's Messages inbox), and an
  * answer's words where every answer from Messages goes (`parent_reply_answers`).
+ *
+ * "Did this answer help?" (D-584) lives on the hand-off itself: when it was
+ * asked, the parent's tap, and, on the office's hand-off a "no" made, which
+ * hand-off's answer did not help (`follow_up_of`).
  */
 
 type Db = ReturnType<typeof whatsappDb>;
@@ -53,6 +57,13 @@ export type Handoff = {
   body: string;
   /** Somebody marked it done in Messages. */
   replyDone: boolean;
+  /** The child it is about, from the same Messages row; null when no child was named. */
+  studentId: string | null;
+  /** When "Did this answer help?" went to the parent, once (D-584). */
+  ratingAskedAt: string | null;
+  rating: RatingValue | null;
+  /** On the office's hand-off made by a "no": the hand-off whose answer did not help. */
+  followUpOf: string | null;
 };
 
 type HandoffRow = {
@@ -73,13 +84,23 @@ type HandoffRow = {
   next_action_at: string | null;
   answered_at: string | null;
   closed_at: string | null;
-  parent_replies: { session_label: string; student_label: string | null; from_name: string; body: string; status: string } | null;
+  rating_asked_at: string | null;
+  rating: string | null;
+  follow_up_of: string | null;
+  parent_replies: {
+    session_label: string;
+    student_id: string | null;
+    student_label: string | null;
+    from_name: string;
+    body: string;
+    status: string;
+  } | null;
 };
 
 const HANDOFF_COLUMNS =
   "id, parent_reply_id, parent_e164, language, target, topic, complaint, practice, class_teacher_id, about_name, level, reminders, " +
-  "level_alerted_at, next_action, next_action_at, answered_at, closed_at, " +
-  "parent_replies!inner(session_label, student_label, from_name, body, status)";
+  "level_alerted_at, next_action, next_action_at, answered_at, closed_at, rating_asked_at, rating, follow_up_of, " +
+  "parent_replies!inner(session_label, student_id, student_label, from_name, body, status)";
 
 function handoffFromRow(row: HandoffRow | null): Handoff | null {
   const reply = row?.parent_replies;
@@ -110,6 +131,10 @@ function handoffFromRow(row: HandoffRow | null): Handoff | null {
     fromName: reply.from_name,
     body: reply.body,
     replyDone: reply.status === "done",
+    studentId: reply.student_id ?? null,
+    ratingAskedAt: row.rating_asked_at ?? null,
+    rating: isRatingValue(row.rating) ? row.rating : null,
+    followUpOf: row.follow_up_of ?? null,
   };
 }
 
@@ -125,6 +150,8 @@ export type NewHandoff = {
   aboutName: string;
   nextAction: HandoffAction | null;
   nextActionAt: string | null;
+  /** The office's hand-off made by a "no" (D-584): the hand-off whose answer did not help. */
+  followUpOf?: string | null;
 };
 
 /** The hand-off's row, written once the parent has been told it was passed on. Null when it could not be written. */
@@ -144,6 +171,7 @@ export async function createHandoff(row: NewHandoff, db: Db = whatsappDb()): Pro
         about_name: row.aboutName.trim().slice(0, 80) || "-",
         next_action: row.nextAction,
         next_action_at: row.nextAction ? row.nextActionAt : null,
+        follow_up_of: row.followUpOf ?? null,
       })
       .select("id")
       .single<{ id: string }>();
@@ -174,6 +202,89 @@ export async function readHandoffForReply(parentReplyId: string, db: Db = whatsa
       .maybeSingle<HandoffRow>();
     if (error) return null;
     return handoffFromRow(data);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * This number's hand-offs, newest first: the ones a "Did this answer help?"
+ * button can name (D-584). Only this number's, so a tap can never reach
+ * another family's. Null when they could not be read.
+ */
+export async function readRecentHandoffs(parentE164: string, limit = 20, db: Db = whatsappDb()): Promise<Handoff[] | null> {
+  try {
+    const { data, error } = await db
+      .from("parent_helper_handoffs")
+      .select(HANDOFF_COLUMNS)
+      .eq("parent_e164", parentE164)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+      .returns<HandoffRow[]>();
+    if (error || !data) return null;
+    return data.map((row) => handoffFromRow(row)).filter((row): row is Handoff => row !== null);
+  } catch {
+    return null;
+  }
+}
+
+/** `set`: this tap is the one kept. `already`: an earlier tap stands. `failed`: it could not be written. */
+export type RatingWrite = "set" | "already" | "failed";
+
+/**
+ * The parent's tap, kept once: a "yes" only where nothing is kept yet, a "no"
+ * also over an earlier "yes" (a wrong tap can be put right; a "no" always
+ * reaches the office). Never the other way round.
+ */
+export async function setRating(id: string, value: RatingValue, at: string, db: Db = whatsappDb()): Promise<RatingWrite> {
+  try {
+    const update = db.from("parent_helper_handoffs").update({ rating: value, rated_at: at, updated_at: at }).eq("id", id);
+    const guarded = value === "helped" ? update.is("rating", null) : update.or("rating.is.null,rating.eq.helped");
+    const { data, error } = await guarded.select("id");
+    if (error) return "failed";
+    return Array.isArray(data) && data.length > 0 ? "set" : "already";
+  } catch {
+    return "failed";
+  }
+}
+
+/** True for the one run that may ask "Did this answer help?" about this hand-off: it is asked once. */
+export async function claimRatingQuestion(id: string, at: string, db: Db = whatsappDb()): Promise<boolean> {
+  try {
+    const { data, error } = await db
+      .from("parent_helper_handoffs")
+      .update({ rating_asked_at: at, updated_at: at })
+      .eq("id", id)
+      .is("rating_asked_at", null)
+      .select("id");
+    return !error && Array.isArray(data) && data.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export type SentAnswer = {
+  body: string;
+  answererKind: "class_teacher" | "accounts" | "principal" | "office";
+  answererName: string | null;
+};
+
+/** The latest answer that reached the parent on this hand-off. Null when none did, or it could not be read. */
+export async function readLatestAnswer(handoffId: string, db: Db = whatsappDb()): Promise<SentAnswer | null> {
+  try {
+    const { data, error } = await db
+      .from("parent_helper_deliveries")
+      .select("answerer_kind, answerer_name, created_at, parent_reply_answers!inner(body)")
+      .eq("handoff_id", handoffId)
+      .eq("status", "sent")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .returns<
+        Array<{ answerer_kind: SentAnswer["answererKind"]; answerer_name: string | null; parent_reply_answers: { body: string } | null }>
+      >();
+    const row = !error && data ? data[0] : undefined;
+    if (!row?.parent_reply_answers?.body) return null;
+    return { body: row.parent_reply_answers.body, answererKind: row.answerer_kind, answererName: row.answerer_name };
   } catch {
     return null;
   }
