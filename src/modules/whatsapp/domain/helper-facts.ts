@@ -1,0 +1,350 @@
+/**
+ * What Veer Patta AI knows about one child, shaped from the rows the data
+ * layer reads (D-574). Pure: the rows come in, the facts go out, so every
+ * rule here is tested without a database.
+ *
+ * The money rules are the Fees app's, not new ones (CLAUDE.md, "A late fee is
+ * not a fee"): the fees still owed never include a late fee, the late fee is
+ * its own line, and "paid" is the cash receipted (`applied_amount`), so a
+ * write-off is never shown as a payment.
+ */
+
+export type AttendanceStatus = "present" | "absent" | "late" | "half_day" | "leave";
+
+export type InstallmentRow = {
+  installmentNo: number;
+  dueDate: string;
+  /** Fees still owed on this row. Never the late fee. */
+  pending: number;
+  latePending: number;
+  /** Cash receipted against this row, net of reversals. */
+  applied: number;
+  isCarryForward: boolean;
+};
+
+export type FeeFacts = {
+  /** Fees still owed this year, last year's carried dues included. Never the late fee. */
+  feesPending: number;
+  /** The late fee still owed, on its own line. */
+  lateFeePending: number;
+  /** Cash receipted this year. */
+  paid: number;
+  /** Instalments whose date has passed with fees still owed. */
+  overdue: { amount: number; count: number; since: string | null };
+  /** The next instalment not yet due, when one is still owed. */
+  next: { amount: number; dueDate: string } | null;
+  /** Of `feesPending`, what was carried from last year. */
+  lastYear: number;
+};
+
+export type ReceiptFact = {
+  number: string;
+  date: string;
+  amount: number;
+  mode: string;
+  reversed: boolean;
+};
+
+export type AttendanceFacts = {
+  /** Over the days counted (leave days are not counted), as One's attendance view works it out. */
+  percent: number | null;
+  daysCounted: number;
+  absentDays: number;
+  lateDays: number;
+  /** Today's daily register, when it has been submitted. */
+  today: AttendanceStatus | null;
+  /** The last few days marked absent, newest first. */
+  recentAbsences: string[];
+};
+
+export type SubjectMark = {
+  name: string;
+  nameHi: string | null;
+  got: number | null;
+  max: number;
+  absent: boolean;
+  exempt: boolean;
+};
+
+export type ResultFacts = {
+  exam: string;
+  examHi: string | null;
+  subjects: SubjectMark[];
+  got: number;
+  max: number;
+};
+
+export type CalendarFact = { date: string; until: string | null; title: string; titleHi: string | null; kind: string };
+
+export type ChildFacts = {
+  /** Short and stable, for buttons: never the student id itself. */
+  key: string;
+  studentId: string;
+  firstName: string;
+  /** "Class 6", "Class 11 Science A": as the school writes it, in English. */
+  className: string;
+  sessionLabel: string;
+  /** The day the facts were read for, in India (YYYY-MM-DD). */
+  today: string;
+  classTeacher: { staffId: string; name: string; isTest: boolean } | null;
+  fees: FeeFacts | null;
+  receipts: ReceiptFact[];
+  attendance: AttendanceFacts | null;
+  results: ResultFacts[];
+  calendar: CalendarFact[];
+};
+
+/**
+ * A short key for a child, the same every time: FNV-1a of the student id in
+ * base 36. A button carries this, not the id.
+ */
+export function childKey(studentId: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < studentId.length; index += 1) {
+    hash ^= studentId.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36).padStart(7, "0");
+}
+
+/** "RUDRA PRAROOP" -> "Rudra". The family knows the child by the first name. */
+export function firstName(fullName: string | null | undefined): string {
+  const first = String(fullName ?? "").trim().split(/\s+/)[0] ?? "";
+  if (!first) return "";
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
+/** Today's date in India, as YYYY-MM-DD. */
+export function istDay(now: Date): string {
+  return new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+}
+
+/** The hour in India, 0-23. */
+export function istHour(now: Date): number {
+  return new Date(now.getTime() + 330 * 60_000).getUTCHours();
+}
+
+export function feeFacts(rows: readonly InstallmentRow[], today: string): FeeFacts {
+  let feesPending = 0;
+  let lateFeePending = 0;
+  let paid = 0;
+  let lastYear = 0;
+  const overdueRows: InstallmentRow[] = [];
+  const upcoming: InstallmentRow[] = [];
+  for (const row of rows) {
+    const pending = Math.max(0, Math.round(row.pending));
+    feesPending += pending;
+    lateFeePending += Math.max(0, Math.round(row.latePending));
+    paid += Math.max(0, Math.round(row.applied));
+    if (row.isCarryForward) {
+      lastYear += pending;
+      continue;
+    }
+    if (pending <= 0) continue;
+    // Overdue is due_date < today; the row due TODAY is due, not overdue (the Fees app's line).
+    if (row.dueDate < today) overdueRows.push(row);
+    else upcoming.push(row);
+  }
+  overdueRows.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.installmentNo - b.installmentNo);
+  const next = upcoming[0];
+  return {
+    feesPending,
+    lateFeePending,
+    paid,
+    overdue: {
+      amount: overdueRows.reduce((sum, row) => sum + Math.max(0, Math.round(row.pending)), 0),
+      count: overdueRows.length,
+      since: overdueRows[0]?.dueDate ?? null,
+    },
+    next: next ? { amount: Math.round(next.pending), dueDate: next.dueDate } : null,
+    lastYear,
+  };
+}
+
+const STATUSES: ReadonlySet<string> = new Set(["present", "absent", "late", "half_day", "leave"]);
+
+export function attendanceFacts(
+  summary: { attendance_pct: number | string | null; days_counted: number | null; absent_days: number | null; late_days: number | null } | null,
+  days: ReadonlyArray<{ day: string; status: string }>,
+  today: string,
+): AttendanceFacts | null {
+  const marked = days.filter((row) => STATUSES.has(row.status));
+  if (!summary && marked.length === 0) return null;
+  const todayRow = marked.find((row) => row.day === today);
+  const pct = summary?.attendance_pct === null || summary?.attendance_pct === undefined ? null : Number(summary.attendance_pct);
+  return {
+    percent: pct !== null && Number.isFinite(pct) ? pct : null,
+    daysCounted: Number(summary?.days_counted ?? 0),
+    absentDays: Number(summary?.absent_days ?? 0),
+    lateDays: Number(summary?.late_days ?? 0),
+    today: todayRow ? (todayRow.status as AttendanceStatus) : null,
+    recentAbsences: marked
+      .filter((row) => row.status === "absent")
+      .map((row) => row.day)
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, 3),
+  };
+}
+
+/**
+ * One exam's marks. The database read hands over only an exam whose results
+ * the school has RELEASED and whose class is LOCKED (`parent_helper_child`):
+ * a parent sees what the school has finished, never marks still being
+ * entered.
+ */
+export function resultFacts(
+  exam: { label: string; labelHi: string | null },
+  rows: ReadonlyArray<{ name: string; nameHi: string | null; max: number; value: number | null; absent: boolean; exempt: boolean }>,
+): ResultFacts | null {
+  if (rows.length === 0) return null;
+  const subjects: SubjectMark[] = rows.map((row) => ({
+    name: row.name,
+    nameHi: row.nameHi,
+    got: row.absent || row.exempt || row.value === null ? null : Number(row.value),
+    max: Number(row.max),
+    absent: row.absent,
+    exempt: row.exempt,
+  }));
+  const counted = subjects.filter((subject) => !subject.exempt);
+  return {
+    exam: exam.label,
+    examHi: exam.labelHi,
+    subjects,
+    got: counted.reduce((sum, subject) => sum + (subject.got ?? 0), 0),
+    max: counted.reduce((sum, subject) => sum + subject.max, 0),
+  };
+}
+
+/* ------------------------------------------------------- the database row */
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function list(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(record) : [];
+}
+
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function day(value: unknown): string | null {
+  const candidate = text(value);
+  return candidate && /^\d{4}-\d{2}-\d{2}/.test(candidate) ? candidate.slice(0, 10) : null;
+}
+
+function amount(value: unknown): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+/** "Class 11" + "Science" + "A" -> "Class 11 Science A". */
+export function classLabel(name: string | null, stream: string | null, section: string | null): string {
+  return [name, stream, section].map((part) => (part ?? "").trim()).filter(Boolean).join(" ");
+}
+
+/**
+ * One child's facts from `vppsone.parent_helper_child`, or null when the row
+ * is not one (the database answers null for a child it will not describe).
+ * Every field is checked here: a malformed row never becomes a wrong number
+ * in front of a parent, only a missing one.
+ */
+export function childFactsFromRow(row: unknown): ChildFacts | null {
+  const top = record(row);
+  const student = record(top.student);
+  const studentId = text(student.id);
+  const sessionLabel = text(student.session_label);
+  const today = day(top.today);
+  if (!studentId || !sessionLabel || !today) return null;
+
+  const installments: InstallmentRow[] = list(top.installments).flatMap((item) => {
+    const dueDate = day(item.due_date);
+    if (!dueDate) return [];
+    return [{
+      installmentNo: amount(item.installment_no),
+      dueDate,
+      pending: amount(item.pending),
+      latePending: amount(item.late_pending),
+      applied: amount(item.applied),
+      isCarryForward: item.carry_forward === true,
+    }];
+  });
+
+  const receipts: ReceiptFact[] = list(top.receipts).flatMap((item) => {
+    const number = text(item.number);
+    const date = day(item.date);
+    const mode = text(item.mode);
+    // A write-off is never a payment; the read leaves it out, and so does this.
+    if (!number || !date || !mode || mode === "discount") return [];
+    return [{ number, date, amount: amount(item.amount), mode, reversed: item.reversed === true }];
+  });
+
+  const summary = top.attendance === null || top.attendance === undefined ? null : record(top.attendance);
+  const days = list(top.days).flatMap((item) => {
+    const date = day(item.day);
+    const status = text(item.status);
+    return date && status ? [{ day: date, status }] : [];
+  });
+  const attendance = attendanceFacts(
+    summary
+      ? {
+          attendance_pct: (summary.attendance_pct as number | string | null) ?? null,
+          days_counted: summary.days_counted === null || summary.days_counted === undefined ? null : amount(summary.days_counted),
+          absent_days: summary.absent_days === null || summary.absent_days === undefined ? null : amount(summary.absent_days),
+          late_days: summary.late_days === null || summary.late_days === undefined ? null : amount(summary.late_days),
+        }
+      : null,
+    days,
+    today,
+  );
+
+  const results: ResultFacts[] = list(top.results).flatMap((item) => {
+    const label = text(item.label);
+    if (!label) return [];
+    const facts = resultFacts(
+      { label, labelHi: text(item.label_hi) },
+      list(item.subjects).flatMap((subject) => {
+        const name = text(subject.name);
+        const max = amount(subject.max);
+        if (!name || max <= 0) return [];
+        return [{
+          name,
+          nameHi: text(subject.name_hi),
+          max,
+          value: subject.value === null || subject.value === undefined ? null : amount(subject.value),
+          absent: subject.absent === true,
+          exempt: subject.exempt === true,
+        }];
+      }),
+    );
+    return facts ? [facts] : [];
+  });
+
+  const teacher = top.class_teacher === null || top.class_teacher === undefined ? null : record(top.class_teacher);
+  const teacherId = teacher ? text(teacher.staff_id) : null;
+  const teacherName = teacher ? text(teacher.name) : null;
+
+  const calendar: CalendarFact[] = list(top.calendar).flatMap((item) => {
+    const date = day(item.date);
+    const title = text(item.title);
+    if (!date || !title) return [];
+    return [{ date, until: day(item.until), title, titleHi: text(item.title_hi), kind: text(item.kind) ?? "event" }];
+  });
+
+  return {
+    key: childKey(studentId),
+    studentId,
+    firstName: firstName(text(student.full_name)) || "—",
+    className: classLabel(text(student.class_name), text(student.stream_name), text(student.section)),
+    sessionLabel,
+    today,
+    classTeacher: teacherId && teacherName ? { staffId: teacherId, name: teacherName, isTest: teacher?.is_test === true } : null,
+    fees: installments.length > 0 ? feeFacts(installments, today) : null,
+    receipts,
+    attendance,
+    results,
+    calendar,
+  };
+}

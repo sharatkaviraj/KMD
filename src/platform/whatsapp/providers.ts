@@ -82,6 +82,27 @@ export type SubmitResult =
 
 export type StatusResult = { ok: true; status: ProviderStatus } | { ok: false; notFound: boolean; problem: string };
 
+/**
+ * The hub's answer to `POST /v1/typing` (hub PR 3, 12 Nov 2026): whether One,
+ * and not the hub's own bot, answers this parent's message. The first claim
+ * of a message wins; asking again for the same message answers the same.
+ * Only `claimed: true` lets One answer.
+ */
+export type ClaimResult =
+  | {
+      ok: true;
+      claimed: boolean;
+      /** The parent sees the blue ticks and the typing dots. */
+      typing: boolean;
+      /** A person in the office is handling this chat. */
+      staff: boolean;
+      /** Too old to answer now. */
+      stale: boolean;
+      /** Who claimed it first, when it was not One ('bot' is the hub's own). */
+      takenBy: string | null;
+    }
+  | { ok: false; httpStatus: number | null; problem: string };
+
 export type WhatsAppProvider = {
   name: "hub" | "meta_cloud" | "mock";
   send(body: Record<string, unknown>): Promise<ProviderSendResult>;
@@ -91,9 +112,13 @@ export type WhatsAppProvider = {
   fetchStatus?(wamid: string): Promise<StatusResult>;
   /** The hub only: hand one template to Meta for review on the hub's account. */
   submitTemplate?(template: TemplateSubmission): Promise<SubmitResult>;
+  /** The hub only: claim a parent's message so One answers it, and show the typing dots. */
+  claimMessage?(wamid: string): Promise<ClaimResult>;
 };
 
 const TIMEOUT_MS = 15_000;
+/** A claim answers in well under a second; the hub's own bot waits only a few. */
+const CLAIM_TIMEOUT_MS = 4_000;
 
 /** The hub's own refusals, each meaning nothing went (the hub's API doc). */
 export const HUB_CODES = ["window_closed", "opted_out", "not_approved", "sending_off", "test_mode", "bad_number"] as const;
@@ -306,6 +331,22 @@ export function readHubStatus(body: unknown, wamid: string): ProviderStatus | nu
 
 const TEMPLATE_FIELDS = "name,language,status,category,components,rejected_reason,quality_score";
 
+/** The hub's `POST /v1/typing` answer, read strictly: anything unexpected is not a claim. */
+export function readClaim(body: unknown): ClaimResult {
+  const record = asRecord(body);
+  if (record.ok !== true || typeof record.claimed !== "boolean") {
+    return { ok: false, httpStatus: null, problem: "The hub's answer did not say whether One may answer." };
+  }
+  return {
+    ok: true,
+    claimed: record.claimed,
+    typing: record.typing === true,
+    staff: record.staff === true,
+    stale: record.stale === true,
+    takenBy: typeof record.taken_by === "string" && record.taken_by.trim() ? record.taken_by.trim().slice(0, 60) : null,
+  };
+}
+
 /**
  * A refusal the hub wrote as `{ ok: false, error: "…" }` or `{ message: "…" }`
  * rather than Meta's `{ error: { message } }`. Without this a template refusal
@@ -373,6 +414,26 @@ function hubProvider(config: Extract<WhatsAppConfig, { ok: true; provider: "hub"
         code: refusalCode(parsed, response.status),
         problem: graphError(parsed).title ?? plainRefusal(record) ?? `The hub answered ${response.status}.`,
       };
+    },
+    claimMessage: async (wamid) => {
+      let response: Response;
+      try {
+        response = await fetch(`${base}/typing`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.hubKey}` },
+          body: JSON.stringify({ message_id: wamid }),
+          signal: AbortSignal.timeout(CLAIM_TIMEOUT_MS),
+          cache: "no-store",
+        });
+      } catch (caught) {
+        return { ok: false, httpStatus: null, problem: caught instanceof Error ? caught.message : "No answer from the hub." };
+      }
+      const parsed = parseText(await response.text().catch(() => ""));
+      // A hub without `/v1/typing` (not yet updated) answers 404: not a claim, so One stays quiet.
+      if (!response.ok) {
+        return { ok: false, httpStatus: response.status, problem: plainRefusal(asRecord(parsed)) ?? `The hub answered ${response.status}.` };
+      }
+      return readClaim(parsed);
     },
   };
 }

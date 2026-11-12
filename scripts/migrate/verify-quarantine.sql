@@ -47,7 +47,8 @@ with
     'ai_jobs','builtin_ai_settings','builtin_ai_provider_status','assist_log','assist_drafts','cover_reports','data_replica','drive_folders','drive_object_copies','drive_snapshots','external_student_ids','job_runs',
     'qa_dayrun_accounts','qa_dayrun_pairs','qa_dayrun_runs','qa_dayrun_sessions','qa_runs','qa_undo','rate_limits',
     'restore_drills','sampark_import_batches','sampark_import_rows','smoke_findings','smoke_passes','smoke_pool','smoke_runs',
-    'teacher_task_previews','whatsapp_inbound','whatsapp_message_events','whatsapp_messages','whatsapp_templates'])),
+    'teacher_task_previews','whatsapp_inbound','whatsapp_message_events','whatsapp_messages','whatsapp_templates',
+    'parent_helper_settings','parent_helper_chats','parent_helper_turns'])),
   -- @buckets-end
   -- References with no foreign key that the catalog does not find by name
   -- (lib/quarantine-rules.mjs TABLES: staffRefs, classRefs, staffArrays,

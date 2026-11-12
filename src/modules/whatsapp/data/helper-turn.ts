@@ -1,0 +1,366 @@
+import "server-only";
+
+import { getAssistSettings } from "@/modules/assist/data/settings";
+import type { ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
+import { handoffRegarding, planFromAnswer } from "@/modules/whatsapp/domain/helper-ai";
+import { helperMessageBody, plainVersion, type HelperMessage } from "@/modules/whatsapp/domain/helper-messages";
+import {
+  MAX_MESSAGE_AGE_MINUTES,
+  MAX_TURNS_PER_NUMBER_PER_DAY,
+  planTurn,
+  practiceIdsFor,
+  type ChatPatch,
+  type ChatState,
+  type HandoffPlan,
+  type TurnRoute,
+} from "@/modules/whatsapp/domain/helper-plan";
+import { fallbackReply, handoffFailedReply, type Family, type HandoffTarget, type ReplyContext } from "@/modules/whatsapp/domain/helper-replies";
+import { messageKind, readTap, type MessageKind } from "@/modules/whatsapp/domain/helper-text";
+import { logInfo, logWarn } from "@/platform/observability/log";
+import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
+import { maskNumber } from "@/platform/whatsapp/numbers";
+import { checkWhatsAppSend, type WhatsAppSwitches } from "@/platform/whatsapp/policy";
+import { HUB_CODES, providerFor, type ClaimResult, type ProviderSendResult } from "@/platform/whatsapp/providers";
+import { readSwitches } from "@/platform/whatsapp/store";
+import type { WebhookInbound } from "@/platform/whatsapp/webhook";
+
+import { askHelperClaude, hasClaudeKey, type ClaudeTurn } from "./helper-claude";
+import {
+  finishTurn,
+  insertHandoff,
+  pickHandoffStaff,
+  readBudget,
+  readChat,
+  readChildFacts,
+  readHelperSettings,
+  saveChat,
+  startTurn,
+  type HelperSettings,
+  type TurnFinish,
+} from "./helper-store";
+
+/**
+ * One message to the school's number, answered by Veer Patta AI (D-574).
+ *
+ * The hub forwards every message parents write; this decides, for each,
+ * whether One answers it or leaves it to the hub's own bot. One answers only
+ * when ALL of these hold, checked in this order, and stays quiet otherwise:
+ *
+ *  1. It is something the helper can read (text, a tap, a voice note, a
+ *     photo), and it arrived in the last ten minutes.
+ *  2. The number is one the helper knows. Step 1 knows exactly one: the
+ *     owner's test number, standing for the practice children.
+ *  3. The school's number may send this number a typed message right now
+ *     (`checkWhatsAppSend`: the `parent_helper` switch, practice mode, the
+ *     owner-only rule while real recipients are off).
+ *  4. The family's records could be read, and there is a child in them.
+ *  5. The number has had fewer than 40 answers today.
+ *  6. The message is not already being answered (the ledger row's unique
+ *     message id), and the hub gives it to One (`POST /v1/typing`). The hub
+ *     says no when a person in the office is handling the chat, when the
+ *     message is too old, or when its bot got there first.
+ *
+ * Only then is Claude asked (when the message needs it) and the reply sent.
+ * Every step before the claim is free to give up: the hub's bot answers a few
+ * seconds later as it always has. After the claim One must answer, so
+ * everything after it ends in a message: Claude's, the card, or the menu.
+ *
+ * What the parent wrote is never stored here, except a hand-off, which is the
+ * parent's message put in front of the school on purpose. The hub keeps the
+ * conversation (`messages` in its own database), as it keeps every other.
+ */
+
+export type HelperOutcome =
+  | { outcome: "skipped"; reason: string }
+  | { outcome: "not_claimed"; reason: string }
+  | { outcome: "answered"; route: TurnRoute; intent: string; handoff: HandoffTarget | null }
+  | { outcome: "failed"; reason: string };
+
+/** Everything the turn reads and writes, so a test can stand in for each. */
+export type HelperDeps = {
+  now: () => Date;
+  readConfig: () => WhatsAppConfig;
+  readSwitches: () => Promise<WhatsAppSwitches | null>;
+  readSettings: () => Promise<HelperSettings | null>;
+  readChildFacts: (studentIds: readonly string[]) => Promise<ChildFacts[] | null>;
+  readChat: (from: string) => Promise<ChatState>;
+  saveChat: (from: string, patch: ChatPatch, at: Date) => Promise<void>;
+  readBudget: (from: string, now: Date) => Promise<{ spentUsd: number; turnsToday: number } | null>;
+  /** The AI helper's switch and the school's monthly AI budget, or null when unreadable. */
+  readAiSettings: () => Promise<{ enabled: boolean; monthlyBudgetUsd: number } | null>;
+  hasClaudeKey: () => boolean;
+  askClaude: typeof askHelperClaude;
+  startTurn: typeof startTurn;
+  finishTurn: (providerMessageId: string, finish: TurnFinish) => Promise<void>;
+  /** Null when the provider cannot claim a message (only the hub can). */
+  claim: ((wamid: string) => Promise<ClaimResult>) | null;
+  send: (body: Record<string, unknown>) => Promise<ProviderSendResult>;
+  pickHandoffStaff: (target: HandoffTarget, child: ChildFacts | null, sessionLabel: string) => Promise<string | null>;
+  insertHandoff: typeof insertHandoff;
+};
+
+/** The real database, the real hub and the real Claude. */
+export function liveHelperDeps(): HelperDeps {
+  const config = readWhatsAppConfig();
+  const provider = config.ok ? providerFor(config) : null;
+  const claimMessage = provider?.claimMessage;
+  return {
+    now: () => new Date(),
+    readConfig: () => config,
+    readSwitches: () => readSwitches(),
+    readSettings: () => readHelperSettings(),
+    readChildFacts: (ids) => readChildFacts(ids),
+    readChat: (from) => readChat(from),
+    saveChat: (from, patch, at) => saveChat(from, patch, at),
+    readBudget: (from, now) => readBudget(from, now),
+    readAiSettings: async () => {
+      try {
+        const settings = await getAssistSettings();
+        return { enabled: settings.enabled, monthlyBudgetUsd: settings.monthlyBudgetUsd };
+      } catch {
+        return null;
+      }
+    },
+    hasClaudeKey,
+    askClaude: askHelperClaude,
+    startTurn: (row) => startTurn(row),
+    finishTurn: (id, finish) => finishTurn(id, finish),
+    claim: claimMessage ? (wamid) => claimMessage(wamid) : null,
+    send: (body) =>
+      provider
+        ? provider.send(body)
+        : Promise.resolve({ outcome: "unknown", httpStatus: null, errorCode: "network", errorTitle: "WhatsApp is not set up here." }),
+    pickHandoffStaff: (target, child, sessionLabel) => pickHandoffStaff(target, child, sessionLabel),
+    insertHandoff: (row) => insertHandoff(row),
+  };
+}
+
+const skip = (reason: string): HelperOutcome => ({ outcome: "skipped", reason });
+
+/** Why the hub kept the message, in a word or two, for the ledger. */
+function claimRefusal(claim: ClaimResult): string {
+  if (!claim.ok) return `claim_failed:${claim.httpStatus ?? "network"}`;
+  if (claim.staff) return "staff_handling";
+  if (claim.stale) return "stale";
+  return `taken_by:${claim.takenBy ?? "other"}`;
+}
+
+/** Meta may refuse an interactive message it would take as plain words; the hub's own refusals stand. */
+function worthPlainRetry(result: ProviderSendResult, message: HelperMessage): boolean {
+  if (result.outcome !== "rejected" || message.kind === "text") return false;
+  const code = result.errorCode ?? "";
+  return !(HUB_CODES as readonly string[]).includes(code) && code !== "bad_api_key";
+}
+
+type Reply = { message: HelperMessage; intent: string; route: TurnRoute; chat: ChatPatch; handoff: HandoffPlan | null };
+
+type Composed = {
+  reply: Reply;
+  claude: ClaudeTurn | null;
+  parentReplyId: string | null;
+  handedTo: HandoffTarget | null;
+  note: string | null;
+};
+
+/** The reply, once the message is One's: Claude's answer or the planned card, and any hand-off written first. */
+async function compose(input: {
+  message: WebhookInbound;
+  plan: Exclude<ReturnType<typeof planTurn>, { action: "skip" }>;
+  settings: HelperSettings;
+  family: Family;
+  children: ChildFacts[];
+  context: ReplyContext;
+  deps: HelperDeps;
+  now: Date;
+  sentAt: number;
+}): Promise<Composed> {
+  const { message, plan, settings, family, children, context, deps, now } = input;
+  const text = (message.text ?? "").trim();
+  let reply: Reply;
+  let claude: ClaudeTurn | null = null;
+  let note: string | null = null;
+
+  if (plan.action === "ask_ai") {
+    claude = await deps.askClaude({
+      helperName: settings.helperName,
+      family,
+      text,
+      language: plan.language,
+      firstContact: plan.firstContact,
+      now,
+    });
+    if (claude.answer) {
+      const answered = planFromAnswer(claude.answer, { family, helperName: settings.helperName, text, now });
+      reply = {
+        message: answered.message,
+        intent: answered.intent,
+        route: claude.careful ? "ai_careful" : "ai",
+        chat: { ...plan.chat, ...answered.chat },
+        handoff: answered.handoff,
+      };
+    } else {
+      reply = { message: fallbackReply(context), intent: "fallback", route: "fallback", chat: plan.chat, handoff: null };
+      note = `ai_${claude.problem ?? "no_answer"}`;
+    }
+  } else {
+    reply = { message: plan.message, intent: plan.intent, route: plan.route, chat: plan.chat, handoff: plan.handoff };
+  }
+
+  // A hand-off goes into One's Messages inbox before the parent is told it has.
+  let parentReplyId: string | null = null;
+  let handedTo: HandoffTarget | null = null;
+  if (reply.handoff) {
+    const handoff = reply.handoff;
+    const anchor = handoff.child ?? children[0];
+    const staffId = await deps.pickHandoffStaff(handoff.target, handoff.child, anchor.sessionLabel).catch(() => null);
+    parentReplyId = await deps.insertHandoff({
+      sessionLabel: anchor.sessionLabel,
+      fromName: message.fromName ?? "Parent",
+      fromPhone: message.from,
+      studentId: handoff.child?.studentId ?? null,
+      studentLabel: handoff.child ? [handoff.child.firstName, handoff.child.className].filter(Boolean).join(" · ") : null,
+      regarding: handoffRegarding(settings.helperName, handoff.topic, claude?.answer?.summary ?? null, handoff.body),
+      body: handoff.body,
+      receivedAt: new Date(input.sentAt).toISOString(),
+      assignedStaffId: staffId,
+    });
+    if (parentReplyId) handedTo = handoff.target;
+    else {
+      reply = { ...reply, message: handoffFailedReply({ ...context, firstContact: false }) };
+      note = "handoff_not_saved";
+    }
+  }
+  return { reply, claude, parentReplyId, handedTo, note };
+}
+
+export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = liveHelperDeps()): Promise<HelperOutcome> {
+  const started = deps.now();
+
+  // 1. Something the helper can read, and still fresh.
+  const kind: MessageKind = messageKind(message.type, message.raw);
+  if (kind === "ignore") return skip("not_readable");
+  const sentAt = Date.parse(message.at);
+  if (!Number.isFinite(sentAt) || started.getTime() - sentAt > MAX_MESSAGE_AGE_MINUTES * 60_000) return skip("too_old");
+
+  // 2. A number the helper knows.
+  const [switches, settings] = await Promise.all([deps.readSwitches(), deps.readSettings()]);
+  if (!settings) return skip("settings_unreadable");
+  const studentIds = practiceIdsFor(message.from, switches?.ownerTestNumber ?? null, settings.practiceStudentIds);
+  if (!studentIds) return skip("unknown_number");
+
+  // 3. The school's number may answer this number now. The parent wrote
+  //    seconds ago, so the 24 hours are open; everything else is the policy's.
+  const config = deps.readConfig();
+  const verdict = checkWhatsAppSend({ feature: "parent_helper", to: message.from, switches, config, kind: "text", wroteInLast24h: true });
+  if (verdict.decision === "dry_run") return skip("practice_mode");
+  if (verdict.decision === "refuse") return skip(verdict.code);
+  if (!deps.claim) return skip("cannot_claim");
+
+  // 4 and 5. The family, the chat so far, today's answers and the AI budget.
+  const [children, chat, budget, ai] = await Promise.all([
+    deps.readChildFacts(studentIds),
+    deps.readChat(message.from),
+    deps.readBudget(message.from, started),
+    deps.readAiSettings(),
+  ]);
+  if (!children) return skip("facts_unreadable");
+  if (children.length === 0) return skip("no_children");
+  if (!budget) return skip("budget_unreadable");
+  if (budget.turnsToday >= MAX_TURNS_PER_NUMBER_PER_DAY) return skip("daily_cap");
+
+  const family: Family = { children, practice: true };
+  const aiAvailable = deps.hasClaudeKey() && ai !== null && ai.enabled && budget.spentUsd < ai.monthlyBudgetUsd;
+  const tap = kind === "tap" ? readTap(message.raw) : null;
+  const plan = planTurn({ kind, text: message.text, tap, chat, family, helperName: settings.helperName, now: started, aiAvailable });
+  if (plan.action === "skip") return skip(plan.reason);
+
+  // 6. Not answered already, and the hub gives it to One.
+  const ledger = await deps.startTurn({
+    providerMessageId: message.providerMessageId,
+    from: message.from,
+    receivedAt: new Date(sentAt).toISOString(),
+    kind: kind as Exclude<MessageKind, "ignore">,
+  });
+  if (ledger === "duplicate") return skip("duplicate");
+  if (ledger === "failed") return skip("ledger_failed");
+
+  const claim = await deps.claim(message.providerMessageId);
+  if (!claim.ok || !claim.claimed) {
+    const reason = claimRefusal(claim);
+    await deps.finishTurn(message.providerMessageId, { status: "not_claimed", reason });
+    return { outcome: "not_claimed", reason };
+  }
+
+  // One answers from here on, whatever happens: Claude's words, a card or the menu.
+  const firstContact = plan.action === "ask_ai" ? plan.firstContact : false;
+  const context: ReplyContext = { language: plan.language, helperName: settings.helperName, family, firstContact };
+  let composed: Composed;
+  try {
+    composed = await compose({ message, plan, settings, family, children, context, deps, now: started, sentAt });
+  } catch (caught) {
+    logWarn("whatsapp.helper.compose_crashed", { error: caught instanceof Error ? caught.message : "unknown" });
+    composed = {
+      reply: { message: fallbackReply(context), intent: "fallback", route: "fallback", chat: plan.chat, handoff: null },
+      claude: null,
+      parentReplyId: null,
+      handedTo: null,
+      note: "compose_crashed",
+    };
+  }
+  const { reply, claude, parentReplyId, handedTo } = composed;
+  let note = composed.note;
+
+  let sent = await deps.send(helperMessageBody(message.from, reply.message));
+  if (worthPlainRetry(sent, reply.message)) {
+    sent = await deps.send(helperMessageBody(message.from, plainVersion(reply.message)));
+    note = note ?? "sent_as_plain_text";
+  }
+
+  const finished = deps.now();
+  const latencyMs = finished.getTime() - sentAt;
+  const common: TurnFinish = {
+    status: "answered",
+    intent: reply.intent,
+    route: reply.route,
+    model: claude?.model ?? null,
+    costUsd: claude?.costUsd ?? 0,
+    handoff: handedTo,
+    parentReplyId,
+    latencyMs,
+  };
+
+  if (sent.outcome !== "accepted") {
+    const reason = sent.outcome === "unknown" ? `send_unknown:${sent.errorCode}` : `send_rejected:${sent.errorCode ?? sent.httpStatus}`;
+    await deps.finishTurn(message.providerMessageId, { ...common, status: "failed", reason });
+    return { outcome: "failed", reason };
+  }
+
+  await deps.finishTurn(message.providerMessageId, { ...common, reason: note, replyMessageId: sent.messageId });
+  await deps.saveChat(message.from, reply.chat, finished).catch(() => undefined);
+  return { outcome: "answered", route: reply.route, intent: reply.intent, handoff: handedTo };
+}
+
+/**
+ * Every message in one webhook delivery, side by side: each has only a few
+ * seconds to be claimed before the hub's bot answers it. A failure in one
+ * never stops another, and nothing about a parent's words reaches the logs.
+ */
+export async function runHelperTurns(messages: readonly WebhookInbound[], deps?: HelperDeps): Promise<HelperOutcome[]> {
+  if (messages.length === 0) return [];
+  const shared = deps ?? liveHelperDeps();
+  return Promise.all(
+    messages.map(async (message) => {
+      try {
+        const outcome = await runHelperTurn(message, shared);
+        if (outcome.outcome === "failed") logWarn("whatsapp.helper.turn_failed", { ...outcome, from: maskNumber(message.from) });
+        else if (outcome.outcome !== "skipped" || outcome.reason !== "unknown_number") {
+          logInfo("whatsapp.helper.turn", { ...outcome, from: maskNumber(message.from) });
+        }
+        return outcome;
+      } catch (caught) {
+        logWarn("whatsapp.helper.turn_crashed", { error: caught instanceof Error ? caught.message : "unknown", from: maskNumber(message.from) });
+        return { outcome: "failed" as const, reason: "crashed" };
+      }
+    }),
+  );
+}

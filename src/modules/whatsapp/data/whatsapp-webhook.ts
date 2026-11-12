@@ -30,7 +30,12 @@ import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
  *    leaves no trace here (`whatsapp_record_status`);
  *  - each template event onto the registry. A step down (rejected, paused)
  *    is written at once; an approval only after the hub's own list is read
- *    and checked, after the answer has gone back.
+ *    and checked, after the answer has gone back;
+ *  - from the hub only, each message a parent wrote goes to Veer Patta AI
+ *    (D-574, `helper-turn.ts`), started at once beside the rest, because the
+ *    hub's own bot answers it a few seconds later unless One claims it first.
+ *    The helper decides for itself whether to answer, and a repeat of the
+ *    same message is never answered twice.
  *
  * A database failure answers 500, so the sender delivers it again; a payload
  * this does not understand answers 200, so it is not retried forever.
@@ -47,6 +52,16 @@ function later(task: () => Promise<unknown>) {
   } catch {
     // Outside a request (a test): just run it.
     void run();
+  }
+}
+
+/** Like `later`, but started now: the request is kept alive until it ends. */
+function alongside(task: () => Promise<unknown>) {
+  const running = task().catch((caught) => logWarn("webhook.whatsapp.after_failed", { error: caught instanceof Error ? caught.message : "unknown" }));
+  try {
+    after(running);
+  } catch {
+    // Outside a request (a test): it is already running.
   }
 }
 
@@ -79,6 +94,11 @@ export async function handleWhatsAppWebhook(
   }
 
   const parsed = parseWebhook(payload);
+  if (source === "hub" && parsed.inbound.length > 0) {
+    const written = parsed.inbound;
+    alongside(async () => (await import("@/modules/whatsapp/data/helper-turn")).runHelperTurns(written));
+  }
+
   let statuses = 0;
   let replies = 0;
   let notForOne = 0;

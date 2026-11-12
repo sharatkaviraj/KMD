@@ -70,6 +70,10 @@ export const waMessages = {
     "यह संदेश फ़ीस ऐप अपने नंबर से भेजता है, इसलिए One नहीं भेजता। अभिभावकों को दो बार नहीं मिलेगा।",
     "The Fees app sends this from its own number, so One does not. Parents never get it twice.",
   ),
+  helperHelp: t(
+    "Veer Patta AI अभिभावकों के सवालों का जवाब देता है: फ़ीस, रसीद, हाज़िरी, परिणाम। अभी सिर्फ़ अभ्यास वाले बच्चों के लिए, मालिक के नंबर पर।",
+    "Veer Patta AI answers parents' questions: fees, receipts, attendance, results. For now only the practice children, on the owner's number.",
+  ),
 
   // templates
   templatesTitle: t("मंज़ूर संदेश (टेम्पलेट)", "Approved messages (templates)"),
@@ -216,6 +220,7 @@ export const featureLabels: Record<string, Localized> = {
   general: t("अभिभावकों को अन्य संदेश", "Other parent messages"),
   staff_notice: t("स्टाफ़ सूचनाएँ", "Staff notices"),
   teacher_task: t("शिक्षक कार्य", "Teacher tasks"),
+  parent_helper: t("Veer Patta AI (अभिभावकों के सवाल)", "Veer Patta AI (parents' questions)"),
 };
 
 export const messageStatusLabels: Record<string, Localized> = {

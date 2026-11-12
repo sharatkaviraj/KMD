@@ -5,7 +5,7 @@ Fee reminders and the message templates behind them.
 | | |
 |---|---|
 | Route | /fees/reminders (+ fix, families, ladder, notices, campaigns, runs) · /fees/admin-tools/whatsapp-templates |
-| Files | 31 domain · 17 data · 24 ui |
+| Files | 41 domain · 24 data · 24 ui |
 
 ## Owns
 
@@ -21,6 +21,8 @@ Fee reminders and the message templates behind them.
   and checked word for word when they come back approved. `APPROVED_HUB`
   (`domain/campaign-generation.ts`) is filled only from APPROVED statuses
 - Both WhatsApp webhooks (`data/whatsapp-webhook.ts`): Meta's and the hub's
+- Veer Patta AI, the helper that answers parents on the school's number
+  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-577); see below
 - The fee calendar's read of who is due a reminder today (`domain/installment-calendar.ts`)
 - Grouping the audience into families, one message per family: a shared number or linked siblings (`domain/family-grouping.ts`)
 - Turning the same audience into paper a teacher can carry (`domain/collection-list.ts`)
@@ -315,12 +317,48 @@ and the one thing that fixes it. `data/fix-desk.ts` reads it, and
   `audit_students` trigger records who changed what. Siblings who carried the
   same old number change with it when ticked.
 
+## Veer Patta AI (2026-11-12)
+
+The school's WhatsApp helper answers a parent's message from One. The hub
+forwards it; `data/whatsapp-webhook.ts` starts `runHelperTurns` at once, beside
+its own work, for messages from the hub only.
+
+- **Pure rules in `domain/`, IO in `data/`.** `helper-text` reads the message
+  (language, a plain ask, a tap on the helper's own buttons, a voice note).
+  `helper-facts` turns the one read (`vppsone.parent_helper_child`) into a
+  child's fees, receipts, attendance and results. `helper-replies` writes
+  every card in Hindi, Hinglish and English. `helper-plan` decides the turn.
+  `helper-ai` holds Claude's prompt and the answer's shape. `helper-messages`
+  fits a reply to WhatsApp's limits. `data/helper-turn.ts` runs it,
+  `data/helper-store.ts` reads and writes, `data/helper-claude.ts` asks Claude.
+- **The claim decides who answers.** Every check before
+  `POST /v1/typing` may give up, and then the hub's own bot answers. Once the
+  hub hands the message to One, One always answers: Claude's words, a card or
+  the menu. `tests/whatsapp-parent-helper-turn.test.ts` holds both halves.
+- **Figures come from the cards.** Claude picks the words and names a card
+  (`show`); amounts, marks and attendance are always the card's, built from
+  the records, with the fees and the late fee apart.
+- **Practice only for now.** The helper knows one number, the owner's test
+  number, standing for the TEST children in `parent_helper_settings`. Real
+  families need a number-to-family read through the Fees bridge first.
+- **Words are not kept.** One keeps the language and what the helper waits
+  for (`parent_helper_chats`) and how each message was answered
+  (`parent_helper_turns`); a hand-off is the one message written down, into
+  Messages (`parent_replies`). The hub keeps the conversation.
+
 ## Never
 
 - Put a `situation` branch back into `loadReminderAudience`. It is the shape
   the audience/template split removed, and it is how the two grow back together.
 - Import `domain/campaign-bodies` or `domain/campaign-bodies-v3` from `ui/` or from a client file under `src/app`. They hold every template body — per-student, family and receipt — and only the server renders one: the page's preview is a server-rendered prop and the test panel asks `previewNoticeAction`. Every byte of them in the client bundle is unreachable text against a ceiling that only ratchets down. `tests/ui/whatsapp-reminders-screen.test.ts` enforces it.
 - Send to a family that has asked not to be called. Respect the no-call flag.
+- Let Veer Patta AI answer before the hub hands it the message, or let a
+  message from Meta's own webhook start it: the hub's bot would answer too.
+- Write the helper's replies to `whatsapp_messages`. `isReplyToOne` would then
+  take the parent's next week of messages for replies to One and copy them
+  into `whatsapp_inbound`. The helper's own ledger has the reply ids.
+- Let Claude, or any model but Anthropic's, write a figure a parent reads, or
+  give a free model a child's record.
 - Insert into `student_collection_flags` without passing `no_call: false` explicitly. Its default is TRUE, so a row written to record a cadence or a language would silently drop the family out of the call queue.
 
 ## Layout

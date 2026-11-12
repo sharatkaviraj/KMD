@@ -21,10 +21,17 @@ import { hubWebhookSecrets } from "@/platform/whatsapp/config";
  * backwards, and the queue job also asks the hub (`GET /v1/status/{wamid}`)
  * about anything it has not heard back on. What it writes:
  * `modules/whatsapp/data/whatsapp-webhook.ts`.
+ *
+ * A parent's message may also be answered by Veer Patta AI (D-574). That
+ * starts at once, beside the rest, and the hub gets its answer without waiting
+ * for it; the request stays alive until the reply is sent. Claiming the
+ * message, asking Claude and sending the reply can take half a minute, hence
+ * the longer limit.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const secrets = hubWebhookSecrets();

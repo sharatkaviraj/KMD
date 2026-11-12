@@ -182,6 +182,11 @@ export const TABLES = {
   whatsapp_messages: { bucket: "K", why: "post go-live log of One's WhatsApp sends, service-role only; numbers masked on every screen", staffRefs: ["requested_by", "retried_by"] },
   whatsapp_message_events: { bucket: "K", why: "post go-live status history of One's WhatsApp sends, service-role only" },
   whatsapp_inbound: { bucket: "K", why: "post go-live parents' replies to the school's WhatsApp number, service-role only" },
+  // Veer Patta AI (D-574): service-role only, created after go-live. Numbers
+  // and the practice children's ids stay whole: the helper matches on them.
+  parent_helper_settings: { bucket: "K", why: "post go-live WhatsApp helper's name and practice children (TEST students only), service-role only" },
+  parent_helper_chats: { bucket: "K", why: "post go-live WhatsApp helper's per-number language and what it waits for; never the words, service-role only" },
+  parent_helper_turns: { bucket: "K", why: "post go-live ledger of the WhatsApp helper's answers (route, cost, hand-off); never the words, service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

@@ -42,6 +42,9 @@ export const WHATSAPP_FEATURES = [
   "general",
   "staff_notice",
   "teacher_task",
+  // Veer Patta AI, the school's helper, answering a parent who wrote to the
+  // school's number (D-574). Typed replies inside the 24 hours, no templates.
+  "parent_helper",
 ] as const;
 export type WhatsAppFeature = (typeof WHATSAPP_FEATURES)[number];
 
