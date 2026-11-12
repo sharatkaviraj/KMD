@@ -210,6 +210,7 @@ describe("a cold request with no cookie", () => {
     "/api/webhooks/whatsapp-hub",
     "/api/jobs/whatsapp-queue",
     "/api/jobs/whatsapp-templates",
+    "/api/jobs/parent-helper",
     "/api/fees/cron/online-payments",
     "/api/fees/cron/whatsapp-scheduled-runs",
     "/api/fees/cron/auto-day-close",

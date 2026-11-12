@@ -15,6 +15,7 @@ import {
   type TurnRoute,
 } from "@/modules/whatsapp/domain/helper-plan";
 import { fallbackReply, handoffFailedReply, type Family, type HandoffTarget, type ReplyContext } from "@/modules/whatsapp/domain/helper-replies";
+import { isAcknowledgement } from "@/modules/whatsapp/domain/helper-handoff";
 import { messageKind, readTap, type MessageKind } from "@/modules/whatsapp/domain/helper-text";
 import { logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
@@ -25,6 +26,7 @@ import { readSwitches } from "@/platform/whatsapp/store";
 import type { WebhookInbound } from "@/platform/whatsapp/webhook";
 
 import { askHelperClaude, hasClaudeKey, type ClaudeTurn } from "./helper-claude";
+import { deliverWaitingAnswers, handleStaffAnswer, liveRelayDeps, openHandoff, type OpenHandoffInput } from "./helper-relay";
 import {
   finishTurn,
   insertHandoff,
@@ -97,6 +99,12 @@ export type HelperDeps = {
   send: (body: Record<string, unknown>) => Promise<ProviderSendResult>;
   pickHandoffStaff: (target: HandoffTarget, child: ChildFacts | null, sessionLabel: string) => Promise<string | null>;
   insertHandoff: typeof insertHandoff;
+  /** Step 2 (D-578): a swiped reply to one of the helper's alerts, handled; null when the message is not one. */
+  staffAnswer?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
+  /** Step 2: answers that waited for this parent to write again, sent now; how many went. */
+  deliverWaiting?: (from: string) => Promise<number>;
+  /** Step 2: the person a hand-off is for is told, now or at 6 am. */
+  openHandoff?: (input: OpenHandoffInput) => Promise<unknown>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -104,6 +112,7 @@ export function liveHelperDeps(): HelperDeps {
   const config = readWhatsAppConfig();
   const provider = config.ok ? providerFor(config) : null;
   const claimMessage = provider?.claimMessage;
+  const relay = liveRelayDeps();
   return {
     now: () => new Date(),
     readConfig: () => config,
@@ -132,6 +141,9 @@ export function liveHelperDeps(): HelperDeps {
         : Promise.resolve({ outcome: "unknown", httpStatus: null, errorCode: "network", errorTitle: "WhatsApp is not set up here." }),
     pickHandoffStaff: (target, child, sessionLabel) => pickHandoffStaff(target, child, sessionLabel),
     insertHandoff: (row) => insertHandoff(row),
+    staffAnswer: (message) => handleStaffAnswer(message, relay),
+    deliverWaiting: (from) => deliverWaitingAnswers(from, relay),
+    openHandoff: (input) => openHandoff(input, relay),
   };
 }
 
@@ -242,6 +254,12 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   const sentAt = Date.parse(message.at);
   if (!Number.isFinite(sentAt) || started.getTime() - sentAt > MAX_MESSAGE_AGE_MINUTES * 60_000) return skip("too_old");
 
+  // 1a. A member of staff answering a hand-off, by swiping on the helper's alert (D-578).
+  if (message.replyTo && deps.staffAnswer) {
+    const answered = await deps.staffAnswer(message).catch(() => null);
+    if (answered) return answered;
+  }
+
   // 2. A number the helper knows.
   const [switches, settings] = await Promise.all([deps.readSwitches(), deps.readSettings()]);
   if (!settings) return skip("settings_unreadable");
@@ -292,6 +310,20 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   }
 
   // One answers from here on, whatever happens: Claude's words, a card or the menu.
+  // Answers that waited for this parent to write again go first; a bare "ok" needs nothing more (D-578).
+  const delivered = deps.deliverWaiting ? await deps.deliverWaiting(message.from).catch(() => 0) : 0;
+  if (delivered > 0 && kind === "text" && isAcknowledgement(message.text)) {
+    const finished = deps.now();
+    await deps.finishTurn(message.providerMessageId, {
+      status: "answered",
+      intent: "answer_delivered",
+      route: "rule",
+      latencyMs: finished.getTime() - sentAt,
+    });
+    await deps.saveChat(message.from, {}, finished).catch(() => undefined);
+    return { outcome: "answered", route: "rule", intent: "answer_delivered", handoff: null };
+  }
+
   const firstContact = plan.action === "ask_ai" ? plan.firstContact : false;
   const context: ReplyContext = { language: plan.language, helperName: settings.helperName, family, firstContact };
   let composed: Composed;
@@ -337,6 +369,24 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
 
   await deps.finishTurn(message.providerMessageId, { ...common, reason: note, replyMessageId: sent.messageId });
   await deps.saveChat(message.from, reply.chat, finished).catch(() => undefined);
+
+  // The parent knows it was passed on; now the person it is for is told (D-578).
+  if (parentReplyId && handedTo && reply.handoff && deps.openHandoff) {
+    const anchor = reply.handoff.child ?? children[0];
+    await deps
+      .openHandoff({
+        parentReplyId,
+        parentE164: message.from,
+        language: plan.language,
+        target: handedTo,
+        topic: reply.handoff.topic,
+        child: reply.handoff.child,
+        sessionLabel: anchor.sessionLabel,
+        fromName: message.fromName ?? "Parent",
+        practice: family.practice,
+      })
+      .catch(() => undefined);
+  }
   return { outcome: "answered", route: reply.route, intent: reply.intent, handoff: handedTo };
 }
 

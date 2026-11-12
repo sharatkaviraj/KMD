@@ -70,10 +70,11 @@ export const waMessages = {
     "यह संदेश फ़ीस ऐप अपने नंबर से भेजता है, इसलिए One नहीं भेजता। अभिभावकों को दो बार नहीं मिलेगा।",
     "The Fees app sends this from its own number, so One does not. Parents never get it twice.",
   ),
-  helperHelp: t(
-    "Veer Patta AI अभिभावकों के सवालों का जवाब देता है: फ़ीस, रसीद, हाज़िरी, परिणाम। अभी सिर्फ़ अभ्यास वाले बच्चों के लिए, मालिक के नंबर पर।",
-    "Veer Patta AI answers parents' questions: fees, receipts, attendance, results. For now only the practice children, on the owner's number.",
-  ),
+  helperHelp: (approved: number, total: number) =>
+    t(
+      `Veer Patta AI अभिभावकों के सवालों का जवाब देता है (फ़ीस, रसीद, हाज़िरी, परिणाम) और बाक़ी संदेश सुबह 6 से रात 9 बजे के बीच सही शिक्षक या ऑफ़िस को WhatsApp पर पहुँचाता है। अभी सिर्फ़ अभ्यास वाले बच्चों के लिए, मालिक के नंबर पर। ${total} में से ${approved} संदेश मंज़ूर।`,
+      `Veer Patta AI answers parents' questions (fees, receipts, attendance, results) and passes the rest to the right teacher or the office on WhatsApp, between 6 am and 9 pm. For now only the practice children, on the owner's number. ${approved} of ${total} messages approved.`,
+    ),
 
   // templates
   templatesTitle: t("मंज़ूर संदेश (टेम्पलेट)", "Approved messages (templates)"),

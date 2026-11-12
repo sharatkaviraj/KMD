@@ -180,8 +180,8 @@ describe("the parents' school notices on the hub", () => {
 });
 
 describe("the whole list the hub is asked to carry", () => {
-  it("is the _v8 set, the school notices and the staff set, each name once", () => {
-    expect(HUB_TEMPLATE_SUBMISSIONS).toHaveLength(V8_HUB_SUBMISSIONS.length + 8 + 40);
+  it("is the _v8 set, the school notices, the staff set and Veer Patta AI's four, each name once", () => {
+    expect(HUB_TEMPLATE_SUBMISSIONS).toHaveLength(V8_HUB_SUBMISSIONS.length + 8 + 40 + 4);
     expect(new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => `${submission.name}:${submission.language}`)).size).toBe(HUB_TEMPLATE_SUBMISSIONS.length);
   });
 
