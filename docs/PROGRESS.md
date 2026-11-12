@@ -45,6 +45,21 @@ once he says so (no template needed: he writes first, so the alert and the
 answer can be typed); then real families by number through the Fees bridge,
 faster answers, and the chats kept on Drive.
 
+**Step 2b, staff link their own WhatsApp (D-581, D-582), practice only:**
+"Link my WhatsApp" on My profile (teachers) and Your settings: a one-time
+code, WhatsApp opens with it addressed to the school's number, the person
+presses Send, and the number it came from becomes their WhatsApp number with
+their yes (recorded as `self`; the code table keeps how). The card waits and
+turns to Linked by itself, shows a QR code on a computer, asks once before
+Stop WhatsApp, and is look-only for an admin seeing One as somebody. A
+hand-off now tells only staff who said yes. `domain/staff-link.ts`,
+`data/staff-link.ts`, `vx/ui/link-whatsapp.tsx`, migration
+`20261112060153_staff_whatsapp_link.sql`. The first try at applying the
+migration replaced the consent check and waited on a confirmation nobody
+could see; it was reworked to add only the new table and function. **Next:**
+"Did this help?" on the helper's answers, and sick-day notes shown on the
+register.
+
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 
 Owner asked (10 Nov) to put the free API key into One "smartly, the models

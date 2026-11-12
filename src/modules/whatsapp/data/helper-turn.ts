@@ -27,6 +27,7 @@ import type { WebhookInbound } from "@/platform/whatsapp/webhook";
 
 import { askHelperClaude, hasClaudeKey, type ClaudeTurn } from "./helper-claude";
 import { deliverWaitingAnswers, handleStaffAnswer, liveRelayDeps, openHandoff, type OpenHandoffInput } from "./helper-relay";
+import { handleStaffLink, liveStaffLinkDeps } from "./staff-link";
 import {
   finishTurn,
   insertHandoff,
@@ -50,6 +51,9 @@ import {
  *
  *  1. It is something the helper can read (text, a tap, a voice note, a
  *     photo), and it arrived in the last ten minutes.
+ *     (Before the rest: a member of staff answering a hand-off by swiping on
+ *     its alert, D-578, and one linking their WhatsApp with a code, D-581.
+ *     Neither is a parent's message.)
  *  2. The number is one the helper knows. Step 1 knows exactly one: the
  *     owner's test number, standing for the practice children.
  *  3. The school's number may send this number a typed message right now
@@ -105,6 +109,8 @@ export type HelperDeps = {
   deliverWaiting?: (from: string) => Promise<number>;
   /** Step 2: the person a hand-off is for is told, now or at 6 am. */
   openHandoff?: (input: OpenHandoffInput) => Promise<unknown>;
+  /** A member of staff linking their WhatsApp with the code One gave them (D-581); null when the message carries none. */
+  staffLink?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -113,6 +119,7 @@ export function liveHelperDeps(): HelperDeps {
   const provider = config.ok ? providerFor(config) : null;
   const claimMessage = provider?.claimMessage;
   const relay = liveRelayDeps();
+  const link = liveStaffLinkDeps(config);
   return {
     now: () => new Date(),
     readConfig: () => config,
@@ -144,6 +151,7 @@ export function liveHelperDeps(): HelperDeps {
     staffAnswer: (message) => handleStaffAnswer(message, relay),
     deliverWaiting: (from) => deliverWaitingAnswers(from, relay),
     openHandoff: (input) => openHandoff(input, relay),
+    staffLink: (message) => handleStaffLink(message, link),
   };
 }
 
@@ -258,6 +266,12 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   if (message.replyTo && deps.staffAnswer) {
     const answered = await deps.staffAnswer(message).catch(() => null);
     if (answered) return answered;
+  }
+
+  // 1b. A member of staff linking their WhatsApp with the code One gave them (D-581).
+  if (deps.staffLink) {
+    const linked = await deps.staffLink(message).catch(() => null);
+    if (linked) return linked;
   }
 
   // 2. A number the helper knows.

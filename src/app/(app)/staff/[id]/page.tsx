@@ -265,7 +265,7 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
           </p>
           <p className="mb-2 text-[13px] text-muted-foreground">{flat(staffWhatsappMessages.staffHelp, language)}</p>
           {!consent.hasNumber ? (
-            <p className="mb-2 text-[13px] text-muted-foreground">{flat(staffWhatsappMessages.noNumber, language)}</p>
+            <p className="mb-2 text-[13px] text-muted-foreground">{flat(staffWhatsappMessages.staffNoNumber, language)}</p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             {(

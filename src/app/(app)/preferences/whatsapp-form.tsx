@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, type ReactNode } from "react";
 
 import { saveNoticePrefsAction, saveWhatsappConsentAction, type PreferencesState } from "./actions";
 import { staffWhatsappMessages as w } from "@/messages/setup";
@@ -17,17 +17,23 @@ export type WhatsappKindChoice = { kind: string; label: Localized; enabled: bool
  * Yes or no to WhatsApp from the school app, and which kinds (go-live Phase F).
  * The server decides what is shown; both forms post to actions that act on the
  * signed-in person's own row only.
+ *
+ * `linkCard`: Link my WhatsApp (D-581), which says yes from the person's own
+ * phone and so takes the place of the yes/stop buttons. Without it (its read
+ * failed) the buttons are back, so nobody is left without a way to say yes.
  */
 export function WhatsappForm({
   state,
   since,
   hasNumber,
   kinds,
+  linkCard,
 }: {
   state: "yes" | "no_consent" | "opted_out";
   since: Localized | null;
   hasNumber: boolean;
   kinds: WhatsappKindChoice[];
+  linkCard?: ReactNode;
 }) {
   const language = useLanguage();
   const [consent, consentAction, consentPending] = useActionState(saveWhatsappConsentAction, idle);
@@ -37,20 +43,24 @@ export function WhatsappForm({
   return (
     <div className="space-y-4" data-testid="whatsapp-consent">
       <p className="text-sm text-muted-foreground">{flat(w.help, language)}</p>
-      {consent.message ? (
-        <Notice tone={consent.status === "error" ? "danger" : "success"} text={consent.message} language={language} />
-      ) : null}
-      <p className="text-sm font-medium">
-        {primary(stateText, language)}
-        {since ? <span className="text-muted-foreground"> · {primary(since, language)}</span> : null}
-      </p>
-      {!hasNumber ? <p className="text-sm text-muted-foreground">{flat(w.noNumber, language)}</p> : null}
-      <form action={consentAction}>
-        <input type="hidden" name="whatsapp" value={state === "yes" ? "no" : "yes"} />
-        <Button type="submit" variant={state === "yes" ? "outline" : "primary"} size="sm" disabled={consentPending}>
-          {primary(state === "yes" ? w.optOut : w.optIn, language)}
-        </Button>
-      </form>
+      {linkCard ?? (
+        <>
+          {consent.message ? (
+            <Notice tone={consent.status === "error" ? "danger" : "success"} text={consent.message} language={language} />
+          ) : null}
+          <p className="text-sm font-medium">
+            {primary(stateText, language)}
+            {since ? <span className="text-muted-foreground"> · {primary(since, language)}</span> : null}
+          </p>
+          {!hasNumber ? <p className="text-sm text-muted-foreground">{flat(w.noNumber, language)}</p> : null}
+          <form action={consentAction}>
+            <input type="hidden" name="whatsapp" value={state === "yes" ? "no" : "yes"} />
+            <Button type="submit" variant={state === "yes" ? "outline" : "primary"} size="sm" disabled={consentPending}>
+              {primary(state === "yes" ? w.optOut : w.optIn, language)}
+            </Button>
+          </form>
+        </>
+      )}
 
       {state === "yes" ? (
         <form action={prefsAction} className="space-y-2 border-t border-border pt-4">

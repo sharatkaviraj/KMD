@@ -365,6 +365,16 @@ its own work, for messages from the hub only.
 - **Practice.** A practice hand-off tells one person, on the owner's number,
   so the owner can play both sides. Practice mode or the switch off stops the
   hand-off quietly, and Messages answers the old way.
+- **Staff link their own WhatsApp (D-581).** "Link my WhatsApp" (My
+  profile, Your settings) makes a one-time code (`startStaffLink`,
+  `data/staff-link.ts`); the person sends it from their phone, and the turn's
+  step 1b (`handleStaffLink`) links the number it came from through
+  `vppsone.link_staff_whatsapp`, with their yes (`self`). Linking sends
+  nothing; the answer on WhatsApp is the helper's, under its switch and
+  practice mode. The card is `vx/ui/link-whatsapp.tsx`.
+- **Only staff who said yes are told (D-582).** `reachOf` turns a person with
+  a number but no yes into `no_consent`, noted on the alert like a missing
+  number. Practice still goes to the owner's number.
 
 ## Never
 
@@ -379,6 +389,10 @@ its own work, for messages from the hub only.
   into `whatsapp_inbound`. The helper's own ledger has the reply ids.
 - Let Claude, or any model but Anthropic's, write a figure a parent reads, or
   give a free model a child's record.
+- Take a number from a link message other than the one WhatsApp says it came
+  from, or let a test account link a number that is not on the test list.
+- Message a member of staff about a hand-off on a number alone: they must
+  have said yes and not stopped it (`reachOf`).
 - Take a reply for a staff answer unless it quotes one of the helper's sent
   alerts and comes from the number that alert went to, or tell staff outside
   6 am to 9 pm India time: `nextAlertMoment` is asked again when a step runs,

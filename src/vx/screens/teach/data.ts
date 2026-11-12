@@ -1,6 +1,8 @@
 import "server-only";
 import { readParentSwitches } from "@/vx/screens/settings/parent-switches";
 import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
+import { loadWhatsappLink, type WhatsappLinkView } from "@/modules/whatsapp/data/staff-link";
+import { staffLanguage } from "@/modules/whatsapp/domain/helper-handoff";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
@@ -1207,7 +1209,7 @@ export async function loadMore(staff: CurrentStaff) {
   const admin = createAdminClient();
   const labelsP = classLabelMap(sessionLabel);
   const publishedP = getPublishedVersion(sessionLabel);
-  const [labels, held, own, , notices, prefs, leaveRows, bells, subjects, calendar, dayNames, tasks, remarks, slots, linkSet, portrait] = await Promise.all([
+  const [labels, held, own, , notices, prefs, leaveRows, bells, subjects, calendar, dayNames, tasks, remarks, slots, linkSet, portrait, whatsapp] = await Promise.all([
     labelsP,
     heldClassIds(staff.id, sessionLabel),
     ownClassIds(staff.id, sessionLabel),
@@ -1225,6 +1227,8 @@ export async function loadMore(staff: CurrentStaff) {
     publishedP.then((pub) => (pub ? listSlots(pub.id).then((all) => all.filter((s) => s.staffProfileId === staff.id)) : [])),
     labelsP.then((l) => marksLinks(staff.id, sessionLabel, l, today)),
     approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
+    // Link my WhatsApp on My profile (D-581); a failed read leaves the card out.
+    loadWhatsappLink(staff.id, staffLanguage(staff.language), Boolean(staff.viewedBy)).catch((): WhatsappLinkView | null => null),
   ]);
   const { links, assigned, sizes } = linkSet;
 
@@ -1257,6 +1261,10 @@ export async function loadMore(staff: CurrentStaff) {
       subjects: [...new Set(assigned.map((a) => subjects.find((s) => s.id === a.subject_id)?.code).filter(Boolean) as string[])],
       largeText: Boolean(prefs.data?.large_text),
       alerts: prefs.data?.alerts ?? {},
+      /** Link my WhatsApp (D-581): null when it could not be read. */
+      whatsapp: whatsapp?.card ? whatsapp : null,
+      /** An administrator seeing One as her (D-544): the card is look-only. */
+      lookOnly: Boolean(staff.viewedBy),
     },
     leave,
     nowMinutes: schoolClock(now).minutes,

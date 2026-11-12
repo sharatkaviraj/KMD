@@ -329,6 +329,8 @@ function moreData(): MoreData {
       subjects: ["Science"],
       largeText: false,
       alerts: { notices: true },
+      whatsapp: null,
+      lookOnly: false,
     },
     leave: [
       { id: id(801), from_day: "2026-10-26", to_day: "2026-10-26", span: "first_half", note: "Personal work", status: "asked", created_at: at("10:00", "2026-10-06"), decided_at: null, decided_by_name: null, covers: [] },
