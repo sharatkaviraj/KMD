@@ -12,6 +12,8 @@ import {
 import type { HandoffTarget } from "@/modules/whatsapp/domain/helper-replies";
 import { isHelperLanguage, isRatingValue, type HelperLanguage, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
 import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { toE164 } from "@/platform/whatsapp/numbers";
 import { whatsappDb } from "@/platform/whatsapp/store";
 
@@ -223,6 +225,66 @@ export async function readRecentHandoffs(parentE164: string, limit = 20, db: Db 
       .returns<HandoffRow[]>();
     if (error || !data) return null;
     return data.map((row) => handoffFromRow(row)).filter((row): row is Handoff => row !== null);
+  } catch {
+    return null;
+  }
+}
+
+/** A hand-off still waiting for a person, with when it came in. */
+export type OpenHandoff = Handoff & { createdAt: string };
+
+/** The alerts read back for one person: more than a term's worth of hand-offs. */
+const ALERTS_PER_PERSON = 300;
+
+/**
+ * The hand-offs still waiting that are this member of staff's to answer
+ * (D-591), oldest first: the ones the helper told them about (any alert, even
+ * one their phone could not be sent), and their class's ones, which wait
+ * for 6 am when they came in at night. Not answered, not closed, not marked
+ * done in Messages, and only of their own kind: a test account's are the
+ * practice family's, real staff's are real families'. Null when they could
+ * not be read.
+ */
+export async function readOpenHandoffsFor(staffId: string, isTestAccount: boolean, db: Db = whatsappDb()): Promise<OpenHandoff[] | null> {
+  try {
+    const [alerted, theirClass] = await Promise.all([
+      db
+        .from("parent_helper_alerts")
+        .select("handoff_id")
+        .eq("staff_id", staffId)
+        .order("created_at", { ascending: false })
+        .limit(ALERTS_PER_PERSON)
+        .returns<Array<{ handoff_id: string }>>(),
+      db
+        .from("parent_helper_handoffs")
+        .select("id")
+        .eq("class_teacher_id", staffId)
+        .eq("target", "class_teacher")
+        .is("answered_at", null)
+        .is("closed_at", null)
+        .limit(ALERTS_PER_PERSON)
+        .returns<Array<{ id: string }>>(),
+    ]);
+    if (alerted.error || theirClass.error || !alerted.data || !theirClass.data) return null;
+    const ids = [...new Set([...alerted.data.map((row) => row.handoff_id), ...theirClass.data.map((row) => row.id)])];
+    if (ids.length === 0) return [];
+    const { data, error } = await fetchInChunks<HandoffRow & { created_at: string }>(ids, IN_FILTER_CHUNK_SIZE, (chunk) =>
+      db
+        .from("parent_helper_handoffs")
+        .select(`${HANDOFF_COLUMNS}, created_at`)
+        .in("id", chunk)
+        .is("answered_at", null)
+        .is("closed_at", null)
+        .returns<Array<HandoffRow & { created_at: string }>>(),
+    );
+    if (error) return null;
+    return data
+      .map((row) => {
+        const handoff = handoffFromRow(row);
+        return handoff ? { ...handoff, createdAt: row.created_at } : null;
+      })
+      .filter((row): row is OpenHandoff => row !== null && !row.replyDone && staffBelongsToSession(isTestAccount, row.sessionLabel))
+      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   } catch {
     return null;
   }

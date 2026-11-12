@@ -47,6 +47,7 @@ import {
   type OpenHandoffInput,
   type RateResult,
 } from "./helper-relay";
+import { handleStaffCommand, liveStaffHelperDeps } from "./staff-helper";
 import { handleStaffLink, liveStaffLinkDeps } from "./staff-link";
 import {
   finishTurn,
@@ -74,8 +75,9 @@ import {
  *  1. It is something the helper can read (text, a tap, a voice note, a
  *     photo), and it arrived in the last ten minutes.
  *     (Before the rest: a member of staff answering a hand-off by swiping on
- *     its alert, D-578, and one linking their WhatsApp with a code, D-582.
- *     Neither is a parent's message.)
+ *     its alert, D-578, one linking their WhatsApp with a code, D-582, and
+ *     one asking for their own day, questions or class with one word, D-591.
+ *     None is a parent's message.)
  *  2. The number is one the helper knows. Step 1 knows exactly one: the
  *     owner's test number, standing for the practice children.
  *  3. The school's number may send this number a typed message right now
@@ -136,6 +138,8 @@ export type HelperDeps = {
   openHandoff?: (input: OpenHandoffInput) => Promise<unknown>;
   /** A member of staff linking their WhatsApp with the code One gave them (D-582); null when the message carries none. */
   staffLink?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
+  /** A linked member of staff asking for their day, their questions or their class (D-591); null when it is not that. */
+  staffCommand?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
   /** A tap on "Did this answer help?", kept against this number's own hand-offs (D-584). */
   rateAnswer?: (input: { from: string; key: string; value: RatingValue }) => Promise<RateResult>;
   /** A child the parent says will be away, kept for the register (D-588); true when kept. */
@@ -153,6 +157,7 @@ export function liveHelperDeps(): HelperDeps {
   const claimMessage = provider?.claimMessage;
   const relay = liveRelayDeps();
   const link = liveStaffLinkDeps(config);
+  const staff = liveStaffHelperDeps(config);
   return {
     now: () => new Date(),
     readConfig: () => config,
@@ -185,6 +190,7 @@ export function liveHelperDeps(): HelperDeps {
     deliverWaiting: (from) => deliverWaitingAnswers(from, relay),
     openHandoff: (input) => openHandoff(input, relay),
     staffLink: (message) => handleStaffLink(message, link),
+    staffCommand: (message) => handleStaffCommand(message, staff),
     rateAnswer: (input) => rateAnswer(input, relay),
     saveAbsence: (row) => saveAbsenceNotes(row),
     readKnowledge: (practice) => readSchoolKnowledge(practice),
@@ -422,6 +428,12 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   if (deps.staffLink) {
     const linked = await deps.staffLink(message).catch(() => null);
     if (linked) return linked;
+  }
+
+  // 1c. A member of staff asking for their own day, questions or class, in one word (D-591).
+  if (deps.staffCommand) {
+    const handled = await deps.staffCommand(message).catch(() => null);
+    if (handled) return handled;
   }
 
   // 2. A number the helper knows.

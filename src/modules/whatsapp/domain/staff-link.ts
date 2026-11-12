@@ -142,6 +142,8 @@ export function linkReplyText(outcome: LinkOutcome, language: StaffLanguage, nam
         "",
         `अभिभावकों के जो सवाल आपके लिए होंगे, ${helperName} उन्हें यहीं भेजेगा, सुबह 6 से रात 9 बजे के बीच। जवाब देने के लिए उस संदेश को दाईं ओर स्वाइप करें और लिखें: जवाब स्कूल के नंबर से अभिभावक को जाएगा।`,
         "",
+        "कभी भी यहाँ एक शब्द लिखें: *आज* (आपके पीरियड और कवर), *सवाल* (आपके जवाब का इंतज़ार कर रहे अभिभावक), *अनुपस्थित* (आपकी कक्षा में आज कौन नहीं आया)।",
+        "",
         "बंद करना हो तो VPPS One में 'मेरी प्रोफ़ाइल' खोलें।",
       ].join("\n"),
       en: [
@@ -149,12 +151,14 @@ export function linkReplyText(outcome: LinkOutcome, language: StaffLanguage, nam
         "",
         `${helperName} will pass you parents' questions that are for you, here, between 6 am and 9 pm. To answer, swipe right on the message and type: your answer goes to the parent from the school's number.`,
         "",
+        "Write one word here at any time: *today* (your periods and cover), *questions* (parents waiting for your answer), *absent* (who is away in your class today).",
+        "",
         "To stop, open My profile in VPPS One.",
       ].join("\n"),
     },
     already_linked: {
-      hi: "✅ यह नंबर पहले से जुड़ा है। कुछ और करने की ज़रूरत नहीं।",
-      en: "✅ This number is already linked. Nothing more to do.",
+      hi: "✅ यह नंबर पहले से जुड़ा है। कुछ और करने की ज़रूरत नहीं। कभी भी यहाँ *आज*, *सवाल* या *अनुपस्थित* लिखें।",
+      en: "✅ This number is already linked. Nothing more to do. Write *today*, *questions* or *absent* here at any time.",
     },
     used: {
       hi: "⚠️ यह कोड पहले ही इस्तेमाल हो चुका है। VPPS One में 'मेरी प्रोफ़ाइल' खोलकर फिर से 'मेरा WhatsApp जोड़ें' दबाएँ।",

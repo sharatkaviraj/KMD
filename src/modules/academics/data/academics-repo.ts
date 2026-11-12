@@ -5,7 +5,7 @@ import { assertPermission, assertStaff, getCurrentStaff } from "@/platform/auth/
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
 import { can } from "@/platform/auth/permissions";
 import { assertActorSession, assertActorStaff, type VerifiedActor } from "@/platform/auth/verified-actor";
-import { canAccessSession, canSwitchSessions, defaultSessionFor } from "@/platform/auth/test-session-policy";
+import { canAccessSession, canSwitchSessions, defaultSessionFor, type SessionViewer } from "@/platform/auth/test-session-policy";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -564,8 +564,17 @@ export const resolveSessionLabel = cache(async (
  */
 export async function sessionLabelForActor(actor: VerifiedActor): Promise<string | null> {
   const staff = assertActorStaff(actor);
+  return sessionLabelForStaff({ role: staff.role, isTestAccount: staff.isTestAccount === true });
+}
+
+/**
+ * The same answer for a member of staff known some other way than a cookie or
+ * a token: today, Veer Patta AI's staff helper, for a number its owner linked
+ * from their own phone (D-591). The school's active session for real staff,
+ * `TEST-2026-27` for a test account; never sorted, never from the message.
+ */
+export async function sessionLabelForStaff(viewer: SessionViewer): Promise<string | null> {
   const { labels, active } = await cachedSessionFacts();
-  const viewer = { role: staff.role, isTestAccount: staff.isTestAccount === true, feeReader: can(staff, "fees:view") };
   return pickSessionLabel({
     requested: null,
     configured: process.env.VPPSONE_SESSION_LABEL,

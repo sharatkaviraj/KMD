@@ -23,7 +23,9 @@ Fee reminders and the message templates behind them.
 - Both WhatsApp webhooks (`data/whatsapp-webhook.ts`): Meta's and the hub's
 - Veer Patta AI, the helper that answers parents on the school's number,
   and its hand-offs to staff and their answers back
-  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584, D-588..D-590); see below
+  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584, D-588..D-590), and
+  the teachers' own helper (`domain/staff-helper.ts`, `data/staff-helper.ts`,
+  D-591); see below
 - Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
   D-585..D-587): the code, its hash, the send through the hub. The page is
   `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
@@ -418,6 +420,19 @@ its own work, for messages from the hub only.
   hand-offs into the numbers on the page's This week tab;
   `readHelperWeek` (`data/helper-week.ts`) reads them, Monday 00:00 India
   time, the practice family's or real families' by `practice`.
+- **The teachers' own helper (D-591).** Step 1c of the turn, after a swipe
+  (1a) and a link code (1b): `handleStaffCommand` (`data/staff-helper.ts`)
+  takes a message only when `staffCommandIn` (`domain/staff-helper.ts`)
+  reads one of the exact command words or a `vpst:` tap, and only from a
+  number `readLinkedStaff` proves: an active profile whose used link code
+  came from this very number (`staff_whatsapp_links.used_from`), with
+  WhatsApp on. Anything else returns null and the parents' helper goes on.
+  The reply goes through the same gates as every helper message
+  (`checkWhatsAppSend` for `parent_helper`, the hub's claim, the ledger).
+  `readStaffDay`, `readStaffAbsent` and `readOpenHandoffsFor` read only that
+  person's own slots, cover, class register and hand-offs, in their own year
+  (`sessionLabelForStaff`); *questions* re-sends the oldest three as
+  `reminder` alerts with their message ids, so a swipe answers them.
 
 ## Never
 

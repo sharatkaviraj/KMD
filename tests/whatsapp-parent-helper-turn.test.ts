@@ -652,6 +652,39 @@ describe("Link my WhatsApp (D-582)", () => {
   });
 });
 
+describe("the teachers' own helper (D-591)", () => {
+  const STAFF_ANSWERED = { outcome: "answered" as const, route: "rule" as const, intent: "staff_today", handoff: null };
+
+  it("a member of staff's one word is answered before the parents' helper looks at the number", async () => {
+    const staffCommand = vi.fn(async () => STAFF_ANSWERED);
+    const { deps, calls } = fakes({ staffCommand, readSettings: vi.fn(async () => null) });
+    const message = inbound({ from: STRANGER, text: "today" });
+    expect(await runHelperTurn(message, deps)).toEqual(STAFF_ANSWERED);
+    expect(staffCommand).toHaveBeenCalledWith(message);
+    expect(deps.readSettings).not.toHaveBeenCalled();
+    expect(calls.started).toEqual([]);
+  });
+
+  it("anything else goes on to the parents' helper as before, and a step that throws is never a crash", async () => {
+    expect(await runHelperTurn(inbound({ text: "fees" }), fakes({ staffCommand: vi.fn(async () => null) }).deps)).toMatchObject({ outcome: "answered", intent: "fees" });
+    const broken = vi.fn(async () => {
+      throw new Error("down");
+    });
+    expect(await runHelperTurn(inbound({ text: "fees" }), fakes({ staffCommand: broken }).deps)).toMatchObject({ outcome: "answered", intent: "fees" });
+  });
+
+  it("a link code and a swipe on an alert come first; an old message or a sticker never reaches it", async () => {
+    const staffCommand = vi.fn(async () => STAFF_ANSWERED);
+    const staffLink = vi.fn(async () => ({ outcome: "answered" as const, route: "rule" as const, intent: "staff_link", handoff: null }));
+    expect(await runHelperTurn(inbound({ text: "today" }), fakes({ staffLink, staffCommand }).deps)).toMatchObject({ intent: "staff_link" });
+    const staffAnswer = vi.fn(async () => ({ outcome: "answered" as const, route: "rule" as const, intent: "staff_answer", handoff: null }));
+    expect(await runHelperTurn(inbound({ text: "today", replyTo: "wamid.ALERT1" }), fakes({ staffAnswer, staffCommand }).deps)).toMatchObject({ intent: "staff_answer" });
+    await runHelperTurn(inbound({ text: "today", at: new Date(NOW.getTime() - 3_600_000).toISOString() }), fakes({ staffCommand }).deps);
+    await runHelperTurn(inbound({ type: "sticker", text: null, raw: { type: "sticker" } }), fakes({ staffCommand }).deps);
+    expect(staffCommand).not.toHaveBeenCalled();
+  });
+});
+
 describe("teach it once (D-589)", () => {
   const LESSON_A = "66666666-6666-4666-8666-666666666666";
   const LESSON_P = "77777777-7777-4777-8777-777777777777";

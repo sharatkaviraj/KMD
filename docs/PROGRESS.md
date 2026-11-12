@@ -23,7 +23,7 @@ are added (Staff, or Link my WhatsApp).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-590. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-591. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -127,7 +127,24 @@ year), never by the form. `domain/helper-{lessons,week}.ts`,
 `20261112125144_parent_helper_lessons.sql` applied to One 12 Nov 12:51 UTC
 before the code merged (checked: row-level security on, nothing for anon or
 signed-in users, the function for the service role only, the six existing
-turns read as practice). **Next:** 3b, the teachers' own helper.
+turns read as practice). PR 359 merged 12 Nov 13:05 UTC (`2b989f7`), live
+13:09 UTC (`dpl_5bytKtRgNGRJRr9FhCuj4k2tg733`); BrowserStack passed on a
+Galaxy M32 (Chrome) and Windows 11 (Chrome), both tabs, no sideways scroll.
+
+**Step 3b, the teachers' own helper (D-591), practice only:** a member of
+staff who linked their WhatsApp from their phone writes *today*, *questions*
+or *absent* (or आज, सवाल, अनुपस्थित; *staff* for the three buttons) to the
+school's number: their periods with the bells, cover and free periods; the
+parents waiting for them, the oldest three sent again to swipe on; who is
+away in the class they hold, with the parents who told the school. A number
+not linked from its own phone is told how to link and shown nothing. Same
+gates as every helper message (switch, practice mode, owner's number only
+while testing, the hub's claim). `domain/staff-helper.ts`,
+`data/staff-helper.ts`, step 1c of the turn. No migration, no new screen.
+Checked on a real test teacher's TEST-2026-27 day in One (read only, nothing
+sent): every reply right in English and Hindi. The live WhatsApp test needs
+the owner to link his number to a test teacher from that account's My
+profile, and his typed OK. **Next:** 3c, booking a school visit.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 
