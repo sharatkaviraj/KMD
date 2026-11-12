@@ -6,6 +6,7 @@ import { canAccessSession, isTestSessionLabel } from "@/platform/auth/test-sessi
 import { feesBridgeEnabled, usesCanonicalFees } from "./policy";
 import { explicitSessionOf, projectionUrl } from "./projection-policy";
 import { readFeesBridgeState } from "./state";
+import { testRecordReadInContext } from "./test-record-read";
 import { getServerSupabaseUrl } from "@/platform/env";
 
 function refusal(message: string): Response {
@@ -34,6 +35,14 @@ export function createProjectionFetch(underlying?: typeof fetch, options:{privil
     // member nor its session pill may steer this read. Otherwise the
     // cookie's staff member, as before. The rules below apply to either.
     const contextActor = verifiedActorInContext();
+    // Veer Patta AI reading one TEST child's records for a parent, with
+    // nobody signed in behind it (D-597, `test-record-read.ts`): table reads
+    // only, to One's own database, as a TEST account's read would go. A
+    // write or an RPC is refused, whatever its method.
+    if (!contextActor && testRecordReadInContext()) {
+      if ((request.method !== "GET" && request.method !== "HEAD") || url.pathname.startsWith("/rest/v1/rpc/")) return refusal("Use the live Fees connection for this financial operation.");
+      return send(input,init);
+    }
     const staff = contextActor ?? (await getCurrentStaff());
     if (!staff) return refusal("A verified staff account is required to read the school roster.");
     const explicitSession = explicitSessionOf(url);

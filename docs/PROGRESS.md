@@ -29,7 +29,7 @@ top on a phone, and Send code / Sign in stay above the keyboard; checked by
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-595. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -203,6 +203,19 @@ the file sweep answered `off`, because the helper is still switched off.
 from his own number, which needs his typed OK. **Surprised:** the hub cannot reach
 Drive at all, because Google trusts only One's production deployment; so
 every file goes hub → One → Drive, and the hub only keeps the link.
+**Step 3e, a receipt on request (D-597):** a parent who writes "receipt
+bhejo" (or taps 📄 Send receipt under the receipts card) gets the school's own
+receipt PDF in the chat; with several receipts a list asks which. A reversed
+receipt or a write-off is never sent, and when the PDF cannot be made or Meta
+refuses it, the parent is told so with Try again and the office's number.
+Not via Drive: Meta fetches the PDF once from an hour-long private link and
+keeps it in the chat. Practice only: TEST children, the owner's number; a
+real year makes nothing. **Done:** the code and 27 new tests (PR pending).
+**Remains:** a practice run on the owner's number, with the helper on, which
+needs his typed OK. **Surprised:** the webhook has nobody signed in, so the
+fee clients' roster guard refused the receipt read; a TEST-only read context
+(`withTestRecordRead`) now lets one TEST child's table reads through, and
+nothing else.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

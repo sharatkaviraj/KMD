@@ -9,6 +9,9 @@ vi.mock("@/platform/env",()=>({getServerSupabaseUrl:()=>"https://one.supabase.co
 import {createProjectionFetch} from "@/platform/fees-bridge/projection-fetch";
 import {mintVerifiedActor} from "@/platform/auth/verified-actor";
 import {withVerifiedActor} from "@/platform/auth/verified-actor-context";
+import {testRecordReadInContext,withTestRecordRead} from "@/platform/fees-bridge/test-record-read";
+import {readdirSync,readFileSync} from "node:fs";
+import {join} from "node:path";
 
 describe("One public read containment",()=>{
   beforeEach(()=>{
@@ -81,6 +84,41 @@ describe("One public read containment",()=>{
     expect(mocks.staff).not.toHaveBeenCalled();
     expect(mocks.session).not.toHaveBeenCalled();
     expect(new URL((underlying.mock.calls[0][0] as Request).url).pathname).toBe("/rest/v1/fees_bridge_students");
+  });
+  it("lets Veer Patta AI read one TEST child's records with nobody signed in, and only read them (D-597)",async()=>{
+    const underlying=vi.fn().mockResolvedValue(Response.json([]));
+    const guarded=createProjectionFetch(underlying,{privileged:true});
+    const url="https://one.supabase.co/rest/v1/receipts?select=id&receipt_number=eq.TEST-SVP-0002";
+    await withTestRecordRead({studentId:"11111111-1111-4111-8111-111111111111",sessionLabel:"TEST-2026-27"},async()=>{
+      expect((await guarded(url,{headers:{"Accept-Profile":"public"}})).status).toBe(200);
+      for(const [path,method] of [["receipts","PATCH"],["receipts","POST"],["payments","DELETE"],["rpc/current_dues","POST"],["rpc/current_dues","GET"]]){
+        expect((await guarded(`https://one.supabase.co/rest/v1/${path}`,{method,headers:{"Accept-Profile":"public"}})).status).toBe(409);
+      }
+      expect((await guarded("https://evil.test/rest/v1/receipts",{headers:{"Accept-Profile":"public"}})).status).toBe(409);
+    });
+    expect(underlying).toHaveBeenCalledTimes(1);
+    expect(underlying.mock.calls[0][0]).toBe(url);
+    expect(mocks.staff).not.toHaveBeenCalled();
+    expect(mocks.session).not.toHaveBeenCalled();
+    expect(mocks.state).not.toHaveBeenCalled();
+    // Outside it, the same read with nobody signed in is refused as before.
+    mocks.staff.mockResolvedValueOnce(null);
+    expect((await guarded(url,{headers:{"Accept-Profile":"public"}})).status).toBe(409);
+    expect(underlying).toHaveBeenCalledTimes(1);
+  });
+  it("never opens a TEST read for a real year or a made-up child",()=>{
+    expect(()=>withTestRecordRead({studentId:"11111111-1111-4111-8111-111111111111",sessionLabel:"2026-27"},async()=>null)).toThrow(/TEST/);
+    expect(()=>withTestRecordRead({studentId:"not-an-id",sessionLabel:"TEST-2026-27"},async()=>null)).toThrow(/TEST/);
+    expect(testRecordReadInContext()).toBeNull();
+  });
+  it("is opened only by the helper's receipt reader",()=>{
+    const root=join(process.cwd(),"src");
+    const users=(readdirSync(root,{recursive:true}) as string[])
+      .filter((file)=>/\.(ts|tsx)$/.test(file))
+      .filter((file)=>/withTestRecordRead|test-record-read/.test(readFileSync(join(root,file),"utf8")))
+      .map((file)=>file.split("\\").join("/"))
+      .sort();
+    expect(users).toEqual(["modules/whatsapp/data/helper-receipt.ts","platform/fees-bridge/projection-fetch.ts","platform/fees-bridge/test-record-read.ts"]);
   });
   it("does not take a look-alike actor object as verified",async()=>{
     const fake={id:"s",userId:"u",email:null,displayName:"Fake",shortName:"F",role:"admin",isTeaching:false,isActive:true,language:"en",preferredStart:null,permissions:[]};

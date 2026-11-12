@@ -76,6 +76,8 @@ export type HelperIntent =
   | "menu"
   | "fees"
   | "receipts"
+  /** The receipt itself, as a PDF in the chat (D-597): "receipt bhejo", or the card's "📄 Send receipt". */
+  | "receipt_send"
   | "attendance"
   | "results"
   | "teacher"
@@ -85,7 +87,7 @@ export type HelperIntent =
   | "stop";
 
 export const HELPER_INTENTS: readonly HelperIntent[] = [
-  "greeting", "menu", "fees", "receipts", "attendance", "results", "teacher", "office", "visit", "thanks", "stop",
+  "greeting", "menu", "fees", "receipts", "receipt_send", "attendance", "results", "teacher", "office", "visit", "thanks", "stop",
 ];
 
 /** Longer than this, a message goes to Claude even when a rule would match. */
@@ -122,12 +124,34 @@ export function looksLikeQuestion(text: string | null | undefined): boolean {
   return QUESTION.some((pattern) => pattern.test(value));
 }
 
+/** A receipt, however it is typed. */
+const RECEIPT_WORD = "receipts?|reciepts?|raseed|rasid|rashid";
+
+/**
+ * Asking for the paper itself: send it, a copy, the PDF. "do" and "dena" are
+ * "give" ("receipt de do"); "dono" (both) is not, as a whole word.
+ */
+const SEND_WORD = "send|bhej\\w*|copy|pdf|download|chahiye|chaiye|chahie|de ?do|dedo|dijiye|dijie|do|dena";
+
 /**
  * In order: the first rule that matches wins. `stop` first, so "stop fees
  * messages" is never read as a fees question.
  */
 const RULES: Rule[] = [
   { intent: "stop", patterns: [/^(stop|unsubscribe|band karo|बंद करो|बंद करें)$/i] },
+  // A receipt and a word asking for it to be sent: the PDF itself (D-597).
+  // "receipt" alone, or "receipt dikhao", is the list of receipts below.
+  // Asked as a question or a why ("receipt kyu nahi bheji?"), it is likely a
+  // complaint, and Claude reads it.
+  {
+    intent: "receipt_send",
+    patterns: [
+      new RegExp(`\\b(?:${RECEIPT_WORD})\\b.*\\b(?:${SEND_WORD})\\b`, "i"),
+      new RegExp(`\\b(?:${SEND_WORD})\\b.*\\b(?:${RECEIPT_WORD})\\b`, "i"),
+      /रसीद.*(भेज|चाहिए|चाहिये|कॉपी|कोपी|दीजिए|दीजिये|दें|दो|पीडीएफ)|(भेज|कॉपी|पीडीएफ).*रसीद/,
+    ],
+    askClaudeIf: (text) => /[?？]/.test(text) || /(?:^|[^a-z\u0900-\u097f])(?:why|kyu|kyun|kyon|kyo)(?=$|[^a-z\u0900-\u097f])|क्यों|क्यूं/i.test(text),
+  },
   {
     intent: "receipts",
     patterns: [/\b(receipts?|reciepts?|reciept|raseed|rasid|rashid)\b/i, /रसीद/],
@@ -224,12 +248,16 @@ export function isRatingValue(value: unknown): value is RatingValue {
 /** A tap in the school-visit booking (D-592): a day from the list, then morning or afternoon. */
 export type VisitTap = "visit_day" | "visit_part";
 
+/** A tap on one receipt in the list, to have it sent (D-597). */
+export type ReceiptTap = "receipt_pdf";
+
 export type HelperTap = {
-  intent: HelperIntent | "message_teacher" | VisitTap | RatingValue;
+  intent: HelperIntent | "message_teacher" | VisitTap | ReceiptTap | RatingValue;
   /**
    * The child a button is about (`childKey` in `helper-facts.ts`), on a
-   * "Did this answer help?" button the hand-off it rates (`ratingKey`), and
-   * on a visit's day or part, the day ("20261116") or the slot ("20261116am").
+   * "Did this answer help?" button the hand-off it rates (`ratingKey`),
+   * on a visit's day or part, the day ("20261116") or the slot ("20261116am"),
+   * and on a receipt, the child and the receipt (`receiptKey`).
    */
   key: string | null;
 };
@@ -250,9 +278,10 @@ export function readTap(raw: Record<string, unknown> | null | undefined): Helper
   if (!match) return null;
   const intent = match[1];
   const key = match[2] ?? null;
-  // A rating always names the hand-off it rates, and a visit's day or part its day; without one they say nothing.
+  // A rating always names the hand-off it rates, a visit's day or part its day, and a receipt its receipt; without one they say nothing.
   if (isRatingValue(intent)) return key ? { intent, key } : null;
   if (intent === "visit_day" || intent === "visit_part") return key ? { intent, key } : null;
+  if (intent === "receipt_pdf") return key ? { intent, key } : null;
   if (intent !== "message_teacher" && !(HELPER_INTENTS as readonly string[]).includes(intent)) return null;
   return { intent: intent as HelperTap["intent"], key };
 }

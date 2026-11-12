@@ -48,7 +48,7 @@ function context(language: ReplyContext["language"], family: Family = oneChild):
 }
 
 function bodyOf(message: HelperMessage): string {
-  return message.kind === "text" ? message.text : message.body;
+  return message.kind === "text" ? message.text : message.kind === "document" ? message.caption : message.body;
 }
 
 function answer(over: Partial<HelperAnswer>): HelperAnswer {

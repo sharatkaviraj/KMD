@@ -103,7 +103,7 @@ function context(language: ReplyContext["language"], family: Family = oneChild, 
 }
 
 function bodyOf(message: HelperMessage): string {
-  return message.kind === "text" ? message.text : message.body;
+  return message.kind === "text" ? message.text : message.kind === "document" ? message.caption : message.body;
 }
 
 /* ------------------------------------------------------------- reading */
@@ -122,7 +122,8 @@ describe("reading a parent's message", () => {
   it("answers the short plain asks by rule, and leaves anything longer to Claude", () => {
     expect(ruleIntent("fees")).toBe("fees");
     expect(ruleIntent("हाज़िरी")).toBe("attendance");
-    expect(ruleIntent("receipt bhejo")).toBe("receipts");
+    expect(ruleIntent("receipt")).toBe("receipts");
+    expect(ruleIntent("receipt bhejo")).toBe("receipt_send");
     expect(ruleIntent("result")).toBe("results");
     expect(ruleIntent("class teacher")).toBe("teacher");
     expect(ruleIntent("Namaste ji")).toBe("greeting");

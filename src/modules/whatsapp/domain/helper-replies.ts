@@ -1,7 +1,7 @@
 import { formatInr } from "@/platform/helpers/currency";
 
 import type { AbsenceNote } from "./helper-absence";
-import type { AttendanceStatus, ChildFacts, ReceiptFact } from "./helper-facts";
+import { receiptKey, sendableReceipts, type AttendanceStatus, type ChildFacts, type ReceiptFact } from "./helper-facts";
 import type { HelperButton, HelperMessage, HelperRow } from "./helper-messages";
 import { helperId, type HelperLanguage } from "./helper-text";
 
@@ -262,6 +262,12 @@ function receiptLine(receipt: ReceiptFact, language: HelperLanguage, today: stri
   return `• ${parts.join(" · ")}${reversed}`;
 }
 
+/** The card's button that sends a receipt itself, as a PDF in the chat (D-597). */
+export const SEND_RECEIPT_BUTTON = (language: HelperLanguage): HelperButton => ({
+  id: helperId("receipt_send"),
+  title: say(language, { hi: "📄 रसीद भेजें", hx: "📄 Receipt bhejiye", en: "📄 Send receipt" }),
+});
+
 export function receiptsCard(context: ReplyContext, children: readonly ChildFacts[] = context.family.children): HelperMessage {
   const { language } = context;
   const blocks = children.map((child) => {
@@ -271,16 +277,94 @@ export function receiptsCard(context: ReplyContext, children: readonly ChildFact
     }
     return [head, ...child.receipts.map((receipt) => receiptLine(receipt, language, child.today))].join("\n");
   });
-  const close = say(language, {
-    hi: "रसीद की कॉपी चाहिए तो ऑफ़िस से कहें।",
-    hx: "Receipt ki copy chahiye to office se kahiye.",
-    en: "For a copy of a receipt, ask the office.",
-  });
+  // A receipt that can be sent gets the button that sends it (D-597); a
+  // reversed one was cancelled, so there is nothing to keep.
+  const canSend = sendableReceipts(children).length > 0;
+  const close = canSend
+    ? say(language, {
+        hi: "📄 रसीद की PDF यहीं चाहिए तो *रसीद भेजें* दबाएँ।",
+        hx: "📄 Receipt ki PDF yahin chahiye to *Receipt bhejiye* dabaiye.",
+        en: "📄 Tap *Send receipt* and the receipt comes here as a PDF.",
+      })
+    : say(language, {
+        hi: "रसीद के बारे में कुछ पूछना हो तो ऑफ़िस से कहें।",
+        hx: "Receipt ke baare mein kuch poochhna ho to office se kahiye.",
+        en: "For anything about a receipt, ask the office.",
+      });
   const title = say(language, { hi: "🧾 *रसीदें*", hx: "🧾 *Receipts*", en: "🧾 *Receipts*" });
+  const fees: HelperButton = { id: helperId("fees"), title: say(language, { hi: "💰 फ़ीस", hx: "💰 Fees", en: "💰 Fees" }) };
   return {
     kind: "buttons",
     body: `${intro(context)}${title}\n\n${blocks.join("\n\n")}\n\n${close}`,
-    buttons: [{ id: helperId("fees"), title: say(language, { hi: "💰 फ़ीस", hx: "💰 Fees", en: "💰 Fees" }) }, MENU_BUTTON(language)],
+    buttons: canSend ? [SEND_RECEIPT_BUTTON(language), fees, MENU_BUTTON(language)] : [fees, MENU_BUTTON(language)],
+    footer: footer(context),
+  };
+}
+
+/**
+ * Which receipt to send, when there is more than one (D-597): a list, latest
+ * first, each row its amount and date, with the child and the number under
+ * it. `gone` is a tap on a receipt no longer on the list (reversed since, or
+ * no longer among the latest): the list again, saying so.
+ */
+export function receiptPickList(context: ReplyContext, children: readonly ChildFacts[] = context.family.children, gone = false): HelperMessage {
+  const { language } = context;
+  const rows: HelperRow[] = sendableReceipts(children)
+    .slice(0, 10)
+    .map(({ child, receipt }) => ({
+      id: helperId("receipt_pdf", receiptKey(child, receipt)),
+      title: `${money(receipt.amount)} · ${dateText(receipt.date, language, child.today)}`,
+      description: `${child.firstName} · ${receipt.number} · ${modeText(receipt.mode, language)}`,
+    }));
+  const note = gone
+    ? say(language, {
+        hi: "वह रसीद अब इस सूची में नहीं है।\n\n",
+        hx: "Woh receipt ab is list mein nahi hai.\n\n",
+        en: "That receipt is no longer on the list.\n\n",
+      })
+    : "";
+  const ask = say(language, {
+    hi: "कौन-सी रसीद चाहिए? 👇 चुनें, उसकी PDF यहीं आ जाएगी।",
+    hx: "Kaunsi receipt chahiye? 👇 Chuniye, uski PDF yahin aa jayegi.",
+    en: "Which receipt would you like? 👇 Pick one and its PDF comes right here.",
+  });
+  return {
+    kind: "list",
+    body: `${intro(context)}${note}${ask}`,
+    button: say(language, { hi: "रसीद चुनें", hx: "Receipt chuniye", en: "Choose receipt" }),
+    rows,
+    section: say(language, { hi: "रसीदें", hx: "Receipts", en: "Receipts" }),
+    footer: footer(context),
+  };
+}
+
+/** The words under a receipt's PDF in the chat (D-597). */
+export function receiptCaption(context: ReplyContext, child: ChildFacts, receipt: ReceiptFact): string {
+  const { language } = context;
+  const title = say(language, { hi: `🧾 *रसीद ${receipt.number}*`, hx: `🧾 *Receipt ${receipt.number}*`, en: `🧾 *Receipt ${receipt.number}*` });
+  const paid = [money(receipt.amount), dateText(receipt.date, language, child.today), modeText(receipt.mode, language)].join(" · ");
+  return `${intro(context)}${title}\n${childHeading(child, language)}\n${paid}\n\n_${footer(context)}_`;
+}
+
+/**
+ * The receipt could not be attached (D-597): the PDF could not be made, or
+ * Meta would not take it. Says so, gives the receipt's line and the office's
+ * number, and offers to try again.
+ */
+export function receiptUnsentReply(context: ReplyContext, child: ChildFacts, receipt: ReceiptFact): HelperMessage {
+  const { language } = context;
+  const sorry = say(language, {
+    hi: `माफ़ कीजिए 🙏 रसीद की PDF अभी नहीं भेजी जा सकी। थोड़ी देर में *फिर से भेजें* दबाएँ, या ऑफ़िस से कॉपी लें: ${OFFICE_PHONE}`,
+    hx: `Maaf kijiye 🙏 Receipt ki PDF abhi nahi bheji ja saki. Thodi der mein *Phir se bhejiye* dabaiye, ya office se copy lijiye: ${OFFICE_PHONE}`,
+    en: `Sorry 🙏 the receipt's PDF could not be sent just now. Tap *Try again* in a little while, or ask the office for a copy: ${OFFICE_PHONE}`,
+  });
+  return {
+    kind: "buttons",
+    body: `${intro(context)}${sorry}\n\n${childHeading(child, language)}\n${receiptLine(receipt, language, child.today)}`,
+    buttons: [
+      { id: helperId("receipt_pdf", receiptKey(child, receipt)), title: say(language, { hi: "🔁 फिर से भेजें", hx: "🔁 Phir se bhejiye", en: "🔁 Try again" }) },
+      MENU_BUTTON(language),
+    ],
     footer: footer(context),
   };
 }
@@ -676,6 +760,8 @@ export function aiAnswer(context: ReplyContext, reply: string, card: HelperMessa
     return { kind: "buttons", body: words, buttons: [MENU_BUTTON(context.language)], footer: footer(context) };
   }
   if (card.kind === "text") return { kind: "text", text: `${words}\n\n${card.text}` };
+  // A card is never a file; a document keeps its own words.
+  if (card.kind === "document") return card;
   // Too long for one interactive message, it goes as plain text, nothing cut (`fitMessage`).
   return { ...card, body: `${words}\n\n${card.body}` };
 }

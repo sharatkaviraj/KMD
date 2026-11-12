@@ -15,6 +15,7 @@ import {
   type ChatPatch,
   type ChatState,
   type HandoffPlan,
+  type ReceiptSend,
   type TurnPlan,
   type TurnRoute,
 } from "@/modules/whatsapp/domain/helper-plan";
@@ -51,6 +52,7 @@ import {
   type RateResult,
 } from "./helper-relay";
 import { handleStaffCommand, liveStaffHelperDeps } from "./staff-helper";
+import { prepareHelperReceipt, type ReceiptDocument, type ReceiptRequest } from "./helper-receipt";
 import { readVisitCalendar, saveVisitEnquiry, type VisitRow } from "./helper-visit";
 import { handleStaffLink, liveStaffLinkDeps } from "./staff-link";
 import {
@@ -97,7 +99,9 @@ import {
  * Only then is Claude asked (when the message needs it) and the reply sent.
  * Claude also reads the answers the school has written for every family, and
  * a general question nothing answers goes onto the list in One that an admin
- * answers once (D-589).
+ * answers once (D-589). A receipt the parent asks for goes as its PDF
+ * (D-597), or, when it cannot be made or Meta refuses it, as the words that
+ * say so.
  * Every step before the claim is free to give up: the hub's bot answers a few
  * seconds later as it always has. After the claim One must answer, so
  * everything after it ends in a message: Claude's, the card, or the menu.
@@ -156,6 +160,8 @@ export type HelperDeps = {
   readVisitCalendar?: (sessionLabel: string, today: string) => Promise<VisitCalendar | null>;
   /** A school visit, kept as an enquiry on the Admissions board (D-592); true when kept. */
   saveVisit?: (row: VisitRow) => Promise<boolean>;
+  /** A receipt the parent asked for, as a PDF Meta fetches once (D-597); null when it could not be made. */
+  prepareReceipt?: (request: ReceiptRequest) => Promise<ReceiptDocument | null>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -205,6 +211,7 @@ export function liveHelperDeps(): HelperDeps {
     noteLesson: (note, practice, topic) => noteLesson(note, practice, topic),
     readVisitCalendar: (sessionLabel, today) => readVisitCalendar(sessionLabel, today),
     saveVisit: (row) => saveVisitEnquiry(row),
+    prepareReceipt: (request) => prepareHelperReceipt(request),
   };
 }
 
@@ -225,7 +232,15 @@ function worthPlainRetry(result: ProviderSendResult, message: HelperMessage): bo
   return !(HUB_CODES as readonly string[]).includes(code) && code !== "bad_api_key";
 }
 
-type Reply = { message: HelperMessage; intent: string; route: TurnRoute; chat: ChatPatch; handoff: HandoffPlan | null };
+type Reply = {
+  message: HelperMessage;
+  intent: string;
+  route: TurnRoute;
+  chat: ChatPatch;
+  handoff: HandoffPlan | null;
+  /** A receipt to send as its PDF (D-597). */
+  receipt?: ReceiptSend | null;
+};
 
 type Composed = {
   reply: Reply;
@@ -237,6 +252,8 @@ type Composed = {
   followUp: OpenHandoffInput | null;
   /** What this answer adds to the "teach it once" list, written once the reply has gone (D-589). */
   lesson: LessonNote | null;
+  /** When the message is a receipt's PDF (D-597): the words that say it could not be sent, for a refusal. */
+  fallback: HelperMessage | null;
 };
 
 /** The reply, once the message is One's: Claude's answer or the planned card, and any hand-off written first. */
@@ -287,7 +304,7 @@ async function compose(input: {
       note = `ai_${claude.problem ?? "no_answer"}`;
     }
   } else {
-    reply = { message: plan.message, intent: plan.intent, route: plan.route, chat: plan.chat, handoff: plan.handoff };
+    reply = { message: plan.message, intent: plan.intent, route: plan.route, chat: plan.chat, handoff: plan.handoff, receipt: plan.receipt ?? null };
   }
 
   // A hand-off goes into One's Messages inbox before the parent is told it has.
@@ -346,7 +363,30 @@ async function compose(input: {
       if (!kept) note = "visit_not_saved";
     }
   }
-  return { reply, claude, parentReplyId, handedTo, note, followUp: null, lesson };
+
+  // A receipt the parent asked for goes as its PDF; the planned words, which
+  // say it could not be sent, go when it cannot be made (D-597).
+  let fallback: HelperMessage | null = null;
+  const asked = reply.receipt;
+  if (asked) {
+    const document = deps.prepareReceipt
+      ? await deps
+          .prepareReceipt({
+            studentId: asked.child.studentId,
+            sessionLabel: asked.child.sessionLabel,
+            receiptNumber: asked.receipt.number,
+            practice: family.practice,
+          })
+          .catch(() => null)
+      : null;
+    if (document) {
+      fallback = reply.message;
+      reply = { ...reply, message: { kind: "document", link: document.link, filename: document.filename, caption: asked.caption } };
+    } else {
+      note = "receipt_not_made";
+    }
+  }
+  return { reply, claude, parentReplyId, handedTo, note, followUp: null, lesson, fallback };
 }
 
 /**
@@ -378,7 +418,7 @@ async function composeRating(input: {
     chat: plan.chat,
     handoff: null,
   });
-  const none = { claude: null, parentReplyId: null, handedTo: null, note: null, followUp: null, lesson: null };
+  const none = { claude: null, parentReplyId: null, handedTo: null, note: null, followUp: null, lesson: null, fallback: null };
   switch (rated.outcome) {
     case "unknown":
       return { ...none, reply: reply(plan.value === "helped" ? "helped" : "ask_office", "rating_unknown") };
@@ -550,6 +590,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
       note: "compose_crashed",
       followUp: null,
       lesson: null,
+      fallback: null,
     };
   }
   const { reply, claude, parentReplyId, handedTo } = composed;
@@ -557,8 +598,12 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
 
   let sent = await deps.send(helperMessageBody(message.from, reply.message));
   if (worthPlainRetry(sent, reply.message)) {
-    sent = await deps.send(helperMessageBody(message.from, plainVersion(reply.message)));
-    note = note ?? "sent_as_plain_text";
+    // A refused PDF goes as the words that say it could not be sent (D-597), never as a caption promising a file.
+    const document = reply.message.kind === "document";
+    const retry = document && composed.fallback ? composed.fallback : plainVersion(reply.message);
+    sent = await deps.send(helperMessageBody(message.from, retry));
+    if (document && worthPlainRetry(sent, retry)) sent = await deps.send(helperMessageBody(message.from, plainVersion(retry)));
+    note = note ?? (document ? "receipt_refused" : "sent_as_plain_text");
   }
 
   const finished = deps.now();

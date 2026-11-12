@@ -1,5 +1,17 @@
 # Decisions
 
+## Veer Patta AI, step 3e: a receipt on request — 12 November 2026
+
+The owner asked (12 Nov) "I hope now parents can request receipts and ai can
+send it via drive". The helper listed a child's latest receipts and could not
+send one. Practice only, as every step before: the family is the owner's own
+number standing for TEST children; a real family's receipts are the Fees
+app's, and come through its connection once real families are switched on.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-597 | **A parent who asks for a receipt ("receipt bhejo", "रसीद भेज दीजिए", "send the receipt", or a tap on 📄 Send receipt under the receipts card) gets the receipt itself in the chat, as the school's own PDF, the one the counter prints and the receipt notice attaches. With one receipt it comes at once; with more, a list of the latest (at most ten, each row the amount and the date, with the child, the number and how it was paid under it) asks which. A reversed receipt and a write-off are never offered or sent. The PDF's caption names the receipt, the child, the amount, the date and the mode. When the PDF cannot be made, or Meta refuses it, the parent is told so in words, with Try again and the office's number, never a caption promising a file.** | Not through Drive, though the owner's words said Drive: a WhatsApp document is a link Meta fetches once, at send time, and keeps in the chat. So the PDF goes on One's private shelf (`parent-documents`, the receipt notice's), signed for an hour, and nothing else keeps it; a Drive copy would be a second record of a family's payment that nobody would look after. A receipt is named in a button by a 14-letter key made from the child and the number (`receiptKey`), never by its number, and is found only among the family's facts read afresh for that message (`receiptByKey`), then in the database by the child AND the number (`prepareHelperReceipt`): exactly one row, that child's, not a write-off, or nothing is made. The children are TEST children, whose receipts are One's own, but the webhook has nobody signed in, and the roster projection (`projection-fetch.ts`, the 1 November coexistence) refuses a `public` read with no reader. A new context, `withTestRecordRead` (`platform/fees-bridge/test-record-read.ts`), lets table reads for one TEST child in a TEST session through to One's own database, as a TEST account's read would go, and refuses a write or an RPC whatever its method; it refuses a real year when it is opened, and a test pins its one caller. No hub change (its message passthrough already takes a document), no migration, no new route. `data/helper-receipt.ts`; `receipt_send` and `receipt_pdf` in `domain/helper-text.ts`; `receiptKey`, `sendableReceipts`, `receiptByKey` in `domain/helper-facts.ts`; `receiptPickList`, `receiptCaption`, `receiptUnsentReply` in `domain/helper-replies.ts`; `tests/whatsapp-helper-receipts.test.ts`, the D-597 block in `tests/whatsapp-parent-helper-turn.test.ts`, three cases in `tests/fees-bridge-projection-fetch.test.ts` |
+
 ## Veer Patta AI, step 3d: parents' files and old chats in the school's Drive — 12 November 2026
 
 The plan's step 3 row "parents' media within minutes, chats by month". Meta

@@ -835,6 +835,108 @@ describe("when the reply cannot be sent", () => {
   });
 });
 
+/* --------------------------------------------- a receipt as its PDF */
+
+describe("a receipt the parent asks for, sent as its PDF (D-597)", () => {
+  const MADE = { link: "https://files.example.test/receipt.pdf?token=t", filename: "Receipt-TEST-SVP-0002.pdf" };
+
+  function documentOf(body: Record<string, unknown> | undefined): { link: string; filename: string; caption?: string } {
+    return (body?.document ?? {}) as { link: string; filename: string; caption?: string };
+  }
+
+  it("sends the child's own receipt as a document Meta fetches from the link", async () => {
+    const asks: unknown[] = [];
+    const { deps, calls, askClaude } = fakes({
+      prepareReceipt: async (request) => {
+        asks.push(request);
+        return MADE;
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "receipt bhejo" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "receipt_send", handoff: null });
+    // Found again by the child AND the number, and only as practice.
+    expect(asks).toEqual([{ studentId: AARAV_ID, sessionLabel: "TEST-2026-27", receiptNumber: "TEST-SVP-0002", practice: true }]);
+    expect(calls.sent).toHaveLength(1);
+    expect(calls.sent[0]).toMatchObject({ messaging_product: "whatsapp", to: "919000000001", type: "document" });
+    expect(documentOf(calls.sent[0])).toMatchObject({ link: MADE.link, filename: MADE.filename });
+    expect(documentOf(calls.sent[0]).caption).toContain("TEST-SVP-0002");
+    expect(askClaude).not.toHaveBeenCalled();
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered", intent: "receipt_send", reason: null, replyMessageId: "wamid.REPLY1" });
+  });
+
+  it("says it could not be sent, with a button to try again, when the PDF cannot be made", async () => {
+    for (const prepareReceipt of [async () => null, async () => Promise.reject(new Error("down")), undefined]) {
+      const { deps, calls } = fakes({ prepareReceipt });
+      expect(await runHelperTurn(inbound({ text: "send receipt" }), deps)).toMatchObject({ outcome: "answered", intent: "receipt_send" });
+      expect(calls.sent).toHaveLength(1);
+      expect(calls.sent[0]).toMatchObject({ type: "interactive" });
+      expect(bodyText(calls.sent[0])).toContain("could not be sent");
+      expect(bodyText(calls.sent[0])).toContain("9352205884");
+      expect(calls.finished[0][1]).toMatchObject({ status: "answered", reason: "receipt_not_made" });
+    }
+  });
+
+  it("sends those words, never a caption promising a file, when Meta refuses the PDF", async () => {
+    const results: ProviderSendResult[] = [
+      { outcome: "rejected", httpStatus: 400, errorCode: "131053", errorTitle: "Media upload error", errorDetail: null },
+      { outcome: "accepted", messageId: "wamid.WORDS", httpStatus: 200 },
+    ];
+    const sent: Record<string, unknown>[] = [];
+    const { deps, calls } = fakes({
+      prepareReceipt: async () => MADE,
+      send: async (body) => {
+        sent.push(body);
+        return results.shift() as ProviderSendResult;
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "send receipt" }), deps)).toMatchObject({ outcome: "answered", intent: "receipt_send" });
+    expect(sent.map((body) => body.type)).toEqual(["document", "interactive"]);
+    expect(bodyText(sent[1])).toContain("could not be sent");
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered", reason: "receipt_refused", replyMessageId: "wamid.WORDS" });
+  });
+
+  it("falls back to plain words when the buttons are refused too", async () => {
+    const results: ProviderSendResult[] = [
+      { outcome: "rejected", httpStatus: 400, errorCode: "131053", errorTitle: "Media upload error", errorDetail: null },
+      { outcome: "rejected", httpStatus: 400, errorCode: "131009", errorTitle: "Parameter value is not valid", errorDetail: null },
+      { outcome: "accepted", messageId: "wamid.PLAIN", httpStatus: 200 },
+    ];
+    const sent: Record<string, unknown>[] = [];
+    const { deps, calls } = fakes({
+      prepareReceipt: async () => MADE,
+      send: async (body) => {
+        sent.push(body);
+        return results.shift() as ProviderSendResult;
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "send receipt" }), deps)).toMatchObject({ outcome: "answered" });
+    expect(sent.map((body) => body.type)).toEqual(["document", "interactive", "text"]);
+    expect(bodyText(sent[2])).toContain("could not be sent");
+    expect(calls.finished[0][1]).toMatchObject({ reason: "receipt_refused", replyMessageId: "wamid.PLAIN" });
+  });
+
+  it("does not retry a PDF the hub itself refused", async () => {
+    const sent: Record<string, unknown>[] = [];
+    const { deps, calls } = fakes({
+      prepareReceipt: async () => MADE,
+      send: async (body) => {
+        sent.push(body);
+        return { outcome: "rejected", httpStatus: 403, errorCode: "test_mode", errorTitle: "Test mode", errorDetail: null };
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "send receipt" }), deps)).toEqual({ outcome: "failed", reason: "send_rejected:test_mode" });
+    expect(sent).toHaveLength(1);
+    expect(calls.saved).toEqual([]);
+  });
+
+  it("makes nothing when the parent only asks to see the receipts", async () => {
+    const prepareReceipt = vi.fn(async () => MADE);
+    const { deps, calls } = fakes({ prepareReceipt });
+    expect(await runHelperTurn(inbound({ text: "receipts" }), deps)).toMatchObject({ outcome: "answered", intent: "receipts" });
+    expect(prepareReceipt).not.toHaveBeenCalled();
+    expect(calls.sent[0]).toMatchObject({ type: "interactive" });
+  });
+});
+
 /* ------------------------------------------------------ several at once */
 
 describe("several messages in one delivery", () => {

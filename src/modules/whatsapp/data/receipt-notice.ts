@@ -101,8 +101,11 @@ export async function isReceiptNoticeEnabled(
  * caught HERE, at call time, instead of crashing the function at module load.
  * That matters more in this file than in a route: this one runs inside the
  * payment posting's `after()`.
+ *
+ * Veer Patta AI sends a parent the same PDF from the same shelf when they ask
+ * for a receipt on WhatsApp (D-597, `helper-receipt.ts`).
  */
-async function renderAndStoreReceipt(args: {
+export async function renderAndStoreReceipt(args: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
   receiptId: string;

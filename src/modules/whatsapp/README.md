@@ -28,7 +28,8 @@ Fee reminders and the message templates behind them.
   D-591), a school visit booked on WhatsApp (`domain/helper-visit.ts`,
   `data/helper-visit.ts`, D-592, D-593), and parents' files and old months of
   chats in the school's Shared Drive (`domain/parent-files.ts`,
-  `data/parent-files.ts`, D-594, D-595); see below
+  `data/parent-files.ts`, D-594, D-595), and a receipt a parent asks for, sent
+  as its PDF (`data/helper-receipt.ts`, D-597); see below
 - Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
   D-585..D-587): the code, its hash, the send through the hub. The page is
   `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
@@ -463,6 +464,19 @@ its own work, for messages from the hub only.
   due into one spreadsheet (`chatsCsv`) and only then lets the hub remove
   it, with the count it read. Google trusts One's production deployment
   only, so this works on production only.
+- **A receipt on request (D-597).** *receipt bhejo*, or 📄 Send receipt
+  under the receipts card, is `receipt_send`; with more than one receipt
+  that can be sent, a list asks which (`receipt_pdf:<key>`, the key 14
+  letters from the child and the number, `receiptKey` in
+  `domain/helper-facts.ts`, never the number). The plan carries the receipt
+  and, as its message, the words for when it cannot be sent;
+  `prepareHelperReceipt` finds it again by the child AND the number, renders
+  the school's own PDF (`renderAndStoreReceipt`, shared with the receipt
+  notice) onto the private shelf and signs it for an hour, and the turn sends
+  it as a document. Practice only: a real year makes nothing. The webhook
+  has nobody signed in, so the read runs in `withTestRecordRead`
+  (`platform/fees-bridge/test-record-read.ts`), which the roster projection
+  lets through for one TEST child's table reads only.
 
 ## Never
 
@@ -477,6 +491,9 @@ its own work, for messages from the hub only.
   into `whatsapp_inbound`. The helper's own ledger has the reply ids.
 - Let Claude, or any model but Anthropic's, write a figure a parent reads, or
   give a free model a child's record.
+- Send a receipt the parent did not pick from their own family's list, or open
+  `withTestRecordRead` anywhere but `data/helper-receipt.ts`: it is the one
+  read with nobody signed in, and it is TEST-only by construction.
 - Take a number from a link message other than the one WhatsApp says it came
   from, or let a test account link a number that is not on the test list.
 - Message a member of staff about a hand-off on a number alone: they must

@@ -1,9 +1,10 @@
 import { waDigits } from "@/platform/whatsapp/numbers";
 
 /**
- * What Veer Patta AI sends (D-574): plain text, up to three reply buttons, or
- * a menu list, in Meta's WhatsApp Cloud API format, which the school's hub
- * passes through unchanged. Pure, so the exact bytes are pinned by tests.
+ * What Veer Patta AI sends (D-574): plain text, up to three reply buttons, a
+ * menu list, or a document (a receipt the parent asked for, D-597), in Meta's
+ * WhatsApp Cloud API format, which the school's hub passes through unchanged.
+ * Pure, so the exact bytes are pinned by tests.
  *
  * Meta refuses an interactive message that breaks any of its limits (error
  * 131009, "parameter value is not valid"), and a refused reply is a parent
@@ -26,6 +27,8 @@ export const WA_LIMITS = {
   rowDescription: 72,
   sectionTitle: 24,
   id: 200,
+  caption: 1024,
+  filename: 120,
 } as const;
 
 export type HelperButton = { id: string; title: string };
@@ -34,7 +37,12 @@ export type HelperRow = { id: string; title: string; description?: string | null
 export type HelperMessage =
   | { kind: "text"; text: string }
   | { kind: "buttons"; body: string; buttons: HelperButton[]; footer?: string | null }
-  | { kind: "list"; body: string; button: string; rows: HelperRow[]; section?: string | null; footer?: string | null };
+  | { kind: "list"; body: string; button: string; rows: HelperRow[]; section?: string | null; footer?: string | null }
+  /**
+   * A file Meta fetches from `link` once, at send time, and keeps in the chat
+   * (D-597). The link is a short-lived signed one; it never outlives the send.
+   */
+  | { kind: "document"; link: string; filename: string; caption: string };
 
 /**
  * `text` cut to `max` characters, with "…" where it was cut. Characters are
@@ -67,6 +75,14 @@ function uniqueBy<T>(items: readonly T[], key: (item: T) => string): T[] {
 /** The message as it will go: every limit applied, duplicates dropped, an empty menu turned into text. */
 export function fitMessage(message: HelperMessage): HelperMessage {
   if (message.kind === "text") return { kind: "text", text: clip(message.text, WA_LIMITS.text) || "🙏" };
+  if (message.kind === "document") {
+    return {
+      kind: "document",
+      link: message.link,
+      filename: line(message.filename, WA_LIMITS.filename) || "document.pdf",
+      caption: clip(message.caption, WA_LIMITS.caption),
+    };
+  }
 
   const footer = message.footer ? line(message.footer, WA_LIMITS.footer) : null;
 
@@ -115,6 +131,9 @@ export function helperMessageBody(to: string, message: HelperMessage): Record<st
   if (fitted.kind === "text") {
     return { ...base, type: "text", text: { preview_url: false, body: fitted.text } };
   }
+  if (fitted.kind === "document") {
+    return { ...base, type: "document", document: { link: fitted.link, filename: fitted.filename, ...(fitted.caption ? { caption: fitted.caption } : {}) } };
+  }
   const footer = fitted.footer ? { footer: { text: fitted.footer } } : {};
   if (fitted.kind === "buttons") {
     return {
@@ -151,6 +170,7 @@ export function helperMessageBody(to: string, message: HelperMessage): Record<st
 /** The words of a message, for a test or a log line: never sent anywhere. */
 export function messageText(message: HelperMessage): string {
   if (message.kind === "text") return message.text;
+  if (message.kind === "document") return [message.caption, `[📄 ${message.filename}]`].filter(Boolean).join("\n");
   if (message.kind === "buttons") return [message.body, ...message.buttons.map((button) => `[${button.title}]`)].join("\n");
   return [message.body, `[${message.button}]`, ...message.rows.map((row) => `- ${row.title}`)].join("\n");
 }
@@ -158,10 +178,13 @@ export function messageText(message: HelperMessage): string {
 /**
  * The same message as plain words, for the one case where Meta refuses the
  * buttons or the list itself. The options become lines the parent can type:
- * a typed "fees" is answered just as a tap is.
+ * a typed "fees" is answered just as a tap is. A refused document is not
+ * sent as its caption, which would promise a file that is not there: the
+ * turn sends the words it planned for a document it could not attach.
  */
 export function plainVersion(message: HelperMessage): HelperMessage {
   if (message.kind === "text") return message;
+  if (message.kind === "document") return { kind: "text", text: message.caption || "🙏" };
   const footer = message.footer ? `\n\n_${message.footer}_` : "";
   if (message.kind === "buttons") return { kind: "text", text: `${message.body}${footer}` };
   const options = message.rows.map((row) => `• ${row.title}`).join("\n");

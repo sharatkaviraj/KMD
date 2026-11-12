@@ -94,17 +94,52 @@ export type ChildFacts = {
   calendar: CalendarFact[];
 };
 
+/** FNV-1a of `text` in base 36: seven letters and digits, the same every time. */
+function shortKey(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36).padStart(7, "0");
+}
+
 /**
  * A short key for a child, the same every time: FNV-1a of the student id in
  * base 36. A button carries this, not the id.
  */
 export function childKey(studentId: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < studentId.length; index += 1) {
-    hash ^= studentId.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(36).padStart(7, "0");
+  return shortKey(studentId);
+}
+
+/**
+ * A receipt as a button names it (D-597): the child's key and a short key of
+ * the receipt's number, fourteen letters and digits. The number itself does
+ * not fit a button's id ("SVP20260727-0001" has capitals and a dash). A tap is
+ * only ever looked up among this family's own receipts, read afresh for that
+ * message, so a key cannot name anybody else's.
+ */
+export function receiptKey(child: Pick<ChildFacts, "key">, receipt: Pick<ReceiptFact, "number">): string {
+  return `${child.key}${shortKey(receipt.number)}`;
+}
+
+export type ChildReceipt = { child: ChildFacts; receipt: ReceiptFact };
+
+/**
+ * The receipts a parent can have sent (D-597), latest first: every child's,
+ * except a reversed one, which was cancelled and is no longer a receipt to
+ * keep. A write-off was never read in.
+ */
+export function sendableReceipts(children: readonly ChildFacts[]): ChildReceipt[] {
+  return children
+    .flatMap((child) => child.receipts.filter((receipt) => !receipt.reversed).map((receipt) => ({ child, receipt })))
+    .sort((a, b) => b.receipt.date.localeCompare(a.receipt.date) || b.receipt.number.localeCompare(a.receipt.number));
+}
+
+/** The receipt a button names, among these children's own, or null. */
+export function receiptByKey(children: readonly ChildFacts[], key: string | null | undefined): ChildReceipt | null {
+  if (!key) return null;
+  return sendableReceipts(children).find(({ child, receipt }) => receiptKey(child, receipt) === key) ?? null;
 }
 
 /** "RUDRA PRAROOP" -> "Rudra". The family knows the child by the first name. */

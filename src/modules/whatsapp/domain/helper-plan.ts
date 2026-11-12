@@ -2,7 +2,7 @@ import { schoolToday } from "@/platform/dates";
 import { sameNumber } from "@/platform/whatsapp/numbers";
 
 import type { AbsenceNote } from "./helper-absence";
-import { istHour, type ChildFacts } from "./helper-facts";
+import { istHour, receiptByKey, sendableReceipts, type ChildFacts, type ChildReceipt, type ReceiptFact } from "./helper-facts";
 import type { HelperMessage } from "./helper-messages";
 import {
   cardFor,
@@ -11,6 +11,10 @@ import {
   mediaReply,
   menuCard,
   officePrompt,
+  receiptCaption,
+  receiptPickList,
+  receiptsCard,
+  receiptUnsentReply,
   teacherPrompt,
   thanksReply,
   voiceReply,
@@ -57,6 +61,9 @@ import {
  *    finds which of this number's hand-offs it names, and keeps it.
  *  - "admission" books a school visit (D-592): a day, morning or afternoon,
  *    then the child's name and class, typed, and the office is told.
+ *  - "receipt bhejo", or "📄 Send receipt" on the receipts card, sends the
+ *    receipt itself as a PDF (D-597): at once when there is one, from a list
+ *    when there are several, and only ever one of this family's own.
  */
 
 /** How long the helper waits for the message it asked for. */
@@ -109,6 +116,13 @@ export type HandoffPlan = {
 /** How a reply was decided: a rule, a tap, Claude (quick or careful), or the menu when nothing else could. */
 export type TurnRoute = "rule" | "tap" | "ai" | "ai_careful" | "fallback";
 
+/**
+ * A receipt the parent asked for (D-597). The data layer makes its PDF and
+ * sends it with `caption`; the reply's own message, which says the PDF could
+ * not be sent, goes instead when it cannot.
+ */
+export type ReceiptSend = { child: ChildFacts; receipt: ReceiptFact; caption: string };
+
 export type TurnPlan =
   | { action: "skip"; reason: string }
   | {
@@ -119,6 +133,8 @@ export type TurnPlan =
       message: HelperMessage;
       chat: ChatPatch;
       handoff: HandoffPlan | null;
+      /** A receipt to send as its PDF (D-597); `message` is what goes when it cannot be. */
+      receipt?: ReceiptSend | null;
     }
   | { action: "ask_ai"; language: HelperLanguage; firstContact: boolean; chat: ChatPatch }
   /** A tap on "Did this answer help?": `key` names the hand-off (`ratingKey`), among this number's own only. */
@@ -239,7 +255,8 @@ export function planTurn(input: PlanInput): TurnPlan {
     message: HelperMessage,
     chatPatch: ChatPatch = {},
     handoff: HandoffPlan | null = null,
-  ): TurnPlan => ({ action: "reply", intent, route, language, message, chat: { ...remember, ...chatPatch }, handoff });
+    receipt: ReceiptSend | null = null,
+  ): TurnPlan => ({ action: "reply", intent, route, language, message, chat: { ...remember, ...chatPatch }, handoff, ...(receipt ? { receipt } : {}) });
 
   if (family.children.length === 0) return { action: "skip", reason: "no_children" };
 
@@ -249,6 +266,27 @@ export function planTurn(input: PlanInput): TurnPlan {
   const clearAwait: ChatPatch = { awaiting: null, awaitingUntil: null };
   const today = schoolToday(now);
   const route: TurnRoute = input.kind === "tap" ? "tap" : "rule";
+
+  /** One receipt, as its PDF (D-597); the words for when it cannot be sent are the message. */
+  const receiptSend = ({ child, receipt }: ChildReceipt): TurnPlan =>
+    reply("receipt_send", route, receiptUnsentReply(context, child, receipt), { ...clearAwait, ...greeted }, null, {
+      child,
+      receipt,
+      caption: receiptCaption(context, child, receipt),
+    });
+
+  /**
+   * "Send receipt", typed or tapped (D-597): the one receipt at once, a list
+   * to pick from when there are several, and the receipts card, which says
+   * there are none, when there is nothing to send. `gone` is a tap on a
+   * receipt no longer there: never another receipt in its place, the list.
+   */
+  const receiptStart = (children: readonly ChildFacts[], gone = false): TurnPlan => {
+    const sendable = sendableReceipts(children);
+    if (sendable.length === 0) return reply("receipts", route, receiptsCard(context, children), { ...clearAwait, ...greeted });
+    if (sendable.length === 1 && !gone) return receiptSend(sendable[0]);
+    return reply("receipt_pick", route, receiptPickList(context, children, gone), { ...clearAwait, ...greeted });
+  };
 
   /** The days to pick from, or why there are none (D-592). */
   const visitStart = (gone = false): TurnPlan => {
@@ -290,6 +328,13 @@ export function planTurn(input: PlanInput): TurnPlan {
         const slot = readSlotKey(tap.key);
         if (!input.visit || !slot || !canVisitOn(slot.day, input.visit)) return visitStart(Boolean(input.visit));
         return reply("visit_part", "tap", visitDetailsPrompt(context, slot, today), { awaiting: visitAwaiting(slot), awaitingUntil: awaitUntil(now) });
+      }
+      case "receipt_send":
+        return receiptStart(children);
+      case "receipt_pdf": {
+        // Only ever one of this family's own receipts, read afresh for this message.
+        const found = receiptByKey(family.children, tap.key);
+        return found ? receiptSend(found) : receiptStart(family.children, true);
       }
       case "greeting":
         return reply("menu", "tap", menuCard(context, true), { ...clearAwait, ...greeted });
@@ -365,6 +410,8 @@ export function planTurn(input: PlanInput): TurnPlan {
     case "results":
     case "teacher":
       return reply(rule, "rule", cardFor(rule, context), { ...clearAwait, ...greeted });
+    case "receipt_send":
+      return receiptStart(family.children);
     case "office":
       return reply("office", "rule", officePrompt(context), { awaiting: "office", awaitingUntil: awaitUntil(now) });
     case "visit":

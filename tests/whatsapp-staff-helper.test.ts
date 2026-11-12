@@ -92,7 +92,7 @@ const CTX: StaffContext = { language: "en", name: TEACHER.name, helperName: "Vee
 const HI: StaffContext = { ...CTX, language: "hi" };
 
 function textOf(message: HelperMessage): string {
-  return message.kind === "text" ? message.text : message.body;
+  return message.kind === "text" ? message.text : message.kind === "document" ? message.caption : message.body;
 }
 
 function bodyText(body: Record<string, unknown> | undefined): string {
