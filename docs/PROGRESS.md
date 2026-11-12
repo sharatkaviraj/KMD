@@ -23,7 +23,7 @@ are added (Staff, or Link my WhatsApp).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-593. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-595. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -168,8 +168,28 @@ gone by; one with no name), on container Chromium and on BrowserStack (Galaxy
 M32 Chrome and Windows 11 Chrome): every chip, the WhatsApp tag and "Name
 not given" right, no sideways scroll. The three rows were then closed. Not
 yet tried on WhatsApp itself: that practice run needs the owner's typed OK.
-**Next:** 3d, parents' photos and files to Drive (needs a hub deploy on the
-owner's PC).
+**Step 3d, parents' files and old chats in the school's Drive (D-594,
+D-595):** a parent's photo, voice note, video or document is copied to the
+Shared Drive as it arrives ("WhatsApp from parents" → one folder a month,
+each file named by date, family and kind), an hourly sweep takes anything
+missed, and the hub's chat links to the copy; every night a month of chats
+more than six months old (sooner when the hub's free database passes 40%)
+moves to Drive as one spreadsheet, and only then leaves the hub. Practice
+only: copies run only while the helper is switched on, and only for the
+owner's number until real parents are. **Done:** hub PR 6 (the file and
+archive endpoints, the Drive link in its chat, migration 0005, 67 tests,
+not deployed); One's side (`domain/parent-files.ts`,
+`data/parent-files.ts`, `platform/whatsapp/hub-files.ts`, the webhook, the
+job `/api/jobs/parent-files`, 39 new tests; PR 363); migration `20261112161710`
+(two pg_cron jobs, `parent-files` hourly and `whatsapp-chat-archive` at 03:10
+India time) applied to One 12 Nov 16:17 UTC. No new screen in One. Until the
+hub is deployed One's calls get "not found" and nothing happens.
+**Remains:** the hub deploy on the owner's PC (`git pull`, then
+`npm run deploy` in the hub folder, which applies its migration 0005 first),
+then a practice run with the helper on, the owner sending a photo from his
+own number, which needs his typed OK. **Surprised:** the hub cannot reach
+Drive at all, because Google trusts only One's production deployment; so
+every file goes hub → One → Drive, and the hub only keeps the link.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

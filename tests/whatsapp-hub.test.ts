@@ -25,6 +25,7 @@ const store = vi.hoisted(() => ({
   submitNewHubTemplates: vi.fn(async (): Promise<unknown> => ({ ok: true as const, sent: 0, skipped: 0, failed: [] as Array<{ name: string; problem: string }> })),
   syncDeliveryToSource: vi.fn(async () => undefined),
   runHelperTurns: vi.fn(async () => []),
+  copyFilesFromWebhook: vi.fn(async () => null),
 }));
 
 vi.mock("@/platform/whatsapp/store", () => ({
@@ -37,6 +38,8 @@ vi.mock("@/platform/whatsapp/service", () => ({ applyTemplateEvents: store.apply
 vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ syncHubTemplates: store.syncHubTemplates, submitNewHubTemplates: store.submitNewHubTemplates }));
 vi.mock("@/modules/whatsapp/data/whatsapp-source-sync", () => ({ syncDeliveryToSource: store.syncDeliveryToSource }));
 vi.mock("@/modules/whatsapp/data/helper-turn", () => ({ runHelperTurns: store.runHelperTurns }));
+vi.mock("@/modules/whatsapp/data/parent-files", () => ({ copyFilesFromWebhook: store.copyFilesFromWebhook }));
+vi.mock("@/platform/google/vercel-oidc", () => ({ vercelOidcToken: async (request?: Request) => request?.headers.get("x-vercel-oidc-token") ?? null }));
 vi.mock("@/platform/env", () => ({ getSiteUrl: () => "https://one.vpps.co.in" }));
 vi.mock("@/platform/observability/log", () => ({ logWarn: vi.fn() }));
 
@@ -404,6 +407,42 @@ describe("the hub's webhook", () => {
     expect((await post(body, sign(body, KEY))).status).toBe(200);
     await vi.waitFor(() => expect(store.runHelperTurns).toHaveBeenCalledTimes(1));
     expect(store.runHelperTurns).toHaveBeenCalledWith([expect.objectContaining({ providerMessageId: "wamid.IN1", from: "+919876543210", text: "ok" })]);
+  });
+
+  const parentSendsPhoto = () =>
+    payload("messages", {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "918302207823", phone_number_id: "1" },
+      contacts: [{ wa_id: "919876543210", profile: { name: "Parent" } }],
+      messages: [{ from: "919876543210", id: "wamid.PHOTO1", timestamp: "1762650000", type: "image", image: { id: "1234567890", mime_type: "image/jpeg", caption: "Fee receipt" } }],
+    });
+
+  it("starts a copy of a parent's photo to the school's Drive at once, with this deployment's identity (D-594)", async () => {
+    vi.stubEnv("WHATSAPP_HUB_KEY", KEY);
+    store.isReplyToOne.mockResolvedValueOnce(false);
+    const body = parentSendsPhoto();
+    const request = new Request("https://one.vpps.co.in/api/webhooks/whatsapp-hub", {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "application/json", "X-Hub-Signature-256": sign(body, KEY), "x-vercel-oidc-token": "oidc-for-tests" },
+    });
+    expect((await hubWebhook(request)).status).toBe(200);
+    await vi.waitFor(() => expect(store.copyFilesFromWebhook).toHaveBeenCalledTimes(1));
+    expect(store.copyFilesFromWebhook).toHaveBeenCalledWith([expect.objectContaining({ providerMessageId: "wamid.PHOTO1", type: "image" })], "oidc-for-tests");
+    // The helper still sees the message too.
+    await vi.waitFor(() => expect(store.runHelperTurns).toHaveBeenCalledTimes(1));
+  });
+
+  it("starts no copy for a text, a delivery report, or a photo that came straight from Meta", async () => {
+    vi.stubEnv("WHATSAPP_HUB_KEY", KEY);
+    const text = parentWrites(null);
+    expect((await post(text, sign(text, KEY))).status).toBe(200);
+    expect((await post(delivered, sign(delivered, KEY))).status).toBe(200);
+    const photo = parentSendsPhoto();
+    const fromMeta = new Request("https://one.vpps.co.in/api/webhooks/whatsapp", { method: "POST", body: photo, headers: { "Content-Type": "application/json" } });
+    expect((await handleWhatsAppWebhook(fromMeta, { secrets: [KEY], signature: sign(photo, KEY) }, "meta")).status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.copyFilesFromWebhook).not.toHaveBeenCalled();
   });
 
   it("never hands the helper a message that came straight from Meta: only the hub can give One a claim", async () => {

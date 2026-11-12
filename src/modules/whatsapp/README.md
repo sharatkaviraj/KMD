@@ -5,7 +5,7 @@ Fee reminders and the message templates behind them.
 | | |
 |---|---|
 | Route | /fees/reminders (+ fix, families, ladder, notices, campaigns, runs) · /fees/admin-tools/whatsapp-templates |
-| Files | 41 domain · 24 data · 24 ui |
+| Files | 51 domain · 33 data · 24 ui |
 
 ## Owns
 
@@ -25,8 +25,10 @@ Fee reminders and the message templates behind them.
   and its hand-offs to staff and their answers back
   (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584, D-588..D-590), the
   teachers' own helper (`domain/staff-helper.ts`, `data/staff-helper.ts`,
-  D-591), and a school visit booked on WhatsApp (`domain/helper-visit.ts`,
-  `data/helper-visit.ts`, D-592, D-593); see below
+  D-591), a school visit booked on WhatsApp (`domain/helper-visit.ts`,
+  `data/helper-visit.ts`, D-592, D-593), and parents' files and old months of
+  chats in the school's Shared Drive (`domain/parent-files.ts`,
+  `data/parent-files.ts`, D-594, D-595); see below
 - Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
   D-585..D-587): the code, its hash, the send through the hub. The page is
   `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
@@ -446,6 +448,21 @@ its own work, for messages from the hub only.
   Messages does `saveVisitEnquiry` put the visit on the Admissions board
   (`vppsone.enquiries`, `source = whatsapp`, one per hand-off). The reply
   never says the visit is confirmed: the office calls to fix the time.
+- **Parents' files and old chats in Drive (D-594, D-595).** The hub keeps a
+  file's Meta id only, and Meta keeps the file about a month, so One copies
+  it into the Shared Drive through the hub (`platform/whatsapp/hub-files.ts`):
+  the webhook starts `copyFilesFromWebhook` for that message's files only,
+  and the hourly job (`/api/jobs/parent-files`, `{"part": "files"}`) runs
+  `sweepParentFiles` for what was missed, never a file younger than ten
+  minutes. `fileScope` (`domain/parent-files.ts`) decides whose: nobody's
+  with the helper off, the owner's number into the practice folder while
+  real recipients are off. A copy is found by its name (`driveFileName`)
+  before one is written, so a retry never makes two; the hub is told the
+  Drive id (`saved`), or a problem with the file itself. Once a night
+  (`{"part": "archive"}`) `archiveOldChats` moves the month the hub says is
+  due into one spreadsheet (`chatsCsv`) and only then lets the hub remove
+  it, with the count it read. Google trusts One's production deployment
+  only, so this works on production only.
 
 ## Never
 
@@ -478,6 +495,12 @@ its own work, for messages from the hub only.
   alerts and comes from the number that alert went to, or tell staff outside
   6 am to 9 pm India time: `nextAlertMoment` is asked again when a step runs,
   whatever time was planned.
+- Keep a parent's file, its name, the chat or the parent's words in One's
+  database, or put them in a log: the file passes through memory into Drive
+  and the hub keeps the link (D-576).
+- Tell the hub a month is done before its spreadsheet is in Drive and
+  checked, or with a count other than the one read. The hub deletes that
+  month for good.
 - Insert into `student_collection_flags` without passing `no_call: false` explicitly. Its default is TRUE, so a row written to record a cadence or a language would silently drop the family out of the call queue.
 
 ## Layout

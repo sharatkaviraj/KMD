@@ -4,7 +4,9 @@ import { after, NextResponse } from "next/server";
 
 import { syncHubTemplates } from "@/modules/whatsapp/data/hub-templates";
 import { syncDeliveryToSource } from "@/modules/whatsapp/data/whatsapp-source-sync";
+import { isParentFileType } from "@/modules/whatsapp/domain/parent-files";
 import { getSiteUrl } from "@/platform/env";
+import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { logWarn } from "@/platform/observability/log";
 import { applyTemplateEvents } from "@/platform/whatsapp/service";
 import { isReplyToOne, recordStatus, storeInbound } from "@/platform/whatsapp/store";
@@ -35,7 +37,10 @@ import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
  *    (D-574, `helper-turn.ts`), started at once beside the rest, because the
  *    hub's own bot answers it a few seconds later unless One claims it first.
  *    The helper decides for itself whether to answer, and a repeat of the
- *    same message is never answered twice.
+ *    same message is never answered twice;
+ *  - from the hub only, a parent's photo, voice note, video or document is
+ *    copied to the school's Drive beside the rest (D-594, `parent-files.ts`),
+ *    when the helper is on and, in practice, only from the owner's number.
  *
  * A database failure answers 500, so the sender delivers it again; a payload
  * this does not understand answers 200, so it is not retried forever.
@@ -97,6 +102,11 @@ export async function handleWhatsAppWebhook(
   if (source === "hub" && parsed.inbound.length > 0) {
     const written = parsed.inbound;
     alongside(async () => (await import("@/modules/whatsapp/data/helper-turn")).runHelperTurns(written));
+    if (written.some((message) => isParentFileType(message.type))) {
+      // Google trusts this deployment's own identity, carried on the request.
+      const identity = await vercelOidcToken(request);
+      alongside(async () => (await import("@/modules/whatsapp/data/parent-files")).copyFilesFromWebhook(written, identity));
+    }
   }
 
   let statuses = 0;
