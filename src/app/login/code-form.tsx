@@ -388,12 +388,12 @@ export function CodeSignInForm({
       </span>
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10 }}>
-        <a href={SCHOOL_CHAT} target="_blank" rel="noopener noreferrer" className="tap btn sec" style={{ height: 52, fontSize: 15, borderRadius: 14, textDecoration: "none", padding: "0 10px" }}>
-          <MessageCircle size={20} aria-hidden />
+        <a href={SCHOOL_CHAT} target="_blank" rel="noopener noreferrer" className="tap btn sec wrap" style={{ height: 52, fontSize: 15, borderRadius: 14, textDecoration: "none", padding: "0 10px", lineHeight: 1.2 }}>
+          <MessageCircle size={20} style={{ flexShrink: 0 }} aria-hidden />
           {lead(T.openWhatsApp, language)}
         </a>
-        <button type="button" className="tap btn sec" onClick={pasteCode} disabled={verifying} style={{ height: 52, fontSize: 15, borderRadius: 14, padding: "0 10px", color: "var(--accfg)" }}>
-          <ClipboardPaste size={20} aria-hidden />
+        <button type="button" className="tap btn sec wrap" onClick={pasteCode} disabled={verifying} style={{ height: 52, fontSize: 15, borderRadius: 14, padding: "0 10px", lineHeight: 1.2, color: "var(--accfg)" }}>
+          <ClipboardPaste size={20} style={{ flexShrink: 0 }} aria-hidden />
           {lead(T.paste, language)}
         </button>
       </div>
@@ -436,13 +436,13 @@ export function CodeSignInForm({
         <form action={requestAction} style={{ display: "contents" }}>
           <input type="hidden" name="phone" value={phoneKey ?? ""} />
           <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
-          <button type="submit" className="tap btn sec" disabled={countdown > 0 || requesting} aria-label={lead(T.again, language)} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
-            <RefreshCw size={18} className={requesting ? "spin" : undefined} aria-hidden />
+          <button type="submit" className="tap btn sec wrap" disabled={countdown > 0 || requesting} aria-label={lead(T.again, language)} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
+            <RefreshCw size={18} className={requesting ? "spin" : undefined} style={{ flexShrink: 0 }} aria-hidden />
             {countdown > 0 ? `${lead(T.againShort, language)} (${countdown}${lead(T.seconds, language)})` : lead(T.againShort, language)}
           </button>
         </form>
-        <button type="button" className="tap btn sec" onClick={onUsePassword} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
-          <KeyRound size={18} aria-hidden />
+        <button type="button" className="tap btn sec wrap" onClick={onUsePassword} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
+          <KeyRound size={18} style={{ flexShrink: 0 }} aria-hidden />
           {lead(T.usePasswordShort, language)}
         </button>
       </div>

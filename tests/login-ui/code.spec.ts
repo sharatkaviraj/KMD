@@ -32,6 +32,15 @@ for (const lang of ["en", "hi", "both"]) for (const viewport of [{ width: 360, h
     // Sign in, and the two buttons that get the code there, without scrolling.
     expect(await bottomOf(page, 'form:has(#code) button[type="submit"]')).toBeLessThanOrEqual(viewport.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    // Every button's icon keeps its size and every label stays inside its
+    // button: the first live phone showed the key icon squeezed to a dot
+    // beside "Email and password".
+    const cramped = await page.evaluate(() => [...document.querySelectorAll(".lg-code .btn")].flatMap(button => {
+      const box = button.getBoundingClientRect();
+      const icons = [...button.querySelectorAll("svg")].filter(icon => icon.getBoundingClientRect().width < 16);
+      return icons.length > 0 || button.scrollWidth > button.clientWidth + 1 || box.right > window.innerWidth ? [button.textContent?.trim()] : [];
+    }));
+    expect(cramped).toEqual([]);
   });
 }
 
