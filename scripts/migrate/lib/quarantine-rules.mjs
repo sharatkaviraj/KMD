@@ -203,6 +203,9 @@ export const TABLES = {
   // Sick-day notes (D-588): the days a parent said on WhatsApp that a child
   // would be away, and the reason in a word. Never the parent's words.
   parent_absence_notes: { bucket: "K", why: "post go-live parent's WhatsApp word that a child will be away (days and sick/other, never the words); service-role only" },
+  // Teach it once (D-589): questions the helper could not answer, in Claude's
+  // general wording with no names, and the school's answer to each.
+  parent_helper_lessons: { bucket: "K", why: "post go-live WhatsApp helper's general questions it could not answer (no names) and the school's answers; service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

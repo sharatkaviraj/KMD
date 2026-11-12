@@ -107,7 +107,14 @@ export async function saveChat(from: string, patch: ChatPatch, at: Date, db: Db 
  * message id is what stops a repeated forward being answered twice.
  */
 export async function startTurn(
-  row: { providerMessageId: string; from: string; receivedAt: string; kind: Exclude<MessageKind, "ignore"> },
+  row: {
+    providerMessageId: string;
+    from: string;
+    receivedAt: string;
+    kind: Exclude<MessageKind, "ignore">;
+    /** A parent of the practice family or of a real one (D-590); the column's default, true, when not said. */
+    practice?: boolean;
+  },
   db: Db = whatsappDb(),
 ): Promise<"started" | "duplicate" | "failed"> {
   try {
@@ -116,6 +123,7 @@ export async function startTurn(
       from_e164: row.from,
       received_at: row.receivedAt,
       kind: row.kind,
+      ...(row.practice === undefined ? {} : { practice: row.practice }),
     });
     if (!error) return "started";
     return error.code === "23505" ? "duplicate" : "failed";
@@ -135,6 +143,9 @@ export type TurnFinish = {
   parentReplyId?: string | null;
   replyMessageId?: string | null;
   latencyMs?: number | null;
+  /** The school answer this reply used, or the list row its question was added to (D-589). */
+  lessonId?: string | null;
+  lessonRole?: "used" | "asked" | null;
 };
 
 export async function finishTurn(providerMessageId: string, finish: TurnFinish, db: Db = whatsappDb()): Promise<void> {
@@ -152,6 +163,8 @@ export async function finishTurn(providerMessageId: string, finish: TurnFinish, 
         parent_reply_id: finish.parentReplyId ?? null,
         reply_message_id: finish.replyMessageId ?? null,
         latency_ms: finish.latencyMs === null || finish.latencyMs === undefined ? null : Math.max(0, Math.round(finish.latencyMs)),
+        // Written only with a lesson, so a turn without one writes what it always did.
+        ...(finish.lessonId ? { lesson_id: finish.lessonId, lesson_role: finish.lessonRole ?? null } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("provider_message_id", providerMessageId);

@@ -23,7 +23,7 @@ are added (Staff, or Link my WhatsApp).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-590. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -104,7 +104,30 @@ it once the days are kept. `domain/helper-absence.ts`, `saveAbsenceNotes`,
 `modules/attendance/data/parent-notes.ts`, the register screen. Migration
 `20261112113517_parent_absence_notes.sql` applied to One 12 Nov 11:35 UTC
 before the code merged. Counted as Absent, not Leave, until the owner says
-otherwise. **Next:** step 3.
+otherwise. PR 357 merged 12 Nov 12:00 UTC (4264f14), live 12:01 UTC
+(`dpl_9TSVDf7T3YDKKojaL8c7Vhw1Uqf6`); BrowserStack passed on a Galaxy M32
+(Chrome) and Windows 11 (Chrome).
+
+**Step 3a, teach it once and the week (D-589, D-590), practice only:** a
+general question the helper cannot answer (timings, holidays, uniform, a bus
+route) still goes to the office, and is now also listed in One in Claude's
+own short English wording, with no names or numbers; the same question asked
+again counts up on its row. An admin opens Settings → WhatsApp → Veer Patta AI
+(also Menu → Messages), writes or speaks the answer once, and the helper
+answers it itself from the next message; or "A person always answers this",
+and it stops being listed. Only answers an admin wrote reach Claude, and a
+waiting question never reaches another family. The same page's This week tab:
+questions, answered by itself, passed to staff, reply time, where it needs
+the school, topics, who answered and how fast, who parents are still waiting
+on, ratings, AI cost. The practice family's list and numbers are kept apart
+from real families', chosen by who is looking (a test account, or the test
+year), never by the form. `domain/helper-{lessons,week}.ts`,
+`data/helper-{lessons,week}.ts`, `school_answer`/`unanswered` in
+`domain/helper-ai.ts`, the turn, `settings/whatsapp/helper/`. Migration
+`20261112125144_parent_helper_lessons.sql` applied to One 12 Nov 12:51 UTC
+before the code merged (checked: row-level security on, nothing for anon or
+signed-in users, the function for the service role only, the six existing
+turns read as practice). **Next:** 3b, the teachers' own helper.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

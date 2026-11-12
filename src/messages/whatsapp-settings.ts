@@ -70,6 +70,7 @@ export const waMessages = {
     "यह संदेश फ़ीस ऐप अपने नंबर से भेजता है, इसलिए One नहीं भेजता। अभिभावकों को दो बार नहीं मिलेगा।",
     "The Fees app sends this from its own number, so One does not. Parents never get it twice.",
   ),
+  helperOpen: t("Veer Patta AI खोलें: इस हफ़्ते के आँकड़े और एक बार सिखाए जवाब", "Open Veer Patta AI: this week's numbers and the answers taught once"),
   helperHelp: (approved: number, total: number) =>
     t(
       `Veer Patta AI अभिभावकों के सवालों का जवाब देता है (फ़ीस, रसीद, हाज़िरी, परिणाम) और बाक़ी संदेश सुबह 6 से रात 9 बजे के बीच सही शिक्षक या ऑफ़िस को WhatsApp पर पहुँचाता है। अभी सिर्फ़ अभ्यास वाले बच्चों के लिए, मालिक के नंबर पर। ${total} में से ${approved} संदेश मंज़ूर।`,

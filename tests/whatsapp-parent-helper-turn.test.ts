@@ -25,6 +25,7 @@ import type { RateResult } from "@/modules/whatsapp/data/helper-relay";
 import type { TurnFinish } from "@/modules/whatsapp/data/helper-store";
 import { runHelperTurn, runHelperTurns, type HelperDeps } from "@/modules/whatsapp/data/helper-turn";
 import type { HelperAnswer } from "@/modules/whatsapp/domain/helper-ai";
+import { NO_KNOWLEDGE, type LessonNote, type SchoolKnowledge } from "@/modules/whatsapp/domain/helper-lessons";
 import { childFactsFromRow, type ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import { EMPTY_CHAT, type ChatPatch, type ChatState } from "@/modules/whatsapp/domain/helper-plan";
 import type { WhatsAppConfig } from "@/platform/whatsapp/config";
@@ -84,7 +85,7 @@ function inbound(over: Partial<WebhookInbound> = {}): WebhookInbound {
 }
 
 function answer(over: Partial<HelperAnswer> = {}): HelperAnswer {
-  return { language: "en", topic: "other", reply: "Happy to help.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, absence: null, ...over };
+  return { language: "en", topic: "other", reply: "Happy to help.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, absence: null, school_answer: null, unanswered: null, ...over };
 }
 
 const CLAIMED: ClaimResult = { ok: true, claimed: true, typing: true, staff: false, stale: false, takenBy: null };
@@ -648,6 +649,116 @@ describe("Link my WhatsApp (D-582)", () => {
     const staffLink = vi.fn(async () => null);
     await runHelperTurn(inbound({ at: new Date(NOW.getTime() - 3_600_000).toISOString() }), fakes({ staffLink }).deps);
     expect(staffLink).not.toHaveBeenCalled();
+  });
+});
+
+describe("teach it once (D-589)", () => {
+  const LESSON_A = "66666666-6666-4666-8666-666666666666";
+  const LESSON_P = "77777777-7777-4777-8777-777777777777";
+  const LESSON_NEW = "88888888-8888-4888-8888-888888888888";
+  const SCHOOL: SchoolKnowledge = {
+    answers: [{ key: "A1", id: LESSON_A, question: "What are the winter school timings?", answer: "From 1 November, 9 am to 3 pm." }],
+    byPeople: [{ key: "P1", id: LESSON_P, question: "Can a child move to another section?" }],
+  };
+
+  function teaching(over: Partial<HelperDeps> = {}) {
+    const notes: Array<[LessonNote, boolean, string | null]> = [];
+    const kinds: boolean[] = [];
+    const made = fakes({
+      readKnowledge: async (practice) => {
+        kinds.push(practice);
+        return SCHOOL;
+      },
+      noteLesson: async (note, practice, topic) => {
+        notes.push([note, practice, topic]);
+        return note.lessonId ?? LESSON_NEW;
+      },
+      ...over,
+    });
+    return { ...made, notes, kinds };
+  }
+
+  const claude = (over: Partial<HelperAnswer>): ClaudeTurn => ({ answer: answer(over), model: "claude-haiku-5-5", careful: false, costUsd: 0.002, problem: null });
+
+  it("Claude reads the practice family's school answers, and an answer given from one is counted on it", async () => {
+    const { deps, calls, askClaude, notes, kinds } = teaching();
+    askClaude.mockResolvedValueOnce(claude({ topic: "calendar", reply: "In winter, school runs from 9 am to 3 pm.", school_answer: "A1" }));
+    expect(await runHelperTurn(inbound({ text: "what time does school open in winter" }), deps)).toEqual({ outcome: "answered", route: "ai", intent: "calendar", handoff: null });
+    expect(kinds).toEqual([true]);
+    expect(askClaude).toHaveBeenCalledWith(expect.objectContaining({ knowledge: SCHOOL }));
+    expect(notes).toEqual([[{ role: "used", lessonId: LESSON_A }, true, "calendar"]]);
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered", lessonId: LESSON_A, lessonRole: "used" });
+    expect(calls.handoffs).toEqual([]);
+  });
+
+  it("a general question nothing answers goes to the office as before, and onto the list in Claude's general words", async () => {
+    const { deps, calls, askClaude, notes } = teaching();
+    askClaude.mockResolvedValueOnce(
+      claude({ topic: "calendar", handoff: "office", reply: "I will ask the school.", summary: "Parent asks the date of sports day.", unanswered: { question: "When is sports day this year?", same_as: null } }),
+    );
+    expect(await runHelperTurn(inbound({ text: "sports day kab hai" }), deps)).toMatchObject({ outcome: "answered", handoff: "office" });
+    expect(calls.handoffs).toHaveLength(1);
+    expect(notes).toEqual([[{ role: "asked", lessonId: null, question: "When is sports day this year?", fingerprint: "when is sports day this year" }, true, "calendar"]]);
+    expect(calls.finished[0][1]).toMatchObject({ handoff: "office", lessonId: LESSON_NEW, lessonRole: "asked" });
+  });
+
+  it("a question a person always answers is counted there", async () => {
+    const { deps, askClaude, notes } = teaching();
+    askClaude.mockResolvedValueOnce(
+      claude({ topic: "request", handoff: "office", reply: "I will pass this on.", unanswered: { question: "Can a child change section?", same_as: "P1" } }),
+    );
+    await runHelperTurn(inbound({ text: "section change ho sakta hai?" }), deps);
+    expect(notes[0][0]).toMatchObject({ role: "asked", lessonId: LESSON_P });
+  });
+
+  it("never keeps a question that names the family", async () => {
+    const { deps, calls, askClaude, notes } = teaching();
+    askClaude.mockResolvedValueOnce(
+      claude({ topic: "other", handoff: "office", reply: "I will ask.", unanswered: { question: "Can Sunil Rawat pay the bus fee at the bank?", same_as: null } }),
+    );
+    await runHelperTurn(inbound({ text: "bank me bus fee?", fromName: "Sunil Rawat" }), deps);
+    expect(notes).toEqual([]);
+    expect(calls.finished[0][1]).not.toHaveProperty("lessonId");
+  });
+
+  it("keeps nothing when the school's answers could not be read: Claude never saw them", async () => {
+    const { deps, askClaude, notes } = teaching({ readKnowledge: async () => null });
+    askClaude.mockResolvedValueOnce(claude({ topic: "calendar", handoff: "office", unanswered: { question: "When is sports day this year?", same_as: null } }));
+    await runHelperTurn(inbound({ text: "sports day?" }), deps);
+    expect(askClaude).toHaveBeenCalledWith(expect.objectContaining({ knowledge: NO_KNOWLEDGE }));
+    expect(notes).toEqual([]);
+  });
+
+  it("keeps nothing when the reply did not reach the parent, or the answer came from a card", async () => {
+    const rejected = teaching({ send: async () => ({ outcome: "rejected", httpStatus: 403, errorCode: "test_mode", errorTitle: "Test mode", errorDetail: null }) });
+    rejected.askClaude.mockResolvedValueOnce(claude({ topic: "calendar", school_answer: "A1" }));
+    expect(await runHelperTurn(inbound({ text: "winter timing?" }), rejected.deps)).toMatchObject({ outcome: "failed" });
+    expect(rejected.notes).toEqual([]);
+
+    const card = teaching();
+    await runHelperTurn(inbound({ text: "fees" }), card.deps);
+    expect(card.askClaude).not.toHaveBeenCalled();
+    expect(card.notes).toEqual([]);
+  });
+
+  it("a list that cannot be written never stops the answer", async () => {
+    const { deps, calls, askClaude } = teaching({ noteLesson: async () => Promise.reject(new Error("down")) });
+    askClaude.mockResolvedValueOnce(claude({ topic: "calendar", school_answer: "A1" }));
+    expect(await runHelperTurn(inbound({ text: "winter timing?" }), deps)).toMatchObject({ outcome: "answered" });
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered" });
+    expect(calls.finished[0][1]).not.toHaveProperty("lessonId");
+  });
+
+  it("marks the ledger row as the practice family's", async () => {
+    const rows: Array<Parameters<HelperDeps["startTurn"]>[0]> = [];
+    const { deps } = teaching({
+      startTurn: async (row) => {
+        rows.push(row);
+        return "started";
+      },
+    });
+    await runHelperTurn(inbound(), deps);
+    expect(rows[0]).toMatchObject({ practice: true });
   });
 });
 

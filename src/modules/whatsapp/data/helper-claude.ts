@@ -12,6 +12,7 @@ import {
   type HelperAnswer,
   type HelperModel,
 } from "@/modules/whatsapp/domain/helper-ai";
+import type { SchoolKnowledge } from "@/modules/whatsapp/domain/helper-lessons";
 import type { Family } from "@/modules/whatsapp/domain/helper-replies";
 import type { HelperLanguage } from "@/modules/whatsapp/domain/helper-text";
 
@@ -74,6 +75,8 @@ export async function askHelperClaude(input: {
   language: HelperLanguage;
   firstContact: boolean;
   now: Date;
+  /** The school's answers and the questions it leaves to people (D-589). */
+  knowledge?: SchoolKnowledge;
 }): Promise<ClaudeTurn> {
   if (!hasClaudeKey()) return { answer: null, model: null, careful: false, costUsd: 0, problem: "no_key" };
   const system = helperSystemPrompt(input.helperName);

@@ -361,6 +361,13 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                         <span style={{ fontSize: 12.5, color: "var(--mut)" }}>
                           {say(feesApp ? w.feesAppSendsHelp : feature === "parent_helper" ? w.helperHelp(approved, rows.length) : w.templateCounts(approved, rows.length))}
                         </span>
+                        {feature === "parent_helper" ? (
+                          <Link href="/settings/whatsapp/helper" className="tap" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: 14, fontWeight: 650, color: "var(--accfg)", minHeight: 36 }}>
+                            <Ic n="sparkle" size={16} />
+                            {say(w.helperOpen)}
+                            <Ic n="chevRight" size={16} />
+                          </Link>
+                        ) : null}
                       </span>
                       <Pill tone={feesApp ? "info" : on ? "ok" : "mut"}>{say(feesApp ? w.feesAppSends : on ? w.on : w.off)}</Pill>
                       {feesApp ? null : canChange && switches ? (

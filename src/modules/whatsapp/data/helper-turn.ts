@@ -3,6 +3,7 @@ import "server-only";
 import { getAssistSettings } from "@/modules/assist/data/settings";
 import type { ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import { handoffRegarding, planFromAnswer } from "@/modules/whatsapp/domain/helper-ai";
+import { familyWords, lessonNoteFor, NO_KNOWLEDGE, type LessonNote, type SchoolKnowledge } from "@/modules/whatsapp/domain/helper-lessons";
 import { helperMessageBody, plainVersion, type HelperMessage } from "@/modules/whatsapp/domain/helper-messages";
 import {
   MAX_MESSAGE_AGE_MINUTES,
@@ -36,6 +37,7 @@ import { readSwitches } from "@/platform/whatsapp/store";
 import type { WebhookInbound } from "@/platform/whatsapp/webhook";
 
 import { askHelperClaude, hasClaudeKey, type ClaudeTurn } from "./helper-claude";
+import { noteLesson, readSchoolKnowledge } from "./helper-lessons";
 import {
   deliverWaitingAnswers,
   handleStaffAnswer,
@@ -87,6 +89,9 @@ import {
  *     message is too old, or when its bot got there first.
  *
  * Only then is Claude asked (when the message needs it) and the reply sent.
+ * Claude also reads the answers the school has written for every family, and
+ * a general question nothing answers goes onto the list in One that an admin
+ * answers once (D-589).
  * Every step before the claim is free to give up: the hub's bot answers a few
  * seconds later as it always has. After the claim One must answer, so
  * everything after it ends in a message: Claude's, the card, or the menu.
@@ -135,6 +140,10 @@ export type HelperDeps = {
   rateAnswer?: (input: { from: string; key: string; value: RatingValue }) => Promise<RateResult>;
   /** A child the parent says will be away, kept for the register (D-588); true when kept. */
   saveAbsence?: (row: AbsenceRow) => Promise<boolean>;
+  /** The school's answers and the questions it leaves to people, for this kind of chat (D-589); null when unreadable. */
+  readKnowledge?: (practice: boolean) => Promise<SchoolKnowledge | null>;
+  /** An answer's note on the "teach it once" list; the lesson it landed on, or null. */
+  noteLesson?: (note: LessonNote, practice: boolean, topic: string | null) => Promise<string | null>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -178,6 +187,8 @@ export function liveHelperDeps(): HelperDeps {
     staffLink: (message) => handleStaffLink(message, link),
     rateAnswer: (input) => rateAnswer(input, relay),
     saveAbsence: (row) => saveAbsenceNotes(row),
+    readKnowledge: (practice) => readSchoolKnowledge(practice),
+    noteLesson: (note, practice, topic) => noteLesson(note, practice, topic),
   };
 }
 
@@ -208,6 +219,8 @@ type Composed = {
   note: string | null;
   /** A "no" to an answer, written into Messages: the office's hand-off to open once the parent has been told (D-584). */
   followUp: OpenHandoffInput | null;
+  /** What this answer adds to the "teach it once" list, written once the reply has gone (D-589). */
+  lesson: LessonNote | null;
 };
 
 /** The reply, once the message is One's: Claude's answer or the planned card, and any hand-off written first. */
@@ -221,14 +234,18 @@ async function compose(input: {
   deps: HelperDeps;
   now: Date;
   sentAt: number;
+  /** Read beside the family's records; awaited only when Claude is asked. */
+  knowledge: Promise<SchoolKnowledge | null>;
 }): Promise<Composed> {
   const { message, plan, settings, family, children, context, deps, now } = input;
   const text = (message.text ?? "").trim();
   let reply: Reply;
   let claude: ClaudeTurn | null = null;
   let note: string | null = null;
+  let lesson: LessonNote | null = null;
 
   if (plan.action === "ask_ai") {
+    const school = await input.knowledge;
     claude = await deps.askClaude({
       helperName: settings.helperName,
       family,
@@ -236,8 +253,11 @@ async function compose(input: {
       language: plan.language,
       firstContact: plan.firstContact,
       now,
+      knowledge: school ?? NO_KNOWLEDGE,
     });
     if (claude.answer) {
+      // Nothing goes on the list when the school's answers could not be read: Claude did not see them.
+      lesson = school ? lessonNoteFor(claude.answer, school, familyWords(children, message.fromName)) : null;
       const answered = planFromAnswer(claude.answer, { family, helperName: settings.helperName, text, now });
       reply = {
         message: answered.message,
@@ -299,7 +319,7 @@ async function compose(input: {
       }
     }
   }
-  return { reply, claude, parentReplyId, handedTo, note, followUp: null };
+  return { reply, claude, parentReplyId, handedTo, note, followUp: null, lesson };
 }
 
 /**
@@ -331,7 +351,7 @@ async function composeRating(input: {
     chat: plan.chat,
     handoff: null,
   });
-  const none = { claude: null, parentReplyId: null, handedTo: null, note: null, followUp: null };
+  const none = { claude: null, parentReplyId: null, handedTo: null, note: null, followUp: null, lesson: null };
   switch (rated.outcome) {
     case "unknown":
       return { ...none, reply: reply(plan.value === "helped" ? "helped" : "ask_office", "rating_unknown") };
@@ -418,6 +438,11 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   if (verdict.decision === "refuse") return skip(verdict.code);
   if (!deps.claim) return skip("cannot_claim");
 
+  // Step 1 knows only the practice family: the owner's number standing for TEST children.
+  const practice = true;
+  // The school's answers, read beside the family and waited for only if Claude is asked (D-589).
+  const knowledge = deps.readKnowledge ? deps.readKnowledge(practice).catch(() => null) : Promise.resolve(null);
+
   // 4 and 5. The family, the chat so far, today's answers and the AI budget.
   const [children, chat, budget, ai] = await Promise.all([
     deps.readChildFacts(studentIds),
@@ -430,7 +455,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   if (!budget) return skip("budget_unreadable");
   if (budget.turnsToday >= MAX_TURNS_PER_NUMBER_PER_DAY) return skip("daily_cap");
 
-  const family: Family = { children, practice: true };
+  const family: Family = { children, practice };
   const aiAvailable = deps.hasClaudeKey() && ai !== null && ai.enabled && budget.spentUsd < ai.monthlyBudgetUsd;
   const tap = kind === "tap" ? readTap(message.raw) : null;
   const plan = planTurn({ kind, text: message.text, tap, chat, family, helperName: settings.helperName, now: started, aiAvailable });
@@ -442,6 +467,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     from: message.from,
     receivedAt: new Date(sentAt).toISOString(),
     kind: kind as Exclude<MessageKind, "ignore">,
+    practice: family.practice,
   });
   if (ledger === "duplicate") return skip("duplicate");
   if (ledger === "failed") return skip("ledger_failed");
@@ -475,7 +501,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     composed =
       plan.action === "rate"
         ? await composeRating({ message, plan, settings, context, deps, now: started, sentAt })
-        : await compose({ message, plan, settings, family, children, context, deps, now: started, sentAt });
+        : await compose({ message, plan, settings, family, children, context, deps, now: started, sentAt, knowledge });
   } catch (caught) {
     logWarn("whatsapp.helper.compose_crashed", { error: caught instanceof Error ? caught.message : "unknown" });
     composed = {
@@ -485,6 +511,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
       handedTo: null,
       note: "compose_crashed",
       followUp: null,
+      lesson: null,
     };
   }
   const { reply, claude, parentReplyId, handedTo } = composed;
@@ -515,7 +542,15 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     return { outcome: "failed", reason };
   }
 
-  await deps.finishTurn(message.providerMessageId, { ...common, reason: note, replyMessageId: sent.messageId });
+  // The list learns from an answer that reached the parent: a school answer used, or a question it could not answer (D-589).
+  const lesson = composed.lesson;
+  const lessonId = lesson && deps.noteLesson ? await deps.noteLesson(lesson, family.practice, claude?.answer?.topic ?? null).catch(() => null) : null;
+  await deps.finishTurn(message.providerMessageId, {
+    ...common,
+    reason: note,
+    replyMessageId: sent.messageId,
+    ...(lessonId && lesson ? { lessonId, lessonRole: lesson.role } : {}),
+  });
   await deps.saveChat(message.from, reply.chat, finished).catch(() => undefined);
 
   // The parent knows it was passed on; now the person it is for is told (D-578).

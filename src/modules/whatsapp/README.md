@@ -23,7 +23,7 @@ Fee reminders and the message templates behind them.
 - Both WhatsApp webhooks (`data/whatsapp-webhook.ts`): Meta's and the hub's
 - Veer Patta AI, the helper that answers parents on the school's number,
   and its hand-offs to staff and their answers back
-  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584); see below
+  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584, D-588..D-590); see below
 - Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
   D-585..D-587): the code, its hash, the send through the hub. The page is
   `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
@@ -401,6 +401,23 @@ its own work, for messages from the hub only.
   register reads the notes (`modules/attendance/data/parent-notes.ts`): the
   child starts as Absent with "Parent informed" beside the name, and the
   save queues no absent alert for that child.
+- **Teach it once (D-589).** A general question Claude cannot answer from
+  FACTS comes back as `unanswered` (one short English line, or the P key it
+  matches). `lessonNoteFor` (`domain/helper-lessons.ts`) keeps it only when
+  `cleanQuestion` passes it: no word of the family's names (`familyWords`),
+  no long number, phone, @ or link. After the answer is sent, `noteLesson`
+  (`data/helper-lessons.ts`, `vppsone.parent_helper_note_lesson`) lists it or
+  counts it again by its fingerprint; a school answer Claude used
+  (`school_answer`) is counted as used. `readSchoolKnowledge` gives Claude
+  only what an admin decided: answered ones as A1…, "a person answers" ones
+  as P1…, never a waiting question. The admin's page is
+  `src/app/(app)/settings/whatsapp/helper/`; which list it reads and changes
+  (`practice`) comes from who is looking, never from the form.
+- **The week (D-590).** `weekReport` (`domain/helper-week.ts`) turns the
+  week's turns, hand-offs, their first answers, ratings and the still-open
+  hand-offs into the numbers on the page's This week tab;
+  `readHelperWeek` (`data/helper-week.ts`) reads them, Monday 00:00 India
+  time, the practice family's or real families' by `practice`.
 
 ## Never
 
@@ -425,6 +442,10 @@ its own work, for messages from the hub only.
 - Keep a parent's words in `parent_absence_notes`, write a note for a child
   the helper could not name, or tell the parent the register shows it before
   the days are kept. A note never decides attendance: the teacher's mark does.
+- Put a waiting lesson's question into Claude's prompt, list a question
+  `cleanQuestion` refused, or let the form say which list (`practice`) an
+  admin's button changes: a practice account must never reach what real
+  parents are told.
 - Take a reply for a staff answer unless it quotes one of the helper's sent
   alerts and comes from the number that alert went to, or tell staff outside
   6 am to 9 pm India time: `nextAlertMoment` is asked again when a step runs,

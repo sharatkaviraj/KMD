@@ -108,6 +108,7 @@ const ADMIN: MenuGroup[] = [
     tiles: [
       t("notice", "Send a notice", "सूचना भेजें", "megaphone", "/messages?compose=1", "messages:send", "WhatsApp to parents or staff", "अभिभावकों या स्टाफ़ को व्हाट्सऐप"),
       t("sent", "Messages sent", "भेजे गए संदेश", "message", "/messages", "messages:send", "What went out, and the replies", "क्या भेजा गया, और जवाब"),
+      t("helper", "Veer Patta AI", "Veer Patta AI", "sparkle", "/settings/whatsapp/helper", "settings:manage", "The WhatsApp helper's week; teach it answers", "WhatsApp सहायक का हफ़्ता; इसे जवाब सिखाएँ"),
     ],
   },
   {

@@ -4,6 +4,7 @@ import { formatInr } from "@/platform/helpers/currency";
 
 import { ABSENCE_REASONS, absenceNote } from "./helper-absence";
 import type { ChildFacts } from "./helper-facts";
+import { knowledgeLines, NO_KNOWLEDGE, type SchoolKnowledge } from "./helper-lessons";
 import { childByKey, handoffReply, type TurnPlan } from "./helper-plan";
 import { aiAnswer, cardFor, fallbackReply, menuCard, OFFICE_PHONE, type Family, type HandoffTarget, type ReplyContext } from "./helper-replies";
 import type { HelperLanguage } from "./helper-text";
@@ -26,6 +27,11 @@ import type { HelperLanguage } from "./helper-text";
  * A parent's word that a child will be away (D-588) is read here too: Claude
  * says from when, for how many school days and why, the message goes to the
  * class teacher, and the reply says which day's register shows it.
+ *
+ * Teach it once (D-589): FACTS also carries the answers the school has
+ * written, for every family, and Claude says which one it used. A general
+ * question about the school that nothing answers comes back in Claude's own
+ * short general wording, for the list an admin answers from.
  */
 
 export const HELPER_MODELS = { quick: "claude-haiku-5-5", careful: "claude-opus-5-5" } as const;
@@ -65,6 +71,11 @@ export const helperAnswerSchema = z.object({
       reason: z.enum(ABSENCE_REASONS),
     })
     .nullable(),
+  // Teach it once (D-589): the key of the school answer this reply came from (A1…), or null.
+  school_answer: z.string().nullable(),
+  // A general question about the school that FACTS does not answer, in Claude's
+  // own general words, and the key of the same question a person always answers (P1…).
+  unanswered: z.object({ question: z.string(), same_as: z.string().nullable() }).nullable(),
 });
 
 export type HelperAnswer = z.infer<typeof helperAnswerSchema>;
@@ -102,6 +113,17 @@ export function helperSystemPrompt(helperName: string): string {
     'A CHILD WHO WILL BE AWAY (set "absence")',
     '- Only when the parent tells the school that a child will not come to school: ill, a family matter, travel, a wedding. Set "from" to "today" or "tomorrow" as the parent means it (read TODAY and the time in FACTS: "kal" with a future verb is tomorrow), "days" to how many school days (1 when the parent does not say, at most 7), and "reason" to "sick" for any illness, otherwise "other". Hand it off to "class_teacher" with topic "leave", and set "child".',
     '- Otherwise "absence" is null: a question about attendance, a child who was away on a day that has passed, coming late or leaving early, or a holiday the whole school has.',
+    "",
+    "SCHOOL ANSWERS (in FACTS)",
+    '- These are the school\'s own answers to questions parents ask, written by the school for every family. When one answers the parent\'s question, answer from it: in the parent\'s language and your own short words, keeping every date, time, amount and rule exactly as the school wrote it, and adding nothing. Set "school_answer" to its key (A1, A2…) and "handoff" to "none", unless the message also needs a person for something else. Otherwise "school_answer" is null.',
+    "- A school answer says nothing about this family's own child, fees or records.",
+    "- A question under QUESTIONS A PERSON AT THE SCHOOL ALWAYS ANSWERS is not yours to answer: hand it off as usual.",
+    "",
+    'A GENERAL QUESTION NOTHING IN FACTS ANSWERS (set "unanswered")',
+    '- When the parent asks something about the school that any parent could ask and the school could answer once for everyone (timings, holidays, exam dates, uniform, books, transport, events, rules, admissions), and neither FACTS nor a school answer answers it: hand it off as usual and set "unanswered".',
+    '- "question": that question in English, as one short line any parent could ask, in your own general words: no name, no number, nothing about this child or family. For example "What are the school timings in winter?".',
+    '- "same_as": the key (P1, P2…) of the question a person always answers, when it is that question; otherwise null.',
+    '- Otherwise "unanswered" is null: anything about this family\'s own child, fees, results or records, a complaint, a request, a leave application, a greeting or thanks.',
     "",
     "OTHER FIELDS",
     '- "child": the key of the child the message is about, exactly as in FACTS, or null.',
@@ -148,8 +170,8 @@ function childLines(child: ChildFacts): string[] {
   return lines;
 }
 
-/** FACTS, as Claude reads it. */
-export function factsText(family: Family, now: Date): string {
+/** FACTS, as Claude reads it: this family's records, the calendar, and what the school has taught the helper. */
+export function factsText(family: Family, now: Date, knowledge: SchoolKnowledge = NO_KNOWLEDGE): string {
   const india = new Date(now.getTime() + 330 * 60_000);
   const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][india.getUTCDay()];
   const time = india.toISOString().slice(11, 16);
@@ -162,16 +184,24 @@ export function factsText(family: Family, now: Date): string {
     }
   }
   lines.push(events.size > 0 ? `SCHOOL CALENDAR, next 30 days: ${[...events.values()].join("; ")}.` : "SCHOOL CALENDAR, next 30 days: nothing listed.");
+  lines.push(...knowledgeLines(knowledge));
   if (family.practice) lines.push("NOTE: these are practice records for testing; answer exactly as you would for a real family.");
   return lines.join("\n");
 }
 
 /** The user turn: the facts, the parent's language so far, and the message, fenced. */
-export function helperUserText(input: { family: Family; text: string; language: HelperLanguage; firstContact: boolean; now: Date }): string {
+export function helperUserText(input: {
+  family: Family;
+  text: string;
+  language: HelperLanguage;
+  firstContact: boolean;
+  now: Date;
+  knowledge?: SchoolKnowledge;
+}): string {
   const message = input.text.replace(/[«»]/g, '"').slice(0, 2000);
   return [
     "FACTS",
-    factsText(input.family, input.now),
+    factsText(input.family, input.now, input.knowledge),
     "",
     `The parent's language so far: ${input.language}.`,
     input.firstContact ? `This is the first message from this number: begin with one short line saying who you are.` : "",
