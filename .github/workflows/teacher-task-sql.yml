@@ -31,6 +31,8 @@ jobs:
           node tests/sql/teacher-task-credential-regressions.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
       - name: Exercise certificate requests (ask, approve and sign, decline, download)
         run: node tests/sql/certificate-requests.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+      - name: Exercise Link my WhatsApp (codes, the link, test numbers, grants)
+        run: node tests/sql/staff-whatsapp-link.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
   lock-order:
     runs-on: ubuntu-latest
     timeout-minutes: 5

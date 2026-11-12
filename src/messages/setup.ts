@@ -558,6 +558,10 @@ export const staffWhatsappMessages = {
   viaForm: t("कागज़ के फ़ॉर्म से", "on the paper form"),
   viaSelf: t("स्वयं", "by themselves"),
   viaAdmin: t("प्रशासक ने दर्ज किया", "recorded by an admin"),
+  staffNoNumber: t(
+    "अभी WhatsApp नंबर नहीं है। वे 'मेरी प्रोफ़ाइल' या 'आपकी सेटिंग' में 'मेरा WhatsApp जोड़ें' से ख़ुद जोड़ सकते हैं।",
+    "No WhatsApp number yet. They can link their own with Link my WhatsApp, on My profile or Your settings.",
+  ),
   staffTitle: t("WhatsApp की हामी", "WhatsApp consent"),
   staffHelp: t(
     "प्रशिक्षण में भरे फ़ॉर्म या सामने ली गई हामी यहाँ दर्ज करें। बिना हामी के कोई WhatsApp नहीं जाता।",

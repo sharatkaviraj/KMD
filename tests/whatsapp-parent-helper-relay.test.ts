@@ -20,6 +20,7 @@ import {
   openHandoff,
   relayFromMessages,
   runDueHandoffs,
+  reachOf,
   runHandoffStep,
   type RelayDeps,
 } from "@/modules/whatsapp/data/helper-relay";
@@ -68,9 +69,9 @@ const aarav = childFactsFromRow({
   calendar: [],
 }) as ChildFacts;
 
-const teacher: Person = { staffId: TEACHER_ID, name: "TEST Teacher One", role: "teacher", e164: TEACHER_PHONE, language: "en", isClassTeacher: true };
-const admin: Person = { staffId: ADMIN_ID, name: "TEST Admin", role: "admin", e164: ADMIN_PHONE, language: "hi", isClassTeacher: false };
-const accountant: Person = { staffId: ACCOUNTANT_ID, name: "TEST Accountant", role: "accountant", e164: null, language: "en", isClassTeacher: false };
+const teacher: Person = { staffId: TEACHER_ID, name: "TEST Teacher One", role: "teacher", e164: TEACHER_PHONE, consented: true, language: "en", isClassTeacher: true };
+const admin: Person = { staffId: ADMIN_ID, name: "TEST Admin", role: "admin", e164: ADMIN_PHONE, consented: true, language: "hi", isClassTeacher: false };
+const accountant: Person = { staffId: ACCOUNTANT_ID, name: "TEST Accountant", role: "accountant", e164: null, consented: false, language: "en", isClassTeacher: false };
 
 function template(key: string, status = "approved"): TemplateRow {
   const blanks = key.includes("staff") ? 4 : 2;
@@ -356,6 +357,33 @@ describe("a hand-off reaches the person it is for", () => {
     expect(templateOf(w.sent[0]!)).toBe("vpps_staff_parent_question_hi_v1");
   });
 
+  it("a number on file is not a yes: someone who never agreed, or stopped, is noted and sent nothing (D-583)", async () => {
+    const { deps, w } = world({ people: [{ ...teacher, consented: false }] });
+    await openHandoff(openInput(), deps);
+    expect(w.sent).toEqual([]);
+    expect(w.alerts).toEqual([expect.objectContaining({ staffId: TEACHER_ID, toE164: null, status: "skipped", reason: "no_consent" })]);
+    // Nobody to tell and not a complaint: it stays with the office in Messages.
+    expect(w.handoffs.get("h1")).toMatchObject({ nextAction: null, nextActionAt: null });
+  });
+
+  it("a complaint whose class teacher never said yes goes straight up to an admin", async () => {
+    const { deps, w } = world({ people: [{ ...teacher, consented: false }] });
+    await openHandoff(openInput({ topic: "complaint" }), deps);
+    expect(w.handoffs.get("h1")).toMatchObject({ complaint: true, nextAction: "pass_up" });
+    await runHandoffStep("h1", deps);
+    expect(w.alerts.map((alert) => [alert.staffId, alert.status, alert.reason])).toEqual([
+      [TEACHER_ID, "skipped", "no_consent"],
+      [ADMIN_ID, "sent", null],
+    ]);
+  });
+
+  it("practice asks no yes of the test account: the owner's number stands in for it", async () => {
+    const { deps, w } = world({ people: [{ ...teacher, e164: null, consented: false }], switches: TODAY });
+    w.chats.set(OWNER, new Date(NOON.getTime() - 60_000).toISOString());
+    await openHandoff(openInput({ practice: true }), deps);
+    expect(w.alerts).toEqual([expect.objectContaining({ staffId: TEACHER_ID, toE164: OWNER, status: "sent" })]);
+  });
+
   it("practice mode or the helper switched off: nothing is sent and nothing more is planned", async () => {
     const { deps, w } = world({ switches: switches({ dryRun: true }) });
     await openHandoff(openInput(), deps);
@@ -549,5 +577,18 @@ describe("an answer typed in One's Messages", () => {
       expect(w.answers).toHaveLength(0);
       expect(w.sent).toHaveLength(0);
     }
+  });
+});
+
+describe("who an alert can reach (D-583)", () => {
+  it("their own number, only with their yes", () => {
+    expect(reachOf(teacher, false, OWNER)).toEqual({ to: TEACHER_PHONE, why: null });
+    expect(reachOf({ ...teacher, consented: false }, false, OWNER)).toEqual({ to: null, why: "no_consent" });
+    expect(reachOf({ ...teacher, e164: null }, false, OWNER)).toEqual({ to: null, why: "no_number" });
+  });
+
+  it("practice: the owner's number, whatever the test account has", () => {
+    expect(reachOf({ ...teacher, e164: null, consented: false }, true, OWNER)).toEqual({ to: OWNER, why: null });
+    expect(reachOf(teacher, true, null)).toEqual({ to: null, why: "no_number" });
   });
 });

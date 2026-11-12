@@ -74,7 +74,9 @@ import { finishTurn, readChat, readHelperSettings, saveChat, startTurn, type Tur
  *    helper passed on goes back the same way.
  *
  * Every message still passes `checkWhatsAppSend`: practice mode, the helper's
- * switch, and the owner-only rule while real recipients are off. A practice
+ * switch, and the owner-only rule while real recipients are off. A member of
+ * staff is told only when they said yes to WhatsApp from the school app and
+ * have not stopped it (`reachOf`, D-583). A practice
  * hand-off (the owner's test number standing for test children) tells only the
  * owner's number, in place of the test account it is for.
  */
@@ -184,6 +186,22 @@ function practiceNumber(switches: WhatsAppSwitches | null): string | null {
   return toE164(switches?.ownerTestNumber ?? "");
 }
 
+/** Where one person's alert goes, or why it cannot go. */
+export type Reach = { to: string; why: null } | { to: null; why: "no_number" | "no_consent" };
+
+/**
+ * Practice: the owner's number, standing in for the test account. Otherwise
+ * the person's own WhatsApp, and only with their yes (D-583): a number on file
+ * is not a consent. They give it by linking their WhatsApp from their phone
+ * (D-582), on Preferences, or on the form the office records.
+ */
+export function reachOf(person: Person, practice: boolean, owner: string | null): Reach {
+  if (practice) return owner ? { to: owner, why: null } : { to: null, why: "no_number" };
+  if (!person.e164) return { to: null, why: "no_number" };
+  if (!person.consented) return { to: null, why: "no_consent" };
+  return { to: person.e164, why: null };
+}
+
 /**
  * One person told about a hand-off: typed while their chat with the school is
  * open, the approved staff template otherwise. The alert is written down with
@@ -192,20 +210,21 @@ function practiceNumber(switches: WhatsAppSwitches | null): string | null {
 async function alertPerson(input: {
   handoff: Handoff;
   person: Person;
-  to: string | null;
+  reach: Reach;
   kind: AlertKind;
   helperName: string;
   ctx: Shared;
   deps: RelayDeps;
 }): Promise<AlertOutcome> {
-  const { handoff, person, to, kind, helperName, ctx, deps } = input;
+  const { handoff, person, reach, kind, helperName, ctx, deps } = input;
+  const to = reach.to;
   const record = (outcome: AlertOutcome, write: Omit<AlertRecord, "handoffId" | "staffId" | "toE164" | "kind">) =>
     deps
       .insertAlert({ handoffId: handoff.id, staffId: person.staffId, toE164: to, kind, ...write })
       .then(() => outcome)
       .catch(() => outcome);
 
-  if (!to) return record("not_sent", { via: null, status: "skipped", reason: "no_number", messageId: null });
+  if (!to) return record("not_sent", { via: null, status: "skipped", reason: reach.why ?? "no_number", messageId: null });
 
   const words: AlertWords = {
     kind,
@@ -307,12 +326,13 @@ export async function runHandoffStep(id: string, deps: RelayDeps): Promise<StepO
   const tellable = handoff.practice ? people.slice(0, 1) : people;
   const helperName = await deps.readHelperName().catch(() => "Veer Patta AI");
   const outcomes: AlertOutcome[] = [];
+  let reachable = 0;
   for (const person of tellable) {
-    const to = handoff.practice ? owner : person.e164;
-    outcomes.push(await alertPerson({ handoff, person, to, kind: ALERT_KIND[action], helperName, ctx, deps }));
+    const reach = reachOf(person, handoff.practice, owner);
+    if (reach.to) reachable += 1;
+    outcomes.push(await alertPerson({ handoff, person, reach, kind: ALERT_KIND[action], helperName, ctx, deps }));
   }
   const told = outcomes.filter((outcome) => outcome === "sent").length;
-  const reachable = tellable.filter((person) => (handoff.practice ? owner : person.e164)).length;
 
   const after: HandoffState = {
     target: handoff.target,
@@ -330,7 +350,7 @@ export async function runHandoffStep(id: string, deps: RelayDeps): Promise<StepO
     // Switched off or in practice mode: the message stays in Messages, and nothing more is sent about it.
     next = null;
   } else if (reachable === 0) {
-    // Nobody to tell here. A complaint goes straight up; anything else stays with the office in Messages.
+    // Nobody to tell here (no number, or no yes). A complaint goes straight up; anything else stays with the office in Messages.
     next = level === 0 && canPassUp(handoff.target, handoff.complaint) ? { action: "pass_up", at: ctx.now } : null;
   } else {
     next = nextStep(after, action, ctx.now);

@@ -20,6 +20,10 @@ import { dayLabel } from "@/platform/dates";
 import { readNoticePrefs, readStaffConsent } from "@/modules/staff-notices/data/consent";
 import { KINDS, STAFF_MESSAGE_KINDS } from "@/modules/staff-notices/domain/kinds";
 
+import { loadWhatsappLink } from "@/modules/whatsapp/data/staff-link";
+import { staffLanguage } from "@/modules/whatsapp/domain/helper-handoff";
+import { LinkWhatsapp } from "@/vx/ui/link-whatsapp";
+
 import { aiConnectionMessages } from "@/messages/ai-connection";
 import { loadAiConnectionCard } from "@/modules/mcp/data/card";
 import { AiConnectionCard } from "@/modules/mcp/ui/connection-card";
@@ -83,11 +87,14 @@ export default async function PreferencesPage() {
   const current = resolveStart(staff.role, staff.preferredStart)?.value ?? "";
 
   // WhatsApp from the school app (go-live Phase F): their own consent and switches.
-  const [consent, prefs, aiCard] = await Promise.all([
+  const lookOnly = Boolean(staff.viewedBy);
+  const [consent, prefs, aiCard, link] = await Promise.all([
     readStaffConsent(staff.id),
     readNoticePrefs(staff.id),
     // The AI connection card (plan §8.1): eligible staff only; a failed read hides it rather than guessing a state.
     loadAiConnectionCard(staff).catch(() => null),
+    // Link my WhatsApp (D-582): yes from their own phone, which replaces the yes/stop buttons.
+    loadWhatsappLink(staff.id, staffLanguage(staff.language), lookOnly).catch(() => null),
   ]);
   const consentDay = consent.state === "yes" ? consent.optInAt : consent.state === "opted_out" ? consent.optOutAt : null;
   const consentSince = consentDay ? dayLabel(consentDay.slice(0, 10)) : null;
@@ -124,6 +131,14 @@ export default async function PreferencesPage() {
             since={consentSince}
             hasNumber={consent.hasNumber}
             kinds={STAFF_MESSAGE_KINDS.map((kind) => ({ kind, label: KINDS[kind].label, enabled: prefs[kind] }))}
+            linkCard={
+              link?.card ? (
+                // The vx tokens for the card; a classic page's own are a different shape (UI-2).
+                <div className="vx lw-host">
+                  <LinkWhatsapp card={link.card} pending={link.pending} live={link.live} lookOnly={lookOnly} />
+                </div>
+              ) : undefined
+            }
           />
         </Card>
       </Section>

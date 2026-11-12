@@ -415,6 +415,37 @@ describe("step 2: hand-offs reach a person, and answers come back (D-578)", () =
   });
 });
 
+describe("Link my WhatsApp (D-582)", () => {
+  it("a member of staff sending their link code is handled before the parents' helper", async () => {
+    const staffLink = vi.fn(async () => ({ outcome: "answered" as const, route: "rule" as const, intent: "staff_link", handoff: null }));
+    const { deps, calls } = fakes({ staffLink });
+    const message = inbound({ from: STRANGER, text: "Hello! Please link my WhatsApp to VPPS One.\nCode: ABCD-2345" });
+    expect(await runHelperTurn(message, deps)).toEqual({ outcome: "answered", route: "rule", intent: "staff_link", handoff: null });
+    expect(staffLink).toHaveBeenCalledWith(message);
+    expect(calls.started).toEqual([]);
+    expect(calls.sent).toEqual([]);
+  });
+
+  it("a message with no code goes on as before", async () => {
+    const staffLink = vi.fn(async () => null);
+    expect(await runHelperTurn(inbound({ from: STRANGER }), fakes({ staffLink }).deps)).toEqual({ outcome: "skipped", reason: "unknown_number" });
+    expect(staffLink).toHaveBeenCalledTimes(1);
+  });
+
+  it("a link step that throws is an ordinary message, never a crash", async () => {
+    const staffLink = vi.fn(async () => {
+      throw new Error("down");
+    });
+    expect(await runHelperTurn(inbound({ text: "fees" }), fakes({ staffLink }).deps)).toMatchObject({ outcome: "answered", intent: "fees" });
+  });
+
+  it("an old message is never looked at for a code", async () => {
+    const staffLink = vi.fn(async () => null);
+    await runHelperTurn(inbound({ at: new Date(NOW.getTime() - 3_600_000).toISOString() }), fakes({ staffLink }).deps);
+    expect(staffLink).not.toHaveBeenCalled();
+  });
+});
+
 describe("when the reply cannot be sent", () => {
   it("sends plain words once when Meta refuses the buttons", async () => {
     const results: ProviderSendResult[] = [

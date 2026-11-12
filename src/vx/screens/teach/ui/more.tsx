@@ -15,6 +15,7 @@ import { useVx } from "@/vx/i18n";
 import { agoP, initials, shortDayHi, timeHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { FeedbackSwitches } from "@/vx/ui/feedback-switches";
+import { LinkWhatsapp } from "@/vx/ui/link-whatsapp";
 import { useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
@@ -690,6 +691,12 @@ export function TeachMore({
           {data.profile.subjects.map((s) => <span key={s} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: V("s3"), color: V("fg") }}>{subj(s)}</span>)}
         </div>
       </div>
+      {data.profile.whatsapp ? (
+        // Link my WhatsApp (D-582): parents' questions for them, and the school's work messages, on their own WhatsApp.
+        <div id="whatsapp" className="card" style={{ padding: "18px 18px 16px", scrollMarginTop: 80 }}>
+          <LinkWhatsapp card={data.profile.whatsapp.card} pending={data.profile.whatsapp.pending} live={data.profile.whatsapp.live} lookOnly={data.profile.lookOnly} />
+        </div>
+      ) : null}
       <div className="card" style={{ padding: "6px 18px", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "14px 0" }}>
           <span className="tc-ibx" style={{ width: 40, height: 40, background: "var(--accs)", color: "var(--accfg)" }}><Ic n="globe" /></span>

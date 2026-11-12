@@ -1,5 +1,6 @@
 import "server-only";
 
+import { hasConsent } from "@/modules/staff-notices/domain/gates";
 import {
   MAX_PEOPLE_PER_ALERT,
   peopleFor,
@@ -227,6 +228,8 @@ export type Person = {
   role: string;
   /** Their WhatsApp number, or null when One has none for them. */
   e164: string | null;
+  /** They said yes to WhatsApp from the school app (linked from their phone, Preferences, the form) and have not stopped it (D-583). */
+  consented: boolean;
   language: StaffLanguage;
   isClassTeacher: boolean;
 };
@@ -241,9 +244,12 @@ type StaffRow = {
   preferred_language: string | null;
   is_active: boolean;
   is_test_account: boolean | null;
+  whatsapp_opt_in_at: string | null;
+  whatsapp_opt_out_at: string | null;
 };
 
-const STAFF_COLUMNS = "id, display_name, short_name, role, phone, whatsapp_phone, preferred_language, is_active, is_test_account";
+const STAFF_COLUMNS =
+  "id, display_name, short_name, role, phone, whatsapp_phone, preferred_language, is_active, is_test_account, whatsapp_opt_in_at, whatsapp_opt_out_at";
 
 function personFrom(row: StaffRow, isClassTeacher: boolean): Person {
   return {
@@ -251,6 +257,7 @@ function personFrom(row: StaffRow, isClassTeacher: boolean): Person {
     name: (row.display_name ?? row.short_name ?? "").trim().slice(0, 80) || "-",
     role: row.role,
     e164: toE164(row.whatsapp_phone ?? "") ?? toE164(row.phone ?? ""),
+    consented: hasConsent({ optInAt: row.whatsapp_opt_in_at, optOutAt: row.whatsapp_opt_out_at }) === "yes",
     language: staffLanguage(row.preferred_language),
     isClassTeacher,
   };
