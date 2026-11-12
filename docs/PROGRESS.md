@@ -188,10 +188,13 @@ screen in One. Until the hub is deployed One's calls get "not found" and
 nothing happens: the nightly job's own call, run once by hand at 16:40 UTC,
 reached the live route with its Vault secret and answered `hub_not_ready`
 with no month moved.
-**Remains:** the hub deploy on the owner's PC (`git pull`, then
-`npm run deploy` in the hub folder, which applies its migration 0005 first),
-then a practice run with the helper on, the owner sending a photo from his
-own number, which needs his typed OK. **Surprised:** the hub cannot reach
+Hub PR 6 merged 12 Nov 17:10 UTC (`1d00950`) on the owner's yes, and he
+deployed it from his PC at 17:12 UTC: `/health` reads
+`2026-11-12.parent-files` and the hub's database has migration 0005. Checked
+from One's own jobs right after: the archive call answered `nothing_due`, and
+the file sweep answered `off`, because the helper is still switched off.
+**Remains:** a practice run with the helper on, the owner sending a photo
+from his own number, which needs his typed OK. **Surprised:** the hub cannot reach
 Drive at all, because Google trusts only One's production deployment; so
 every file goes hub → One → Drive, and the hub only keeps the link.
 
