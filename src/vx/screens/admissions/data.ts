@@ -1,9 +1,10 @@
 import "server-only";
 
+import { VISIT_NAME_NOT_GIVEN } from "@/modules/whatsapp/domain/helper-visit";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 
-import type { Stage } from "@/vx/screens/admissions/logic";
+import type { Stage, VisitPart } from "@/vx/screens/admissions/logic";
 
 /*
  * VPPS One's own admissions records (`vppsone` schema): the enquiry board,
@@ -25,6 +26,11 @@ export type Enquiry = {
   studentId: string | null;
   createdAt: string;
   stageChangedAt: string;
+  /** The day the family asked to come and see the school, with its part (D-592); null when none. */
+  visitOn: string | null;
+  visitPart: VisitPart | null;
+  /** office: typed in here. whatsapp: booked by the family with Veer Patta AI. */
+  source: "office" | "whatsapp";
 };
 
 type EnquiryRow = {
@@ -37,25 +43,35 @@ type EnquiryRow = {
   student_id: string | null;
   created_at: string;
   stage_changed_at: string;
+  visit_on: string | null;
+  visit_part: string | null;
+  source: string | null;
 };
+
+const ENQUIRY_COLUMNS = "id, stage, child_name, class_label, parent_name, phone, student_id, created_at, stage_changed_at, visit_on, visit_part, source";
 
 const toEnquiry = (r: EnquiryRow): Enquiry => ({
   id: r.id,
   stage: r.stage as Enquiry["stage"],
-  childName: r.child_name,
+  // A family that booked on WhatsApp without giving the name: the row keeps a
+  // dash (the name is required), the screens show "Name not given".
+  childName: r.child_name === VISIT_NAME_NOT_GIVEN ? "" : r.child_name,
   classLabel: r.class_label,
   parentName: r.parent_name,
   phone: r.phone,
   studentId: r.student_id,
   createdAt: r.created_at,
   stageChangedAt: r.stage_changed_at,
+  visitOn: r.visit_on && r.visit_part ? String(r.visit_on).slice(0, 10) : null,
+  visitPart: r.visit_on && (r.visit_part === "morning" || r.visit_part === "afternoon") ? r.visit_part : null,
+  source: r.source === "whatsapp" ? "whatsapp" : "office",
 });
 
 export async function listEnquiries(sessionLabel: string): Promise<Enquiry[]> {
   await assertPermission("fees:manage");
   const { data, error } = await createAdminClient()
     .from("enquiries")
-    .select("id, stage, child_name, class_label, parent_name, phone, student_id, created_at, stage_changed_at")
+    .select(ENQUIRY_COLUMNS)
     .eq("session_label", sessionLabel)
     .neq("stage", "closed")
     .order("stage_changed_at", { ascending: false })
@@ -68,7 +84,7 @@ export async function getEnquiry(id: string): Promise<Enquiry | null> {
   await assertPermission("fees:manage");
   const { data, error } = await createAdminClient()
     .from("enquiries")
-    .select("id, stage, child_name, class_label, parent_name, phone, student_id, created_at, stage_changed_at")
+    .select(ENQUIRY_COLUMNS)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`Could not read the enquiry: ${error.message}`);

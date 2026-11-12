@@ -4,13 +4,13 @@ import { segmentCount } from "@/modules/students-fees/domain/student-segments";
 import { loadAdmissionsFeeContext, loadAdmissionsRosterContext, loadRecentAdmissions } from "@/modules/students-fees/vx/admissions";
 import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
-import { shortDay, schoolToday } from "@/vx/format";
+import { shortDay, shortDayP, schoolToday } from "@/vx/format";
 import { getViewer } from "@/vx/view-as";
 import { can } from "@/platform/auth/permissions";
 
 import { AdmissionsListScreen, type AdmittedCard, type BoardCard, type DocState, type Kpis, type RecentRow } from "@/vx/screens/admissions/board";
 import { listEnquiries, loadAdmissionDetails, loadSeats } from "@/vx/screens/admissions/data";
-import { daysSince, usualAgeFor, type Stage } from "@/vx/screens/admissions/logic";
+import { daysSince, usualAgeFor, visitWhen, type Stage } from "@/vx/screens/admissions/logic";
 
 export const runtime = "nodejs";
 
@@ -47,15 +47,21 @@ export default async function AdmissionsPage() {
   const now = new Date();
   const today = schoolToday(now);
   const open = enquiries.filter((e) => e.stage !== "admitted" && e.stage !== "closed");
-  const cards: BoardCard[] = open.map((e) => ({
-    id: e.id,
-    stage: e.stage as Stage,
-    name: e.childName,
-    classLabel: e.classLabel ?? "—",
-    parent: e.parentName ?? "—",
-    phone: e.phone,
-    days: daysSince(e.stageChangedAt, now),
-  }));
+  const cards: BoardCard[] = open.map((e) => {
+    const when = visitWhen(e.visitOn, today);
+    return {
+      id: e.id,
+      stage: e.stage as Stage,
+      name: e.childName,
+      classLabel: e.classLabel ?? "—",
+      parent: e.parentName ?? "—",
+      phone: e.phone,
+      days: daysSince(e.stageChangedAt, now),
+      // A school visit booked on WhatsApp (D-592, D-593): the card says when.
+      visit: when && e.visitOn && e.visitPart ? { when, day: shortDayP(e.visitOn), part: e.visitPart } : null,
+      fromWhatsApp: e.source === "whatsapp",
+    };
+  });
 
   const recentRows: RecentRow[] = recent.recent.map((r) => {
     const docs = details.get(r.id)?.docs ?? {};

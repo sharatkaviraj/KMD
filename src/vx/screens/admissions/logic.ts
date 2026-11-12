@@ -250,6 +250,22 @@ export function needsCallBack(stage: Stage, days: number): boolean {
   return stage !== "admitted" && days >= 7;
 }
 
+export type VisitPart = "morning" | "afternoon";
+export type VisitWhen = "today" | "tomorrow" | "later" | "passed";
+
+/**
+ * When a family's school visit falls, for the card's visit chip (D-593):
+ * today and tomorrow by name, a later day by its date, and a day gone by as
+ * passed, so the office can see who has not come. Both days are ISO dates;
+ * null when no visit was asked for.
+ */
+export function visitWhen(visitOn: string | null | undefined, today: string): VisitWhen | null {
+  if (!visitOn || !/^\d{4}-\d{2}-\d{2}$/.test(visitOn)) return null;
+  if (visitOn === today) return "today";
+  if (visitOn < today) return "passed";
+  return visitOn === shiftIso(today, 1) ? "tomorrow" : "later";
+}
+
 /* --------------------------------------------------------------- withdraw */
 
 export const WITHDRAW_REASONS = ["town", "school", "fees", "other"] as const;

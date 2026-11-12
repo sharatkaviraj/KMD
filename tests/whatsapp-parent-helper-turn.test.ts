@@ -28,6 +28,7 @@ import type { HelperAnswer } from "@/modules/whatsapp/domain/helper-ai";
 import { NO_KNOWLEDGE, type LessonNote, type SchoolKnowledge } from "@/modules/whatsapp/domain/helper-lessons";
 import { childFactsFromRow, type ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import { EMPTY_CHAT, type ChatPatch, type ChatState } from "@/modules/whatsapp/domain/helper-plan";
+import type { VisitCalendar } from "@/modules/whatsapp/domain/helper-visit";
 import type { WhatsAppConfig } from "@/platform/whatsapp/config";
 import type { WhatsAppSwitches } from "@/platform/whatsapp/policy";
 import type { ClaimResult, ProviderSendResult } from "@/platform/whatsapp/providers";
@@ -865,5 +866,81 @@ describe("several messages in one delivery", () => {
     expect(logged).not.toContain("9000000001");
     // A stranger's message is not even logged: most of the school's chats are not One's.
     expect(logged).not.toContain("1111111");
+  });
+});
+
+/* ------------------------------------------------- a school visit (D-592) */
+
+describe("a school visit booked on WhatsApp (D-592)", () => {
+  const OPEN: VisitCalendar = { today: "2026-11-12", kinds: new Map() };
+  /** Monday morning picked, the name and class not yet typed. */
+  const WAITING: ChatState = { ...RETURNING, awaiting: "visit:20261116am", awaitingUntil: new Date(NOW.getTime() + 20 * 60_000).toISOString() };
+  const rowIdsOf = (body: Record<string, unknown> | undefined): string[] =>
+    ((body?.interactive as { action?: { sections?: Array<{ rows: Array<{ id: string }> }> } } | undefined)?.action?.sections ?? []).flatMap((section) => section.rows.map((row) => row.id));
+
+  it("reads the family's own calendar only when the days may be shown", async () => {
+    const readVisitCalendar = vi.fn(async () => OPEN);
+    const { deps, calls } = fakes({ readVisitCalendar });
+    expect(await runHelperTurn(inbound({ text: "admission" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "visit", handoff: null });
+    expect(readVisitCalendar).toHaveBeenCalledExactlyOnceWith("TEST-2026-27", "2026-11-12");
+    expect(rowIdsOf(calls.sent[0]).slice(0, 2)).toEqual(["vpai:visit_day:20261113", "vpai:visit_day:20261114"]);
+    await runHelperTurn(inbound({ providerMessageId: "wamid.TEST2", text: "fees" }), deps);
+    expect(readVisitCalendar).toHaveBeenCalledTimes(1);
+  });
+
+  it("says a visit cannot be booked here when the calendar cannot be read, and never stops answering", async () => {
+    const { deps, calls } = fakes({ readVisitCalendar: async () => Promise.reject(new Error("down")) });
+    expect(await runHelperTurn(inbound({ text: "admission" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "visit_closed", handoff: null });
+    expect(bodyText(calls.sent[0])).toContain("a visit cannot be booked here just now");
+  });
+
+  it("puts the booking on the Admissions board once the office has it in Messages", async () => {
+    const kept: unknown[] = [];
+    const { deps, calls } = fakes({
+      readChat: async () => WAITING,
+      saveVisit: async (row) => {
+        kept.push({ row, handoffsBefore: calls.handoffs.length });
+        return true;
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "Riya, class 3" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "visit_booked", handoff: "office" });
+    expect(kept).toEqual([
+      {
+        row: {
+          sessionLabel: "TEST-2026-27",
+          booking: { day: "2026-11-16", part: "morning", childName: "Riya", classLabel: "Class 3" },
+          parentName: "TEST Parent",
+          fromE164: OWNER,
+          parentReplyId: REPLY_ID,
+        },
+        handoffsBefore: 1,
+      },
+    ]);
+    expect(calls.picked[0]).toEqual(["office", null, "TEST-2026-27"]);
+    expect(calls.handoffs[0]).toMatchObject({ studentId: null, studentLabel: null, regarding: "Veer Patta AI · visit: Mon 16 Nov morning · Riya, Class 3" });
+    expect(calls.handoffs[0].body).toContain("अभिभावक / Parent: “Riya, class 3”");
+    expect(bodyText(calls.sent[0])).toContain("Your visit request has been passed to the school office");
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered", handoff: "office", parentReplyId: REPLY_ID, reason: null });
+    expect(calls.saved.at(-1)?.[1]).toMatchObject({ awaiting: null, awaitingUntil: null });
+  });
+
+  it.each<[string, Partial<HelperDeps>]>([
+    ["could not be written", { saveVisit: async () => false }],
+    ["threw", { saveVisit: async () => Promise.reject(new Error("down")) }],
+    ["has nowhere to go", { saveVisit: undefined }],
+  ])("still tells the family the office has it when the board entry %s, and says so in the ledger", async (_label, over) => {
+    const { deps, calls } = fakes({ readChat: async () => WAITING, ...over });
+    expect(await runHelperTurn(inbound({ text: "Riya, class 3" }), deps)).toMatchObject({ outcome: "answered", intent: "visit_booked", handoff: "office" });
+    expect(bodyText(calls.sent[0])).toContain("Your visit request has been passed to the school office");
+    expect(calls.finished[0][1]).toMatchObject({ handoff: "office", parentReplyId: REPLY_ID, reason: "visit_not_saved" });
+  });
+
+  it("keeps nothing on the board when the request itself could not be passed on", async () => {
+    const saveVisit = vi.fn(async () => true);
+    const { deps, calls } = fakes({ readChat: async () => WAITING, insertHandoff: async () => null, saveVisit });
+    expect(await runHelperTurn(inbound({ text: "Riya, class 3" }), deps)).toMatchObject({ outcome: "answered", intent: "visit_booked", handoff: null });
+    expect(saveVisit).not.toHaveBeenCalled();
+    expect(bodyText(calls.sent[0])).toContain("could not be passed on just now");
+    expect(calls.finished[0][1]).toMatchObject({ reason: "handoff_not_saved" });
   });
 });

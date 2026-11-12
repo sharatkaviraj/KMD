@@ -171,6 +171,7 @@ const TOPIC_WORDS: Record<string, Pair> = {
   complaint: { hi: "शिकायत", en: "Complaint" },
   request: { hi: "अनुरोध", en: "Request" },
   admission: { hi: "प्रवेश", en: "Admission" },
+  visit: { hi: "स्कूल देखने आना", en: "School visit" },
   message_teacher: { hi: "कक्षा अध्यापक के लिए संदेश", en: "Message for the class teacher" },
   office: { hi: "ऑफ़िस के लिए संदेश", en: "Message for the office" },
   [NOT_HELPED_TOPIC]: { hi: "जवाब से मदद नहीं हुई", en: "The answer did not help" },
@@ -303,6 +304,7 @@ const ABOUT_WORDS: Record<string, Pair> = {
   leave: { hi: "छुट्टी", en: "leave" },
   complaint: { hi: "शिकायत", en: "your complaint" },
   admission: { hi: "प्रवेश", en: "admission" },
+  visit: { hi: "स्कूल देखने आने", en: "your visit to the school" },
   [NOT_HELPED_TOPIC]: { hi: "आपके सवाल", en: "your question" },
 };
 

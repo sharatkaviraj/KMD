@@ -9,6 +9,7 @@ import {
   MAX_MESSAGE_AGE_MINUTES,
   MAX_TURNS_PER_NUMBER_PER_DAY,
   isLateHour,
+  needsVisitCalendar,
   planTurn,
   practiceIdsFor,
   type ChatPatch,
@@ -28,6 +29,8 @@ import {
 } from "@/modules/whatsapp/domain/helper-replies";
 import { NOT_HELPED_TOPIC, isAcknowledgement } from "@/modules/whatsapp/domain/helper-handoff";
 import { messageKind, readTap, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
+import type { VisitCalendar } from "@/modules/whatsapp/domain/helper-visit";
+import { schoolToday } from "@/platform/dates";
 import { logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
 import { maskNumber } from "@/platform/whatsapp/numbers";
@@ -48,6 +51,7 @@ import {
   type RateResult,
 } from "./helper-relay";
 import { handleStaffCommand, liveStaffHelperDeps } from "./staff-helper";
+import { readVisitCalendar, saveVisitEnquiry, type VisitRow } from "./helper-visit";
 import { handleStaffLink, liveStaffLinkDeps } from "./staff-link";
 import {
   finishTurn,
@@ -148,6 +152,10 @@ export type HelperDeps = {
   readKnowledge?: (practice: boolean) => Promise<SchoolKnowledge | null>;
   /** An answer's note on the "teach it once" list; the lesson it landed on, or null. */
   noteLesson?: (note: LessonNote, practice: boolean, topic: string | null) => Promise<string | null>;
+  /** The calendar a school visit's days come from (D-592); null when unreadable. */
+  readVisitCalendar?: (sessionLabel: string, today: string) => Promise<VisitCalendar | null>;
+  /** A school visit, kept as an enquiry on the Admissions board (D-592); true when kept. */
+  saveVisit?: (row: VisitRow) => Promise<boolean>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -195,6 +203,8 @@ export function liveHelperDeps(): HelperDeps {
     saveAbsence: (row) => saveAbsenceNotes(row),
     readKnowledge: (practice) => readSchoolKnowledge(practice),
     noteLesson: (note, practice, topic) => noteLesson(note, practice, topic),
+    readVisitCalendar: (sessionLabel, today) => readVisitCalendar(sessionLabel, today),
+    saveVisit: (row) => saveVisitEnquiry(row),
   };
 }
 
@@ -293,7 +303,7 @@ async function compose(input: {
       fromPhone: message.from,
       studentId: handoff.child?.studentId ?? null,
       studentLabel: handoff.child ? [handoff.child.firstName, handoff.child.className].filter(Boolean).join(" · ") : null,
-      regarding: handoffRegarding(settings.helperName, handoff.topic, claude?.answer?.summary ?? null, handoff.body),
+      regarding: handoffRegarding(settings.helperName, handoff.topic, claude?.answer?.summary ?? handoff.summary ?? null, handoff.body),
       body: handoff.body,
       receivedAt: new Date(input.sentAt).toISOString(),
       assignedStaffId: staffId,
@@ -323,6 +333,17 @@ async function compose(input: {
         reply = { ...reply, message: away.unsaved };
         note = "absence_not_saved";
       }
+    }
+    // A school visit: on the Admissions board once the office has it in Messages (D-592).
+    // The parent was told the office has it, which stays true when the board could not take it.
+    const visit = handoff.visit;
+    if (parentReplyId && visit) {
+      const kept = deps.saveVisit
+        ? await deps
+            .saveVisit({ sessionLabel: anchor.sessionLabel, booking: visit, parentName: message.fromName ?? null, fromE164: message.from, parentReplyId })
+            .catch(() => false)
+        : false;
+      if (!kept) note = "visit_not_saved";
     }
   }
   return { reply, claude, parentReplyId, handedTo, note, followUp: null, lesson };
@@ -470,7 +491,12 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   const family: Family = { children, practice };
   const aiAvailable = deps.hasClaudeKey() && ai !== null && ai.enabled && budget.spentUsd < ai.monthlyBudgetUsd;
   const tap = kind === "tap" ? readTap(message.raw) : null;
-  const plan = planTurn({ kind, text: message.text, tap, chat, family, helperName: settings.helperName, now: started, aiAvailable });
+  // A school visit's days come from the family's own session's calendar (D-592), read only when they may be shown.
+  const visit =
+    needsVisitCalendar({ kind, text: message.text, tap }) && deps.readVisitCalendar
+      ? await deps.readVisitCalendar(children[0].sessionLabel, schoolToday(started)).catch(() => null)
+      : null;
+  const plan = planTurn({ kind, text: message.text, tap, chat, family, helperName: settings.helperName, now: started, aiAvailable, visit });
   if (plan.action === "skip") return skip(plan.reason);
 
   // 6. Not answered already, and the hub gives it to One.

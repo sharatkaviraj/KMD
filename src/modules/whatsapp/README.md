@@ -23,9 +23,10 @@ Fee reminders and the message templates behind them.
 - Both WhatsApp webhooks (`data/whatsapp-webhook.ts`): Meta's and the hub's
 - Veer Patta AI, the helper that answers parents on the school's number,
   and its hand-offs to staff and their answers back
-  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584, D-588..D-590), and
-  the teachers' own helper (`domain/staff-helper.ts`, `data/staff-helper.ts`,
-  D-591); see below
+  (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584, D-588..D-590), the
+  teachers' own helper (`domain/staff-helper.ts`, `data/staff-helper.ts`,
+  D-591), and a school visit booked on WhatsApp (`domain/helper-visit.ts`,
+  `data/helper-visit.ts`, D-592, D-593); see below
 - Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
   D-585..D-587): the code, its hash, the send through the hub. The page is
   `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
@@ -433,6 +434,18 @@ its own work, for messages from the hub only.
   person's own slots, cover, class register and hand-offs, in their own year
   (`sessionLabelForStaff`); *questions* re-sends the oldest three as
   `reminder` alerts with their message ids, so a swipe answers them.
+- **A school visit (D-592, D-593).** *admission*, the menu row or the
+  `vpai:visit` button under Claude's answer about admission starts it. The
+  turn reads the family's session calendar (`readVisitCalendar`) only when
+  `needsVisitCalendar` says the days may be shown; `visitDays` offers open
+  days from tomorrow, three weeks at most, and a tapped day is checked again
+  (`canVisitOn`). After morning or afternoon the chat waits 30 minutes for
+  the name and class (`awaiting = visit:<yyyymmdd><am|pm>`, allowed by the
+  chat table's check); `readVisitChild` reads them and the parent's words go
+  with them to the office as a hand-off. Only once the hand-off is in
+  Messages does `saveVisitEnquiry` put the visit on the Admissions board
+  (`vppsone.enquiries`, `source = whatsapp`, one per hand-off). The reply
+  never says the visit is confirmed: the office calls to fix the time.
 
 ## Never
 

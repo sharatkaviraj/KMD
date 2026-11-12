@@ -80,17 +80,47 @@ export type HelperIntent =
   | "results"
   | "teacher"
   | "office"
+  | "visit"
   | "thanks"
   | "stop";
 
 export const HELPER_INTENTS: readonly HelperIntent[] = [
-  "greeting", "menu", "fees", "receipts", "attendance", "results", "teacher", "office", "thanks", "stop",
+  "greeting", "menu", "fees", "receipts", "attendance", "results", "teacher", "office", "visit", "thanks", "stop",
 ];
 
 /** Longer than this, a message goes to Claude even when a rule would match. */
 export const RULE_MAX_WORDS = 5;
 
-type Rule = { intent: HelperIntent; patterns: RegExp[] };
+type Rule = {
+  intent: HelperIntent;
+  patterns: RegExp[];
+  /** Matched, but a question all the same: Claude reads it, and no later rule is tried. */
+  askClaudeIf?: (text: string) => boolean;
+};
+
+/**
+ * A question rather than a plain ask or an answer: a question mark, a
+ * question word, or something only a person can say (fees for a new child,
+ * documents, seats, the bus). "admission" starts a booking; "admission fees
+ * kitni hai" is a question for Claude.
+ */
+export const QUESTION_WORDS = [
+  "kya", "kab", "kitni", "kitna", "kitne", "kaise", "kaun", "kyu", "kyun", "kyon", "kahan", "what", "when", "how", "where", "which",
+  "why", "who", "fee", "fees", "fess", "document", "documents", "seat", "seats", "bus", "van", "transport", "timing", "timings", "uniform",
+  "क्या", "कब", "कितनी", "कितना", "कितने", "कैसे", "कौन", "क्यों", "कहाँ", "कहां", "फ़ीस", "फीस", "दस्तावेज़", "दस्तावेज", "दस्तावेज़ों",
+  "दस्तावेजों", "सीट", "सीटें",
+] as const;
+
+/** A whole word in either script: "कब" asks when, "कबीर" is a name. */
+const QUESTION = [
+  /[?？]/,
+  new RegExp(`(?:^|[^a-z\u0900-\u097f])(?:${QUESTION_WORDS.join("|")})(?=$|[^a-z\u0900-\u097f])`, "i"),
+];
+
+export function looksLikeQuestion(text: string | null | undefined): boolean {
+  const value = String(text ?? "");
+  return QUESTION.some((pattern) => pattern.test(value));
+}
 
 /**
  * In order: the first rule that matches wins. `stop` first, so "stop fees
@@ -101,6 +131,19 @@ const RULES: Rule[] = [
   {
     intent: "receipts",
     patterns: [/\b(receipts?|reciepts?|reciept|raseed|rasid|rashid)\b/i, /रसीद/],
+  },
+  // Before fees: "admission" is a visit to book (D-592), and a fee question about admission goes to Claude.
+  // "pravesh patra" / "प्रवेश पत्र" is an exam's admit card, not an admission.
+  {
+    intent: "visit",
+    patterns: [
+      /\b(admissions?|admision|admisson|addmission|dakhila|daakhila|dakhla)\b/i,
+      /\bpravesh\b(?!\s*patra)/i,
+      /\bschool\s+(visit|tour|dekhna|dekhne|dekhni|dikhana)\b/i,
+      /\b(visit|see)\s+(the\s+)?school\b/i,
+      /दाखिला|दाख़िला|दाखिले|दाख़िले|एडमिशन|प्रवेश(?!\s*पत्र)|स्कूल\s*देख/,
+    ],
+    askClaudeIf: looksLikeQuestion,
   },
   {
     intent: "fees",
@@ -156,7 +199,8 @@ export function ruleIntent(text: string | null | undefined): HelperIntent | null
   if (!value) return null;
   if (words(value).length > RULE_MAX_WORDS) return null;
   for (const rule of RULES) {
-    if (rule.patterns.some((pattern) => pattern.test(value))) return rule.intent;
+    if (!rule.patterns.some((pattern) => pattern.test(value))) continue;
+    return rule.askClaudeIf?.(value) ? null : rule.intent;
   }
   return null;
 }
@@ -177,11 +221,15 @@ export function isRatingValue(value: unknown): value is RatingValue {
   return value === "helped" || value === "not_helped";
 }
 
+/** A tap in the school-visit booking (D-592): a day from the list, then morning or afternoon. */
+export type VisitTap = "visit_day" | "visit_part";
+
 export type HelperTap = {
-  intent: HelperIntent | "message_teacher" | RatingValue;
+  intent: HelperIntent | "message_teacher" | VisitTap | RatingValue;
   /**
-   * The child a button is about (`childKey` in `helper-facts.ts`), or, on a
-   * "Did this answer help?" button, the hand-off it rates (`ratingKey`).
+   * The child a button is about (`childKey` in `helper-facts.ts`), on a
+   * "Did this answer help?" button the hand-off it rates (`ratingKey`), and
+   * on a visit's day or part, the day ("20261116") or the slot ("20261116am").
    */
   key: string | null;
 };
@@ -202,8 +250,9 @@ export function readTap(raw: Record<string, unknown> | null | undefined): Helper
   if (!match) return null;
   const intent = match[1];
   const key = match[2] ?? null;
-  // A rating always names the hand-off it rates; without one it rates nothing.
+  // A rating always names the hand-off it rates, and a visit's day or part its day; without one they say nothing.
   if (isRatingValue(intent)) return key ? { intent, key } : null;
+  if (intent === "visit_day" || intent === "visit_part") return key ? { intent, key } : null;
   if (intent !== "message_teacher" && !(HELPER_INTENTS as readonly string[]).includes(intent)) return null;
   return { intent: intent as HelperTap["intent"], key };
 }

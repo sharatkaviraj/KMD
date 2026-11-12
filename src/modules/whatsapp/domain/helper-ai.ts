@@ -4,10 +4,12 @@ import { formatInr } from "@/platform/helpers/currency";
 
 import { ABSENCE_REASONS, absenceNote } from "./helper-absence";
 import type { ChildFacts } from "./helper-facts";
+import type { HelperMessage } from "./helper-messages";
 import { knowledgeLines, NO_KNOWLEDGE, type SchoolKnowledge } from "./helper-lessons";
 import { childByKey, handoffReply, type TurnPlan } from "./helper-plan";
 import { aiAnswer, cardFor, fallbackReply, menuCard, OFFICE_PHONE, type Family, type HandoffTarget, type ReplyContext } from "./helper-replies";
 import type { HelperLanguage } from "./helper-text";
+import { withVisitButton } from "./helper-visit";
 
 /**
  * Claude's part in Veer Patta AI (D-574): what it is told, what it may
@@ -107,6 +109,7 @@ export function helperSystemPrompt(helperName: string): string {
     '- A complaint about the class teacher themselves, anything about safety, bullying, harassment or abuse, or a parent who asks for the principal or the management -> "principal".',
     '- Fees beyond what the card shows: a disputed amount, a payment that is not showing, a discount or concession, a refund, a request to waive the late fee, a fee complaint -> "accounts".',
     '- Admission, transfer certificate, documents, transport, timings, and anything else for the office -> "office".',
+    '- A family that wants a child admitted, or wants to come and see the school: topic "admission". A visit to the school can also be booked with the button sent under your reply; you may say so in a few words.',
     '- A question you can fully answer from FACTS and the cards -> "none".',
     'When you hand off, "reply" says in one sentence that you have understood. Do not say it has been sent or forwarded: the next line of the message says that. For a hand-off, "summary" is one line in English for the member of staff: what the parent wants, naming the child by first name only. Otherwise "summary" is null.',
     "",
@@ -226,10 +229,13 @@ export function planFromAnswer(
   const away = child ? absenceNote(answer.absence, input.now) : null;
   const target: HandoffTarget | "none" = answer.handoff !== "none" ? answer.handoff : away ? "class_teacher" : "none";
 
+  // Anything about admission carries the button that books a visit (D-592).
+  const admission = (message: HelperMessage) => (answer.topic === "admission" ? withVisitButton(message, language) : message);
+
   if (target !== "none") {
     const topic = answer.handoff !== "none" ? answer.topic : "leave";
     const handed = handoffReply(context, target, child, input.text, topic, input.now, words || null, away);
-    return { action: "reply", intent: topic, route: "ai", language, message: handed.message, chat: { language }, handoff: handed.handoff };
+    return { action: "reply", intent: topic, route: "ai", language, message: admission(handed.message), chat: { language }, handoff: handed.handoff };
   }
   if (!words) {
     return { action: "reply", intent: "fallback", route: "fallback", language, message: fallbackReply(context), chat: { language }, handoff: null };
@@ -240,7 +246,7 @@ export function planFromAnswer(
       : answer.show === "menu"
         ? menuCard(context, false)
         : cardFor(answer.show, context, named ? [named] : input.family.children);
-  return { action: "reply", intent: answer.topic, route: "ai", language, message: aiAnswer(context, words, card), chat: { language }, handoff: null };
+  return { action: "reply", intent: answer.topic, route: "ai", language, message: admission(aiAnswer(context, words, card)), chat: { language }, handoff: null };
 }
 
 /** A one-line note for the member of staff, from Claude's summary or the parent's own words. */

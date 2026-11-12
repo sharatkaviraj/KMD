@@ -1,3 +1,4 @@
+import { schoolToday } from "@/platform/dates";
 import { sameNumber } from "@/platform/whatsapp/numbers";
 
 import type { AbsenceNote } from "./helper-absence";
@@ -18,7 +19,25 @@ import {
   type HandoffTarget,
   type ReplyContext,
 } from "./helper-replies";
-import { detectLanguage, ruleIntent, type HelperLanguage, type HelperTap, type MessageKind, type RatingValue } from "./helper-text";
+import { detectLanguage, looksLikeQuestion, ruleIntent, type HelperLanguage, type HelperTap, type MessageKind, type RatingValue } from "./helper-text";
+import {
+  awaitingVisit,
+  canVisitOn,
+  dayFromKey,
+  readSlotKey,
+  readVisitChild,
+  visitAwaiting,
+  visitBookedReply,
+  visitClosedReply,
+  visitDays,
+  visitDaysReply,
+  visitDetailsPrompt,
+  visitHandoffBody,
+  visitPartReply,
+  visitSummary,
+  type VisitBooking,
+  type VisitCalendar,
+} from "./helper-visit";
 
 /**
  * What Veer Patta AI does with one message (D-574), decided without a
@@ -36,6 +55,8 @@ import { detectLanguage, ruleIntent, type HelperLanguage, type HelperTap, type M
  *    parent who says stop is not sent a menu.
  *  - A tap on "Did this answer help?" (D-584) is a rating: the data layer
  *    finds which of this number's hand-offs it names, and keeps it.
+ *  - "admission" books a school visit (D-592): a day, morning or afternoon,
+ *    then the child's name and class, typed, and the office is told.
  */
 
 /** How long the helper waits for the message it asked for. */
@@ -56,7 +77,7 @@ export function isLateHour(now: Date): boolean {
 
 export type ChatState = {
   language: HelperLanguage | null;
-  /** "teacher:<child key>" or "office": what the next typed message is for. */
+  /** "teacher:<child key>", "office", or "visit:<slot>" (D-592): what the next typed message is for. */
   awaiting: string | null;
   awaitingUntil: string | null;
   greetedAt: string | null;
@@ -79,6 +100,10 @@ export type HandoffPlan = {
    * hand-off is, and the reply to send instead when they could not be kept.
    */
   absence?: (AbsenceNote & { unsaved: HelperMessage }) | null;
+  /** One English line for Messages' list, when the plan has one; Claude's summary otherwise. */
+  summary?: string | null;
+  /** A school visit (D-592): kept on the Admissions board once the hand-off is in Messages. */
+  visit?: VisitBooking | null;
 };
 
 /** How a reply was decided: a rule, a tap, Claude (quick or careful), or the menu when nothing else could. */
@@ -108,6 +133,12 @@ export type PlanInput = {
   helperName: string;
   now: Date;
   aiAvailable: boolean;
+  /**
+   * The school's calendar for a visit's days (D-592), read only when
+   * `needsVisitCalendar` says this message may need it; null when it was
+   * not read or could not be.
+   */
+  visit?: VisitCalendar | null;
 };
 
 const CANCEL = /^(cancel|no|nahi|nahin|rehne do|rehne dijiye|chhodo|रहने दें|रहने दो|नहीं|छोड़ो)[\s!.।]*$/i;
@@ -184,6 +215,15 @@ export function practiceIdsFor(from: string, ownerTestNumber: string | null, pra
   return sameNumber(from, ownerTestNumber) ? [...practiceIds] : null;
 }
 
+/**
+ * Whether the turn may show the days a visit can be booked for, so the data
+ * layer reads the calendar for it and for nothing else (D-592).
+ */
+export function needsVisitCalendar(input: Pick<PlanInput, "kind" | "text" | "tap">): boolean {
+  if (input.kind === "tap") return input.tap?.intent === "visit" || input.tap?.intent === "visit_day" || input.tap?.intent === "visit_part";
+  return input.kind === "text" && ruleIntent(input.text) === "visit";
+}
+
 export function planTurn(input: PlanInput): TurnPlan {
   const { chat, family, now } = input;
   const text = (input.text ?? "").trim();
@@ -207,6 +247,16 @@ export function planTurn(input: PlanInput): TurnPlan {
   if (input.kind === "media") return reply("media", "rule", mediaReply(context));
 
   const clearAwait: ChatPatch = { awaiting: null, awaitingUntil: null };
+  const today = schoolToday(now);
+  const route: TurnRoute = input.kind === "tap" ? "tap" : "rule";
+
+  /** The days to pick from, or why there are none (D-592). */
+  const visitStart = (gone = false): TurnPlan => {
+    if (!input.visit) return reply("visit_closed", route, visitClosedReply(context, "unreadable"), clearAwait);
+    const days = visitDays(input.visit);
+    if (days.length === 0) return reply("visit_closed", route, visitClosedReply(context, "closed"), clearAwait);
+    return reply("visit", route, visitDaysReply(context, days, today, gone), { ...clearAwait, ...greeted });
+  };
 
   if (input.kind === "tap") {
     const tap = input.tap;
@@ -229,6 +279,18 @@ export function planTurn(input: PlanInput): TurnPlan {
       }
       case "office":
         return reply("office", "tap", officePrompt(context), { awaiting: "office", awaitingUntil: awaitUntil(now) });
+      case "visit":
+        return visitStart();
+      case "visit_day": {
+        const day = dayFromKey(tap.key);
+        if (!input.visit || !day || !canVisitOn(day, input.visit)) return visitStart(Boolean(input.visit));
+        return reply("visit_day", "tap", visitPartReply(context, day, today), clearAwait);
+      }
+      case "visit_part": {
+        const slot = readSlotKey(tap.key);
+        if (!input.visit || !slot || !canVisitOn(slot.day, input.visit)) return visitStart(Boolean(input.visit));
+        return reply("visit_part", "tap", visitDetailsPrompt(context, slot, today), { awaiting: visitAwaiting(slot), awaitingUntil: awaitUntil(now) });
+      }
       case "greeting":
         return reply("menu", "tap", menuCard(context, true), { ...clearAwait, ...greeted });
       case "thanks":
@@ -252,7 +314,34 @@ export function planTurn(input: PlanInput): TurnPlan {
   // A one- or two-word ask ("fees", "हाज़िरी") while the helper waits is a
   // change of mind, not the message for the teacher.
   const newAsk = rule === "menu" || rule === "greeting" || rule === "thanks" || (rule !== null && text.split(/\s+/).length <= 2);
-  if (isAwaiting(chat, now) && !newAsk && !CANCEL.test(text)) {
+
+  // The child's name and class for a visit (D-592). A change of mind, or a
+  // question with no class in it, is answered below instead, and the wait ends.
+  const slot = isAwaiting(chat, now) ? awaitingVisit(chat.awaiting) : null;
+  if (slot) {
+    if (CANCEL.test(text)) return reply("menu", "rule", menuCard(context, false), clearAwait);
+    // "ok", "accha", 👍: still waiting for the name and class, so ask once more.
+    if (rule === "thanks") return reply("visit_part", "rule", visitDetailsPrompt(context, slot, today), { awaiting: visitAwaiting(slot), awaitingUntil: awaitUntil(now) });
+    const child = readVisitChild(text);
+    const given = child.childName !== null || child.classLabel !== null;
+    // A short ask ("fees", "menu") is a change of mind; a line that names a
+    // class is the answer, whatever else it matches ("अंकित 5", "Mark 5th").
+    const changeOfMind = rule === "visit" ? !given : newAsk && child.classLabel === null;
+    if (!changeOfMind && !(child.classLabel === null && looksLikeQuestion(text))) {
+      const booking: VisitBooking = { ...slot, ...child };
+      const handoff: HandoffPlan = {
+        target: "office",
+        child: null,
+        body: visitHandoffBody(booking, text, today),
+        topic: "visit",
+        summary: visitSummary(booking, today),
+        visit: booking,
+      };
+      return reply("visit_booked", "rule", visitBookedReply(context, booking, today, isLateHour(now)), clearAwait, handoff);
+    }
+  }
+
+  if (isAwaiting(chat, now) && !slot && !newAsk && !CANCEL.test(text)) {
     const awaiting = chat.awaiting ?? "";
     const child = awaiting.startsWith("teacher:") ? childByKey(family, awaiting.slice("teacher:".length)) : null;
     const wanted: HandoffTarget = awaiting.startsWith("teacher:") ? "class_teacher" : "office";
@@ -278,6 +367,8 @@ export function planTurn(input: PlanInput): TurnPlan {
       return reply(rule, "rule", cardFor(rule, context), { ...clearAwait, ...greeted });
     case "office":
       return reply("office", "rule", officePrompt(context), { awaiting: "office", awaitingUntil: awaitUntil(now) });
+    case "visit":
+      return visitStart();
     case "thanks":
       return reply("thanks", "rule", thanksReply(context), clearAwait);
     default:

@@ -55,6 +55,10 @@ const TOPIC_OF: Record<string, WeekTopic> = {
   complaint: "complaint",
   request: "request",
   admission: "admission",
+  // A school visit (D-592): the ask and the booking; picking the day and the part are steps, not questions.
+  visit: "admission",
+  visit_booked: "admission",
+  visit_closed: "admission",
   office: "office",
   handoff: "office",
   other: "other",

@@ -23,7 +23,7 @@ are added (Staff, or Link my WhatsApp).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-591. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584 and D-588..D-593. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -144,7 +144,23 @@ while testing, the hub's claim). `domain/staff-helper.ts`,
 Checked on a real test teacher's TEST-2026-27 day in One (read only, nothing
 sent): every reply right in English and Hindi. The live WhatsApp test needs
 the owner to link his number to a test teacher from that account's My
-profile, and his typed OK. **Next:** 3c, booking a school visit.
+profile, and his typed OK. PR 360 merged 12 Nov 14:10 UTC (`675f919`), live
+14:12 UTC (`dpl_GxFH68DTdXKtqfvvNvMiPuP2UZ46`).
+
+**Step 3c, a school visit booked on WhatsApp (D-592, D-593), practice only:**
+a family writes *admission* (or taps the menu row, or the button under
+Claude's answer about admission), picks one of the next six open days from
+the school's calendar, then morning or afternoon, then types the child's name
+and class. The office gets the hand-off in Messages and on WhatsApp (6 am to
+9 pm) with the day, the child and the parent's words; the family is told the
+office will call to fix the time. The visit shows on the Admissions board
+with a visit chip and a WhatsApp tag. `domain/helper-visit.ts`,
+`data/helper-visit.ts`, the visit steps in the planner and the turn, the
+board's chip. Migration `20261112143810_parent_helper_visits.sql` applied to
+One 12 Nov 14:38 UTC before the code merged. Only known families can book
+while unknown numbers are left to the hub's bot (the owner's call at
+go-live). **Next:** 3d, parents' photos and files to Drive (needs a hub
+deploy on the owner's PC).
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

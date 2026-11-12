@@ -37,9 +37,9 @@ export type HandoffTarget = "class_teacher" | "accounts" | "office" | "principal
 
 export const OFFICE_PHONE = "9352205884";
 
-type Words = { hi: string; hx: string; en: string };
+export type Words = { hi: string; hx: string; en: string };
 
-function say(language: HelperLanguage, words: Words): string {
+export function say(language: HelperLanguage, words: Words): string {
   return words[language];
 }
 
@@ -87,7 +87,7 @@ function childrenNames(children: readonly ChildFacts[], language: HelperLanguage
   return `${names.slice(0, -1).join(", ")} ${and} ${names[names.length - 1]}`;
 }
 
-function footer(context: ReplyContext): string {
+export function footer(context: ReplyContext): string {
   if (context.family.practice) {
     return say(context.language, { hi: "🧪 अभ्यास: परीक्षण रिकॉर्ड", hx: "🧪 Practice: test records", en: "🧪 Practice: test records" });
   }
@@ -95,7 +95,7 @@ function footer(context: ReplyContext): string {
 }
 
 /** One short line to open the very first answer on a number. */
-function intro(context: ReplyContext): string {
+export function intro(context: ReplyContext): string {
   if (!context.firstContact) return "";
   return say(context.language, {
     hi: `नमस्ते 🙏 मैं *${context.helperName}* हूँ, स्कूल का सहायक।\n\n`,
@@ -118,6 +118,8 @@ export function menuRows(language: HelperLanguage): HelperRow[] {
     row("attendance", { hi: "📅 हाज़िरी", hx: "📅 Hazri", en: "📅 Attendance" }, { hi: "आज की और इस साल की", hx: "Aaj ki aur is saal ki", en: "Today and this year" }),
     row("results", { hi: "📝 परिणाम", hx: "📝 Result", en: "📝 Results" }, { hi: "जारी हुए अंक", hx: "Jari hue marks", en: "Marks the school has released" }),
     row("teacher", { hi: "🧑‍🏫 कक्षा अध्यापक", hx: "🧑‍🏫 Class teacher", en: "🧑‍🏫 Class teacher" }, { hi: "नाम, और उन्हें संदेश भेजें", hx: "Naam, aur unhe sandesh bhejiye", en: "Their name, and send them a message" }),
+    // A school visit for a new child (D-592): a brother or sister, or a family the school does not know yet.
+    row("visit", { hi: "🎒 दाख़िला: स्कूल देखें", hx: "🎒 Admission visit", en: "🎒 Admission visit" }, { hi: "स्कूल देखने आने का दिन चुनें", hx: "School dekhne aane ka din chuniye", en: "Book a day to come and see the school" }),
     row("office", { hi: "🏫 ऑफ़िस से बात", hx: "🏫 Office se baat", en: "🏫 Talk to the office" }, { hi: "स्कूल ऑफ़िस को संदेश", hx: "School office ko sandesh", en: "A message for the school office" }),
   ];
 }
@@ -132,7 +134,7 @@ function menuMessage(body: string, context: ReplyContext): HelperMessage {
   };
 }
 
-const MENU_BUTTON = (language: HelperLanguage): HelperButton => ({ id: helperId("menu"), title: say(language, { hi: "📋 मेनू", hx: "📋 Menu", en: "📋 Menu" }) });
+export const MENU_BUTTON = (language: HelperLanguage): HelperButton => ({ id: helperId("menu"), title: say(language, { hi: "📋 मेनू", hx: "📋 Menu", en: "📋 Menu" }) });
 
 /** The first hello on a number. */
 export function welcomeCard(context: ReplyContext): HelperMessage {
@@ -407,7 +409,7 @@ export function teacherCard(context: ReplyContext, children: readonly ChildFacts
   return { kind: "buttons", body: `${intro(context)}${title}\n\n${lines.join("\n")}\n\n${close}`, buttons, footer: footer(context) };
 }
 
-const CANCEL_BUTTON = (language: HelperLanguage): HelperButton => ({ id: helperId("menu"), title: say(language, { hi: "❌ रहने दें", hx: "❌ Rehne dijiye", en: "❌ Cancel" }) });
+export const CANCEL_BUTTON = (language: HelperLanguage): HelperButton => ({ id: helperId("menu"), title: say(language, { hi: "❌ रहने दें", hx: "❌ Rehne dijiye", en: "❌ Cancel" }) });
 
 /** After "Message: Rudra": the next thing the parent types goes to the teacher. */
 export function teacherPrompt(context: ReplyContext, child: ChildFacts): HelperMessage {
@@ -568,7 +570,7 @@ export function ratingQuestion(context: ReplyContext, key: string): HelperMessag
  */
 export type RatingOutcome = "helped" | "already" | "passed_on" | "already_passed_on" | "not_passed_on" | "ask_office";
 
-const OFFICE_BUTTON = (language: HelperLanguage): HelperButton => ({
+export const OFFICE_BUTTON = (language: HelperLanguage): HelperButton => ({
   id: helperId("office"),
   title: say(language, { hi: "🏫 ऑफ़िस से बात", hx: "🏫 Office se baat", en: "🏫 Talk to office" }),
 });

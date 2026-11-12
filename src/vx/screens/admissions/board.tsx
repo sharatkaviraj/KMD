@@ -13,10 +13,23 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
 
-import { maskPhone, needsCallBack, type Stage } from "@/vx/screens/admissions/logic";
+import { maskPhone, needsCallBack, type Stage, type VisitPart, type VisitWhen } from "@/vx/screens/admissions/logic";
 import { Av, PeopleStyles } from "@/vx/screens/admissions/ui";
 
-export type BoardCard = { id: string; stage: Stage; name: string; classLabel: string; parent: string; phone: string | null; days: number };
+export type BoardCard = {
+  id: string;
+  stage: Stage;
+  /** Empty when a family booked a visit on WhatsApp without giving the name. */
+  name: string;
+  classLabel: string;
+  parent: string;
+  phone: string | null;
+  days: number;
+  /** The school visit the family asked for (D-593): when it falls, the day in words, morning or afternoon. */
+  visit?: { when: VisitWhen; day: Pair; part: VisitPart } | null;
+  /** Booked by the family on WhatsApp with Veer Patta AI (D-592). */
+  fromWhatsApp?: boolean;
+};
 export type AdmittedCard = { id: string; name: string; classLabel: string; parent: string; sr: string };
 export type DocState = "ok" | "pending" | "na";
 export type RecentRow = { id: string; name: string; classLabel: string; sr: string; date: string; isNew: boolean; docs: { birth: DocState; tc: DocState; photo: DocState } };
@@ -51,6 +64,27 @@ const DOC_LOOK: Record<DocState, { bg: string; fg: string; icon: IconName; suffi
 };
 
 const sub = { fontSize: 12, color: "var(--mut)" } as const;
+
+const NAME_NOT_GIVEN = p("Name not given", "नाम नहीं बताया");
+
+const PART: Record<VisitPart, Pair> = { morning: p("morning", "सुबह"), afternoon: p("afternoon", "दोपहर") };
+
+/** The visit chip's words and colours: coming today or tomorrow stands out, a day gone by is a warning. */
+function visitChip(visit: NonNullable<BoardCard["visit"]>, tx: (pair: Pair) => string): { text: string; title: string; bg: string; fg: string } {
+  const part = tx(PART[visit.part]);
+  const day = tx(visit.day);
+  const title = `${tx(p("School visit", "स्कूल देखने आना"))}: ${day} · ${part}`;
+  switch (visit.when) {
+    case "today":
+      return { text: `${tx(p("Visit today", "आज आएँगे"))} · ${part}`, title, bg: "var(--accs)", fg: "var(--accfg)" };
+    case "tomorrow":
+      return { text: `${tx(p("Visit tomorrow", "कल आएँगे"))} · ${part}`, title, bg: "var(--accs)", fg: "var(--accfg)" };
+    case "passed":
+      return { text: `${tx(p("Visit day passed", "आने का दिन निकल गया"))} · ${day}`, title, bg: "var(--warns)", fg: "var(--warnfg)" };
+    default:
+      return { text: `${tx(p("Visit", "आएँगे"))} ${day} · ${part}`, title, bg: "var(--s2)", fg: "var(--fg)" };
+  }
+}
 
 /** Admissions, state `list`: the top bar, KPI tiles, the pipeline and recent admissions. */
 export function AdmissionsListScreen(props: { sessionLabel: string; kpis: Kpis; cards: BoardCard[]; admitted: AdmittedCard[]; recent: RecentRow[]; classLabels: string[] }) {
@@ -100,6 +134,7 @@ export function AdmissionsBoard({
   const [, startTransition] = useTransition();
 
   const stageOf = (c: BoardCard) => moved[c.id] ?? c.stage;
+  const nameOf = (c: BoardCard) => c.name || tx(NAME_NOT_GIVEN);
 
   async function move(c: BoardCard) {
     const from = stageOf(c);
@@ -112,7 +147,7 @@ export function AdmissionsBoard({
     }
     setMoved((m) => ({ ...m, [c.id]: res.to }));
     toast.show({
-      text: `${c.name} ${tx(p("moved to", "आगे बढ़े:"))} ${tx(COLS.find((x) => x.stage === res.to)!.label)}`,
+      text: `${nameOf(c)} ${tx(p("moved to", "आगे बढ़े:"))} ${tx(COLS.find((x) => x.stage === res.to)!.label)}`,
       undo: async () => {
         const back = await undoMoveEnquiryAction(c.id, from);
         if (back.ok) setMoved((m) => ({ ...m, [c.id]: from }));
@@ -125,7 +160,7 @@ export function AdmissionsBoard({
   async function close(c: BoardCard) {
     const res = await closeEnquiryAction(c.id);
     if (!res.ok) return toast.show({ text: res.message, tone: "bad" });
-    toast.show({ text: `${c.name} · ${tx(p("closed, not joining", "बंद, नहीं आएँगे"))}` });
+    toast.show({ text: `${nameOf(c)} · ${tx(p("closed, not joining", "बंद, नहीं आएँगे"))}` });
     startTransition(() => router.refresh());
   }
 
@@ -160,13 +195,38 @@ export function AdmissionsBoard({
             <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <Av name={c.name} />
               <span style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-                <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</span>
+                {c.name ? (
+                  <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</span>
+                ) : (
+                  <span className="clip" style={{ fontSize: 14, fontWeight: 600, fontStyle: "italic", color: "var(--mut)" }}>{tx(NAME_NOT_GIVEN)}</span>
+                )}
                 <span className="clip" style={sub}>{c.classLabel} · {c.parent}</span>
               </span>
-              <button type="button" className="tap btn ghost" onClick={() => void close(c)} aria-label={`${c.name}: ${tx(p("not joining", "नहीं आएँगे"))}`} title={tx(p("Not joining · close the enquiry", "नहीं आएँगे · पूछताछ बंद करें"))} style={{ width: 30, height: 30, padding: 0, color: "var(--sub)" }}>
+              <button type="button" className="tap btn ghost" onClick={() => void close(c)} aria-label={`${nameOf(c)}: ${tx(p("not joining", "नहीं आएँगे"))}`} title={tx(p("Not joining · close the enquiry", "नहीं आएँगे · पूछताछ बंद करें"))} style={{ width: 30, height: 30, padding: 0, color: "var(--sub)" }}>
                 <Ic n="x" size={15} />
               </button>
             </span>
+            {c.visit || c.fromWhatsApp ? (
+              <span style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                {c.visit
+                  ? (() => {
+                      const chip = visitChip(c.visit, tx);
+                      return (
+                        <span className="pill" title={chip.title} style={{ background: chip.bg, color: chip.fg, fontWeight: 600 }}>
+                          <Ic n="calendar" size={12} />
+                          {chip.text}
+                        </span>
+                      );
+                    })()
+                  : null}
+                {c.fromWhatsApp ? (
+                  <span className="pill" title={tx(p("Booked by the family on WhatsApp with Veer Patta AI. Their words are in Messages.", "परिवार ने WhatsApp पर Veer Patta AI से बुक किया। उनकी बात Messages में है।"))} style={{ background: "var(--s2)", color: "var(--mut)" }}>
+                    <Ic n="message" size={12} />
+                    WhatsApp
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
             {/* In a narrow column "9 days · call back" and the button take two lines rather than the button
                 hanging out of the card (desk check at 1000px, 7 Nov). */}
             <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
