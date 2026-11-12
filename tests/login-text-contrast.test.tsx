@@ -88,12 +88,21 @@ describe("login essential secondary text contrast", () => {
   it("opens on the mobile number when code sign-in is on for all staff, both languages at full strength (D-585)", () => {
     const html = renderToStaticMarkup(<LoginForm language="both" codeSignIn="default" />);
     expectBilingual(html, CODE_TEXT.phone as { hi: string; en: string });
+    // The hint under the number is said in both languages too (BrowserStack check, 12 Nov).
+    expectBilingual(html, CODE_TEXT.phoneHint as { hi: string; en: string });
     expectBilingual(html, { hi: CODE_TEXT.welcome.hi ?? "(no Hindi)", en: CODE_TEXT.welcome.en.replace("'", "&#x27;") });
     expect(html).toContain('for="phone"');
     expect(html).toContain('autoComplete="tel-national"');
     expect(html).toContain(CODE_TEXT.usePassword.en);
     expect(html).not.toContain('for="password"');
     expectFullTextStrength(html);
+  });
+
+  it("says the tries left and the paste hint in both languages, not only the first (D-585)", () => {
+    const source = readFileSync("src/app/login/code-form.tsx", "utf8");
+    expect(source).toContain("under(extra, language)");
+    expect(source).toContain("<Two pair={T.pasteHint} language={language} small />");
+    expect(source).toContain("<Two pair={T.phoneHint} language={language} small />");
   });
 
   it("keeps email and password first, with the code one tap away, until the setting says all staff", () => {

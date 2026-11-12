@@ -142,6 +142,7 @@ function Problem({ state, language, id }: { state: CodeActionState; language: La
         <span style={{ fontWeight: 600 }}>{lead(pair, language)}</span>
         {extra ? <span style={{ fontSize: 13 }}>{lead(extra, language)}</span> : null}
         {under(pair, language) ? <span style={{ fontSize: 12 }}>{under(pair, language)}</span> : null}
+        {extra && under(extra, language) ? <span style={{ fontSize: 12 }}>{under(extra, language)}</span> : null}
       </span>
     </div>
   );
@@ -287,7 +288,9 @@ export function CodeSignInForm({
               style={{ fontSize: 20, letterSpacing: "0.04em", flex: 1, minWidth: 0 }}
             />
           </span>
-          <span id="phone-hint" style={{ fontSize: 12, color: "var(--mut)" }}>{lead(T.phoneHint, language)}</span>
+          <span id="phone-hint" style={{ fontSize: 12, color: "var(--mut)" }}>
+            <Two pair={T.phoneHint} language={language} small />
+          </span>
         </label>
 
         <Problem state={finished === sent.sends && sent.sends > 0 && sent.status === "sent" ? checked : sent} language={language} id="code-request-error" />
@@ -369,7 +372,9 @@ export function CodeSignInForm({
           <ClipboardPaste size={18} aria-hidden />
           {lead(T.paste, language)}
         </button>
-        <span id="code-paste-hint" style={{ fontSize: 12, color: "var(--mut)", marginTop: -10 }}>{lead(T.pasteHint, language)}</span>
+        <span id="code-paste-hint" style={{ fontSize: 12, color: "var(--mut)", marginTop: -10 }}>
+          <Two pair={T.pasteHint} language={language} small />
+        </span>
 
         <Problem state={checked} language={language} id="code-verify-error" />
 
