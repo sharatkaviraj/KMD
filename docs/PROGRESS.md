@@ -182,8 +182,12 @@ not deployed); One's side (`domain/parent-files.ts`,
 `data/parent-files.ts`, `platform/whatsapp/hub-files.ts`, the webhook, the
 job `/api/jobs/parent-files`, 39 new tests; PR 363); migration `20261112161710`
 (two pg_cron jobs, `parent-files` hourly and `whatsapp-chat-archive` at 03:10
-India time) applied to One 12 Nov 16:17 UTC. No new screen in One. Until the
-hub is deployed One's calls get "not found" and nothing happens.
+India time) applied to One 12 Nov 16:17 UTC. PR 363 merged 12 Nov 16:37 UTC
+(`fa763ca`), live 16:39 UTC (`dpl_42wjxny3vThJoLMyCjpwio7tovkW`). No new
+screen in One. Until the hub is deployed One's calls get "not found" and
+nothing happens: the nightly job's own call, run once by hand at 16:40 UTC,
+reached the live route with its Vault secret and answered `hub_not_ready`
+with no month moved.
 **Remains:** the hub deploy on the owner's PC (`git pull`, then
 `npm run deploy` in the hub folder, which applies its migration 0005 first),
 then a practice run with the helper on, the owner sending a photo from his
