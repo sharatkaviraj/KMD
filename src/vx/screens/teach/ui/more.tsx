@@ -692,7 +692,7 @@ export function TeachMore({
         </div>
       </div>
       {data.profile.whatsapp ? (
-        // Link my WhatsApp (D-581): parents' questions for her, and the school's work messages, on her own WhatsApp.
+        // Link my WhatsApp (D-582): parents' questions for them, and the school's work messages, on their own WhatsApp.
         <div id="whatsapp" className="card" style={{ padding: "18px 18px 16px", scrollMarginTop: 80 }}>
           <LinkWhatsapp card={data.profile.whatsapp.card} pending={data.profile.whatsapp.pending} live={data.profile.whatsapp.live} lookOnly={data.profile.lookOnly} />
         </div>

@@ -17,7 +17,7 @@ import { assertStaff } from "@/platform/auth/current-staff";
 import { assertNotPreviewing } from "@/vx/view-as";
 
 /**
- * Link my WhatsApp (D-581), the buttons on My profile and Preferences.
+ * Link my WhatsApp (D-582), the buttons on My profile and Preferences.
  *
  * Every one acts on the signed-in person's own row, found by their own id:
  * there is no id in the request to tamper with. A code is made for them

@@ -1,4 +1,4 @@
-/* Link my WhatsApp (D-581): src/vx/ui/link-whatsapp.tsx. Works inside any `.vx` surface. */
+/* Link my WhatsApp (D-582): src/vx/ui/link-whatsapp.tsx. Works inside any `.vx` surface. */
 
 /* On a classic page the card sits in a `.vx` wrapper for the tokens only: no page background or height. */
 .vx.lw-host{background:transparent;min-height:0}

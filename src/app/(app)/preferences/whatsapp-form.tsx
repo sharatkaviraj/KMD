@@ -18,7 +18,7 @@ export type WhatsappKindChoice = { kind: string; label: Localized; enabled: bool
  * The server decides what is shown; both forms post to actions that act on the
  * signed-in person's own row only.
  *
- * `linkCard`: Link my WhatsApp (D-581), which says yes from the person's own
+ * `linkCard`: Link my WhatsApp (D-582), which says yes from the person's own
  * phone and so takes the place of the yes/stop buttons. Without it (its read
  * failed) the buttons are back, so nobody is left without a way to say yes.
  */

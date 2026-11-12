@@ -1,4 +1,4 @@
-/** In-memory PostgreSQL proof of Link my WhatsApp (D-581):
+/** In-memory PostgreSQL proof of Link my WhatsApp (D-582):
  * supabase/migrations/*_staff_whatsapp_link.sql against a synthetic schema.
  * No URL, credentials or hosted database accepted: pass a local installed
  * @electric-sql/pglite directory (CI installs it in a disposable folder).

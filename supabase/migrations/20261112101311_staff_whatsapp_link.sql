@@ -1,4 +1,4 @@
--- Veer Patta AI: a member of staff links their own WhatsApp (D-581).
+-- Veer Patta AI: a member of staff links their own WhatsApp (D-582).
 --
 -- A hand-off (D-578) tells the child's class teacher, or the accountant, on
 -- WhatsApp. That needs their WhatsApp number, and until now One had nobody's:
@@ -45,7 +45,7 @@ set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 comment on column vppsone.staff_profiles.whatsapp_opt_in_source is
-  'How the consent was given: form (paper, at training), self (the person themselves: on /preferences, or by sending their Link my WhatsApp code from that phone, D-581, kept in staff_whatsapp_links) or admin_recorded (/staff, the admin records consent collected in person).';
+  'How the consent was given: form (paper, at training), self (the person themselves: on /preferences, or by sending their Link my WhatsApp code from that phone, D-582, kept in staff_whatsapp_links) or admin_recorded (/staff, the admin records consent collected in person).';
 
 create table vppsone.staff_whatsapp_links (
   code text primary key check (code ~ '^[A-HJKMNP-Z2-9]{8}$'),
@@ -59,7 +59,7 @@ create table vppsone.staff_whatsapp_links (
 );
 
 comment on table vppsone.staff_whatsapp_links is
-  'Link my WhatsApp (D-581): one-time codes a member of staff sends from their phone to the school''s number, so One learns their WhatsApp number from WhatsApp itself. A used row keeps which number it linked and when.';
+  'Link my WhatsApp (D-582): one-time codes a member of staff sends from their phone to the school''s number, so One learns their WhatsApp number from WhatsApp itself. A used row keeps which number it linked and when.';
 
 create index staff_whatsapp_links_staff on vppsone.staff_whatsapp_links (staff_profile_id, created_at desc);
 
@@ -144,7 +144,7 @@ end;
 $$;
 
 comment on function vppsone.link_staff_whatsapp(text, text) is
-  'Link my WhatsApp (D-581): the code a member of staff sent from their phone, and the number it came from. linked: the number is now their WhatsApp number, with their own yes (source self). Otherwise one of bad_number, no_code, used, already_linked, expired, inactive, not_test_number, and nothing changed.';
+  'Link my WhatsApp (D-582): the code a member of staff sent from their phone, and the number it came from. linked: the number is now their WhatsApp number, with their own yes (source self). Otherwise one of bad_number, no_code, used, already_linked, expired, inactive, not_test_number, and nothing changed.';
 
 revoke all on function vppsone.link_staff_whatsapp(text, text) from public, anon, authenticated;
 grant execute on function vppsone.link_staff_whatsapp(text, text) to service_role;

@@ -192,7 +192,7 @@ export const TABLES = {
   parent_helper_handoffs: { bucket: "K", why: "post go-live WhatsApp helper's hand-offs to staff (who, how far, the next step); service-role only" },
   parent_helper_alerts: { bucket: "K", why: "post go-live WhatsApp alerts that told a member of staff about a hand-off (number, message id); service-role only" },
   parent_helper_deliveries: { bucket: "K", why: "post go-live way each staff answer reached the parent (sent or waiting); the words stay in parent_reply_answers, service-role only" },
-  // Link my WhatsApp (D-581): each code is used once or runs out in 30
+  // Link my WhatsApp (D-582): each code is used once or runs out in 30
   // minutes. A used row keeps the number it linked, whole: it is the record
   // of where the yes came from.
   staff_whatsapp_links: { bucket: "K", why: "post go-live one-time codes staff send from their own phone to link their WhatsApp number; service-role only" },

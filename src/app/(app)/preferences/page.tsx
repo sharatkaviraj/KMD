@@ -93,7 +93,7 @@ export default async function PreferencesPage() {
     readNoticePrefs(staff.id),
     // The AI connection card (plan §8.1): eligible staff only; a failed read hides it rather than guessing a state.
     loadAiConnectionCard(staff).catch(() => null),
-    // Link my WhatsApp (D-581): yes from their own phone, which replaces the yes/stop buttons.
+    // Link my WhatsApp (D-582): yes from their own phone, which replaces the yes/stop buttons.
     loadWhatsappLink(staff.id, staffLanguage(staff.language), lookOnly).catch(() => null),
   ]);
   const consentDay = consent.state === "yes" ? consent.optInAt : consent.state === "opted_out" ? consent.optOutAt : null;

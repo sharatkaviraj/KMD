@@ -415,7 +415,7 @@ describe("step 2: hand-offs reach a person, and answers come back (D-578)", () =
   });
 });
 
-describe("Link my WhatsApp (D-581)", () => {
+describe("Link my WhatsApp (D-582)", () => {
   it("a member of staff sending their link code is handled before the parents' helper", async () => {
     const staffLink = vi.fn(async () => ({ outcome: "answered" as const, route: "rule" as const, intent: "staff_link", handoff: null }));
     const { deps, calls } = fakes({ staffLink });

@@ -76,6 +76,7 @@ export const SWITCH_KEYS = [
   "whatsapp_owner_test_number",
   "whatsapp_daily_limit",
   "whatsapp_fee_sender",
+  "whatsapp_allow_marketing",
 ] as const;
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -97,7 +98,7 @@ export async function readSwitches(db: Db = whatsappDb()): Promise<WhatsAppSwitc
 export async function readTemplateRow(key: string, db: Db = whatsappDb()): Promise<TemplateRow | null> {
   const { data, error } = await db
     .from("whatsapp_templates")
-    .select("key, provider_name, language_code, feature, body_params, header, url_button, status")
+    .select("key, provider_name, language_code, feature, body_params, header, url_button, status, category")
     .eq("key", key)
     .maybeSingle<TemplateRow>();
   if (error) return null;

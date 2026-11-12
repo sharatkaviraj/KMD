@@ -228,7 +228,7 @@ export type Person = {
   role: string;
   /** Their WhatsApp number, or null when One has none for them. */
   e164: string | null;
-  /** They said yes to WhatsApp from the school app (linked from their phone, Preferences, the form) and have not stopped it (D-582). */
+  /** They said yes to WhatsApp from the school app (linked from their phone, Preferences, the form) and have not stopped it (D-583). */
   consented: boolean;
   language: StaffLanguage;
   isClassTeacher: boolean;

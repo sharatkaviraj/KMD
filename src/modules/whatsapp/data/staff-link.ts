@@ -32,7 +32,7 @@ import type { WebhookInbound } from "@/platform/whatsapp/webhook";
 import { finishTurn, readHelperSettings, saveChat, startTurn, type TurnFinish } from "./helper-store";
 
 /**
- * Link my WhatsApp (D-581), the database and the WhatsApp side. The rules and
+ * Link my WhatsApp (D-582), the database and the WhatsApp side. The rules and
  * the words are in `domain/staff-link.ts`.
  *
  *  - `startStaffLink`: a member of staff tapped Link my WhatsApp. A new code
@@ -183,7 +183,7 @@ export type WhatsappLinkCard = {
   /**
    * How the yes was given: 'whatsapp' when the number on file is the one their
    * own phone sent its code from (the database records that yes as 'self',
-   * D-581), else the consent source as recorded.
+   * D-582), else the consent source as recorded.
    */
   source: string | null;
 };

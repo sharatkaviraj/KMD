@@ -76,7 +76,7 @@ import { finishTurn, readChat, readHelperSettings, saveChat, startTurn, type Tur
  * Every message still passes `checkWhatsAppSend`: practice mode, the helper's
  * switch, and the owner-only rule while real recipients are off. A member of
  * staff is told only when they said yes to WhatsApp from the school app and
- * have not stopped it (`reachOf`, D-582). A practice
+ * have not stopped it (`reachOf`, D-583). A practice
  * hand-off (the owner's test number standing for test children) tells only the
  * owner's number, in place of the test account it is for.
  */
@@ -191,9 +191,9 @@ export type Reach = { to: string; why: null } | { to: null; why: "no_number" | "
 
 /**
  * Practice: the owner's number, standing in for the test account. Otherwise
- * the person's own WhatsApp, and only with their yes (D-582): a number on file
+ * the person's own WhatsApp, and only with their yes (D-583): a number on file
  * is not a consent. They give it by linking their WhatsApp from their phone
- * (D-581), on Preferences, or on the form the office records.
+ * (D-582), on Preferences, or on the form the office records.
  */
 export function reachOf(person: Person, practice: boolean, owner: string | null): Reach {
   if (practice) return owner ? { to: owner, why: null } : { to: null, why: "no_number" };

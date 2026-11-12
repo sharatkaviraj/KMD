@@ -1227,7 +1227,7 @@ export async function loadMore(staff: CurrentStaff) {
     publishedP.then((pub) => (pub ? listSlots(pub.id).then((all) => all.filter((s) => s.staffProfileId === staff.id)) : [])),
     labelsP.then((l) => marksLinks(staff.id, sessionLabel, l, today)),
     approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
-    // Link my WhatsApp on My profile (D-581); a failed read leaves the card out.
+    // Link my WhatsApp on My profile (D-582); a failed read leaves the card out.
     loadWhatsappLink(staff.id, staffLanguage(staff.language), Boolean(staff.viewedBy)).catch((): WhatsappLinkView | null => null),
   ]);
   const { links, assigned, sizes } = linkSet;
@@ -1261,9 +1261,9 @@ export async function loadMore(staff: CurrentStaff) {
       subjects: [...new Set(assigned.map((a) => subjects.find((s) => s.id === a.subject_id)?.code).filter(Boolean) as string[])],
       largeText: Boolean(prefs.data?.large_text),
       alerts: prefs.data?.alerts ?? {},
-      /** Link my WhatsApp (D-581): null when it could not be read. */
+      /** Link my WhatsApp (D-582): null when it could not be read. */
       whatsapp: whatsapp?.card ? whatsapp : null,
-      /** An administrator seeing One as her (D-544): the card is look-only. */
+      /** An administrator seeing One as this person (D-544): the card is look-only. */
       lookOnly: Boolean(staff.viewedBy),
     },
     leave,

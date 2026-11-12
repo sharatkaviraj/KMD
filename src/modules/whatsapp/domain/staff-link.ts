@@ -3,7 +3,7 @@ import { SCHOOL_WHATSAPP_NUMBER, waDigits } from "@/platform/whatsapp/numbers";
 import type { StaffLanguage } from "./helper-handoff";
 
 /**
- * Link my WhatsApp (D-581): a member of staff proves which WhatsApp number is
+ * Link my WhatsApp (D-582): a member of staff proves which WhatsApp number is
  * theirs by sending a one-time code from it to the school's number.
  *
  * The rules and the words live here; `data/staff-link.ts` makes the codes and

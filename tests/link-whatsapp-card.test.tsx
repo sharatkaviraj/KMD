@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StartedLink, WhatsappLinkCard } from "@/modules/whatsapp/data/staff-link";
 
 /**
- * The Link my WhatsApp card (D-581) as a person meets it: one green button,
+ * The Link my WhatsApp card (D-582) as a person meets it: one green button,
  * the three steps, the wait, then "linked" by itself. The server actions are
  * stand-ins; every number here is made up (rule 6).
  */

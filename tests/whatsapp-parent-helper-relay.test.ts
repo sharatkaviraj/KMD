@@ -357,7 +357,7 @@ describe("a hand-off reaches the person it is for", () => {
     expect(templateOf(w.sent[0]!)).toBe("vpps_staff_parent_question_hi_v1");
   });
 
-  it("a number on file is not a yes: someone who never agreed, or stopped, is noted and sent nothing (D-582)", async () => {
+  it("a number on file is not a yes: someone who never agreed, or stopped, is noted and sent nothing (D-583)", async () => {
     const { deps, w } = world({ people: [{ ...teacher, consented: false }] });
     await openHandoff(openInput(), deps);
     expect(w.sent).toEqual([]);
@@ -580,7 +580,7 @@ describe("an answer typed in One's Messages", () => {
   });
 });
 
-describe("who an alert can reach (D-582)", () => {
+describe("who an alert can reach (D-583)", () => {
   it("their own number, only with their yes", () => {
     expect(reachOf(teacher, false, OWNER)).toEqual({ to: TEACHER_PHONE, why: null });
     expect(reachOf({ ...teacher, consented: false }, false, OWNER)).toEqual({ to: null, why: "no_consent" });

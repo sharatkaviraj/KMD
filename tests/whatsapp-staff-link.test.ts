@@ -42,7 +42,7 @@ import type { ClaimResult, ProviderSendResult } from "@/platform/whatsapp/provid
 import type { WebhookInbound } from "@/platform/whatsapp/webhook";
 
 /**
- * Link my WhatsApp (D-581): a member of staff sends a one-time code from their
+ * Link my WhatsApp (D-582): a member of staff sends a one-time code from their
  * phone to the school's number, and One learns their WhatsApp number from
  * WhatsApp itself. Every name and number here is made up (rule 6).
  */

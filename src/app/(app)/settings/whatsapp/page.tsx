@@ -2,7 +2,7 @@ import Link from "@/ui/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { HUB_SUBMIT_PER_PRESS, HUB_TEMPLATE_SUBMISSIONS, templatesThatCount } from "@/modules/whatsapp/domain/hub-templates";
-import { featureLabels, messageStatusLabels, noteFor, templateStatusLabels, waMessages as w } from "@/messages/whatsapp-settings";
+import { featureLabels, marketingLabel, messageStatusLabels, noteFor, templateStatusLabels, waMessages as w } from "@/messages/whatsapp-settings";
 import { requirePermission } from "@/platform/auth/current-staff";
 import type { Language, Localized } from "@/platform/i18n/language";
 import { sentByFeesApp, WHATSAPP_FEATURES } from "@/platform/whatsapp/policy";
@@ -134,6 +134,7 @@ function TemplateStatus({ row, language }: { row: TemplateView; language: Langua
   return (
     <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
       <Pill tone={TEMPLATE_TONE[row.status] ?? "mut"}>{say(templateStatusLabels[row.status] ?? { hi: row.status, en: row.status })}</Pill>
+      {row.status === "approved" && row.category === "marketing" ? <Pill tone="warn">{say(marketingLabel)}</Pill> : null}
       {row.status === "approved" && row.quality && row.quality !== "UNKNOWN" ? (
         <Pill tone={QUALITY_TONE[row.quality] ?? "mut"}>{say(w.quality(row.quality))}</Pill>
       ) : null}
@@ -279,7 +280,8 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
                 {WHATSAPP_FEATURES.map((feature) => {
                   const on = switches?.features[feature] === true;
                   const rows = templatesThatCount(byFeature.get(feature) ?? []);
-                  const approved = rows.filter((row) => row.status === "approved").length;
+                  // Ready to send: approved, and not re-filed by Meta as marketing (D-581).
+                  const approved = rows.filter((row) => row.status === "approved" && row.category !== "marketing").length;
                   // The Fees app sends these from its own number; One shows that instead of a switch.
                   const feesApp = sentByFeesApp(feature, switches?.feeSender);
                   return (

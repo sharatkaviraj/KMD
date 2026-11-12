@@ -21,7 +21,7 @@ import { SuccessTick } from "@/vx/ui/primitives";
 import "./link-whatsapp.css";
 
 /*
- * Link my WhatsApp (D-581), on My profile (teachers) and Preferences.
+ * Link my WhatsApp (D-582), on My profile (teachers) and Preferences.
  *
  * Three steps a first-time user can follow without help: tap the green
  * button, WhatsApp opens with the message already typed, press Send. The
