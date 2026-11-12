@@ -159,8 +159,17 @@ with a visit chip and a WhatsApp tag. `domain/helper-visit.ts`,
 board's chip. Migration `20261112143810_parent_helper_visits.sql` applied to
 One 12 Nov 14:38 UTC before the code merged. Only known families can book
 while unknown numbers are left to the hub's bot (the owner's call at
-go-live). **Next:** 3d, parents' photos and files to Drive (needs a hub
-deploy on the owner's PC).
+go-live). PR 361 merged 12 Nov 15:13 UTC (`f4feea4`), live 15:16 UTC
+(`dpl_BUjRvnykt6YBdJ5ULHUSirDcXB1g`). The phone checks caught a regex
+character class in `helper-visit.ts` that Tailwind (which scans `src/`) read
+as a CSS property; spelled as alternatives before the merge. Checked live
+with three TEST-2026-27 WhatsApp enquiries (visit tomorrow, Mon 16 Nov, a day
+gone by; one with no name), on container Chromium and on BrowserStack (Galaxy
+M32 Chrome and Windows 11 Chrome): every chip, the WhatsApp tag and "Name
+not given" right, no sideways scroll. The three rows were then closed. Not
+yet tried on WhatsApp itself: that practice run needs the owner's typed OK.
+**Next:** 3d, parents' photos and files to Drive (needs a hub deploy on the
+owner's PC).
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 
