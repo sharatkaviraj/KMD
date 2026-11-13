@@ -4,6 +4,7 @@ import { sameNumber } from "@/platform/whatsapp/numbers";
 import type { AbsenceNote } from "./helper-absence";
 import { istHour, receiptByKey, sendableReceipts, type ChildFacts, type ChildReceipt, type ReceiptFact } from "./helper-facts";
 import type { HelperMessage } from "./helper-messages";
+import type { ChangeRequest } from "./parent-suggestions";
 import {
   cardFor,
   fallbackReply,
@@ -103,14 +104,20 @@ export type HandoffPlan = {
   /** What it is about, in a word: message_teacher, office, complaint, fees, request … */
   topic: string;
   /**
-   * The child will be away (D-588): the days for the register, kept once the
-   * hand-off is, and the reply to send instead when they could not be kept.
+   * The child will be away (D-588): the days, put in front of the class
+   * teacher once the hand-off is (D-598), and the reply to send instead when
+   * they could not be.
    */
   absence?: (AbsenceNote & { unsaved: HelperMessage }) | null;
   /** One English line for Messages' list, when the plan has one; Claude's summary otherwise. */
   summary?: string | null;
-  /** A school visit (D-592): kept on the Admissions board once the hand-off is in Messages. */
+  /** A school visit (D-592): put in front of the office for the Admissions board once the hand-off is in Messages (D-598). */
   visit?: VisitBooking | null;
+  /**
+   * A detail the parent asks the school to change (D-598): put in front of
+   * the office to check, and the reply to send instead when it could not be.
+   */
+  change?: (ChangeRequest & { unsaved: HelperMessage }) | null;
 };
 
 /** How a reply was decided: a rule, a tap, Claude (quick or careful), or the menu when nothing else could. */
@@ -191,9 +198,10 @@ export function settleHandoff(target: HandoffTarget, child: ChildFacts | null): 
 
 /**
  * The plan for a message the helper has decided to put in front of the
- * school. With `absence` (a child the parent says will be away, D-588) and a
- * child to keep it for, the reply says which register shows it; the reply
- * without that line goes instead when the note could not be kept.
+ * school. With `absence` (a child the parent says will be away, D-588) or
+ * `change` (a detail to change, D-598) and a child to keep it for, the reply
+ * says what happens once a person has checked it; the reply without that
+ * line goes instead when it could not be kept.
  */
 export function handoffReply(
   context: ReplyContext,
@@ -203,7 +211,7 @@ export function handoffReply(
   topic: string,
   now: Date,
   aiReply?: string | null,
-  absence?: AbsenceNote | null,
+  extra: { absence?: AbsenceNote | null; change?: ChangeRequest | null } = {},
 ): { message: HelperMessage; handoff: HandoffPlan } {
   const settled = settleHandoff(wanted, child);
   const detail = {
@@ -213,11 +221,21 @@ export function handoffReply(
     aiReply: aiReply ?? null,
   };
   const message = handoffAck(context, settled.target, detail);
-  if (!absence || !settled.child) return { message, handoff: { target: settled.target, child: settled.child, body, topic } };
-  return {
-    message: handoffAck(context, settled.target, { ...detail, absence }),
-    handoff: { target: settled.target, child: settled.child, body, topic, absence: { ...absence, unsaved: message } },
-  };
+  const plan: HandoffPlan = { target: settled.target, child: settled.child, body, topic };
+  if (!settled.child) return { message, handoff: plan };
+  if (extra.absence) {
+    return {
+      message: handoffAck(context, settled.target, { ...detail, absence: extra.absence }),
+      handoff: { ...plan, absence: { ...extra.absence, unsaved: message } },
+    };
+  }
+  if (extra.change) {
+    return {
+      message: handoffAck(context, settled.target, { ...detail, change: extra.change }),
+      handoff: { ...plan, change: { ...extra.change, unsaved: message } },
+    };
+  }
+  return { message, handoff: plan };
 }
 
 /**

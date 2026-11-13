@@ -22,6 +22,8 @@ export function inboxBadgeCount(parts: {
   failedJobs: number;
   /** Teachers' leave asked and not yet decided (one item each). */
   leave?: number;
+  /** A parent's suggestions this reader decides here (one item each, D-598). */
+  parents?: number;
 }): number {
   return (
     (parts.notMarked ? 1 : 0) +
@@ -30,6 +32,7 @@ export function inboxBadgeCount(parts: {
     (parts.confirmations > 0 ? 1 : 0) +
     parts.refunds +
     parts.failedJobs +
-    (parts.leave ?? 0)
+    (parts.leave ?? 0) +
+    (parts.parents ?? 0)
   );
 }

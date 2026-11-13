@@ -5,10 +5,11 @@ import { loadWhatsappLink, type WhatsappLinkView } from "@/modules/whatsapp/data
 import { staffLanguage } from "@/modules/whatsapp/domain/helper-handoff";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
-import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
+import { isTestSessionLabel, staffBelongsToSession } from "@/platform/auth/test-session-policy";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { fetchInChunks } from "@/platform/helpers/chunk";
+import { logWarn } from "@/platform/observability/log";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { classLabelMap, listSubjects, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
@@ -27,7 +28,9 @@ import {
   rosterOn,
   studentAttendance,
 } from "@/modules/attendance/data/attendance-repo";
-import { parentNotesOn, type ParentNoteReason } from "@/modules/attendance/data/parent-notes";
+import { parentNotesFor, type ParentNoteReason } from "@/modules/attendance/data/parent-notes";
+import { waitingAbsencesOn } from "@/modules/whatsapp/data/parent-suggestions";
+import { registerAskLine } from "@/modules/whatsapp/domain/parent-suggestions";
 import { attendanceScopeFor, classScopeFor, dayHeaders, heldClassIds, ownClassIds, periodsOn } from "@/modules/attendance/data/teaching-repo";
 import { attendancePercent, compareRoll, registerAuthority, type AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
@@ -53,6 +56,7 @@ import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 import { classTeacherOf } from "@/vx/screens/exams/guards";
 import { onRoll } from "@/vx/screens/exams/domain/tracker";
 import { p, type Pair } from "@/vx/text";
+import { getViewer } from "@/vx/view-as";
 
 import { alertWhen, attentionReasons, average, dayBefore, mergeCombinedSlots, monthEnd, tellApart, upcomingBirthdays, withoutAttendance, type AttentionReason, type Mark } from "./domain/teach";
 import { closedTag, closedWhy, examWord, joinPairs, lastOpenDay, leaveForToday, openNotesP, profileClasses, remarksLeft, type CalendarEntry, type ClosedWhy, type MyCover } from "./domain/today";
@@ -790,6 +794,29 @@ const INFORMED: Record<ParentNoteReason, Pair> = {
   other: p("Parent informed", "अभिभावक ने बताया"),
 };
 
+/**
+ * The register's waiting parents' notes (D-601): children whose parent told
+ * Veer Patta AI they would be away, not yet applied by anyone. Only for a
+ * reader who may decide them (whoever corrects attendance, or the class's own
+ * teacher who marks it), never while an admin sees One as someone else, and
+ * empty when they cannot be read: the register opens and saves either way.
+ */
+async function registerAsks(staff: CurrentStaff, sessionLabel: string, classId: string, day: string, owner: boolean): Promise<Map<string, { id: string; line: Pair }>> {
+  const asks = new Map<string, { id: string; line: Pair }>();
+  if (!can(staff, "attendance:correct") && !(owner && can(staff, "attendance:mark"))) return asks;
+  if (!staffBelongsToSession(staff.isTestAccount, sessionLabel)) return asks;
+  try {
+    if ((await getViewer()).previewing) return asks;
+    for (const waiting of await waitingAbsencesOn(sessionLabel, classId, day)) {
+      asks.set(waiting.studentId, { id: waiting.id, line: registerAskLine({ payload: waiting.payload, day, practice: waiting.practice }) });
+    }
+  } catch (caught) {
+    logWarn("attendance.parent_asks_unreadable", { error: caught instanceof Error ? caught.message.slice(0, 120) : "unknown" });
+    asks.clear();
+  }
+  return asks;
+}
+
 export async function loadAttendance(staff: CurrentStaff, input: { classId: string | null; day: string; month: string | null }) {
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { kind: "no-session" as const };
@@ -854,12 +881,15 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
 
   // The month view. An asked-for month that is not "YYYY-MM" falls back to the day's.
   const month = input.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.month) ? input.month : day.slice(0, 7);
-  const [range, basics, parentSwitches, told] = await Promise.all([
+  const [range, basics, parentSwitches, told, asks] = await Promise.all([
     classAttendanceRange(classId, sessionLabel, `${month}-01`, monthEnd(month)),
     childBasics(roll.map((r) => r.studentId)),
     readParentSwitches(),
-    // A parent who told the school on WhatsApp that the child would be away (D-588).
-    parentNotesOn(sessionLabel, day, roll.map((r) => r.studentId)),
+    // A parent who told the school on WhatsApp that the child would be away (D-588),
+    // once a person at school applied it (D-598).
+    parentNotesFor(sessionLabel, day, roll.map((r) => r.studentId)),
+    // The same, still waiting: the teacher applies it from the register (D-601).
+    closed ? Promise.resolve(new Map<string, { id: string; line: Pair }>()) : registerAsks(staff, sessionLabel, classId, day, held.includes(classId)),
   ]);
   const closedDays = [...calendar.entries()].filter(([d]) => d.startsWith(month)).filter(([d]) => !isSchoolOpen(d, calendar)).map(([d]) => d);
 
@@ -883,10 +913,11 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     reason: authority.reason ?? null,
     /** Settings → Parent messages: whether the absent-child WhatsApp is offered, and where its switch starts. */
     parentAlerts: parentSwitches.absentAlert,
-    ...(told.size ? { informedNote: p("No absent message goes to a parent who told the school on WhatsApp.", "जिन अभिभावकों ने व्हाट्सऐप पर स्कूल को बता दिया है, उन्हें अनुपस्थिति का संदेश नहीं जाएगा।") } : {}),
+    ...(told.size || asks.size ? { informedNote: p("No absent message goes to a parent who told the school on WhatsApp.", "जिन अभिभावकों ने व्हाट्सऐप पर स्कूल को बता दिया है, उन्हें अनुपस्थिति का संदेश नहीं जाएगा।") } : {}),
     roll: sorted.map((r) => {
       const dob = basics.get(r.studentId)?.dateOfBirth ?? null;
       const why = told.get(r.studentId);
+      const ask = why ? undefined : asks.get(r.studentId);
       return {
         id: r.studentId,
         name: r.fullName,
@@ -895,8 +926,12 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
         hint: apart.get(r.studentId) ?? null,
         gender: basics.get(r.studentId)?.gender ?? null,
         birthday: Boolean(dob && dob.slice(5, 10) === day.slice(5, 10)),
-        // The child starts as Absent and the card says why; the teacher can still change it.
-        ...(why ? { informed: INFORMED[why] } : {}),
+        // The child starts as Leave or Absent, as the person who applied the
+        // parent's note chose (D-598), and the card says why; the teacher can still change it.
+        ...(why ? { informed: INFORMED[why.reason], informedMark: why.mark } : {}),
+        // Still waiting (D-601): "Parent says sick" with Leave and Absent beside
+        // the child. Saving the child as Leave or Absent applies it as the teacher.
+        ...(ask ? { ask } : {}),
       };
     }),
     registerId: register?.id ?? null,

@@ -18,6 +18,7 @@ vi.mock("@/vx/ui/primitives", () => ({
   toneColors: () => ({ bg: "", fg: "" }),
 }));
 vi.mock("@/app/(app)/timetable/vx-actions", () => ({ decideLeaveAction: vi.fn() }));
+vi.mock("@/app/(app)/inbox/parent-actions", () => ({ decideParentSuggestionsAction: vi.fn(), undoParentSuggestionsAction: vi.fn() }));
 vi.mock("@/app/(app)/receipts/office-command-actions", () => ({
   reverseFeesReceiptAction: vi.fn(), decideFeesRefundAction: vi.fn(), processFeesRefundAction: vi.fn(), checkFeesOfficeCommandAction: vi.fn(),
 }));

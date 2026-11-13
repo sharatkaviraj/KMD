@@ -484,7 +484,7 @@ describe("what the helper does with one message", () => {
 /* --------------------------------------------------------------- Claude */
 
 function answer(over: Partial<HelperAnswer>): HelperAnswer {
-  return { language: "en", topic: "fees", reply: "Here are the fees.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, absence: null, school_answer: null, unanswered: null, ...over };
+  return { language: "en", topic: "fees", reply: "Here are the fees.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, absence: null, change: null, school_answer: null, unanswered: null, ...over };
 }
 
 describe("Claude's part", () => {

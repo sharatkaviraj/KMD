@@ -20,6 +20,8 @@ import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { attendanceCalendar, listMarks } from "@/modules/attendance/data/attendance-repo";
 import { parentNotesOn } from "@/modules/attendance/data/parent-notes";
+import { decideParentSuggestions } from "@/modules/whatsapp/data/parent-suggestions";
+import { decideRefusal } from "@/modules/whatsapp/domain/parent-suggestions";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attendance/domain/attendance-receipt";
@@ -82,7 +84,7 @@ export async function saveRegisterVx(payloadJson: string, alerts: boolean): Prom
 }
 
 async function saveRegisterVxUnsafe(actor: CurrentStaff, payloadJson: string, alerts: boolean): Promise<VxSaveState> {
-  let payload: { classId?: string; day?: string; kind?: string; marks?: { studentId: string; status: string }[] };
+  let payload: { classId?: string; day?: string; kind?: string; marks?: { studentId: string; status: string }[]; notes?: unknown };
   try {
     payload = JSON.parse(payloadJson);
   } catch {
@@ -99,6 +101,10 @@ async function saveRegisterVxUnsafe(actor: CurrentStaff, payloadJson: string, al
   form.set("payload", payloadJson);
   const result = await saveAttendanceAction(idleAttendanceState, form);
   if (result.status !== "saved") return result;
+
+  // The parents' notes this register applies (D-601), before the absent
+  // alerts are worked out: an applied note is a parent who told the school.
+  const noteWarning = await applyRegisterNotes(actor, payload);
 
   // Absent alerts follow the register as saved: queue the absent children,
   // cancel any queued for a child who is no longer absent.
@@ -122,7 +128,47 @@ async function saveRegisterVxUnsafe(actor: CurrentStaff, payloadJson: string, al
 
   revalidatePath("/teach");
   revalidatePath("/teach/class");
-  return { ...result, queued, queueWarning };
+  return { ...result, queued, queueWarning: queueWarning ?? noteWarning };
+}
+
+const registerNotesSchema = z.array(z.object({ id: z.uuid(), studentId: z.uuid(), mark: z.enum(["leave", "absent"]) })).max(60);
+
+/**
+ * A parent's note beside a child the teacher saved as Leave or Absent (D-601;
+ * the owner's idea 3: "Parent says sick" on the register, one tap for Leave
+ * or Absent, nothing marked until the teacher saves). Applied as the teacher,
+ * with that mark, and only for a child the saved register holds with that
+ * same mark: a child saved Present leaves the note waiting. The database
+ * re-checks that this teacher may decide it and that it still waits. A note
+ * that does not go through leaves the register saved and says why.
+ */
+async function applyRegisterNotes(actor: CurrentStaff, payload: { notes?: unknown; marks?: { studentId: string; status: string }[] }): Promise<Pair | undefined> {
+  const parsed = registerNotesSchema.safeParse(payload.notes ?? []);
+  if (!parsed.success) return undefined;
+  const saved = new Map((payload.marks ?? []).map((mark) => [mark.studentId, mark.status]));
+  const notes = parsed.data.filter((note) => saved.get(note.studentId) === note.mark);
+  if (notes.length === 0) return undefined;
+  const failed: string[] = [];
+  let applied = 0;
+  for (const mark of ["leave", "absent"] as const) {
+    const ids = notes.filter((note) => note.mark === mark).map((note) => note.id);
+    if (ids.length === 0) continue;
+    const result = await decideParentSuggestions({ actorStaffId: actor.id, ids, decision: "apply", mark, via: "register" });
+    if (!result.ok) {
+      failed.push(result.reason === "not_permitted" ? "not_permitted" : "failed");
+      continue;
+    }
+    applied += result.applied;
+    for (const outcome of result.results) if (outcome.outcome !== "applied") failed.push(outcome.outcome);
+  }
+  // Needs you's badge and Decided today, and the class teacher's Today card.
+  if (applied > 0) {
+    revalidatePath("/inbox");
+    revalidatePath("/");
+  }
+  if (failed.length === 0) return undefined;
+  const why = decideRefusal(failed[0]);
+  return p(`Attendance saved. A parent's note was not applied: ${why.en}`, `हाज़िरी सेव हुई। अभिभावक का संदेश लागू नहीं हुआ: ${why.hi ?? why.en}`);
 }
 
 async function syncAbsentAlerts(input: { registerId: string; classId: string; day: string; sessionLabel: string; actorId: string; wanted: boolean }): Promise<number> {

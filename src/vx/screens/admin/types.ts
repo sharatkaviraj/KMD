@@ -3,11 +3,34 @@ import type { ClassBoardRow, InboxType, MarkStatus } from "@/vx/screens/admin/lo
 
 /** Shapes the admin screens hand from server to client. Plain data only. */
 
-export type InboxKind = "not_marked" | "cover" | "submission" | "confirmations" | "refund" | "job" | "leave";
+export type InboxKind = "not_marked" | "cover" | "submission" | "confirmations" | "refund" | "job" | "leave" | "parent";
 
 export type InboxFact = { label: Pair; value: string };
 
 export type CoverCandidate = { id: string; name: string; detail: string; free: boolean };
+
+/**
+ * A parent's suggestion (D-598): what Veer Patta AI read in a WhatsApp
+ * message that may belong in a record, decided here at once (Leave or
+ * Absent, Add to Admissions, Apply, or Not now) and undone from the toast or
+ * from "Decided today".
+ */
+export type ParentInboxItem = {
+  suggestionId: string;
+  kind: "absence" | "visit" | "record";
+  /** The child's id, for the photo; null for a visit (a child not yet at the school). */
+  studentId: string | null;
+  childName: string;
+  classLabel: string | null;
+  /** The parent's own words, from the hand-off in Messages. */
+  words: string | null;
+  /** A record change: the value now and the one the parent asks for, side by side. */
+  change: { field: Pair; was: string | null; becomes: string } | null;
+  /** The parent's WhatsApp number, for a visit or a changed detail. */
+  phone: string | null;
+  /** The owner's number standing in for a family. */
+  practice: boolean;
+};
 
 export type InboxItem = {
   id: string;
@@ -37,6 +60,8 @@ export type InboxItem = {
   leavePast?: boolean;
   /** A Fees refund request this reader may decide here (review F01). */
   feesRefund?: { id: string; kind: "refund_approval" | "refund_processing"; sessionLabel: string; amount: number; actionable: boolean };
+  /** A parent's suggestion this reader may decide here (D-598). */
+  parent?: ParentInboxItem;
 };
 
 export type BoardData = {

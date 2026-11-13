@@ -1,11 +1,13 @@
 import { z } from "zod";
 
+import { schoolToday } from "@/platform/dates";
 import { formatInr } from "@/platform/helpers/currency";
 
 import { ABSENCE_REASONS, absenceNote } from "./helper-absence";
 import type { ChildFacts } from "./helper-facts";
 import type { HelperMessage } from "./helper-messages";
 import { knowledgeLines, NO_KNOWLEDGE, type SchoolKnowledge } from "./helper-lessons";
+import { CHANGE_FIELDS, normaliseChange } from "./parent-suggestions";
 import { childByKey, handoffReply, type TurnPlan } from "./helper-plan";
 import { aiAnswer, cardFor, fallbackReply, menuCard, OFFICE_PHONE, type Family, type HandoffTarget, type ReplyContext } from "./helper-replies";
 import type { HelperLanguage } from "./helper-text";
@@ -28,7 +30,10 @@ import { withVisitButton } from "./helper-visit";
  *
  * A parent's word that a child will be away (D-588) is read here too: Claude
  * says from when, for how many school days and why, the message goes to the
- * class teacher, and the reply says which day's register shows it.
+ * class teacher, and the reply says which day's register shows it once the
+ * class teacher has checked it. So is a detail the parent asks the school to
+ * change (a phone number, an address): it goes to the office, which checks
+ * it before the record changes. Neither changes anything by itself (D-598).
  *
  * Teach it once (D-589): FACTS also carries the answers the school has
  * written, for every family, and Claude says which one it used. A general
@@ -73,6 +78,9 @@ export const helperAnswerSchema = z.object({
       reason: z.enum(ABSENCE_REASONS),
     })
     .nullable(),
+  // A detail the parent asks the school to change (D-598): kept as a suggestion
+  // for the office, never written. `normaliseChange` decides what counts.
+  change: z.object({ field: z.enum(CHANGE_FIELDS), value: z.string() }).nullable(),
   // Teach it once (D-589): the key of the school answer this reply came from (A1…), or null.
   school_answer: z.string().nullable(),
   // A general question about the school that FACTS does not answer, in Claude's
@@ -117,6 +125,11 @@ export function helperSystemPrompt(helperName: string): string {
     'A CHILD WHO WILL BE AWAY (set "absence")',
     '- Only when the parent tells the school that a child will not come to school: ill, a family matter, travel, a wedding. Set "from" to "today" or "tomorrow" as the parent means it (read TODAY and the time in FACTS: "kal" with a future verb is tomorrow), "days" to how many school days (1 when the parent does not say, at most 7), and "reason" to "sick" for any illness, otherwise "other". Hand it off to "class_teacher" with topic "leave", and set "child".',
     '- Otherwise "absence" is null: a question about attendance, a child who was away on a day that has passed, coming late or leaving early, or a holiday the whole school has.',
+    "",
+    'A CHANGE TO A CHILD\'S DETAILS (set "change")',
+    '- Only when the parent asks the school to change or correct one of these details of a child in FACTS and gives the new value: "guardian_phone" (the parent\'s mobile number the school keeps), "mother_phone", "date_of_birth" (write the value as YYYY-MM-DD), "blood_group" (one of A+, A-, B+, B-, AB+, AB-, O+, O-), "address". Set "field", and "value" to the new value as the parent gave it. Hand it off to "office" with topic "request", and set "child".',
+    "- You cannot change it. Never say it has been changed or will be: a person at the school checks it first, and the next line of the message says so.",
+    '- Otherwise "change" is null: a question about a detail, a detail not in that list (a name, a class, a photo), or no new value given.',
     "",
     "SCHOOL ANSWERS (in FACTS)",
     '- These are the school\'s own answers to questions parents ask, written by the school for every family. When one answers the parent\'s question, answer from it: in the parent\'s language and your own short words, keeping every date, time, amount and rule exactly as the school wrote it, and adding nothing. Set "school_answer" to its key (A1, A2…) and "handoff" to "none", unless the message also needs a person for something else. Otherwise "school_answer" is null.',
@@ -225,17 +238,19 @@ export function planFromAnswer(
   const words = answer.reply.trim().slice(0, MAX_REPLY_CHARS).trim();
   const named = childByKey(input.family, answer.child);
   const child = named ?? (input.family.children.length === 1 ? input.family.children[0] : null);
-  // A child who will be away goes to the class teacher and onto the register (D-588);
-  // with no child to keep it for, it is a hand-off like any other.
+  // A child who will be away goes to the class teacher, to be put on the
+  // register (D-588); a changed detail goes to the office, to be checked
+  // (D-598). With no child to keep it for, either is a hand-off like any other.
   const away = child ? absenceNote(answer.absence, input.now) : null;
-  const target: HandoffTarget | "none" = answer.handoff !== "none" ? answer.handoff : away ? "class_teacher" : "none";
+  const change = child && !away ? normaliseChange(answer.change, schoolToday(input.now)) : null;
+  const target: HandoffTarget | "none" = answer.handoff !== "none" ? answer.handoff : away ? "class_teacher" : change ? "office" : "none";
 
   // Anything about admission carries the button that books a visit (D-592).
   const admission = (message: HelperMessage) => (answer.topic === "admission" ? withVisitButton(message, language) : message);
 
   if (target !== "none") {
-    const topic = answer.handoff !== "none" ? answer.topic : "leave";
-    const handed = handoffReply(context, target, child, input.text, topic, input.now, words || null, away);
+    const topic = answer.handoff !== "none" ? answer.topic : away ? "leave" : "request";
+    const handed = handoffReply(context, target, child, input.text, topic, input.now, words || null, { absence: away, change });
     return { action: "reply", intent: topic, route: "ai", language, message: admission(handed.message), chat: { language }, handoff: handed.handoff };
   }
   if (!words) {

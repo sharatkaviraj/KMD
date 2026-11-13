@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { saveAbsenceNotes } from "@/modules/whatsapp/data/helper-store";
 import { absenceDays, absenceNote, MAX_ABSENCE_DAYS } from "@/modules/whatsapp/domain/helper-absence";
 import { helperAnswerSchema, helperSystemPrompt, planFromAnswer, type HelperAnswer } from "@/modules/whatsapp/domain/helper-ai";
 import { childFactsFromRow, type ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
@@ -14,15 +13,14 @@ import { absenceLines, handoffAck, type Family, type ReplyContext } from "@/modu
 
 /**
  * Sick-day notes (D-588): "Riya bimar hai, aaj nahi aayegi" becomes the days
- * the register shows "Parent informed" on. Every name and number here is
- * made up (rule 6).
+ * the register shows "Parent informed" on, once the class teacher has applied
+ * it (D-598). Every name and number here is made up (rule 6).
  */
 
 /** Thursday 12 November 2026, 12:00 in India. */
 const NOON = new Date("2026-11-12T06:30:00Z");
 const AARAV_ID = "11111111-1111-4111-8111-111111111111";
 const MIRA_ID = "33333333-3333-4333-8333-333333333333";
-const REPLY_ID = "55555555-5555-4555-8555-555555555555";
 
 function child(id: string, fullName: string, className: string, teacher: string | null): ChildFacts {
   return childFactsFromRow({
@@ -52,7 +50,7 @@ function bodyOf(message: HelperMessage): string {
 }
 
 function answer(over: Partial<HelperAnswer>): HelperAnswer {
-  return { language: "en", topic: "leave", reply: "Get well soon.", show: "none", handoff: "class_teacher", child: null, needs_care: false, summary: null, absence: null, school_answer: null, unanswered: null, ...over };
+  return { language: "en", topic: "leave", reply: "Get well soon.", show: "none", handoff: "class_teacher", child: null, needs_care: false, summary: null, absence: null, change: null, school_answer: null, unanswered: null, ...over };
 }
 
 /* -------------------------------------------------------------- the days */
@@ -93,20 +91,34 @@ describe("which days a note covers", () => {
 /* ------------------------------------------------------- what is said */
 
 describe("what the parent is told", () => {
-  it("names today's register in all three languages", () => {
+  it("names today's register in all three languages, once the class teacher has checked it", () => {
     const note = { days: ["2026-11-12"], reason: "other" as const };
-    expect(absenceLines(aarav, note, "en")).toBe("📋 Today's register will show that you told the school.");
-    expect(absenceLines(aarav, note, "hx")).toBe("📋 Aaj ki hazri mein likha rahega ki aapne school ko bata diya tha.");
-    expect(absenceLines(aarav, note, "hi")).toBe("📋 आज की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।");
+    expect(absenceLines(aarav, note, "en")).toBe("📋 When the class teacher has checked it, today's register will show that you told the school.");
+    expect(absenceLines(aarav, note, "hx")).toBe("📋 Class teacher ke check karne ke baad, aaj ki hazri mein likha rahega ki aapne school ko bata diya tha.");
+    expect(absenceLines(aarav, note, "hi")).toBe("📋 कक्षा अध्यापक के जाँचने के बाद, आज की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।");
+  });
+
+  it("says the school checks it when the class has no class teacher", () => {
+    const note = { days: ["2026-11-12"], reason: "other" as const };
+    expect(absenceLines(aarav, note, "en", "office")).toBe("📋 When the school has checked it, today's register will show that you told the school.");
+    expect(absenceLines(aarav, note, "hx", "office")).toContain("School ke check karne ke baad");
+    expect(absenceLines(aarav, note, "hi", "office")).toContain("स्कूल के जाँचने के बाद");
   });
 
   it("names the day, or the first and last day, when it is not today", () => {
-    expect(absenceLines(aarav, { days: ["2026-11-13"], reason: "other" }, "en")).toBe("📋 The register for 13 Nov will show that you told the school.");
-    expect(absenceLines(aarav, { days: ["2026-11-13"], reason: "other" }, "hi")).toBe("📋 13 नवंबर की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।");
+    expect(absenceLines(aarav, { days: ["2026-11-13"], reason: "other" }, "en")).toBe("📋 When the class teacher has checked it, the register for 13 Nov will show that you told the school.");
+    expect(absenceLines(aarav, { days: ["2026-11-13"], reason: "other" }, "hi")).toBe("📋 कक्षा अध्यापक के जाँचने के बाद, 13 नवंबर की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।");
     const span = { days: ["2026-11-13", "2026-11-14", "2026-11-16"], reason: "other" as const };
-    expect(absenceLines(aarav, span, "en")).toBe("📋 The register from 13 Nov to 16 Nov will show that you told the school.");
-    expect(absenceLines(aarav, span, "hx")).toBe("📋 13 Nov se 16 Nov tak ki hazri mein likha rahega ki aapne school ko bata diya tha.");
-    expect(absenceLines(aarav, span, "hi")).toBe("📋 13 नवंबर से 16 नवंबर तक की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।");
+    expect(absenceLines(aarav, span, "en")).toBe("📋 When the class teacher has checked it, the register from 13 Nov to 16 Nov will show that you told the school.");
+    expect(absenceLines(aarav, span, "hx")).toBe("📋 Class teacher ke check karne ke baad, 13 Nov se 16 Nov tak ki hazri mein likha rahega ki aapne school ko bata diya tha.");
+    expect(absenceLines(aarav, span, "hi")).toBe("📋 कक्षा अध्यापक के जाँचने के बाद, 13 नवंबर से 16 नवंबर तक की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।");
+  });
+
+  it("never says the register already shows it: a person decides first (D-598)", () => {
+    for (const language of ["en", "hx", "hi"] as const) {
+      const line = absenceLines(aarav, { days: ["2026-11-12"], reason: "sick" }, language);
+      expect(line).not.toMatch(/has been (marked|noted)|marked (leave|absent)|shows that/i);
+    }
   });
 
   it("wishes a child who is ill well, by first name only", () => {
@@ -125,7 +137,7 @@ describe("what the parent is told", () => {
       handoffAck(context("en"), "class_teacher", { child: aarav, teacherName: "TEST Teacher One", lateHour: true, absence: { days: ["2026-11-12"], reason: "sick" } }),
     );
     expect(noted).toContain(`✅ Your message has been passed to *${aarav.firstName}*'s class teacher (TEST Teacher One).`);
-    expect(noted).toContain("\n📋 Today's register will show that you told the school.");
+    expect(noted).toContain("\n📋 When the class teacher has checked it, today's register will show that you told the school.");
     expect(noted).not.toContain("The school will get back to you.");
     expect(noted).toContain("after 6 am");
   });
@@ -160,7 +172,7 @@ describe("Claude's reading of an absence", () => {
     expect(planned.intent).toBe("leave");
     expect(planned.handoff).toMatchObject({ target: "class_teacher", topic: "leave", body: text, absence: { days: ["2026-11-12"], reason: "sick" } });
     expect(planned.handoff?.child?.studentId).toBe(AARAV_ID);
-    expect(bodyOf(planned.message)).toContain("Aaj ki hazri mein likha rahega");
+    expect(bodyOf(planned.message)).toContain("Class teacher ke check karne ke baad, aaj ki hazri mein likha rahega");
     const unsaved = bodyOf(planned.handoff!.absence!.unsaved);
     expect(unsaved).toContain("class teacher (TEST Teacher One) tak pahuncha diya gaya hai");
     expect(unsaved).not.toContain("hazri");
@@ -170,7 +182,7 @@ describe("Claude's reading of an absence", () => {
   it("hands an absence to the class teacher even when Claude asked for no hand-off", () => {
     const planned = planFromAnswer(answer({ topic: "other", handoff: "none", absence: { from: "tomorrow", days: 1, reason: "other" } }), input(oneChild, "kal shaadi mein jaana hai"));
     expect(planned.handoff).toMatchObject({ target: "class_teacher", topic: "leave", absence: { days: ["2026-11-13"], reason: "other" } });
-    expect(bodyOf(planned.message)).toContain("The register for 13 Nov will show that you told the school.");
+    expect(bodyOf(planned.message)).toContain("the register for 13 Nov will show that you told the school.");
   });
 
   it("keeps the note with whoever Claude handed it to", () => {
@@ -191,83 +203,6 @@ describe("Claude's reading of an absence", () => {
     expect(named.handoff?.absence?.days).toEqual(["2026-11-12"]);
     const none = planFromAnswer(answer({ topic: "attendance", handoff: "none", reply: "Aarav was present today.", absence: null }), input(oneChild, "aaj aaya tha?"));
     expect(none.handoff).toBeNull();
-  });
-});
-
-/* ------------------------------------------------------- what is kept */
-
-type Call = { table: string; op: string; rows?: unknown; options?: unknown; filters: Array<[string, string, unknown]> };
-
-function fakeDb(answers: { upsertError?: unknown; upsertThrows?: boolean; cancelThrows?: boolean } = {}) {
-  const calls: Call[] = [];
-  const db = {
-    from: (table: string) => ({
-      upsert: async (rows: unknown, options: unknown) => {
-        calls.push({ table, op: "upsert", rows, options, filters: [] });
-        if (answers.upsertThrows) throw new Error("network");
-        return { error: answers.upsertError ?? null };
-      },
-      update: (rows: unknown) => {
-        const call: Call = { table, op: "update", rows, filters: [] };
-        calls.push(call);
-        if (answers.cancelThrows) throw new Error("network");
-        const chain = {
-          eq: (column: string, value: unknown) => {
-            call.filters.push(["eq", column, value]);
-            return chain;
-          },
-          in: (column: string, value: unknown) => {
-            call.filters.push(["in", column, value]);
-            return Promise.resolve({ error: null });
-          },
-        };
-        return chain;
-      },
-    }),
-  };
-  return { db: db as never, calls };
-}
-
-describe("keeping a note", () => {
-  const row = { studentId: AARAV_ID, sessionLabel: "TEST-2026-27", days: ["2026-11-12", "2026-11-13", "2026-11-12"], reason: "sick" as const, parentReplyId: REPLY_ID, practice: true };
-
-  it("writes one row per day, keeps a day's first note, and stops that day's waiting absent message", async () => {
-    const { db, calls } = fakeDb();
-    expect(await saveAbsenceNotes(row, db)).toBe(true);
-    expect(calls[0]).toMatchObject({
-      table: "parent_absence_notes",
-      op: "upsert",
-      options: { onConflict: "student_id,day", ignoreDuplicates: true },
-      rows: [
-        { student_id: AARAV_ID, session_label: "TEST-2026-27", day: "2026-11-12", reason: "sick", parent_reply_id: REPLY_ID, practice: true },
-        { student_id: AARAV_ID, session_label: "TEST-2026-27", day: "2026-11-13", reason: "sick", parent_reply_id: REPLY_ID, practice: true },
-      ],
-    });
-    expect(Object.keys((calls[0].rows as object[])[0])).not.toContain("body");
-    expect(calls[1]).toMatchObject({ table: "parent_message_queue", op: "update", rows: { status: "cancelled" } });
-    expect(calls[1].filters).toEqual([
-      ["eq", "session_label", "TEST-2026-27"],
-      ["eq", "kind", "absent_alert"],
-      ["eq", "status", "queued"],
-      ["eq", "student_id", AARAV_ID],
-      ["in", "day", ["2026-11-12", "2026-11-13"]],
-    ]);
-  });
-
-  it("is not kept when it names no child or no day, or the write fails", async () => {
-    for (const bad of [{ ...row, studentId: "not-an-id" }, { ...row, days: [] }, { ...row, days: ["12/11/2026"] }]) {
-      const { db, calls } = fakeDb();
-      expect(await saveAbsenceNotes(bad, db)).toBe(false);
-      expect(calls).toEqual([]);
-    }
-    const refused = fakeDb({ upsertError: { message: "permission denied" } });
-    expect(await saveAbsenceNotes(row, refused.db)).toBe(false);
-    expect(refused.calls.map((call) => call.op)).toEqual(["upsert"]);
-    expect(await saveAbsenceNotes(row, fakeDb({ upsertThrows: true }).db)).toBe(false);
-  });
-
-  it("is still kept when the waiting message could not be stopped: the register's save stops it", async () => {
-    expect(await saveAbsenceNotes(row, fakeDb({ cancelThrows: true }).db)).toBe(true);
   });
 });
 
@@ -303,13 +238,19 @@ describe("the sick-day notes migration (D-588)", () => {
     expect(sql).not.toMatch(/grant [a-z, ]+ on vppsone\.parent_absence_notes to (anon|authenticated)/i);
   });
 
-  it("matches what the helper writes and the register reads", () => {
-    const store = readFileSync(join(process.cwd(), "src/modules/whatsapp/data/helper-store.ts"), "utf8");
+  it("matches what applying a suggestion writes and the register reads (D-598)", () => {
+    const suggestions = readdirSync(dir).filter((name) => name.endsWith("_parent_suggestions.sql"));
+    expect(suggestions).toHaveLength(1);
+    const applying = readFileSync(join(dir, suggestions[0]), "utf8");
     const register = readFileSync(join(process.cwd(), "src/modules/attendance/data/parent-notes.ts"), "utf8");
     for (const column of ["student_id", "session_label", "day", "reason", "parent_reply_id", "practice"]) {
       expect(sql).toMatch(new RegExp(`\\n\\s+${column} `));
-      expect(store).toContain(`${column}:`);
     }
-    expect(register).toContain('.select("student_id, reason")');
+    expect(applying).toContain("insert into vppsone.parent_absence_notes (student_id, session_label, day, reason, parent_reply_id, practice, suggestion_id, mark)");
+    expect(register).toContain('.select("student_id, reason, mark")');
+    // Nothing in the helper writes a note any more: only a person applying a suggestion does.
+    const helper = ["helper-store.ts", "helper-turn.ts", "helper-visit.ts"].map((name) => readFileSync(join(process.cwd(), "src/modules/whatsapp/data", name), "utf8")).join("\n");
+    expect(helper).not.toContain('from("parent_absence_notes")');
+    expect(helper).not.toContain('from("enquiries")');
   });
 });

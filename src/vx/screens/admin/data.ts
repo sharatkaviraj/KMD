@@ -44,6 +44,9 @@ import { listEnrolments, listEnrolmentsAs } from "@/modules/enrolments/data/enro
 import { jobsBoard } from "@/modules/jobs/data/jobs-repo";
 import { enrolmentForStudent, getStudentCard, type StudentCard } from "@/modules/students/data/student-repo";
 import { listStaff, listStaffAs } from "@/modules/staff/data/staff-repo";
+import { parentNoteViews, parentReaderFor } from "@/modules/whatsapp/data/parent-suggestion-views";
+import { waitingSuggestions } from "@/modules/whatsapp/data/parent-suggestions";
+import { inNeedsYou, SUGGESTION_FOOTNOTES, SUGGESTION_WORDS } from "@/modules/whatsapp/domain/parent-suggestions";
 import { absencesOn, absencesOnAs } from "@/modules/substitutions/data/absences-repo";
 import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitutions/data/arrange-day";
 import { currentBells, dutiesOn, liveOnly } from "@/modules/substitutions/data/cover-repo";
@@ -81,6 +84,8 @@ const staffList = cache(() => listStaff());
 const dutiesFor = cache((sessionLabel: string, day: string) => dutiesOn(sessionLabel, day));
 const pendingSubmissions = cache(() => listSubmissions("pending"));
 const jobsNow = cache(() => jobsBoard());
+/** A parent's suggestions still waiting this session (D-598), read once for the page and the badge. */
+const waitingParents = cache((sessionLabel: string) => waitingSuggestions(sessionLabel));
 
 type AskedLeave = { id: string; staffName: string; fromDay: string; toDay: string; span: string; note: string | null; askedAt: string };
 
@@ -783,6 +788,7 @@ const FIELD_CHANGE = (from: string | null, to: string | null) => `${from ?? "—
  * check inside the read.
  */
 function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, refunds: MoneyRequests | undefined, missing: string[]) {
+  const parents = parentReaderFor(staff, sessionLabel);
   return Promise.all([
     can(staff, "attendance:mark_on_behalf") ? guard(missing, "board", () => loadBoard(sessionLabel, day)) : Promise.resolve(null),
     // Only the live duties: the whole cover day (the timetable, every slot) is
@@ -794,6 +800,7 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
     refunds ? guard(missing, "refunds", () => moneyRequests(refunds)) : Promise.resolve(null),
     can(staff, "jobs:view") ? guard(missing, "jobs", () => jobsNow()) : Promise.resolve(null),
     can(staff, "substitutions:manage") ? guard(missing, "leave", () => askedLeave(sessionLabel)) : Promise.resolve(null),
+    parents ? guard(missing, "parents", async () => (await waitingParents(sessionLabel)).filter((row) => inNeedsYou(row, parents))) : Promise.resolve(null),
   ] as const);
 }
 
@@ -807,7 +814,7 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
  */
 export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests, nowMinutes?: number) => Promise<number> = cache(
   async (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests, nowMinutes?: number): Promise<number> => {
-    const [board, needing, pending, money, jobs, leave] = await inboxSources(staff, sessionLabel, day, refunds, []);
+    const [board, needing, pending, money, jobs, leave, parents] = await inboxSources(staff, sessionLabel, day, refunds, []);
     const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending.filter(s=>s.fieldKey!=="student_photo"&&(staff.role==="admin"||!s.requiresAdmin))) : { changes: [], confirmations: [] };
     return inboxBadgeCount({
       notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded) && registerLate(board.bells, nowMinutes ?? schoolMinutes(new Date()))),
@@ -817,6 +824,7 @@ export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string
       refunds: money?.length ?? 0,
       failedJobs: [...(jobs?.latest.values() ?? [])].filter((entry) => entry.status === "failed").length,
       leave: leave?.length ?? 0,
+      parents: parents?.length ?? 0,
     });
   },
 );
@@ -844,7 +852,7 @@ async function readInbox(
   const items: InboxItem[] = [];
   const nowIso = new Date().toISOString();
 
-  const [board, needing, pending, refunds, jobs, leave] = await inboxSources(staff, sessionLabel, day, refundsReader, missing);
+  const [board, needing, pending, refunds, jobs, leave, parents] = await inboxSources(staff, sessionLabel, day, refundsReader, missing);
 
   /* attendance not marked */
   if (board && board.schoolOpen) {
@@ -1025,6 +1033,44 @@ async function readInbox(
       leavePast: r.toDay < day,
       href: "/timetable?view=leave",
     });
+  }
+
+  /*
+   * A parent's suggestions (D-598): what Veer Patta AI read on WhatsApp that
+   * may belong in a record. Decided here at once (Leave or Absent, Add to
+   * Admissions, Apply, Not now) and undone from the toast or Decided today.
+   */
+  if (parents && parents.length > 0) {
+    const views = await guard(missing, "parents", () => parentNoteViews(parents, sessionLabel, day));
+    const opensChild = can(staff, "students:view");
+    const opensAdmissions = can(staff, "fees:manage");
+    for (const view of views ?? []) {
+      items.push({
+        // Undone, it waits again as a new item: the one decided here stays hidden.
+        id: `parent:${view.key}`,
+        type: view.kind === "absence" ? "attendance" : "students",
+        kind: "parent",
+        at: view.createdAt,
+        urgent: view.urgent,
+        badge: SUGGESTION_WORDS.badge,
+        title: view.title,
+        sub: view.line,
+        facts: [],
+        footnote: SUGGESTION_FOOTNOTES[view.kind],
+        href: view.kind === "visit" ? (opensAdmissions ? "/admissions" : undefined) : view.studentId && opensChild ? `/students/${view.studentId}` : undefined,
+        parent: {
+          suggestionId: view.id,
+          kind: view.kind,
+          studentId: view.studentId,
+          childName: view.childName,
+          classLabel: view.classLabel,
+          words: view.words,
+          change: view.change,
+          phone: view.phone,
+          practice: view.practice,
+        },
+      });
+    }
   }
 
   /* jobs that failed */

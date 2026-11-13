@@ -43,6 +43,8 @@ jobs:
         run: node tests/sql/parent-helper-lessons.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
       - name: Exercise a school visit booked on WhatsApp (one enquiry per hand-off, visit day and part together)
         run: node tests/sql/parent-helper-visits.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+      - name: Exercise parents' suggestions (nothing written until a person applies it; who decides, expiry, undo)
+        run: node tests/sql/parent-suggestions.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
   lock-order:
     runs-on: ubuntu-latest
     timeout-minutes: 5

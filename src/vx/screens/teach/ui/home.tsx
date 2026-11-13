@@ -126,6 +126,7 @@ export function TeachHome({
   officePhone,
   bolo,
   certificates,
+  parents,
   allowed = { attendance: true, marks: true, notes: true },
 }: {
   data: HomeData;
@@ -139,6 +140,8 @@ export function TeachHome({
   bolo?: ReactNode;
   /** The teacher's certificate requests (D-542); the card hides itself until there is one. */
   certificates?: ReactNode;
+  /** Parents' notes (D-598): absences a parent told Veer Patta AI about, to decide; the card hides itself until there is one. */
+  parents?: ReactNode;
   /** Office and coordinators can open this page too; their quick actions stop at what they may open. */
   allowed?: { attendance: boolean; marks: boolean; notes: boolean };
 }) {
@@ -1115,6 +1118,7 @@ export function TeachHome({
               <LazyAwayReports reports={data.awayReports} today={data.today} />
               {unsavedCard}
               {leaveCard}
+              {parents}
               {coverAsk}
               {changedCard}
               {classesCard}

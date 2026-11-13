@@ -112,6 +112,7 @@ const KIND_LOOK: Record<InboxItem["kind"], { icon: IconName; bg: string; fg: str
   refund: { icon: "rupee", bg: "var(--accs)", fg: "var(--accfg)" },
   job: { icon: "alert", bg: "var(--bads)", fg: "var(--bad)" },
   leave: { icon: "calendar", bg: "var(--infos)", fg: "var(--info)" },
+  parent: { icon: "message", bg: "var(--oks)", fg: "var(--ok)" },
 };
 
 /**
@@ -125,6 +126,7 @@ const ACTION_OF: Partial<Record<InboxItem["kind"], Pair>> = {
   confirmations: T.accept,
   refund: T.review,
   leave: T.review,
+  parent: T.review,
 };
 
 const QUICK_LOOK: Record<QuickTone, { bg: string; fg: string }> = {

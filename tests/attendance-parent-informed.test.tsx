@@ -12,6 +12,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
  */
 const state = vi.hoisted(() => ({ save: vi.fn(), check: vi.fn(), toast: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+// The register's lazy pieces (D-601) through React.lazy, so a test can wait for them like a phone does.
+vi.mock("next/dynamic", async () => {
+  const { lazy, Suspense, createElement } = await import("react");
+  return {
+    default: (load: () => Promise<React.ComponentType<Record<string, unknown>>>) => {
+      const Lazy = lazy(async () => ({ default: await load() }));
+      return (props: Record<string, unknown>) => createElement(Suspense, { fallback: null }, createElement(Lazy, props));
+    },
+  };
+});
 vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
 vi.mock("@/platform/drafts/use-durable-draft", () => ({ useOnline: () => true }));
 vi.mock("@/platform/drafts/store", () => ({ loadDraft: async () => null, saveDraft: async () => undefined, removeDraft: async () => undefined }));
@@ -85,6 +95,23 @@ it("starts the informed child as Absent, says why, and offers no absent WhatsApp
   ]);
 });
 
+it("starts the child as Leave when the class teacher chose Leave for the parent's note (D-598)", async () => {
+  await render(data({
+    roll: [
+      { id: kidA, name: "Test Alpha", rollNo: "1", admissionNo: null, hint: null, gender: null, birthday: false, informed: { en: "Parent informed · sick", hi: "" }, informedMark: "leave" },
+      { id: kidB, name: "Test Beta", rollNo: "2", admissionNo: null, hint: null, gender: null, birthday: false },
+    ],
+  }));
+  expect(card("Test Alpha").getAttribute("aria-label")).toContain("Parent informed · sick");
+  expect(alertSwitch()).toBeNull();
+  state.save.mockResolvedValueOnce({ status: "refused", message: { en: "QA closed", hi: "" } });
+  await act(async () => saveButton().click());
+  expect(JSON.parse(state.save.mock.calls[0][0]).marks).toEqual([
+    { studentId: kidA, status: "leave" },
+    { studentId: kidB, status: "present" },
+  ]);
+});
+
 it("offers the WhatsApp only for the child whose parent did not tell the school", async () => {
   await render(data());
   await act(async () => card("Test Beta").click());
@@ -122,4 +149,66 @@ it("shows nothing new for a class with no note", async () => {
   expect(card("Test Beta").getAttribute("aria-pressed")).toBe("false");
   expect(host.textContent).not.toContain("Parent informed");
   expect(host.textContent).not.toContain(TOLD);
+});
+
+/* A parent's note still waiting (D-601): "Parent says sick" with Leave and Absent under the child. */
+const NOTE = "00000000-0000-4000-8000-0000000000e1";
+const asking = (over: Record<string, unknown> = {}) => data({
+  roll: [
+    { id: kidA, name: "Test Alpha", rollNo: "1", admissionNo: null, hint: null, gender: null, birthday: false, ask: { id: NOTE, line: { en: "Parent says sick", hi: "" } } },
+    { id: kidB, name: "Test Beta", rollNo: "2", admissionNo: null, hint: null, gender: null, birthday: false },
+  ],
+  ...over,
+});
+const settle = async () => {
+  for (let i = 0; i < 3; i += 1) await act(async () => { await vi.dynamicImportSettled(); });
+};
+const choice = (label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label} · Test Alpha"]`);
+const sent = () => JSON.parse(state.save.mock.calls.at(-1)![0]);
+
+it("shows a waiting note under the child, starts the child Present, and marks nothing until a tap", async () => {
+  await render(asking());
+  await settle();
+  expect(host.textContent).toContain("Parent says sick");
+  expect(card("Test Alpha").getAttribute("aria-pressed")).toBe("false");
+  expect(choice("Leave")!.getAttribute("aria-pressed")).toBe("false");
+  expect(choice("Absent")!.getAttribute("aria-pressed")).toBe("false");
+  state.save.mockResolvedValueOnce({ status: "refused", message: { en: "QA closed", hi: "" } });
+  await act(async () => saveButton().click());
+  expect(sent().notes).toEqual([]);
+  expect(sent().marks[0]).toEqual({ studentId: kidA, status: "present" });
+});
+
+it("Leave marks the child, and saving sends the note with that mark", async () => {
+  await render(asking());
+  await settle();
+  await act(async () => choice("Leave")!.click());
+  expect(choice("Leave")!.getAttribute("aria-pressed")).toBe("true");
+  expect(card("Test Alpha").getAttribute("aria-pressed")).toBe("true");
+  state.save.mockResolvedValueOnce({ status: "refused", message: { en: "QA closed", hi: "" } });
+  await act(async () => saveButton().click());
+  expect(sent().marks[0]).toEqual({ studentId: kidA, status: "leave" });
+  expect(sent().notes).toEqual([{ id: NOTE, studentId: kidA, mark: "leave" }]);
+});
+
+it("a tap on the card that makes the child Absent sends the note too, and offers no absent WhatsApp for that family", async () => {
+  await render(asking());
+  await settle();
+  await act(async () => card("Test Alpha").click());
+  expect(choice("Absent")!.getAttribute("aria-pressed")).toBe("true");
+  expect(alertSwitch()).toBeNull();
+  expect(sheet().textContent).toContain(TOLD);
+  expect(sheet().textContent).toContain("Parent says sick");
+  state.save.mockResolvedValueOnce({ status: "refused", message: { en: "QA closed", hi: "" } });
+  await act(async () => saveButton().click());
+  expect(sent().notes).toEqual([{ id: NOTE, studentId: kidA, mark: "absent" }]);
+});
+
+it("shows no buttons once the register is saved, until the teacher changes it", async () => {
+  await render(asking({ registerId: "qa-register", revision: 1, saved: { [kidA]: "present", [kidB]: "present" }, receipt: { savedAt: "2026-10-10T03:00:00Z", actorName: "QA", revision: 1 } }));
+  await settle();
+  expect(choice("Leave")).toBeNull();
+  await act(async () => [...host.querySelectorAll("button")].find((b) => b.textContent === "Change attendance")!.click());
+  await settle();
+  expect(choice("Leave")).not.toBeNull();
 });

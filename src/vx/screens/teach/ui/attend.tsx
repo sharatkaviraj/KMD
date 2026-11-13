@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "@/ui/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 
@@ -43,7 +44,13 @@ import {
   type Mark,
 } from "../domain/teach";
 import { andList } from "./fmt";
-import { DeskHelp, DrawnTick, HelpIcon, HelpSheet, LangSeg, TchTop, useUrlState, type HelpStep } from "./shared";
+import { DeskHelp, DrawnTick, HelpIcon, LangSeg, TchTop, useUrlState } from "./shared";
+
+// Each in its own chunk, fetched only when it is shown: the help the first
+// time it opens, and a parent's note (D-601) only on a register that has one.
+// `/teach/attendance` is the tightest page budget in One (`check:bundles`).
+const RegisterHelp = dynamic(() => import("./register-help").then((m) => m.RegisterHelp));
+const RegisterAsk = dynamic(() => import("./register-ask").then((m) => m.RegisterAsk));
 
 /*
  * Teacher · Attendance (design TchAttend). Everyone starts Present; a tap
@@ -70,43 +77,6 @@ type ViewKey = "history";
 type S = "P" | "A" | "H";
 
 const V = (x: string) => `var(--${x})`;
-
-const MINI = (rows: [string, string][]) => (
-  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5 }}>
-    {rows.map(([bg, c], i) => (
-      <span key={i} className="tc-mini" style={{ background: bg }}>
-        <span className="tc-msk" />
-        <span style={{ width: 18, height: 12, borderRadius: 6, background: c }} />
-      </span>
-    ))}
-  </div>
-);
-
-
-/** The real button's words in the reader's language, for the help picture. */
-function SaveWord() {
-  const { tx } = useVx();
-  return <>{tx(p("Save attendance", "हाज़िरी सेव करें"))}</>;
-}
-
-const HELP: HelpStep[] = [
-  { title: p("Everyone starts as Present", "सब बच्चे पहले से उपस्थित हैं।"), body: p("You do not need to tap the children who came.", "जो बच्चे आए उन पर टैप करने की ज़रूरत नहीं।"), pic: MINI([[V("oks"), V("ok")], [V("oks"), V("ok")], [V("oks"), V("ok")]]) },
-  {
-    title: p("Tap a child who is away", "जो बच्चा नहीं आया, उस पर टैप करें।"),
-    body: p("Once = Absent (red). Tap again = Present again. For a half day, press “Half-day” on the red card.", "एक बार = अनुपस्थित (लाल)। फिर टैप = फिर उपस्थित। आधे दिन के लिए लाल कार्ड पर “आधा दिन” दबाएँ।"),
-    pic: MINI([[V("card"), V("ok")], [V("bads"), V("bad")], [V("warns"), V("warn")]]),
-  },
-  {
-    title: p("Press Save attendance", "सेव दबाएँ — कार्यालय तुरंत देख लेगा।"),
-    body: p("The office sees it at once. You can change it later if you need to.", "कार्यालय तुरंत देख लेता है। ज़रूरत हो तो बाद में बदल सकते हैं।"),
-    pic: (
-      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5 }}>
-        <span className="tc-mini"><span className="tc-msk" /><span style={{ width: 18, height: 12, borderRadius: 6, background: V("ok") }} /></span>
-        <span className="tc-ib" style={{ height: 30, borderRadius: 9, background: V("pri"), color: V("prifg"), fontSize: 11, fontWeight: 700 }}><SaveWord /></span>
-      </div>
-    ),
-  },
-];
 
 const LOOK: Record<S, { t: Pair; bg: string; bd: string; sbg: string; sfg: string; fg: string; icon: IconName; cls: string }> = {
   P: { t: p("Present", "उपस्थित"), bg: V("card"), bd: V("bd"), sbg: V("oks"), sfg: V("ok"), fg: V("ok"), icon: "check", cls: "p" },
@@ -275,6 +245,9 @@ export function TeachAttend({
   const online = useOnline();
   const ready = useHydrated();
   const [sheet, setSheet] = useUrlState<SheetKey>("sheet", (initialSheet as SheetKey) ?? null);
+  // The help sheet's chunk is fetched the first time it opens, then kept so it can close smoothly.
+  const [helpOn, setHelpOn] = useState(false);
+  if (sheet === "help" && !helpOn) setHelpOn(true);
   const [view, setView] = useUrlState<ViewKey>("view", initialView === "history" ? "history" : null);
 
   // The school's today. A register for any other day is a past (or future)
@@ -296,8 +269,9 @@ export function TeachAttend({
   const queuedCount = local ? (local.queued ?? 0) : data.queuedAlerts.length;
   const recorded = revision >= 1;
   const ids = useMemo(() => data.roll.map((r) => r.id), [data.roll]);
-  // A child whose parent told the school on WhatsApp starts as Absent (D-588); the teacher can still change it.
-  const toldAway = useMemo(() => Object.fromEntries(data.roll.filter((r) => r.informed).map((r) => [r.id, "absent" as Mark])), [data.roll]);
+  // A child whose parent told the school on WhatsApp starts as Leave or Absent, as the
+  // person who applied the note chose (D-588, D-598); the teacher can still change it.
+  const toldAway = useMemo(() => Object.fromEntries(data.roll.filter((r) => r.informed).map((r) => [r.id, (r.informedMark ?? "absent") as Mark])), [data.roll]);
   const fresh = useMemo(() => ({ ...Object.fromEntries(ids.map((id) => [id, "present" as Mark])), ...toldAway }), [ids, toldAway]);
   // The number on each card: the roll number, or the child's place in the
   // full list when the class has none — never renumbered by a search.
@@ -377,8 +351,9 @@ export function TeachAttend({
   const nH = counts.halfDay + counts.leave;
   const total = Math.max(1, counts.total);
   const absentKids = data.roll.filter((r) => marks[r.id] === "absent");
-  // The absent WhatsApp goes to these parents: not to one who told the school (D-588).
-  const alertKids = absentKids.filter((r) => !r.informed);
+  // The absent WhatsApp goes to these parents: not to one who told the school (D-588),
+  // nor to one whose waiting note saving this register applies (D-601).
+  const alertKids = absentKids.filter((r) => !r.informed && !r.ask);
   const halfKids = data.roll.filter((r) => sOf(marks[r.id]) === "H");
   const often = useMemo(() => new Map(absentOften(data.monthMarks, 3).map((o) => [o.studentId, o.absent])), [data.monthMarks]);
   const yesterdayIds = Object.entries(data.yesterday).filter(([, m]) => m === "absent").map(([id]) => id);
@@ -507,6 +482,8 @@ export function TeachAttend({
       expectedRevision: revision,
       reason,
       marks: ids.map((id) => ({ studentId: id, status: marks[id] ?? "present" })),
+      // A parent's note beside a child saved as Leave or Absent is applied with that mark (D-601).
+      notes: data.roll.flatMap((r) => (r.ask && (marks[r.id] === "leave" || marks[r.id] === "absent") ? [{ id: r.ask.id, studentId: r.id, mark: marks[r.id] }] : [])),
     });
     const box: Outbox = { payload, alerts, commandId, at: Date.now() };
     if (!online) {
@@ -546,7 +523,7 @@ export function TeachAttend({
     return n ? tx(p(`No. ${n}`, `क्रम ${n}`)) : "";
   };
   // The number, and the SR and father for children who share a name (BUG-05).
-  const whoLine = (k: AttendData["roll"][number]) => [numLabel(k.id), k.hint ? tx(k.hint) : null, k.informed ? tx(k.informed) : null].filter(Boolean).join(" · ");
+  const whoLine = (k: AttendData["roll"][number]) => [numLabel(k.id), k.hint ? tx(k.hint) : null, k.informed ? tx(k.informed) : k.ask ? tx(k.ask.line) : null].filter(Boolean).join(" · ");
   // A Hindi reader is not given the English underneath (smoke run: English
   // lines under every heading doubled the reading).
   const T = (t: Pair) => `${tx(t)}${language !== "hi" && sub(t) ? ` · ${sub(t)}` : ""}`;
@@ -613,6 +590,7 @@ export function TeachAttend({
             <span className="tc-stw">{tx(lk.t)}</span>
           </span>
         </button>
+        {editing && r.ask ? <RegisterAsk name={r.name} line={r.ask.line} mark={marks[r.id]} onMark={(m) => setMark(r.id, () => m)} /> : null}
         {editing && s !== "P" ? (
           <button type="button" className="tap chip" aria-pressed={s === "H"} onClick={() => halfDay(r.id)} style={{ alignSelf: "flex-end", height: 40, padding: "0 14px", fontSize: 14, background: s === "H" ? V("warns") : V("card"), color: s === "H" ? V("warnfg") : V("fg") }}>
             <Ic n={s === "H" ? "x" : "calMinus"} size={16} />
@@ -1288,7 +1266,7 @@ export function TeachAttend({
     </>
   ) : null;
   // Why no WhatsApp goes for a child whose parent told the school (D-588).
-  const toldLine = data.informedNote && absentKids.some((k) => k.informed) ? <span className="tc-s">{tx(data.informedNote)}</span> : null;
+  const toldLine = data.informedNote && absentKids.some((k) => k.informed || k.ask) ? <span className="tc-s">{tx(data.informedNote)}</span> : null;
   const closedBanner = !online || outbox || (data.reason && !data.canSave && !data.canCorrect) || (state && (state.status === "stale" || state.status === "roster_changed" || state.status === "refused"));
   return (
     <VxPage className="tc">
@@ -1472,7 +1450,7 @@ export function TeachAttend({
         </div>
       </Sheet>
 
-      <HelpSheet open={sheet === "help"} onClose={() => setSheet(null)} title={p("How to mark attendance", "हाज़िरी कैसे लगाएँ")} sub={p("3 easy steps", "3 आसान कदम")} steps={HELP} phone={officePhone} />
+      {helpOn ? <RegisterHelp open={sheet === "help"} onClose={() => setSheet(null)} phone={officePhone} asks={data.roll.some((r) => r.ask)} /> : null}
     </VxPage>
   );
 }

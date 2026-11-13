@@ -20,6 +20,9 @@ export const tellParentsAboutPlanAction = refuse;
 
 // Added for the 21 Oct smoke fixes: this fixture never exercises it.
 export const decideLeaveAction = refuse;
+// A parent's suggestions (D-598), decided and undone in Needs you: refused here like the rest.
+export const decideParentSuggestionsAction = refuse;
+export const undoParentSuggestionsAction = refuse;
 export const removeStudentDocument = refuse;
 // The timetable screen's other actions, so a design view that bundles it still loads.
 export const coverAction = refuse;

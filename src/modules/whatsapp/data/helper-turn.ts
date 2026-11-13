@@ -30,7 +30,8 @@ import {
 } from "@/modules/whatsapp/domain/helper-replies";
 import { NOT_HELPED_TOPIC, isAcknowledgement } from "@/modules/whatsapp/domain/helper-handoff";
 import { messageKind, readTap, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
-import type { VisitCalendar } from "@/modules/whatsapp/domain/helper-visit";
+import { VISIT_NAME_NOT_GIVEN, type VisitCalendar } from "@/modules/whatsapp/domain/helper-visit";
+import type { SuggestionDraft } from "@/modules/whatsapp/domain/parent-suggestions";
 import { schoolToday } from "@/platform/dates";
 import { logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
@@ -53,7 +54,8 @@ import {
 } from "./helper-relay";
 import { handleStaffCommand, liveStaffHelperDeps } from "./staff-helper";
 import { prepareHelperReceipt, type ReceiptDocument, type ReceiptRequest } from "./helper-receipt";
-import { readVisitCalendar, saveVisitEnquiry, type VisitRow } from "./helper-visit";
+import { readVisitCalendar } from "./helper-visit";
+import { addParentSuggestion } from "./parent-suggestions";
 import { handleStaffLink, liveStaffLinkDeps } from "./staff-link";
 import {
   finishTurn,
@@ -63,10 +65,8 @@ import {
   readChat,
   readChildFacts,
   readHelperSettings,
-  saveAbsenceNotes,
   saveChat,
   startTurn,
-  type AbsenceRow,
   type HelperSettings,
   type TurnFinish,
 } from "./helper-store";
@@ -97,6 +97,9 @@ import {
  *     message is too old, or when its bot got there first.
  *
  * Only then is Claude asked (when the message needs it) and the reply sent.
+ * Nothing a parent writes changes a child's record or the school's (D-598):
+ * a child's absence, a school visit or a detail to change becomes a
+ * suggestion that a person at school applies or lets go.
  * Claude also reads the answers the school has written for every family, and
  * a general question nothing answers goes onto the list in One that an admin
  * answers once (D-589). A receipt the parent asks for goes as its PDF
@@ -150,16 +153,19 @@ export type HelperDeps = {
   staffCommand?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
   /** A tap on "Did this answer help?", kept against this number's own hand-offs (D-584). */
   rateAnswer?: (input: { from: string; key: string; value: RatingValue }) => Promise<RateResult>;
-  /** A child the parent says will be away, kept for the register (D-588); true when kept. */
-  saveAbsence?: (row: AbsenceRow) => Promise<boolean>;
+  /**
+   * Something the parent said that may belong in a record, put in front of a
+   * person at school (D-598): a child who will be away (D-588), a school
+   * visit (D-592), a detail to change. Nothing is written until that person
+   * applies it. True when it waits, or was already waiting.
+   */
+  suggest?: (draft: SuggestionDraft) => Promise<boolean>;
   /** The school's answers and the questions it leaves to people, for this kind of chat (D-589); null when unreadable. */
   readKnowledge?: (practice: boolean) => Promise<SchoolKnowledge | null>;
   /** An answer's note on the "teach it once" list; the lesson it landed on, or null. */
   noteLesson?: (note: LessonNote, practice: boolean, topic: string | null) => Promise<string | null>;
   /** The calendar a school visit's days come from (D-592); null when unreadable. */
   readVisitCalendar?: (sessionLabel: string, today: string) => Promise<VisitCalendar | null>;
-  /** A school visit, kept as an enquiry on the Admissions board (D-592); true when kept. */
-  saveVisit?: (row: VisitRow) => Promise<boolean>;
   /** A receipt the parent asked for, as a PDF Meta fetches once (D-597); null when it could not be made. */
   prepareReceipt?: (request: ReceiptRequest) => Promise<ReceiptDocument | null>;
 };
@@ -206,11 +212,10 @@ export function liveHelperDeps(): HelperDeps {
     staffLink: (message) => handleStaffLink(message, link),
     staffCommand: (message) => handleStaffCommand(message, staff),
     rateAnswer: (input) => rateAnswer(input, relay),
-    saveAbsence: (row) => saveAbsenceNotes(row),
+    suggest: async (draft) => (await addParentSuggestion(draft)) !== null,
     readKnowledge: (practice) => readSchoolKnowledge(practice),
     noteLesson: (note, practice, topic) => noteLesson(note, practice, topic),
     readVisitCalendar: (sessionLabel, today) => readVisitCalendar(sessionLabel, today),
-    saveVisit: (row) => saveVisitEnquiry(row),
     prepareReceipt: (request) => prepareHelperReceipt(request),
   };
 }
@@ -330,37 +335,45 @@ async function compose(input: {
       reply = { ...reply, message: handoffFailedReply({ ...context, firstContact: false }) };
       note = "handoff_not_saved";
     }
-    // A child who will be away: the register shows it once the hand-off is in Messages (D-588).
-    // The parent is told about the register only when the days were kept.
+    // What belongs in a record waits, once the hand-off is in Messages, for a
+    // person at school to apply it or let it go (D-598): nothing about the
+    // child or the school changes on the parent's word.
+    const suggest = (draft: SuggestionDraft): Promise<boolean> => (deps.suggest ? deps.suggest(draft).catch(() => false) : Promise.resolve(false));
+    // A child who will be away, for the class teacher (D-588). The parent is
+    // told about the register only when it waits for someone.
     const away = handoff.absence;
     if (parentReplyId && away && handoff.child) {
-      const kept = deps.saveAbsence
-        ? await deps
-            .saveAbsence({
-              studentId: handoff.child.studentId,
-              sessionLabel: handoff.child.sessionLabel,
-              days: away.days,
-              reason: away.reason,
-              parentReplyId,
-              practice: family.practice,
-            })
-            .catch(() => false)
-        : false;
+      const { studentId, sessionLabel } = handoff.child;
+      const kept = await suggest({ kind: "absence", sessionLabel, studentId, parentReplyId, practice: family.practice, payload: { days: away.days, reason: away.reason } });
       if (!kept) {
         reply = { ...reply, message: away.unsaved };
-        note = "absence_not_saved";
+        note = "absence_not_kept";
       }
     }
-    // A school visit: on the Admissions board once the office has it in Messages (D-592).
-    // The parent was told the office has it, which stays true when the board could not take it.
+    // A detail to change, for the office to check. The parent is told the
+    // office checks it only when it waits for someone.
+    const change = handoff.change;
+    if (parentReplyId && change && handoff.child) {
+      const { studentId, sessionLabel } = handoff.child;
+      const kept = await suggest({ kind: "record", sessionLabel, studentId, parentReplyId, practice: family.practice, payload: { field: change.field, value: change.value } });
+      if (!kept) {
+        reply = { ...reply, message: change.unsaved };
+        note = "change_not_kept";
+      }
+    }
+    // A school visit, for the office to put on the Admissions board (D-592).
+    // The parent was told the office has it, which stays true either way.
     const visit = handoff.visit;
     if (parentReplyId && visit) {
-      const kept = deps.saveVisit
-        ? await deps
-            .saveVisit({ sessionLabel: anchor.sessionLabel, booking: visit, parentName: message.fromName ?? null, fromE164: message.from, parentReplyId })
-            .catch(() => false)
-        : false;
-      if (!kept) note = "visit_not_saved";
+      const kept = await suggest({
+        kind: "visit",
+        sessionLabel: anchor.sessionLabel,
+        studentId: null,
+        parentReplyId,
+        practice: family.practice,
+        payload: { day: visit.day, part: visit.part, child_name: visit.childName ?? VISIT_NAME_NOT_GIVEN, class_label: visit.classLabel },
+      });
+      if (!kept) note = "visit_not_kept";
     }
   }
 

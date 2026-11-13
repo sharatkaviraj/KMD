@@ -1,6 +1,7 @@
 import { formatInr } from "@/platform/helpers/currency";
 
 import type { AbsenceNote } from "./helper-absence";
+import { FIELD_LABELS, type ChangeRequest } from "./parent-suggestions";
 import { receiptKey, sendableReceipts, type AttendanceStatus, type ChildFacts, type ReceiptFact } from "./helper-facts";
 import type { HelperButton, HelperMessage, HelperRow } from "./helper-messages";
 import { helperId, type HelperLanguage } from "./helper-text";
@@ -519,33 +520,40 @@ export function officePrompt(context: ReplyContext): HelperMessage {
 
 /* -------------------------------------------------------------- hand-off */
 
-/** The words after a message has been put in front of the school. */
 /**
- * What a parent is told once the school has a child's absence on the
- * register (D-588): which day's register shows it, and, for an illness, a
- * kind word. Only said after the note is kept.
+ * What a parent is told once a child's absence is in front of the school
+ * (D-588): which day's register shows it once the class teacher (or, for a
+ * class with none, the school) has checked it, and, for an illness, a kind
+ * word. Nothing reaches the register before a person applies it (D-598), so
+ * the line never says it already has. Only said after it is kept.
  */
-export function absenceLines(child: ChildFacts, note: AbsenceNote, language: HelperLanguage): string {
+export function absenceLines(child: ChildFacts, note: AbsenceNote, language: HelperLanguage, target: HandoffTarget = "class_teacher"): string {
   const day = (iso: string) => dateText(iso, language, child.today);
   const first = note.days[0] ?? child.today;
   const last = note.days[note.days.length - 1] ?? first;
+  const teacher = target === "class_teacher";
+  const checked = say(language, {
+    hi: teacher ? "कक्षा अध्यापक के जाँचने के बाद" : "स्कूल के जाँचने के बाद",
+    hx: teacher ? "Class teacher ke check karne ke baad" : "School ke check karne ke baad",
+    en: teacher ? "When the class teacher has checked it" : "When the school has checked it",
+  });
   const register =
     first === last
       ? first === child.today
         ? say(language, {
-            hi: "📋 आज की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।",
-            hx: "📋 Aaj ki hazri mein likha rahega ki aapne school ko bata diya tha.",
-            en: "📋 Today's register will show that you told the school.",
+            hi: `📋 ${checked}, आज की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।`,
+            hx: `📋 ${checked}, aaj ki hazri mein likha rahega ki aapne school ko bata diya tha.`,
+            en: `📋 ${checked}, today's register will show that you told the school.`,
           })
         : say(language, {
-            hi: `📋 ${day(first)} की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।`,
-            hx: `📋 ${day(first)} ki hazri mein likha rahega ki aapne school ko bata diya tha.`,
-            en: `📋 The register for ${day(first)} will show that you told the school.`,
+            hi: `📋 ${checked}, ${day(first)} की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।`,
+            hx: `📋 ${checked}, ${day(first)} ki hazri mein likha rahega ki aapne school ko bata diya tha.`,
+            en: `📋 ${checked}, the register for ${day(first)} will show that you told the school.`,
           })
       : say(language, {
-          hi: `📋 ${day(first)} से ${day(last)} तक की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।`,
-          hx: `📋 ${day(first)} se ${day(last)} tak ki hazri mein likha rahega ki aapne school ko bata diya tha.`,
-          en: `📋 The register from ${day(first)} to ${day(last)} will show that you told the school.`,
+          hi: `📋 ${checked}, ${day(first)} से ${day(last)} तक की हाज़िरी में लिखा रहेगा कि आपने स्कूल को बता दिया था।`,
+          hx: `📋 ${checked}, ${day(first)} se ${day(last)} tak ki hazri mein likha rahega ki aapne school ko bata diya tha.`,
+          en: `📋 ${checked}, the register from ${day(first)} to ${day(last)} will show that you told the school.`,
         });
   if (note.reason !== "sick") return register;
   const wish = say(language, {
@@ -556,10 +564,32 @@ export function absenceLines(child: ChildFacts, note: AbsenceNote, language: Hel
   return `${register}\n${wish}`;
 }
 
+/**
+ * What a parent is told once a detail they asked to change is in front of
+ * the office (D-598): that the office checks it before the record changes.
+ * Never that it has changed, or that it will.
+ */
+export function changeLine(child: ChildFacts, change: ChangeRequest, language: HelperLanguage): string {
+  const label = FIELD_LABELS[change.field];
+  return say(language, {
+    hi: `📝 *${child.firstName}* के रिकॉर्ड में ${label.hi ?? label.en} बदलने से पहले ऑफ़िस इसे जाँचेगा।`,
+    hx: `📝 *${child.firstName}* ke record mein badlav se pehle office ise check karega.`,
+    en: `📝 The office will check it before *${child.firstName}*'s ${label.en.toLowerCase()} is changed in the school's records.`,
+  });
+}
+
+/** The words after a message has been put in front of the school. */
 export function handoffAck(
   context: ReplyContext,
   target: HandoffTarget,
-  detail: { child: ChildFacts | null; teacherName: string | null; lateHour: boolean; aiReply?: string | null; absence?: AbsenceNote | null },
+  detail: {
+    child: ChildFacts | null;
+    teacherName: string | null;
+    lateHour: boolean;
+    aiReply?: string | null;
+    absence?: AbsenceNote | null;
+    change?: ChangeRequest | null;
+  },
 ): HelperMessage {
   const { language } = context;
   const child = detail.child;
@@ -591,10 +621,13 @@ export function handoffAck(
     });
   }
   // A note of absence needs no answer: the register line says what happens to it instead.
+  // A changed detail says who checks it first.
   const next =
     detail.absence && child
-      ? `\n${absenceLines(child, detail.absence, language)}`
-      : ` ${say(language, { hi: "स्कूल आपसे संपर्क करेगा।", hx: "School aapse sampark karega.", en: "The school will get back to you." })}`;
+      ? `\n${absenceLines(child, detail.absence, language, target)}`
+      : detail.change && child
+        ? `\n${changeLine(child, detail.change, language)}`
+        : ` ${say(language, { hi: "स्कूल आपसे संपर्क करेगा।", hx: "School aapse sampark karega.", en: "The school will get back to you." })}`;
   const late = detail.lateHour
     ? `\n${say(language, {
         hi: "🌙 अभी देर हो चुकी है, इसलिए इसे सुबह 6 बजे के बाद देखा जाएगा।",

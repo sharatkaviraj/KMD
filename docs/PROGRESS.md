@@ -31,7 +31,7 @@ only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-601. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -212,12 +212,38 @@ receipt or a write-off is never sent, and when the PDF cannot be made or Meta
 refuses it, the parent is told so with Try again and the office's number.
 Not via Drive: Meta fetches the PDF once from an hour-long private link and
 keeps it in the chat. Practice only: TEST children, the owner's number; a
-real year makes nothing. **Done:** the code and 27 new tests (PR pending).
-**Remains:** a practice run on the owner's number, with the helper on, which
+real year makes nothing. **Done:** the code and 27 new tests; PR 368 merged
+12 Nov 20:15 UTC (`7a6a604`) and live. **Remains:** a practice run on the owner's number, with the helper on, which
 needs his typed OK. **Surprised:** the webhook has nobody signed in, so the
 fee clients' roster guard refused the receipt read; a TEST-only read context
 (`withTestRecordRead`) now lets one TEST child's table reads through, and
 nothing else.
+**A parent's word changes nothing until a person applies it (D-598..D-601):**
+the owner asked (12 Nov) that parents' messages never change a child's data
+or the school's, and chose all six ideas for deciding them quickly. What the
+helper reads that belongs in a record (a child who will be away, a school
+visit, and now a detail to change: a mobile number, the date of birth, the
+blood group, the address) waits as a suggestion for the right person: the
+class teacher for their class's absences, the office for the rest, an admin
+for all. Needs you shows one card each with buttons that say what they do
+(Mark Leave, Mark Absent, Add to Admissions, Apply, Not now), "Mark all N as
+Leave", the toast's Undo and "Decided today" with who decided; a class teacher
+gets "Parents' notes" on Today. The register starts the child with the mark
+chosen, and while a note waits it shows "Parent says sick" under the child
+with Leave and Absent; saving the child as either applies the note as the
+teacher (D-601). **Done:** the code and its tests (PR 371, branch
+`claude/project-thread-1a26la`), with migrations
+`20261113021008_parent_suggestions.sql` and
+`20261113022255_parent_suggestion_undo.sql`, both applied to One on 13 Nov
+(19 SQL cases on PGlite). Undo keeps every row: a note is withdrawn, an
+enquiry closed, a value put back. **Remains:** a BrowserStack check on a
+phone and a desktop with TEST suggestions, then deciding from WhatsApp
+(D-602, a new Meta template the owner has not yet answered about).
+**Surprised:** the register's note and the Admissions enquiry had been
+written on a parent's word alone since D-588 and D-592; both now wait for a
+person. An Undo that removed rows could not be applied from a thread at all,
+because the Supabase connector asks the owner to confirm any migration that
+can remove rows; keeping rows answered that and is the better record.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

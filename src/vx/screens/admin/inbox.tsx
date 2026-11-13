@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 
+import { decideParentSuggestionsAction, undoParentSuggestionsAction } from "@/app/(app)/inbox/parent-actions";
 import { decideLeaveAction } from "@/app/(app)/timetable/vx-actions";
+import { SUGGESTION_WORDS as SW, type RegisterMark } from "@/modules/whatsapp/domain/parent-suggestion-words";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 
 import { useVx } from "@/vx/i18n";
@@ -15,6 +17,7 @@ import { Btn, Pill, toneColors, type Tone } from "@/vx/ui/primitives";
 import { CouldNotRead } from "@/vx/ui/read-state";
 import { SAVE_IDLE, SAVE_WORDS, SaveStatus, type SaveState } from "@/vx/ui/save-status";
 import { InboxBatch } from "@/vx/screens/admin/inbox-batch";
+import { ParentBody, ParentButtons, ParentMarkAll, type ParentDecide } from "@/vx/screens/admin/inbox-parent";
 import { FeesRefundActions } from "@/vx/screens/receipts/office-command";
 import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabelP, type InboxType } from "@/vx/screens/admin/logic";
 import { TO } from "@/vx/screens/admin/ops-text";
@@ -70,6 +73,7 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
   refund: { icon: "rupee", tone: "acc" },
   job: { icon: "alert", tone: "bad" },
   leave: { icon: "calendar", tone: "info" },
+  parent: { icon: "message", tone: "ok" },
 };
 
 /** What `/api/inbox` needs to send a held decision after the page has gone. */
@@ -128,16 +132,16 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     setAnnounce(SAVE_IDLE);
     return { state: { kind: "failed", message, next: retry ? W.failedNext : undefined }, retry };
   };
-  // The server has it: the tick, a moment to see it, then a gentle exit.
-  function confirmed(id: string) {
-    mark(id, { state: { kind: "saved" } });
+  // The server has it: the tick, a moment to see it, then a gentle exit. Several at once re-read the page once.
+  function confirmed(...ids: string[]) {
+    for (const id of ids) mark(id, { state: { kind: "saved" } });
     setAnnounce({ kind: "saved" });
-    window.setTimeout(() => setLeaving((all) => new Set(all).add(id)), SAVED_MS);
+    window.setTimeout(() => setLeaving((all) => new Set([...all, ...ids])), SAVED_MS);
     window.setTimeout(() => {
       if (!alive.current) return;
-      setHidden((all) => new Set(all).add(id));
-      setLeaving((all) => { const next = new Set(all); next.delete(id); return next; });
-      mark(id, null);
+      setHidden((all) => new Set([...all, ...ids]));
+      setLeaving((all) => { const next = new Set(all); for (const id of ids) next.delete(id); return next; });
+      for (const id of ids) mark(id, null);
       setAnnounce({ kind: "removed" });
       router.refresh();
     }, SAVED_MS + LEAVE_MS);
@@ -336,8 +340,55 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     });
   };
 
+  // Undone, a suggestion waits again as a new item (its id carries when): the page shows it as the server has it now.
+  const undoParent = async (ids: string[]) => {
+    try {
+      const result = await undoParentSuggestionsAction({ ids });
+      toast.show({ text: tx(result.message), tone: result.ok ? "info" : "bad" });
+    } catch {
+      toast.show({ text: tx(T.failed), tone: "bad" });
+    }
+    router.refresh();
+  };
+
+  // A parent's suggestion is decided at once, like leave (D-598): nothing to hold, because the toast's Undo takes it back.
+  const decideParent: ParentDecide = (chosen, decision, registerMark?: RegisterMark) => {
+    if (previewing) {
+      toast.show({ text: tx(T.previewing), tone: "info" });
+      return;
+    }
+    const open = chosen.filter((item) => item.parent && (!saves.has(item.id) || saves.get(item.id)?.state.kind === "failed"));
+    if (open.length === 0 || deciding) return;
+    const ids = open.map((item) => item.parent!.suggestionId);
+    const first = open[0].parent!;
+    startDeciding(async () => {
+      for (const item of open) markSending(item.id);
+      try {
+        const result = await decideParentSuggestionsAction({ ids, decision, mark: registerMark, via: "needs_you", kind: first.kind, childName: open.length === 1 ? first.childName : null });
+        const decided = result.ok ? open.filter((item) => result.decided.includes(item.parent!.suggestionId)) : [];
+        // Each one refused keeps its buttons, with the server's reason under them.
+        const refused = new Map(result.refused.map((one) => [one.id, one.message]));
+        for (const item of open) if (!decided.includes(item)) mark(item.id, failed(false, refused.get(item.parent!.suggestionId) ?? result.message));
+        if (!result.ok) {
+          toast.show({ text: tx(result.message), tone: "bad" });
+          return;
+        }
+        confirmed(...decided.map((item) => item.id));
+        if (selected && decided.includes(selected)) {
+          const next = shown.find((other) => !open.includes(other) && !saves.has(other.id) && !held.current.has(other.id));
+          setSelectedId(next?.id ?? null);
+        }
+        toast.show({ text: tx(result.message), tone: "ok", undoLabel: tx(SW.undo), ms: 8000, undo: () => undoParent(result.decided) });
+      } catch {
+        toast.show({ text: tx(T.failed), tone: "bad" });
+        for (const item of open) mark(item.id, failed(false));
+      }
+    });
+  };
+
   const on: DetailActions = {
     leave: decideLeave,
+    parent: decideParent,
     busy: deciding,
     save: (item) => saves.get(item.id),
     leaving: (item) => leaving.has(item.id),
@@ -394,6 +445,9 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   // An item already decided and waiting for the server is not offered again.
   const batch = <InboxBatch items={shown.filter((item) => !saves.has(item.id))} scope={scope} previewing={previewing} onSettled={(ids) => setHidden((all) => { const next = new Set(all); for (const id of ids) next.add(id); return next; })} />;
 
+  // Every parent's absence shown, as Leave in one tap; one already on its way is not offered again.
+  const markAll = <ParentMarkAll items={shown.filter((item) => item.kind === "parent" && (!saves.has(item.id) || saves.get(item.id)?.state.kind === "failed"))} decide={decideParent} busy={deciding} />;
+
   const oldest = live.reduce<string | null>((min, item) => (item.at && (!min || item.at < min) ? item.at : min), null);
   // With a source unread, "0 waiting" would read as "All clear": say what is known instead (T03).
   const waiting = unavailable && live.length === 0 ? tx(TO.notAllRead) : tx(TO.waiting(live.length, oldest ? dayMonth(oldest) : null));
@@ -405,7 +459,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
         {views ? <div style={{ padding: "14px 16px 0" }}>{views}</div> : null}
         <div className="glass" role="group" aria-label={tx(TO.filterByType)} style={{ position: "sticky", top: 64, zIndex: 2, padding: "16px 16px 12px", display: "flex", flexWrap: "wrap", gap: 6, borderBottom: "1px solid var(--bd)" }}>
           {chips}
-          <span style={{ marginLeft: "auto" }}>{batch}</span>
+          <span style={{ marginLeft: "auto", display: "flex", flexWrap: "wrap", gap: 6 }}>{markAll}{batch}</span>
         </div>
         {notices ? <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--bd)" }}>{notices}</div> : null}
         {shown.length === 0 ? (
@@ -465,7 +519,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
       </div>
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
         {notices}
-        {batch ? <div style={{ alignSelf: "flex-start" }}>{batch}</div> : null}
+        <div style={{ alignSelf: "flex-start", display: "flex", flexWrap: "wrap", gap: 8 }}>{markAll}{batch}</div>
         {shown.length === 0 ? (unavailable ? null : <AllClear />) : shown.map((item, i) => <PhoneCard key={item.id} item={item} on={on} delay={Math.min(i * 40, 400)} />)}
         {taskPanel}
       </div>
@@ -527,6 +581,8 @@ type DetailActions = {
   submissions: (item: InboxItem, accept: boolean) => void;
   /** Approve (or record as taken, for days gone) or decline a leave request here. */
   leave: (item: InboxItem, approve: boolean) => void;
+  /** Decide a parent's suggestions at once (D-598). */
+  parent: ParentDecide;
   busy: boolean;
   /** The item's decision while it waits for the server, or after it failed (N02). */
   save: (item: InboxItem) => ItemSave | undefined;
@@ -672,6 +728,9 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
     case "leave":
       actions = <LeaveButtons item={item} on={on} />;
       break;
+    case "parent":
+      actions = <ParentButtons item={item} decide={on.parent} busy={on.busy} />;
+      break;
   }
 
   const save = on.save(item);
@@ -685,9 +744,11 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
         <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : tx(whenLabelP(item.at))}</span>
       </div>
       <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.3 }}>{tx(item.title)}</h2>
-      <p style={{ margin: 0, fontSize: 14, color: "var(--mut)", lineHeight: 1.45 }}>{tx(body)}</p>
+      {item.parent ? <ParentBody item={item} /> : <p style={{ margin: 0, fontSize: 14, color: "var(--mut)", lineHeight: 1.45 }}>{tx(body)}</p>}
       {item.kind === "cover" && !best ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(T.nobodyFree)}</span> : null}
       <Decided item={item} on={on} actions={actions} height={44} gap={8} pad={4} />
+      {/* What a parent's buttons do is said on the phone too: nothing here may surprise. */}
+      {item.parent && item.footnote ? <span style={{ fontSize: 12, color: "var(--mut)", lineHeight: 1.5 }}>{tx(item.footnote)}</span> : null}
     </article>
   );
 }
@@ -748,6 +809,9 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
     case "leave":
       actions = <LeaveButtons item={item} on={on} big />;
       break;
+    case "parent":
+      actions = <ParentButtons item={item} decide={on.parent} busy={on.busy} big />;
+      break;
   }
 
   const save = on.save(item);
@@ -759,7 +823,7 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
         <span style={{ fontSize: 13, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : tx(whenLabelP(item.at))}</span>
       </div>
       <h2 className="serif" style={{ margin: 0, fontSize: 32, fontWeight: 600, lineHeight: 1.15 }}>{tx(item.title)}</h2>
-      {item.body ? <p style={{ margin: 0, color: "var(--mut)", fontSize: 16, lineHeight: 1.6 }}>{tx(item.body)}</p> : null}
+      {item.parent ? <ParentBody item={item} big /> : item.body ? <p style={{ margin: 0, color: "var(--mut)", fontSize: 16, lineHeight: 1.6 }}>{tx(item.body)}</p> : null}
       {item.facts.length ? (
         <div className="card" style={{ overflow: "hidden" }}>
           <dl style={{ margin: 0 }}>

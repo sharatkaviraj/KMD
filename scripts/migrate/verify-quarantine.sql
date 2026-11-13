@@ -50,7 +50,8 @@ with
     'teacher_task_previews','whatsapp_inbound','whatsapp_message_events','whatsapp_messages','whatsapp_templates',
     'parent_helper_settings','parent_helper_chats','parent_helper_turns',
     'parent_helper_handoffs','parent_helper_alerts','parent_helper_deliveries','staff_whatsapp_links',
-    'staff_sign_in_settings','staff_sign_in_codes','parent_absence_notes','parent_helper_lessons'])),
+    'staff_sign_in_settings','staff_sign_in_codes','parent_absence_notes','parent_helper_lessons',
+    'parent_suggestions'])),
   -- @buckets-end
   -- References with no foreign key that the catalog does not find by name
   -- (lib/quarantine-rules.mjs TABLES: staffRefs, classRefs, staffArrays,

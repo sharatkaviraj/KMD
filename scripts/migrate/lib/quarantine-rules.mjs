@@ -206,6 +206,10 @@ export const TABLES = {
   // Teach it once (D-589): questions the helper could not answer, in Claude's
   // general wording with no names, and the school's answer to each.
   parent_helper_lessons: { bucket: "K", why: "post go-live WhatsApp helper's general questions it could not answer (no names) and the school's answers; service-role only" },
+  // A parent's suggestions (D-598): what the helper read on WhatsApp that may
+  // belong in a record, waiting for staff to apply or let go. Never the
+  // parent's words, which stay in the hand-off (parent_replies).
+  parent_suggestions: { bucket: "K", why: "post go-live parent's WhatsApp suggestions for staff to apply or let go (absence, visit, a detail to change); service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

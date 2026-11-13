@@ -25,6 +25,7 @@ import { photoMessages } from "@/messages/setup";
 import { loadTaskDelivery } from "@/modules/teacher-tasks/data/delivery";
 import { TaskDelivery } from "@/modules/teacher-tasks/ui/task-delivery";
 import { CollectScreen } from "@/vx/screens/admin/collect-screen";
+import { ParentsDecidedToday } from "@/vx/screens/parents/parent-notes";
 
 export const runtime = "nodejs";
 
@@ -117,7 +118,14 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
             <AssignmentLauncher language={staff.language} variant="pri" label={lead(CW.ask, staff.language)} />
           </>
         ) : undefined}
-        taskPanel={<><Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>{canAssign ? <CollectSummary counts={counts} language={staff.language} /> : null}</>}
+        taskPanel={(
+          <>
+            {/* A parent's suggestions decided today, each with Undo (D-598). */}
+            <Suspense fallback={null}><ParentsDecidedToday staff={staff} sessionLabel={sessionLabel} day={day} /></Suspense>
+            <Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>
+            {canAssign ? <CollectSummary counts={counts} language={staff.language} /> : null}
+          </>
+        )}
         taskDetail={taskDetail}
       />
     </VxPage>

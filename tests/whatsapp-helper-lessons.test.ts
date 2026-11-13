@@ -118,7 +118,7 @@ describe("the school's answers, as the helper reads them", () => {
     expect(prompt).toContain("SCHOOL ANSWERS (in FACTS)");
     expect(prompt).toContain('set "unanswered"');
     expect(prompt).toContain("no name, no number, nothing about this child or family");
-    const shape = { language: "en", topic: "calendar", reply: "x", show: "none", handoff: "office", child: null, needs_care: false, summary: null, absence: null };
+    const shape = { language: "en", topic: "calendar", reply: "x", show: "none", handoff: "office", child: null, needs_care: false, summary: null, absence: null, change: null };
     expect(helperAnswerSchema.safeParse({ ...shape, school_answer: null, unanswered: { question: "When is sports day?", same_as: null } }).success).toBe(true);
     expect(helperAnswerSchema.safeParse(shape).success).toBe(false);
   });

@@ -28,8 +28,11 @@ Fee reminders and the message templates behind them.
   D-591), a school visit booked on WhatsApp (`domain/helper-visit.ts`,
   `data/helper-visit.ts`, D-592, D-593), and parents' files and old months of
   chats in the school's Shared Drive (`domain/parent-files.ts`,
-  `data/parent-files.ts`, D-594, D-595), and a receipt a parent asks for, sent
-  as its PDF (`data/helper-receipt.ts`, D-597); see below
+  `data/parent-files.ts`, D-594, D-595), a receipt a parent asks for, sent
+  as its PDF (`data/helper-receipt.ts`, D-597), and the suggestions a
+  parent's message becomes, for a person at school to apply or let go
+  (`domain/parent-suggestions.ts`, `data/parent-suggestions.ts`,
+  `data/parent-suggestion-views.ts`, D-598..D-600); see below
 - Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
   D-585..D-587): the code, its hash, the send through the hub. The page is
   `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
@@ -400,13 +403,20 @@ its own work, for messages from the hub only.
   nahi aayegi" into `absence` (from today or tomorrow, how many school days,
   sick or other); `helper-absence` turns it into the days, in India, Sundays
   skipped, one to seven. It is a hand-off to the class teacher with topic
-  `leave`; once that is in Messages, `saveAbsenceNotes` keeps one row per
+  `leave`; once that is in Messages, it becomes a suggestion (D-598, below)
+  and nothing more. The parent is told which day's register shows it once
+  the class teacher has checked it, and only once the suggestion is kept.
+  When a person applies it, `decide_parent_suggestions` keeps one row per
   child per day in `parent_absence_notes` (the first note for a day stands)
-  and stops that day's absent alert still waiting in To send. The parent is
-  told which day's register shows it only once the days are kept. The
-  register reads the notes (`modules/attendance/data/parent-notes.ts`): the
-  child starts as Absent with "Parent informed" beside the name, and the
-  save queues no absent alert for that child.
+  with the mark chosen, and stops that day's absent alert still waiting in
+  To send. The register reads the notes
+  (`modules/attendance/data/parent-notes.ts`): the child starts as Leave or
+  Absent, as chosen, with "Parent informed" beside the name, and the save
+  queues no absent alert for that child. While nobody has applied it, the
+  register shows "Parent says sick" under the child with Leave and Absent
+  (D-601, `waitingAbsencesOn` and `registerAskLine`): saving the child as
+  Leave or Absent applies it as the teacher (`via = register`), before the
+  save works out the absent alerts.
 - **Teach it once (D-589).** A general question Claude cannot answer from
   FACTS comes back as `unanswered` (one short English line, or the P key it
   matches). `lessonNoteFor` (`domain/helper-lessons.ts`) keeps it only when
@@ -445,10 +455,27 @@ its own work, for messages from the hub only.
   (`canVisitOn`). After morning or afternoon the chat waits 30 minutes for
   the name and class (`awaiting = visit:<yyyymmdd><am|pm>`, allowed by the
   chat table's check); `readVisitChild` reads them and the parent's words go
-  with them to the office as a hand-off. Only once the hand-off is in
-  Messages does `saveVisitEnquiry` put the visit on the Admissions board
-  (`vppsone.enquiries`, `source = whatsapp`, one per hand-off). The reply
-  never says the visit is confirmed: the office calls to fix the time.
+  with them to the office as a hand-off. Once the hand-off is in Messages
+  the visit waits as a suggestion for the office (D-598); Add to Admissions
+  puts it on the board (`vppsone.enquiries`, `source = whatsapp`, one per
+  hand-off). The reply never says the visit is confirmed: the office calls
+  to fix the time.
+- **A parent's word is a suggestion, never a change (D-598..D-601).** The
+  turn's only write about a child is `addParentSuggestion`
+  (`data/parent-suggestions.ts`, `vppsone.add_parent_suggestion`): a child
+  who will be away, a school visit, or a detail the parent asks to change
+  (`change` in Claude's answer, kept only when `normaliseChange` takes the
+  value: five fields, a value the school would hold). The database routes it
+  (the class teacher for an absence in a class that has one, the office for
+  the rest) and sets when it stops waiting. `decide_parent_suggestions` and
+  `undo_parent_suggestion` are the only writers of what a suggestion
+  changes, as the member of staff deciding, through the server actions in
+  `src/app/(app)/inbox/parent-actions.ts`. Undo keeps every row (D-599): a
+  note is withdrawn (`withdrawn_at`, and `parentNotesFor` skips it), an
+  enquiry closed, a value put back through the record writer. `inNeedsYou` decides who sees
+  which in Needs you; `parentNoteViews` and `parentReaderFor`
+  (`data/parent-suggestion-views.ts`) shape them for the screens. Client
+  components import `domain/parent-suggestion-words.ts` only.
 - **Parents' files and old chats in Drive (D-594, D-595).** The hub keeps a
   file's Meta id only, and Meta keeps the file about a month, so One copies
   it into the Shared Drive through the hub (`platform/whatsapp/hub-files.ts`):
@@ -501,9 +528,12 @@ its own work, for messages from the hub only.
 - Rate a hand-off from a tap without matching its key among the tapping
   number's own hand-offs (`readRecentHandoffs`), ask about the office's answer
   to a "no", or tell a parent a "no" was passed on before Messages holds it.
-- Keep a parent's words in `parent_absence_notes`, write a note for a child
-  the helper could not name, or tell the parent the register shows it before
-  the days are kept. A note never decides attendance: the teacher's mark does.
+- Change a child's record, the register's notes, an enquiry or anything else
+  of the school's on a parent's word: the helper only adds a suggestion, and
+  a person applies it (D-598). Keep a parent's words in a suggestion or in
+  `parent_absence_notes`, suggest for a child the helper could not name, or
+  tell the parent anything has changed. A note never decides attendance:
+  the teacher's mark does.
 - Put a waiting lesson's question into Claude's prompt, list a question
   `cleanQuestion` refused, or let the form say which list (`practice`) an
   admin's button changes: a practice account must never reach what real
