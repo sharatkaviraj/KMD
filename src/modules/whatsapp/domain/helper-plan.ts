@@ -258,8 +258,33 @@ export function needsVisitCalendar(input: Pick<PlanInput, "kind" | "text" | "tap
   return input.kind === "text" && ruleIntent(input.text) === "visit";
 }
 
+/**
+ * Why there is nothing to answer in this message, whoever the family is, or
+ * null when there is something (D-605). It reads the message alone, so the
+ * turn asks it BEFORE the hub is asked for the message: from the claim on,
+ * One must answer, and a STOP, an empty message or a tap that is not the
+ * helper's must still go to the hub's bot as before. These are exactly
+ * `planTurn`'s own skips apart from a family with no child, which needs the
+ * records; `planTurn` asks this first, so the two cannot drift apart.
+ */
+export function messageSkip(input: Pick<PlanInput, "kind" | "text" | "tap">): string | null {
+  if (input.kind === "tap") {
+    const tap = input.tap;
+    if (!tap) return "not_our_tap";
+    if (tap.intent === "stop") return "stop";
+    if ((tap.intent === "helped" || tap.intent === "not_helped") && !tap.key) return "not_our_tap";
+    return null;
+  }
+  if (input.kind !== "text") return null;
+  const text = (input.text ?? "").trim();
+  if (!text) return "empty";
+  return ruleIntent(text) === "stop" ? "stop" : null;
+}
+
 export function planTurn(input: PlanInput): TurnPlan {
   const { chat, family, now } = input;
+  const nothing = family.children.length > 0 ? messageSkip(input) : null;
+  if (nothing) return { action: "skip", reason: nothing };
   const text = (input.text ?? "").trim();
   const detected = input.kind === "text" ? detectLanguage(text) : null;
   const language: HelperLanguage = detected ?? chat.language ?? "hi";

@@ -786,6 +786,24 @@ export function fallbackReply(context: ReplyContext): HelperMessage {
   );
 }
 
+/**
+ * The family's records could not be read just now (D-605). The hub has
+ * already given the message to the helper, and the parent is seeing the
+ * typing dots, so they get these words rather than silence. Plain words with
+ * no menu and the office's phone: a menu, or a message for the office, needs
+ * the records that could not be read.
+ */
+export function recordsUnreadableReply(language: HelperLanguage): HelperMessage {
+  return {
+    kind: "text",
+    text: say(language, {
+      hi: `माफ़ कीजिए, अभी आपके बच्चे की जानकारी नहीं खुल पाई 🙏 कृपया कुछ मिनट बाद फिर लिखें, या ऑफ़िस को फ़ोन करें: ${OFFICE_PHONE}`,
+      hx: `Maaf kijiye, abhi aapke bachche ki jaankari nahi khul payi 🙏 Kripya kuch minute baad phir likhiye, ya office ko phone kariye: ${OFFICE_PHONE}`,
+      en: `Sorry, I could not open your child's details just now 🙏 Please write again in a few minutes, or call the office: ${OFFICE_PHONE}`,
+    }),
+  };
+}
+
 /** Claude's own words, with the card it asked for under them when both fit in one message. */
 export function aiAnswer(context: ReplyContext, reply: string, card: HelperMessage | null): HelperMessage {
   const words = reply.trim();

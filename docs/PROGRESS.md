@@ -31,7 +31,7 @@ only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-604. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-605. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -267,6 +267,20 @@ the owner's number, which needs the owner's typed OK. **Surprised:** a note deci
 Today still left its WhatsApp reminder due three hours later; every decision
 now clears it. And the hub needed nothing: it already passes quick-reply
 payloads through and forwards a staff member's tap like any message.
+**The dots sooner (D-605):** the owner's test on 13 Nov found no typing dots
+and a slow answer. One now asks the hub for the message (the ticks and the
+dots) as soon as its own checks pass and reads the family's records alongside;
+once it has the message it always answers, with the office's phone when the
+records cannot be read. Waiting answers are sent while the new one is worked
+out, Claude's fixed instructions come from Anthropic's prompt cache, and every
+ledger row now says where its time went (`stages_ms`, migration
+`20261113084707_parent_helper_turn_stages.sql`, applied to One before the
+code). **Remains:** the times from the owner's next messages, and the hub's
+half (the dots the moment a message arrives), which needs a hub deploy.
+**Surprised:** the family's records were read before the claim only so that a
+family with no child could be left to the hub's bot; reading them after the
+claim costs that one case a short "could not open your child's details" reply
+instead.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

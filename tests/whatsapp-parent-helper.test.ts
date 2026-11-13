@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 import { handoffRegarding, helperAnswerSchema, helperSystemPrompt, helperUserText, MAX_REPLY_CHARS, planFromAnswer, type HelperAnswer } from "@/modules/whatsapp/domain/helper-ai";
 import { childFactsFromRow, childKey, firstName, type ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import { clip, fitMessage, helperMessageBody, messageText, plainVersion, WA_LIMITS, type HelperMessage } from "@/modules/whatsapp/domain/helper-messages";
-import { EMPTY_CHAT, isLateHour, planTurn, practiceIdsFor, type ChatState, type PlanInput } from "@/modules/whatsapp/domain/helper-plan";
+import { EMPTY_CHAT, isLateHour, messageSkip, planTurn, practiceIdsFor, type ChatState, type PlanInput } from "@/modules/whatsapp/domain/helper-plan";
 import {
   aiAnswer,
   feesCard,
@@ -414,6 +414,18 @@ describe("what the helper does with one message", () => {
     expect(plan({ text: "stop" })).toEqual({ action: "skip", reason: "stop" });
     expect(plan({ text: "fees", family: { children: [], practice: true } })).toEqual({ action: "skip", reason: "no_children" });
     expect(plan({ kind: "tap", tap: { intent: "stop", key: null } })).toEqual({ action: "skip", reason: "stop" });
+  });
+
+  it("knows from the message alone, before any record is read, what it leaves to the hub (D-605)", () => {
+    expect(messageSkip({ kind: "text", text: "  STOP ", tap: null })).toBe("stop");
+    expect(messageSkip({ kind: "text", text: "   ", tap: null })).toBe("empty");
+    expect(messageSkip({ kind: "tap", text: "Yes", tap: null })).toBe("not_our_tap");
+    expect(messageSkip({ kind: "tap", text: null, tap: { intent: "stop", key: null } })).toBe("stop");
+    expect(messageSkip({ kind: "tap", text: null, tap: { intent: "helped", key: null } })).toBe("not_our_tap");
+    // Everything else is the helper's to answer once the records are in.
+    expect(messageSkip({ kind: "text", text: "fees", tap: null })).toBeNull();
+    expect(messageSkip({ kind: "tap", text: null, tap: { intent: "helped", key: "abc" } })).toBeNull();
+    expect(messageSkip({ kind: "voice", text: null, tap: null })).toBeNull();
   });
 
   it("asks Claude about anything longer, and falls back to the menu when Claude cannot be asked", () => {

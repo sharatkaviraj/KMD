@@ -184,10 +184,10 @@ describe("when Veer Patta AI leaves the message to the hub", () => {
     expect(calls.claims).toEqual([]);
   });
 
-  it("stays out when the family's records cannot be read, or name no child", async () => {
-    expect(await runHelperTurn(inbound(), fakes({ readChildFacts: async () => null }).deps)).toEqual({ outcome: "skipped", reason: "facts_unreadable" });
-    expect(await runHelperTurn(inbound(), fakes({ readChildFacts: async () => [] }).deps)).toEqual({ outcome: "skipped", reason: "no_children" });
-    expect(await runHelperTurn(inbound(), fakes({ readBudget: async () => null }).deps)).toEqual({ outcome: "skipped", reason: "budget_unreadable" });
+  it("stays out when today's count cannot be read, before claiming", async () => {
+    const { deps, calls } = fakes({ readBudget: async () => null });
+    expect(await runHelperTurn(inbound(), deps)).toEqual({ outcome: "skipped", reason: "budget_unreadable" });
+    expect(calls.claims).toEqual([]);
   });
 
   it("stops at forty answers a day for one number", async () => {
@@ -219,7 +219,7 @@ describe("when Veer Patta AI leaves the message to the hub", () => {
   ])("leaves the message when the hub keeps it (%#)", async (claim, reason) => {
     const { deps, calls } = fakes({ claim: async () => claim });
     expect(await runHelperTurn(inbound(), deps)).toEqual({ outcome: "not_claimed", reason });
-    expect(calls.finished).toEqual([["wamid.TEST1", { status: "not_claimed", reason }]]);
+    expect(calls.finished).toEqual([["wamid.TEST1", { status: "not_claimed", reason, stages: { before: 3_000, checks: 0, claim: 0, dots: 3_000 } }]]);
     expect(calls.sent).toEqual([]);
     expect(calls.saved).toEqual([]);
   });
@@ -249,6 +249,7 @@ describe("when Veer Patta AI answers", () => {
           handoff: null,
           parentReplyId: null,
           latencyMs: 3_000,
+          stages: { before: 3_000, checks: 0, claim: 0, dots: 3_000, family: 0, compose: 0, send: 0 },
           reason: null,
           replyMessageId: "wamid.REPLY1",
         },
@@ -1116,5 +1117,111 @@ describe("a school visit booked on WhatsApp (D-592)", () => {
     expect(suggest).not.toHaveBeenCalled();
     expect(bodyText(calls.sent[0])).toContain("could not be passed on just now");
     expect(calls.finished[0][1]).toMatchObject({ reason: "handoff_not_saved" });
+  });
+});
+
+/* ------------------------------------------ the dots first (D-605) */
+
+describe("when Veer Patta AI is quick to show it is answering (D-605)", () => {
+  it("asks the hub for the ticks and dots without waiting for the family's records", async () => {
+    let release: (facts: ChildFacts[]) => void = () => undefined;
+    const records = new Promise<ChildFacts[]>((resolve) => {
+      release = resolve;
+    });
+    const order: string[] = [];
+    const { deps } = fakes({
+      readChildFacts: () => {
+        order.push("read");
+        return records;
+      },
+      claim: async () => {
+        order.push("claim");
+        // The records come back only once the hub has been asked: a claim that
+        // waited for them would never be made.
+        release([aarav]);
+        return CLAIMED;
+      },
+    });
+    expect(await runHelperTurn(inbound(), deps)).toEqual({ outcome: "answered", route: "rule", intent: "fees", handoff: null });
+    expect(order).toEqual(["read", "claim"]);
+  });
+
+  const unreadable: Array<[string, HelperDeps["readChildFacts"], string]> = [
+    ["the records cannot be read", async () => null, "facts_unreadable"],
+    ["reading them fails", async () => Promise.reject(new Error("down")), "facts_unreadable"],
+    ["they name no child", async () => [], "no_children"],
+  ];
+  it.each(unreadable)("once it has claimed, tells the parent when %s, rather than leave the dots", async (_, readChildFacts, reason) => {
+    const { deps, calls, askClaude } = fakes({ readChildFacts });
+    expect(await runHelperTurn(inbound({ text: "school kab khulega?" }), deps)).toEqual({ outcome: "answered", route: "fallback", intent: "fallback", handoff: null });
+    expect(calls.claims).toEqual(["wamid.TEST1"]);
+    expect(askClaude).not.toHaveBeenCalled();
+    expect(calls.sent).toHaveLength(1);
+    // In the parent's own words: Hinglish in, Hinglish out, with the office's phone.
+    expect(bodyText(calls.sent[0])).toContain("Maaf kijiye");
+    expect(bodyText(calls.sent[0])).toContain("9352205884");
+    expect(calls.finished).toEqual([
+      [
+        "wamid.TEST1",
+        expect.objectContaining({ status: "answered", intent: "fallback", route: "fallback", reason, replyMessageId: "wamid.REPLY1", latencyMs: 3_000 }),
+      ],
+    ]);
+  });
+
+  it("writes it down as failed when even that cannot be sent", async () => {
+    const { deps, calls } = fakes({
+      readChildFacts: async () => null,
+      send: async () => ({ outcome: "rejected", httpStatus: 400, errorCode: "131047", errorTitle: "Re-engagement message", errorDetail: null }),
+    });
+    expect(await runHelperTurn(inbound(), deps)).toEqual({ outcome: "failed", reason: "send_rejected:131047" });
+    expect(calls.finished).toEqual([["wamid.TEST1", expect.objectContaining({ status: "failed", reason: "facts_unreadable;send_rejected:131047" })]]);
+  });
+
+  it("writes down where the answer's time went", async () => {
+    let clock = NOW.getTime();
+    const later = (ms: number): void => {
+      clock += ms;
+    };
+    const { deps, calls } = fakes({
+      now: () => new Date(clock),
+      claim: async () => {
+        later(400);
+        return CLAIMED;
+      },
+      askClaude: async () => {
+        later(2_000);
+        return { answer: answer(), model: "claude-haiku-5-5", careful: false, costUsd: 0.002, problem: null };
+      },
+      send: async () => {
+        later(300);
+        return { outcome: "accepted", messageId: "wamid.REPLY1", httpStatus: 200 };
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: DISPUTE }), deps)).toMatchObject({ outcome: "answered", route: "ai" });
+    const finish = calls.finished[0][1];
+    expect(finish.stages).toEqual({ before: 3_000, checks: 0, claim: 400, dots: 3_400, family: 0, compose: 2_000, ai: 2_000, send: 300 });
+    expect(finish.latencyMs).toBe(5_700);
+  });
+
+  it("sends the answers that waited before the new one, though it worked the new one out meanwhile", async () => {
+    let clock = NOW.getTime();
+    const order: string[] = [];
+    const { deps, calls } = fakes({
+      now: () => new Date(clock),
+      deliverWaiting: async () => {
+        // Still sending after the reply is worked out (no timer runs in composing it).
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        clock += 700;
+        order.push("waiting");
+        return 1;
+      },
+      send: async () => {
+        order.push("reply");
+        return { outcome: "accepted", messageId: "wamid.REPLY1", httpStatus: 200 };
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "fees" }), deps)).toMatchObject({ outcome: "answered", intent: "fees" });
+    expect(order).toEqual(["waiting", "reply"]);
+    expect(calls.finished[0][1].stages).toMatchObject({ waiting: 700 });
   });
 });

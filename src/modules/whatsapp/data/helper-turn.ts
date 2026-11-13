@@ -6,9 +6,11 @@ import { handoffRegarding, planFromAnswer } from "@/modules/whatsapp/domain/help
 import { familyWords, lessonNoteFor, NO_KNOWLEDGE, type LessonNote, type SchoolKnowledge } from "@/modules/whatsapp/domain/helper-lessons";
 import { helperMessageBody, plainVersion, type HelperMessage } from "@/modules/whatsapp/domain/helper-messages";
 import {
+  EMPTY_CHAT,
   MAX_MESSAGE_AGE_MINUTES,
   MAX_TURNS_PER_NUMBER_PER_DAY,
   isLateHour,
+  messageSkip,
   needsVisitCalendar,
   planTurn,
   practiceIdsFor,
@@ -23,6 +25,7 @@ import {
   fallbackReply,
   handoffFailedReply,
   ratingReply,
+  recordsUnreadableReply,
   type Family,
   type HandoffTarget,
   type RatingOutcome,
@@ -30,7 +33,7 @@ import {
 } from "@/modules/whatsapp/domain/helper-replies";
 import { readNoteTap } from "@/modules/whatsapp/domain/helper-away-note";
 import { NOT_HELPED_TOPIC, isAcknowledgement } from "@/modules/whatsapp/domain/helper-handoff";
-import { messageKind, readTap, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
+import { detectLanguage, messageKind, readTap, type HelperLanguage, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
 import { VISIT_NAME_NOT_GIVEN, type VisitCalendar } from "@/modules/whatsapp/domain/helper-visit";
 import type { SuggestionDraft } from "@/modules/whatsapp/domain/parent-suggestions";
 import { schoolToday } from "@/platform/dates";
@@ -70,6 +73,7 @@ import {
   startTurn,
   type HelperSettings,
   type TurnFinish,
+  type TurnStages,
 } from "./helper-store";
 
 /**
@@ -90,14 +94,19 @@ import {
  *  3. The school's number may send this number a typed message right now
  *     (`checkWhatsAppSend`: the `parent_helper` switch, practice mode, the
  *     owner-only rule while real recipients are off).
- *  4. The family's records could be read, and there is a child in them.
+ *  4. The message has something to answer (not a STOP, not empty, not a tap
+ *     on somebody else's button).
  *  5. The number has had fewer than 40 answers today.
  *  6. The message is not already being answered (the ledger row's unique
  *     message id), and the hub gives it to One (`POST /v1/typing`). The hub
  *     says no when a person in the office is handling the chat, when the
  *     message is too old, or when its bot got there first.
  *
- * Only then is Claude asked (when the message needs it) and the reply sent.
+ * The family's records, the chat and the AI switch are read while the hub is
+ * asked, so the parent sees the blue ticks and the typing dots without
+ * waiting for them (D-605); records that cannot be read, or name no child,
+ * are answered with words that say so. Only then is Claude asked (when the
+ * message needs it) and the reply sent.
  * Nothing a parent writes changes a child's record or the school's (D-598):
  * a child's absence, a school visit or a detail to change becomes a
  * suggestion that a person at school applies or lets go.
@@ -236,6 +245,37 @@ function worthPlainRetry(result: ProviderSendResult, message: HelperMessage): bo
   if (result.outcome !== "rejected" || message.kind === "text") return false;
   const code = result.errorCode ?? "";
   return !(HUB_CODES as readonly string[]).includes(code) && code !== "bad_api_key";
+}
+
+/**
+ * The hub has given the message to One and the parent sees the typing dots,
+ * but there is nothing to answer from: the family's records could not be
+ * read, or name no child (D-605). Before, the helper stayed out of these
+ * before claiming and the hub's bot answered; now that the claim comes first,
+ * the parent is told why in their own language rather than left waiting.
+ */
+async function answerWithoutRecords(input: {
+  message: WebhookInbound;
+  deps: HelperDeps;
+  sentAt: number;
+  stages: TurnStages;
+  language: HelperLanguage;
+  reason: string;
+}): Promise<HelperOutcome> {
+  const { message, deps, sentAt, stages, language, reason } = input;
+  const sending = deps.now().getTime();
+  const sent = await deps.send(helperMessageBody(message.from, recordsUnreadableReply(language)));
+  const finished = deps.now();
+  stages.send = finished.getTime() - sending;
+  const common: TurnFinish = { status: "answered", intent: "fallback", route: "fallback", latencyMs: finished.getTime() - sentAt, stages };
+  if (sent.outcome !== "accepted") {
+    const failed = sent.outcome === "unknown" ? `send_unknown:${sent.errorCode}` : `send_rejected:${sent.errorCode ?? sent.httpStatus}`;
+    await deps.finishTurn(message.providerMessageId, { ...common, status: "failed", reason: `${reason};${failed}` });
+    return { outcome: "failed", reason: failed };
+  }
+  await deps.finishTurn(message.providerMessageId, { ...common, reason, replyMessageId: sent.messageId });
+  await deps.saveChat(message.from, {}, finished).catch(() => undefined);
+  return { outcome: "answered", route: "fallback", intent: "fallback", handoff: null };
 }
 
 type Reply = {
@@ -528,33 +568,30 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   if (verdict.decision === "refuse") return skip(verdict.code);
   if (!deps.claim) return skip("cannot_claim");
 
+  // 3a. Nothing to answer in the message itself (a STOP, an empty message, a
+  //     tap that is not the helper's): left to the hub before anything is
+  //     read or claimed, as before (D-605).
+  const tap = kind === "tap" ? readTap(message.raw) : null;
+  const nothing = messageSkip({ kind, text: message.text, tap });
+  if (nothing) return skip(nothing);
+
   // Step 1 knows only the practice family: the owner's number standing for TEST children.
   const practice = true;
-  // The school's answers, read beside the family and waited for only if Claude is asked (D-589).
+  // 4. The family's records, the chat so far and the AI switch start now and
+  //    are read while the hub is asked, so the parent sees the blue ticks and
+  //    the typing dots without waiting for them (D-605). The school's answers
+  //    are waited for only if Claude is asked (D-589). None of these rejects.
   const knowledge = deps.readKnowledge ? deps.readKnowledge(practice).catch(() => null) : Promise.resolve(null);
-
-  // 4 and 5. The family, the chat so far, today's answers and the AI budget.
-  const [children, chat, budget, ai] = await Promise.all([
-    deps.readChildFacts(studentIds),
-    deps.readChat(message.from),
-    deps.readBudget(message.from, started),
-    deps.readAiSettings(),
+  const reading = Promise.all([
+    deps.readChildFacts(studentIds).catch(() => null),
+    deps.readChat(message.from).catch(() => EMPTY_CHAT),
+    deps.readAiSettings().catch(() => null),
   ]);
-  if (!children) return skip("facts_unreadable");
-  if (children.length === 0) return skip("no_children");
+
+  // 5. Fewer than forty answers today for this number, and the AI budget.
+  const budget = await deps.readBudget(message.from, started).catch(() => null);
   if (!budget) return skip("budget_unreadable");
   if (budget.turnsToday >= MAX_TURNS_PER_NUMBER_PER_DAY) return skip("daily_cap");
-
-  const family: Family = { children, practice };
-  const aiAvailable = deps.hasClaudeKey() && ai !== null && ai.enabled && budget.spentUsd < ai.monthlyBudgetUsd;
-  const tap = kind === "tap" ? readTap(message.raw) : null;
-  // A school visit's days come from the family's own session's calendar (D-592), read only when they may be shown.
-  const visit =
-    needsVisitCalendar({ kind, text: message.text, tap }) && deps.readVisitCalendar
-      ? await deps.readVisitCalendar(children[0].sessionLabel, schoolToday(started)).catch(() => null)
-      : null;
-  const plan = planTurn({ kind, text: message.text, tap, chat, family, helperName: settings.helperName, now: started, aiAvailable, visit });
-  if (plan.action === "skip") return skip(plan.reason);
 
   // 6. Not answered already, and the hub gives it to One.
   const ledger = await deps.startTurn({
@@ -562,41 +599,100 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     from: message.from,
     receivedAt: new Date(sentAt).toISOString(),
     kind: kind as Exclude<MessageKind, "ignore">,
-    practice: family.practice,
+    practice,
   });
   if (ledger === "duplicate") return skip("duplicate");
   if (ledger === "failed") return skip("ledger_failed");
 
+  const asked = deps.now().getTime();
+  const stages: TurnStages = { before: started.getTime() - sentAt, checks: asked - started.getTime() };
   const claim = await deps.claim(message.providerMessageId);
+  const claimedAt = deps.now().getTime();
+  stages.claim = claimedAt - asked;
+  stages.dots = claimedAt - sentAt;
   if (!claim.ok || !claim.claimed) {
     const reason = claimRefusal(claim);
-    await deps.finishTurn(message.providerMessageId, { status: "not_claimed", reason });
+    await deps.finishTurn(message.providerMessageId, { status: "not_claimed", reason, stages });
     return { outcome: "not_claimed", reason };
   }
 
   // One answers from here on, whatever happens: Claude's words, a card or the menu.
+  const [children, chat, ai] = await reading;
+  const readAt = deps.now().getTime();
+  stages.family = readAt - claimedAt;
+  if (!children || children.length === 0) {
+    // The parent is already seeing the dots, so they hear why, rather than nothing.
+    const language = (kind === "text" ? detectLanguage(message.text) : null) ?? chat.language ?? "hi";
+    return answerWithoutRecords({ message, deps, sentAt, stages, language, reason: children ? "no_children" : "facts_unreadable" });
+  }
+
+  const family: Family = { children, practice };
+  const aiAvailable = deps.hasClaudeKey() && ai !== null && ai.enabled && budget.spentUsd < ai.monthlyBudgetUsd;
+  // A school visit's days come from the family's own session's calendar (D-592), read only when they may be shown.
+  const visit =
+    needsVisitCalendar({ kind, text: message.text, tap }) && deps.readVisitCalendar
+      ? await deps.readVisitCalendar(children[0].sessionLabel, schoolToday(started)).catch(() => null)
+      : null;
+  const plan = planTurn({ kind, text: message.text, tap, chat, family, helperName: settings.helperName, now: started, aiAvailable, visit });
+  if (plan.action === "skip") {
+    // Only a family with no child skips here, and that was answered above; never leave the dots unanswered.
+    const language = chat.language ?? "hi";
+    return answerWithoutRecords({ message, deps, sentAt, stages, language, reason: `plan_${plan.reason}` });
+  }
+
   // Answers that waited for this parent to write again go first; a bare "ok" needs nothing more (D-578).
-  const delivered = deps.deliverWaiting ? await deps.deliverWaiting(message.from).catch(() => 0) : 0;
-  if (delivered > 0 && kind === "text" && isAcknowledgement(message.text)) {
-    const finished = deps.now();
-    await deps.finishTurn(message.providerMessageId, {
-      status: "answered",
-      intent: "answer_delivered",
-      route: "rule",
-      latencyMs: finished.getTime() - sentAt,
-    });
-    await deps.saveChat(message.from, {}, finished).catch(() => undefined);
-    return { outcome: "answered", route: "rule", intent: "answer_delivered", handoff: null };
+  const acknowledgement = kind === "text" && isAcknowledgement(message.text);
+  const waitingFrom = deps.now().getTime();
+  const waiting = deps.deliverWaiting ? deps.deliverWaiting(message.from).catch(() => 0) : Promise.resolve(0);
+  if (acknowledgement) {
+    const delivered = await waiting;
+    stages.waiting = deps.now().getTime() - waitingFrom;
+    if (delivered > 0) {
+      const finished = deps.now();
+      await deps.finishTurn(message.providerMessageId, {
+        status: "answered",
+        intent: "answer_delivered",
+        route: "rule",
+        latencyMs: finished.getTime() - sentAt,
+        stages,
+      });
+      await deps.saveChat(message.from, {}, finished).catch(() => undefined);
+      return { outcome: "answered", route: "rule", intent: "answer_delivered", handoff: null };
+    }
   }
 
   const firstContact = plan.action === "ask_ai" ? plan.firstContact : false;
   const context: ReplyContext = { language: plan.language, helperName: settings.helperName, family, firstContact };
+  // Claude's share of the answer and a receipt's PDF are timed where they happen (D-605).
+  const timed: HelperDeps = {
+    ...deps,
+    askClaude: async (request) => {
+      const from = deps.now().getTime();
+      try {
+        return await deps.askClaude(request);
+      } finally {
+        stages.ai = (stages.ai ?? 0) + (deps.now().getTime() - from);
+      }
+    },
+    prepareReceipt: deps.prepareReceipt
+      ? async (request) => {
+          const prepare = deps.prepareReceipt;
+          const from = deps.now().getTime();
+          try {
+            return prepare ? await prepare(request) : null;
+          } finally {
+            stages.receipt = (stages.receipt ?? 0) + (deps.now().getTime() - from);
+          }
+        }
+      : undefined,
+  };
+  const composing = deps.now().getTime();
   let composed: Composed;
   try {
     composed =
       plan.action === "rate"
-        ? await composeRating({ message, plan, settings, context, deps, now: started, sentAt })
-        : await compose({ message, plan, settings, family, children, context, deps, now: started, sentAt, knowledge });
+        ? await composeRating({ message, plan, settings, context, deps: timed, now: started, sentAt })
+        : await compose({ message, plan, settings, family, children, context, deps: timed, now: started, sentAt, knowledge });
   } catch (caught) {
     logWarn("whatsapp.helper.compose_crashed", { error: caught instanceof Error ? caught.message : "unknown" });
     composed = {
@@ -612,7 +708,17 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   }
   const { reply, claude, parentReplyId, handedTo } = composed;
   let note = composed.note;
+  const composedAt = deps.now().getTime();
+  stages.compose = composedAt - composing;
 
+  // The waiting answers, sent while this one was worked out, go before it.
+  if (!acknowledgement) {
+    await waiting;
+    const waited = deps.now().getTime() - composedAt;
+    if (waited > 0) stages.waiting = waited;
+  }
+
+  const sending = deps.now().getTime();
   let sent = await deps.send(helperMessageBody(message.from, reply.message));
   if (worthPlainRetry(sent, reply.message)) {
     // A refused PDF goes as the words that say it could not be sent (D-597), never as a caption promising a file.
@@ -625,6 +731,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
 
   const finished = deps.now();
   const latencyMs = finished.getTime() - sentAt;
+  stages.send = finished.getTime() - sending;
   const common: TurnFinish = {
     status: "answered",
     intent: reply.intent,
@@ -634,6 +741,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     handoff: handedTo,
     parentReplyId,
     latencyMs,
+    stages,
   };
 
   if (sent.outcome !== "accepted") {

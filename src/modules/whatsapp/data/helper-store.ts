@@ -146,7 +146,51 @@ export type TurnFinish = {
   /** The school answer this reply used, or the list row its question was added to (D-589). */
   lessonId?: string | null;
   lessonRole?: "used" | "asked" | null;
+  /** Where the turn's time went (D-605), written beside `latencyMs`. */
+  stages?: TurnStages | null;
 };
+
+/**
+ * Where one turn's time went, each in whole milliseconds (D-605), so a slow
+ * answer can be pinned on the part that was slow instead of guessed at.
+ * Only the parts the turn reached are there.
+ */
+export type TurnStages = {
+  /** The parent's message (WhatsApp's own time, to the second) to One starting on it: Meta, the hub and the hand-off to One. */
+  before?: number;
+  /** One's own checks before asking the hub: the switches, the settings and today's count. */
+  checks?: number;
+  /** The hub's answer to "One answers this", which is also when the parent sees the blue ticks and the typing dots. */
+  claim?: number;
+  /** The parent's message to the hub's yes: how long the parent waited for the dots. */
+  dots?: number;
+  /** Waiting for the family's records and the chat after the claim (they are read beside it). */
+  family?: number;
+  /** Working out the answer: the rules, Claude and a receipt. */
+  compose?: number;
+  /** Claude's part of compose. */
+  ai?: number;
+  /** Making the receipt PDF, part of compose. */
+  receipt?: number;
+  /**
+   * Answers that waited for this parent, sent before the reply: for a bare
+   * "ok", the whole of it; otherwise only what the reply, already worked out,
+   * was held back for them (they are sent while it is worked out).
+   */
+  waiting?: number;
+  /** The hub's answer to the reply, Meta's included. */
+  send?: number;
+};
+
+/** The stages as the ledger keeps them: whole, non-negative milliseconds, nothing else. */
+export function stagesForLedger(stages: TurnStages | null | undefined): Record<string, number> | null {
+  if (!stages) return null;
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(stages)) {
+    if (typeof value === "number" && Number.isFinite(value)) out[key] = Math.max(0, Math.round(value));
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
 
 export async function finishTurn(providerMessageId: string, finish: TurnFinish, db: Db = whatsappDb()): Promise<void> {
   try {
@@ -165,6 +209,7 @@ export async function finishTurn(providerMessageId: string, finish: TurnFinish, 
         latency_ms: finish.latencyMs === null || finish.latencyMs === undefined ? null : Math.max(0, Math.round(finish.latencyMs)),
         // Written only with a lesson, so a turn without one writes what it always did.
         ...(finish.lessonId ? { lesson_id: finish.lessonId, lesson_role: finish.lessonRole ?? null } : {}),
+        ...(stagesForLedger(finish.stages) ? { stages_ms: stagesForLedger(finish.stages) } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("provider_message_id", providerMessageId);

@@ -49,7 +49,10 @@ async function ask(model: HelperModel, system: string, user: string, careful: bo
         // Opus keeps Anthropic's server-side fallback for a false-positive decline, as One's AI helper does.
         ...(careful ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
         output_config: { effort: careful ? "medium" : "low", format: betaZodOutputFormat(helperAnswerSchema) },
-        system,
+        // The instructions are the same for every family, so the second
+        // message within five minutes reads them from Anthropic's cache
+        // instead of again: sooner to start, and a tenth of the price (D-605).
+        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: [{ type: "text", text: user }] }],
       },
       { signal: AbortSignal.timeout(timeoutMs) },
