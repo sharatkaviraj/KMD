@@ -31,7 +31,7 @@ only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595, D-597..D-601 and D-603. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595, D-597..D-601, D-603 and D-604. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -240,7 +240,9 @@ enquiry closed, a value put back. Checked on BrowserStack on 13 Nov with
 TEST suggestions, on a Galaxy phone (Today's card, Mark Leave, Decided today,
 the register, Undo) and on Windows Chrome (Needs you, "Mark all 2 as Leave",
 Undo, a blood-group card's Now and Parent asks, Not now, Undo). The check
-found the register calling a Leave "Half-day", fixed in D-603. **Remains:**
+found the register calling a Leave "Half-day", fixed in D-603 and re-checked on
+the Galaxy phone the same morning; that re-check found the save sheet saying
+"Everyone is here today" beside a child on Leave, fixed in D-604. **Remains:**
 deciding from WhatsApp (D-602, a new Meta template the owner has not yet
 answered about).
 **Surprised:** the register's note and the Admissions enquiry had been

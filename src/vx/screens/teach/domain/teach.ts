@@ -66,9 +66,12 @@ export function countMarks(ids: readonly string[], marks: Readonly<Record<string
  * is marked Present" only while nobody is absent; otherwise what is marked,
  * so a phone (where the counters are hidden) sees the change at once.
  */
-export function markedLine(present: number, absent: number, half: number): Pair {
-  const parts = [`${present} present`, absent ? `${absent} absent` : null, half ? `${half} half day or leave` : null].filter(Boolean).join(", ");
-  const hi = [`${present} उपस्थित`, absent ? `${absent} अनुपस्थित` : null, half ? `${half} आधा दिन या छुट्टी` : null].filter(Boolean).join(", ");
+export function markedLine(present: number, absent: number, c: { halfDay: number; leave: number }): Pair {
+  // The yellow group by its own name, "1 leave" or "1 half-day", as on the save button (D-604).
+  const half = c.halfDay + c.leave;
+  const y = halfOrLeave(c);
+  const parts = [`${present} present`, absent ? `${absent} absent` : null, half ? `${half} ${y.en.toLowerCase()}` : null].filter(Boolean).join(", ");
+  const hi = [`${present} उपस्थित`, absent ? `${absent} अनुपस्थित` : null, half ? `${half} ${y.hi}` : null].filter(Boolean).join(", ");
   return p(`Marked so far: ${parts}.`, `अब तक: ${hi}।`);
 }
 

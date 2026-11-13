@@ -152,6 +152,21 @@ it("names both when the yellow group holds a half day and a Leave (D-603)", asyn
   expect(sheet().textContent).toContain("Leave (1)");
 });
 
+/* With only a child on Leave, the save sheet said "Everyone is here today" and the desk's list "No one marked absent yet" (13 Nov, D-604). */
+it("never says everyone is here, or that no one is away, while a child is on Leave (D-604)", async () => {
+  await render(onLeave());
+  expect(host.textContent).toContain("Marked so far: 1 present, 1 leave.");
+  expect(host.textContent).not.toMatch(/Everyone (is|was) here/);
+  expect(host.textContent).not.toContain("No one marked absent yet");
+
+  // Present again: now everyone is here, and the register says so.
+  await act(async () => card("Test Alpha").click());
+  expect(card("Test Alpha").querySelector(".tc-stw")!.textContent).toBe("Present");
+  expect(host.textContent).toContain("Everyone is marked Present.");
+  expect(sheet().textContent).toMatch(/Everyone (is|was) here/);
+  expect(host.textContent).toContain("No one marked absent yet");
+});
+
 it("lists a child saved on Leave under Away on the saved card, not under Half day (D-603)", async () => {
   await render(data({ ...onLeave(), registerId: "qa-register", revision: 1, saved: { [kidA]: "leave", [kidB]: "present" }, receipt: { savedAt: "2026-10-10T03:00:00Z", actorName: "QA", revision: 1 } }));
   expect(host.textContent).toContain("Away: Test Alpha (Parent informed · sick)");

@@ -58,9 +58,15 @@ describe("one leave resolver (B11)", () => {
 
 describe("the register banner follows the marks (B14)", () => {
   it("names what is marked as soon as a child is absent", () => {
-    expect(markedLine(27, 1, 0).en).toBe("Marked so far: 27 present, 1 absent.");
-    expect(markedLine(25, 2, 1).en).toBe("Marked so far: 25 present, 2 absent, 1 half day or leave.");
-    expect(markedLine(25, 2, 1).hi).toContain("2 अनुपस्थित");
+    expect(markedLine(27, 1, { halfDay: 0, leave: 0 }).en).toBe("Marked so far: 27 present, 1 absent.");
+    expect(markedLine(25, 2, { halfDay: 1, leave: 0 }).en).toBe("Marked so far: 25 present, 2 absent, 1 half-day.");
+    expect(markedLine(25, 2, { halfDay: 1, leave: 0 }).hi).toContain("2 अनुपस्थित");
+  });
+
+  it("calls a child on Leave leave, and both kinds by both names (D-604)", () => {
+    expect(markedLine(3, 0, { halfDay: 0, leave: 1 }).en).toBe("Marked so far: 3 present, 1 leave.");
+    expect(markedLine(3, 0, { halfDay: 0, leave: 1 }).hi).toBe("अब तक: 3 उपस्थित, 1 छुट्टी।");
+    expect(markedLine(2, 0, { halfDay: 1, leave: 1 }).en).toBe("Marked so far: 2 present, 2 half-day or leave.");
   });
 });
 

@@ -361,6 +361,8 @@ export function TeachAttend({
   const alertKids = absentKids.filter((r) => !r.informed && !r.ask);
   const halfKids = data.roll.filter((r) => marks[r.id] === "half_day");
   const leaveKids = data.roll.filter((r) => marks[r.id] === "leave");
+  // Everyone away, a child on Leave too: "Everyone is here" and "No one marked absent" need none (D-604).
+  const nAway = absentKids.length + halfKids.length + leaveKids.length;
   const often = useMemo(() => new Map(absentOften(data.monthMarks, 3).map((o) => [o.studentId, o.absent])), [data.monthMarks]);
   const yesterdayIds = Object.entries(data.yesterday).filter(([, m]) => m === "absent").map(([id]) => id);
 
@@ -654,7 +656,7 @@ export function TeachAttend({
                     : tx(p(`You are changing the attendance for ${dayShortP(data.day).en}`, `आप ${dayShortP(data.day).hi} की हाज़िरी बदल रहे हैं`))
                   : nA + nH === 0
                     ? tx(p("Everyone is marked Present.", "सभी बच्चे उपस्थित माने गए हैं।"))
-                    : tx(markedLine(nP, nA, nH))}
+                    : tx(markedLine(nP, nA, counts))}
               </span>
               <span style={{ fontSize: 13, opacity: 0.85 }}>
                 {editing === "change"
@@ -747,7 +749,7 @@ export function TeachAttend({
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span style={{ fontWeight: 600 }}>
-              {absentKids.length + halfKids.length + leaveKids.length
+              {nAway
                 ? isToday
                   ? tx(p("Away today", "आज अनुपस्थित"))
                   : tx(p(`Away on ${dayShortP(data.day).en}`, `${dayShortP(data.day).hi} को अनुपस्थित`))
@@ -765,7 +767,7 @@ export function TeachAttend({
                 </span>
               );
             })}
-            {absentKids.length + halfKids.length === 0 ? <span className="tc-s">{tx(p("No one marked absent yet. Tap a child to mark them away.", "अभी कोई अनुपस्थित नहीं। अनुपस्थित बच्चे पर टैप करें।"))}</span> : null}
+            {nAway === 0 ? <span className="tc-s">{tx(p("No one marked absent yet. Tap a child to mark them away.", "अभी कोई अनुपस्थित नहीं। अनुपस्थित बच्चे पर टैप करें।"))}</span> : null}
           </div>
           <div className="tc-note" style={{ background: "var(--s2)", fontSize: 13 }}>
             <Ic n="message" style={{ marginTop: 1, color: "var(--acc)" }} />
@@ -1404,7 +1406,7 @@ export function TeachAttend({
                 ))}
               </div>
             ))}
-          {!absentKids.length && !halfKids.length ? (
+          {nAway === 0 ? (
             <div className="tc-note" style={{ background: "var(--oks)", color: "var(--ok)" }}>
               <Ic n="checkCircle" />
               <span style={{ fontWeight: 600 }}>{isToday ? tx(p("Everyone is here today. No messages will go to parents.", "आज सब उपस्थित हैं। अभिभावकों को कोई संदेश नहीं जाएगा।")) : tx(p(`Everyone was here on ${dayShortP(data.day).en}. No messages will go to parents.`, `${dayShortP(data.day).hi} को सब उपस्थित थे। अभिभावकों को कोई संदेश नहीं जाएगा।`))}</span>
