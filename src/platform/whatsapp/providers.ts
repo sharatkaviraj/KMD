@@ -73,7 +73,13 @@ export type TemplateSubmission = {
   body: string;
   examples: string[];
   footer?: string;
-  buttons: Array<{ type: "URL"; text: string; url: string } | { type: "PHONE_NUMBER"; text: string; phone_number: string }>;
+  /**
+   * In the order Meta shows them. A quick reply (D-602) says back, when
+   * tapped, the payload the message was sent with (`TemplateMessage.quickReplies`).
+   */
+  buttons: Array<
+    { type: "URL"; text: string; url: string } | { type: "PHONE_NUMBER"; text: string; phone_number: string } | { type: "QUICK_REPLY"; text: string }
+  >;
 };
 
 /**

@@ -21,7 +21,7 @@ import {
 } from "@/modules/whatsapp/domain/parent-suggestions";
 import { markAllLabel, SUGGESTION_WORDS } from "@/modules/whatsapp/domain/parent-suggestion-words";
 import { inboxBadgeCount } from "@/vx/shell/badge-count";
-import { waitingAbsencesOn } from "@/modules/whatsapp/data/parent-suggestions";
+import { decideParentSuggestions, readHandoffNote, waitingAbsencesOn } from "@/modules/whatsapp/data/parent-suggestions";
 
 /**
  * A parent's suggestions (D-598): what Veer Patta AI reads on WhatsApp that
@@ -323,5 +323,118 @@ describe("the register's line and read for a note still waiting (D-601)", () => 
     expect(attend).toContain('dynamic(() => import("./register-help")');
     expect(attend).not.toMatch(/from "\.\/register-(ask|help)"/);
     expect(attend).not.toContain("const HELP");
+  });
+});
+
+describe("deciding from WhatsApp: the note a hand-off came with, and its reminders (D-602)", () => {
+  const REPLY = "00000000-0000-4000-8000-0000000000b1";
+  const NOTE = "00000000-0000-4000-8000-0000000000d1";
+  const STAFF = "00000000-0000-4000-8000-0000000000e1";
+
+  type Op = [string, ...unknown[]];
+  /** Enough of a database for these reads and writes, recording each call by table. */
+  function recordingDb(answers: { rpc?: unknown; rows?: Record<string, unknown[]>; readError?: { message: string }; updateError?: { message: string } } = {}) {
+    const calls: Array<{ table: string; ops: Op[] }> = [];
+    const rpcs: Array<[string, unknown]> = [];
+    const db = {
+      rpc: (name: string, args: unknown) => {
+        rpcs.push([name, args]);
+        return Promise.resolve({ data: answers.rpc ?? null, error: null });
+      },
+      from: (table: string) => {
+        const call = { table, ops: [] as Op[] };
+        calls.push(call);
+        const query: Record<string, unknown> = {};
+        for (const op of ["select", "eq", "in", "is", "not", "order", "limit", "update", "returns"]) {
+          query[op] = (...args: unknown[]) => (call.ops.push([op, ...args]), query);
+        }
+        query.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
+          const updating = call.ops.some(([op]) => op === "update");
+          const answer = updating
+            ? { data: null, error: answers.updateError ?? null }
+            : { data: answers.readError ? null : (answers.rows?.[table] ?? []), error: answers.readError ?? null };
+          return Promise.resolve(answer).then(resolve, reject);
+        };
+        return query;
+      },
+    };
+    return { db: db as never, calls, rpcs };
+  }
+
+  it("reads the newest absence that came with the message, never the parent's words", async () => {
+    const { db, calls } = recordingDb({
+      rows: {
+        parent_suggestions: [
+          { id: NOTE, status: "pending", payload: { days: ["2026-11-13", TODAY], reason: "sick" }, expires_at: "2026-11-13T18:30:00Z", practice: true, decided_by: null, decision: null },
+        ],
+      },
+    });
+    expect(await readHandoffNote(REPLY, db)).toEqual({
+      id: NOTE,
+      status: "pending",
+      days: [TODAY, "2026-11-13"],
+      reason: "sick",
+      expiresAt: "2026-11-13T18:30:00Z",
+      practice: true,
+      mark: null,
+      decidedByName: null,
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.table).toBe("parent_suggestions");
+    expect(calls[0]!.ops).toContainEqual(["eq", "parent_reply_id", REPLY]);
+    expect(calls[0]!.ops).toContainEqual(["eq", "kind", "absence"]);
+    expect(calls[0]!.ops).toContainEqual(["order", "created_at", { ascending: false }]);
+    expect(calls[0]!.ops).toContainEqual(["limit", 1]);
+    const columns = calls[0]!.ops.find(([op]) => op === "select")?.[1];
+    expect(columns).not.toMatch(/parent_replies|body/);
+  });
+
+  it("says how a decided note was decided, and by whom", async () => {
+    const { db, calls } = recordingDb({
+      rows: {
+        parent_suggestions: [
+          { id: NOTE, status: "applied", payload: { days: [TODAY], reason: "other" }, expires_at: "2026-11-12T18:30:00Z", practice: false, decided_by: STAFF, decision: { mark: "absent", noted: 1 } },
+        ],
+        staff_profiles: [{ id: STAFF, short_name: "TEST Teacher", display_name: "TEST Teacher One" }],
+      },
+    });
+    expect(await readHandoffNote(REPLY, db)).toMatchObject({ status: "applied", reason: "other", mark: "absent", decidedByName: "TEST Teacher" });
+    expect(calls.map((call) => call.table)).toEqual(["parent_suggestions", "staff_profiles"]);
+  });
+
+  it("none for a message that came with no absence, or a bad id; a failed read fails for its caller", async () => {
+    expect(await readHandoffNote(REPLY, recordingDb().db)).toBeNull();
+    const quiet = recordingDb();
+    expect(await readHandoffNote("not-a-reply", quiet.db)).toBeNull();
+    expect(quiet.calls).toEqual([]);
+    await expect(readHandoffNote(REPLY, recordingDb({ readError: { message: "down" } }).db)).rejects.toMatchObject({ message: "down" });
+  });
+
+  const decided = (outcome: string) => ({ ok: true, applied: outcome === "applied" ? 1 : 0, dismissed: outcome === "dismissed" ? 1 : 0, results: [{ id: NOTE, outcome }] });
+
+  it.each(["applied", "dismissed"])("once %s, wherever it was decided, its hand-off stops reminding, and stays open", async (outcome) => {
+    const { db, calls, rpcs } = recordingDb({ rpc: decided(outcome), rows: { parent_suggestions: [{ parent_reply_id: REPLY }] } });
+    const result = await decideParentSuggestions({ actorStaffId: STAFF, ids: [NOTE], decision: outcome === "applied" ? "apply" : "dismiss", mark: "leave", via: "whatsapp" }, db);
+    expect(result).toMatchObject({ ok: true, results: [{ id: NOTE, outcome }] });
+    expect(rpcs).toEqual([["decide_parent_suggestions", { p: { actor_staff_id: STAFF, ids: [NOTE], decision: outcome === "applied" ? "apply" : "dismiss", mark: "leave", via: "whatsapp" } }]]);
+    const update = calls.find((call) => call.table === "parent_helper_handoffs")!;
+    const patch = update.ops.find(([op]) => op === "update")?.[1] as Record<string, unknown>;
+    expect(patch).toMatchObject({ next_action: null, next_action_at: null });
+    // Not closed: the message can still be answered, and is still on the person's list.
+    expect(patch).not.toHaveProperty("closed_at");
+    expect(update.ops).toContainEqual(["in", "parent_reply_id", [REPLY]]);
+    expect(update.ops).toContainEqual(["is", "answered_at", null]);
+    expect(update.ops).toContainEqual(["is", "closed_at", null]);
+    expect(update.ops).toContainEqual(["not", "next_action", "is", null]);
+  });
+
+  it("nothing decided, nothing stopped; a reminder that could not be stopped never undoes the decision", async () => {
+    for (const outcome of ["already", "expired", "not_permitted"]) {
+      const { db, calls } = recordingDb({ rpc: decided(outcome) });
+      await decideParentSuggestions({ actorStaffId: STAFF, ids: [NOTE], decision: "apply", via: "whatsapp" }, db);
+      expect(calls).toEqual([]);
+    }
+    const { db } = recordingDb({ rpc: decided("applied"), rows: { parent_suggestions: [{ parent_reply_id: REPLY }] }, updateError: { message: "down" } });
+    expect(await decideParentSuggestions({ actorStaffId: STAFF, ids: [NOTE], decision: "apply", via: "whatsapp" }, db)).toMatchObject({ ok: true, applied: 1 });
   });
 });

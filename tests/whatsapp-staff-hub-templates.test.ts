@@ -224,8 +224,9 @@ describe("the parents' school notices on the hub", () => {
 });
 
 describe("the whole list the hub is asked to carry", () => {
-  it("is the _v8 set, the school notices, the staff set and Veer Patta AI's four, each name once", () => {
-    expect(HUB_TEMPLATE_SUBMISSIONS).toHaveLength(V8_HUB_SUBMISSIONS.length + 8 + 40 + 4);
+  it("is the _v8 set, the school notices, the staff set and Veer Patta AI's six, each name once", () => {
+    // Veer Patta AI: the staff alert and the answer-ready note (D-578), and the away note with its buttons (D-602), Hindi and English.
+    expect(HUB_TEMPLATE_SUBMISSIONS).toHaveLength(V8_HUB_SUBMISSIONS.length + 8 + 40 + 4 + 2);
     expect(new Set(HUB_TEMPLATE_SUBMISSIONS.map((submission) => `${submission.name}:${submission.language}`)).size).toBe(HUB_TEMPLATE_SUBMISSIONS.length);
   });
 

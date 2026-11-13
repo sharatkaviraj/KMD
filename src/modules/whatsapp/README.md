@@ -32,7 +32,8 @@ Fee reminders and the message templates behind them.
   as its PDF (`data/helper-receipt.ts`, D-597), and the suggestions a
   parent's message becomes, for a person at school to apply or let go
   (`domain/parent-suggestions.ts`, `data/parent-suggestions.ts`,
-  `data/parent-suggestion-views.ts`, D-598..D-600); see below
+  `data/parent-suggestion-views.ts`, D-598..D-600), also from the class
+  teacher's WhatsApp alert (`domain/helper-away-note.ts`, D-602); see below
 - Sign in with a WhatsApp code (`domain/sign-in-code.ts`, `data/sign-in-codes.ts`,
   D-585..D-587): the code, its hash, the send through the hub. The page is
   `src/app/login/code-form.tsx`; the limits and the one-time check are SQL.
@@ -417,6 +418,19 @@ its own work, for messages from the hub only.
   (D-601, `waitingAbsencesOn` and `registerAskLine`): saving the child as
   Leave or Absent applies it as the teacher (`via = register`), before the
   save works out the absent alerts.
+- **Decided from the alert itself (D-602).** The class teacher's alert about
+  a note still waiting carries its days and reason and three buttons, Mark
+  Leave, Mark Absent and Not now (`domain/helper-away-note.ts`): typed reply
+  buttons while their chat is open (ids `vpnote:<choice>:<note id>`), else
+  the approved `vpps_staff_away_note_<hi|en>_v1`, whose quick replies carry
+  the same ids back (`quickReplies` in `platform/whatsapp/payload.ts`); until
+  Meta approves it, or when Meta refuses the buttons, the ordinary alert
+  goes. `handleStaffAnswer` reads a tap (`readNoteTap`) before anything else
+  and decides only the note the alert's own hand-off came with
+  (`readHandoffNote`), through `decide_parent_suggestions` with
+  `via = whatsapp`, as the person the alert went to; the reply says what
+  became of it (`noteConfirmText`). A decision made anywhere clears its
+  hand-off's next reminder (`stopRemindersFor`); the hand-off stays open.
 - **Teach it once (D-589).** A general question Claude cannot answer from
   FACTS comes back as `unanswered` (one short English line, or the P key it
   matches). `lessonNoteFor` (`domain/helper-lessons.ts`) keeps it only when
@@ -538,6 +552,9 @@ its own work, for messages from the hub only.
   `cleanQuestion` refused, or let the form say which list (`practice`) an
   admin's button changes: a practice account must never reach what real
   parents are told.
+- Pass a tap on Mark Leave, Mark Absent or Not now to the parent as words,
+  or let it decide any note but the one its alert's hand-off came with.
+  Buttons go only on the class teacher's alert, while the note waits.
 - Take a reply for a staff answer unless it quotes one of the helper's sent
   alerts and comes from the number that alert went to, or tell staff outside
   6 am to 9 pm India time: `nextAlertMoment` is asked again when a step runs,

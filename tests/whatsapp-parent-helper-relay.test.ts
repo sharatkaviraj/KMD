@@ -9,6 +9,7 @@ vi.mock("@/modules/whatsapp/data/helper-store", () => ({
   startTurn: vi.fn(),
 }));
 vi.mock("@/modules/whatsapp/data/helper-handoffs", () => ({}));
+vi.mock("@/modules/whatsapp/data/parent-suggestions", () => ({}));
 vi.mock("@/platform/whatsapp/store", () => ({ readSwitches: vi.fn(), readTemplateRow: vi.fn() }));
 const log = vi.hoisted(() => ({ logInfo: vi.fn(), logWarn: vi.fn() }));
 vi.mock("@/platform/observability/log", () => log);
@@ -26,6 +27,8 @@ import {
   type RelayDeps,
 } from "@/modules/whatsapp/data/helper-relay";
 import type { TurnFinish } from "@/modules/whatsapp/data/helper-store";
+import type { DecideOutcome, DecideResult, HandoffNote } from "@/modules/whatsapp/data/parent-suggestions";
+import type { NoteChoice } from "@/modules/whatsapp/domain/helper-away-note";
 import { childFactsFromRow, type ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import { NOT_HELPED_TOPIC } from "@/modules/whatsapp/domain/helper-handoff";
 import { EMPTY_CHAT, type ChatState } from "@/modules/whatsapp/domain/helper-plan";
@@ -93,6 +96,12 @@ type World = {
   /** When each number last wrote, as the helper's chat memory has it. */
   chats: Map<string, string>;
   people: Person[] | null;
+  /** A child's absence each Messages row came with (D-602), by that row's id. */
+  notes: Map<string, HandoffNote>;
+  /** Each tap decided, as the person who tapped. */
+  decisions: Array<{ actorStaffId: string; id: string; choice: NoteChoice }>;
+  /** What kind of message each turn was started as. */
+  kinds: string[];
 };
 
 function handoffRow(over: Partial<Handoff> = {}): Handoff {
@@ -135,6 +144,9 @@ function world(
     send?: RelayDeps["send"];
     people?: Person[] | null;
     ratingWrites?: "fail";
+    /** The note cannot be read. */
+    noteRead?: "fail";
+    decide?: (input: { actorStaffId: string; id: string; choice: NoteChoice }) => Promise<DecideResult>;
   } = {},
 ) {
   let clock = over.now ?? NOON;
@@ -150,6 +162,9 @@ function world(
     started: [],
     chats: new Map(),
     people: over.people === undefined ? [teacher] : over.people,
+    notes: new Map(),
+    decisions: [],
+    kinds: [],
   };
   let messageNo = 0;
   const deps: RelayDeps = {
@@ -173,6 +188,7 @@ function world(
     startTurn: async (row) => {
       if (w.started.includes(row.providerMessageId)) return "duplicate";
       w.started.push(row.providerMessageId);
+      w.kinds.push(row.kind);
       return "started";
     },
     finishTurn: async (id, finish) => {
@@ -284,6 +300,37 @@ function world(
       const answer = sent ? w.answers.find((row) => row.id === sent.answerId) : undefined;
       return sent && answer ? { body: answer.body, answererKind: sent.answererKind, answererName: sent.answererName } : null;
     },
+    readHandoffNote: async (replyId) => {
+      if (over.noteRead === "fail") throw new Error("down");
+      const note = w.notes.get(replyId);
+      return note ? { ...note } : null;
+    },
+    // As `decide_parent_suggestions` does: still waiting, not past its time, and only the class teacher may.
+    decideNote:
+      over.decide ??
+      (async (input): Promise<DecideResult> => {
+        w.decisions.push(input);
+        const one = (outcome: DecideOutcome): DecideResult => ({
+          ok: true,
+          applied: outcome.outcome === "applied" ? 1 : 0,
+          dismissed: outcome.outcome === "dismissed" ? 1 : 0,
+          results: [outcome],
+        });
+        const found = [...w.notes.entries()].find(([, note]) => note.id === input.id);
+        if (!found) return one({ id: input.id, outcome: "not_found" });
+        const [replyId, note] = found;
+        if (note.status !== "pending") return one({ id: note.id, outcome: "already" });
+        if (Date.parse(note.expiresAt) <= clock.getTime()) return one({ id: note.id, outcome: "expired" });
+        if (input.actorStaffId !== TEACHER_ID) return one({ id: note.id, outcome: "not_permitted" });
+        const dismiss = input.choice === "dismiss";
+        w.notes.set(replyId, {
+          ...note,
+          status: dismiss ? "dismissed" : "applied",
+          mark: input.choice === "dismiss" ? null : input.choice,
+          decidedByName: "TEST Teacher One",
+        });
+        return one({ id: note.id, outcome: dismiss ? "dismissed" : "applied" });
+      }),
   };
   return { deps, w, setNow: (at: Date) => (clock = at) };
 }
@@ -763,5 +810,308 @@ describe("did this answer help? (D-584)", () => {
     const { deps } = await answered({ ratingWrites: "fail" });
     expect(await rateAnswer({ from: OWNER, key: "h100", value: "not_helped" }, deps)).toMatchObject({ outcome: "not_saved" });
     expect(await rateAnswer({ from: OWNER, key: "h100", value: "helped" }, deps)).toMatchObject({ outcome: "helped" });
+  });
+});
+
+describe("a child the parent says will be away: decided from the alert (D-602)", () => {
+  const NOTE_ID = "88888888-8888-4888-8888-888888888888";
+  const OTHER_NOTE = "99999999-9999-4999-8999-999999999999";
+
+  function noteRow(over: Partial<HandoffNote> = {}): HandoffNote {
+    return { id: NOTE_ID, status: "pending", days: ["2026-11-12"], reason: "sick", expiresAt: "2026-11-12T18:30:00.000Z", practice: false, mark: null, decidedByName: null, ...over };
+  }
+
+  const buttonsOf = (body: Record<string, unknown>) =>
+    ((body.interactive as { action?: { buttons?: Array<{ reply: { id: string; title: string } }> } } | undefined)?.action?.buttons ?? []).map((button) => button.reply);
+  const bodyOf = (body: Record<string, unknown>) => (body.interactive as { body?: { text: string } } | undefined)?.body?.text ?? "";
+
+  /** The class teacher alerted about a note; their chat open unless `closed`. */
+  async function alertedWithNote(options: Parameters<typeof world>[0] & { closed?: boolean; note?: Partial<HandoffNote>; practice?: boolean } = {}) {
+    const made = world(options);
+    made.w.notes.set(REPLY_ID, noteRow({ practice: options.practice ?? false, ...options.note }));
+    const phone = options.practice ? OWNER : TEACHER_PHONE;
+    if (!options.closed) made.w.chats.set(phone, new Date(NOON.getTime() - HOUR).toISOString());
+    await openHandoff(openInput({ topic: "leave", practice: options.practice ?? false }), made.deps);
+    return made;
+  }
+
+  function noteTap(choice: NoteChoice, over: Partial<WebhookInbound> & { id?: string } = {}): WebhookInbound {
+    const { id, ...rest } = over;
+    const title = { leave: "Mark Leave", absent: "Mark Absent", dismiss: "Not now" }[choice];
+    return staffReply({
+      providerMessageId: "wamid.TAP1",
+      type: "interactive",
+      text: title,
+      raw: { type: "interactive", interactive: { type: "button_reply", button_reply: { id: id ?? `vpnote:${choice}:${NOTE_ID}`, title } } },
+      ...rest,
+    });
+  }
+
+  it("the class teacher's typed alert carries Mark Leave, Mark Absent and Not now, each naming the note", async () => {
+    const { w } = await alertedWithNote();
+    expect(w.sent).toHaveLength(1);
+    expect(w.sent[0]!.type).toBe("interactive");
+    expect(buttonsOf(w.sent[0]!)).toEqual([
+      { id: `vpnote:leave:${NOTE_ID}`, title: "Mark Leave" },
+      { id: `vpnote:absent:${NOTE_ID}`, title: "Mark Absent" },
+      { id: `vpnote:dismiss:${NOTE_ID}`, title: "Not now" },
+    ]);
+    expect(bodyOf(w.sent[0]!)).toContain("🗓️ Today · Sick");
+    expect(bodyOf(w.sent[0]!)).toContain("↩️ Swipe right on this message and type your answer.");
+    expect(w.alerts).toEqual([expect.objectContaining({ staffId: TEACHER_ID, via: "text", status: "sent", messageId: "wamid.OUT1" })]);
+    // Nothing is decided by the alert itself.
+    expect(w.decisions).toEqual([]);
+    expect(w.notes.get(REPLY_ID)!.status).toBe("pending");
+  });
+
+  it("a closed chat gets the approved away note, each quick reply carrying the note's own payload", async () => {
+    const { w } = await alertedWithNote({ closed: true });
+    expect(w.sent).toHaveLength(1);
+    expect(templateOf(w.sent[0]!)).toBe("vpps_staff_away_note_en_v1");
+    expect((w.sent[0]!.template as { components: unknown[] }).components).toEqual([
+      {
+        type: "body",
+        parameters: ["TEST Teacher One", "Aarav · Class 6", "Today · Sick", "Please share today's homework"].map((text) => ({ type: "text", text })),
+      },
+      ...["leave", "absent", "dismiss"].map((choice, index) => ({
+        type: "button",
+        sub_type: "quick_reply",
+        index: String(index),
+        parameters: [{ type: "payload", payload: `vpnote:${choice}:${NOTE_ID}` }],
+      })),
+    ]);
+    expect(w.alerts).toEqual([expect.objectContaining({ via: "template", status: "sent", messageId: "wamid.OUT1" })]);
+  });
+
+  it("until Meta approves the away note, the ordinary approved alert goes, and the note waits in One", async () => {
+    const { w } = await alertedWithNote({ closed: true, templates: { vpps_staff_away_note_en_v1: template("vpps_staff_away_note_en_v1", "pending") } });
+    expect(w.sent.map(templateOf)).toEqual(["vpps_staff_parent_question_en_v1"]);
+    expect(w.alerts).toEqual([expect.objectContaining({ via: "template", status: "sent" })]);
+  });
+
+  it("an away note Meta refuses gives way to the ordinary alert; one whose fate is unknown is not followed by a second", async () => {
+    const refusedSent: Array<Record<string, unknown>> = [];
+    const refused = await alertedWithNote({
+      closed: true,
+      send: async (body) => {
+        refusedSent.push(body);
+        return refusedSent.length === 1
+          ? { outcome: "rejected", httpStatus: 400, errorCode: "132001", errorTitle: null, errorDetail: null }
+          : { outcome: "accepted", messageId: "wamid.T2", httpStatus: 200 };
+      },
+    });
+    expect(refusedSent.map(templateOf)).toEqual(["vpps_staff_away_note_en_v1", "vpps_staff_parent_question_en_v1"]);
+    expect(refused.w.alerts).toEqual([expect.objectContaining({ via: "template", status: "sent", messageId: "wamid.T2" })]);
+
+    const unknown: Array<Record<string, unknown>> = [];
+    const lost = await alertedWithNote({
+      closed: true,
+      send: async (body) => {
+        unknown.push(body);
+        return { outcome: "unknown", httpStatus: null, errorCode: "network", errorTitle: "No answer from the hub." };
+      },
+    });
+    expect(unknown).toHaveLength(1);
+    expect(lost.w.alerts).toEqual([expect.objectContaining({ via: "template", status: "failed", reason: "send_unknown:network" })]);
+  });
+
+  it("buttons Meta will not take: the alert goes typed without them, and the note waits in One", async () => {
+    const sent: Array<Record<string, unknown>> = [];
+    const { w } = await alertedWithNote({
+      send: async (body) => {
+        sent.push(body);
+        return sent.length === 1
+          ? { outcome: "rejected", httpStatus: 400, errorCode: "131009", errorTitle: null, errorDetail: null }
+          : { outcome: "accepted", messageId: "wamid.T2", httpStatus: 200 };
+      },
+    });
+    expect(sent.map((body) => body.type)).toEqual(["interactive", "text"]);
+    expect(textOf(sent[1]!)).toContain("A parent's message for you");
+    expect(textOf(sent[1]!)).not.toContain("👇");
+    expect(w.alerts).toEqual([expect.objectContaining({ via: "text", status: "sent", messageId: "wamid.T2" })]);
+  });
+
+  it.each([
+    ["already decided", { note: { status: "applied" as const, mark: "leave" as const } }],
+    ["past its time", { note: { expiresAt: "2026-11-12T06:00:00.000Z" } }],
+    ["with no days", { note: { days: [] } }],
+    ["of another kind than the hand-off", { note: { practice: true } }],
+    ["for someone who is not the class teacher", { people: [{ ...teacher, isClassTeacher: false }] }],
+    ["unreadable", { noteRead: "fail" as const }],
+  ])("no buttons when the note is %s: the ordinary alert, as before", async (_case, options) => {
+    const { w } = await alertedWithNote(options);
+    expect(w.sent).toHaveLength(1);
+    expect(w.sent[0]!.type).toBe("text");
+    expect(textOf(w.sent[0]!)).not.toContain("👇");
+  });
+
+  it("only a class teacher's hand-off carries them: the office's never does", async () => {
+    const { deps, w } = world();
+    w.notes.set(REPLY_ID, noteRow());
+    w.chats.set(TEACHER_PHONE, new Date(NOON.getTime() - HOUR).toISOString());
+    await openHandoff(openInput({ target: "office", topic: "office" }), deps);
+    expect(w.sent[0]!.type).toBe("text");
+  });
+
+  it("a reminder still carries them while the note waits", async () => {
+    const { deps, w, setNow } = await alertedWithNote();
+    setNow(new Date(NOON.getTime() + 3 * HOUR));
+    await runHandoffStep("h1", deps);
+    expect(w.sent).toHaveLength(2);
+    expect(bodyOf(w.sent[1]!)).toContain("⏰ *Reminder: a parent is waiting for your answer*");
+    expect(buttonsOf(w.sent[1]!).map((button) => button.id)).toEqual([`vpnote:leave:${NOTE_ID}`, `vpnote:absent:${NOTE_ID}`, `vpnote:dismiss:${NOTE_ID}`]);
+  });
+
+  it("Mark Leave decides the note as the class teacher: never an answer to the parent, and they are told what it did", async () => {
+    const { deps, w } = await alertedWithNote();
+    w.sent.length = 0;
+    const outcome = await handleStaffAnswer(noteTap("leave"), deps);
+    expect(outcome).toEqual({ outcome: "answered", route: "tap", intent: "staff_note", handoff: "class_teacher" });
+    expect(w.decisions).toEqual([{ actorStaffId: TEACHER_ID, id: NOTE_ID, choice: "leave" }]);
+    expect(w.notes.get(REPLY_ID)).toMatchObject({ status: "applied", mark: "leave" });
+    // Nothing for the parent, nothing in Messages.
+    expect(w.answers).toEqual([]);
+    expect(w.done).toEqual([]);
+    expect(w.sent.map((body) => body.to)).toEqual(["919000000002"]);
+    expect(textOf(w.sent[0]!)).toBe(
+      [
+        "✅ Leave noted for the register · Aarav · Class 6 · Today",
+        "The parent gets no absent message for those days.",
+        "↩️ Changed your mind? Open One and press Undo under Decided today.",
+      ].join("\n"),
+    );
+    expect(w.kinds.at(-1)).toBe("tap");
+    expect(w.finished).toEqual([
+      ["wamid.TAP1", expect.objectContaining({ status: "answered", intent: "staff_note", route: "tap", parentReplyId: REPLY_ID, replyMessageId: "wamid.OUT2" })],
+    ]);
+    expect(w.saved).toEqual([TEACHER_PHONE]);
+    // Swiping right still answers the parent: the hand-off is not answered by a tap.
+    expect(w.handoffs.get("h1")!.answeredAt).toBeNull();
+  });
+
+  it("Mark Absent and Not now say what they did", async () => {
+    const absent = await alertedWithNote();
+    await handleStaffAnswer(noteTap("absent"), absent.deps);
+    expect(absent.w.notes.get(REPLY_ID)).toMatchObject({ status: "applied", mark: "absent" });
+    expect(textOf(absent.w.sent.at(-1)!)).toMatch(/^✅ Absent noted for the register · Aarav · Class 6 · Today/);
+
+    const notNow = await alertedWithNote();
+    await handleStaffAnswer(noteTap("dismiss"), notNow.deps);
+    expect(notNow.w.notes.get(REPLY_ID)).toMatchObject({ status: "dismissed" });
+    expect(textOf(notNow.w.sent.at(-1)!)).toBe("👍 Let go · nothing was changed · Aarav · Class 6\n↩️ Changed your mind? Open One and press Undo under Decided today.");
+  });
+
+  it("a quick reply on the approved note decides it by its payload", async () => {
+    const { deps, w } = await alertedWithNote({ closed: true });
+    const tap = staffReply({
+      providerMessageId: "wamid.TAP2",
+      type: "button",
+      text: "Mark Absent",
+      raw: { type: "button", button: { payload: `vpnote:absent:${NOTE_ID}`, text: "Mark Absent" } },
+    });
+    expect(await handleStaffAnswer(tap, deps)).toMatchObject({ outcome: "answered", intent: "staff_note" });
+    expect(w.decisions).toEqual([{ actorStaffId: TEACHER_ID, id: NOTE_ID, choice: "absent" }]);
+  });
+
+  it("a quick reply that came back without our payload decides only the alert's own note, by its words", async () => {
+    const { deps, w } = await alertedWithNote({ closed: true });
+    const tap = staffReply({ providerMessageId: "wamid.TAP3", type: "button", text: "अभी नहीं", raw: { type: "button", button: { payload: "", text: "अभी नहीं" } } });
+    await handleStaffAnswer(tap, deps);
+    expect(w.decisions).toEqual([{ actorStaffId: TEACHER_ID, id: NOTE_ID, choice: "dismiss" }]);
+  });
+
+  it("a tap that names another note changes nothing", async () => {
+    const { deps, w } = await alertedWithNote();
+    w.notes.set("another-reply", noteRow({ id: OTHER_NOTE }));
+    const outcome = await handleStaffAnswer(noteTap("leave", { id: `vpnote:leave:${OTHER_NOTE}` }), deps);
+    expect(outcome).toMatchObject({ outcome: "answered", intent: "staff_note" });
+    expect(w.decisions).toEqual([]);
+    expect(w.notes.get("another-reply")!.status).toBe("pending");
+    expect(textOf(w.sent.at(-1)!)).toBe("⚠️ It is no longer there. Nothing was changed.");
+    expect(w.finished.at(-1)![1]).toMatchObject({ status: "answered", reason: "note_gone" });
+  });
+
+  it("is only a tap from the number the alert went to, on that alert", async () => {
+    const { deps, w } = await alertedWithNote();
+    expect(await handleStaffAnswer(noteTap("leave", { from: ADMIN_PHONE }), deps)).toBeNull();
+    expect(await handleStaffAnswer(noteTap("leave", { replyTo: "wamid.SOMETHING_ELSE" }), deps)).toBeNull();
+    expect(w.decisions).toEqual([]);
+  });
+
+  it("a second tap, or a note decided in One meanwhile, says how and by whom, and decides nothing", async () => {
+    const { deps, w } = await alertedWithNote();
+    await handleStaffAnswer(noteTap("leave"), deps);
+    await handleStaffAnswer(noteTap("absent", { providerMessageId: "wamid.TAP9" }), deps);
+    expect(w.decisions).toHaveLength(1);
+    expect(textOf(w.sent.at(-1)!)).toBe("ℹ️ Someone has already decided this one.\nLeave · TEST Teacher One · Aarav · Class 6");
+    // The same tap forwarded twice is handled once.
+    expect(await handleStaffAnswer(noteTap("leave"), deps)).toEqual({ outcome: "skipped", reason: "duplicate" });
+  });
+
+  it("decided by someone else between the read and the tap: the database's answer stands", async () => {
+    const { deps, w } = await alertedWithNote({
+      decide: async (input) => {
+        w.notes.set(REPLY_ID, noteRow({ status: "dismissed", decidedByName: "TEST Admin" }));
+        return { ok: true, applied: 0, dismissed: 0, results: [{ id: input.id, outcome: "already" }] };
+      },
+    });
+    await handleStaffAnswer(noteTap("leave"), deps);
+    expect(textOf(w.sent.at(-1)!)).toBe("ℹ️ Someone has already decided this one.\nNot now · TEST Admin · Aarav · Class 6");
+  });
+
+  it("past its time, or not theirs to decide: nothing was changed", async () => {
+    const late = await alertedWithNote({ note: { expiresAt: new Date(NOON.getTime() + HOUR).toISOString() } });
+    late.setNow(new Date(NOON.getTime() + 2 * HOUR));
+    await handleStaffAnswer(noteTap("leave", { at: new Date(NOON.getTime() + 2 * HOUR - 2_000).toISOString() }), late.deps);
+    expect(textOf(late.w.sent.at(-1)!)).toBe("⏱️ Its day has passed, so it no longer waits. Nothing was changed.");
+    expect(late.w.notes.get(REPLY_ID)!.status).toBe("pending");
+
+    const theirs = await alertedWithNote({
+      decide: async (input) => ({ ok: true, applied: 0, dismissed: 0, results: [{ id: input.id, outcome: "not_permitted" }] }),
+    });
+    await handleStaffAnswer(noteTap("leave"), theirs.deps);
+    expect(textOf(theirs.w.sent.at(-1)!)).toBe("🚫 This one is for someone else to decide. Nothing was changed.");
+  });
+
+  it("a decision that could not be made is never called made", async () => {
+    const down = await alertedWithNote({ decide: async () => ({ ok: false, reason: "unavailable" }) });
+    const outcome = await handleStaffAnswer(noteTap("leave"), down.deps);
+    expect(outcome).toEqual({ outcome: "failed", reason: "note_not_decided" });
+    expect(textOf(down.w.sent.at(-1)!)).toBe("⚠️ That did not go through. Nothing was changed.\nPlease decide it in One instead.");
+    expect(down.w.finished.at(-1)![1]).toMatchObject({ status: "failed", reason: "note_failed", intent: "staff_note" });
+
+    const thrown = await alertedWithNote({ decide: async () => Promise.reject(new Error("down")) });
+    expect(await handleStaffAnswer(noteTap("leave"), thrown.deps)).toEqual({ outcome: "failed", reason: "note_not_decided" });
+
+    const unread = await alertedWithNote();
+    unread.w.notes.clear();
+    const gone = await handleStaffAnswer(noteTap("leave"), unread.deps);
+    expect(gone).toMatchObject({ outcome: "answered" });
+    expect(textOf(unread.w.sent.at(-1)!)).toBe("⚠️ It is no longer there. Nothing was changed.");
+  });
+
+  it("practice: the owner's tap decides as the test teacher, on test records, and says so", async () => {
+    const { deps, w } = await alertedWithNote({ switches: TODAY, practice: true });
+    expect(w.sent[0]!.to).toBe("919000000001");
+    expect(w.sent[0]!.type).toBe("interactive");
+    await handleStaffAnswer(noteTap("leave", { from: OWNER }), deps);
+    expect(w.decisions).toEqual([{ actorStaffId: TEACHER_ID, id: NOTE_ID, choice: "leave" }]);
+    expect(textOf(w.sent.at(-1)!).split("\n").at(-1)).toBe("🧪 Practice: decided as TEST Teacher One, on test records.");
+  });
+
+  it("practice mode: a tap is left alone, like any other message", async () => {
+    const made = await alertedWithNote();
+    const later = world({ switches: switches({ dryRun: true }) });
+    Object.assign(later.w, { alerts: made.w.alerts, handoffs: made.w.handoffs, notes: made.w.notes });
+    expect(await handleStaffAnswer(noteTap("leave"), later.deps)).toEqual({ outcome: "skipped", reason: "practice_mode" });
+    expect(later.w.decisions).toEqual([]);
+  });
+
+  it("swiping right and typing still answers the parent, and decides nothing", async () => {
+    const { deps, w } = await alertedWithNote();
+    w.chats.set(OWNER, new Date(NOON.getTime() - 2 * HOUR).toISOString());
+    expect(await handleStaffAnswer(staffReply(), deps)).toMatchObject({ outcome: "answered", intent: "staff_answer" });
+    expect(w.answers).toHaveLength(1);
+    expect(w.decisions).toEqual([]);
   });
 });

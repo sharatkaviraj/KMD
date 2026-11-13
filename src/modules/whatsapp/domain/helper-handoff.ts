@@ -1,8 +1,9 @@
-import { clip } from "./helper-messages";
+import { clip, WA_LIMITS } from "./helper-messages";
 import { ALERT_HOURS } from "./helper-plan";
 import { istHour } from "./helper-facts";
 import type { HandoffTarget } from "./helper-replies";
 import type { HelperLanguage } from "./helper-text";
+import { SUGGESTION_WORDS } from "./parent-suggestion-words";
 
 /**
  * Veer Patta AI, step 2: a hand-off reaches a person (D-578).
@@ -200,6 +201,12 @@ export type AlertWords = {
   words: string;
   helperName: string;
   practice: boolean;
+  /**
+   * A child's absence this person can decide from the alert itself (D-602):
+   * its days and reason in their language ("Today · Sick"). The typed alert
+   * then says what its three buttons do (`helper-away-note.ts`).
+   */
+  away?: string | null;
 };
 
 function aboutLine(input: AlertWords): string {
@@ -243,14 +250,33 @@ export function staffAlertText(input: AlertWords): string {
   const how = hi
     ? `↩️ जवाब देने के लिए इस संदेश को दाईं ओर स्वाइप करें और लिखें। ${input.helperName} उसे स्कूल के नंबर से अभिभावक को भेज देगा।`
     : `↩️ Swipe right on this message and type your answer. ${input.helperName} sends it to the parent from the school's number.`;
-  return [
-    head,
-    `${oneLine(input.studentLabel, 60)} · ${topicWords(input.topic, input.language)}${practice}`,
-    "",
-    `“${clip(input.words.trim(), 600)}”`,
-    "",
-    how,
-  ].join("\n");
+  const away = input.away ? oneLine(input.away, 60) : null;
+  const lines = (quote: string) =>
+    [
+      head,
+      `${oneLine(input.studentLabel, 60)} · ${topicWords(input.topic, input.language)}`,
+      ...(away ? [`🗓️ ${away}`] : []),
+      ...(practice ? [practice.slice(1)] : []),
+      "",
+      `“${quote}”`,
+      "",
+      ...(away ? [awayButtonsHow(input.language)] : []),
+      how,
+    ].join("\n");
+  if (!away) return lines(clip(input.words.trim(), 600));
+  // With its buttons the alert must stay inside one interactive message: the parent's words give way.
+  const room = WA_LIMITS.body - lines("").length;
+  return lines(clip(input.words.trim(), Math.max(40, Math.min(WORDS_IN_ALERT, room))));
+}
+
+/** What the three buttons under an absence's alert do (D-602), in the words on them. */
+function awayButtonsHow(language: StaffLanguage): string {
+  const [leave, absent, notNow] = [SUGGESTION_WORDS.leave, SUGGESTION_WORDS.absent, SUGGESTION_WORDS.notNow].map((pair) =>
+    language === "hi" ? (pair.hi ?? pair.en) : pair.en,
+  );
+  return language === "hi"
+    ? `👇 ${leave} या ${absent}: उन दिनों रजिस्टर में बच्चा वैसा ही शुरू होगा, और अभिभावक को अनुपस्थिति का संदेश नहीं जाएगा। ${notNow} से कुछ नहीं बदलता।`
+    : `👇 ${leave} or ${absent}: the register starts the child that way on those days, and no absent message goes to the parent. ${notNow} changes nothing.`;
 }
 
 /** Who answered, as the parent reads it. */

@@ -1,14 +1,16 @@
 import "server-only";
 
-import type {
-  DecidedVia,
-  RegisterMark,
-  SuggestionDraft,
-  SuggestionKind,
-  SuggestionRoute,
-  SuggestionStatus,
+import type { AbsenceReason } from "@/modules/whatsapp/domain/helper-absence";
+import {
+  suggestionDays,
+  type DecidedVia,
+  type RegisterMark,
+  type SuggestionDraft,
+  type SuggestionKind,
+  type SuggestionRoute,
+  type SuggestionStatus,
 } from "@/modules/whatsapp/domain/parent-suggestions";
-import { fetchInChunks } from "@/platform/helpers/chunk";
+import { chunkArray, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { logWarn } from "@/platform/observability/log";
 import { whatsappDb } from "@/platform/whatsapp/store";
@@ -200,6 +202,62 @@ export async function waitingAbsencesOn(sessionLabel: string, classId: string, d
   return waiting;
 }
 
+/**
+ * A child's absence a hand-off came with (D-602), whatever became of it:
+ * what the buttons on that hand-off's WhatsApp alert decide. No parent's
+ * words: those are the hand-off's.
+ */
+export type HandoffNote = {
+  id: string;
+  status: SuggestionStatus;
+  days: string[];
+  reason: AbsenceReason;
+  expiresAt: string;
+  practice: boolean;
+  /** Once applied: how the register starts the child. */
+  mark: RegisterMark | null;
+  /** Once decided: the name of whoever decided it. */
+  decidedByName: string | null;
+};
+
+/** The newest absence that came with this message in Messages, or null when it came with none. */
+export async function readHandoffNote(parentReplyId: string, db: Db = whatsappDb()): Promise<HandoffNote | null> {
+  if (!UUID.test(parentReplyId)) return null;
+  const { data, error } = await db
+    .from("parent_suggestions")
+    .select("id, status, payload, expires_at, practice, decided_by, decision")
+    .eq("parent_reply_id", parentReplyId)
+    .eq("kind", "absence")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .returns<
+      Array<{
+        id: string;
+        status: SuggestionStatus;
+        payload: Record<string, unknown> | null;
+        expires_at: string;
+        practice: boolean;
+        decided_by: string | null;
+        decision: Record<string, unknown> | null;
+      }>
+    >();
+  if (error) throw error;
+  const row = data?.[0];
+  if (!row) return null;
+  const names = row.decided_by ? await staffNames([row.decided_by], db) : new Map<string, string>();
+  const mark = row.decision?.mark;
+  return {
+    id: row.id,
+    status: row.status,
+    days: suggestionDays(row.payload ?? {}),
+    reason: row.payload?.reason === "sick" ? "sick" : "other",
+    expiresAt: row.expires_at,
+    practice: row.practice === true,
+    mark: mark === "leave" || mark === "absent" ? mark : null,
+    decidedByName: row.decided_by ? (names.get(row.decided_by) ?? null) : null,
+  };
+}
+
 /** The names staff go by, for "Leave · Test Teacher". */
 export async function staffNames(ids: readonly string[], db: Db = whatsappDb()): Promise<Map<string, string>> {
   const wanted = [...new Set(ids.filter((id) => UUID.test(id)))];
@@ -243,20 +301,48 @@ export async function decideParentSuggestions(
     }
     const answer = (data ?? {}) as { ok?: boolean; reason?: string; applied?: number; dismissed?: number; results?: Array<Record<string, unknown>> };
     if (answer.ok !== true) return { ok: false, reason: answer.reason === "not_permitted" ? "not_permitted" : "bad_request" };
-    return {
-      ok: true,
-      applied: Number(answer.applied ?? 0),
-      dismissed: Number(answer.dismissed ?? 0),
-      results: (answer.results ?? []).map((result) => ({
-        id: String(result.id ?? ""),
-        outcome: String(result.outcome ?? "failed") as DecideOutcome["outcome"],
-        ...(typeof result.reason === "string" ? { reason: result.reason } : {}),
-        ...(typeof result.kind === "string" ? { kind: result.kind as SuggestionKind } : {}),
-      })),
-    };
+    const results = (answer.results ?? []).map((result) => ({
+      id: String(result.id ?? ""),
+      outcome: String(result.outcome ?? "failed") as DecideOutcome["outcome"],
+      ...(typeof result.reason === "string" ? { reason: result.reason } : {}),
+      ...(typeof result.kind === "string" ? { kind: result.kind as SuggestionKind } : {}),
+    }));
+    const decided = results.filter((result) => result.outcome === "applied" || result.outcome === "dismissed").map((result) => result.id);
+    if (decided.length > 0) await stopRemindersFor(decided, db);
+    return { ok: true, applied: Number(answer.applied ?? 0), dismissed: Number(answer.dismissed ?? 0), results };
   } catch (caught) {
     logWarn("whatsapp.parent_suggestion_decide_failed", { error: caught instanceof Error ? caught.message.slice(0, 120) : "unknown" });
     return { ok: false, reason: "unavailable" };
+  }
+}
+
+/**
+ * The hand-offs these decided notes came with stop reminding (D-602): nobody
+ * is chased on WhatsApp about a note a person has already decided, wherever
+ * they decided it. The hand-off itself stays open, and the parent's message
+ * stays in Messages as it was, for anyone who still wants to answer it. A
+ * courtesy: it never undoes a decision, and an undo does not restart it.
+ */
+async function stopRemindersFor(ids: readonly string[], db: Db): Promise<void> {
+  try {
+    const { data, error } = await fetchInChunks<{ parent_reply_id: string | null }>(ids, IN_FILTER_CHUNK_SIZE, (chunk) =>
+      db.from("parent_suggestions").select("parent_reply_id").in("id", chunk).returns<{ parent_reply_id: string | null }[]>(),
+    );
+    if (error) throw error;
+    const replies = [...new Set(data.map((row) => row.parent_reply_id).filter((id): id is string => typeof id === "string" && UUID.test(id)))];
+    const at = new Date().toISOString();
+    for (const chunk of chunkArray(replies, IN_FILTER_CHUNK_SIZE)) {
+      const { error: stopError } = await db
+        .from("parent_helper_handoffs")
+        .update({ next_action: null, next_action_at: null, updated_at: at })
+        .in("parent_reply_id", chunk)
+        .is("answered_at", null)
+        .is("closed_at", null)
+        .not("next_action", "is", null);
+      if (stopError) throw stopError;
+    }
+  } catch (caught) {
+    logWarn("whatsapp.parent_suggestion_reminders_not_stopped", { error: caught instanceof Error ? caught.message.slice(0, 120) : "unknown" });
   }
 }
 

@@ -7,7 +7,7 @@ import {
   V8_CAMPAIGNS,
   type V6Descriptor,
 } from "@/modules/whatsapp/domain/campaign-bodies-v6";
-import { HELPER_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/helper-hub-templates";
+import { AWAY_NOTE_HUB_SUBMISSIONS, HELPER_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/helper-hub-templates";
 import { SCHOOL_NOTICE_TEMPLATES } from "@/modules/whatsapp/domain/school-notice-bodies";
 import { SIGN_IN_CODE_MINUTES, SIGN_IN_TEMPLATE } from "@/modules/whatsapp/domain/sign-in-code";
 import { STAFF_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/staff-hub-templates";
@@ -63,7 +63,8 @@ export const SCHOOL_NOTICE_HUB_SUBMISSIONS: readonly TemplateSubmission[] = SCHO
 /**
  * Everything One asks the hub to carry: the `_v8` fee set, the parents'
  * school notices, the staff and teacher-task set (`staff-hub-templates.ts`),
- * and Veer Patta AI's two (`helper-hub-templates.ts`, D-578). "Send for
+ * and Veer Patta AI's (`helper-hub-templates.ts`: the alert and the answer
+ * note, D-578, and the away note with its three buttons, D-602). "Send for
  * approval" and the hourly check both work from this list.
  */
 export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
@@ -71,6 +72,7 @@ export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
   ...SCHOOL_NOTICE_HUB_SUBMISSIONS,
   ...STAFF_HUB_SUBMISSIONS,
   ...HELPER_HUB_SUBMISSIONS,
+  ...AWAY_NOTE_HUB_SUBMISSIONS,
 ];
 
 /**

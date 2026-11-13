@@ -1,5 +1,6 @@
 import type { TemplateSubmission } from "@/platform/whatsapp/providers";
 
+import { noteButtonTitles } from "./helper-away-note";
 import type { StaffLanguage } from "./helper-handoff";
 import { STAFF_SCHOOL_LINE } from "./staff-hub-templates";
 
@@ -15,6 +16,9 @@ import { STAFF_SCHOOL_LINE } from "./staff-hub-templates";
  *  - `vpps_parent_answer_ready_<hi|en>_v1` tells a parent whose chat has gone
  *    quiet that their answer is ready. Meta lets the school send the answer
  *    itself only once they reply, and the helper sends it the moment they do.
+ *  - `vpps_staff_away_note_<hi|en>_v1` (D-602) is the teacher's alert for a
+ *    child the parent says will be away, with Mark Leave, Mark Absent and
+ *    Not now under it. Kept apart from the four (`AWAY_NOTE_HUB_SUBMISSIONS`).
  *
  * Shaped like the staff set (`staff-hub-templates.ts`): a bold title, the
  * school's name, one labelled line per blank, never a blank first or last.
@@ -93,6 +97,61 @@ const ANSWER_READY_SAMPLES: Record<StaffLanguage, readonly string[]> = {
 
 const LANGUAGES: readonly StaffLanguage[] = ["hi", "en"];
 
+/**
+ * A parent says a child will be away (D-602): the class teacher's alert when
+ * a typed one cannot go, with three quick replies, Mark Leave, Mark Absent
+ * and Not now. Each is sent with its own payload (`helper-away-note.ts`), so
+ * a tap names the note it decides. Swiping right still answers the parent.
+ */
+export const AWAY_NOTE_TEMPLATE: Record<StaffLanguage, string> = {
+  hi: "vpps_staff_away_note_hi_v1",
+  en: "vpps_staff_away_note_en_v1",
+};
+
+const AWAY_NOTE_BODY: Record<StaffLanguage, string> = {
+  en: [
+    "*A parent says a child will be away*",
+    STAFF_SCHOOL_LINE.en,
+    "",
+    "Dear {{1}},",
+    "Student: {{2}}",
+    "Away: {{3}}",
+    "Message: {{4}}",
+    "",
+    "Tap Mark Leave or Mark Absent below and the register starts the child that way on those days, with no absent message to the parent. Not now changes nothing.",
+    "To answer the parent, swipe right on this message and type.",
+    "Thank you.",
+  ].join("\n"),
+  hi: [
+    "*अभिभावक का छुट्टी का संदेश*",
+    STAFF_SCHOOL_LINE.hi,
+    "",
+    "{{1}} जी,",
+    "विद्यार्थी: {{2}}",
+    "छुट्टी: {{3}}",
+    "संदेश: {{4}}",
+    "",
+    "नीचे छुट्टी लगाएँ या अनुपस्थित लगाएँ दबाएँ, उन दिनों रजिस्टर में बच्चा वैसा ही शुरू होगा और अभिभावक को अनुपस्थिति का संदेश नहीं जाएगा। अभी नहीं से कुछ नहीं बदलता।",
+    "अभिभावक को जवाब देने के लिए इस संदेश को दाईं ओर स्वाइप करके लिखें।",
+    "धन्यवाद।",
+  ].join("\n"),
+};
+
+const AWAY_NOTE_SAMPLES: Record<StaffLanguage, readonly string[]> = {
+  en: ["Anita Verma", "Aarav · Class 5 A", "Today · Sick", "Aarav has a fever, please give leave for today."],
+  hi: ["अनीता वर्मा", "आरव · कक्षा 5 A", "आज · बीमार", "आरव को बुखार है, आज की छुट्टी दे दीजिए।"],
+};
+
+/** The away note, Hindi and English, as the hub's `POST /v1/templates` takes them. */
+export const AWAY_NOTE_HUB_SUBMISSIONS: readonly TemplateSubmission[] = LANGUAGES.map((language) => ({
+  name: AWAY_NOTE_TEMPLATE[language],
+  language,
+  category: "UTILITY" as const,
+  body: AWAY_NOTE_BODY[language],
+  examples: [...AWAY_NOTE_SAMPLES[language]],
+  buttons: noteButtonTitles(language).map((title) => ({ type: "QUICK_REPLY" as const, text: title })),
+}));
+
 /** The four, as the hub's `POST /v1/templates` takes them. */
 export const HELPER_HUB_SUBMISSIONS: readonly TemplateSubmission[] = LANGUAGES.flatMap((language) => [
   {
@@ -114,4 +173,4 @@ export const HELPER_HUB_SUBMISSIONS: readonly TemplateSubmission[] = LANGUAGES.f
 ]);
 
 /** How many blanks each fills, for the registry rows and the send check. */
-export const HELPER_TEMPLATE_PARAMS = { staffAlert: 4, answerReady: 2 } as const;
+export const HELPER_TEMPLATE_PARAMS = { staffAlert: 4, answerReady: 2, awayNote: 4 } as const;

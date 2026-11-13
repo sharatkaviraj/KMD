@@ -474,6 +474,25 @@ describe("step 2: hand-offs reach a person, and answers come back (D-578)", () =
     expect(staffAnswer).toHaveBeenCalledTimes(1);
   });
 
+  it("a Mark Leave tap no alert took is never read as a parent's words (D-602)", async () => {
+    const staffAnswer = vi.fn(async () => null);
+    const typed = inbound({
+      type: "interactive",
+      text: "Mark Leave",
+      replyTo: "wamid.GONE",
+      raw: { type: "interactive", interactive: { type: "button_reply", button_reply: { id: "vpnote:leave:88888888-8888-4888-8888-888888888888", title: "Mark Leave" } } },
+    });
+    const quick = inbound({ type: "button", text: "Mark Absent", raw: { type: "button", button: { text: "Mark Absent", payload: "" } } });
+    for (const message of [typed, quick]) {
+      const { deps, calls, askClaude } = fakes({ staffAnswer, staffLink: async () => null, staffCommand: async () => null });
+      expect(await runHelperTurn(message, deps)).toEqual({ outcome: "skipped", reason: "note_tap_unmatched" });
+      expect(calls.started).toEqual([]);
+      expect(calls.sent).toEqual([]);
+      expect(askClaude).not.toHaveBeenCalled();
+    }
+    expect(staffAnswer).toHaveBeenCalledTimes(1);
+  });
+
   it("an answer that waited goes first, and a bare 'ok' needs nothing more", async () => {
     const deliverWaiting = vi.fn(async () => 1);
     const { deps, calls, askClaude } = fakes({ deliverWaiting });

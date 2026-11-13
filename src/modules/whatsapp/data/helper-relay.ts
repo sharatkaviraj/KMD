@@ -23,12 +23,26 @@ import {
   type HandoffState,
   type RelayResult,
 } from "@/modules/whatsapp/domain/helper-handoff";
-import { ANSWER_READY_TEMPLATE, HELPER_TEMPLATE_PARAMS, STAFF_ALERT_TEMPLATE } from "@/modules/whatsapp/domain/helper-hub-templates";
+import {
+  awayLine,
+  awayNoteMessage,
+  awayNoteParams,
+  inLanguage,
+  noteButtonPayloads,
+  noteConfirmText,
+  readNoteTap,
+  type NoteChoice,
+  type NoteResult,
+  type NoteTap,
+} from "@/modules/whatsapp/domain/helper-away-note";
+import { ANSWER_READY_TEMPLATE, AWAY_NOTE_TEMPLATE, HELPER_TEMPLATE_PARAMS, STAFF_ALERT_TEMPLATE } from "@/modules/whatsapp/domain/helper-hub-templates";
 import { helperMessageBody } from "@/modules/whatsapp/domain/helper-messages";
 import { MAX_MESSAGE_AGE_MINUTES, type ChatPatch, type ChatState } from "@/modules/whatsapp/domain/helper-plan";
 import { ratingQuestion, type HandoffTarget } from "@/modules/whatsapp/domain/helper-replies";
 import { messageKind, type HelperLanguage, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
+import { daysLabel, decidedLabel } from "@/modules/whatsapp/domain/parent-suggestions";
 import { staffBelongsToSession } from "@/platform/auth/test-session-policy";
+import { schoolToday } from "@/platform/dates";
 import { logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
 import { maskNumber, toE164 } from "@/platform/whatsapp/numbers";
@@ -37,6 +51,7 @@ import { checkWhatsAppSend, type PolicyVerdict, type TemplateRow, type WhatsAppS
 import { providerFor, type ClaimResult, type ProviderSendResult } from "@/platform/whatsapp/providers";
 import { readSwitches, readTemplateRow } from "@/platform/whatsapp/store";
 import type { WebhookInbound } from "@/platform/whatsapp/webhook";
+import type { Pair } from "@/vx/text";
 
 import {
   claimRatingQuestion,
@@ -64,6 +79,7 @@ import {
   type SentAnswer,
 } from "./helper-handoffs";
 import { finishTurn, readChat, readHelperSettings, saveChat, startTurn, type TurnFinish } from "./helper-store";
+import { decideParentSuggestions, readHandoffNote, type DecideResult, type HandoffNote } from "./parent-suggestions";
 
 /**
  * Veer Patta AI, step 2: a hand-off reaches a person, and their answer
@@ -84,6 +100,10 @@ import { finishTurn, readChat, readHelperSettings, saveChat, startTurn, type Tur
  *    help?" (D-584). `rateAnswer` keeps their tap; a "no" goes to the school
  *    office as a hand-off of its own, with what they asked and what they were
  *    told, and the office's answer comes back the same way.
+ *  - A parent's message that says a child will be away (D-602): the class
+ *    teacher's alert carries Mark Leave, Mark Absent and Not now, and a tap
+ *    decides that note as them, exactly as the same button in One does. Swiping
+ *    right still answers the parent.
  *
  * Every message still passes `checkWhatsAppSend`: practice mode, the helper's
  * switch, and the owner-only rule while real recipients are off. A member of
@@ -127,6 +147,10 @@ export type RelayDeps = {
   setRating: (id: string, value: RatingValue, at: string) => ReturnType<typeof setRating>;
   claimRatingQuestion: (id: string, at: string) => Promise<boolean>;
   readLatestAnswer: (handoffId: string) => Promise<SentAnswer | null>;
+  /** The child's absence a hand-off came with (D-602); null when it came with none. Throws when it could not be read. */
+  readHandoffNote: (parentReplyId: string) => Promise<HandoffNote | null>;
+  /** A tap under a class teacher's alert, decided as them, as the same button in One decides it (D-602). */
+  decideNote: (input: { actorStaffId: string; id: string; choice: NoteChoice }) => Promise<DecideResult>;
 };
 
 /** The real database and the real hub. */
@@ -168,6 +192,13 @@ export function liveRelayDeps(): RelayDeps {
     setRating: (id, value, at) => setRating(id, value, at),
     claimRatingQuestion: (id, at) => claimRatingQuestion(id, at),
     readLatestAnswer: (handoffId) => readLatestAnswer(handoffId),
+    readHandoffNote: (parentReplyId) => readHandoffNote(parentReplyId),
+    decideNote: ({ actorStaffId, id, choice }) =>
+      decideParentSuggestions(
+        choice === "dismiss"
+          ? { actorStaffId, ids: [id], decision: "dismiss", via: "whatsapp" }
+          : { actorStaffId, ids: [id], decision: "apply", mark: choice, via: "whatsapp" },
+      ),
   };
 }
 
@@ -223,10 +254,18 @@ export function reachOf(person: Person, practice: boolean, owner: string | null)
   return { to: person.e164, why: null };
 }
 
+type AlertWrite = Omit<AlertRecord, "handoffId" | "staffId" | "toE164" | "kind">;
+
 /**
  * One person told about a hand-off: typed while their chat with the school is
  * open, the approved staff template otherwise. The alert is written down with
- * its message id either way, because a swiped reply quotes that id.
+ * its message id either way, because a swiped reply quotes that id, and so
+ * does a tap on one of its buttons.
+ *
+ * A class teacher's alert about a child the parent says will be away carries
+ * Mark Leave, Mark Absent and Not now (D-602): reply buttons when typed, the
+ * approved away note's quick replies otherwise. When those cannot go, the
+ * ordinary alert does, and the note waits for them in One.
  */
 async function alertPerson(input: {
   handoff: Handoff;
@@ -234,12 +273,14 @@ async function alertPerson(input: {
   reach: Reach;
   kind: AlertKind;
   helperName: string;
+  /** The child's absence the hand-off came with, while it still waits (D-602). */
+  note: HandoffNote | null;
   ctx: Shared;
   deps: RelayDeps;
 }): Promise<AlertOutcome> {
   const { handoff, person, reach, kind, helperName, ctx, deps } = input;
   const to = reach.to;
-  const record = (outcome: AlertOutcome, write: Omit<AlertRecord, "handoffId" | "staffId" | "toE164" | "kind">) =>
+  const record = (outcome: AlertOutcome, write: AlertWrite) =>
     deps
       .insertAlert({ handoffId: handoff.id, staffId: person.staffId, toE164: to, kind, ...write })
       .then(() => outcome)
@@ -258,6 +299,9 @@ async function alertPerson(input: {
     helperName,
     practice: handoff.practice,
   };
+  // Only the class teacher's alert carries the buttons: the decision is theirs.
+  const note = input.note && person.isClassTeacher ? input.note : null;
+  const away = note ? awayLine(note, person.language, schoolToday(ctx.now)) : null;
 
   const chat = await deps.readChat(to).catch(() => null);
   if (chat && windowOpen(chat.lastTurnAt, ctx.now)) {
@@ -271,10 +315,19 @@ async function alertPerson(input: {
     });
     const stopped = verdictOutcome(verdict);
     if (stopped) return record(stopped.outcome, { via: "text", status: "skipped", reason: stopped.reason, messageId: null });
-    const sent = await deps.send(textMessageBody(to, staffAlertText(words)));
+    let sent = await deps.send(
+      note && away ? helperMessageBody(to, awayNoteMessage({ ...words, away }, note.id)) : textMessageBody(to, staffAlertText(words)),
+    );
+    // Meta would not take the buttons: the alert without them, and the note waits in One.
+    if (note && sent.outcome === "rejected" && !windowClosed(sent)) sent = await deps.send(textMessageBody(to, staffAlertText(words)));
     if (sent.outcome === "accepted") return record("sent", { via: "text", status: "sent", reason: null, messageId: sent.messageId });
     if (!windowClosed(sent)) return record("not_sent", { via: "text", status: "failed", reason: sendFailure(sent), messageId: null });
     // Meta says the chat closed after all: the approved template instead.
+  }
+
+  if (note && away) {
+    const noted = await sendAwayNote({ to, words: { ...words, away }, note, language: person.language, ctx, deps });
+    if (noted) return record(noted.outcome, noted.write);
   }
 
   const row = await deps.readTemplateRow(STAFF_ALERT_TEMPLATE[person.language]);
@@ -301,6 +354,49 @@ async function alertPerson(input: {
   return record("not_sent", { via: "template", status: "failed", reason: sendFailure(sent), messageId: null });
 }
 
+/**
+ * The approved away note with its three quick replies, each carrying the
+ * note's own payload (D-602). Null when it cannot go (not approved yet,
+ * switched off, refused by Meta): then the ordinary approved alert goes
+ * instead. A send whose fate is unknown is not followed by a second one.
+ */
+async function sendAwayNote(input: {
+  to: string;
+  words: AlertWords & { away: string };
+  note: HandoffNote;
+  language: Person["language"];
+  ctx: Shared;
+  deps: RelayDeps;
+}): Promise<{ outcome: AlertOutcome; write: AlertWrite } | null> {
+  const { to, words, note, language, ctx, deps } = input;
+  const row = await deps.readTemplateRow(AWAY_NOTE_TEMPLATE[language]);
+  const verdict = checkWhatsAppSend({
+    feature: "parent_helper",
+    to,
+    switches: ctx.switches,
+    config: ctx.config,
+    kind: "template",
+    template: row,
+    language,
+    bodyParamCount: HELPER_TEMPLATE_PARAMS.awayNote,
+    hasDocument: false,
+    hasUrlButton: false,
+  });
+  if (verdict.decision !== "send" || !row) return null;
+  const sent = await deps.send(
+    templateMessageBody({
+      to,
+      name: row.provider_name,
+      languageCode: row.language_code,
+      bodyParams: awayNoteParams(words),
+      quickReplies: noteButtonPayloads(note.id),
+    }),
+  );
+  if (sent.outcome === "accepted") return { outcome: "sent", write: { via: "template", status: "sent", reason: null, messageId: sent.messageId } };
+  if (sent.outcome === "unknown") return { outcome: "not_sent", write: { via: "template", status: "failed", reason: sendFailure(sent), messageId: null } };
+  return null;
+}
+
 export type StepOutcome = {
   outcome: "done" | "closed" | "gone" | "waiting" | "retry";
   told: number;
@@ -308,6 +404,18 @@ export type StepOutcome = {
 };
 
 const ALERT_KIND: Record<HandoffAction, AlertKind> = { alert: "alert", remind: "reminder", pass_up: "passed_up" };
+
+/**
+ * The child's absence a hand-off came with, while a tap could still decide
+ * it (D-602): waiting, not past its time, of the hand-off's own kind. Null
+ * otherwise, or when it could not be read; the alert then goes without
+ * buttons and the note waits in One.
+ */
+async function waitingNote(handoff: Handoff, now: Date, deps: RelayDeps): Promise<HandoffNote | null> {
+  const note = await deps.readHandoffNote(handoff.parentReplyId).catch(() => null);
+  if (!note || note.status !== "pending" || note.days.length === 0 || note.practice !== handoff.practice) return null;
+  return Date.parse(note.expiresAt) > now.getTime() ? note : null;
+}
 
 /**
  * The hand-off's due step: tell the people it is for, remind them, or pass a
@@ -346,12 +454,14 @@ export async function runHandoffStep(id: string, deps: RelayDeps): Promise<StepO
   const owner = practiceNumber(ctx.switches);
   const tellable = handoff.practice ? people.slice(0, 1) : people;
   const helperName = await deps.readHelperName().catch(() => "Veer Patta AI");
+  // A child's absence it came with, still waiting: the class teacher's alert carries its buttons (D-602).
+  const note = handoff.target === "class_teacher" && action !== "pass_up" ? await waitingNote(handoff, ctx.now, deps) : null;
   const outcomes: AlertOutcome[] = [];
   let reachable = 0;
   for (const person of tellable) {
     const reach = reachOf(person, handoff.practice, owner);
     if (reach.to) reachable += 1;
-    outcomes.push(await alertPerson({ handoff, person, reach, kind: ALERT_KIND[action], helperName, ctx, deps }));
+    outcomes.push(await alertPerson({ handoff, person, reach, kind: ALERT_KIND[action], helperName, note, ctx, deps }));
   }
   const told = outcomes.filter((outcome) => outcome === "sent").length;
 
@@ -589,13 +699,65 @@ async function answerHandoff(
 
 export type StaffAnswerOutcome =
   | { outcome: "skipped"; reason: string }
-  | { outcome: "answered"; route: "rule"; intent: string; handoff: HandoffTarget | null }
+  | { outcome: "answered"; route: "rule" | "tap"; intent: string; handoff: HandoffTarget | null }
   | { outcome: "failed"; reason: string };
+
+/** "Leave · Test Teacher": how a decided note was decided, and by whom. Null while it is not decided. */
+function decidedPair(note: HandoffNote): Pair | null {
+  if (note.status !== "applied" && note.status !== "dismissed") return null;
+  return decidedLabel({ status: note.status, kind: "absence", mark: note.mark, by: note.decidedByName });
+}
+
+/**
+ * A tap under a class teacher's alert (D-602): the note that alert's hand-off
+ * came with, decided as the person the alert went to. A tap that names
+ * another note changes nothing, so no tap reaches another family's child, and
+ * the database checks again that they may decide it and that it still waits.
+ */
+async function decideTap(
+  input: { tap: NoteTap; handoff: Handoff | null; staffId: string | null },
+  deps: RelayDeps,
+): Promise<{ result: NoteResult; note: HandoffNote | null }> {
+  const { tap, handoff, staffId } = input;
+  if (!handoff || !staffId) return { result: { outcome: "gone" }, note: null };
+  let note: HandoffNote | null;
+  try {
+    note = await deps.readHandoffNote(handoff.parentReplyId);
+  } catch {
+    return { result: { outcome: "failed" }, note: null };
+  }
+  if (!note || note.practice !== handoff.practice || (tap.suggestionId !== null && tap.suggestionId !== note.id)) {
+    return { result: { outcome: "gone" }, note: null };
+  }
+  if (note.status !== "pending") return { result: { outcome: "already", decided: decidedPair(note) }, note };
+  const decided = await deps.decideNote({ actorStaffId: staffId, id: note.id, choice: tap.choice }).catch(() => null);
+  if (!decided || !decided.ok) return { result: { outcome: decided?.reason === "not_permitted" ? "not_permitted" : "failed" }, note };
+  const outcome = decided.results.find((row) => row.id === note.id)?.outcome;
+  switch (outcome) {
+    case "applied":
+      return { result: { outcome: "applied", mark: tap.choice === "absent" ? "absent" : "leave" }, note };
+    case "dismissed":
+      return { result: { outcome: "dismissed" }, note };
+    case "already": {
+      // Decided a moment ago, in One or on another alert: say how.
+      const now = await deps.readHandoffNote(handoff.parentReplyId).catch(() => null);
+      return { result: { outcome: "already", decided: now ? decidedPair(now) : null }, note };
+    }
+    case "expired":
+    case "not_permitted":
+      return { result: { outcome }, note };
+    case "not_found":
+      return { result: { outcome: "gone" }, note };
+    default:
+      return { result: { outcome: "failed" }, note };
+  }
+}
 
 /**
  * A message that quotes one of the helper's alerts, from the number the alert
- * went to, is that person's answer. Null when the message is not one: then it
- * is an ordinary message, and the helper (or the hub's bot) answers it.
+ * went to, is that person's answer, or their tap on one of its buttons
+ * (D-602). Null when the message is not one: then it is an ordinary message,
+ * and the helper (or the hub's bot) answers it.
  */
 export async function handleStaffAnswer(message: WebhookInbound, deps: RelayDeps): Promise<StaffAnswerOutcome | null> {
   if (!message.replyTo) return null;
@@ -603,7 +765,9 @@ export async function handleStaffAnswer(message: WebhookInbound, deps: RelayDeps
   const from = toE164(message.from);
   if (!alert || !from || alert.toE164 !== from) return null;
 
-  const kind: MessageKind = messageKind(message.type, message.raw);
+  // Mark Leave, Mark Absent or Not now: a decision, never words for the parent.
+  const tap = readNoteTap(message.raw);
+  const kind: MessageKind = tap ? "tap" : messageKind(message.type, message.raw);
   if (kind === "ignore") return { outcome: "skipped", reason: "not_readable" };
   const ctx = await shared(deps);
   const sentAt = Date.parse(message.at);
@@ -624,6 +788,7 @@ export async function handleStaffAnswer(message: WebhookInbound, deps: RelayDeps
   const handoff = await deps.readHandoff(alert.handoffId);
   const person = alert.staffId ? await deps.readPerson(alert.staffId, handoff?.classTeacherId ?? null) : null;
   const language = person?.language ?? "hi";
+  if (tap) return finishTap({ message, tap, from, sentAt, claimNote, handoff, staffId: alert.staffId, person, language, ctx }, deps);
   const answer = (message.text ?? "").trim();
 
   let result: RelayResult | "not_saved" | "not_text";
@@ -649,6 +814,52 @@ export async function handleStaffAnswer(message: WebhookInbound, deps: RelayDeps
   logInfo("whatsapp.helper.staff_answer", { result, from: maskNumber(from), practice: handoff?.practice ?? null });
   if (result === "not_saved") return { outcome: "failed", reason: "answer_not_saved" };
   return { outcome: "answered", route: "rule", intent, handoff: handoff?.target ?? null };
+}
+
+/** The tap decided, the person who tapped told what became of it, and the turn written down. */
+async function finishTap(
+  input: {
+    message: WebhookInbound;
+    tap: NoteTap;
+    from: string;
+    sentAt: number;
+    claimNote: string | null;
+    handoff: Handoff | null;
+    staffId: string | null;
+    person: Person | null;
+    language: Person["language"];
+    ctx: Shared;
+  },
+  deps: RelayDeps,
+): Promise<StaffAnswerOutcome> {
+  const { message, tap, from, sentAt, claimNote, handoff, person, language, ctx } = input;
+  const { result, note } = await decideTap({ tap, handoff, staffId: input.staffId }, deps);
+  const decided = result.outcome === "applied" || result.outcome === "dismissed";
+  const text = noteConfirmText({
+    result,
+    language,
+    studentLabel: handoff?.studentLabel ?? handoff?.aboutName ?? "-",
+    days: note && note.days.length > 0 ? inLanguage(daysLabel(note.days, schoolToday(ctx.now)), language) : null,
+    // Practice: the owner's number stands in for a test account, and is told which.
+    practiceFor: decided && handoff?.practice && person ? person.name : null,
+  });
+  const confirm = await deps.send(textMessageBody(from, text));
+  const finished = deps.now();
+  await deps.finishTurn(message.providerMessageId, {
+    status: result.outcome === "failed" ? "failed" : "answered",
+    reason: decided ? claimNote : `note_${result.outcome}`,
+    intent: "staff_note",
+    route: "tap",
+    handoff: handoff?.target ?? null,
+    parentReplyId: handoff?.parentReplyId ?? null,
+    replyMessageId: confirm.outcome === "accepted" ? confirm.messageId : null,
+    latencyMs: finished.getTime() - sentAt,
+  });
+  // Their chat with the school is open now, so the next alert can be typed.
+  await deps.saveChat(from, {}, finished).catch(() => undefined);
+  logInfo("whatsapp.helper.staff_note", { outcome: result.outcome, choice: tap.choice, from: maskNumber(from), practice: handoff?.practice ?? null });
+  if (result.outcome === "failed") return { outcome: "failed", reason: "note_not_decided" };
+  return { outcome: "answered", route: "tap", intent: "staff_note", handoff: handoff?.target ?? null };
 }
 
 /**

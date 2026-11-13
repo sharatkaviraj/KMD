@@ -36,6 +36,13 @@ export type TemplateMessage = {
   document?: TemplateDocument | null;
   /** The dynamic end of a URL button's link, e.g. a pay code. Button 0. */
   urlButtonSuffix?: string | null;
+  /**
+   * What each quick-reply button says back when tapped, in the buttons'
+   * order (D-602): WhatsApp returns it as the reply's `button.payload`, so a
+   * tap names exactly what it was about. Never with `urlButtonSuffix`: the
+   * hub files quick replies before any other button.
+   */
+  quickReplies?: readonly string[] | null;
 };
 
 /** One body value, made acceptable to Meta without changing what it says. */
@@ -67,6 +74,14 @@ export function templateMessageBody(message: TemplateMessage): Record<string, un
       sub_type: "url",
       index: "0",
       parameters: [{ type: "text", text: message.urlButtonSuffix }],
+    });
+  }
+  for (const [index, payload] of (message.quickReplies ?? []).entries()) {
+    components.push({
+      type: "button",
+      sub_type: "quick_reply",
+      index: String(index),
+      parameters: [{ type: "payload", payload }],
     });
   }
   return {

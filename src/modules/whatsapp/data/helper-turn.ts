@@ -28,6 +28,7 @@ import {
   type RatingOutcome,
   type ReplyContext,
 } from "@/modules/whatsapp/domain/helper-replies";
+import { readNoteTap } from "@/modules/whatsapp/domain/helper-away-note";
 import { NOT_HELPED_TOPIC, isAcknowledgement } from "@/modules/whatsapp/domain/helper-handoff";
 import { messageKind, readTap, type MessageKind, type RatingValue } from "@/modules/whatsapp/domain/helper-text";
 import { VISIT_NAME_NOT_GIVEN, type VisitCalendar } from "@/modules/whatsapp/domain/helper-visit";
@@ -497,6 +498,9 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     const answered = await deps.staffAnswer(message).catch(() => null);
     if (answered) return answered;
   }
+  // A tap on Mark Leave, Mark Absent or Not now that no alert of ours took
+  // (D-602): a decision for One, never a parent's words.
+  if (readNoteTap(message.raw)) return skip("note_tap_unmatched");
 
   // 1b. A member of staff linking their WhatsApp with the code One gave them (D-582).
   if (deps.staffLink) {

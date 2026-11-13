@@ -31,7 +31,7 @@ only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595, D-597..D-601, D-603 and D-604. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-604. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -243,13 +243,30 @@ Undo, a blood-group card's Now and Parent asks, Not now, Undo). The check
 found the register calling a Leave "Half-day", fixed in D-603 and re-checked on
 the Galaxy phone the same morning; that re-check found the save sheet saying
 "Everyone is here today" beside a child on Leave, fixed in D-604. **Remains:**
-deciding from WhatsApp (D-602, a new Meta template the owner has not yet
-answered about).
+nothing here; deciding from WhatsApp is D-602, below.
 **Surprised:** the register's note and the Admissions enquiry had been
 written on a parent's word alone since D-588 and D-592; both now wait for a
 person. An Undo that removed rows could not be applied from a thread at all,
 because the Supabase connector asks the owner to confirm any migration that
 can remove rows; keeping rows answered that and is the better record.
+**Deciding from WhatsApp (D-602):** the class teacher's alert about a child
+who will be away carries the days and the reason and three buttons, Mark
+Leave, Mark Absent and Not now; a tap decides the note as that teacher, as
+the same button on Today does, and tells them what became of it, with Undo
+under Decided today in One. Swiping right still answers the parent. Typed
+while their chat is open; otherwise the new approved
+`vpps_staff_away_note_<hi|en>_v1`, whose quick replies carry the note's id
+back; until Meta approves it the ordinary alert goes and the note waits in
+One. A note decided anywhere stops its alert's reminders. No hub change.
+**Done:** the code and 59 new tests (PR 372). The owner said yes to sending
+the away note to Meta on 13 Nov, and migration
+`20261113044301_parent_helper_away_note.sql` (two registry rows,
+`not_submitted`) was applied to One that morning, so the hourly check sends
+both once this is live. **Remains:** Meta's approval, then a practice tap on
+the owner's number, which needs the owner's typed OK. **Surprised:** a note decided in Needs you or on
+Today still left its WhatsApp reminder due three hours later; every decision
+now clears it. And the hub needed nothing: it already passes quick-reply
+payloads through and forwards a staff member's tap like any message.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 
