@@ -190,8 +190,9 @@ describe("when Veer Patta AI leaves the message to the hub", () => {
     expect(calls.claims).toEqual([]);
   });
 
-  it("stops at forty answers a day for one number", async () => {
-    const { deps, calls } = fakes({ readBudget: async () => ({ spentUsd: 0, turnsToday: 40 }) });
+  it("stops at the day's answers for one number: two hundred on the owner's test number, which tests every role (D-607)", async () => {
+    expect(await runHelperTurn(inbound(), fakes({ readBudget: async () => ({ spentUsd: 0, turnsToday: 40 }) }).deps)).toMatchObject({ outcome: "answered" });
+    const { deps, calls } = fakes({ readBudget: async () => ({ spentUsd: 0, turnsToday: 200 }) });
     expect(await runHelperTurn(inbound(), deps)).toEqual({ outcome: "skipped", reason: "daily_cap" });
     expect(calls.claims).toEqual([]);
   });
@@ -733,9 +734,28 @@ describe("the teachers' own helper (D-591)", () => {
     const { deps, calls } = fakes({ staffCommand, readSettings: vi.fn(async () => null) });
     const message = inbound({ from: STRANGER, text: "today" });
     expect(await runHelperTurn(message, deps)).toEqual(STAFF_ANSWERED);
-    expect(staffCommand).toHaveBeenCalledWith(message);
-    expect(deps.readSettings).not.toHaveBeenCalled();
+    expect(staffCommand).toHaveBeenCalledWith(message, expect.any(Promise));
     expect(calls.started).toEqual([]);
+    expect(calls.claims).toEqual([]);
+    expect(calls.sent).toEqual([]);
+  });
+
+  it("a parent's message waits for one round of reads: the switches are read once, beside the staff check (D-607)", async () => {
+    const readSwitches = vi.fn(async () => switches());
+    let given: WhatsAppSwitches | null | undefined;
+    const staffCommand = vi.fn(async (_message: WebhookInbound, read: Promise<WhatsAppSwitches | null>) => {
+      given = await read;
+      return null;
+    });
+    expect(await runHelperTurn(inbound({ text: "fees" }), fakes({ readSwitches, staffCommand }).deps)).toMatchObject({ outcome: "answered", intent: "fees" });
+    expect(readSwitches).toHaveBeenCalledTimes(1);
+    expect(given).toMatchObject({ ownerTestNumber: OWNER });
+    // A read that fails is the staff step's null, and the turn's own refusal, as before.
+    const failing = vi.fn(async () => {
+      throw new Error("down");
+    });
+    await expect(runHelperTurn(inbound({ text: "fees" }), fakes({ readSwitches: failing, staffCommand }).deps)).rejects.toThrow("down");
+    expect(given).toBeNull();
   });
 
   it("anything else goes on to the parents' helper as before, and a step that throws is never a crash", async () => {

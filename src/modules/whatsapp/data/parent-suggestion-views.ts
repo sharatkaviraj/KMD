@@ -114,9 +114,13 @@ export async function parentNoteViews(rows: readonly SuggestionRow[], sessionLab
  * Who this person is to a parent's suggestions in Needs you (D-598), or null
  * when they decide none there. Nobody decides one in a session of the other
  * kind (a real admin in the test year, a test account in the real one): the
- * database refuses that too.
+ * database refuses that too. Veer Patta AI's staff desk (D-607) asks the
+ * same question for a WhatsApp number, so it takes only what it reads.
  */
-export function parentReaderFor(staff: CurrentStaff, sessionLabel: string): SuggestionReader | null {
+export function parentReaderFor(
+  staff: Pick<CurrentStaff, "role" | "permissions" | "smokeLab" | "isTestAccount">,
+  sessionLabel: string,
+): SuggestionReader | null {
   if (!staffBelongsToSession(staff.isTestAccount, sessionLabel)) return null;
   const reader: SuggestionReader = {
     admin: staff.role === "admin",

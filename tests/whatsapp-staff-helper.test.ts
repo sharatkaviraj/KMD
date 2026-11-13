@@ -23,6 +23,7 @@ vi.mock("@/platform/observability/log", () => log);
 
 import { readOpenHandoffsFor, type AlertRecord, type OpenHandoff } from "@/modules/whatsapp/data/helper-handoffs";
 import type { TurnFinish } from "@/modules/whatsapp/data/helper-store";
+import type { StaffClaudeTurn } from "@/modules/whatsapp/data/staff-claude";
 import {
   handleStaffCommand,
   readLinkedStaff,
@@ -33,8 +34,11 @@ import {
   type StaffHelperDeps,
   type StaffIdentity,
 } from "@/modules/whatsapp/data/staff-helper";
+import { HELPER_MODELS } from "@/modules/whatsapp/domain/helper-ai";
 import { helperMessageBody, type HelperMessage } from "@/modules/whatsapp/domain/helper-messages";
+import type { FeeFacts, SchoolFacts } from "@/modules/whatsapp/domain/staff-desk";
 import { linkReplyText } from "@/modules/whatsapp/domain/staff-link";
+import { STAFF_HATS, type StaffHat } from "@/modules/whatsapp/domain/staff-words";
 import {
   QUESTIONS_AT_ONCE,
   STAFF_INTENTS,
@@ -55,6 +59,7 @@ import {
 } from "@/modules/whatsapp/domain/staff-helper";
 import type { CoverDuty } from "@/modules/substitutions/data/cover-repo";
 import type { BellSchedule } from "@/modules/timetable/domain/bells";
+import { permissionsFor, type StaffRole } from "@/platform/auth/permissions";
 import { FEE_SCHEMA } from "@/platform/env";
 import type { WhatsAppConfig } from "@/platform/whatsapp/config";
 import type { WhatsAppSwitches } from "@/platform/whatsapp/policy";
@@ -79,13 +84,17 @@ const CLASS_7 = "c0000007-0000-4000-8000-000000000007";
 const ORIGIN = "https://one.example.test";
 const HUB: WhatsAppConfig = { ok: true, provider: "hub", hubUrl: "https://hub.example.test", hubKey: "k", senderNumber: "+918302207823" };
 
+const TEACHER_USER = "44444444-4444-4444-8444-444444444444";
+
 const TEACHER: LinkedStaff = {
   staffId: TEACHER_ID,
+  userId: TEACHER_USER,
   name: "TEST Teacher One",
   role: "teacher",
   isTest: true,
   language: "en",
   permissions: ["attendance:view", "attendance:mark"],
+  isTeaching: true,
 };
 
 const CTX: StaffContext = { language: "en", name: TEACHER.name, helperName: "Veer Patta AI", practice: true, sessionLabel: "TEST-2026-27", origin: ORIGIN };
@@ -488,11 +497,13 @@ function fakeDb(tables: Record<string, Row[]>, failing: string[] = []) {
 function profile(over: Row = {}): Row {
   return {
     id: TEACHER_ID,
+    user_id: TEACHER_USER,
     display_name: "TEST Teacher One",
     short_name: "TT1",
     role: "teacher",
     is_active: true,
     is_test_account: true,
+    is_teaching: true,
     preferred_language: "en",
     whatsapp_phone: TEACHER_PHONE.slice(-10),
     whatsapp_opt_in_at: "2026-11-12T05:00:00Z",
@@ -852,6 +863,71 @@ function waiting(id: string, createdAt: string): OpenHandoff {
   } as OpenHandoff;
 }
 
+/** A practice seat (a test account with a sign-in) for a role, with the role's seed permissions. */
+function seat(role: StaffRole, over: Partial<LinkedStaff> = {}): LinkedStaff {
+  const n = STAFF_HATS.indexOf(role) + 1;
+  return {
+    staffId: `5ea70000-0000-4000-8000-00000000000${n}`,
+    userId: `05e70000-0000-4000-8000-00000000000${n}`,
+    name: `TEST Seat ${role}`,
+    role,
+    isTest: true,
+    language: "en",
+    permissions: [...permissionsFor(role)],
+    isTeaching: role === "teacher",
+    ...over,
+  };
+}
+
+function schoolFacts(over: Partial<SchoolFacts> = {}): SchoolFacts {
+  return {
+    day: DAY,
+    schoolOpen: true,
+    timetableRuns: true,
+    rows: [
+      { label: "Class 6", recorded: true, roll: 41, present: 38, absent: 3, halfDay: 0 },
+      { label: "Class 7", recorded: false, roll: 40, present: 0, absent: 0, halfDay: 0 },
+    ],
+    staffAway: 2,
+    uncovered: [{ period: 3, classLabels: ["Class 8"] }],
+    ...over,
+  };
+}
+
+function feeFacts(over: Partial<FeeFacts> = {}): FeeFacts {
+  return {
+    day: DAY,
+    today: { total: 12500, count: 3, byMode: [{ mode: "cash", total: 10000, count: 2 }, { mode: "upi", total: 2500, count: 1 }] },
+    lastDay: null,
+    month: { total: 85000, count: 21 },
+    session: { collected: 1250000, feesPending: 340000, latePending: 12000, withDues: 57, overdue: 31, lateOnly: 4, students: 120 },
+    query: null,
+    matchCount: 0,
+    matches: [],
+    ...over,
+  };
+}
+
+/** A tap on a button or a menu row, as the hub hands it on. */
+function tapOf(id: string, list = false): Partial<WebhookInbound> {
+  const reply = { id, title: "x" };
+  return { type: "interactive", text: null, raw: { type: "interactive", interactive: list ? { type: "list_reply", list_reply: reply } : { type: "button_reply", button_reply: reply } } };
+}
+
+function listRows(body: Record<string, unknown> | undefined): Array<{ id: string; title: string; description?: string }> {
+  const interactive = (body?.interactive ?? {}) as { type?: string; action?: { sections?: Array<{ rows: Array<{ id: string; title: string; description?: string }> }> } };
+  return interactive.type === "list" ? (interactive.action?.sections?.[0]?.rows ?? []) : [];
+}
+
+function buttonIds(body: Record<string, unknown> | undefined): string[] {
+  const interactive = (body?.interactive ?? {}) as { type?: string; action?: { buttons?: Array<{ reply: { id: string } }> } };
+  return interactive.type === "button" ? (interactive.action?.buttons ?? []).map((button) => button.reply.id) : [];
+}
+
+function understood(reading: StaffClaudeTurn["understood"], problem: string | null = null): StaffClaudeTurn {
+  return { understood: reading, model: HELPER_MODELS.quick, costUsd: 0.0004, problem };
+}
+
 type Calls = {
   sent: Array<Record<string, unknown>>;
   started: Array<Parameters<StaffHelperDeps["startTurn"]>[0]>;
@@ -859,17 +935,44 @@ type Calls = {
   finished: Array<[string, TurnFinish]>;
   saved: string[];
   alerts: AlertRecord[];
+  /** The chat's role, each time it was changed. */
+  hats: Array<[string, StaffHat | null]>;
+  /** The practice seats read, by role. */
+  seats: StaffRole[];
+  /** What Claude was shown. */
+  asked: Array<Parameters<StaffHelperDeps["askClaude"]>[0]>;
 };
 
 function fakes(over: Partial<StaffHelperDeps> = {}) {
-  const calls: Calls = { sent: [], started: [], claims: [], finished: [], saved: [], alerts: [] };
+  const calls: Calls = { sent: [], started: [], claims: [], finished: [], saved: [], alerts: [], hats: [], seats: [], asked: [] };
   const deps: StaffHelperDeps = {
     now: () => NOW,
     readIdentity: async () => ({ state: "linked", staff: TEACHER }),
-    readSession: async () => "TEST-2026-27",
+    readHat: async () => null,
+    saveHat: async (from, hat) => {
+      calls.hats.push([from, hat]);
+    },
+    readSeat: async (role, language) => {
+      calls.seats.push(role);
+      return seat(role, { language });
+    },
+    readSession: async (staff) => (staff.isTest ? "TEST-2026-27" : "2026-27"),
+    readDesk: async () => ({ held: [], reader: null }),
     readDay: async () => dayFacts(),
     readQuestions: async () => [],
     readAbsent: async () => ({ kind: "no_class" }),
+    readNeedsYou: async () => ({ count: 0, items: [], classTeacher: true }),
+    readSchool: async (_staff, _sessionLabel, day) => schoolFacts({ day }),
+    readAway: async (_staff, _sessionLabel, day) => ({ day, periodCount: 8, absences: [] }),
+    readCover: async (_staff, _sessionLabel, day) => ({ day, duties: [] }),
+    readLeave: async () => [],
+    readFees: async (sessionLabel, day, query) => (sessionLabel.startsWith("TEST-") ? feeFacts({ day, query }) : "elsewhere"),
+    readAiSettings: async () => ({ enabled: true, monthlyBudgetUsd: 10 }),
+    hasClaudeKey: () => false,
+    askClaude: async (input) => {
+      calls.asked.push(input);
+      return understood(null, "no_key");
+    },
     readSwitches: async () => switches(),
     readConfig: () => HUB,
     readHelperName: async () => "Veer Patta AI",
@@ -912,11 +1015,27 @@ describe("a staff command arriving on WhatsApp", () => {
     expect(calls.sent).toHaveLength(1);
     expect(calls.sent[0]!.to).toBe("919000000002");
     expect(bodyText(calls.sent[0])).toContain("Your day · Thursday, 12 November");
+    // Under it, the next two asks on a teacher's desk and the menu.
+    expect(buttonIds(calls.sent[0])).toEqual(["vpst:absent", "vpst:questions", "vpst:menu"]);
     expect(calls.finished).toEqual([
-      ["wamid.STAFF1", { status: "answered", reason: null, intent: "staff_today", route: "rule", replyMessageId: "wamid.OUT1", latencyMs: 4_000 }],
+      [
+        "wamid.STAFF1",
+        {
+          status: "answered",
+          reason: null,
+          intent: "staff_today",
+          route: "rule",
+          replyMessageId: "wamid.OUT1",
+          latencyMs: 4_000,
+          stages: { before: 4_000, checks: 0, claim: 0, dots: 4_000, family: 0, compose: 0, send: 0 },
+        },
+      ],
     ]);
     expect(calls.saved).toEqual([TEACHER_PHONE]);
     expect(calls.alerts).toEqual([]);
+    // Their own role: no practice seat, and the chat's role is left as it was.
+    expect(calls.seats).toEqual([]);
+    expect(calls.hats).toEqual([]);
   });
 
   it("a tap on a staff button is a tap in the ledger; a real member of staff's turn is the real year's", async () => {
@@ -971,16 +1090,35 @@ describe("a staff command arriving on WhatsApp", () => {
     expect(calls.finished[0]![1]).toMatchObject({ status: "answered", reason: "questions_sent:1/2" });
   });
 
-  it("an ordinary message, or a number no member of staff has, is left for the parents' helper", async () => {
-    const reads = vi.fn(async (): Promise<StaffIdentity | null> => ({ state: "none" }));
-    const { deps, calls } = fakes({ readIdentity: reads });
-    expect(await handleStaffCommand(inbound({ text: "When is the PTM?" }), deps)).toBeNull();
-    expect(reads).not.toHaveBeenCalled();
-    expect(await handleStaffCommand(inbound(), deps)).toBeNull();
+  it("a number no member of staff has, or one that could not be read, is left for the parents' helper, whatever it says", async () => {
+    const { deps, calls } = fakes({ readIdentity: async (): Promise<StaffIdentity | null> => ({ state: "none" }) });
+    for (const text of ["When is the PTM?", "today", "hi", "fees", "try as accountant", "as parent"]) expect(await handleStaffCommand(inbound({ text }), deps), text).toBeNull();
     expect(await handleStaffCommand(inbound(), fakes({ readIdentity: async () => null }).deps)).toBeNull();
     expect(await handleStaffCommand(inbound({ from: "not a number" }), deps)).toBeNull();
+    // A parent's own buttons are the parents' helper's, from anybody.
+    expect(await handleStaffCommand(inbound(tapOf("vpai:fees")), fakes().deps)).toBeNull();
     expect(calls.sent).toEqual([]);
     expect(calls.started).toEqual([]);
+    expect(calls.hats).toEqual([]);
+  });
+
+  it("a parent's message waits only for three reads made side by side", async () => {
+    let open = 0;
+    let most = 0;
+    const read = async <T>(value: T): Promise<T> => {
+      open += 1;
+      most = Math.max(most, open);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      open -= 1;
+      return value;
+    };
+    const { deps } = fakes({
+      readIdentity: () => read<StaffIdentity | null>({ state: "none" }),
+      readHat: () => read<StaffHat | null>(null),
+      readSwitches: () => read(switches()),
+    });
+    expect(await handleStaffCommand(inbound({ text: "When is the PTM?" }), deps)).toBeNull();
+    expect(most).toBe(3);
   });
 
   it("a number on a staff record that never linked itself is told to link, and shown nothing", async () => {
@@ -1015,10 +1153,11 @@ describe("a staff command arriving on WhatsApp", () => {
     }
   });
 
-  it("while testing, answers the owner's own number when it is linked to a test teacher", async () => {
-    const { deps, calls } = fakes({ readSwitches: async () => switches({ realRecipients: false }) });
+  it("while testing, answers the owner's own number, as the role it is trying, whatever the number is on", async () => {
+    const { deps, calls } = fakes({ readSwitches: async () => switches({ realRecipients: false }), readHat: async () => "teacher" });
     expect(await handleStaffCommand(inbound({ from: OWNER }), deps)).toMatchObject({ outcome: "answered", intent: "staff_today" });
     expect(calls.sent[0]!.to).toBe("919000000001");
+    expect(calls.seats).toEqual(["teacher"]);
   });
 
   it("leaves the message to the hub when it cannot claim it, over the day's cap, or seen before", async () => {
@@ -1087,5 +1226,303 @@ describe("a staff command arriving on WhatsApp", () => {
     const logged = JSON.stringify(log.logInfo.mock.calls);
     expect(logged).toContain("whatsapp.staff_helper");
     expect(logged).not.toContain("9000000002");
+  });
+});
+
+/* ------------------------------------------ the owner's number, in each role */
+
+describe("the owner's number, trying each role (D-607)", () => {
+  const owner = (over: Partial<WebhookInbound> = {}) => inbound({ from: OWNER, providerMessageId: "wamid.OWNER1", ...over });
+  /** The owner's number, with only it allowed to receive anything, and the chat's role as stored. */
+  const ownerFakes = (hat: StaffHat | null, over: Partial<StaffHelperDeps> = {}) =>
+    fakes({ readSwitches: async () => switches({ realRecipients: false }), readHat: async () => hat, readIdentity: async () => ({ state: "none" }), ...over });
+
+  it("is answered as the admin's practice desk the first time, says so with the way back to parent testing, and keeps it", async () => {
+    const { deps, calls } = ownerFakes(null);
+    expect(await handleStaffCommand(owner({ text: "today" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "staff_school", handoff: null });
+    expect(calls.seats).toEqual(["admin"]);
+    expect(calls.hats).toEqual([[OWNER, "admin"]]);
+    const body = bodyText(calls.sent[0]);
+    expect(body).toContain("🔄 Your number is now answered as the *Admin* (TEST Seat admin, practice records).");
+    expect(body).toContain("To test as a parent, write *as parent*");
+    // The admin does not teach, so "today" is the school's day.
+    expect(body).toContain("🏫 *School today · Thursday, 12 November*");
+    // The admin's next asks and the menu, each carrying the role it was sent under.
+    expect(buttonIds(calls.sent[0])).toEqual(["vpst:collection:admin", "vpst:dues:admin", "vpst:menu:admin"]);
+    expect(calls.sent[0]!.to).toBe("919000000001");
+    expect(calls.started[0]).toMatchObject({ from: OWNER, practice: true });
+
+    // From then on the role is kept, and nothing more is said about it.
+    const again = ownerFakes("admin");
+    await handleStaffCommand(owner({ text: "today" }), again.deps);
+    expect(bodyText(again.calls.sent[0])).not.toContain("Your number is now answered");
+    expect(again.calls.hats).toEqual([]);
+  });
+
+  it("*try as accountant* switches to the accountant's practice seat, with the accountant's menu", async () => {
+    const { deps, calls } = ownerFakes("admin");
+    expect(await handleStaffCommand(owner({ text: "try as accountant" }), deps)).toMatchObject({ outcome: "answered", intent: "staff_hat" });
+    expect(calls.seats).toEqual(["accountant"]);
+    expect(calls.hats).toEqual([[OWNER, "accountant"]]);
+    expect(bodyText(calls.sent[0])).toContain("🔄 You are now the *Accountant* (TEST Seat accountant, practice).");
+    expect(bodyText(calls.sent[0])).toContain("You are trying the *Accountant* role");
+    // Every row carries the role, so an older menu still answers as it was sent.
+    expect(listRows(calls.sent[0]).map((row) => row.id)).toEqual(["vpst:collection:accountant", "vpst:dues:accountant", "vpst:questions:accountant", "vpsr:list"]);
+  });
+
+  it("names a role however it is written, and the role rows switch too", async () => {
+    for (const [message, role] of [
+      [owner({ text: "Accountant mode" }), "accountant"],
+      [owner({ text: "switch to teacher" }), "teacher"],
+      [owner({ text: "test as office" }), "office"],
+      [owner({ text: "अकाउंटेंट बनकर" }), "accountant"],
+      [owner({ text: "try as exam coordinator" }), "exam_coordinator"],
+      [owner(tapOf("vpsr:fee_collector", true)), "fee_collector"],
+      [owner(tapOf("vpsr:view_only", true)), "view_only"],
+    ] as const) {
+      const { deps, calls } = ownerFakes("admin");
+      expect(await handleStaffCommand(message, deps), String(message.text)).toMatchObject({ outcome: "answered", intent: "staff_hat" });
+      expect(calls.hats).toEqual([[OWNER, role]]);
+      expect(calls.seats).toEqual([role]);
+    }
+  });
+
+  it("*as parent* hands the number to the parents' helper, and everything after goes there", async () => {
+    const { deps, calls } = ownerFakes("accountant");
+    expect(await handleStaffCommand(owner({ text: "as parent" }), deps)).toMatchObject({ outcome: "answered", intent: "staff_hat" });
+    expect(calls.hats).toEqual([[OWNER, "parent"]]);
+    expect(bodyText(calls.sent[0])).toContain("You are now writing as a parent");
+    expect(buttonIds(calls.sent[0])).toEqual(["vpsr:admin", "vpsr:list"]);
+    expect(calls.seats).toEqual([]);
+
+    const parent = ownerFakes("parent");
+    for (const text of ["What is the fee for class 6?", "today", "fees", "hi", "बकाया"]) expect(await handleStaffCommand(owner({ text }), parent.deps), text).toBeNull();
+    expect(await handleStaffCommand(owner({ type: "audio", text: null, raw: { type: "audio" } }), parent.deps)).toBeNull();
+    expect(parent.calls.sent).toEqual([]);
+    expect(parent.calls.started).toEqual([]);
+    expect(parent.calls.seats).toEqual([]);
+  });
+
+  it("from the parent's side, *try as admin*, the Back to admin button, *staff*, or an older desk button bring a role back", async () => {
+    for (const [message, role] of [
+      [owner({ text: "try as admin" }), "admin"],
+      [owner(tapOf("vpsr:admin")), "admin"],
+      [owner({ text: "staff" }), "admin"],
+      [owner(tapOf("vpst:school:office")), "office"],
+    ] as const) {
+      const { deps, calls } = ownerFakes("parent");
+      expect(await handleStaffCommand(message, deps), String(message.text)).toMatchObject({ outcome: "answered" });
+      expect(calls.hats).toEqual([[OWNER, role]]);
+      expect(calls.seats).toEqual([role]);
+    }
+  });
+
+  it("*roles* lists every role to try, with the one now marked, and changes nothing", async () => {
+    for (const message of [owner({ text: "roles" }), owner(tapOf("vpsr:list", true)), owner(tapOf("vpsr:list"))]) {
+      const { deps, calls } = ownerFakes("teacher");
+      expect(await handleStaffCommand(message, deps)).toMatchObject({ outcome: "answered", intent: "staff_roles" });
+      const rows = listRows(calls.sent[0]);
+      expect(rows.map((row) => row.id)).toEqual(STAFF_HATS.map((hat) => `vpsr:${hat}`));
+      expect(rows.find((row) => row.id === "vpsr:teacher")!.description).toContain("✓ Now");
+      expect(calls.seats).toEqual([]);
+      expect(calls.hats).toEqual([]);
+    }
+  });
+
+  it("as the accountant, *fees* is the practice year's collection, and a child's name is that child's dues", async () => {
+    const fees = vi.fn(async (_sessionLabel: string, day: string, query: string | null) => feeFacts({ day, query, matchCount: query ? 1 : 0 }));
+    const { deps, calls } = ownerFakes("accountant", { readFees: fees });
+    expect(await handleStaffCommand(owner({ text: "fees" }), deps)).toMatchObject({ intent: "staff_collection" });
+    expect(bodyText(calls.sent[0])).toContain("💰 *Fee collection · Thursday, 12 November*");
+    expect(bodyText(calls.sent[0])).toContain("🧪 Practice: TEST-2026-27 test records");
+    expect(fees).toHaveBeenCalledWith("TEST-2026-27", DAY, null);
+    expect(await handleStaffCommand(owner({ text: "dues TEST Child Two", providerMessageId: "wamid.OWNER2" }), deps)).toMatchObject({ intent: "staff_dues" });
+    expect(fees).toHaveBeenLastCalledWith("TEST-2026-27", DAY, "test child two");
+  });
+
+  it("as a teacher, fees are not on the desk: the teacher's menu says so", async () => {
+    const fees = vi.fn(async () => feeFacts());
+    const { deps, calls } = ownerFakes("teacher", { readFees: fees });
+    expect(await handleStaffCommand(owner({ text: "fees" }), deps)).toMatchObject({ intent: "staff_menu" });
+    expect(bodyText(calls.sent[0])).toContain(`"💰 Fee collection" is not on your role's menu.`);
+    expect(listRows(calls.sent[0]).map((row) => row.id)).toEqual(["vpst:today:teacher", "vpst:absent:teacher", "vpst:questions:teacher", "vpsr:list"]);
+    expect(fees).not.toHaveBeenCalled();
+    expect(calls.finished[0]![1]).toMatchObject({ reason: "not_on_desk:collection" });
+  });
+
+  it("Hindi letters are answered in Hindi", async () => {
+    const { deps, calls } = ownerFakes("admin");
+    await handleStaffCommand(owner({ text: "स्कूल" }), deps);
+    expect(bodyText(calls.sent[0])).toContain("🏫 *स्कूल आज");
+    expect(calls.seats).toEqual(["admin"]);
+  });
+
+  it("may test all day: 200 answers a day on the owner's number, not 40", async () => {
+    expect(await handleStaffCommand(owner(), ownerFakes("admin", { readBudget: async () => ({ spentUsd: 0, turnsToday: 40 }) }).deps)).toMatchObject({ outcome: "answered" });
+    expect(await handleStaffCommand(owner(), ownerFakes("admin", { readBudget: async () => ({ spentUsd: 0, turnsToday: 200 }) }).deps)).toEqual({ outcome: "skipped", reason: "daily_cap" });
+  });
+
+  it("a practice seat that cannot be read is a sorry, written down", async () => {
+    const { deps, calls } = ownerFakes("office", { readSeat: async () => null });
+    expect(await handleStaffCommand(owner({ text: "school" }), deps)).toMatchObject({ outcome: "answered", intent: "staff_school" });
+    expect(bodyText(calls.sent[0])).toContain("Sorry, that could not be read just now");
+    expect(calls.finished[0]![1]).toMatchObject({ reason: "seat_unreadable" });
+  });
+});
+
+/* ------------------------------------------------ staff, as their own role */
+
+describe("a member of staff, answered as their own role (D-607)", () => {
+  const ACCOUNTANT: LinkedStaff = { ...seat("accountant"), staffId: "acc00000-0000-4000-8000-000000000001", name: "TEST Accountant One", isTest: false };
+  const ADMIN: LinkedStaff = { ...seat("admin"), staffId: "adm00000-0000-4000-8000-000000000001", name: "TEST Admin One" };
+  const as = (staff: LinkedStaff, over: Partial<StaffHelperDeps> = {}) => fakes({ readIdentity: async () => ({ state: "linked", staff }), ...over });
+
+  it("an accountant's menu is the accountant's: collection, dues, questions, and writing as a parent", async () => {
+    const { deps, calls } = as(ACCOUNTANT);
+    expect(await handleStaffCommand(inbound({ text: "hi" }), deps)).toMatchObject({ outcome: "answered", intent: "staff_menu" });
+    const rows = listRows(calls.sent[0]);
+    expect(rows.map((row) => row.id)).toEqual(["vpst:collection", "vpst:dues", "vpst:questions", "vpsr:parent"]);
+    expect(bodyText(calls.sent[0])).toContain("Namaste, TEST Accountant One!");
+    expect(calls.seats).toEqual([]);
+  });
+
+  it("a real year's fees are the Fees app's: the reply sends them to One", async () => {
+    const { deps, calls } = as(ACCOUNTANT);
+    expect(await handleStaffCommand(inbound({ text: "aaj ka collection" }), deps)).toMatchObject({ intent: "staff_collection" });
+    expect(bodyText(calls.sent[0])).toContain("This year's fee figures are the Fees app's");
+    expect(bodyText(calls.sent[0])).toContain(`${ORIGIN}/accounts`);
+    expect(bodyText(calls.sent[0])).not.toContain("Practice");
+  });
+
+  it("a teacher's menu is a teacher's, with Needs you once they hold a class", async () => {
+    const plain = as(TEACHER);
+    await handleStaffCommand(inbound({ text: "menu" }), plain.deps);
+    expect(listRows(plain.calls.sent[0]).map((row) => row.id)).toEqual(["vpst:today", "vpst:absent", "vpst:questions", "vpsr:parent"]);
+    const classTeacher = as(TEACHER, { readDesk: async () => ({ held: [CLASS_6], reader: null }) });
+    await handleStaffCommand(inbound({ text: "menu" }), classTeacher.deps);
+    expect(listRows(classTeacher.calls.sent[0]).map((row) => row.id)).toEqual(["vpst:today", "vpst:absent", "vpst:questions", "vpst:needs_you", "vpsr:parent"]);
+  });
+
+  it("the admin's asks each read their own figures", async () => {
+    const reads = {
+      readSchool: vi.fn(async () => schoolFacts()),
+      readAway: vi.fn(async () => ({ day: DAY, periodCount: 8, absences: [{ staffName: "TEST Teacher Two", periods: [] }] })),
+      readCover: vi.fn(async () => ({ day: DAY, duties: [{ period: 3, classLabels: ["Class 8"], absentNames: ["TEST Teacher Two"], substituteName: null, status: "needs_help" as const }] })),
+      readLeave: vi.fn(async () => [{ staffName: "TEST Teacher Three", fromDay: DAY, toDay: DAY, span: "full_day" }]),
+      readNeedsYou: vi.fn(async () => ({ count: 1, items: [{ title: { en: "TEST Child Two, absent today", hi: "TEST Child Two, आज अनुपस्थित" }, line: { en: "The parent says: fever", hi: "अभिभावक: बुखार" }, urgent: false }], classTeacher: false })),
+    };
+    for (const [text, intent, words] of [
+      ["school", "staff_school", "📋 *Registers:* 1 of 2 classes marked"],
+      ["staff away", "staff_away", "• TEST Teacher Two (full day)"],
+      ["cover", "staff_cover", "⚠️ *Still need cover (1)*"],
+      ["leave requests", "staff_leave", "• TEST Teacher Three · 12 November"],
+      ["approvals", "staff_needs_you", "*TEST Child Two, absent today*"],
+    ] as const) {
+      const { deps, calls } = as(ADMIN, { ...reads, readDesk: async () => ({ held: [], reader: { kind: "admin" } as never }) });
+      expect(await handleStaffCommand(inbound({ text }), deps), text).toMatchObject({ outcome: "answered", intent });
+      expect(bodyText(calls.sent[0]), text).toContain(words);
+    }
+    for (const read of Object.values(reads)) expect(read).toHaveBeenCalledTimes(1);
+    expect(reads.readSchool).toHaveBeenCalledWith(expect.objectContaining({ staffId: ADMIN.staffId }), "TEST-2026-27", DAY);
+  });
+
+  it("*as parent* lets them write to the school as a parent, until *staff*", async () => {
+    const { deps, calls } = as(TEACHER);
+    expect(await handleStaffCommand(inbound({ text: "as parent" }), deps)).toMatchObject({ intent: "staff_hat" });
+    expect(calls.hats).toEqual([[TEACHER_PHONE, "parent"]]);
+    expect(bodyText(calls.sent[0])).toContain("you are writing as a parent now");
+    expect(buttonIds(calls.sent[0])).toEqual(["vpsr:staff"]);
+    // The menu's row does the same.
+    const row = as(TEACHER);
+    expect(await handleStaffCommand(inbound(tapOf("vpsr:parent", true)), row.deps)).toMatchObject({ intent: "staff_hat" });
+    expect(row.calls.hats).toEqual([[TEACHER_PHONE, "parent"]]);
+
+    const asParent = as(TEACHER, { readHat: async () => "parent" });
+    for (const text of ["my son has fever today, he will not come", "today", "fees", "hi"]) expect(await handleStaffCommand(inbound({ text }), asParent.deps), text).toBeNull();
+    expect(asParent.calls.sent).toEqual([]);
+
+    for (const message of [inbound({ text: "staff" }), inbound(tapOf("vpsr:staff"))]) {
+      const back = as(TEACHER, { readHat: async () => "parent" });
+      expect(await handleStaffCommand(message, back.deps)).toMatchObject({ intent: "staff_hat" });
+      expect(back.calls.hats).toEqual([[TEACHER_PHONE, null]]);
+      expect(bodyText(back.calls.sent[0])).toContain("You are asking as staff again.");
+    }
+  });
+
+  it("another role is only for the testing number: their own menu says so, and nothing changes", async () => {
+    for (const text of ["try as accountant", "roles"]) {
+      const { deps, calls } = as(TEACHER);
+      expect(await handleStaffCommand(inbound({ text }), deps), text).toMatchObject({ outcome: "answered", intent: "staff_roles" });
+      expect(bodyText(calls.sent[0])).toContain("Other roles can only be tried on the testing number.");
+      expect(listRows(calls.sent[0]).map((row) => row.id)).toEqual(["vpst:today", "vpst:absent", "vpst:questions", "vpsr:parent"]);
+      expect(calls.seats).toEqual([]);
+      expect(calls.hats).toEqual([]);
+    }
+  });
+
+  it("a voice note or a photo gets the menu, asking for typed words", async () => {
+    const { deps, calls } = as(TEACHER);
+    expect(await handleStaffCommand(inbound({ type: "audio", text: null, raw: { type: "audio" } }), deps)).toMatchObject({ outcome: "answered", intent: "staff_menu" });
+    expect(bodyText(calls.sent[0])).toContain("I read staff questions from typed words and taps.");
+    expect(calls.finished[0]![1]).toMatchObject({ reason: "not_typed" });
+  });
+});
+
+/* ------------------------------------------------------ typed words, read */
+
+describe("typed words on a desk (D-607)", () => {
+  const SENTENCE = "kitne bacche nahi aaye meri class mein";
+  const withClaude = (reading: StaffClaudeTurn, over: Partial<StaffHelperDeps> = {}) => {
+    const ask = vi.fn(async () => reading);
+    return { ask, ...fakes({ hasClaudeKey: () => true, askClaude: ask, ...over }) };
+  };
+
+  it("go to Claude when the AI helper is on, with the desk's asks and nothing else, and the desk answers what it chose", async () => {
+    const { ask, deps, calls } = withClaude(understood({ kind: "command", command: "absent", query: null }));
+    expect(await handleStaffCommand(inbound({ text: SENTENCE }), deps)).toEqual({ outcome: "answered", route: "ai", intent: "staff_absent", handoff: null });
+    expect(ask).toHaveBeenCalledWith({ helperName: "Veer Patta AI", role: "teacher", commands: ["today", "absent", "questions"], owner: false, text: SENTENCE });
+    expect(bodyText(calls.sent[0])).toContain("In One you are not a class teacher this year.");
+    expect(calls.finished[0]![1]).toMatchObject({ route: "ai", model: HELPER_MODELS.quick, costUsd: 0.0004, reason: null, stages: expect.objectContaining({ ai: 0 }) });
+  });
+
+  it("a message that reads like a parent's is never passed on by itself: the way to send it as a parent is said", async () => {
+    const { deps, calls } = withClaude(understood({ kind: "parent" }));
+    expect(await handleStaffCommand(inbound({ text: "my daughter will not come tomorrow, she has fever" }), deps)).toMatchObject({ route: "ai", intent: "staff_menu" });
+    expect(bodyText(calls.sent[0])).toContain("To send it as a parent, choose *Write as a parent*");
+    expect(calls.finished[0]![1]).toMatchObject({ reason: "parent_like" });
+    expect(calls.hats).toEqual([]);
+  });
+
+  it("not understood, or not on their desk, is the menu with a line saying so", async () => {
+    const unclear = withClaude(understood({ kind: "unclear" }));
+    expect(await handleStaffCommand(inbound({ text: SENTENCE }), unclear.deps)).toMatchObject({ intent: "staff_unclear" });
+    expect(bodyText(unclear.calls.sent[0])).toContain("I could not tell what you would like to see.");
+    const elsewhere = withClaude(understood({ kind: "command", command: "collection", query: null }));
+    expect(await handleStaffCommand(inbound({ text: "aaj kitni fees aayi school mein" }), elsewhere.deps)).toMatchObject({ intent: "staff_menu" });
+    expect(bodyText(elsewhere.calls.sent[0])).toContain("is not on your role's menu");
+    expect(elsewhere.calls.finished[0]![1]).toMatchObject({ reason: "not_on_desk:collection" });
+  });
+
+  it("when Claude cannot say, the keywords answer, and the ledger says why", async () => {
+    const { deps, calls } = withClaude(understood(null, "timeout"));
+    expect(await handleStaffCommand(inbound({ text: "who is absent today please" }), deps)).toEqual({ outcome: "answered", route: "fallback", intent: "staff_absent", handoff: null });
+    expect(calls.finished[0]![1]).toMatchObject({ route: "fallback", reason: "ai_timeout", model: HELPER_MODELS.quick });
+  });
+
+  it("with no key, the helper off, or the month's AI budget spent, Claude is not asked and the keywords answer", async () => {
+    for (const over of [{ hasClaudeKey: () => false }, { readAiSettings: async () => ({ enabled: false, monthlyBudgetUsd: 10 }) }, { readAiSettings: async () => null }, { readBudget: async () => ({ spentUsd: 10, turnsToday: 0 }) }] as Array<
+      Partial<StaffHelperDeps>
+    >) {
+      const { ask, deps, calls } = withClaude(understood({ kind: "unclear" }), over);
+      expect(await handleStaffCommand(inbound({ text: "who is absent today please" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "staff_absent", handoff: null });
+      expect(ask).not.toHaveBeenCalled();
+      expect(calls.finished[0]![1]).not.toHaveProperty("model");
+    }
+  });
+
+  it("keywords for something not on their desk: the menu, and the ledger names it", async () => {
+    const { deps, calls } = fakes();
+    expect(await handleStaffCommand(inbound({ text: "how much pending balance for the school" }), deps)).toMatchObject({ route: "rule", intent: "staff_unclear" });
+    expect(calls.finished[0]![1]).toMatchObject({ reason: "not_on_desk:dues" });
   });
 });

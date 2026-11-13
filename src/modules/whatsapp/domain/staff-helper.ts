@@ -3,6 +3,7 @@ import { dayLabel, weekdayLabel } from "@/platform/dates";
 
 import { oneLine, type StaffLanguage } from "./helper-handoff";
 import type { HelperButton, HelperMessage } from "./helper-messages";
+import { staffButtonId } from "./staff-words";
 
 /**
  * The teachers' own Veer Patta AI on WhatsApp (D-591). A member of staff who
@@ -17,91 +18,22 @@ import type { HelperButton, HelperMessage } from "./helper-messages";
  *    told the school on WhatsApp that their child would be away (D-588).
  *  - *staff*: the three, as buttons.
  *
- * Only these exact words (in English, Hindi or Roman Hindi) are commands, so
- * a member of staff who is also a parent still writes to the school as one by
- * writing their message in full.
+ * Since D-607 these are three of a desk's asks: a linked number gets the
+ * menu of its own role (`staff-desk.ts`), and anything typed is understood
+ * against it. A member of staff who is also a parent writes to the school as
+ * one after *as parent*, and comes back with *staff*.
  *
  * Pure: the words and the rules, no database and no clock of its own. The
  * reads, the checks and the sending are in `data/staff-helper.ts`, and the
  * helper's turn (`data/helper-turn.ts`) hands it every message first.
  */
 
-export type StaffCommand = "today" | "questions" | "absent" | "menu";
-
-export const STAFF_COMMANDS: readonly StaffCommand[] = ["today", "questions", "absent", "menu"];
-
-/** The id of a staff button: `vpst:today`. A parent's buttons are `vpai:` (helper-text.ts). */
-export const STAFF_TAP_PREFIX = "vpst:";
-
-/** A command word is a few words at most; anything longer is a message. */
-const MAX_COMMAND_CHARS = 40;
+// The words and taps that ask (D-591, widened by D-607) are read in
+// `staff-words.ts`; these names are kept here for the code that knew them.
+export { STAFF_COMMANDS, STAFF_TAP_PREFIX, commandText, staffButtonId, staffCommandIn, type StaffCommand } from "./staff-words";
 
 /** At most this many waiting questions come again in one go, oldest first. */
 export const QUESTIONS_AT_ONCE = 3;
-
-/**
- * The same words however they are typed: lower case, no punctuation or emoji,
- * one space between words, and no nukta (ज़ and ज are one letter here, as
- * people type them either way).
- */
-export function commandText(text: string): string {
-  return text
-    .normalize("NFC")
-    .toLowerCase()
-    .replace(/़/g, "")
-    .replace(/['’`]/g, "")
-    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-const WORDS: Record<StaffCommand, readonly string[]> = {
-  today: [
-    "today", "my day", "today's periods", "my periods", "periods", "timetable", "time table", "my timetable", "schedule", "my schedule",
-    "aaj", "aaj ka din", "mera din", "aaj ke period", "aaj ke periods", "aaj ka timetable",
-    "आज", "आज का दिन", "मेरा दिन", "आज के पीरियड", "मेरे पीरियड", "पीरियड", "टाइम टेबल", "टाइमटेबल", "समय सारणी",
-  ],
-  questions: [
-    "questions", "question", "my questions", "parent questions", "parents questions", "parents' questions", "pending questions",
-    "sawal", "sawaal", "savaal", "mere sawal", "mere sawaal",
-    "सवाल", "मेरे सवाल", "प्रश्न", "अभिभावकों के सवाल",
-  ],
-  absent: [
-    "absent", "absents", "absentees", "who is absent", "who's absent", "absent today", "today absent", "absent list",
-    "kaun absent", "absent kaun", "kaun absent hai", "absent kaun hai", "aaj kaun absent", "aaj kaun absent hai", "gairhazir", "gairhajir",
-    "अनुपस्थित", "ग़ैरहाज़िर", "गैरहाजिर", "कौन अनुपस्थित", "आज कौन अनुपस्थित", "कौन नहीं आया", "आज कौन नहीं आया", "एबसेंट",
-  ],
-  menu: ["staff", "staff menu", "staff help", "teacher menu", "स्टाफ़", "स्टाफ", "स्टाफ़ मेनू", "स्टाफ मेनू"],
-};
-
-const BY_WORDS: ReadonlyMap<string, StaffCommand> = new Map(
-  STAFF_COMMANDS.flatMap((command) => WORDS[command].map((word) => [commandText(word), command] as const)),
-);
-
-/** The staff button's id, as `staffCommandIn` reads it back. */
-export function staffButtonId(command: StaffCommand): string {
-  return `${STAFF_TAP_PREFIX}${command}`;
-}
-
-/**
- * The staff command a message carries, or null when it is not one: a tap on
- * a staff button, or one of the command words and nothing else.
- */
-export function staffCommandIn(message: { type: string; text: string | null; raw: Record<string, unknown> | null | undefined }): StaffCommand | null {
-  const raw = message.raw;
-  if (raw && raw.type === "interactive") {
-    const interactive = raw.interactive && typeof raw.interactive === "object" ? (raw.interactive as Record<string, unknown>) : {};
-    const reply = (interactive.button_reply ?? interactive.list_reply) as Record<string, unknown> | undefined;
-    const id = typeof reply?.id === "string" ? reply.id.trim() : "";
-    if (!id.startsWith(STAFF_TAP_PREFIX)) return null;
-    const command = id.slice(STAFF_TAP_PREFIX.length);
-    return (STAFF_COMMANDS as readonly string[]).includes(command) ? (command as StaffCommand) : null;
-  }
-  if (message.type !== "text" && message.type !== "button") return null;
-  const text = String(message.text ?? "");
-  if (!text.trim() || text.length > MAX_COMMAND_CHARS) return null;
-  return BY_WORDS.get(commandText(text)) ?? null;
-}
 
 /* ------------------------------------------------------------- the replies */
 
@@ -122,13 +54,16 @@ export type StaffContext = {
   origin: string;
 };
 
-const BUTTON_WORDS: Record<Exclude<StaffCommand, "menu">, Pair> = {
+/** The three asks of D-591, which every answer here offered; a desk's own buttons replace them (D-607). */
+type FirstAsk = "today" | "questions" | "absent";
+
+const BUTTON_WORDS: Record<FirstAsk, Pair> = {
   today: { hi: "📅 आज", en: "📅 Today" },
   questions: { hi: "📝 सवाल", en: "📝 Questions" },
   absent: { hi: "📋 अनुपस्थित", en: "📋 Absent" },
 };
 
-function staffButtons(commands: ReadonlyArray<Exclude<StaffCommand, "menu">>, language: StaffLanguage): HelperButton[] {
+function staffButtons(commands: readonly FirstAsk[], language: StaffLanguage): HelperButton[] {
   return commands.map((command) => ({ id: staffButtonId(command), title: say(language, BUTTON_WORDS[command]) }));
 }
 
@@ -594,4 +529,19 @@ export const STAFF_INTENTS = {
   menu: "staff_menu",
   linkFirst: "staff_link_first",
   stopped: "staff_stopped",
+  // A desk's other asks (D-607).
+  needs_you: "staff_needs_you",
+  school: "staff_school",
+  staff_away: "staff_away",
+  cover: "staff_cover",
+  leave: "staff_leave",
+  collection: "staff_collection",
+  dues: "staff_dues",
+  roles: "staff_roles",
+  /** A role switched (the owner's number), or a member of staff writing as a parent or back as staff. */
+  hat: "staff_hat",
+  /** Typed words that were not one of the desk's asks: the menu, with a line saying so. */
+  unclear: "staff_unclear",
+  /** Typed words the hub kept before they were read (a turn One did not answer). */
+  text: "staff_text",
 } as const;

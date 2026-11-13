@@ -31,7 +31,7 @@ only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-606. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-607. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -290,6 +290,24 @@ and a short message that shows no language keeps the chat's. **Remains:** the
 owner's next try on his number. **Surprised:** the button was Claude's own
 instructions, which described the card's "Send receipt" button, so Claude
 dutifully told the parent to press it.
+**Staff as their role (D-607):** the owner asked (13 Nov) that a number
+belonging to the admin, a teacher or the accountant be answered as that role,
+with that role's menu. A number a member of staff linked from their own phone
+now always gets their desk: the admin's school today, collection, dues, staff
+away, cover and leave; the accountant's collection and dues; a teacher's day
+and class; and so on, by role and permission, with Claude (or keywords when
+the AI is off) reading typed words against the desk. "as parent" lets staff
+write about their own child, "staff" brings them back. The owner's number
+tries each role on practice records: Admin first (said once), "try as
+accountant", "teacher mode" or "roles" to switch, "as parent" to go back to
+parent testing, 200 answers a day. Fee figures on WhatsApp are the TEST
+session's only (`staff_helper_fees`, migration
+`20261113205845_staff_helper_roles.sql`, applied to One before the code); a
+real year's point to One. **Remains:** the owner's tries, and staff
+linking their own numbers (nobody has yet), which also needs real recipients
+turned on. **Surprised:** every parent's
+message would have waited one more round of reads for the new staff check;
+the switches and settings are now read once and shared.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

@@ -8,7 +8,7 @@ import { helperMessageBody, plainVersion, type HelperMessage } from "@/modules/w
 import {
   EMPTY_CHAT,
   MAX_MESSAGE_AGE_MINUTES,
-  MAX_TURNS_PER_NUMBER_PER_DAY,
+  dailyTurnCap,
   isLateHour,
   messageSkip,
   needsVisitCalendar,
@@ -39,7 +39,7 @@ import type { SuggestionDraft } from "@/modules/whatsapp/domain/parent-suggestio
 import { schoolToday } from "@/platform/dates";
 import { logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
-import { maskNumber } from "@/platform/whatsapp/numbers";
+import { maskNumber, sameNumber } from "@/platform/whatsapp/numbers";
 import { checkWhatsAppSend, type WhatsAppSwitches } from "@/platform/whatsapp/policy";
 import { HUB_CODES, providerFor, type ClaimResult, type ProviderSendResult } from "@/platform/whatsapp/providers";
 import { readSwitches } from "@/platform/whatsapp/store";
@@ -87,8 +87,9 @@ import {
  *     photo), and it arrived in the last ten minutes.
  *     (Before the rest: a member of staff answering a hand-off by swiping on
  *     its alert, D-578, one linking their WhatsApp with a code, D-582, and
- *     one asking for their own day, questions or class with one word, D-591.
- *     None is a parent's message.)
+ *     anything a linked member of staff writes, answered as their role's
+ *     desk, D-591 and D-607; the owner's number too, in the role it is
+ *     trying, until it writes *as parent*. None is a parent's message.)
  *  2. The number is one the helper knows. Step 1 knows exactly one: the
  *     owner's test number, standing for the practice children.
  *  3. The school's number may send this number a typed message right now
@@ -96,7 +97,8 @@ import {
  *     owner-only rule while real recipients are off).
  *  4. The message has something to answer (not a STOP, not empty, not a tap
  *     on somebody else's button).
- *  5. The number has had fewer than 40 answers today.
+ *  5. The number has had fewer than 40 answers today (200 on the owner's
+ *     test number, which tries every side of the helper, D-607).
  *  6. The message is not already being answered (the ledger row's unique
  *     message id), and the hub gives it to One (`POST /v1/typing`). The hub
  *     says no when a person in the office is handling the chat, when the
@@ -159,8 +161,12 @@ export type HelperDeps = {
   openHandoff?: (input: OpenHandoffInput) => Promise<unknown>;
   /** A member of staff linking their WhatsApp with the code One gave them (D-582); null when the message carries none. */
   staffLink?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
-  /** A linked member of staff asking for their day, their questions or their class (D-591); null when it is not that. */
-  staffCommand?: (message: WebhookInbound) => Promise<HelperOutcome | null>;
+  /**
+   * A linked member of staff, or the owner's number in a role, asking their
+   * desk (D-591, D-607); null when it is not that. Given the turn's own read
+   * of the switches, so a parent's message never waits for it twice.
+   */
+  staffCommand?: (message: WebhookInbound, switches: Promise<WhatsAppSwitches | null>) => Promise<HelperOutcome | null>;
   /** A tap on "Did this answer help?", kept against this number's own hand-offs (D-584). */
   rateAnswer?: (input: { from: string; key: string; value: RatingValue }) => Promise<RateResult>;
   /**
@@ -220,7 +226,7 @@ export function liveHelperDeps(): HelperDeps {
     deliverWaiting: (from) => deliverWaitingAnswers(from, relay),
     openHandoff: (input) => openHandoff(input, relay),
     staffLink: (message) => handleStaffLink(message, link),
-    staffCommand: (message) => handleStaffCommand(message, staff),
+    staffCommand: (message, switches) => handleStaffCommand(message, staff, switches),
     rateAnswer: (input) => rateAnswer(input, relay),
     suggest: async (draft) => (await addParentSuggestion(draft)) !== null,
     readKnowledge: (practice) => readSchoolKnowledge(practice),
@@ -577,14 +583,23 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     if (linked) return linked;
   }
 
-  // 1c. A member of staff asking for their own day, questions or class, in one word (D-591).
+  // The switches and the helper's settings start now, side by side with the
+  // staff checks (D-607): every message is asked whether staff sent it, and a
+  // parent's should not wait a second round of reads for that. A turn that
+  // ends at the staff step never waits for them, so neither may reject unseen.
+  const switchesRead = Promise.resolve().then(() => deps.readSwitches());
+  const settingsRead = Promise.resolve().then(() => deps.readSettings());
+  switchesRead.catch(() => undefined);
+  settingsRead.catch(() => undefined);
+
+  // 1c. A member of staff, or the owner's number in a role, asking their desk (D-591, D-607).
   if (deps.staffCommand) {
-    const handled = await deps.staffCommand(message).catch(() => null);
+    const handled = await deps.staffCommand(message, switchesRead.catch(() => null)).catch(() => null);
     if (handled) return handled;
   }
 
   // 2. A number the helper knows.
-  const [switches, settings] = await Promise.all([deps.readSwitches(), deps.readSettings()]);
+  const [switches, settings] = await Promise.all([switchesRead, settingsRead]);
   if (!settings) return skip("settings_unreadable");
   const studentIds = practiceIdsFor(message.from, switches?.ownerTestNumber ?? null, settings.practiceStudentIds);
   if (!studentIds) return skip("unknown_number");
@@ -617,10 +632,11 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     deps.readAiSettings().catch(() => null),
   ]);
 
-  // 5. Fewer than forty answers today for this number, and the AI budget.
+  // 5. Fewer than forty answers today for this number (two hundred for the
+  //    owner's test number, D-607), and the AI budget.
   const budget = await deps.readBudget(message.from, started).catch(() => null);
   if (!budget) return skip("budget_unreadable");
-  if (budget.turnsToday >= MAX_TURNS_PER_NUMBER_PER_DAY) return skip("daily_cap");
+  if (budget.turnsToday >= dailyTurnCap(sameNumber(message.from, switches?.ownerTestNumber ?? null))) return skip("daily_cap");
 
   // 6. Not answered already, and the hub gives it to One.
   const ledger = await deps.startTurn({

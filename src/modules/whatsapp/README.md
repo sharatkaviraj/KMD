@@ -5,7 +5,7 @@ Fee reminders and the message templates behind them.
 | | |
 |---|---|
 | Route | /fees/reminders (+ fix, families, ladder, notices, campaigns, runs) · /fees/admin-tools/whatsapp-templates |
-| Files | 51 domain · 33 data · 24 ui |
+| Files | 58 domain · 38 data · 24 ui |
 
 ## Owns
 
@@ -24,9 +24,10 @@ Fee reminders and the message templates behind them.
 - Veer Patta AI, the helper that answers parents on the school's number,
   and its hand-offs to staff and their answers back
   (`domain/helper-*.ts`, `data/helper-*.ts`, D-574..D-584, D-588..D-590), the
-  teachers' own helper (`domain/staff-helper.ts`, `data/staff-helper.ts`,
-  D-591), a school visit booked on WhatsApp (`domain/helper-visit.ts`,
-  `data/helper-visit.ts`, D-592, D-593), and parents' files and old months of
+  staff's own helper, which answers each member of staff as their role
+  (`domain/staff-*.ts`, `data/staff-*.ts`, D-591, D-607), a school visit
+  booked on WhatsApp (`domain/helper-visit.ts`, `data/helper-visit.ts`,
+  D-592, D-593), and parents' files and old months of
   chats in the school's Shared Drive (`domain/parent-files.ts`,
   `data/parent-files.ts`, D-594, D-595), a receipt a parent asks for, sent
   as its PDF (`data/helper-receipt.ts`, D-597), and the suggestions a
@@ -449,18 +450,54 @@ its own work, for messages from the hub only.
   `readHelperWeek` (`data/helper-week.ts`) reads them, Monday 00:00 India
   time, the practice family's or real families' by `practice`.
 - **The teachers' own helper (D-591).** Step 1c of the turn, after a swipe
-  (1a) and a link code (1b): `handleStaffCommand` (`data/staff-helper.ts`)
-  takes a message only when `staffCommandIn` (`domain/staff-helper.ts`)
-  reads one of the exact command words or a `vpst:` tap, and only from a
-  number `readLinkedStaff` proves: an active profile whose used link code
-  came from this very number (`staff_whatsapp_links.used_from`), with
-  WhatsApp on. Anything else returns null and the parents' helper goes on.
+  (1a) and a link code (1b): `handleStaffCommand` (`data/staff-helper.ts`).
+  A number is staff only when `readLinkedStaff` proves it: an active profile
+  whose used link code came from this very number
+  (`staff_whatsapp_links.used_from`), with WhatsApp on. A number on a staff
+  record that never linked itself is told to link first, and only when it
+  uses one of D-591's staff words (`staffCommandIn`) or a staff tap;
+  anything else from it, or from anybody else, returns null and the
+  parents' helper goes on.
   The reply goes through the same gates as every helper message
   (`checkWhatsAppSend` for `parent_helper`, the hub's claim, the ledger).
   `readStaffDay`, `readStaffAbsent` and `readOpenHandoffsFor` read only that
   person's own slots, cover, class register and hand-offs, in their own year
   (`sessionLabelForStaff`); *questions* re-sends the oldest three as
   `reminder` alerts with their message ids, so a swipe answers them.
+- **Each member of staff as their role (D-607).** A proven number is
+  answered as its person's role for everything it sends, not only D-591's
+  words. `readStaffAsk` (`domain/staff-words.ts`) reads a tap (`vpst:` asks,
+  `vpsr:` roles), a command's words, a role ask ("try as accountant",
+  "teacher mode", "as parent", "staff") or typed words; `routeStaffMessage`
+  (`domain/staff-route.ts`) decides who answers and as whom. The desk
+  (`domain/staff-desk.ts`) is the role's menu in the role's order, cut by the
+  person's permissions (`can()`) and what they hold: `deskOf`, `deskCommands`,
+  `deskMenuReply` (a WhatsApp list), and every answer ends with the desk's
+  next two asks and Menu (`deskButtons`). The reads are `data/staff-desk.ts`
+  (the school today, staff away, cover, leave asked, Needs you, and fee
+  figures through `vppsone.staff_helper_fees`, which answers a TEST session
+  only: a real year's money is the Fees app's and the reply points to One).
+  Typed words that are none of the desk's go to Claude
+  (`data/staff-claude.ts`, the quick model, `staffUnderstandingSchema` in
+  `domain/staff-understand.ts`): it chooses one of the desk's asks, or
+  "parent" or "unclear", and never writes the answer; with the AI helper off,
+  over budget or failing, `keywordCommands` decides. The ledger's route says
+  which (`ai`, `fallback` with `ai_<problem>`, `rule`). "as parent" sets the
+  chat's `hat` to `parent` and the parents' helper answers that number until
+  "staff"; a parent-like message from a staff number is never passed on as a
+  parent's by itself. **The owner's test number tries roles** on practice
+  records: `hat` is the role being tried (`OWNER_DEFAULT_HAT`, admin, until
+  he picks another; null means never answered as a role, so the first answer
+  carries `firstHatNote` and saves admin), each role answering as one test
+  account (`readPracticeSeat`, `pickPracticeSeat`: holding a class first,
+  then the day-run QA account, then a named one). Its buttons carry the role
+  (`vpst:dues:accountant`), so an older one answers as its role, and it gets
+  `OWNER_TURNS_PER_DAY` (200) answers a day (`dailyTurnCap`). The turn reads
+  the switches and settings once, side by side with the staff step, and
+  hands the same reads to both (`staffCommand(message, switches)`), so a
+  parent's answer waits for nothing new. Nothing on a desk writes: a
+  decision is taken in One, and the answers link to its screens. Migration
+  `20261113205845_staff_helper_roles.sql`.
 - **A school visit (D-592, D-593).** *admission*, the menu row or the
   `vpai:visit` button under Claude's answer about admission starts it. The
   turn reads the family's session calendar (`readVisitCalendar`) only when

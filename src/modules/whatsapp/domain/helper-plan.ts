@@ -78,6 +78,16 @@ export const GREETING_GAP_HOURS = 12;
 export const ALERT_HOURS = { from: 6, to: 21 } as const;
 /** Answers to one number in one day; past it, the office and the hub's own bot take over. */
 export const MAX_TURNS_PER_NUMBER_PER_DAY = 40;
+/**
+ * The owner's test number tries every side of the helper, as a parent and
+ * as each role (D-607), so it has more answers a day before the cap.
+ */
+export const OWNER_TURNS_PER_DAY = 200;
+
+/** Today's cap for a number: the owner's test number's, or everybody's. */
+export function dailyTurnCap(owner: boolean): number {
+  return owner ? OWNER_TURNS_PER_DAY : MAX_TURNS_PER_NUMBER_PER_DAY;
+}
 /** A message older than this is not answered: the parent has moved on, or the office has. */
 export const MAX_MESSAGE_AGE_MINUTES = 10;
 
