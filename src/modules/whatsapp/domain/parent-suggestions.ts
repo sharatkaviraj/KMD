@@ -176,9 +176,10 @@ export const SUGGESTION_FOOTNOTES: Record<SuggestionKind, Pair> = {
     "Add to Admissions puts the visit on the Admissions board with the parent's number, for the office to call. Not now changes nothing.",
     "प्रवेश में जोड़ने पर यह मुलाक़ात अभिभावक के नंबर के साथ प्रवेश बोर्ड पर आ जाएगी, ताकि ऑफ़िस फ़ोन कर सके। अभी नहीं से कुछ नहीं बदलता।",
   ),
+  // Every record change, not only a phone number: the card showed this under a blood group (13 Nov).
   record: p(
-    "Check with the family before you change a phone number. Apply writes the new value to the child's record in One and keeps the old one in its history. Not now changes nothing.",
-    "फ़ोन नंबर बदलने से पहले परिवार से पुष्टि कर लें। लागू करने पर नया मान One में बच्चे के रिकॉर्ड में लिखा जाएगा और पुराना उसके इतिहास में रहेगा। अभी नहीं से कुछ नहीं बदलता।",
+    "Check with the family first. Apply writes the new value to the child's record in One and keeps the old one in its history. Not now changes nothing.",
+    "पहले परिवार से पुष्टि कर लें। लागू करने पर नया मान One में बच्चे के रिकॉर्ड में लिखा जाएगा और पुराना उसके इतिहास में रहेगा। अभी नहीं से कुछ नहीं बदलता।",
   ),
 };
 

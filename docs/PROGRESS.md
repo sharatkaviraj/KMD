@@ -31,7 +31,7 @@ only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-601. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595, D-597..D-601 and D-603. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -236,9 +236,13 @@ teacher (D-601). **Done:** the code and its tests (PR 371, branch
 `20261113021008_parent_suggestions.sql` and
 `20261113022255_parent_suggestion_undo.sql`, both applied to One on 13 Nov
 (19 SQL cases on PGlite). Undo keeps every row: a note is withdrawn, an
-enquiry closed, a value put back. **Remains:** a BrowserStack check on a
-phone and a desktop with TEST suggestions, then deciding from WhatsApp
-(D-602, a new Meta template the owner has not yet answered about).
+enquiry closed, a value put back. Checked on BrowserStack on 13 Nov with
+TEST suggestions, on a Galaxy phone (Today's card, Mark Leave, Decided today,
+the register, Undo) and on Windows Chrome (Needs you, "Mark all 2 as Leave",
+Undo, a blood-group card's Now and Parent asks, Not now, Undo). The check
+found the register calling a Leave "Half-day", fixed in D-603. **Remains:**
+deciding from WhatsApp (D-602, a new Meta template the owner has not yet
+answered about).
 **Surprised:** the register's note and the Admissions enquiry had been
 written on a parent's word alone since D-588 and D-592; both now wait for a
 person. An Undo that removed rows could not be applied from a thread at all,

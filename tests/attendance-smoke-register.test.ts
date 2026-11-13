@@ -11,6 +11,7 @@ import {
   devToLatin,
   draftChanges,
   halfDaySwap,
+  halfOrLeave,
   monthTitleP,
   nameKey,
   nextTap,
@@ -29,8 +30,17 @@ describe("taps: a second tap undoes the first", () => {
     expect(nextTap(nextTap("present"))).toBe("present");
     expect(halfDaySwap("absent")).toBe("half_day");
     expect(halfDaySwap("half_day")).toBe("absent");
-    expect(halfDaySwap("leave")).toBe("absent");
+    // A child on Leave is offered a half day, never "absent all day" (D-603).
+    expect(halfDaySwap("leave")).toBe("half_day");
     expect(nextTap("half_day")).toBe("present");
+    expect(nextTap("leave")).toBe("present");
+  });
+
+  it("names the yellow group Half-day, Leave, or both, and never calls a Leave a half day (D-603)", () => {
+    expect(halfOrLeave({ halfDay: 2, leave: 0 })).toEqual({ en: "Half-day", hi: "आधा दिन" });
+    expect(halfOrLeave({ halfDay: 0, leave: 1 })).toEqual({ en: "Leave", hi: "छुट्टी" });
+    expect(halfOrLeave({ halfDay: 1, leave: 1 })).toEqual({ en: "Half-day or leave", hi: "आधा दिन या छुट्टी" });
+    expect(halfOrLeave({ halfDay: 0, leave: 0 })).toEqual({ en: "Half-day", hi: "आधा दिन" });
   });
 });
 

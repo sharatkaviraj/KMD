@@ -23,9 +23,22 @@ export function nextTap(mark: Mark | undefined): Mark {
   return (mark ?? "present") === "present" ? "absent" : "present";
 }
 
-/** The "Half-day" / "Absent all day" choice on an away child's card. */
+/**
+ * The "Half-day" / "Absent all day" choice on an away child's card. A child
+ * on Leave is offered a half day, not "absent all day": Leave is already the
+ * whole day away, and taps on the card still reach Present and Absent (D-603).
+ */
 export function halfDaySwap(mark: Mark | undefined): Mark {
-  return mark === "half_day" || mark === "leave" ? "absent" : "half_day";
+  return mark === "half_day" ? "absent" : "half_day";
+}
+
+/**
+ * The name of the register's yellow group (D-603): "Half-day" while it holds
+ * only half days, "Leave" while only children on leave, both when it holds
+ * both. A child on Leave was read as "Half-day" until 13 Nov.
+ */
+export function halfOrLeave(c: { halfDay: number; leave: number }): Pair {
+  return c.leave ? (c.halfDay ? p("Half-day or leave", "आधा दिन या छुट्टी") : p("Leave", "छुट्टी")) : p("Half-day", "आधा दिन");
 }
 
 export type MarkCounts = { present: number; absent: number; halfDay: number; leave: number; late: number; total: number };

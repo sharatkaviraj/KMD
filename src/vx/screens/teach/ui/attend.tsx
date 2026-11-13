@@ -34,6 +34,7 @@ import {
   dayShortP,
   draftChanges,
   halfDaySwap,
+  halfOrLeave,
   markedLine,
   monthGrid,
   monthTitleP,
@@ -74,7 +75,7 @@ const REGISTER_SAVE = {
   failed: p("Could not save", "सेव नहीं हुई"),
 };
 type ViewKey = "history";
-type S = "P" | "A" | "H";
+type S = "P" | "A" | "H" | "L";
 
 const V = (x: string) => `var(--${x})`;
 
@@ -82,8 +83,12 @@ const LOOK: Record<S, { t: Pair; bg: string; bd: string; sbg: string; sfg: strin
   P: { t: p("Present", "उपस्थित"), bg: V("card"), bd: V("bd"), sbg: V("oks"), sfg: V("ok"), fg: V("ok"), icon: "check", cls: "p" },
   A: { t: p("Absent", "अनुपस्थित"), bg: V("bads"), bd: V("bad"), sbg: V("bad"), sfg: V("onsolid"), fg: V("bad"), icon: "x", cls: "a" },
   H: { t: p("Half-day", "आधा दिन"), bg: V("warns"), bd: V("warnm"), sbg: V("warn"), sfg: V("onsolid"), fg: V("warnfg"), icon: "calMinus", cls: "h" },
+  // A Leave looks like a half day, under its own name (D-603).
+  L: { t: p("Leave", "छुट्टी"), bg: V("warns"), bd: V("warnm"), sbg: V("warn"), sfg: V("onsolid"), fg: V("warnfg"), icon: "calMinus", cls: "h" },
 };
-const sOf = (m: Mark | undefined): S => (m === "absent" ? "A" : m === "half_day" || m === "leave" ? "H" : "P");
+const sOf = (m: Mark | undefined): S => (m === "absent" ? "A" : m === "half_day" ? "H" : m === "leave" ? "L" : "P");
+/** A count tile's name: the yellow one says Half-day, Leave or both. */
+const tileName = (k: S, c: { halfDay: number; leave: number }) => (k === "H" ? halfOrLeave(c) : LOOK[k].t);
 const TONES: [string, string][] = [[V("accs"), V("accfg")], [V("infos"), V("info")], [V("oks"), V("ok")], [V("warns"), V("warnfg")], [V("s3"), V("fg")]];
 
 // Why a saved register is being changed. A correction needs a reason (D-219).
@@ -354,7 +359,8 @@ export function TeachAttend({
   // The absent WhatsApp goes to these parents: not to one who told the school (D-588),
   // nor to one whose waiting note saving this register applies (D-601).
   const alertKids = absentKids.filter((r) => !r.informed && !r.ask);
-  const halfKids = data.roll.filter((r) => sOf(marks[r.id]) === "H");
+  const halfKids = data.roll.filter((r) => marks[r.id] === "half_day");
+  const leaveKids = data.roll.filter((r) => marks[r.id] === "leave");
   const often = useMemo(() => new Map(absentOften(data.monthMarks, 3).map((o) => [o.studentId, o.absent])), [data.monthMarks]);
   const yesterdayIds = Object.entries(data.yesterday).filter(([, m]) => m === "absent").map(([id]) => id);
 
@@ -538,7 +544,7 @@ export function TeachAttend({
         {([["P", c.present + c.late, V("oks"), V("ok")], ["A", c.absent, V("bads"), V("bad")], ["H", c.halfDay + c.leave, V("warns"), V("warnfg")]] as const).map(([k, n, bg, fg], i) => (
           <div key={k} className="tc-ctile tc-pop" style={{ background: bg, color: fg, animationDelay: `${200 + i * 90}ms` }}>
             <span className="num" style={{ fontSize: size, fontWeight: 700, lineHeight: 1.1 }}>{n}</span>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>{tx(LOOK[k].t)}</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>{tx(tileName(k, c))}</span>
           </div>
         ))}
       </div>
@@ -586,7 +592,7 @@ export function TeachAttend({
             ) : null}
           </span>
           <span className="tc-st" style={{ background: lk.sbg, color: lk.sfg }}>
-            <Ic n={lk.icon} size={17} stroke={s === "H" ? 2 : 2.6} className="tc-pop" />
+            <Ic n={lk.icon} size={17} stroke={lk.cls === "h" ? 2 : 2.6} className="tc-pop" />
             <span className="tc-stw">{tx(lk.t)}</span>
           </span>
         </button>
@@ -603,7 +609,7 @@ export function TeachAttend({
 
   /* ---------------------------------------------------------- mark view */
   const allYesterday = yesterdayIds.length > 0 && yesterdayIds.every((id) => marks[id] === "absent");
-  const parts = [tx(p(`${nP} present`, `${nP} उपस्थित`)), tx(p(`${nA} absent`, `${nA} अनुपस्थित`))].concat(nH ? [tx(p(`${nH} half-day`, `${nH} आधा दिन`))] : []).join(" · ");
+  const parts = [tx(p(`${nP} present`, `${nP} उपस्थित`)), tx(p(`${nA} absent`, `${nA} अनुपस्थित`))].concat(nH ? [`${nH} ${tx(halfOrLeave(counts)).toLowerCase()}`] : []).join(" · ");
   const savedTime = receipt ? timeP(receipt.savedAt) : null;
   const when: Pair = data.alertWhen ?? p("at 10 am", "सुबह 10 बजे");
   const classBadge = (
@@ -664,10 +670,10 @@ export function TeachAttend({
               <div key={k} className="card" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 2, borderColor: n && k !== "P" ? bd : "var(--bd)", overflow: "hidden" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
                   <span style={{ flex: "none", width: 9, height: 9, borderRadius: 5, background: c }} />
-                  <span className="tc-el">{tx(LOOK[k].t)}</span>
+                  <span className="tc-el">{tx(tileName(k, counts))}</span>
                 </span>
                 <span className="num" style={{ color: c }}><span key={n} className="tc-n">{n}</span></span>
-                {subOf(LOOK[k].t) ? <span className="tc-s tc-el">{subOf(LOOK[k].t)}</span> : null}
+                {subOf(tileName(k, counts)) ? <span className="tc-s tc-el">{subOf(tileName(k, counts))}</span> : null}
               </div>
             ))}
           </div>
@@ -741,20 +747,20 @@ export function TeachAttend({
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span style={{ fontWeight: 600 }}>
-              {absentKids.length + halfKids.length
+              {absentKids.length + halfKids.length + leaveKids.length
                 ? isToday
                   ? tx(p("Away today", "आज अनुपस्थित"))
                   : tx(p(`Away on ${dayShortP(data.day).en}`, `${dayShortP(data.day).hi} को अनुपस्थित`))
                 : tx(p("Everyone is here", "सब उपस्थित हैं"))}
             </span>
-            {[...absentKids, ...halfKids].map((k) => {
+            {[...absentKids, ...halfKids, ...leaveKids].map((k) => {
               const a = marks[k.id] === "absent";
               return (
                 <span key={k.id} className="tc-in" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <Face className="tc-av" style={{ width: 30, height: 30, fontSize: 11, background: a ? V("bads") : V("warns"), color: a ? V("bad") : V("warnfg") }} student={k.id} zoom={k.name}>{initials(k.name)}</Face>
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                     <span className="tc-el" style={{ fontWeight: 600 }}>{k.name}</span>
-                    <span className="tc-s">{[a ? tx(p("Absent", "अनुपस्थित")) : tx(p("Half-day", "आधा दिन")), whoLine(k)].filter(Boolean).join(" · ")}</span>
+                    <span className="tc-s">{[tx(LOOK[sOf(marks[k.id])].t), whoLine(k)].filter(Boolean).join(" · ")}</span>
                   </span>
                 </span>
               );
@@ -955,12 +961,16 @@ export function TeachAttend({
 
   /* ----------------------------------------------------------- history */
   const cells = monthGrid(data.month);
-  const byDay = new Map<string, { a: string[]; h: string[]; marked: number }>();
+  // h holds half days and leave together (both yellow); l counts the leave, so the day is named right (D-603).
+  const byDay = new Map<string, { a: string[]; h: string[]; l: number; marked: number }>();
   for (const m of data.monthMarks) {
-    const d = byDay.get(m.day) ?? { a: [], h: [], marked: 0 };
+    const d = byDay.get(m.day) ?? { a: [], h: [], l: 0, marked: 0 };
     d.marked += 1;
     if (m.status === "absent") d.a.push(m.studentId);
-    else if (m.status === "half_day" || m.status === "leave") d.h.push(m.studentId);
+    else if (m.status === "half_day" || m.status === "leave") {
+      d.h.push(m.studentId);
+      if (m.status === "leave") d.l += 1;
+    }
     byDay.set(m.day, d);
   }
   const pctOf = (d: { a: string[]; h: string[]; marked: number }) => Math.round(((d.marked - d.a.length - d.h.length) / Math.max(1, d.marked)) * 100);
@@ -983,6 +993,7 @@ export function TeachAttend({
       : marked.at(-1)?.[0] ?? (lastOpen && lastOpen.day.startsWith(data.month) ? lastOpen.day : `${data.month}-01`);
   const [pickDay, setPickDay] = useState<string>(firstPick);
   const picked = byDay.get(pickDay) ?? null;
+  const pickedH = halfOrLeave({ halfDay: (picked?.h.length ?? 0) - (picked?.l ?? 0), leave: picked?.l ?? 0 });
   const lead = cells.findIndex((c) => c !== null);
   const prevMonthDays = new Date(Date.UTC(Number(data.month.slice(0, 4)), Number(data.month.slice(5, 7)) - 1, 0)).getUTCDate();
   const trail = (7 - (cells.length % 7)) % 7;
@@ -1085,7 +1096,7 @@ export function TeachAttend({
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
               <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{pickDay === today ? tx(p(`Today · ${dayShortP(pickDay).en}`, `आज · ${dayShortP(pickDay).hi}`)) : D(pickDay)}</span>
-              <span className="tc-s">{picked ? tx(p(`${picked.marked - picked.a.length - picked.h.length} of ${picked.marked} present${picked.h.length ? ` · ${picked.h.length} half-day` : ""}`, `${picked.marked} में से ${picked.marked - picked.a.length - picked.h.length} उपस्थित${picked.h.length ? ` · ${picked.h.length} आधा दिन` : ""}`)) : tx(p(`${data.classLabel} · ${data.roll.length} children`, `${clsP.hi} · ${data.roll.length} बच्चे`))}</span>
+              <span className="tc-s">{picked ? tx(p(`${picked.marked - picked.a.length - picked.h.length} of ${picked.marked} present${picked.h.length ? ` · ${picked.h.length} ${pickedH.en.toLowerCase()}` : ""}`, `${picked.marked} में से ${picked.marked - picked.a.length - picked.h.length} उपस्थित${picked.h.length ? ` · ${picked.h.length} ${pickedH.hi}` : ""}`)) : tx(p(`${data.classLabel} · ${data.roll.length} children`, `${clsP.hi} · ${data.roll.length} बच्चे`))}</span>
             </span>
             {picked ? <span className="pill num tc-pop" style={{ height: 30, padding: "0 12px", fontSize: 14, background: scale(pctOf(picked))[0], color: scale(pctOf(picked))[1] }}>{pctOf(picked)}%</span> : null}
           </div>
@@ -1096,7 +1107,7 @@ export function TeachAttend({
                 <span style={{ width: `${((picked.a.length / Math.max(1, picked.marked)) * 100).toFixed(1)}%`, background: V("bad") }} />
                 <span style={{ width: `${((picked.h.length / Math.max(1, picked.marked)) * 100).toFixed(1)}%`, background: V("warn") }} />
               </div>
-              {([[p("Absent", "अनुपस्थित"), picked.a, V("bads"), V("bad")], [p("Half-day", "आधा दिन"), picked.h, V("warns"), V("warnfg")]] as const)
+              {([[p("Absent", "अनुपस्थित"), picked.a, V("bads"), V("bad")], [pickedH, picked.h, V("warns"), V("warnfg")]] as const)
                 .filter(([, list]) => list.length)
                 .map(([label, list, bg, fg]) => (
                   <div key={label.en} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1377,7 +1388,7 @@ export function TeachAttend({
       >
         <div className="tc-sb">
           {tiles(26, marks)}
-          {([[absentLabel, absentKids, V("bads"), V("bad")], [p("Half-day", "आधा दिन"), halfKids, V("warns"), V("warnfg")]] as const)
+          {([[absentLabel, absentKids, V("bads"), V("bad")], [LOOK.H.t, halfKids, V("warns"), V("warnfg")], [LOOK.L.t, leaveKids, V("warns"), V("warnfg")]] as const)
             .filter(([, list]) => list.length)
             .map(([label, list, bg, fg]) => (
               <div key={label.en} style={{ display: "flex", flexDirection: "column", gap: 8 }}>

@@ -112,6 +112,52 @@ it("starts the child as Leave when the class teacher chose Leave for the parent'
   ]);
 });
 
+/* A child on Leave read "Half-day" on the card, in the counts and in the save sheet until 13 Nov (D-603). */
+const onLeave = () => data({
+  roll: [
+    { id: kidA, name: "Test Alpha", rollNo: "1", admissionNo: null, hint: null, gender: null, birthday: false, informed: { en: "Parent informed · sick", hi: "" }, informedMark: "leave" },
+    { id: kidB, name: "Test Beta", rollNo: "2", admissionNo: null, hint: null, gender: null, birthday: false },
+  ],
+});
+const chip = (text: string) => [...host.querySelectorAll<HTMLButtonElement>("button.chip")].find((b) => b.textContent?.includes(text)) ?? null;
+const tileNames = () => [...sheet().querySelectorAll(".tc-ctile")].map((t) => t.textContent);
+
+it("reads a child on Leave as Leave, never Half-day, and offers a half day under the card (D-603)", async () => {
+  await render(onLeave());
+  expect(card("Test Alpha").getAttribute("aria-label")).toContain(", Leave, Parent informed · sick");
+  expect(card("Test Alpha").querySelector(".tc-stw")!.textContent).toBe("Leave");
+  expect(chip("Test: half-day instead")).not.toBeNull();
+  expect(chip("absent all day instead")).toBeNull();
+  expect(tileNames()).toEqual(["1Present", "0Absent", "1Leave"]);
+  expect(sheet().textContent).toContain("Leave (1)");
+  expect(sheet().textContent).not.toContain("Half-day (1)");
+  expect(sheet().querySelector("[data-sub]")!.textContent).toContain("1 present · 0 absent · 1 leave");
+
+  await act(async () => chip("Test: half-day instead")!.click());
+  expect(card("Test Alpha").querySelector(".tc-stw")!.textContent).toBe("Half-day");
+  expect(chip("Test: absent all day instead")).not.toBeNull();
+  expect(tileNames()).toEqual(["1Present", "0Absent", "1Half-day"]);
+  expect(sheet().textContent).toContain("Half-day (1)");
+});
+
+it("names both when the yellow group holds a half day and a Leave (D-603)", async () => {
+  await render(onLeave());
+  await act(async () => card("Test Beta").click());
+  // Both children are called Test, so Beta's chip is the second one.
+  const halfDayChips = [...host.querySelectorAll<HTMLButtonElement>("button.chip")].filter((b) => b.textContent?.includes("half-day instead"));
+  expect(halfDayChips).toHaveLength(2);
+  await act(async () => halfDayChips[1].click());
+  expect(tileNames()).toEqual(["0Present", "0Absent", "2Half-day or leave"]);
+  expect(sheet().textContent).toContain("Half-day (1)");
+  expect(sheet().textContent).toContain("Leave (1)");
+});
+
+it("lists a child saved on Leave under Away on the saved card, not under Half day (D-603)", async () => {
+  await render(data({ ...onLeave(), registerId: "qa-register", revision: 1, saved: { [kidA]: "leave", [kidB]: "present" }, receipt: { savedAt: "2026-10-10T03:00:00Z", actorName: "QA", revision: 1 } }));
+  expect(host.textContent).toContain("Away: Test Alpha (Parent informed · sick)");
+  expect(host.textContent).not.toContain("Half day:");
+});
+
 it("offers the WhatsApp only for the child whose parent did not tell the school", async () => {
   await render(data());
   await act(async () => card("Test Beta").click());
