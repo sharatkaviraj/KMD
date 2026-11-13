@@ -86,7 +86,7 @@ function inbound(over: Partial<WebhookInbound> = {}): WebhookInbound {
 }
 
 function answer(over: Partial<HelperAnswer> = {}): HelperAnswer {
-  return { language: "en", topic: "other", reply: "Happy to help.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, absence: null, change: null, school_answer: null, unanswered: null, ...over };
+  return { language: "en", topic: "other", reply: "Happy to help.", show: "none", handoff: "none", child: null, needs_care: false, summary: null, absence: null, change: null, receipt_pdf: null, school_answer: null, unanswered: null, ...over };
 }
 
 const CLAIMED: ClaimResult = { ok: true, claimed: true, typing: true, staff: false, stale: false, takenBy: null };
@@ -1006,6 +1006,125 @@ describe("a receipt the parent asks for, sent as its PDF (D-597)", () => {
     expect(await runHelperTurn(inbound({ text: "receipts" }), deps)).toMatchObject({ outcome: "answered", intent: "receipts" });
     expect(prepareReceipt).not.toHaveBeenCalled();
     expect(calls.sent[0]).toMatchObject({ type: "interactive" });
+  });
+});
+
+describe("receipts asked for in words, sent at once (D-606)", () => {
+  const SIBLING_ID = "66666666-6666-4666-8666-666666666666";
+  // Paid for at the desk on the same day as Aarav's latest.
+  const riya = childFactsFromRow({
+    today: "2026-11-12",
+    student: { id: SIBLING_ID, full_name: "TEST RIYA KUMARI", class_id: "c2", status: "active", session_label: "TEST-2026-27", class_name: "Class 2", section: null, stream_name: null },
+    installments: [],
+    receipts: [
+      { number: "TEST-SVP-0004", date: "2026-08-01", amount: 3000, mode: "cash", reversed: false },
+      { number: "TEST-SVP-0003", date: "2026-07-01", amount: 1500, mode: "cash", reversed: false },
+    ],
+    attendance: null,
+    days: [],
+    results: [],
+    class_teacher: null,
+    calendar: [],
+  }) as ChildFacts;
+  const made = (number: string) => ({ link: `https://files.example.test/${number}.pdf?token=t`, filename: `Receipt-${number}.pdf` });
+
+  function documentOf(body: Record<string, unknown> | undefined): { link: string; caption?: string } {
+    return (body?.document ?? {}) as { link: string; caption?: string };
+  }
+
+  it("makes the PDFs of a day two children were paid for together side by side, and sends them one after another", async () => {
+    let running = 0;
+    let most = 0;
+    const { deps, calls } = fakes({
+      readSettings: async () => ({ helperName: "Veer Patta AI", practiceStudentIds: [AARAV_ID, SIBLING_ID] }),
+      readChildFacts: async () => [aarav, riya],
+      prepareReceipt: async (request) => {
+        running += 1;
+        most = Math.max(most, running);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        running -= 1;
+        return made(request.receiptNumber);
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "send receipt" }), deps)).toEqual({ outcome: "answered", route: "rule", intent: "receipt_send", handoff: null });
+    expect(most).toBe(2);
+    expect(calls.sent.map((body) => body.type)).toEqual(["document", "document"]);
+    expect(calls.sent.map((body) => documentOf(body).link)).toEqual([made("TEST-SVP-0004").link, made("TEST-SVP-0002").link]);
+    // The last says how to ask for another, naming the one left.
+    expect(documentOf(calls.sent[0]).caption).not.toContain("Need another");
+    expect(documentOf(calls.sent[1]).caption).toContain("Need another one? Just write which, like “the 1 Jul receipt”.");
+    // The answer is the first message; the second is on the ledger as more.
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered", intent: "receipt_send", reason: null, replyMessageId: "wamid.REPLY1" });
+    expect(calls.finished[0][1].stages).toHaveProperty("more");
+  });
+
+  it("sends the words that say so for a PDF that could not be made, and the others as PDFs", async () => {
+    const { deps, calls } = fakes({
+      readSettings: async () => ({ helperName: "Veer Patta AI", practiceStudentIds: [AARAV_ID, SIBLING_ID] }),
+      readChildFacts: async () => [aarav, riya],
+      prepareReceipt: async (request) => (request.receiptNumber === "TEST-SVP-0002" ? null : made(request.receiptNumber)),
+    });
+    expect(await runHelperTurn(inbound({ text: "receipt bhejo" }), deps)).toMatchObject({ outcome: "answered", intent: "receipt_send" });
+    expect(calls.sent.map((body) => body.type)).toEqual(["document", "interactive"]);
+    expect(bodyText(calls.sent[1])).toContain("Receipt ki PDF abhi nahi bheji ja saki");
+    expect(bodyText(calls.sent[1])).toContain("TEST-SVP-0002");
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered", reason: "receipt_not_made" });
+  });
+
+  it("sends no more once the first could not be sent", async () => {
+    const sent: Record<string, unknown>[] = [];
+    const { deps } = fakes({
+      readSettings: async () => ({ helperName: "Veer Patta AI", practiceStudentIds: [AARAV_ID, SIBLING_ID] }),
+      readChildFacts: async () => [aarav, riya],
+      prepareReceipt: async (request) => made(request.receiptNumber),
+      send: async (body) => {
+        sent.push(body);
+        return { outcome: "rejected", httpStatus: 403, errorCode: "test_mode", errorTitle: "Test mode", errorDetail: null };
+      },
+    });
+    expect(await runHelperTurn(inbound({ text: "send receipt" }), deps)).toEqual({ outcome: "failed", reason: "send_rejected:test_mode" });
+    expect(sent).toHaveLength(1);
+  });
+
+  it("times making them as one span, not the sum", async () => {
+    let clock = NOW.getTime();
+    const { deps, calls } = fakes({
+      now: () => new Date(clock),
+      readSettings: async () => ({ helperName: "Veer Patta AI", practiceStudentIds: [AARAV_ID, SIBLING_ID] }),
+      readChildFacts: async () => [aarav, riya],
+      prepareReceipt: async (request) => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        // Both started at the same moment; the second finishes 600 ms after it.
+        clock += request.receiptNumber === "TEST-SVP-0004" ? 900 : 600;
+        return made(request.receiptNumber);
+      },
+    });
+    await runHelperTurn(inbound({ text: "send receipt" }), deps);
+    expect(calls.finished[0][1].stages).toMatchObject({ receipt: 1_500, compose: 1_500 });
+  });
+
+  it("sends the PDF itself when Claude reads the ask, Claude's words above it, in the parent's own language", async () => {
+    const asks: string[] = [];
+    const { deps, calls, askClaude } = fakes({
+      readChat: async () => ({ ...RETURNING, language: "hx" }),
+      prepareReceipt: async (request) => {
+        asks.push(request.receiptNumber);
+        return made(request.receiptNumber);
+      },
+    });
+    askClaude.mockResolvedValueOnce({
+      answer: answer({ language: "hx", topic: "receipts", reply: "Yeh rahi aapki receipt 🙏", receipt_pdf: { receipts: [] } }),
+      model: "claude-haiku-5-5",
+      careful: false,
+      costUsd: 0.002,
+      problem: null,
+    });
+    expect(await runHelperTurn(inbound({ text: "Pdf mil jaegi?" }), deps)).toEqual({ outcome: "answered", route: "ai", intent: "receipt_send", handoff: null });
+    expect(askClaude).toHaveBeenCalledWith(expect.objectContaining({ language: "hx" }));
+    expect(asks).toEqual(["TEST-SVP-0002"]);
+    expect(calls.sent).toHaveLength(1);
+    expect(documentOf(calls.sent[0]).caption?.startsWith("Yeh rahi aapki receipt 🙏\n\n🧾 *Receipt TEST-SVP-0002*")).toBe(true);
+    expect(calls.finished[0][1]).toMatchObject({ status: "answered", route: "ai", intent: "receipt_send" });
   });
 });
 

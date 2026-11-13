@@ -50,7 +50,7 @@ function bodyOf(message: HelperMessage): string {
 }
 
 function answer(over: Partial<HelperAnswer>): HelperAnswer {
-  return { language: "en", topic: "leave", reply: "Get well soon.", show: "none", handoff: "class_teacher", child: null, needs_care: false, summary: null, absence: null, change: null, school_answer: null, unanswered: null, ...over };
+  return { language: "en", topic: "leave", reply: "Get well soon.", show: "none", handoff: "class_teacher", child: null, needs_care: false, summary: null, absence: null, change: null, receipt_pdf: null, school_answer: null, unanswered: null, ...over };
 }
 
 /* -------------------------------------------------------------- the days */

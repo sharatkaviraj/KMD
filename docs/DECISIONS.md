@@ -1,5 +1,18 @@
 # Decisions
 
+## Veer Patta AI: a receipt asked for comes at once, never a button to press first — 13 November 2026
+
+The owner, testing on his own number on 13 Nov, asked "Pdf mil jaegi?" and was
+answered in English, told to tap "Send receipt", then to pick from a list:
+"when I casually ask about a PDF, then the AI should automatically reflect on
+that and don't ask to … press a button and it can directly send the PDF … if
+someone asks, then you don't have to tell them to press a button or do
+something." Nothing here changes a record; a parent's word still never does.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-606 | **A receipt a parent asks for in words is sent at once as its PDF. "receipt bhejo", "pdf" or "send receipt" sends the latest day's receipts (two children paid for together are two receipts of one day), at most three, and the last one's caption says how to ask for another in words, naming the next receipt as the example. A question, or a receipt named by its date, month, amount or number ("Pdf mil jaegi?", "July wali raseed"), is Claude's: Claude names the receipts by number in a new `receipt_pdf` field (none for the latest) and they are sent under Claude's words, found among this family's own receipts only and never a reversed one; a number that is not there gets the receipts to pick from, saying so. Claude is told to do what the parent asks and never to tell them to tap, press or choose to get what it can give them. A hand-off still wins over a receipt. Several PDFs are made side by side and sent one after another once the first has gone, each with its own "could not be sent" words and Try again button. Where a pick is still offered (the card's own Send receipt with several to send), up to three receipts are one button each, and the receipts card gives each of two receipts its own button. A short Roman-letter message with no English word in it keeps the chat's language, and the Hinglish words a short ask is made of ("mil", "jaegi", "hoga", "mujhe"…) now mark Hinglish. Without Claude, a receipt named by its date gets the receipts card instead of the menu.** | Claude's instructions said the receipts card "lists them with a Send receipt button", so Claude told the parent to tap it, and a typed ask with several receipts always ended in a list. A parent who writes "receipt" means the latest payment almost every time; the caption's "write which" covers the rest without a button. "Pdf mil jaegi?" read as English because none of its words was a known Hindi marker and two Roman-letter words counted as English. The PDF is the same school receipt as before (`prepareHelperReceipt`, found by child and number, practice only). The extra receipts' time is kept on the ledger as `more`, outside the answer's own time, and `receipt` is now the span from the first PDF started to the last finished. Button titles are counted in UTF-16 units, as `clip` counts, and drop the 📄 when a Hindi date leaves no room for it. `domain/helper-plan.ts` (`receiptAsk`, `receiptToSend`, `MAX_RECEIPTS_PER_ASK`), `domain/helper-ai.ts` (`receipt_pdf`, the instructions, `planFromAnswer`), `domain/helper-replies.ts` (`receiptButtons`, the card, the pick, the caption), `domain/helper-text.ts` (`detectLanguage`'s `previous`, the Hinglish and English words, the PDF rule, `ruleIntent`'s `claude: false`), `data/helper-turn.ts` (several PDFs, `deliver`), `data/helper-store.ts` (`more`). `tests/whatsapp-helper-receipts.test.ts`, the D-606 block in `tests/whatsapp-parent-helper-turn.test.ts` |
+
 ## Veer Patta AI: the typing dots sooner, and where each answer's time goes — 13 November 2026
 
 The owner, testing on his own number on 13 Nov: "I saw the missing typing

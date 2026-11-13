@@ -35,6 +35,28 @@ const ROMAN_HINDI = new Set([
   "chutti", "chhutti", "kaksha", "fees", "ab", "abhi", "kuch", "sab", "bhejo", "bhejiye", "dekho", "dekhna", "padhai", "school",
   // Greetings: "Ram Ram", "Jai Jinendra", "Radhe Radhe" are Hindi however they are typed.
   "jai", "ram", "radhe", "jinendra", "shree", "shri", "krishna",
+  // Verbs and small words a short Hinglish ask is often made of alone: "Pdf mil jaegi?" (D-606).
+  "mil", "milega", "milegi", "milenge", "mila", "mili", "jaega", "jaegi", "jayega", "jayegi", "jaayega", "jaayegi", "jaenge", "jayenge",
+  "hoga", "hogi", "honge", "hua", "hui", "hue", "gaya", "gayi", "gai", "gaye", "raha", "rahi", "rahe", "sakta", "sakti", "sakte",
+  "dikhao", "dikhaiye", "dikhana", "bhej", "bhejna", "bhejdo", "bhejiyega", "bataiyega", "dijiyega", "kijiyega", "chahte", "chahta",
+  "chahti", "chahie", "chaiye", "chaahiye", "mujhe", "muje", "mujhko", "humko", "hamko", "aap", "aapka", "aapki", "aapke", "uska",
+  "uski", "iska", "iski", "unka", "unki", "kahan", "kaha", "kidhar", "yahan", "yaha", "wahan", "agar", "lekin", "kyunki", "jaldi",
+  "kripya", "krupya", "nhi", "nai", "waali", "waala", "pichhli", "pichli", "pichhla", "pichla", "pehle", "pahle", "baad", "tak", "se",
+  "kar", "karke", "kiya", "kiye", "diya", "diye", "dena", "lena", "dono", "wali",
+]);
+
+/**
+ * Words that mark English. A message in Roman letters with none of these and
+ * no Hindi marker ("Rudra absent", "Pdf mil jaegi?" before its words were
+ * known) says nothing about its language, so the chat's own stands (D-606).
+ */
+const ENGLISH = new Set([
+  "the", "is", "are", "was", "were", "am", "be", "been", "i", "my", "me", "we", "our", "us", "you", "your", "he", "she", "his", "her",
+  "it", "its", "they", "their", "this", "that", "these", "those", "what", "when", "where", "why", "how", "which", "who", "whom",
+  "please", "pls", "plz", "kindly", "can", "could", "will", "would", "should", "shall", "may", "might", "must", "does", "did", "have",
+  "has", "had", "not", "and", "but", "if", "of", "for", "in", "on", "at", "to", "from", "with", "about", "much", "many", "want", "need",
+  "send", "give", "get", "show", "tell", "know", "sorry", "thank", "thanks", "dear", "today", "tomorrow", "yesterday", "son", "daughter",
+  "child", "children", "kid", "kids", "paid", "pay", "pending", "due", "copy", "any", "some", "all", "both", "last", "latest", "next",
 ]);
 
 /**
@@ -55,8 +77,12 @@ function words(text: string): string[] {
 /**
  * The parent's language, or null when the message does not say (a bare "Hi",
  * "ok", a number, an emoji): then the chat's last language stands.
+ * `previous` is that language: a message of two or more words in Roman
+ * letters with no marker of either language keeps it, and is English only in
+ * a chat with no language yet (D-606: "Pdf mil jaegi?" in a Hinglish chat was
+ * answered in English).
  */
-export function detectLanguage(text: string | null | undefined): HelperLanguage | null {
+export function detectLanguage(text: string | null | undefined, previous: HelperLanguage | null = null): HelperLanguage | null {
   const value = String(text ?? "").trim();
   if (!value) return null;
   if (DEVANAGARI.test(value)) return "hi";
@@ -64,9 +90,10 @@ export function detectLanguage(text: string | null | undefined): HelperLanguage 
   const list = words(value);
   const hindi = list.filter((word) => ROMAN_HINDI.has(word));
   if (hindi.some((word) => !SHARED_WITH_ENGLISH.has(word))) return "hx";
-  // Two or more English words and no Hindi marker: English. One word ("hello",
-  // "fees") says nothing about the language.
-  return list.length >= 2 ? "en" : null;
+  // One word ("hello", "fees") says nothing about the language.
+  if (list.length < 2) return null;
+  if (list.some((word) => ENGLISH.has(word))) return "en";
+  return previous ?? "en";
 }
 
 /* ---------------------------------------------------------------- intents */
@@ -128,6 +155,14 @@ export function looksLikeQuestion(text: string | null | undefined): boolean {
 const RECEIPT_WORD = "receipts?|reciepts?|raseed|rasid|rashid";
 
 /**
+ * A message that names one receipt in particular: a date, a month, an amount
+ * or a number ("26 Jul wali receipt", "July ki raseed bhejo"). Claude matches
+ * it against the family's receipts (D-606); the rules would send the latest.
+ */
+const NAMES_A_RECEIPT =
+  /\d|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b|जनवरी|फ़?फरवरी|फ़रवरी|मार्च|अप्रैल|मई|जून|जुलाई|अगस्त|सितंबर|सितम्बर|अक्टूबर|अक्तूबर|नवंबर|नवम्बर|दिसंबर|दिसम्बर|[०-९]/i;
+
+/**
  * Asking for the paper itself: send it, a copy, the PDF. "do" and "dena" are
  * "give" ("receipt de do"); "dono" (both) is not, as a whole word.
  */
@@ -149,12 +184,17 @@ const RULES: Rule[] = [
       new RegExp(`\\b(?:${RECEIPT_WORD})\\b.*\\b(?:${SEND_WORD})\\b`, "i"),
       new RegExp(`\\b(?:${SEND_WORD})\\b.*\\b(?:${RECEIPT_WORD})\\b`, "i"),
       /रसीद.*(भेज|चाहिए|चाहिये|कॉपी|कोपी|दीजिए|दीजिये|दें|दो|पीडीएफ)|(भेज|कॉपी|पीडीएफ).*रसीद/,
+      // "pdf", "pdf bhejo", "PDF please": the only PDF the helper sends is a receipt (D-606).
+      /^(?:the\s+|ek\s+)?(?:pdf|पीडीएफ)(?:\s+(?:send|bhej\w*|chahiye|chaiye|chahie|de\s?do|dedo|dijiye|dijie|do|dena|please|pls|plz|ji|kar\s?do|kijiye|भेजें|भेजो|भेज\s?दो|चाहिए|दीजिए|दो))*[\s!.।]*$/i,
     ],
-    askClaudeIf: (text) => /[?？]/.test(text) || /(?:^|[^a-z\u0900-\u097f])(?:why|kyu|kyun|kyon|kyo)(?=$|[^a-z\u0900-\u097f])|क्यों|क्यूं/i.test(text),
+    askClaudeIf: (text) =>
+      NAMES_A_RECEIPT.test(text) || /[?？]/.test(text) || /(?:^|[^a-z\u0900-\u097f])(?:why|kyu|kyun|kyon|kyo)(?=$|[^a-z\u0900-\u097f])|क्यों|क्यूं/i.test(text),
   },
   {
     intent: "receipts",
     patterns: [/\b(receipts?|reciepts?|reciept|raseed|rasid|rashid)\b/i, /रसीद/],
+    // "26 Jul wali receipt" is one receipt in particular: Claude sends it (D-606).
+    askClaudeIf: (text) => NAMES_A_RECEIPT.test(text),
   },
   // Before fees: "admission" is a visit to book (D-592), and a fee question about admission goes to Claude.
   // "pravesh patra" / "प्रवेश पत्र" is an exam's admit card, not an admission.
@@ -218,13 +258,16 @@ const RULES: Rule[] = [
 ];
 
 /** What a short, plain message asks for, or null: then Claude reads it. */
-export function ruleIntent(text: string | null | undefined): HelperIntent | null {
+export function ruleIntent(text: string | null | undefined, options: { claude?: boolean } = {}): HelperIntent | null {
   const value = String(text ?? "").trim();
   if (!value) return null;
   if (words(value).length > RULE_MAX_WORDS) return null;
+  // `claude: false` is the intent when Claude cannot be asked: what a rule
+  // would leave to Claude ("26 Jul wali receipt") is the rule's (D-606).
+  const claude = options.claude ?? true;
   for (const rule of RULES) {
     if (!rule.patterns.some((pattern) => pattern.test(value))) continue;
-    return rule.askClaudeIf?.(value) ? null : rule.intent;
+    return claude && rule.askClaudeIf?.(value) ? null : rule.intent;
   }
   return null;
 }

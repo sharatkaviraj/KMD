@@ -472,6 +472,7 @@ describe("booking a visit, message by message", () => {
       summary: null,
       absence: null,
       change: null,
+      receipt_pdf: null,
       school_answer: null,
       unanswered: null,
     };

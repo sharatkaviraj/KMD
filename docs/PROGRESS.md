@@ -31,7 +31,7 @@ only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers
 parents day and night with their children's fees, receipts, attendance and
 results, and hands anything else to the right person; named "Veer Patta AI".
-Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-605. **Step 1, practice only:**
+Branch `claude/project-thread-1a26la`, D-574..D-584, D-588..D-595 and D-597..D-606. **Step 1, practice only:**
 the owner's test number stands for two TEST children
 (`parent_helper_settings`); every other number is left to the hub's own bot.
 **Done:** the brain in One (`src/modules/whatsapp/domain/helper-*.ts`: Hindi,
@@ -281,6 +281,15 @@ half (the dots the moment a message arrives), which needs a hub deploy.
 family with no child could be left to the hub's bot; reading them after the
 claim costs that one case a short "could not open your child's details" reply
 instead.
+**A receipt at once (D-606):** asked for in words, a receipt now comes as its
+PDF straight away: the latest day's (two children paid together are both),
+or the one Claude read from the parent's words, with "write which" for
+another, and never a button to press first. Claude is told never to send the
+parent to a button for what it can give. "Pdf mil jaegi?" reads as Hinglish,
+and a short message that shows no language keeps the chat's. **Remains:** the
+owner's next try on his number. **Surprised:** the button was Claude's own
+instructions, which described the card's "Send receipt" button, so Claude
+dutifully told the parent to press it.
 
 ## APInex's free models, each kind of job on its best free model — 10 November 2026
 

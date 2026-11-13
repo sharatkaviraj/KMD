@@ -6,6 +6,7 @@ import { istHour, receiptByKey, sendableReceipts, type ChildFacts, type ChildRec
 import type { HelperMessage } from "./helper-messages";
 import type { ChangeRequest } from "./parent-suggestions";
 import {
+  aiAnswer,
   cardFor,
   fallbackReply,
   handoffAck,
@@ -63,8 +64,10 @@ import {
  *  - "admission" books a school visit (D-592): a day, morning or afternoon,
  *    then the child's name and class, typed, and the office is told.
  *  - "receipt bhejo", or "📄 Send receipt" on the receipts card, sends the
- *    receipt itself as a PDF (D-597): at once when there is one, from a list
- *    when there are several, and only ever one of this family's own.
+ *    receipt itself as a PDF (D-597), only ever one of this family's own.
+ *    Asked in words, it goes at once: the latest day's, or the one Claude
+ *    read from the parent's words (D-606). A tap on the card's button with
+ *    several to send offers them to pick from, one tap each.
  */
 
 /** How long the helper waits for the message it asked for. */
@@ -125,10 +128,13 @@ export type TurnRoute = "rule" | "tap" | "ai" | "ai_careful" | "fallback";
 
 /**
  * A receipt the parent asked for (D-597). The data layer makes its PDF and
- * sends it with `caption`; the reply's own message, which says the PDF could
- * not be sent, goes instead when it cannot.
+ * sends it with `caption`; `unsent`, which says the PDF could not be sent and
+ * offers to try again, goes in its place when it cannot be.
  */
-export type ReceiptSend = { child: ChildFacts; receipt: ReceiptFact; caption: string };
+export type ReceiptSend = { child: ChildFacts; receipt: ReceiptFact; caption: string; unsent: HelperMessage };
+
+/** The most receipts one ask sends (D-606): one family's payment on one day is rarely more. */
+export const MAX_RECEIPTS_PER_ASK = 3;
 
 export type TurnPlan =
   | { action: "skip"; reason: string }
@@ -140,8 +146,11 @@ export type TurnPlan =
       message: HelperMessage;
       chat: ChatPatch;
       handoff: HandoffPlan | null;
-      /** A receipt to send as its PDF (D-597); `message` is what goes when it cannot be. */
-      receipt?: ReceiptSend | null;
+      /**
+       * Receipts to send as their PDFs (D-597), one after another (D-606).
+       * `message` is the first one's `unsent`, for when its PDF cannot be made.
+       */
+      receipts?: ReceiptSend[] | null;
     }
   | { action: "ask_ai"; language: HelperLanguage; firstContact: boolean; chat: ChatPatch }
   /** A tap on "Did this answer help?": `key` names the hand-off (`ratingKey`), among this number's own only. */
@@ -281,12 +290,82 @@ export function messageSkip(input: Pick<PlanInput, "kind" | "text" | "tap">): st
   return ruleIntent(text) === "stop" ? "stop" : null;
 }
 
+/**
+ * One receipt as it goes (D-597): its caption, and the words that go in its
+ * place when its PDF cannot be. Only the first of several says who the
+ * helper is.
+ */
+export function receiptToSend(
+  context: ReplyContext,
+  { child, receipt }: ChildReceipt,
+  extra: { words?: string | null; another?: ChildReceipt | null; first?: boolean } = {},
+): ReceiptSend {
+  const own = extra.first === false ? { ...context, firstContact: false } : context;
+  return {
+    child,
+    receipt,
+    caption: receiptCaption(own, child, receipt, { words: extra.words, another: extra.another }),
+    unsent: receiptUnsentReply(own, child, receipt),
+  };
+}
+
+function receiptNumberKey(number: string): string {
+  return number.replace(/\s+/g, "").toUpperCase();
+}
+
+/**
+ * A receipt asked for in words (D-606), sent at once as its PDF, never a
+ * button to press first. `wanted` are the receipt numbers Claude read from
+ * the parent's words ("the July one", "₹6,000 wali"), found among this
+ * family's own receipts only. With none, the latest day's among `children`:
+ * what "receipt bhejo" means, and two children paid for together are two
+ * receipts of that day. At most three either way. A reversed receipt is
+ * never sent. The last caption says how to ask for another, when there is
+ * one. `words` are Claude's, put above the first.
+ *
+ * With nothing to send, the receipts card, which says there is none; with a
+ * receipt named that is not there (reversed since, or never this family's),
+ * the receipts to pick from, saying so.
+ */
+export function receiptAsk(
+  context: ReplyContext,
+  children: readonly ChildFacts[] = context.family.children,
+  wanted: readonly string[] = [],
+  words: string | null = null,
+): { intent: "receipt_send" | "receipt_pick" | "receipts"; message: HelperMessage; receipts: ReceiptSend[] } {
+  const sendable = sendableReceipts(children);
+  const own = sendableReceipts(context.family.children);
+  const asked = new Set(wanted.map(receiptNumberKey).filter(Boolean));
+  if (own.length === 0 || (asked.size === 0 && sendable.length === 0)) {
+    const card = receiptsCard(context, children);
+    return { intent: "receipts", message: words ? aiAnswer(context, words, card) : card, receipts: [] };
+  }
+  let picked: ChildReceipt[];
+  if (asked.size > 0) {
+    picked = own.filter(({ receipt }) => asked.has(receiptNumberKey(receipt.number))).slice(0, MAX_RECEIPTS_PER_ASK);
+    if (picked.length === 0) return { intent: "receipt_pick", message: receiptPickList(context, context.family.children, true), receipts: [] };
+  } else {
+    const latest = sendable[0].receipt.date;
+    picked = sendable.filter(({ receipt }) => receipt.date === latest).slice(0, MAX_RECEIPTS_PER_ASK);
+  }
+  const another = asked.size === 0 ? (sendable.find((item) => !picked.includes(item)) ?? null) : null;
+  const receipts = picked.map((item, index) =>
+    receiptToSend(context, item, {
+      words: index === 0 ? words : null,
+      another: index === picked.length - 1 ? another : null,
+      first: index === 0,
+    }),
+  );
+  return { intent: "receipt_send", message: receipts[0].unsent, receipts };
+}
+
 export function planTurn(input: PlanInput): TurnPlan {
   const { chat, family, now } = input;
   const nothing = family.children.length > 0 ? messageSkip(input) : null;
   if (nothing) return { action: "skip", reason: nothing };
   const text = (input.text ?? "").trim();
-  const detected = input.kind === "text" ? detectLanguage(text) : null;
+  // A message that does not show its language keeps the chat's (D-606).
+  const detected = input.kind === "text" ? detectLanguage(text, chat.language) : null;
   const language: HelperLanguage = detected ?? chat.language ?? "hi";
   const firstContact = chat.greetedAt === null && chat.lastTurnAt === null;
   const context: ReplyContext = { language, helperName: input.helperName, family, firstContact };
@@ -298,8 +377,8 @@ export function planTurn(input: PlanInput): TurnPlan {
     message: HelperMessage,
     chatPatch: ChatPatch = {},
     handoff: HandoffPlan | null = null,
-    receipt: ReceiptSend | null = null,
-  ): TurnPlan => ({ action: "reply", intent, route, language, message, chat: { ...remember, ...chatPatch }, handoff, ...(receipt ? { receipt } : {}) });
+    receipts: ReceiptSend[] = [],
+  ): TurnPlan => ({ action: "reply", intent, route, language, message, chat: { ...remember, ...chatPatch }, handoff, ...(receipts.length > 0 ? { receipts } : {}) });
 
   if (family.children.length === 0) return { action: "skip", reason: "no_children" };
 
@@ -311,18 +390,17 @@ export function planTurn(input: PlanInput): TurnPlan {
   const route: TurnRoute = input.kind === "tap" ? "tap" : "rule";
 
   /** One receipt, as its PDF (D-597); the words for when it cannot be sent are the message. */
-  const receiptSend = ({ child, receipt }: ChildReceipt): TurnPlan =>
-    reply("receipt_send", route, receiptUnsentReply(context, child, receipt), { ...clearAwait, ...greeted }, null, {
-      child,
-      receipt,
-      caption: receiptCaption(context, child, receipt),
-    });
+  const receiptSend = (item: ChildReceipt): TurnPlan => {
+    const sending = receiptToSend(context, item);
+    return reply("receipt_send", route, sending.unsent, { ...clearAwait, ...greeted }, null, [sending]);
+  };
 
   /**
-   * "Send receipt", typed or tapped (D-597): the one receipt at once, a list
-   * to pick from when there are several, and the receipts card, which says
-   * there are none, when there is nothing to send. `gone` is a tap on a
-   * receipt no longer there: never another receipt in its place, the list.
+   * "📄 Send receipt" tapped on the receipts card (D-597): the one receipt at
+   * once, the receipts to pick from when there are several, and the receipts
+   * card, which says there are none, when there is nothing to send. `gone` is
+   * a tap on a receipt no longer there: never another receipt in its place,
+   * the list. Typed, the ask is `receiptAsk`'s (D-606).
    */
   const receiptStart = (children: readonly ChildFacts[], gone = false): TurnPlan => {
     const sendable = sendableReceipts(children);
@@ -453,8 +531,11 @@ export function planTurn(input: PlanInput): TurnPlan {
     case "results":
     case "teacher":
       return reply(rule, "rule", cardFor(rule, context), { ...clearAwait, ...greeted });
-    case "receipt_send":
-      return receiptStart(family.children);
+    case "receipt_send": {
+      // Asked in words, the receipt comes at once: no button to press first (D-606).
+      const asked = receiptAsk(context);
+      return reply(asked.intent, route, asked.message, { ...clearAwait, ...greeted }, null, asked.receipts);
+    }
     case "office":
       return reply("office", "rule", officePrompt(context), { awaiting: "office", awaitingUntil: awaitUntil(now) });
     case "visit":
@@ -466,5 +547,9 @@ export function planTurn(input: PlanInput): TurnPlan {
   }
 
   if (input.aiAvailable) return { action: "ask_ai", language, firstContact, chat: { ...remember, ...greeted, ...clearAwait } };
+  // Without Claude, a receipt asked for by its date, month or amount ("26 Jul
+  // wali receipt") gets the receipts card to pick it from, not the menu (D-606).
+  const unaided = ruleIntent(text, { claude: false });
+  if (unaided === "receipts" || unaided === "receipt_send") return reply("receipts", "rule", cardFor("receipts", context), { ...clearAwait, ...greeted });
   return reply("fallback", "fallback", fallbackReply(context), { ...clearAwait, ...greeted });
 }

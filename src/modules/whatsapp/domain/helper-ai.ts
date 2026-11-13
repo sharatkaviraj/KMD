@@ -8,7 +8,7 @@ import type { ChildFacts } from "./helper-facts";
 import type { HelperMessage } from "./helper-messages";
 import { knowledgeLines, NO_KNOWLEDGE, type SchoolKnowledge } from "./helper-lessons";
 import { CHANGE_FIELDS, normaliseChange } from "./parent-suggestions";
-import { childByKey, handoffReply, type TurnPlan } from "./helper-plan";
+import { childByKey, handoffReply, receiptAsk, type TurnPlan } from "./helper-plan";
 import { aiAnswer, cardFor, fallbackReply, menuCard, OFFICE_PHONE, type Family, type HandoffTarget, type ReplyContext } from "./helper-replies";
 import type { HelperLanguage } from "./helper-text";
 import { withVisitButton } from "./helper-visit";
@@ -26,7 +26,9 @@ import { withVisitButton } from "./helper-visit";
  * Claude sees only the family that wrote, read from the school's records a
  * moment before, and never a photo. It writes words, never figures: for fees,
  * receipts, attendance and results it names the card, and the card, built
- * from the same records, says the numbers.
+ * from the same records, says the numbers. A receipt the parent asks for is
+ * sent as its PDF at once, under Claude's words, and never as a button to
+ * press first (D-606): Claude names which, and only this family's own goes.
  *
  * A parent's word that a child will be away (D-588) is read here too: Claude
  * says from when, for how many school days and why, the message goes to the
@@ -81,6 +83,9 @@ export const helperAnswerSchema = z.object({
   // A detail the parent asks the school to change (D-598): kept as a suggestion
   // for the office, never written. `normaliseChange` decides what counts.
   change: z.object({ field: z.enum(CHANGE_FIELDS), value: z.string() }).nullable(),
+  // A receipt the parent wants, sent as its PDF at once (D-606): the numbers as
+  // in FACTS, or none for the latest. `receiptAsk` sends only this family's own.
+  receipt_pdf: z.object({ receipts: z.array(z.string()) }).nullable(),
   // Teach it once (D-589): the key of the school answer this reply came from (A1…), or null.
   school_answer: z.string().nullable(),
   // A general question about the school that FACTS does not answer, in Claude's
@@ -106,7 +111,9 @@ export function helperSystemPrompt(helperName: string): string {
     '- In Hindi and Hinglish, speak as the school ("हम", "hum") or in forms that do not change with gender, and address the parent as "आप" ("aap"). Never guess anyone\'s gender, the child\'s included.',
     "- Never invent anything: a date, a rule, a name, an amount, a promise. If FACTS does not answer it, say the school will help and hand it off.",
     '- Do not write fee amounts, marks, percentages or attendance numbers yourself. Set "show" to the card that has them ("fees", "receipts", "attendance", "results", "teacher") and the card is sent under your words, from the same records. You may say "see the details below".',
-    '- A parent who wants a receipt, or a copy of one: set "show" to "receipts". The card lists them with a "Send receipt" button that sends the receipt itself here as a PDF; you may say so in a few words.',
+    "- Do what the parent asks, now, whenever these rules let you. Never tell them to tap, press or choose something to get what you can give them yourself.",
+    '- A parent who wants a receipt itself, a copy of one or its PDF ("pdf mil jayegi?", "receipt bhej do", "July wali raseed"): set "receipt_pdf" and the PDF is sent here at once, under your words. In "receipts" put the receipt numbers exactly as in FACTS for the ones the parent means (by date, month, amount or child), at most 3; leave it empty for the latest (of the child in "child" when the parent means one child). Never a REVERSED receipt. "reply" says in a few words that it is here, for example "Yeh rahi aapki receipt 🙏". Set "show" to "none". Otherwise "receipt_pdf" is null.',
+    '- A parent who asks which receipts there are, or what has been paid when: set "show" to "receipts"; the card lists them.',
     "- The late fee is separate from the fees and is never added to them.",
     '- Results: only what FACTS lists as released. If none is listed, results have not been released yet.',
     "- You cannot take a payment, change a record, give a discount, waive a late fee, grant leave or decide anything. For any of these, hand it off.",
@@ -252,6 +259,13 @@ export function planFromAnswer(
     const topic = answer.handoff !== "none" ? answer.topic : away ? "leave" : "request";
     const handed = handoffReply(context, target, child, input.text, topic, input.now, words || null, { absence: away, change });
     return { action: "reply", intent: topic, route: "ai", language, message: admission(handed.message), chat: { language }, handoff: handed.handoff };
+  }
+  // The receipt itself, at once, under Claude's words (D-606): one the parent
+  // named, or the latest, and only ever one of this family's own.
+  const pdf = answer.receipt_pdf ?? null;
+  if (pdf) {
+    const asked = receiptAsk(context, named ? [named] : input.family.children, pdf.receipts ?? [], words || null);
+    return { action: "reply", intent: asked.intent, route: "ai", language, message: asked.message, chat: { language }, handoff: null, receipts: asked.receipts };
   }
   if (!words) {
     return { action: "reply", intent: "fallback", route: "fallback", language, message: fallbackReply(context), chat: { language }, handoff: null };

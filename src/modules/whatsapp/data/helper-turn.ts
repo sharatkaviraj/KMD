@@ -248,6 +248,22 @@ function worthPlainRetry(result: ProviderSendResult, message: HelperMessage): bo
 }
 
 /**
+ * One message to the parent, and its retry when Meta refuses it: a refused
+ * PDF goes as the words that say it could not be sent (D-597), never as a
+ * caption promising a file, and a refused card as plain words.
+ */
+async function deliver(deps: HelperDeps, to: string, outgoing: Outgoing): Promise<{ sent: ProviderSendResult; note: string | null }> {
+  const { message, fallback } = outgoing;
+  const sent = await deps.send(helperMessageBody(to, message));
+  if (!worthPlainRetry(sent, message)) return { sent, note: null };
+  const document = message.kind === "document";
+  const retry = document && fallback ? fallback : plainVersion(message);
+  let again = await deps.send(helperMessageBody(to, retry));
+  if (document && worthPlainRetry(again, retry)) again = await deps.send(helperMessageBody(to, plainVersion(retry)));
+  return { sent: again, note: document ? "receipt_refused" : "sent_as_plain_text" };
+}
+
+/**
  * The hub has given the message to One and the parent sees the typing dots,
  * but there is nothing to answer from: the family's records could not be
  * read, or name no child (D-605). Before, the helper stayed out of these
@@ -284,9 +300,12 @@ type Reply = {
   route: TurnRoute;
   chat: ChatPatch;
   handoff: HandoffPlan | null;
-  /** A receipt to send as its PDF (D-597). */
-  receipt?: ReceiptSend | null;
+  /** Receipts to send as their PDFs (D-597), one after another (D-606). */
+  receipts?: readonly ReceiptSend[] | null;
 };
+
+/** A message to the parent, and the words that go in its place when Meta refuses it (a receipt's PDF, D-597). */
+type Outgoing = { message: HelperMessage; fallback: HelperMessage | null };
 
 type Composed = {
   reply: Reply;
@@ -300,6 +319,8 @@ type Composed = {
   lesson: LessonNote | null;
   /** When the message is a receipt's PDF (D-597): the words that say it could not be sent, for a refusal. */
   fallback: HelperMessage | null;
+  /** More receipts' PDFs, sent after the reply, in order (D-606). */
+  more: Outgoing[];
 };
 
 /** The reply, once the message is One's: Claude's answer or the planned card, and any hand-off written first. */
@@ -344,13 +365,14 @@ async function compose(input: {
         route: claude.careful ? "ai_careful" : "ai",
         chat: { ...plan.chat, ...answered.chat },
         handoff: answered.handoff,
+        receipts: answered.receipts ?? null,
       };
     } else {
       reply = { message: fallbackReply(context), intent: "fallback", route: "fallback", chat: plan.chat, handoff: null };
       note = `ai_${claude.problem ?? "no_answer"}`;
     }
   } else {
-    reply = { message: plan.message, intent: plan.intent, route: plan.route, chat: plan.chat, handoff: plan.handoff, receipt: plan.receipt ?? null };
+    reply = { message: plan.message, intent: plan.intent, route: plan.route, chat: plan.chat, handoff: plan.handoff, receipts: plan.receipts ?? null };
   }
 
   // A hand-off goes into One's Messages inbox before the parent is told it has.
@@ -418,29 +440,36 @@ async function compose(input: {
     }
   }
 
-  // A receipt the parent asked for goes as its PDF; the planned words, which
-  // say it could not be sent, go when it cannot be made (D-597).
+  // The receipts the parent asked for go as their PDFs, made side by side; a
+  // receipt whose PDF cannot be made goes as the words that say so, with a
+  // button to try again (D-597). The first is the reply, the rest follow it (D-606).
   let fallback: HelperMessage | null = null;
-  const asked = reply.receipt;
-  if (asked) {
-    const document = deps.prepareReceipt
-      ? await deps
-          .prepareReceipt({
-            studentId: asked.child.studentId,
-            sessionLabel: asked.child.sessionLabel,
-            receiptNumber: asked.receipt.number,
-            practice: family.practice,
-          })
-          .catch(() => null)
-      : null;
-    if (document) {
-      fallback = reply.message;
-      reply = { ...reply, message: { kind: "document", link: document.link, filename: document.filename, caption: asked.caption } };
-    } else {
-      note = "receipt_not_made";
-    }
+  let more: Outgoing[] = [];
+  const asked = reply.receipts ?? [];
+  if (asked.length > 0) {
+    const prepare = deps.prepareReceipt;
+    const documents = await Promise.all(
+      asked.map((item) =>
+        prepare
+          ? prepare({ studentId: item.child.studentId, sessionLabel: item.child.sessionLabel, receiptNumber: item.receipt.number, practice: family.practice }).catch(
+              () => null,
+            )
+          : Promise.resolve(null),
+      ),
+    );
+    const outgoing = asked.map((item, index): Outgoing => {
+      const document = documents[index];
+      return document
+        ? { message: { kind: "document", link: document.link, filename: document.filename, caption: item.caption }, fallback: item.unsent }
+        : { message: item.unsent, fallback: null };
+    });
+    if (documents.some((document) => !document)) note = note ?? "receipt_not_made";
+    const [first, ...rest] = outgoing;
+    reply = { ...reply, message: first.message };
+    fallback = first.fallback;
+    more = rest;
   }
-  return { reply, claude, parentReplyId, handedTo, note, followUp: null, lesson, fallback };
+  return { reply, claude, parentReplyId, handedTo, note, followUp: null, lesson, fallback, more };
 }
 
 /**
@@ -472,7 +501,7 @@ async function composeRating(input: {
     chat: plan.chat,
     handoff: null,
   });
-  const none = { claude: null, parentReplyId: null, handedTo: null, note: null, followUp: null, lesson: null, fallback: null };
+  const none = { claude: null, parentReplyId: null, handedTo: null, note: null, followUp: null, lesson: null, fallback: null, more: [] };
   switch (rated.outcome) {
     case "unknown":
       return { ...none, reply: reply(plan.value === "helped" ? "helped" : "ask_office", "rating_unknown") };
@@ -622,7 +651,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   stages.family = readAt - claimedAt;
   if (!children || children.length === 0) {
     // The parent is already seeing the dots, so they hear why, rather than nothing.
-    const language = (kind === "text" ? detectLanguage(message.text) : null) ?? chat.language ?? "hi";
+    const language = (kind === "text" ? detectLanguage(message.text, chat.language) : null) ?? chat.language ?? "hi";
     return answerWithoutRecords({ message, deps, sentAt, stages, language, reason: children ? "no_children" : "facts_unreadable" });
   }
 
@@ -664,6 +693,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   const firstContact = plan.action === "ask_ai" ? plan.firstContact : false;
   const context: ReplyContext = { language: plan.language, helperName: settings.helperName, family, firstContact };
   // Claude's share of the answer and a receipt's PDF are timed where they happen (D-605).
+  const receiptSpan = { from: Number.POSITIVE_INFINITY, to: Number.NEGATIVE_INFINITY };
   const timed: HelperDeps = {
     ...deps,
     askClaude: async (request) => {
@@ -674,14 +704,18 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
         stages.ai = (stages.ai ?? 0) + (deps.now().getTime() - from);
       }
     },
+    // Several receipts' PDFs are made side by side (D-606): their stage is
+    // the span from the first start to the last finish, not the sum.
     prepareReceipt: deps.prepareReceipt
       ? async (request) => {
           const prepare = deps.prepareReceipt;
           const from = deps.now().getTime();
+          receiptSpan.from = Math.min(receiptSpan.from, from);
           try {
             return prepare ? await prepare(request) : null;
           } finally {
-            stages.receipt = (stages.receipt ?? 0) + (deps.now().getTime() - from);
+            receiptSpan.to = Math.max(receiptSpan.to, deps.now().getTime());
+            stages.receipt = receiptSpan.to - receiptSpan.from;
           }
         }
       : undefined,
@@ -704,6 +738,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
       followUp: null,
       lesson: null,
       fallback: null,
+      more: [],
     };
   }
   const { reply, claude, parentReplyId, handedTo } = composed;
@@ -719,19 +754,23 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   }
 
   const sending = deps.now().getTime();
-  let sent = await deps.send(helperMessageBody(message.from, reply.message));
-  if (worthPlainRetry(sent, reply.message)) {
-    // A refused PDF goes as the words that say it could not be sent (D-597), never as a caption promising a file.
-    const document = reply.message.kind === "document";
-    const retry = document && composed.fallback ? composed.fallback : plainVersion(reply.message);
-    sent = await deps.send(helperMessageBody(message.from, retry));
-    if (document && worthPlainRetry(sent, retry)) sent = await deps.send(helperMessageBody(message.from, plainVersion(retry)));
-    note = note ?? (document ? "receipt_refused" : "sent_as_plain_text");
-  }
+  const delivered = await deliver(deps, message.from, { message: reply.message, fallback: composed.fallback });
+  const sent = delivered.sent;
+  note = note ?? delivered.note;
 
   const finished = deps.now();
   const latencyMs = finished.getTime() - sentAt;
   stages.send = finished.getTime() - sending;
+
+  // More receipts the parent asked for, one after another so they arrive in
+  // order, once the first has gone (D-606).
+  if (sent.outcome === "accepted" && composed.more.length > 0) {
+    for (const next of composed.more) {
+      const extra = await deliver(deps, message.from, next);
+      note = note ?? (extra.sent.outcome === "accepted" ? extra.note : "receipt_not_sent");
+    }
+    stages.more = deps.now().getTime() - finished.getTime();
+  }
   const common: TurnFinish = {
     status: "answered",
     intent: reply.intent,

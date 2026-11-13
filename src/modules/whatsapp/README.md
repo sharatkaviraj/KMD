@@ -505,16 +505,23 @@ its own work, for messages from the hub only.
   due into one spreadsheet (`chatsCsv`) and only then lets the hub remove
   it, with the count it read. Google trusts One's production deployment
   only, so this works on production only.
-- **A receipt on request (D-597).** *receipt bhejo*, or 📄 Send receipt
-  under the receipts card, is `receipt_send`; with more than one receipt
-  that can be sent, a list asks which (`receipt_pdf:<key>`, the key 14
-  letters from the child and the number, `receiptKey` in
-  `domain/helper-facts.ts`, never the number). The plan carries the receipt
-  and, as its message, the words for when it cannot be sent;
-  `prepareHelperReceipt` finds it again by the child AND the number, renders
-  the school's own PDF (`renderAndStoreReceipt`, shared with the receipt
-  notice) onto the private shelf and signs it for an hour, and the turn sends
-  it as a document. Practice only: a real year makes nothing. The webhook
+- **A receipt on request (D-597, D-606).** Asked for in words (*receipt
+  bhejo*, *pdf*), it goes at once: `receiptAsk` in `domain/helper-plan.ts`
+  sends the latest day's receipts, at most three, and the last caption says
+  how to ask for another in words. A question, or a receipt named by its
+  date, month or amount, is Claude's, which names the receipts by number in
+  `receipt_pdf`; they are found among the family's own only, never a
+  reversed one. 📄 Send receipt under the receipts card, with more than one
+  receipt that can be sent, offers them to pick, a button each up to three
+  and a list beyond (`receipt_pdf:<key>`, the key 14 letters from the child
+  and the number, `receiptKey` in `domain/helper-facts.ts`, never the
+  number). The plan carries the receipts and, as its message, the first
+  one's words for when it cannot be sent;
+  `prepareHelperReceipt` finds each again by the child AND the number,
+  renders the school's own PDF (`renderAndStoreReceipt`, shared with the
+  receipt notice) onto the private shelf and signs it for an hour, and the
+  turn sends them as documents, the first as the reply and the rest after it, made side
+  by side. Practice only: a real year makes nothing. The webhook
   has nobody signed in, so the read runs in `withTestRecordRead`
   (`platform/fees-bridge/test-record-read.ts`), which the roster projection
   lets through for one TEST child's table reads only.
@@ -532,9 +539,12 @@ its own work, for messages from the hub only.
   into `whatsapp_inbound`. The helper's own ledger has the reply ids.
 - Let Claude, or any model but Anthropic's, write a figure a parent reads, or
   give a free model a child's record.
-- Send a receipt the parent did not pick from their own family's list, or open
-  `withTestRecordRead` anywhere but `data/helper-receipt.ts`: it is the one
-  read with nobody signed in, and it is TEST-only by construction.
+- Send a receipt that is not one of the asking family's own, or a reversed
+  one, whatever Claude names, or open `withTestRecordRead` anywhere but
+  `data/helper-receipt.ts`: it is the one read with nobody signed in, and it
+  is TEST-only by construction.
+- Tell a parent to tap, press or pick something to get what the helper can
+  send them itself (D-606).
 - Take a number from a link message other than the one WhatsApp says it came
   from, or let a test account link a number that is not on the test list.
 - Message a member of staff about a hand-off on a number alone: they must

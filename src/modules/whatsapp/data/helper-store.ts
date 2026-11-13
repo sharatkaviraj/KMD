@@ -170,7 +170,7 @@ export type TurnStages = {
   compose?: number;
   /** Claude's part of compose. */
   ai?: number;
-  /** Making the receipt PDF, part of compose. */
+  /** Making the receipt PDFs, part of compose: side by side, so first start to last finish (D-606). */
   receipt?: number;
   /**
    * Answers that waited for this parent, sent before the reply: for a bare
@@ -180,6 +180,8 @@ export type TurnStages = {
   waiting?: number;
   /** The hub's answer to the reply, Meta's included. */
   send?: number;
+  /** More receipts' PDFs, sent one after another once the reply has gone (D-606); not part of the answer's time. */
+  more?: number;
 };
 
 /** The stages as the ledger keeps them: whole, non-negative milliseconds, nothing else. */

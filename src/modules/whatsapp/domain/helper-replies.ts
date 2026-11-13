@@ -2,8 +2,8 @@ import { formatInr } from "@/platform/helpers/currency";
 
 import type { AbsenceNote } from "./helper-absence";
 import { FIELD_LABELS, type ChangeRequest } from "./parent-suggestions";
-import { receiptKey, sendableReceipts, type AttendanceStatus, type ChildFacts, type ReceiptFact } from "./helper-facts";
-import type { HelperButton, HelperMessage, HelperRow } from "./helper-messages";
+import { receiptKey, sendableReceipts, type AttendanceStatus, type ChildFacts, type ChildReceipt, type ReceiptFact } from "./helper-facts";
+import { WA_LIMITS, type HelperButton, type HelperMessage, type HelperRow } from "./helper-messages";
 import { helperId, type HelperLanguage } from "./helper-text";
 
 /**
@@ -269,6 +269,28 @@ export const SEND_RECEIPT_BUTTON = (language: HelperLanguage): HelperButton => (
   title: say(language, { hi: "📄 रसीद भेजें", hx: "📄 Receipt bhejiye", en: "📄 Send receipt" }),
 });
 
+/**
+ * One button per receipt, each sending that receipt's PDF with one tap
+ * (D-606), when every title fits a button and no two read the same (two
+ * children's receipts of one day and amount would); null otherwise.
+ */
+function receiptButtons(items: readonly ChildReceipt[], language: HelperLanguage, max: number): HelperButton[] | null {
+  if (items.length === 0 || items.length > max) return null;
+  // With the 📄 when every title has room for it ("₹9,000 · 5 अक्टूबर" has
+  // not), without it otherwise. Lengths are UTF-16 units, as `clip` counts:
+  // a title clipped to "…" could read the same as its neighbour.
+  for (const mark of ["📄 ", ""]) {
+    const buttons = items.map(({ child, receipt }) => ({
+      id: helperId("receipt_pdf", receiptKey(child, receipt)),
+      title: `${mark}${money(receipt.amount)} · ${dateText(receipt.date, language, child.today)}`,
+    }));
+    const fits = buttons.every((button) => button.title.length <= WA_LIMITS.buttonTitle);
+    const distinct = new Set(buttons.map((button) => button.title)).size === buttons.length;
+    if (fits && distinct) return buttons;
+  }
+  return null;
+}
+
 export function receiptsCard(context: ReplyContext, children: readonly ChildFacts[] = context.family.children): HelperMessage {
   const { language } = context;
   const blocks = children.map((child) => {
@@ -279,25 +301,38 @@ export function receiptsCard(context: ReplyContext, children: readonly ChildFact
     return [head, ...child.receipts.map((receipt) => receiptLine(receipt, language, child.today))].join("\n");
   });
   // A receipt that can be sent gets the button that sends it (D-597); a
-  // reversed one was cancelled, so there is nothing to keep.
-  const canSend = sendableReceipts(children).length > 0;
-  const close = canSend
-    ? say(language, {
-        hi: "📄 रसीद की PDF यहीं चाहिए तो *रसीद भेजें* दबाएँ।",
-        hx: "📄 Receipt ki PDF yahin chahiye to *Receipt bhejiye* dabaiye.",
-        en: "📄 Tap *Send receipt* and the receipt comes here as a PDF.",
-      })
-    : say(language, {
-        hi: "रसीद के बारे में कुछ पूछना हो तो ऑफ़िस से कहें।",
-        hx: "Receipt ke baare mein kuch poochhna ho to office se kahiye.",
-        en: "For anything about a receipt, ask the office.",
-      });
+  // reversed one was cancelled, so there is nothing to keep. Two receipts get
+  // a button each, so the PDF is one tap away (D-606).
+  const sendable = sendableReceipts(children);
+  const each = sendable.length === 2 ? receiptButtons(sendable, language, 2) : null;
+  const close =
+    sendable.length === 0
+      ? say(language, {
+          hi: "रसीद के बारे में कुछ पूछना हो तो ऑफ़िस से कहें।",
+          hx: "Receipt ke baare mein kuch poochhna ho to office se kahiye.",
+          en: "For anything about a receipt, ask the office.",
+        })
+      : each
+        ? say(language, {
+            hi: "📄 जिस रसीद की PDF चाहिए, नीचे उस पर दबाएँ: वह यहीं आ जाएगी।",
+            hx: "📄 Jis receipt ki PDF chahiye, neeche us par dabaiye: woh yahin aa jayegi.",
+            en: "📄 Tap a receipt below and its PDF comes right here.",
+          })
+        : say(language, {
+            hi: "📄 रसीद की PDF यहीं चाहिए तो *रसीद भेजें* दबाएँ।",
+            hx: "📄 Receipt ki PDF yahin chahiye to *Receipt bhejiye* dabaiye.",
+            en: "📄 Tap *Send receipt* and the receipt comes here as a PDF.",
+          });
   const title = say(language, { hi: "🧾 *रसीदें*", hx: "🧾 *Receipts*", en: "🧾 *Receipts*" });
   const fees: HelperButton = { id: helperId("fees"), title: say(language, { hi: "💰 फ़ीस", hx: "💰 Fees", en: "💰 Fees" }) };
   return {
     kind: "buttons",
     body: `${intro(context)}${title}\n\n${blocks.join("\n\n")}\n\n${close}`,
-    buttons: canSend ? [SEND_RECEIPT_BUTTON(language), fees, MENU_BUTTON(language)] : [fees, MENU_BUTTON(language)],
+    buttons: each
+      ? [...each, MENU_BUTTON(language)]
+      : sendable.length > 0
+        ? [SEND_RECEIPT_BUTTON(language), fees, MENU_BUTTON(language)]
+        : [fees, MENU_BUTTON(language)],
     footer: footer(context),
   };
 }
@@ -310,7 +345,10 @@ export function receiptsCard(context: ReplyContext, children: readonly ChildFact
  */
 export function receiptPickList(context: ReplyContext, children: readonly ChildFacts[] = context.family.children, gone = false): HelperMessage {
   const { language } = context;
-  const rows: HelperRow[] = sendableReceipts(children)
+  const sendable = sendableReceipts(children);
+  // Up to three go as buttons, one tap each (D-606); more, as the list.
+  const each = receiptButtons(sendable, language, WA_LIMITS.buttons);
+  const rows: HelperRow[] = sendable
     .slice(0, 10)
     .map(({ child, receipt }) => ({
       id: helperId("receipt_pdf", receiptKey(child, receipt)),
@@ -329,6 +367,11 @@ export function receiptPickList(context: ReplyContext, children: readonly ChildF
     hx: "Kaunsi receipt chahiye? 👇 Chuniye, uski PDF yahin aa jayegi.",
     en: "Which receipt would you like? 👇 Pick one and its PDF comes right here.",
   });
+  if (each) {
+    // The buttons say amount and date; the lines above them say whose and which.
+    const lines = sendable.map(({ child, receipt }) => `• ${childHeading(child, language)} · ${receipt.number}\n   ${money(receipt.amount)} · ${dateText(receipt.date, language, child.today)}`);
+    return { kind: "buttons", body: `${intro(context)}${note}${ask}\n\n${lines.join("\n")}`, buttons: each, footer: footer(context) };
+  }
   return {
     kind: "list",
     body: `${intro(context)}${note}${ask}`,
@@ -339,12 +382,30 @@ export function receiptPickList(context: ReplyContext, children: readonly ChildF
   };
 }
 
-/** The words under a receipt's PDF in the chat (D-597). */
-export function receiptCaption(context: ReplyContext, child: ChildFacts, receipt: ReceiptFact): string {
+/**
+ * The words under a receipt's PDF in the chat (D-597). `words` are Veer Patta
+ * AI's own answer, put first (D-606). `another` is a receipt the parent was
+ * not sent, named as the example of how to ask for it in their own words.
+ */
+export function receiptCaption(
+  context: ReplyContext,
+  child: ChildFacts,
+  receipt: ReceiptFact,
+  extra: { words?: string | null; another?: ChildReceipt | null } = {},
+): string {
   const { language } = context;
   const title = say(language, { hi: `🧾 *रसीद ${receipt.number}*`, hx: `🧾 *Receipt ${receipt.number}*`, en: `🧾 *Receipt ${receipt.number}*` });
   const paid = [money(receipt.amount), dateText(receipt.date, language, child.today), modeText(receipt.mode, language)].join(" · ");
-  return `${intro(context)}${title}\n${childHeading(child, language)}\n${paid}\n\n_${footer(context)}_`;
+  const words = extra.words?.trim() ? `${extra.words.trim()}\n\n` : "";
+  const other = extra.another;
+  const ask = other
+    ? `\n\n${say(language, {
+        hi: `कोई और रसीद चाहिए तो लिखें, जैसे “${dateText(other.receipt.date, language, other.child.today)} वाली रसीद”।`,
+        hx: `Koi aur receipt chahiye to likhiye, jaise “${dateText(other.receipt.date, language, other.child.today)} wali receipt”.`,
+        en: `Need another one? Just write which, like “the ${dateText(other.receipt.date, language, other.child.today)} receipt”.`,
+      })}`
+    : "";
+  return `${words}${intro(context)}${title}\n${childHeading(child, language)}\n${paid}${ask}\n\n_${footer(context)}_`;
 }
 
 /**
