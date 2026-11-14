@@ -30,7 +30,7 @@ const BUCKET = "parent-documents";
 /** One hour. Long enough for Meta's fetch and a retry, short enough to forget. */
 const SIGNED_URL_TTL_SECONDS = 3600;
 
-export type NoticeDocumentKind = "receipt" | "fee_statement";
+export type NoticeDocumentKind = "receipt" | "fee_statement" | "report_card";
 
 export type StoredDocument = {
   /** Path inside the bucket. Written to the send row; re-signable later. */
@@ -144,6 +144,8 @@ export function parentFacingFilename(args: {
   kind: NoticeDocumentKind;
   studentName: string;
   receiptNumber?: string;
+  /** A report card's exam, as it is printed ("Half yearly"), D-613. */
+  label?: string;
 }): string {
   const name = String(args.studentName ?? "")
     .trim()
@@ -152,6 +154,13 @@ export function parentFacingFilename(args: {
   if (args.kind === "receipt") {
     const receipt = String(args.receiptNumber ?? "").replace(/[^A-Za-z0-9-]/g, "");
     return `Receipt-${receipt || "VPPS"}${name ? `-${name}` : ""}.pdf`;
+  }
+  if (args.kind === "report_card") {
+    const label = String(args.label ?? "")
+      .trim()
+      .replace(/[^A-Za-z0-9 ]/g, "")
+      .replace(/\s+/g, "-");
+    return `Report-Card${label ? `-${label}` : ""}${name ? `-${name}` : ""}.pdf`;
   }
   return `Fee-Statement${name ? `-${name}` : ""}.pdf`;
 }

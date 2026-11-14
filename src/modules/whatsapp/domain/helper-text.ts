@@ -294,13 +294,17 @@ export type VisitTap = "visit_day" | "visit_part";
 /** A tap on one receipt in the list, to have it sent (D-597). */
 export type ReceiptTap = "receipt_pdf";
 
+/** "Try again" under a report card that could not be sent (D-613): the child's card, once more. */
+export type ReportCardTap = "report_card";
+
 export type HelperTap = {
-  intent: HelperIntent | "message_teacher" | VisitTap | ReceiptTap | RatingValue;
+  intent: HelperIntent | "message_teacher" | VisitTap | ReceiptTap | ReportCardTap | RatingValue;
   /**
    * The child a button is about (`childKey` in `helper-facts.ts`), on a
    * "Did this answer help?" button the hand-off it rates (`ratingKey`),
    * on a visit's day or part, the day ("20261116") or the slot ("20261116am"),
-   * and on a receipt, the child and the receipt (`receiptKey`).
+   * on a receipt, the child and the receipt (`receiptKey`), and on a
+   * report card's "Try again" the child (D-613).
    */
   key: string | null;
 };
@@ -324,7 +328,7 @@ export function readTap(raw: Record<string, unknown> | null | undefined): Helper
   // A rating always names the hand-off it rates, a visit's day or part its day, and a receipt its receipt; without one they say nothing.
   if (isRatingValue(intent)) return key ? { intent, key } : null;
   if (intent === "visit_day" || intent === "visit_part") return key ? { intent, key } : null;
-  if (intent === "receipt_pdf") return key ? { intent, key } : null;
+  if (intent === "receipt_pdf" || intent === "report_card") return key ? { intent, key } : null;
   if (intent !== "message_teacher" && !(HELPER_INTENTS as readonly string[]).includes(intent)) return null;
   return { intent: intent as HelperTap["intent"], key };
 }

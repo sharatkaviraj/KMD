@@ -2,7 +2,19 @@ import { formatInr } from "@/platform/helpers/currency";
 
 import type { AbsenceNote } from "./helper-absence";
 import { FIELD_LABELS, type ChangeRequest } from "./parent-suggestions";
-import { receiptKey, sendableReceipts, type AttendanceStatus, type ChildFacts, type ChildReceipt, type ReceiptFact } from "./helper-facts";
+import { weekdayIndex } from "@/platform/dates";
+
+import {
+  receiptKey,
+  sendableCard,
+  sendableReceipts,
+  type AttendanceStatus,
+  type ChildFacts,
+  type ChildReceipt,
+  type IssuedCardFacts,
+  type ReceiptFact,
+  type ResultFacts,
+} from "./helper-facts";
 import { WA_LIMITS, type HelperButton, type HelperMessage, type HelperRow } from "./helper-messages";
 import { helperId, type HelperLanguage } from "./helper-text";
 
@@ -493,12 +505,86 @@ export function attendanceCard(context: ReplyContext, children: readonly ChildFa
 
 /* --------------------------------------------------------------- results */
 
+const WEEKDAYS: Record<HelperLanguage, readonly string[]> = {
+  hi: ["रविवार", "सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार"],
+  hx: ["Ravivar", "Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar"],
+  en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+};
+
+/** "Sat 22 Nov" / "शनिवार, 22 नवंबर" / "Shanivar, 22 Nov". */
+function dayWithWeekday(iso: string, language: HelperLanguage, today: string): string {
+  const weekday = WEEKDAYS[language][weekdayIndex(iso.slice(0, 10))];
+  return language === "en" ? `${weekday} ${dateText(iso, language, today)}` : `${weekday}, ${dateText(iso, language, today)}`;
+}
+
+/**
+ * Results not out yet (D-613): the exam by name and the day the plan says
+ * they are shared, or that they come soon. Never a mark: what is still being
+ * entered stays with the school.
+ */
+function pendingLine(child: ChildFacts, language: HelperLanguage): string {
+  const pending = child.pendingResults?.[0];
+  if (!pending) return say(language, { hi: "अभी कोई परिणाम जारी नहीं हुआ।", hx: "Abhi koi result jari nahi hua.", en: "No results have been released yet." });
+  const exam = language === "hi" ? pending.examHi ?? pending.exam : pending.exam;
+  if (pending.on && pending.on >= child.today) {
+    const on = dayWithWeekday(pending.on, language, child.today);
+    return say(language, {
+      hi: `${exam} का परिणाम अभी जारी नहीं हुआ। यह *${on}* को दिया जाएगा।`,
+      hx: `${exam} ka result abhi jari nahi hua. Yeh *${on}* ko diya jayega.`,
+      en: `${exam} results are not out yet. They are shared on *${on}*.`,
+    });
+  }
+  return say(language, {
+    hi: `${exam} का परिणाम अभी जारी नहीं हुआ। स्कूल जल्द ही देगा।`,
+    hx: `${exam} ka result abhi jari nahi hua. School jald hi dega.`,
+    en: `${exam} results are not out yet. The school will share them soon.`,
+  });
+}
+
+/** A subject the card names by its code, in the reader's language, from the result's own papers. */
+function subjectName(code: string, result: ResultFacts, language: HelperLanguage): string {
+  const subject = result.subjects.find((item) => item.code === code) ?? result.subjects.find((item) => item.name === code);
+  if (!subject) return code;
+  return language === "hi" ? subject.nameHi ?? subject.name : subject.name;
+}
+
+/**
+ * The card's one line (D-613): the percentage, grade and place as the issued
+ * card prints them, then the subjects it calls strongest and the ones to
+ * practise. A result held back ("pending") says so instead of a percentage.
+ */
+export function cardSummaryLines(card: IssuedCardFacts, result: ResultFacts, language: HelperLanguage): string[] {
+  const figures: string[] = [];
+  if (card.status === "pending") figures.push(say(language, { hi: "परिणाम बाकी", hx: "Result baaki", en: "Result pending" }));
+  else if (card.status === "absent") figures.push(say(language, { hi: "परीक्षा नहीं दी", hx: "Pariksha nahi di", en: "Did not sit the exams" }));
+  else {
+    if (card.percent !== null) figures.push(`*${percentText(card.percent)}*`);
+    if (card.grade) figures.push(say(language, { hi: `ग्रेड ${card.grade}`, hx: `Grade ${card.grade}`, en: `Grade ${card.grade}` }));
+    if (card.rank !== null && card.rankOf !== null && card.rankOf > 1) {
+      figures.push(say(language, { hi: `कक्षा में स्थान ${card.rank}/${card.rankOf}`, hx: `Class mein rank ${card.rank}/${card.rankOf}`, en: `Rank ${card.rank} of ${card.rankOf}` }));
+    }
+    if (card.trend === "up") figures.push(say(language, { hi: "📈 सुधार", hx: "📈 Sudhaar", en: "📈 Improving" }));
+  }
+  const lines = figures.length > 0 ? [figures.join(" · ")] : [];
+  const best = card.strengths.map((code) => subjectName(code, result, language));
+  const practice = card.focus.map((code) => subjectName(code, result, language));
+  const notes: string[] = [];
+  if (best.length > 0) notes.push(say(language, { hi: `सबसे अच्छा: ${best.join(", ")}`, hx: `Sabse achha: ${best.join(", ")}`, en: `Best in ${best.join(", ")}` }));
+  if (practice.length > 0) notes.push(say(language, { hi: `और अभ्यास: ${practice.join(", ")}`, hx: `Aur abhyaas: ${practice.join(", ")}`, en: `More practice in ${practice.join(", ")}` }));
+  if (notes.length > 0) lines.push(notes.join(" · "));
+  return lines;
+}
+
+function examName(result: ResultFacts, language: HelperLanguage): string {
+  return language === "hi" ? result.examHi ?? result.exam : result.exam;
+}
+
 function resultsBlock(child: ChildFacts, language: HelperLanguage): string {
   const head = childHeading(child, language);
   const latest = child.results[0];
-  if (!latest) {
-    return `${head}\n${say(language, { hi: "अभी कोई परिणाम जारी नहीं हुआ।", hx: "Abhi koi result jari nahi hua.", en: "No results have been released yet." })}`;
-  }
+  if (!latest) return `${head}\n${pendingLine(child, language)}`;
+  const sendable = sendableCard(child);
+  if (sendable) return [`${head} · ${examName(latest, language)}`, ...cardSummaryLines(sendable.card, latest, language)].join("\n");
   const exam = language === "hi" ? latest.examHi ?? latest.exam : latest.exam;
   const marks = latest.subjects.map((subject) => {
     const name = language === "hi" ? subject.nameHi ?? subject.name : subject.name;
@@ -530,6 +616,48 @@ export function resultsCard(context: ReplyContext, children: readonly ChildFacts
     kind: "buttons",
     body: `${intro(context)}${title}\n\n${children.map((child) => resultsBlock(child, language)).join("\n\n")}`,
     buttons: [{ id: helperId("attendance"), title: say(language, { hi: "📅 हाज़िरी", hx: "📅 Hazri", en: "📅 Attendance" }) }, MENU_BUTTON(language)],
+    footer: footer(context),
+  };
+}
+
+/** "📄 Report card · Half yearly": what the PDF is, over its one line. */
+function reportCardTitle(result: ResultFacts, language: HelperLanguage): string {
+  const exam = examName(result, language);
+  return say(language, { hi: `📄 *प्रगति पत्र · ${exam}*`, hx: `📄 *Report card · ${exam}*`, en: `📄 *Report card · ${exam}*` });
+}
+
+/**
+ * The words under a child's report card PDF in the chat (D-613): what it is,
+ * the child, and the card's one line. `words` are Veer Patta AI's own answer,
+ * put first, as on a receipt (D-606).
+ */
+export function reportCardCaption(context: ReplyContext, child: ChildFacts, result: ResultFacts, card: IssuedCardFacts, words: string | null = null): string {
+  const { language } = context;
+  const lead = words?.trim() ? `${words.trim()}\n\n` : "";
+  const lines = [reportCardTitle(result, language), childHeading(child, language), ...cardSummaryLines(card, result, language)];
+  return `${lead}${intro(context)}${lines.join("\n")}\n\n_${footer(context)}_`;
+}
+
+/**
+ * The report card could not be attached (D-613): the PDF could not be made,
+ * or Meta would not take it. Gives the card's line anyway, the office's
+ * number, and a button to try again.
+ */
+export function reportCardUnsentReply(context: ReplyContext, child: ChildFacts, result: ResultFacts, card: IssuedCardFacts): HelperMessage {
+  const { language } = context;
+  const sorry = say(language, {
+    hi: `माफ़ कीजिए 🙏 प्रगति पत्र की PDF अभी नहीं भेजी जा सकी। थोड़ी देर में *फिर से भेजें* दबाएँ, या ऑफ़िस से लें: ${OFFICE_PHONE}`,
+    hx: `Maaf kijiye 🙏 Report card ki PDF abhi nahi bheji ja saki. Thodi der mein *Phir se bhejiye* dabaiye, ya office se lijiye: ${OFFICE_PHONE}`,
+    en: `Sorry 🙏 the report card's PDF could not be sent just now. Tap *Try again* in a little while, or ask the office: ${OFFICE_PHONE}`,
+  });
+  const lines = [`${childHeading(child, language)} · ${examName(result, language)}`, ...cardSummaryLines(card, result, language)];
+  return {
+    kind: "buttons",
+    body: `${intro(context)}${sorry}\n\n${lines.join("\n")}`,
+    buttons: [
+      { id: helperId("report_card", child.key), title: say(language, { hi: "🔁 फिर से भेजें", hx: "🔁 Phir se bhejiye", en: "🔁 Try again" }) },
+      MENU_BUTTON(language),
+    ],
     footer: footer(context),
   };
 }

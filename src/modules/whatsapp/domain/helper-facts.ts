@@ -60,6 +60,8 @@ export type AttendanceFacts = {
 export type SubjectMark = {
   name: string;
   nameHi: string | null;
+  /** The paper's subject code, as a report card names it (D-613). */
+  code?: string | null;
   got: number | null;
   max: number;
   absent: boolean;
@@ -69,9 +71,44 @@ export type SubjectMark = {
 export type ResultFacts = {
   exam: string;
   examHi: string | null;
+  /** The exam's code ("SA1") and term ("Term 1"), when the read gives them (D-613). */
+  code?: string | null;
+  term?: string | null;
   subjects: SubjectMark[];
   got: number;
   max: number;
+  /** The term's report card as the school issued it, or null when none is (D-613). */
+  card?: IssuedCardFacts | null;
+};
+
+/**
+ * What a report card the school ISSUED says (D-613), for the one line under
+ * its PDF: never a preview, never a mark still being entered. `codes` are the
+ * exams the card carries, so it goes only when every one is released.
+ */
+export type IssuedCardFacts = {
+  revision: number;
+  percent: number | null;
+  grade: string | null;
+  /** "pending" while a paper holds the result back; "absent" when every paper was missed. */
+  status: "complete" | "pending" | "absent" | null;
+  passed: boolean | null;
+  rank: number | null;
+  rankOf: number | null;
+  /** Subject codes, at most two each, as the card's effort panel names them. */
+  strengths: string[];
+  focus: string[];
+  trend: "up" | "steady" | "down" | null;
+  growth: number | null;
+  codes: string[];
+};
+
+/** An exam the child sat whose results are not out for the class yet: its name and the day the plan gives, never a mark (D-613). */
+export type PendingResult = {
+  exam: string;
+  examHi: string | null;
+  /** The day results are shared, from the exam plan (YYYY-MM-DD in India), or null. */
+  on: string | null;
 };
 
 export type CalendarFact = { date: string; until: string | null; title: string; titleHi: string | null; kind: string };
@@ -91,6 +128,10 @@ export type ChildFacts = {
   receipts: ReceiptFact[];
   attendance: AttendanceFacts | null;
   results: ResultFacts[];
+  /** Every exam released for the child's class (D-613): a report card goes only when all of its exams are here. */
+  releasedCodes?: string[];
+  /** Exams the child sat whose results are not out yet, latest first (D-613). */
+  pendingResults?: PendingResult[];
   calendar: CalendarFact[];
 };
 
@@ -229,13 +270,14 @@ export function attendanceFacts(
  * entered.
  */
 export function resultFacts(
-  exam: { label: string; labelHi: string | null },
-  rows: ReadonlyArray<{ name: string; nameHi: string | null; max: number; value: number | null; absent: boolean; exempt: boolean }>,
+  exam: { label: string; labelHi: string | null; code?: string | null; term?: string | null; card?: IssuedCardFacts | null },
+  rows: ReadonlyArray<{ name: string; nameHi: string | null; code?: string | null; max: number; value: number | null; absent: boolean; exempt: boolean }>,
 ): ResultFacts | null {
   if (rows.length === 0) return null;
   const subjects: SubjectMark[] = rows.map((row) => ({
     name: row.name,
     nameHi: row.nameHi,
+    ...(row.code ? { code: row.code } : {}),
     got: row.absent || row.exempt || row.value === null ? null : Number(row.value),
     max: Number(row.max),
     absent: row.absent,
@@ -245,10 +287,50 @@ export function resultFacts(
   return {
     exam: exam.label,
     examHi: exam.labelHi,
+    ...(exam.code ? { code: exam.code } : {}),
+    ...(exam.term ? { term: exam.term } : {}),
     subjects,
     got: counted.reduce((sum, subject) => sum + (subject.got ?? 0), 0),
     max: counted.reduce((sum, subject) => sum + subject.max, 0),
+    card: exam.card ?? null,
   };
+}
+
+type CardColumns = { rows?: ReadonlyArray<{ marks?: ReadonlyArray<{ assessmentCode?: string | null }> | null }> | null };
+
+/**
+ * The exams an issued report card carries (D-613): every column of every row,
+ * the rows printed apart (Robotics) too. The data layer checks these against
+ * the exams released for the class before it makes the PDF.
+ */
+export function cardExamCodes(card: CardColumns & { apart?: CardColumns["rows"] }): string[] {
+  const rows = [...(card.rows ?? []), ...(card.apart ?? [])];
+  const codes = new Set<string>();
+  for (const row of rows) for (const mark of row?.marks ?? []) if (mark?.assessmentCode) codes.add(mark.assessmentCode);
+  return [...codes].sort();
+}
+
+/** Every exam on the card released for the class: a card with none is never one to send. */
+export function cardReleased(codes: readonly string[], released: readonly string[]): boolean {
+  const out = new Set(released);
+  return codes.length > 0 && codes.every((code) => out.has(code));
+}
+
+/** The report card a family may be sent with a result (D-613). */
+export type SendableCard = { child: ChildFacts; result: ResultFacts; term: string; card: IssuedCardFacts };
+
+/**
+ * The child's report card to send, or null (D-613): the term of the latest
+ * released result, as the school ISSUED it, and only when every exam the card
+ * carries is released for the class. A Term 1 card reissued after a later
+ * exam whose results are not out would show those marks early, so it waits.
+ */
+export function sendableCard(child: ChildFacts): SendableCard | null {
+  const result = child.results[0];
+  const card = result?.card ?? null;
+  const term = result?.term ?? null;
+  if (!result || !card || !term) return null;
+  return cardReleased(card.codes, child.releasedCodes ?? []) ? { child, result, term, card } : null;
 }
 
 /* ------------------------------------------------------- the database row */
@@ -273,6 +355,51 @@ function day(value: unknown): string | null {
 function amount(value: unknown): number {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function words(value: unknown): string[] {
+  return Array.isArray(value) ? value.flatMap((item) => (typeof item === "string" && item.trim() ? [item.trim()] : [])) : [];
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+/** A timestamp as its day in India (YYYY-MM-DD), or null. */
+function indiaDay(value: unknown): string | null {
+  const candidate = text(value);
+  if (!candidate) return null;
+  const at = Date.parse(candidate);
+  return Number.isFinite(at) ? istDay(new Date(at)) : null;
+}
+
+const CARD_STATUSES: ReadonlySet<string> = new Set(["complete", "pending", "absent"]);
+const TRENDS: ReadonlySet<string> = new Set(["up", "steady", "down"]);
+
+/** An issued card's summary from the read (D-613), or null when it is not one. */
+function issuedCard(value: unknown): IssuedCardFacts | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const card = record(value);
+  const revision = numberOrNull(card.revision);
+  if (revision === null || revision < 1) return null;
+  const status = text(card.status);
+  const trend = text(card.trend);
+  return {
+    revision,
+    percent: numberOrNull(card.percent),
+    grade: text(card.grade),
+    status: status && CARD_STATUSES.has(status) ? (status as IssuedCardFacts["status"]) : null,
+    passed: typeof card.passed === "boolean" ? card.passed : null,
+    rank: numberOrNull(card.rank),
+    rankOf: numberOrNull(card.rank_of),
+    strengths: words(card.strengths).slice(0, 2),
+    focus: words(card.focus).slice(0, 2),
+    trend: trend && TRENDS.has(trend) ? (trend as IssuedCardFacts["trend"]) : null,
+    growth: numberOrNull(card.growth),
+    codes: words(card.codes),
+  };
 }
 
 /** "Class 11" + "Science" + "A" -> "Class 11 Science A". */
@@ -339,7 +466,7 @@ export function childFactsFromRow(row: unknown): ChildFacts | null {
     const label = text(item.label);
     if (!label) return [];
     const facts = resultFacts(
-      { label, labelHi: text(item.label_hi) },
+      { label, labelHi: text(item.label_hi), code: text(item.code), term: text(item.term), card: issuedCard(item.card) },
       list(item.subjects).flatMap((subject) => {
         const name = text(subject.name);
         const max = amount(subject.max);
@@ -347,6 +474,7 @@ export function childFactsFromRow(row: unknown): ChildFacts | null {
         return [{
           name,
           nameHi: text(subject.name_hi),
+          code: text(subject.code),
           max,
           value: subject.value === null || subject.value === undefined ? null : amount(subject.value),
           absent: subject.absent === true,
@@ -355,6 +483,13 @@ export function childFactsFromRow(row: unknown): ChildFacts | null {
       }),
     );
     return facts ? [facts] : [];
+  });
+
+  const releasedCodes = words(top.released_codes);
+  const pendingResults: PendingResult[] = list(top.pending_results).flatMap((item) => {
+    const label = text(item.label);
+    if (!label) return [];
+    return [{ exam: label, examHi: text(item.label_hi), on: indiaDay(item.publish_at) ?? day(item.results_on) }];
   });
 
   const teacher = top.class_teacher === null || top.class_teacher === undefined ? null : record(top.class_teacher);
@@ -380,6 +515,8 @@ export function childFactsFromRow(row: unknown): ChildFacts | null {
     receipts,
     attendance,
     results,
+    releasedCodes,
+    pendingResults,
     calendar,
   };
 }

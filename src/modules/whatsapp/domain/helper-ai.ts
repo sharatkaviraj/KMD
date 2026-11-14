@@ -4,11 +4,11 @@ import { schoolToday } from "@/platform/dates";
 import { formatInr } from "@/platform/helpers/currency";
 
 import { ABSENCE_REASONS, absenceNote } from "./helper-absence";
-import type { ChildFacts } from "./helper-facts";
+import { sendableCard, type ChildFacts } from "./helper-facts";
 import type { HelperMessage } from "./helper-messages";
 import { knowledgeLines, NO_KNOWLEDGE, type SchoolKnowledge } from "./helper-lessons";
 import { CHANGE_FIELDS, normaliseChange } from "./parent-suggestions";
-import { childByKey, handoffReply, receiptAsk, type TurnPlan } from "./helper-plan";
+import { childByKey, handoffReply, receiptAsk, resultsAsk, type TurnPlan } from "./helper-plan";
 import { aiAnswer, cardFor, fallbackReply, menuCard, OFFICE_PHONE, type Family, type HandoffTarget, type ReplyContext } from "./helper-replies";
 import type { HelperLanguage } from "./helper-text";
 import { withVisitButton } from "./helper-visit";
@@ -115,7 +115,8 @@ export function helperSystemPrompt(helperName: string): string {
     '- A parent who wants a receipt itself, a copy of one or its PDF ("pdf mil jayegi?", "receipt bhej do", "July wali raseed"): set "receipt_pdf" and the PDF is sent here at once, under your words. In "receipts" put the receipt numbers exactly as in FACTS for the ones the parent means (by date, month, amount or child), at most 3; leave it empty for the latest (of the child in "child" when the parent means one child). Never a REVERSED receipt. "reply" says in a few words that it is here, for example "Yeh rahi aapki receipt 🙏". Set "show" to "none". Otherwise "receipt_pdf" is null.',
     '- A parent who asks which receipts there are, or what has been paid when: set "show" to "receipts"; the card lists them.',
     "- The late fee is separate from the fees and is never added to them.",
-    '- Results: only what FACTS lists as released. If none is listed, results have not been released yet.',
+    '- Results: only what FACTS lists as released. If none is listed, results have not been released yet; say when they are shared only if FACTS gives the day, never guess one.',
+    '- A parent who asks for a result, marks or the report card ("result bhejo", "report card mil jayega?"): set "show" to "results". The child\'s report card is sent here at once as a PDF when the school has issued it, with the results card for any other child; never tell them to collect it or tap anything for it.',
     "- You cannot take a payment, change a record, give a discount, waive a late fee, grant leave or decide anything. For any of these, hand it off.",
     "- Holidays and events: only from the calendar in FACTS.",
     `- The school office phone is ${OFFICE_PHONE}.`,
@@ -190,6 +191,12 @@ function childLines(child: ChildFacts): string[] {
       ? `  Results released: ${child.results.map((result) => `${result.exam} (${result.got}/${result.max})`).join("; ")}.`
       : "  Results released: none yet.",
   );
+  const card = sendableCard(child);
+  if (card) lines.push(`  Report card issued for ${card.term}: it is sent as a PDF with the results card.`);
+  const pending = child.pendingResults ?? [];
+  if (pending.length > 0) {
+    lines.push(`  Results not out yet: ${pending.map((item) => `${item.exam} (${item.on && item.on >= child.today ? `shared on ${item.on}` : "day not set"})`).join("; ")}.`);
+  }
   lines.push(`  Class teacher: ${child.classTeacher?.name ?? "not assigned yet"}.`);
   return lines;
 }
@@ -269,6 +276,21 @@ export function planFromAnswer(
   }
   if (!words) {
     return { action: "reply", intent: "fallback", route: "fallback", language, message: fallbackReply(context), chat: { language }, handoff: null };
+  }
+  // Results come with each child's issued report card as its PDF, under Claude's words (D-613).
+  if (answer.show === "results") {
+    const asked = resultsAsk(context, named ? [named] : input.family.children, words);
+    return {
+      action: "reply",
+      intent: asked.intent,
+      route: "ai",
+      language,
+      message: asked.message,
+      chat: { language },
+      handoff: null,
+      ...(asked.reportCards.length > 0 ? { reportCards: asked.reportCards } : {}),
+      ...(asked.trailing ? { trailing: asked.trailing } : {}),
+    };
   }
   const card =
     answer.show === "none"

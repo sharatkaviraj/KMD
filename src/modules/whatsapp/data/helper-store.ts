@@ -172,6 +172,8 @@ export type TurnStages = {
   ai?: number;
   /** Making the receipt PDFs, part of compose: side by side, so first start to last finish (D-606). */
   receipt?: number;
+  /** Making the report card PDFs, part of compose, the same way (D-613). */
+  reportCard?: number;
   /**
    * Answers that waited for this parent, sent before the reply: for a bare
    * "ok", the whole of it; otherwise only what the reply, already worked out,

@@ -18,6 +18,7 @@ import {
   type ChatState,
   type HandoffPlan,
   type ReceiptSend,
+  type ReportCardSend,
   type TurnPlan,
   type TurnRoute,
 } from "@/modules/whatsapp/domain/helper-plan";
@@ -58,6 +59,7 @@ import {
 } from "./helper-relay";
 import { handleStaffCommand, liveStaffHelperDeps } from "./staff-helper";
 import { prepareHelperReceipt, type ReceiptDocument, type ReceiptRequest } from "./helper-receipt";
+import { prepareHelperReportCard, type ReportCardDocument, type ReportCardRequest } from "./helper-report-card";
 import { readVisitCalendar } from "./helper-visit";
 import { addParentSuggestion } from "./parent-suggestions";
 import { handleStaffLink, liveStaffLinkDeps } from "./staff-link";
@@ -184,6 +186,8 @@ export type HelperDeps = {
   readVisitCalendar?: (sessionLabel: string, today: string) => Promise<VisitCalendar | null>;
   /** A receipt the parent asked for, as a PDF Meta fetches once (D-597); null when it could not be made. */
   prepareReceipt?: (request: ReceiptRequest) => Promise<ReceiptDocument | null>;
+  /** A child's issued report card, as a PDF Meta fetches once (D-613); null when it could not be made. */
+  prepareReportCard?: (request: ReportCardRequest) => Promise<ReportCardDocument | null>;
 };
 
 /** The real database, the real hub and the real Claude. */
@@ -233,6 +237,7 @@ export function liveHelperDeps(): HelperDeps {
     noteLesson: (note, practice, topic) => noteLesson(note, practice, topic),
     readVisitCalendar: (sessionLabel, today) => readVisitCalendar(sessionLabel, today),
     prepareReceipt: (request) => prepareHelperReceipt(request),
+    prepareReportCard: (request) => prepareHelperReportCard(request),
   };
 }
 
@@ -308,6 +313,10 @@ type Reply = {
   handoff: HandoffPlan | null;
   /** Receipts to send as their PDFs (D-597), one after another (D-606). */
   receipts?: readonly ReceiptSend[] | null;
+  /** Report cards to send as their PDFs (D-613), one after another, as receipts are. */
+  reportCards?: readonly ReportCardSend[] | null;
+  /** Sent after the report cards: the other children's results (D-613). */
+  trailing?: HelperMessage | null;
 };
 
 /** A message to the parent, and the words that go in its place when Meta refuses it (a receipt's PDF, D-597). */
@@ -372,13 +381,24 @@ async function compose(input: {
         chat: { ...plan.chat, ...answered.chat },
         handoff: answered.handoff,
         receipts: answered.receipts ?? null,
+        reportCards: answered.reportCards ?? null,
+        trailing: answered.trailing ?? null,
       };
     } else {
       reply = { message: fallbackReply(context), intent: "fallback", route: "fallback", chat: plan.chat, handoff: null };
       note = `ai_${claude.problem ?? "no_answer"}`;
     }
   } else {
-    reply = { message: plan.message, intent: plan.intent, route: plan.route, chat: plan.chat, handoff: plan.handoff, receipts: plan.receipts ?? null };
+    reply = {
+      message: plan.message,
+      intent: plan.intent,
+      route: plan.route,
+      chat: plan.chat,
+      handoff: plan.handoff,
+      receipts: plan.receipts ?? null,
+      reportCards: plan.reportCards ?? null,
+      trailing: plan.trailing ?? null,
+    };
   }
 
   // A hand-off goes into One's Messages inbox before the parent is told it has.
@@ -474,6 +494,42 @@ async function compose(input: {
     reply = { ...reply, message: first.message };
     fallback = first.fallback;
     more = rest;
+  }
+
+  // Each child's report card goes as its PDF, made side by side from the card
+  // the school issued; one that cannot be made goes as its line with a button
+  // to try again (D-613). The first is the reply, the rest follow it, and the
+  // other children's results come last.
+  const cards = asked.length > 0 ? [] : (reply.reportCards ?? []);
+  if (cards.length > 0) {
+    const prepare = deps.prepareReportCard;
+    const documents = await Promise.all(
+      cards.map((item) =>
+        prepare
+          ? prepare({
+              studentId: item.child.studentId,
+              sessionLabel: item.child.sessionLabel,
+              term: item.term,
+              revision: item.revision,
+              releasedCodes: item.releasedCodes,
+              title: item.title,
+              classTeacher: item.child.classTeacher?.name ?? null,
+              practice: family.practice,
+            }).catch(() => null)
+          : Promise.resolve(null),
+      ),
+    );
+    const outgoing = cards.map((item, index): Outgoing => {
+      const document = documents[index];
+      return document
+        ? { message: { kind: "document", link: document.link, filename: document.filename, caption: item.caption }, fallback: item.unsent }
+        : { message: item.unsent, fallback: null };
+    });
+    if (documents.some((document) => !document)) note = note ?? "report_card_not_made";
+    const [first, ...rest] = outgoing;
+    reply = { ...reply, message: first.message };
+    fallback = first.fallback;
+    more = reply.trailing ? [...rest, { message: reply.trailing, fallback: null }] : rest;
   }
   return { reply, claude, parentReplyId, handedTo, note, followUp: null, lesson, fallback, more };
 }
@@ -710,6 +766,7 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   const context: ReplyContext = { language: plan.language, helperName: settings.helperName, family, firstContact };
   // Claude's share of the answer and a receipt's PDF are timed where they happen (D-605).
   const receiptSpan = { from: Number.POSITIVE_INFINITY, to: Number.NEGATIVE_INFINITY };
+  const cardSpan = { from: Number.POSITIVE_INFINITY, to: Number.NEGATIVE_INFINITY };
   const timed: HelperDeps = {
     ...deps,
     askClaude: async (request) => {
@@ -732,6 +789,20 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
           } finally {
             receiptSpan.to = Math.max(receiptSpan.to, deps.now().getTime());
             stages.receipt = receiptSpan.to - receiptSpan.from;
+          }
+        }
+      : undefined,
+    // Report cards the same way (D-613).
+    prepareReportCard: deps.prepareReportCard
+      ? async (request) => {
+          const prepare = deps.prepareReportCard;
+          const from = deps.now().getTime();
+          cardSpan.from = Math.min(cardSpan.from, from);
+          try {
+            return prepare ? await prepare(request) : null;
+          } finally {
+            cardSpan.to = Math.max(cardSpan.to, deps.now().getTime());
+            stages.reportCard = cardSpan.to - cardSpan.from;
           }
         }
       : undefined,
@@ -778,8 +849,8 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   const latencyMs = finished.getTime() - sentAt;
   stages.send = finished.getTime() - sending;
 
-  // More receipts the parent asked for, one after another so they arrive in
-  // order, once the first has gone (D-606).
+  // More receipts or report cards the parent asked for, one after another so
+  // they arrive in order, once the first has gone (D-606, D-613).
   if (sent.outcome === "accepted" && composed.more.length > 0) {
     for (const next of composed.more) {
       const extra = await deliver(deps, message.from, next);

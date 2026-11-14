@@ -2,7 +2,7 @@ import { schoolToday } from "@/platform/dates";
 import { sameNumber } from "@/platform/whatsapp/numbers";
 
 import type { AbsenceNote } from "./helper-absence";
-import { istHour, receiptByKey, sendableReceipts, type ChildFacts, type ChildReceipt, type ReceiptFact } from "./helper-facts";
+import { istHour, receiptByKey, sendableCard, sendableReceipts, type ChildFacts, type ChildReceipt, type ReceiptFact } from "./helper-facts";
 import type { HelperMessage } from "./helper-messages";
 import type { ChangeRequest } from "./parent-suggestions";
 import {
@@ -17,6 +17,9 @@ import {
   receiptPickList,
   receiptsCard,
   receiptUnsentReply,
+  reportCardCaption,
+  reportCardUnsentReply,
+  resultsCard,
   teacherPrompt,
   thanksReply,
   voiceReply,
@@ -68,6 +71,11 @@ import {
  *    Asked in words, it goes at once: the latest day's, or the one Claude
  *    read from the parent's words (D-606). A tap on the card's button with
  *    several to send offers them to pick from, one tap each.
+ *  - "result bhejo", "report card", or the menu's Results (D-613): each
+ *    child's report card as the school issued it, as a PDF with its one line
+ *    under it, once every exam on it is released for the class; the marks of
+ *    a released exam with no card yet; and for results not out, the day the
+ *    exam plan says they are shared. Never a mark still being entered.
  */
 
 /** How long the helper waits for the message it asked for. */
@@ -146,6 +154,28 @@ export type ReceiptSend = { child: ChildFacts; receipt: ReceiptFact; caption: st
 /** The most receipts one ask sends (D-606): one family's payment on one day is rarely more. */
 export const MAX_RECEIPTS_PER_ASK = 3;
 
+/**
+ * A child's report card the parent asked for (D-613). The data layer makes
+ * its PDF from the card the school issued and sends it with `caption`;
+ * `unsent`, which gives the card's line and offers to try again, goes in its
+ * place when it cannot be.
+ */
+export type ReportCardSend = {
+  child: ChildFacts;
+  term: string;
+  /** The issued revision the plan read: the PDF is made from exactly this card, or not at all. */
+  revision: number;
+  /** The exams released for the class when the plan read it: every exam on the card must be one. */
+  releasedCodes: string[];
+  /** The exam the card is printed under, as the report card screen prints it. */
+  title: { en: string; hi: string };
+  caption: string;
+  unsent: HelperMessage;
+};
+
+/** The most report cards one ask sends (D-613), as with receipts. */
+export const MAX_REPORT_CARDS_PER_ASK = 3;
+
 export type TurnPlan =
   | { action: "skip"; reason: string }
   | {
@@ -161,6 +191,13 @@ export type TurnPlan =
        * `message` is the first one's `unsent`, for when its PDF cannot be made.
        */
       receipts?: ReceiptSend[] | null;
+      /**
+       * Report cards to send as their PDFs (D-613), one after another, as
+       * receipts are: `message` is the first one's `unsent`.
+       */
+      reportCards?: ReportCardSend[] | null;
+      /** Sent after the report cards: the results of the children who have no card to send (D-613). */
+      trailing?: HelperMessage | null;
     }
   | { action: "ask_ai"; language: HelperLanguage; firstContact: boolean; chat: ChatPatch }
   /** A tap on "Did this answer help?": `key` names the hand-off (`ratingKey`), among this number's own only. */
@@ -369,6 +406,45 @@ export function receiptAsk(
   return { intent: "receipt_send", message: receipts[0].unsent, receipts };
 }
 
+/**
+ * Results asked for (D-613), at once, never a button to press first. Each
+ * child whose report card the school has issued, with every exam on it
+ * released for the class, gets the card as a PDF with its one line under it;
+ * two children are two cards, at most three. The other children's results
+ * follow in one card: a released exam's marks, or the day the exam plan says
+ * they are shared. `words` are Claude's, put above the first.
+ */
+export function resultsAsk(
+  context: ReplyContext,
+  children: readonly ChildFacts[] = context.family.children,
+  words: string | null = null,
+): { intent: "results" | "report_card"; message: HelperMessage; reportCards: ReportCardSend[]; trailing: HelperMessage | null } {
+  const ready = children.flatMap((child) => {
+    const sendable = sendableCard(child);
+    return sendable ? [sendable] : [];
+  }).slice(0, MAX_REPORT_CARDS_PER_ASK);
+  if (ready.length === 0) {
+    const card = resultsCard(context, children);
+    return { intent: "results", message: words ? aiAnswer(context, words, card) : card, reportCards: [], trailing: null };
+  }
+  const reportCards = ready.map(({ child, result, term, card }, index): ReportCardSend => {
+    const own = index === 0 ? context : { ...context, firstContact: false };
+    return {
+      child,
+      term,
+      revision: card.revision,
+      releasedCodes: [...(child.releasedCodes ?? [])],
+      title: { en: result.exam, hi: result.examHi ?? result.exam },
+      caption: reportCardCaption(own, child, result, card, index === 0 ? words : null),
+      unsent: reportCardUnsentReply(own, child, result, card),
+    };
+  });
+  const sent = new Set(reportCards.map((item) => item.child.key));
+  const others = children.filter((child) => !sent.has(child.key));
+  const trailing = others.length > 0 ? resultsCard({ ...context, firstContact: false }, others) : null;
+  return { intent: "report_card", message: reportCards[0].unsent, reportCards, trailing };
+}
+
 export function planTurn(input: PlanInput): TurnPlan {
   const { chat, family, now } = input;
   const nothing = family.children.length > 0 ? messageSkip(input) : null;
@@ -388,7 +464,19 @@ export function planTurn(input: PlanInput): TurnPlan {
     chatPatch: ChatPatch = {},
     handoff: HandoffPlan | null = null,
     receipts: ReceiptSend[] = [],
-  ): TurnPlan => ({ action: "reply", intent, route, language, message, chat: { ...remember, ...chatPatch }, handoff, ...(receipts.length > 0 ? { receipts } : {}) });
+    cards: { reportCards: ReportCardSend[]; trailing: HelperMessage | null } | null = null,
+  ): TurnPlan => ({
+    action: "reply",
+    intent,
+    route,
+    language,
+    message,
+    chat: { ...remember, ...chatPatch },
+    handoff,
+    ...(receipts.length > 0 ? { receipts } : {}),
+    ...(cards && cards.reportCards.length > 0 ? { reportCards: cards.reportCards } : {}),
+    ...(cards?.trailing ? { trailing: cards.trailing } : {}),
+  });
 
   if (family.children.length === 0) return { action: "skip", reason: "no_children" };
 
@@ -417,6 +505,12 @@ export function planTurn(input: PlanInput): TurnPlan {
     if (sendable.length === 0) return reply("receipts", route, receiptsCard(context, children), { ...clearAwait, ...greeted });
     if (sendable.length === 1 && !gone) return receiptSend(sendable[0]);
     return reply("receipt_pick", route, receiptPickList(context, children, gone), { ...clearAwait, ...greeted });
+  };
+
+  /** Results, with each child's issued report card as its PDF (D-613). */
+  const resultsStart = (children: readonly ChildFacts[]): TurnPlan => {
+    const asked = resultsAsk(context, children);
+    return reply(asked.intent, route, asked.message, { ...clearAwait, ...greeted }, null, [], asked);
   };
 
   /** The days to pick from, or why there are none (D-592). */
@@ -467,6 +561,11 @@ export function planTurn(input: PlanInput): TurnPlan {
         const found = receiptByKey(family.children, tap.key);
         return found ? receiptSend(found) : receiptStart(family.children, true);
       }
+      case "report_card":
+        // "Try again" under a card that could not be sent: that child's, read afresh (D-613).
+        return resultsStart(children);
+      case "results":
+        return resultsStart(children);
       case "greeting":
         return reply("menu", "tap", menuCard(context, true), { ...clearAwait, ...greeted });
       case "thanks":
@@ -476,7 +575,6 @@ export function planTurn(input: PlanInput): TurnPlan {
       case "fees":
       case "receipts":
       case "attendance":
-      case "results":
       case "teacher":
         return reply(tap.intent, "tap", cardFor(tap.intent, context, children), { ...clearAwait, ...greeted });
     }
@@ -538,9 +636,11 @@ export function planTurn(input: PlanInput): TurnPlan {
     case "fees":
     case "receipts":
     case "attendance":
-    case "results":
     case "teacher":
       return reply(rule, "rule", cardFor(rule, context), { ...clearAwait, ...greeted });
+    case "results":
+      // Asked in words, each child's report card comes at once (D-613).
+      return resultsStart(family.children);
     case "receipt_send": {
       // Asked in words, the receipt comes at once: no button to press first (D-606).
       const asked = receiptAsk(context);
