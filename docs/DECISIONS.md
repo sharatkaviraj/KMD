@@ -1,5 +1,16 @@
 # Decisions
 
+## Exams and marks: report card v2 and effort analysis — 14 November 2026
+
+Step 3 of the exams-and-marks plan. The owner, 14 Nov: "There's something
+called effort analysis and I think we should work on it", and the card should
+be "good looking visually, easy to understand, some analysis reports, also
+include the remarks from notes that they say by teachers".
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-612 | **A report card shows each subject beside the class and the child's effort across the term, measured against the class average, not the raw marks (`cardInsight`, `src/modules/assessments/domain/card-insight.ts`).** For each exam of the term the child's share of the paper is set beside the average share of the children who sat it. Growth is the gap to the class at the last exam the child sat less the gap at the first: 5 points or more is "rising", 5 or more the other way "slipping", anything between "steady". A subject needs two exams with a mark to be measured; a missed paper is left out, never a nought. Strongest subjects are the top two at 60% or more (only with three or more subjects); "more practice" is a subject under 40% or 5 points or more under the class average, never one already named strongest. The figures are worked out where the class's cards are built and kept on the card (`card.insight`), so an issued card keeps the class averages it was issued with. The printed card (v2) carries the school letterhead from Certificate settings, the child's photo, mother's name and date of birth (read from the Fees roster when printed, never stored on the card), the subject bars, the effort chart and lines, the class teacher's and exam in-charge's names, and the principal's facsimile signature and seal only on an issued card when the school signs by facsimile. The class teacher's remark screen shows what staff noted about each child this term (team notes only; health and family notes never), and the AI remark draft reads those notes with every name in the class masked and drops any draft that names anyone. | The owner asked for "effort analysis" and a card that is good looking, easy to understand and carries analysis and teachers' remarks from notes (14 Nov). Raw marks mislead across a term: Test I is out of 20 and the Half Yearly out of 60, and one paper is harder than another, so "72% then 65%" can be a child who kept pace with a class that found the second paper hard. The gap to the class removes the paper. 5 points is the line because the register's grade bands are 10 points wide, so half a band is a move a parent can see. Names, photos and the letterhead are printed, not stored, because they are not figures the card was worked out from and must follow the office's corrections. |
+
 ## Exams and marks: the school's result rules per class group — 14 November 2026
 
 Step 2 of the exams-and-marks plan. The owner, 14 Nov: "these are term 1 and

@@ -24,6 +24,7 @@ import {
   openExamsForMarks,
   paperById,
   papersOf,
+  remarkNotesFor,
   remarksFor,
   staffList,
   studentsByIds,
@@ -214,10 +215,11 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     ]);
     const kids = roll.filter((e) => onRoll(e, { startsOn: today, endsOn: today }, today));
     const classPapers = termPapers.filter((r) => r.class_id === klass.id);
-    const [marks, names, remarks] = await Promise.all([
+    const [marks, names, remarks, notes] = await Promise.all([
       marksOf(classPapers.map((r) => r.id)),
       studentsByIds(kids.map((k) => k.studentId)),
       remarksFor(sessionLabel, term, kids.map((k) => k.studentId)),
+      remarkNotesFor(sessionLabel, kids.map((k) => k.studentId)).catch(() => new Map()),
     ]);
     // Same-named children are told apart by SR number and father, on the chips too.
     const apart = tellApart(kids.map((k) => ({ id: k.studentId, name: names.get(k.studentId)?.name ?? "—", admissionNo: names.get(k.studentId)?.admissionNo ?? null, fatherName: names.get(k.studentId)?.fatherName ?? null })));
@@ -239,6 +241,8 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
           // For the AI remark (D-324): the subject as a parent reads it, never a name.
           strongest: standing.strongest ? subjectPair(standing.strongest).en : null,
           weakest: standing.weakest && standing.weakest !== standing.strongest ? subjectPair(standing.weakest).en : null,
+          // What staff shared about the child this term (D-612), to write the remark from.
+          notes: notes.get(k.studentId) ?? [],
         };
       })
       .sort((a, b) => Number(a.roll ?? 999) - Number(b.roll ?? 999) || a.name.localeCompare(b.name));

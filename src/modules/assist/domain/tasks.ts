@@ -367,27 +367,36 @@ const remarksClass = task({
           attendance: z.number().min(0).max(100).nullable(),
           strongest: z.string().max(60).nullable(),
           weakest: z.string().max(60).nullable(),
+          /** What staff shared about the child this term (D-612): never health or family notes. */
+          notes: z.array(z.string().max(400)).max(4).optional(),
         }),
       )
       .min(1)
       .max(12),
+    /** The class's names, masked out of the notes before anything is sent. */
+    names: z.array(z.string().max(120)).max(80).optional(),
   }),
   output: z.object({ remarks: z.array(z.object({ ref: z.string(), en: z.string(), hi: z.string() })) }),
   instructions: `Task: write a report-card remark for each child, for the class teacher to check and save. Parents read these.
 - One or two short sentences per child, in English and the same in Hindi. At most 170 characters in each language.
-- Base each remark only on that child's figures: the term percentage, attendance, and strongest and weakest subject. Mention a subject only if it is given. Do not repeat the numbers.
+- Base each remark only on that child's facts: the term percentage, attendance, strongest and weakest subject, and the teachers' notes when there are any. Mention a subject only if it is given. Do not repeat the numbers.
+- Teachers' notes are what staff wrote about the child this term (effort, behaviour, interests, what to practise). Use what they say in the school's own polite words; never copy a note word for word, never mention that a note exists, and leave out anything about health, family or money. Placeholders such as [[N1]] stand for people: never write them.
 - Be specific and encouraging, and honest about what needs work, with one practical suggestion where it helps (for example daily reading, practice of a subject, regular attendance).
 - Make the remarks in one class sound different from each other; do not start them all the same way.
 - Children are identified only as C1, C2 and so on. Do not use names, "he" or "she"; in English use the child's work or "your child", and in Hindi the respectful plural.
 - Return exactly one remark for every child, with the same ref.`,
   prompt: (input) => fence({ exam: input.exam, class: input.classLabel, children: input.children }),
+  names: (input) => input.names ?? [],
   finish: (output, input) => {
     const refs = new Set(input.children.map((c) => c.ref));
+    // A remark that names anyone (a classmate from a note, or the child) is not a draft a parent should read.
+    const named = (text: string) => (input.names ?? []).some((name) => name.trim().length >= 3 && text.toLowerCase().includes(name.trim().toLowerCase()));
     const remarks = new Map<string, { ref: string; en: string; hi: string }>();
     for (const r of output.remarks) {
       if (!refs.has(r.ref) || remarks.has(r.ref)) continue;
       // English, then Hindi, one per line, fits the card's 400 characters (`remarkText`).
       const remark = { ref: r.ref, en: clip(r.en.trim(), 190), hi: clip(r.hi.trim(), 200) };
+      if (named(remark.en) || named(remark.hi)) continue;
       if (remark.en || remark.hi) remarks.set(r.ref, remark);
     }
     return remarks.size ? { remarks: [...remarks.values()] } : null;

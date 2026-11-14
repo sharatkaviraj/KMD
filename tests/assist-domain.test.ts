@@ -183,6 +183,32 @@ describe("tasks clean what comes back", () => {
     expect(`${out!.remarks[0].en}\n${out!.remarks[0].hi}`.length).toBeLessThanOrEqual(400);
   });
 
+  it("remarks read teachers' notes with every name masked, and drop a remark that names anyone (D-612)", () => {
+    const spec = ASSIST_TASKS["remarks.class"];
+    const input = spec.input.parse({
+      exam: "Half Yearly",
+      classLabel: "Class 3",
+      children: [
+        { ref: "C1", percent: 72, attendance: 95, strongest: "Maths", weakest: null, notes: ["Qatest Asha helped Qatest Ravi with his reading all week."] },
+        { ref: "C2", percent: null, attendance: null, strongest: null, weakest: null, notes: ["Draws beautifully."] },
+      ],
+      names: ["Qatest Asha", "Qatest Ravi"],
+    });
+    expect(spec.names!(input)).toEqual(["Qatest Asha", "Qatest Ravi"]);
+    expect(spec.prompt(input)).toContain("helped");
+    const out = spec.finish!(
+      {
+        remarks: [
+          { ref: "C1", en: "Kind and helpful; reads with classmates.", hi: "दयालु और मददगार।" },
+          { ref: "C2", en: "Works well with Qatest Ravi.", hi: "अच्छा काम।" },
+        ],
+      },
+      input,
+    );
+    expect(out?.remarks.map((r) => r.ref)).toEqual(["C1"]);
+    expect(spec.input.safeParse({ exam: "x", classLabel: "y", children: [{ ref: "C1", percent: 1, attendance: 1, strongest: null, weakest: null, notes: ["a", "b", "c", "d", "e"] }] }).success).toBe(false);
+  });
+
   it("Ask links only pages this person can open", () => {
     const spec = ASSIST_TASKS["ask.answer"];
     const input = spec.input.parse({ question: "how do I add a note?", role: "teacher", language: "en", pages: [{ href: "/teach/notes", label: "Notes" }] });

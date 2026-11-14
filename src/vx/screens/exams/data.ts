@@ -612,6 +612,44 @@ export async function remarksFor(sessionLabel: string, term: string, studentIds:
 
 export type LinkRow = { id: string; assessment_id: string; staff_profile_id: string; token: string; created_at: string; last_opened_at: string | null };
 
+/** A teacher's note about a child, as the remarks screen shows it beside the card. */
+export type ChildNote = { text: string; when: string; by: string; kind: { en: string; hi: string } };
+
+/** Health and family notes stay out of report-card remarks, as out of every summary. */
+const PRIVATE_TAGS = ["health", "family"];
+
+/**
+ * The latest notes staff shared about each child this session (D-612): the
+ * class teacher writes the card's remark from them, and the AI draft reads
+ * them with every name masked. "Only me" notes and health and family notes
+ * are never read here.
+ */
+export async function remarkNotesFor(sessionLabel: string, studentIds: string[], perChild = 4): Promise<Map<string, ChildNote[]>> {
+  const out = new Map<string, ChildNote[]>();
+  if (!studentIds.length) return out;
+  type Row = { student_id: string; body: string; tags: string[] | null; created_at: string; note_kinds: { label_en: string; label_hi: string } | null; staff_profiles: { display_name: string } | null };
+  const res = await fetchInChunks<Row>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    admin()
+      .from("notes")
+      .select("student_id, body, tags, created_at, note_kinds(label_en, label_hi), staff_profiles!notes_written_by_fkey(display_name)")
+      .eq("session_label", sessionLabel)
+      .eq("visibility", "team")
+      .in("student_id", chunk)
+      .order("created_at", { ascending: false })
+      .limit(chunk.length * 12)
+      .returns<Row[]>(),
+  );
+  if (res.error) return out;
+  for (const row of res.data) {
+    if (!row.body?.trim() || (row.tags ?? []).some((t) => PRIVATE_TAGS.includes(t))) continue;
+    const list = out.get(row.student_id) ?? [];
+    if (list.length >= perChild) continue;
+    list.push({ text: row.body.trim().slice(0, 400), when: row.created_at.slice(0, 10), by: row.staff_profiles?.display_name ?? "—", kind: { en: row.note_kinds?.label_en ?? "Note", hi: row.note_kinds?.label_hi ?? "नोट" } });
+    out.set(row.student_id, list);
+  }
+  return out;
+}
+
 export async function liveLinks(assessmentId: string): Promise<LinkRow[]> {
   const { data, error } = await admin()
     .from("exam_marks_links")

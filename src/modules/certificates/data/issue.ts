@@ -46,6 +46,15 @@ async function schoolForSnapshot(db: ReturnType<typeof createAdminClient>): Prom
   };
 }
 
+/**
+ * The same letterhead and signatory for the school's other parent documents
+ * (the report card, D-612), so a change in Certificate settings reaches every
+ * one of them. Read only: no issue is reserved.
+ */
+export async function documentLetterhead(): Promise<CertificateSchool> {
+  return schoolForSnapshot(createAdminClient());
+}
+
 export async function issueCertificate(input: unknown): Promise<CertificateResult> {
   const staff = await assertPermission("certificates:issue");
   await assertNotPreviewing();

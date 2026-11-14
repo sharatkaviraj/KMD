@@ -5,6 +5,7 @@ import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 
+import { CardInsightPanel, type CardInsightView } from "@/vx/screens/exams/card-insight-panel";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
@@ -179,6 +180,8 @@ export type ExamsProps = {
     attendanceNote?: string | null;
     classTeacher?: string | null;
     coordinator?: string | null;
+    /** Each subject beside the class, and effort across the term (D-612). */
+    insight?: CardInsightView | null;
     prevId: string | null;
     nextId: string | null;
     position: number;
@@ -1491,6 +1494,7 @@ function Preview(props: ExamsProps & { href: Href }) {
         </div>
         {weights ? <span style={{ fontSize: 11, color: "var(--mut)", marginTop: -8 }}>{weights}</span> : null}
         {c.attendanceNote ? <span style={{ fontSize: 11, color: "var(--mut)", marginTop: weights ? -12 : -8 }}>{CARD.attendance}: {c.attendanceNote}</span> : null}
+        {c.insight ? <CardInsightPanel insight={c.insight} /> : null}
         {c.remark ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, borderRadius: 10, padding: "12px 14px", border: "1.5px dashed var(--bds)" }}>
             <span lang="hi" style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{CARD.remark}</span>

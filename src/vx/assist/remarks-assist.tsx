@@ -25,6 +25,7 @@ const SAY = {
   go: p("Write the drafts", "मसौदे लिखें"),
   cancel: p("Cancel", "रद्द करें"),
   from: p("Written by AI · from marks, attendance and subjects", "AI ने लिखी · अंक, हाज़िरी और विषयों से"),
+  fromNotes: p("Written by AI · from marks, attendance and teachers' notes", "AI ने लिखी · अंक, हाज़िरी और शिक्षकों के नोट्स से"),
 };
 
 /** A batch fits one Sonnet request comfortably and finishes in seconds. */
@@ -36,10 +37,12 @@ export type RemarkFacts = {
   attendance: number | null;
   strongest?: string | null;
   weakest?: string | null;
+  /** What staff shared about the child this term (D-612); masked of every name before it is sent. */
+  notes?: { text: string }[];
 };
 
-/** Nothing to write from without marks or attendance; the AI is not asked to guess. */
-export const hasRemarkFacts = (k: RemarkFacts) => k.percent !== null || k.attendance !== null;
+/** Nothing to write from without marks, attendance or a note; the AI is not asked to guess. */
+export const hasRemarkFacts = (k: RemarkFacts) => k.percent !== null || k.attendance !== null || Boolean(k.notes?.length);
 
 /**
  * AI remark drafts for a class (D-324). Children are sent as C1, C2… with
@@ -47,7 +50,7 @@ export const hasRemarkFacts = (k: RemarkFacts) => k.percent !== null || k.attend
  * The drafts stay on this screen as one more suggestion per child; the
  * teacher taps one into the box and saves it as she saves any remark.
  */
-export function useAiRemarks({ exam, classLabel }: { exam: string; classLabel: string }) {
+export function useAiRemarks({ exam, classLabel, names = [] }: { exam: string; classLabel: string; names?: readonly string[] }) {
   const offered = useAssistOffers("remarks");
   const [drafts, setDrafts] = useState<Record<string, Pair>>({});
   const [progress, setProgress] = useState<{ done: number; of: number } | null>(null);
@@ -75,7 +78,10 @@ export function useAiRemarks({ exam, classLabel }: { exam: string; classLabel: s
             attendance: k.attendance === null ? null : Math.round(k.attendance),
             strongest: k.strongest ?? null,
             weakest: k.weakest ?? null,
+            ...(k.notes?.length ? { notes: k.notes.slice(0, 4).map((n) => n.text.slice(0, 400)) } : {}),
           })),
+          // Every name in the class is masked out of the notes on the server before anything is sent.
+          ...(batch.some((k) => k.notes?.length) ? { names: names.slice(0, 80).map((n) => n.slice(0, 120)) } : {}),
         });
         if (!result.ok) {
           setProblem(result.problem);
@@ -93,7 +99,7 @@ export function useAiRemarks({ exam, classLabel }: { exam: string; classLabel: s
       }
       setProgress(null);
     },
-    [exam, classLabel, progress],
+    [exam, classLabel, names, progress],
   );
 
   /** The teacher tapped the AI remark into the box. */
@@ -201,7 +207,7 @@ export function AiRemarkCard({
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
         <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(draft)}</span>
         {sub(draft) ? <span className="tc-ts" style={{ color: "var(--mut)" }}>{sub(draft)}</span> : null}
-        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--acc)", textTransform: "uppercase", letterSpacing: ".05em" }}>{tx(SAY.from)}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--acc)", textTransform: "uppercase", letterSpacing: ".05em" }}>{tx(child.notes?.length ? SAY.fromNotes : SAY.from)}</span>
         <span className="as-note">{tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}</span>
       </span>
     </button>

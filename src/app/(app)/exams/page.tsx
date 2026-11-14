@@ -28,6 +28,7 @@ import { attendanceNote } from "@/vx/screens/exams/domain/card-words";
 import { plannedExams } from "@/vx/screens/exams/domain/current";
 import { absentExams, cardWeights, type ReportCard } from "@/modules/assessments/domain/report-card";
 import { absentLine, cardNotes } from "@/vx/screens/exams/domain/card-notes";
+import { insightView } from "@/vx/screens/exams/domain/card-insight-words";
 import { isApart, ruleForClass } from "@/modules/assessments/domain/result-rules";
 import { classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
@@ -378,6 +379,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
             attendanceNote: attendanceNote(c.attendance?.leave, c.attendance?.unmarked) || null,
             classTeacher: classInfo?.classTeacherName ?? null,
             coordinator: ctx.coordinatorName,
+            insight: c.insight ? insightView(c.insight, c.rule?.subjectPassPercent ?? 33) : null,
             prevId: at.prev?.id ?? null,
             nextId: at.next?.id ?? null,
             position: at.position,

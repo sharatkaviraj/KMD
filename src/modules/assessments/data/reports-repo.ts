@@ -36,6 +36,7 @@ import {
   type Assessment,
   type AssessmentSubject,
 } from "@/modules/assessments/domain/assessments";
+import { cardInsight, withInsights } from "@/modules/assessments/domain/card-insight";
 import { isApart, ruleForClass, type ResultRule } from "@/modules/assessments/domain/result-rules";
 import { gradeWith, schemePercent } from "@/modules/assessments/domain/report-scheme";
 import type { ExportKind } from "@/modules/assessments/domain/exports";
@@ -340,11 +341,11 @@ export async function previewReportCard(input: {
 }
 
 /**
- * The child's place in class (D-611): every child enrolled in the class gets
- * the same term card built beside this one, and they are ranked as the
- * register ranks — by percentage, ties sharing a place, children whose result
- * is pending left out. Nothing for a class that is not ranked, or a card that
- * is not complete.
+ * The card beside its class: every child enrolled in the class gets the same
+ * term card built beside this one. They are ranked as the register ranks
+ * (D-611) — by percentage, ties sharing a place, children whose result is
+ * pending left out, and only in a class that is ranked — and the card gets
+ * its subject-by-subject picture and effort against the class (D-612).
  */
 async function withClassPlace(
   card: ReportCard,
@@ -358,7 +359,6 @@ async function withClassPlace(
     rule: ResultRule | null;
   },
 ): Promise<ReportCard> {
-  if (!input.rule?.rank || card.status !== "complete") return card;
   const { data: roll, error } = await createAdminClient()
     .from("enrolments")
     .select("student_id")
@@ -387,7 +387,8 @@ async function withClassPlace(
           generatedAt: card.generatedAt,
         }),
   );
-  return rankClassCards(cards).find((entry) => entry.studentId === card.studentId) ?? card;
+  const placed = input.rule?.rank && card.status === "complete" ? (rankClassCards(cards).find((entry) => entry.studentId === card.studentId) ?? card) : card;
+  return { ...placed, insight: cardInsight(card, cards) };
 }
 
 /** Grace given on these papers, `paper|student` → marks; one child's only when `studentId` is given. */
@@ -458,8 +459,8 @@ export async function classTermCards(input: {
       generatedAt,
     }),
   );
-  // Ranked among the children listed, which is the class's roll (D-611).
-  return new Map(rankClassCards(cards).map((card) => [card.studentId, card]));
+  // Ranked among the children listed, which is the class's roll (D-611), each beside the class (D-612).
+  return new Map(withInsights(rankClassCards(cards)).map((card) => [card.studentId, card]));
 }
 
 export type IssuedCard = {

@@ -6,6 +6,7 @@ import {
   type Mark,
   type Totals,
 } from "@/modules/assessments/domain/assessments";
+import type { CardInsight } from "@/modules/assessments/domain/card-insight";
 import { t, type Localized } from "@/platform/i18n/language";
 import { spreadsheetText } from "@/platform/helpers/spreadsheet-text";
 import {
@@ -108,6 +109,11 @@ export type ReportCard = {
   rankOf?: number | null;
   /** The Rajasthan Board division (9–12). */
   division?: Division | null;
+  /**
+   * Each subject beside the class, and effort across the term's exams
+   * (D-612), worked out with the class's cards and kept with the card.
+   */
+  insight?: CardInsight | null;
   generatedAt: string;
 };
 

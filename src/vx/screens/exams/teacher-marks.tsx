@@ -10,7 +10,7 @@ import { Ic } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
-import { initials } from "@/vx/format";
+import { initials, shortDayP } from "@/vx/format";
 import { DeskHelp, HelpIcon, HelpSheet, LangSeg, TchTop, type HelpStep } from "@/vx/screens/teach/ui/shared";
 
 import { subjectPair } from "./domain/groups";
@@ -239,6 +239,8 @@ export type RemarkChild = {
   /** Strongest and weakest subject this term, in English, for the AI remark. */
   strongest?: string | null;
   weakest?: string | null;
+  /** The latest notes staff shared about the child this session (D-612); never health or family notes. */
+  notes?: { text: string; when: string; by: string; kind: { en: string; hi: string } }[];
 };
 
 const TONES: [string, string][] = [[V("accs"), V("accfg")], [V("infos"), V("info")], [V("oks"), V("ok")], [V("warns"), V("warnfg")]];
@@ -272,7 +274,8 @@ export function TeacherRemarks({
   const [editing, setEditing] = useState(false);
   const [help, setHelp] = useState(false);
   const [pending, start] = useTransition();
-  const ai = useAiRemarks({ exam: examLabel.en, classLabel });
+  const [classNames] = useState(() => kids.map((c) => c.name));
+  const ai = useAiRemarks({ exam: examLabel.en, classLabel, names: classNames });
 
   const done = savedIds.size;
   const n = kids.length;
@@ -416,6 +419,20 @@ export function TeacherRemarks({
                       {facts.map((f) => <span key={f.t} className="pill" style={{ height: 28, padding: "0 10px", fontSize: 12, background: f.bg, color: f.fg }}>{f.t}</span>)}
                     </div>
                   </div>
+                  {child.notes?.length ? (
+                    <div className="card fadein" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                      <span className="sech" style={{ margin: 0 }}>{tx(p("What teachers noted this term", "इस सत्र शिक्षकों ने क्या लिखा"))}</span>
+                      {child.notes.slice(0, 3).map((note, i) => (
+                        <div key={i} style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 10, borderLeft: "3px solid var(--bds)" }}>
+                          <span className="tc-ts" style={{ whiteSpace: "pre-wrap", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{note.text}</span>
+                          <span style={{ fontSize: 11, color: "var(--mut)" }}>
+                            {tx(note.kind)} · {note.by} · <span className="num">{tx(shortDayP(note.when))}</span>
+                          </span>
+                        </div>
+                      ))}
+                      <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx(p("Use them for the remark. Health and family notes are not shown here.", "टिप्पणी लिखने में इनका उपयोग करें। स्वास्थ्य और परिवार के नोट्स यहाँ नहीं दिखते।"))}</span>
+                    </div>
+                  ) : null}
                   <span className="sech">{tx(p("Suggested remarks · tap one", "सुझाई गई टिप्पणियाँ · एक चुनें"))}</span>
                   {child.suggestions.length === 0 ? (
                     <div className="tc-note" style={{ background: "var(--infos)", color: "var(--info)" }}>
