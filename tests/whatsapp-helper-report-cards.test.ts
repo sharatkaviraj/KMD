@@ -255,6 +255,9 @@ describe("the results a parent is sent (D-613)", () => {
       .toContain("अर्धवार्षिक परीक्षा का परिणाम अभी जारी नहीं हुआ। यह *शनिवार, 21 नवंबर* को दिया जाएगा।");
     const passed = child(NEEL_ID, "NEEL TEST", "Class 2", { pending_results: [{ label: "Half yearly", label_hi: null, results_on: "2026-10-17", publish_at: null }] });
     expect(bodyOf(resultsCard(context({ children: [passed], practice: true })))).toContain("Half yearly results are not out yet. The school will share them soon.");
+    // The school released the exam this morning for the classes it locked; this class is not one, so no day is promised.
+    const releasedElsewhere = child(NEEL_ID, "NEEL TEST", "Class 2", { pending_results: [{ label: "Half yearly", label_hi: null, results_on: "2026-11-25", publish_at: "2026-11-14T03:00:00+00:00" }] });
+    expect(bodyOf(resultsCard(context({ children: [releasedElsewhere], practice: true })))).toContain("Half yearly results are not out yet. The school will share them soon.");
     const undated = child(NEEL_ID, "NEEL TEST", "Class 2", { pending_results: [{ label: "Half yearly", label_hi: null, results_on: null, publish_at: null }] });
     expect(bodyOf(resultsCard(context({ children: [undated], practice: true }, "hx")))).toContain("Half yearly ka result abhi jari nahi hua. School jald hi dega.");
     const nothing = child(NEEL_ID, "NEEL TEST", "Class 2");

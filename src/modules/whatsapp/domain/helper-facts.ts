@@ -489,7 +489,12 @@ export function childFactsFromRow(row: unknown): ChildFacts | null {
   const pendingResults: PendingResult[] = list(top.pending_results).flatMap((item) => {
     const label = text(item.label);
     if (!label) return [];
-    return [{ exam: label, examHi: text(item.label_hi), on: indiaDay(item.publish_at) ?? day(item.results_on) }];
+    // A release time on or before today has come for the classes that were
+    // locked; this child's class is still not out, so no day is promised
+    // ("soon"). Only a release time on a later day is a day to name.
+    const releaseDay = indiaDay(item.publish_at);
+    const on = releaseDay ? (releaseDay > today ? releaseDay : null) : day(item.results_on);
+    return [{ exam: label, examHi: text(item.label_hi), on }];
   });
 
   const teacher = top.class_teacher === null || top.class_teacher === undefined ? null : record(top.class_teacher);
