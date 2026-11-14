@@ -34,7 +34,9 @@ numbers are told codes are not on for them yet (codes still reach the owner
 only); back from WhatsApp, the copied code goes in and signs in by itself
 where the browser allows the page to read the clipboard (Chrome/Edge after
 one Allow), otherwise Paste code lights up. WhatsApp's own autofill needs an
-Android app, so a website cannot have it.
+Android app, so a website cannot have it. Live 04:54 UTC 14 Nov (PR 378);
+BrowserStack Galaxy M32 and Windows 11 Chrome passed the switch, the
+password way and the "not yet" answer for a made-up number.
 
 ## Veer Patta AI, the WhatsApp helper for parents — 12 November 2026
 
