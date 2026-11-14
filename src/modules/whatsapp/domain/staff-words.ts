@@ -280,8 +280,20 @@ export type StaffAsk =
   /** Nothing to read: a voice note, a photo, an empty message. */
   | { kind: "none" };
 
+/** The parents' helper's ids (`helper-text.ts`, `HELPER_ID_PREFIX`). */
+const PARENT_TAP_PREFIX = "vpai:";
+
 function tapId(raw: Record<string, unknown> | null | undefined): string | null {
-  if (!raw || raw.type !== "interactive") return null;
+  if (!raw) return null;
+  if (raw.type === "button") {
+    // A quick reply on an approved message is somebody else's only when its
+    // payload is the parents' helper's (Get report card, D-614): then it goes
+    // to them, whatever role the number is in. Any other is read by its words.
+    const button = raw.button && typeof raw.button === "object" ? (raw.button as Record<string, unknown>) : {};
+    const payload = typeof button.payload === "string" ? button.payload.trim() : "";
+    return payload.startsWith(PARENT_TAP_PREFIX) ? payload : null;
+  }
+  if (raw.type !== "interactive") return null;
   const interactive = raw.interactive && typeof raw.interactive === "object" ? (raw.interactive as Record<string, unknown>) : {};
   const reply = (interactive.button_reply ?? interactive.list_reply) as Record<string, unknown> | undefined;
   return typeof reply?.id === "string" ? reply.id.trim() : "";

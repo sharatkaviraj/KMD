@@ -222,7 +222,7 @@ const RULES: Rule[] = [
   },
   {
     intent: "results",
-    patterns: [/\b(results?|marks?|report ?card|scores?|grades?)\b/i, /परिणाम|रिजल्ट|रिज़ल्ट|अंक|नंबर|मार्क्स/],
+    patterns: [/\b(results?|marks?|report ?card|scores?|grades?)\b/i, /परिणाम|रिजल्ट|रिज़ल्ट|अंक|नंबर|मार्क्स|रिपोर्ट\s?कार्ड/],
   },
   {
     intent: "teacher",
@@ -315,12 +315,27 @@ export function helperId(intent: HelperTap["intent"], key?: string | null): stri
   return key ? `${HELPER_ID_PREFIX}:${intent}:${key}` : `${HELPER_ID_PREFIX}:${intent}`;
 }
 
-/** The parent's tap, from the raw WhatsApp message, or null when it was not one of ours. */
-export function readTap(raw: Record<string, unknown> | null | undefined): HelperTap | null {
-  if (!raw || raw.type !== "interactive") return null;
+/**
+ * The id a tap says back: a button or list row on a typed message, or the
+ * payload of a quick reply on an approved one (`button.payload`; the results
+ * notice's Get report card, D-614). Empty when there is none.
+ */
+export function tapPayload(raw: Record<string, unknown> | null | undefined): string {
+  if (!raw) return "";
+  if (raw.type === "button") {
+    const button = raw.button && typeof raw.button === "object" ? (raw.button as Record<string, unknown>) : {};
+    return typeof button.payload === "string" ? button.payload.trim() : "";
+  }
+  if (raw.type !== "interactive") return "";
   const interactive = raw.interactive && typeof raw.interactive === "object" ? (raw.interactive as Record<string, unknown>) : {};
   const reply = (interactive.button_reply ?? interactive.list_reply) as Record<string, unknown> | undefined;
-  const id = typeof reply?.id === "string" ? reply.id.trim() : "";
+  return typeof reply?.id === "string" ? reply.id.trim() : "";
+}
+
+/** The parent's tap, from the raw WhatsApp message, or null when it was not one of ours. */
+export function readTap(raw: Record<string, unknown> | null | undefined): HelperTap | null {
+  if (!raw || (raw.type !== "interactive" && raw.type !== "button")) return null;
+  const id = tapPayload(raw);
   const match = TAP.exec(id);
   if (!match) return null;
   const intent = match[1];
@@ -345,8 +360,9 @@ export type MessageKind = "text" | "tap" | "voice" | "media" | "ignore";
 export function messageKind(type: string, raw: Record<string, unknown> | null | undefined): MessageKind {
   if (type === "text") return "text";
   if (type === "interactive") return readTap(raw) ? "tap" : "text";
-  // A quick-reply button on a template: its words are the message.
-  if (type === "button") return "text";
+  // A quick-reply button on a template: one of ours (Get report card, D-614)
+  // is a tap; any other's words are the message.
+  if (type === "button") return readTap(raw) ? "tap" : "text";
   if (type === "audio") return "voice";
   if (type === "image" || type === "video" || type === "document") return "media";
   return "ignore";

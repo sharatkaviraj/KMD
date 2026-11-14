@@ -295,6 +295,17 @@ describe("when the report card goes (D-613)", () => {
     expect(readTap({ type: "interactive", interactive: { button_reply: { id: "vpai:report_card" } } })).toBeNull();
   });
 
+  it("goes for Get report card on the results notice: that child's card only (D-614)", () => {
+    const family: Family = { children: [aarav, mira], practice: true };
+    const raw = { type: "button", button: { payload: helperId("report_card", mira.key), text: "Get report card" } };
+    const turn = plan({ kind: "tap", text: "Get report card", tap: readTap(raw), family });
+    expect(turn).toMatchObject({ action: "reply", intent: "report_card", route: "tap" });
+    expect(turn.action === "reply" ? turn.reportCards?.map((item) => item.child.firstName) : null).toEqual(["Mira"]);
+    // The Hindi button's words alone are a result ask: every child's card.
+    const words = plan({ text: "रिपोर्ट कार्ड भेजें", family });
+    expect(words.action === "reply" ? words.reportCards?.length : null).toBe(2);
+  });
+
   it("sends the results card, not a file, when no card can go", () => {
     const turn = plan({ text: "result", family: { children: [neel], practice: true } });
     expect(turn).toMatchObject({ action: "reply", intent: "results" });
@@ -471,6 +482,24 @@ describe("a report card in the chat (D-613)", () => {
     expect(JSON.stringify(sent[1])).toContain("Neel");
     expect(finished[0]).toMatchObject({ status: "answered", intent: "report_card", reason: null, replyMessageId: "wamid.REPLY1" });
     expect(finished[0].stages?.reportCard).toBe(0);
+  });
+
+  it("sends the card for a tap on the results notice's Get report card (D-614)", async () => {
+    const asks: ReportCardRequest[] = [];
+    const { deps, sent } = turnDeps([aarav], {
+      prepareReportCard: async (input) => {
+        asks.push(input);
+        return MADE;
+      },
+    });
+    const message: WebhookInbound = {
+      ...inbound("Get report card"),
+      type: "button",
+      raw: { type: "button", button: { payload: helperId("report_card", aarav.key), text: "Get report card" } },
+    };
+    expect(await runHelperTurn(message, deps)).toEqual({ outcome: "answered", route: "tap", intent: "report_card", handoff: null });
+    expect(asks.map((ask) => ask.studentId)).toEqual([AARAV_ID]);
+    expect(sent.map((body) => body.type)).toEqual(["document"]);
   });
 
   it("says the card could not be sent, with its line and Try again, when the PDF cannot be made", async () => {
