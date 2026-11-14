@@ -28,6 +28,7 @@ import { attendanceNote } from "@/vx/screens/exams/domain/card-words";
 import { plannedExams } from "@/vx/screens/exams/domain/current";
 import { absentExams, cardWeights, type ReportCard } from "@/modules/assessments/domain/report-card";
 import { absentLine, cardNotes } from "@/vx/screens/exams/domain/card-notes";
+import { isApart, ruleForClass } from "@/modules/assessments/domain/result-rules";
 import { classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
 import { cellCounts, cellState, exemptSwitch, neighbours, paperEvents } from "@/vx/screens/exams/domain/board";
@@ -302,6 +303,12 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
           missing: card ? card.rows.filter((r) => r.marks.some((m) => m.value === null && !m.absent && !m.exempt)).map((r) => r.subjectCode) : [],
           absent: card?.totals.absent ?? 0,
           remark: remarks.has(k.studentId),
+          // The class group's result (D-611): pending, rank and the decimals it prints at.
+          status: card?.status ?? null,
+          pendingIn: card?.pendingIn ?? [],
+          rank: card?.rank ?? null,
+          rankOf: card?.rankOf ?? null,
+          decimals: card?.rule?.percentDecimals ?? 1,
         };
       })
       .sort((a, b) => Number(a.roll ?? 9999) - Number(b.roll ?? 9999) || a.name.localeCompare(b.name));
@@ -345,17 +352,26 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
               percent: r.percent,
               grace: state.grace[r.subjectCode] ?? 0,
               state: rowState(r.marks),
-              absent: absentLine(absentExams(r)) || undefined,
+              absent: absentLine(absentExams(r), Boolean(c.rule)) || undefined,
             })),
-            notes: cardNotes(c.rows),
+            notes: cardNotes(c.rows, Boolean(c.rule)),
             total: c.totals.scored,
             outOf: c.totals.outOf,
             percent: c.totals.percent,
             weighted: c.totals.weighted,
             weights: cardWeights(c).map((w) => ({ name: { en: w.en, hi: w.hi || undefined }, weight: w.weight })),
             grade: c.grade,
+            gradeWords: c.gradeDescription ? { en: c.gradeDescription.en, hi: c.gradeDescription.hi } : null,
             passed: c.passed,
             shortIn: [...new Set([...(c.shortIn ?? []), ...(c.absentIn ?? [])])].map(subjectPair),
+            // The class group's rule (D-611): what the result says, the place in class, and Robotics apart.
+            rule: c.rule ? { key: c.rule.key, name: c.rule.name, verdict: c.rule.verdict, decimals: c.rule.percentDecimals } : null,
+            status: c.status ?? null,
+            pendingIn: (c.pendingIn ?? []).map(subjectPair),
+            rank: c.rank ?? null,
+            rankOf: c.rankOf ?? null,
+            division: c.division ? { en: c.division.en, hi: c.division.hi } : null,
+            apart: (c.apart ?? []).map((r) => ({ subject: subjectPair(r.subjectCode), outOf: r.outOf, scored: r.scored, state: rowState(r.marks) })),
             attendance: c.attendance?.percent ?? null,
             present: c.attendance?.present ?? null,
             counted: c.attendance?.counted ?? null,
@@ -394,7 +410,8 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
           return { subjectCode: x.subject_code, value: m?.value === null || m?.value === undefined ? null : Number(m.value), absent: Boolean(m?.absent), exempt: Boolean(m?.exempt), maxMarks: Number(x.max_marks), passMarks: x.pass_marks === null ? null : Number(x.pass_marks) };
         }),
       }));
-      const result = classAnalysis(children, papers.map((x) => x.subject_code), 5);
+      const classRule = ruleForClass(classList.find((c) => c.id === classId)?.label ?? "");
+      const result = classAnalysis(children, papers.map((x) => x.subject_code), 5, (code) => isApart(classRule, code));
       // One pass line for the chart when every paper of the class shares it; each paper's own line still decides who is below.
       const passShares = [...new Set(papers.map((x) => Math.round(((x.pass_marks === null ? Math.ceil(Number(x.max_marks) * 0.33) : Number(x.pass_marks)) / Math.max(1, Number(x.max_marks))) * 100)))];
       const prev = previousExam(exams, exam);

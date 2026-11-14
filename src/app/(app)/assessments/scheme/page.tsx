@@ -19,6 +19,7 @@ import {
   signatoriesToText,
   type ReportScheme,
 } from "@/modules/assessments/domain/report-scheme";
+import { RESULT_RULES, WORD_BANDS } from "@/modules/assessments/domain/result-rules";
 import { ApproveSchemeForm, ReportSchemeForm } from "@/modules/assessments/ui/report-scheme-forms";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
@@ -149,6 +150,22 @@ export default async function ReportSchemePage(props: PageProps<"/assessments/sc
       ) : (
         <EmptyState title={ms.schemeNone} language={language} />
       )}
+
+      {/* The school's standing rules per class group (D-611), shown so nothing about a card is hidden. */}
+      <Section className="mt-6" title={ms.schemeGroupRules} language={language}>
+        <Card className="p-4" data-scheme-group-rules>
+          <ul className="space-y-1 text-[13px]">
+            {Object.values(RESULT_RULES).map((rule) => (
+              <li key={rule.key}>{language === "hi" ? rule.name.hi : rule.name.en}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[12px] text-muted-foreground">{primary(ms.schemeGroupRulesNote, language)}</p>
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            {primary(ms.schemeLetterBands, language)} {primary(ms.schemeWordBands, language)}{" "}
+            {WORD_BANDS.map((band) => `${band.from}%+ ${language === "hi" ? band.hi : band.en}`).join(" · ")}
+          </p>
+        </Card>
+      </Section>
 
       {manages ? (
         <Section className="mt-6" title={ms.schemeDraftStatus} language={language}>

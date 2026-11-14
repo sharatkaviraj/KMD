@@ -169,9 +169,16 @@ export const ms = {
   schemeNone: t("अभी कोई नियम नहीं", "No scheme yet"),
   schemeExamWeights: t("हर परीक्षा के अंकों का भार", "How much each exam counts"),
   schemePassRule: t(
-    "उत्तीर्ण: हर पेपर में उत्तीर्ण अंक (ग्रेस मिलाकर), कोई पेपर छूटा नहीं (छूट मिली हो तो अलग), और कुल प्रतिशत उत्तीर्ण प्रतिशत से कम नहीं।",
-    "Pass: every paper at its pass mark (grace counted), no paper missed unless excused, and the overall percentage at the pass percentage.",
+    "उत्तीर्ण: हर विषय में उसके पूर्णांक का 33% (ग्रेस मिलाकर), जिस पेपर का उत्तीर्ण अंक लिखा हो उसमें वह अंक, और कुल प्रतिशत उत्तीर्ण प्रतिशत से कम नहीं। बोर्ड कक्षाओं (5 और 8) का परिणाम बोर्ड देता है।",
+    "Pass: every subject at 33% of its own total (grace counted), any paper with its own pass mark at that mark, and the overall percentage at the pass percentage. The board declares the result for the board classes (5 and 8).",
   ),
+  schemeGroupRules: t("कक्षा समूह के नियम (विद्यालय के रजिस्टर से)", "Class group rules (from the school's register)"),
+  schemeGroupRulesNote: t(
+    "हर कार्ड पर: रोबोटिक्स अलग दिखता है, कुल में नहीं जुड़ता। कोई पेपर छूटा या अंक बाकी हों तो परिणाम लंबित रहता है, प्रतिशत और स्थान खाली। स्थान प्रतिशत से, बराबर प्रतिशत पर एक ही स्थान।",
+    "On every card: Robotics is shown apart and not added to the total. While a paper is missed or its mark is still to come, the result waits, with no percentage or rank. Rank is by percentage, and equal percentages share a place.",
+  ),
+  schemeWordBands: t("नर्सरी से SKG के ग्रेड शब्दों में:", "Nursery to SKG grade in words:"),
+  schemeLetterBands: t("कक्षा 1 से 12 के ग्रेड ऊपर की श्रेणियों से।", "Classes 1 to 12 grade by the bands above."),
   messagesApproveOpen: t("स्वीकृत करें और व्हाट्सएप खोलें", "Approve and open WhatsApp"),
   messagesStaleBadge: t("पुराना", "Out of date"),
   messagesApprovedOpen: t(

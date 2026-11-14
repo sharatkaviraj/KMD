@@ -230,7 +230,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         classId: sampleClass!.id,
         classLabel: state.card.classLabel,
         issued: state.issued,
-        rows: state.card.rows.map((r) => ({ subject: r.subjectCode, scored: r.scored, outOf: r.outOf, grade: r.grade, grace: state.grace[r.subjectCode] ?? 0, absent: absentLine(absentExams(r)) || undefined })),
+        rows: state.card.rows.map((r) => ({ subject: r.subjectCode, scored: r.scored, outOf: r.outOf, grade: r.grade, grace: state.grace[r.subjectCode] ?? 0, absent: absentLine(absentExams(r), Boolean(state.card.rule)) || undefined })),
         total: state.card.totals.scored,
         outOf: state.card.totals.outOf,
         percent: state.card.totals.percent,

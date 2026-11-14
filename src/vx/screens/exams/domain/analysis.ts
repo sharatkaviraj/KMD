@@ -44,7 +44,11 @@ export type ClassAnalysis = {
   below: { studentId: string; name: string; fails: { subjectCode: string; value: number; maxMarks: number }[] }[];
 };
 
-export function classAnalysis(children: ChildMarks[], subjectOrder: string[], topN = 5): ClassAnalysis {
+/**
+ * `apart`: subjects shown apart from the total (Robotics, D-611). They keep
+ * their average but count in nobody's percentage or pass.
+ */
+export function classAnalysis(children: ChildMarks[], subjectOrder: string[], topN = 5, apart: (code: string) => boolean = () => false): ClassAnalysis {
   const subjects = subjectOrder.map((code) => {
     let sum = 0;
     let sat = 0;
@@ -61,7 +65,8 @@ export function classAnalysis(children: ChildMarks[], subjectOrder: string[], to
   let passedAll = 0;
   const below: ClassAnalysis["below"] = [];
   const ranked: ClassAnalysis["top"] = [];
-  for (const child of children) {
+  for (const whole of children) {
+    const child = { ...whole, marks: whole.marks.filter((m) => !apart(m.subjectCode)) };
     const sat = child.marks.filter((m) => !m.exempt && (m.value !== null || m.absent));
     if (sat.length === 0) continue;
     counted += 1;

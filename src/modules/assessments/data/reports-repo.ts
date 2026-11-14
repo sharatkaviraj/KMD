@@ -26,13 +26,18 @@ import {
 } from "@/modules/assessments/data/assessments-repo";
 import {
   buildReportCard,
+  rankClassCards,
   type CardScheme,
   type ReportCard,
 } from "@/modules/assessments/domain/report-card";
 import {
   gradeFor,
   totalsFor,
+  type Assessment,
+  type AssessmentSubject,
 } from "@/modules/assessments/domain/assessments";
+import { isApart, ruleForClass, type ResultRule } from "@/modules/assessments/domain/result-rules";
+import { gradeWith, schemePercent } from "@/modules/assessments/domain/report-scheme";
 import type { ExportKind } from "@/modules/assessments/domain/exports";
 
 /**
@@ -272,7 +277,9 @@ export async function previewReportCard(input: {
   const openDays = from ? daysBetween(from, to).filter((day) => isSchoolOpen(day, calendar)) : [...recorded];
   const notRecorded = openDays.filter((day) => !recorded.has(day)).length;
 
-  const card = buildReportCard({
+  const classLabel = termPapers[0]?.classLabel ?? "";
+  const rule = ruleForClass(classLabel);
+  const built = buildReportCard({
     sessionLabel: input.sessionLabel,
     term: input.term,
     student: {
@@ -280,7 +287,7 @@ export async function previewReportCard(input: {
       fullName: student.full_name,
       admissionNo: student.admission_no,
       rollNo: enrolment.roll_no,
-      classLabel: termPapers[0]?.classLabel ?? "",
+      classLabel,
       fatherName: student.father_name,
     },
     assessments: inTerm,
@@ -304,7 +311,17 @@ export async function previewReportCard(input: {
           },
     scheme: scheme ? cardSchemeOf(scheme) : null,
     grace: graceOf(grace, input.studentId),
+    rule,
     generatedAt: new Date().toISOString(),
+  });
+  const card = await withClassPlace(built, {
+    classId: enrolment.class_id,
+    sessionLabel: input.sessionLabel,
+    term: input.term,
+    inTerm,
+    termPapers,
+    scheme: scheme ? cardSchemeOf(scheme) : null,
+    rule,
   });
 
   return {
@@ -320,6 +337,57 @@ export async function previewReportCard(input: {
       attendance: { from, to, recordedDays: recorded.size, notRecordedDays: notRecorded },
     },
   };
+}
+
+/**
+ * The child's place in class (D-611): every child enrolled in the class gets
+ * the same term card built beside this one, and they are ranked as the
+ * register ranks — by percentage, ties sharing a place, children whose result
+ * is pending left out. Nothing for a class that is not ranked, or a card that
+ * is not complete.
+ */
+async function withClassPlace(
+  card: ReportCard,
+  input: {
+    classId: string;
+    sessionLabel: string;
+    term: string;
+    inTerm: Assessment[];
+    termPapers: AssessmentSubject[];
+    scheme: CardScheme | null;
+    rule: ResultRule | null;
+  },
+): Promise<ReportCard> {
+  if (!input.rule?.rank || card.status !== "complete") return card;
+  const { data: roll, error } = await createAdminClient()
+    .from("enrolments")
+    .select("student_id")
+    .eq("class_id", input.classId)
+    .eq("session_label", input.sessionLabel)
+    .eq("status", "enrolled")
+    .returns<{ student_id: string }[]>();
+  if (error) return card;
+  const ids = [...new Set([...(roll ?? []).map((row) => row.student_id), card.studentId])];
+  const paperIds = input.termPapers.map((paper) => paper.id);
+  const [marks, grace] = await Promise.all([marksForPapers(paperIds), graceForPapers(paperIds)]);
+  const cards = ids.map((id) =>
+    id === card.studentId
+      ? card
+      : buildReportCard({
+          sessionLabel: input.sessionLabel,
+          term: input.term,
+          student: { id, fullName: "", admissionNo: null, rollNo: null, classLabel: card.classLabel, fatherName: null },
+          assessments: input.inTerm,
+          papers: input.termPapers,
+          marks,
+          attendance: null,
+          scheme: input.scheme,
+          grace: graceOf(grace, id),
+          rule: input.rule,
+          generatedAt: card.generatedAt,
+        }),
+  );
+  return rankClassCards(cards).find((entry) => entry.studentId === card.studentId) ?? card;
 }
 
 /** Grace given on these papers, `paper|student` → marks; one child's only when `studentId` is given. */
@@ -373,23 +441,25 @@ export async function classTermCards(input: {
   const ids = termPapers.map((paper) => paper.id);
   const [marks, grace] = await Promise.all([marksForPapers(ids), graceForPapers(ids)]);
   const generatedAt = new Date().toISOString();
-  return new Map(
-    input.students.map((student) => [
-      student.id,
-      buildReportCard({
-        sessionLabel: input.sessionLabel,
-        term: input.term,
-        student: { id: student.id, fullName: student.fullName, admissionNo: null, rollNo: student.rollNo, classLabel: termPapers[0]?.classLabel ?? "", fatherName: null },
-        assessments: inTerm,
-        papers: termPapers,
-        marks,
-        attendance: null,
-        scheme: scheme ? cardSchemeOf(scheme) : null,
-        grace: graceOf(grace, student.id),
-        generatedAt,
-      }),
-    ]),
+  const classLabel = termPapers[0]?.classLabel ?? "";
+  const rule = ruleForClass(classLabel);
+  const cards = input.students.map((student) =>
+    buildReportCard({
+      sessionLabel: input.sessionLabel,
+      term: input.term,
+      student: { id: student.id, fullName: student.fullName, admissionNo: null, rollNo: student.rollNo, classLabel, fatherName: null },
+      assessments: inTerm,
+      papers: termPapers,
+      marks,
+      attendance: null,
+      scheme: scheme ? cardSchemeOf(scheme) : null,
+      grace: graceOf(grace, student.id),
+      rule,
+      generatedAt,
+    }),
   );
+  // Ranked among the children listed, which is the class's roll (D-611).
+  return new Map(rankClassCards(cards).map((card) => [card.studentId, card]));
 }
 
 export type IssuedCard = {
@@ -662,13 +732,23 @@ export async function termSummaries(
   return [...byTerm.entries()]
     .sort((a, b) => a[0].localeCompare(b[0], "en"))
     .map(([term, termPapers]) => {
-      const totals = totalsFor(
-        termPapers.map((paper) => ({
+      // The class group's rule (D-611), as the report card applies it: Robotics out of the
+      // total, the rule's decimals and bands, and no percentage while a paper is missing.
+      const rule = ruleForClass(termPapers[0]?.classLabel ?? "");
+      const counted = termPapers.filter((paper) => !isApart(rule, paper.subjectCode));
+      const raw = totalsFor(
+        counted.map((paper) => ({
           paper,
           mark: marks.get(`${paper.id}|${studentId}`),
           weight: weightOf.get(paper.assessmentId) ?? 1,
         })),
       );
+      const waiting = counted.some((paper) => {
+        const mark = marks.get(`${paper.id}|${studentId}`);
+        return !mark?.exempt && (Boolean(mark?.absent) || mark?.value === null || mark?.value === undefined);
+      });
+      const totals = rule ? { ...raw, percent: waiting ? null : schemePercent(raw.ratio, rule.percentDecimals) } : raw;
+      const grade = totals.percent === null ? null : rule?.bands ? (gradeWith(totals.percent, rule.bands)?.label ?? null) : (gradeFor(totals.percent)?.label ?? null);
 
       const bySubject = new Map<string, TermSummary["subjects"][number] & { order: number }>();
       for (const paper of termPapers) {
@@ -708,6 +788,6 @@ export async function termSummaries(
           percent: entry.state === "value" && entry.outOf > 0 ? Math.round((entry.scored / entry.outOf) * 100) : null,
         }));
 
-      return { term, totals, grade: gradeFor(totals.percent)?.label ?? null, subjects };
+      return { term, totals, grade, subjects };
     });
 }

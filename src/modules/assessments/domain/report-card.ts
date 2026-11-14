@@ -10,9 +10,19 @@ import { t, type Localized } from "@/platform/i18n/language";
 import { spreadsheetText } from "@/platform/helpers/spreadsheet-text";
 import {
   gradeWith,
+  roundHalfUp,
   schemePercent,
   type GradeBandRule,
 } from "@/modules/assessments/domain/report-scheme";
+import {
+  cardRuleOf,
+  classRanks,
+  divisionFor,
+  isApart,
+  type CardRule,
+  type Division,
+  type ResultRule,
+} from "@/modules/assessments/domain/result-rules";
 
 /**
  * The report card, as a value.
@@ -76,8 +86,32 @@ export type ReportCard = {
   shortIn?: string[];
   /** Subjects with a paper the child missed and was not excused from. */
   absentIn?: string[];
+  /**
+   * The class group's result rule the card was worked out by (D-611); absent
+   * on a card built before the rules, or for a class with none.
+   */
+  rule?: CardRule | null;
+  /**
+   * Under a rule: "complete" when every counted paper has a mark or an
+   * excuse; "pending" when one is missing or was missed ("Result pending",
+   * no percentage, grade or rank, as the register prints it); "absent" when
+   * the child missed every paper.
+   */
+  status?: CardStatus;
+  /** Subjects holding the result back: a paper with no mark yet, or missed. */
+  pendingIn?: string[];
+  /** Subjects printed apart and kept out of every figure (Robotics). */
+  apart?: ReportRow[];
+  /** Place in class by percentage, ties sharing a place; set by `rankClassCards`. */
+  rank?: number | null;
+  /** How many children of the class were ranked. */
+  rankOf?: number | null;
+  /** The Rajasthan Board division (9–12). */
+  division?: Division | null;
   generatedAt: string;
 };
+
+export type CardStatus = "complete" | "pending" | "absent";
 
 /**
  * Attendance over the scheme's reporting period (P8). Days the register was
@@ -129,6 +163,8 @@ export type ReportInput = {
   scheme?: CardScheme | null;
   /** Grace given to this child, by paper id (`exam_grace`); it lifts a paper to its pass mark. */
   grace?: Map<string, number>;
+  /** The class group's result rule (`ruleForClass`); left out, the card is worked out as before D-611. */
+  rule?: ResultRule | null;
   generatedAt: string;
 };
 
@@ -217,19 +253,23 @@ export function cardWeights(card: Pick<ReportCard, "rows">): { code: string; en:
 export function buildReportCard(input: ReportInput): ReportCard {
   const byAssessment = new Map(input.assessments.map((entry) => [entry.id, entry]));
   const scheme = input.scheme ?? null;
+  const rule = input.rule ?? null;
 
   // With a scheme the percentage is the unrounded fraction rounded once, at
   // the school's boundary, and graded on that rounded number — so a child at
   // 32.95 with a band starting at 33 and one decimal is 33.0 and in it.
   // Without one (a preview before the scheme is approved) the defaults stand.
-  const percentOf = (totals: Totals) =>
-    scheme ? schemePercent(totals.ratio, scheme.percentDecimals) : totals.percent;
+  // A class group's rule (D-611) sets the decimals, and its own bands when it
+  // has them (Nursery to SKG grade in words).
+  const decimals = rule ? rule.percentDecimals : (scheme?.percentDecimals ?? null);
+  const bands = rule?.bands ?? scheme?.bands ?? null;
+  const percentOf = (totals: Totals) => (decimals !== null ? schemePercent(totals.ratio, decimals) : totals.percent);
   const gradeOf = (percent: number | null) => {
-    if (!scheme) {
+    if (!bands) {
       const band = gradeFor(percent);
       return band ? { label: band.label, description: band.description } : null;
     }
-    const band = gradeWith(percent, scheme.bands);
+    const band = gradeWith(percent, bands);
     return band ? { label: band.label, description: t(band.hi, band.en) } : null;
   };
 
@@ -242,7 +282,10 @@ export function buildReportCard(input: ReportInput): ReportCard {
   }
 
   const rows: ReportRow[] = [];
+  const apart: ReportRow[] = [];
   const everyResult: { paper: AssessmentSubject; mark: Mark | undefined }[] = [];
+  /** Per counted subject, what the rule needs to judge it. */
+  const judged: { subjectCode: string; totals: Totals; grace: number; waiting: boolean }[] = [];
 
   for (const [subjectCode, papers] of [...bySubject.entries()].sort((a, b) =>
     a[0].localeCompare(b[0], "en"),
@@ -264,11 +307,14 @@ export function buildReportCard(input: ReportInput): ReportCard {
       weight: byAssessment.get(paper.assessmentId)?.weight ?? 1,
     }));
 
-    everyResult.push(...results);
-
     const totals = totalsFor(results);
+    const shownApart = isApart(rule, subjectCode);
+    // Under a rule a subject still waiting on a paper (no mark yet, or
+    // missed) has no percentage or grade of its own, as on the register.
+    const waiting = results.some(({ mark }) => !mark?.exempt && (mark?.absent || mark?.value === null || mark?.value === undefined));
+    const percent = rule && waiting ? null : percentOf(totals);
 
-    rows.push({
+    const row: ReportRow = {
       subjectCode,
       classLabel: ordered[0]?.classLabel ?? "",
       marks: ordered.map((paper) => {
@@ -287,16 +333,27 @@ export function buildReportCard(input: ReportInput): ReportCard {
       }),
       scored: totals.scored,
       outOf: totals.outOf,
-      percent: percentOf(totals),
-      grade: gradeOf(percentOf(totals))?.label ?? null,
+      percent,
+      grade: shownApart ? null : (gradeOf(percent)?.label ?? null),
+    };
+
+    if (shownApart) {
+      apart.push(row);
+      continue;
+    }
+    rows.push(row);
+    everyResult.push(...results);
+    judged.push({
+      subjectCode,
+      totals,
+      grace: ordered.reduce((sum, paper) => sum + (input.grace?.get(paper.id) ?? 0), 0),
+      waiting,
     });
   }
 
   const raw = totalsFor(everyResult);
-  const totals = { ...raw, percent: percentOf(raw) };
-  const band = gradeOf(totals.percent);
-  const result = cardResult({
-    percent: totals.percent,
+  const paperResult = cardResult({
+    percent: percentOf(raw),
     passPercent: scheme?.passPercent ?? null,
     papers: everyResult.map(({ paper, mark }) => ({
       subjectCode: paper.subjectCode,
@@ -307,6 +364,10 @@ export function buildReportCard(input: ReportInput): ReportCard {
       grace: input.grace?.get(paper.id) ?? 0,
     })),
   });
+
+  const ruled = rule ? ruleOutcome(rule, judged, everyResult, paperResult, percentOf(raw), scheme?.passPercent ?? null) : null;
+  const totals = { ...raw, percent: ruled ? ruled.percent : percentOf(raw) };
+  const band = gradeOf(totals.percent);
 
   return {
     sessionLabel: input.sessionLabel,
@@ -323,11 +384,82 @@ export function buildReportCard(input: ReportInput): ReportCard {
     gradeDescription: band?.description ?? null,
     attendance: input.attendance,
     scheme,
-    passed: result.passed,
-    shortIn: result.shortIn,
-    absentIn: result.absentIn,
+    passed: ruled ? ruled.passed : paperResult.passed,
+    shortIn: ruled ? ruled.shortIn : paperResult.shortIn,
+    absentIn: paperResult.absentIn,
+    ...(rule
+      ? {
+          rule: cardRuleOf(rule),
+          status: ruled!.status,
+          pendingIn: ruled!.pendingIn,
+          apart,
+          rank: null,
+          rankOf: null,
+          division: rule.division && ruled!.passed !== false ? divisionFor(ruled!.percent) : null,
+        }
+      : {}),
     generatedAt: input.generatedAt,
   };
+}
+
+/**
+ * A card's result under its class group's rule (D-611):
+ *
+ *  - a counted paper with no mark yet, or missed, holds the whole result:
+ *    "pending", no percentage (and so no grade or rank); missed everything
+ *    is "absent";
+ *  - otherwise each subject must reach the rule's share of its own total,
+ *    counting any grace given on its papers, and any paper's own pass mark;
+ *  - and the term's overall pass mark, when the scheme has one;
+ *  - a rule with no verdict (Nursery to SKG, and the board classes) never
+ *    says Pass or Not passed, though a subject under the mark is still named.
+ */
+function ruleOutcome(
+  rule: ResultRule,
+  subjects: { subjectCode: string; totals: Totals; grace: number; waiting: boolean }[],
+  results: { paper: AssessmentSubject; mark: Mark | undefined }[],
+  byPaper: CardResult,
+  percent: number | null,
+  passPercent: number | null,
+): { status: CardStatus; percent: number | null; passed: boolean | null; shortIn: string[]; pendingIn: string[] } {
+  const sat = results.filter(({ mark }) => !mark?.exempt);
+  const pendingIn = subjects.filter((s) => s.waiting).map((s) => s.subjectCode);
+  const status: CardStatus =
+    sat.length > 0 && sat.every(({ mark }) => mark?.absent) ? "absent" : sat.length === 0 || pendingIn.length > 0 ? "pending" : "complete";
+  if (status !== "complete") return { status, percent: null, passed: null, shortIn: [], pendingIn };
+
+  const short = new Set(byPaper.shortIn);
+  if (rule.subjectPassPercent !== null) {
+    for (const subject of subjects) {
+      const { ratio, outOf } = subject.totals;
+      if (ratio === null || outOf <= 0) continue;
+      const share = roundHalfUp((ratio + subject.grace / outOf) * 100, rule.percentDecimals);
+      if (share < rule.subjectPassPercent) short.add(subject.subjectCode);
+    }
+  }
+  const shortIn = subjects.map((s) => s.subjectCode).filter((code) => short.has(code));
+  const overallShort = passPercent !== null && percent !== null && percent < passPercent;
+  const passed = rule.verdict ? shortIn.length === 0 && !overallShort : null;
+  return { status, percent, passed, shortIn, pendingIn };
+}
+
+/**
+ * Places every child of a class whose rule ranks (D-611): by percentage,
+ * ties sharing a place (1, 1, 3), only children with a complete result, as
+ * the register ranks. Returns new cards; the others come back as they were.
+ */
+export function rankClassCards<C extends Pick<ReportCard, "studentId" | "rule" | "status" | "totals">>(cards: readonly C[]): (C & { rank: number | null; rankOf: number | null })[] {
+  const places = classRanks(
+    cards.map((card) => ({
+      id: card.studentId,
+      percent: card.totals.percent,
+      ranked: Boolean(card.rule?.rank) && card.status === "complete",
+    })),
+  );
+  return cards.map((card) => {
+    const place = places.get(card.studentId);
+    return { ...card, rank: place?.rank ?? null, rankOf: place?.of ?? null };
+  });
 }
 
 /* ------------------------------------------------------------- columns */

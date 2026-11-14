@@ -46,6 +46,7 @@ import {
   undoLine,
   type Cell,
 } from "./domain/entry";
+import { filledLine } from "./domain/class-tests";
 import { subjectPair } from "./domain/groups";
 import { needsCorrectionText } from "./domain/progress";
 import { ExamsTop, Note, XBar } from "./bits";
@@ -103,6 +104,9 @@ export function MarksSheet({
   forTeacher = null,
   viewerStaffId = null,
   langSwitch = null,
+  flavour = "exam",
+  intro = null,
+  fill = null,
 }: {
   ownerId: string;
   sessionLabel: string;
@@ -132,8 +136,17 @@ export function MarksSheet({
   viewerStaffId?: string | null;
   /** The EN/हि switch, passed in by the page so this sheet stays free of server actions (it is also drawn in a browser-only fixture). */
   langSwitch?: ReactNode;
+  /** "classTest": a teacher's own test (D-609) — finished, not sent to the exam office. */
+  flavour?: "exam" | "classTest";
+  /** A card shown above the list and on the finished screen (a class test's "Count in"). */
+  intro?: ReactNode;
+  /** Marks worked out from class tests that count in this paper; offered for blank boxes only. */
+  fill?: { values: Record<string, number>; label: Pair } | null;
 }) {
   const { tx, sub } = useVx();
+  /** A class test says "finish", never "send to the exam office". */
+  const ct = flavour === "classTest";
+  const ew = (exam: Pair, test: Pair): Pair => (ct ? test : exam);
   const online = useOnline();
   const toast = useToast();
   const router = useRouter();
@@ -510,6 +523,29 @@ export function MarksSheet({
     if (!correcting) schedule();
   }
 
+  /** Class tests that count in this paper fill its blank boxes; a typed mark is never replaced. */
+  function fillBlanks() {
+    if (!fill || !editable) return;
+    let filled = 0;
+    let skipped = 0;
+    for (const id of order) {
+      const value = fill.values[id];
+      if (value === undefined) continue;
+      const cell = latest.current.cells[id] ?? BLANK;
+      if (cell.state !== "blank") {
+        skipped += 1;
+        continue;
+      }
+      setCell(id, { state: "value", value }, String(value));
+      filled += 1;
+    }
+    if (filled > 0) {
+      schedule();
+      cue("success");
+    }
+    toast.show({ text: tx(filledLine(filled, skipped)) });
+  }
+
   /**
    * Words in a box that cannot be saved: they stay in the box, the reason
    * stands beside the child, and the child's mark goes back to what the school
@@ -762,7 +798,7 @@ export function MarksSheet({
       setRevision(result.revision);
       setEntryStatus("open");
       setPhase("entry");
-      toast.show({ text: tx(p("Handed back to the teacher", "अध्यापक को वापस दिया")) });
+      toast.show({ text: tx(ew(p("Handed back to the teacher", "अध्यापक को वापस दिया"), p("You can change the marks now", "अब अंक बदल सकते हैं"))) });
       router.refresh();
     } else {
       toast.show({ text: tx(result && !result.ok ? result.message : p("Could not hand it back", "वापस नहीं दिया जा सका")), tone: "bad" });
@@ -821,7 +857,7 @@ export function MarksSheet({
       : paper.locked
         ? p("These marks are final and cannot be changed.", "ये अंक अंतिम हैं, बदले नहीं जा सकते।")
         : entryStatus === "submitted" && !correcting
-          ? p("This paper was sent. It cannot be changed here.", "यह पेपर भेजा जा चुका है। यहाँ बदल नहीं सकते।")
+          ? ew(p("This paper was sent. It cannot be changed here.", "यह पेपर भेजा जा चुका है। यहाँ बदल नहीं सकते।"), p("This test is finished. Tap “Change marks” to edit it.", "यह टेस्ट पूरा हो चुका है। बदलने के लिए “अंक बदलें” दबाएँ।"))
           : null;
   // One line for where the save stands, read out politely when it changes.
   const statusLine =
@@ -929,21 +965,23 @@ export function MarksSheet({
     const gaps = c.blank;
     return (
       <VxPage>
-        <TopBar crumb={crumb} title={tx(p("Marks sent", "अंक भेजे गए"))} mTitle={tx(p("Marks sent", "अंक भेजे गए"))} mSub={title} mBack={backHref} actions={actions} mAction={actions} />
+        <TopBar crumb={crumb} title={tx(ew(p("Marks sent", "अंक भेजे गए"), p("Test finished", "टेस्ट पूरा हुआ")))} mTitle={tx(ew(p("Marks sent", "अंक भेजे गए"), p("Test finished", "टेस्ट पूरा हुआ")))} mSub={title} mBack={backHref} actions={actions} mAction={actions} />
         <main>
           {banner ? <section className="pad" style={{ padding: "16px 28px 0" }}>{banner}</section> : null}
           <section className="pad" style={{ padding: "28px 28px 40px", display: "flex", justifyContent: "center" }}>
             <Card style={{ maxWidth: 520, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, padding: "28px 22px" }}>
               {gaps ? <Ic n="alert" size={40} style={{ color: "var(--warnfg)" }} /> : <SuccessTick />}
-              <h2 className="serif" style={{ margin: 0, fontSize: 26 }}>{two(p("Marks sent", "अंक भेजे गए"), 14)}</h2>
+              <h2 className="serif" style={{ margin: 0, fontSize: 26 }}>{two(ew(p("Marks sent", "अंक भेजे गए"), p("Test finished", "टेस्ट पूरा हुआ")), 14)}</h2>
               <p style={{ margin: 0, fontSize: 16 }}>
-                {variant === "office"
+                {ct
+                  ? tx(p("The marks are saved in each child's progress.", "अंक हर बच्चे की प्रगति में सहेज दिए गए।"))
+                  : variant === "office"
                   ? tx(p("These marks have been sent to the exam office.", "ये अंक परीक्षा विभाग को भेजे जा चुके हैं।"))
                   : coordinatorName ? tx(p(`${coordinatorName} has your marks.`, `आपके अंक ${coordinatorName} के पास हैं।`)) : tx(p("The exam office has your marks.", "परीक्षा विभाग के पास आपके अंक हैं।"))}
               </p>
               {gaps ? (
                 // Sent, but not every child is accounted for: said, never a plain green tick.
-                <Banner tone="warn">{tx(p(`${c.filled} of ${c.total} children have a mark · ${gaps} blank. Tell the exam office.`, `${c.total} में से ${c.filled} बच्चों के अंक हैं · ${gaps} खाली। परीक्षा प्रभारी को बताएँ।`))}</Banner>
+                <Banner tone="warn">{tx(ew(p(`${c.filled} of ${c.total} children have a mark · ${gaps} blank. Tell the exam office.`, `${c.total} में से ${c.filled} बच्चों के अंक हैं · ${gaps} खाली। परीक्षा प्रभारी को बताएँ।`), p(`${c.filled} of ${c.total} children have a mark · ${gaps} blank.`, `${c.total} में से ${c.filled} बच्चों के अंक हैं · ${gaps} खाली।`)))}</Banner>
               ) : null}
               <span style={{ color: "var(--mut)", fontSize: 13 }}>
                 {title} · {tx(childCount(students.length))}
@@ -971,10 +1009,11 @@ export function MarksSheet({
                     <Btn variant="soft" icon="edit" disabled={!ready || Boolean(recovered) || pendingCommand || busy} onClick={() => { setCorrecting(true); setPhase("entry"); }}>{tx(p("Correct a mark", "अंक सुधारें"))}</Btn>
                   ) : null}
                   {canReopen && !paper.locked ? (
-                    <Btn variant="sec" icon="undo" disabled={!ready || Boolean(recovered) || pendingCommand || busy} onClick={() => setAskReopen(true)}>{tx(p("Hand back to teacher", "अध्यापक को वापस दें"))}</Btn>
+                    <Btn variant={ct ? "pri" : "sec"} icon={ct ? "edit" : "undo"} disabled={!ready || Boolean(recovered) || pendingCommand || busy} onClick={() => setAskReopen(true)}>{tx(ew(p("Hand back to teacher", "अध्यापक को वापस दें"), p("Change marks", "अंक बदलें")))}</Btn>
                   ) : null}
                 </div>
               ) : null}
+              {intro ? <div style={{ width: "100%", textAlign: "left" }}>{intro}</div> : null}
               {/* The saved marks, read only: nothing is opened for editing and nothing autosaves. */}
               <Btn variant="ghost" icon="eye" onClick={() => setPhase("entry")}>{tx(p("View saved marks", "सहेजे अंक देखें"))}</Btn>
               {nextHref ? (
@@ -1000,9 +1039,9 @@ export function MarksSheet({
           onClose={() => setAskReopen(false)}
           onConfirm={() => void reopen()}
           busy={busy}
-          title={tx(p("Hand this paper back?", "यह पेपर वापस दें?"))}
-          body={tx(p("The teacher can change marks again and must send it once more.", "अध्यापक फिर से अंक बदल सकेंगे और दोबारा भेजना होगा।"))}
-          confirmLabel={tx(p("Hand back", "वापस दें"))}
+          title={tx(ew(p("Hand this paper back?", "यह पेपर वापस दें?"), p("Change marks in this test?", "इस टेस्ट के अंक बदलें?")))}
+          body={tx(ew(p("The teacher can change marks again and must send it once more.", "अध्यापक फिर से अंक बदल सकेंगे और दोबारा भेजना होगा।"), p("The test opens again. Tap “Finish test” once more when you are done.", "टेस्ट फिर से खुलेगा। बदलने के बाद दोबारा “टेस्ट पूरा करें” दबाएँ।")))}
+          confirmLabel={tx(ew(p("Hand back", "वापस दें"), p("Change marks", "अंक बदलें")))}
         />
       </VxPage>
     );
@@ -1027,23 +1066,23 @@ export function MarksSheet({
       <div className="glass" style={{ position: "sticky", bottom: "var(--vx-bottom-h)", zIndex: 10, borderTop: "1px solid var(--bd)", padding: "12px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 12px" }}>
         <span style={{ flex: "1 1 220px", minWidth: 0, display: "flex", flexDirection: "column" }}>
           <strong style={{ color: summary.blanks.length || fixes ? "var(--warnfg)" : undefined }}>{tx(waitLine)}</strong>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{coordinatorName ? tx(p(`Goes to ${coordinatorName}`, `${coordinatorName} को जाएँगे`)) : tx(p("Goes to the exam office", "परीक्षा विभाग को जाएँगे"))}</span>
+          <span style={{ fontSize: 12, color: "var(--mut)" }}>{ct ? tx(p("Goes into each child's progress", "हर बच्चे की प्रगति में जाएगा")) : coordinatorName ? tx(p(`Goes to ${coordinatorName}`, `${coordinatorName} को जाएँगे`)) : tx(p("Goes to the exam office", "परीक्षा विभाग को जाएँगे"))}</span>
         </span>
-        <Btn variant="pri" big icon="send" style={{ flex: "1 1 200px" }} disabled={busy || summary.blanks.length > 0 || fixes > 0 || !editable} onClick={() => void send("submit")}>
-          {two(p("Send marks", "अंक भेजें"))}
+        <Btn variant="pri" big icon={ct ? "checkCircle" : "send"} style={{ flex: "1 1 200px" }} disabled={busy || summary.blanks.length > 0 || fixes > 0 || !editable} onClick={() => void send("submit")}>
+          {two(ew(p("Send marks", "अंक भेजें"), p("Finish test", "टेस्ट पूरा करें")))}
         </Btn>
       </div>
     );
     return (
       <VxPage>
-        <TopBar crumb={crumb} title={tx(p("Check and send", "जाँचें और भेजें"))} mTitle={tx(p("Check and send", "जाँचें और भेजें"))} mSub={title} mBack={undefined} actions={actions} mAction={actions} />
+        <TopBar crumb={crumb} title={tx(ew(p("Check and send", "जाँचें और भेजें"), p("Check and finish", "जाँचें और पूरा करें")))} mTitle={tx(ew(p("Check and send", "जाँचें और भेजें"), p("Check and finish", "जाँचें और पूरा करें")))} mSub={title} mBack={undefined} actions={actions} mAction={actions} />
         <main>
           <section className="pad" style={{ padding: "22px 28px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
               <Btn variant="ghost" icon="chevLeft" onClick={() => setPhase("entry")}>{tx(p("Back to marks", "अंकों पर वापस"))}</Btn>
             </div>
             <div>
-              <h2 className="serif" style={{ margin: 0, fontSize: 28 }}>{two(p("Check before sending", "भेजने से पहले जाँचें"), 15)}</h2>
+              <h2 className="serif" style={{ margin: 0, fontSize: 28 }}>{two(ew(p("Check before sending", "भेजने से पहले जाँचें"), p("Check before finishing", "पूरा करने से पहले जाँचें")), 15)}</h2>
               <span style={{ color: "var(--mut)" }}>{subLine}</span>
             </div>
             {banner}
@@ -1102,6 +1141,11 @@ export function MarksSheet({
                     })}
                   </Card>
                 ) : null}
+                {ct ? (
+                  <Card>
+                    <Banner tone="info">{tx(p("After finishing, you can still change a mark: open the test and tap “Change marks”.", "पूरा करने के बाद भी अंक बदल सकते हैं: टेस्ट खोलें और “अंक बदलें” दबाएँ।"))}</Banner>
+                  </Card>
+                ) : (
                 <Card>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Avatar text={initials(coordinatorName ?? "Exam office")} bg={avatarColor(coordinatorName ?? "x")} size={40} />
@@ -1114,6 +1158,7 @@ export function MarksSheet({
                     <Banner tone="info">{tx(p("After sending, you can take the marks back for 10 minutes. After that, ask the exam office to change a mark.", "भेजने के बाद 10 मिनट तक अंक वापस ले सकते हैं। उसके बाद अंक बदलने के लिए परीक्षा विभाग से कहें।"))}</Banner>
                   </div>
                 </Card>
+                )}
               </div>
             </div>
           </section>
@@ -1362,6 +1407,13 @@ export function MarksSheet({
               </div>
             </Card>
             {padMode ? null : banner}
+            {intro && !padMode ? intro : null}
+            {fill && editable && entryStatus === "open" && !correcting && !padMode && Object.keys(fill.values).length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+                <Btn variant="soft" icon="sparkle" onClick={fillBlanks}>{tx(fill.label)}</Btn>
+                <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("Fills only blank boxes. You check each mark.", "केवल खाली खाने भरता है। हर अंक आप जाँचें।"))}</span>
+              </div>
+            ) : null}
             {photoHref && ready && online && !busy && !pendingCommand && !oldDraft && !correcting && editable && entryStatus === "open" && !local.length && !held.length && !padText && (
               <div><Btn href={photoHref} prefetch={false}>{tx(p("Read marks from photo", "फ़ोटो से अंक पढ़ें"))}</Btn></div>
             )}
@@ -1546,7 +1598,7 @@ export function MarksSheet({
           </span>
           {retry}
           {entryStatus === "submitted" && !correcting ? (
-            <Btn variant="sec" onClick={() => setPhase("sent")}>{tx(p("Sent", "भेजा"))} ✓</Btn>
+            <Btn variant="sec" onClick={() => setPhase("sent")}>{tx(ew(p("Sent", "भेजा"), p("Finished", "पूरा")))} ✓</Btn>
           ) : !correcting && students.length === 0 ? (
             // Nothing to check and nothing to send: a paper with no children
             // offered "Check & send" and its check said "every child has a
@@ -1556,7 +1608,7 @@ export function MarksSheet({
             </span>
           ) : !correcting ? (
             <Btn variant="pri" big icon="checkCircle" disabled={!editable || busy} onClick={() => { void flush(); setPhase("check"); }}>
-              {two(p("Check & send", "जाँचें और भेजें"))}
+              {two(ew(p("Check & send", "जाँचें और भेजें"), p("Check & finish", "जाँचें और पूरा करें")))}
             </Btn>
           ) : null}
         </div>

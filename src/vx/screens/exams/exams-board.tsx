@@ -17,7 +17,7 @@ import { Dot, ExamsTop, FactRow, LogLine, XBar, XRing, type TopAct } from "./bit
 import type { CellCounts, CellState } from "./domain/board";
 import { GROUP_KEYS, GROUP_LABELS, subjectPair, type GroupKey } from "./domain/groups";
 import { waLink } from "./domain/messages";
-import { supportLine, weightsLine } from "./domain/card-words";
+import { percentText, rankLine, ruledResult, supportLine, weightsLine } from "./domain/card-words";
 import { paperMix, progressLine, READINESS_LABEL, type ClassReadiness, type PaperReadiness } from "./domain/progress";
 import { RemindSheet, reminderFor, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
@@ -109,7 +109,25 @@ export type ExamsProps = {
      * The term card's own figures (`classTermCards`): the same percentage, grade and result the
      * card prints. `shortIn`: subjects below the pass mark or missed.
      */
-    students: { id: string; name: string; roll: string | null; issued: boolean; percent?: number | null; grade?: string | null; passed?: boolean | null; shortIn?: string[]; missing?: string[]; absent?: number; remark?: boolean }[];
+    students: {
+      id: string;
+      name: string;
+      roll: string | null;
+      issued: boolean;
+      percent?: number | null;
+      grade?: string | null;
+      passed?: boolean | null;
+      shortIn?: string[];
+      missing?: string[];
+      absent?: number;
+      remark?: boolean;
+      /** Under the class group's rule (D-611): "pending" while a paper is missing or missed. */
+      status?: "complete" | "pending" | "absent" | null;
+      pendingIn?: string[];
+      rank?: number | null;
+      rankOf?: number | null;
+      decimals?: number;
+    }[];
     /** This exam's papers of the class that keep its cards from being ready (`paperBlockers`). */
     blockers?: { subject: Pair; reason: "needs_correction" | "missing" | "not_sent"; count: number }[];
   } | null;
@@ -139,9 +157,21 @@ export type ExamsProps = {
     /** Each exam's weight when they differ, printed under the percentage so a parent can check it. */
     weights?: { name: Pair; weight: number }[];
     grade: string | null;
+    /** The grade's words ("Very good"), from the band it fell in. */
+    gradeWords?: { en: string; hi: string } | null;
     passed: boolean | null;
     /** Subjects below the pass mark after grace, or missed without being excused (`cardResult`). */
     shortIn?: Pair[];
+    /** The class group's result rule (D-611), when the class has one. */
+    rule?: { key: string; name: { en: string; hi: string }; verdict: boolean; decimals: number } | null;
+    status?: "complete" | "pending" | "absent" | null;
+    /** Subjects holding the result back: a paper still to come, or missed. */
+    pendingIn?: Pair[];
+    rank?: number | null;
+    rankOf?: number | null;
+    division?: { en: string; hi: string } | null;
+    /** Subjects printed apart and kept out of the total (Robotics). */
+    apart?: { subject: Pair; outOf: number; scored: number; state: "value" | "absent" | "missing" | "exempt" }[];
     attendance: number | null;
     present?: number | null;
     counted?: number | null;
@@ -1216,11 +1246,19 @@ function ReportCards(props: ExamsProps & { href: Href }) {
                     : { t: p("Ready", "तैयार"), bg: "var(--oks)", fg: "var(--ok)" };
               const names = (codes: string[]) => codes.map((m) => tx(subjectPair(m))).join(", ");
               // The term card's own percentage, grade and result (`classTermCards`), so it matches the card.
+              const support = (s.shortIn ?? []).length && s.passed !== true ? ` · ${tx(p(`needs support in ${names(s.shortIn ?? [])}`, `${names(s.shortIn ?? [])} में सहायता चाहिए`))}` : "";
+              const place = s.rank && s.rankOf ? ` · ${tx(p(`rank ${s.rank} of ${s.rankOf}`, `स्थान ${s.rank} (${s.rankOf} में)`))}` : "";
+              const noRemark = s.remark === false ? ` · ${tx(p("no remark yet", "टिप्पणी बाकी"))}` : "";
+              // Under the class group's rule (D-611) a missed paper holds the result, as the register does.
               const sub = miss.length
                 ? `${tx(p("Missing", "बाकी"))} ${names(miss)}`
-                : s.percent !== null && s.percent !== undefined
-                  ? `${s.percent.toFixed(1)}%${s.grade ? ` · ${s.grade}` : ""}${s.absent ? ` · ${tx(p(`absent in ${s.absent}`, `${s.absent} में अनुपस्थित`))}` : ""}${s.passed === false && (s.shortIn ?? []).length ? ` · ${tx(p(`needs support in ${names(s.shortIn ?? [])}`, `${names(s.shortIn ?? [])} में सहायता चाहिए`))}` : ""}${s.remark === false ? ` · ${tx(p("no remark yet", "टिप्पणी बाकी"))}` : ""}`
-                  : "—";
+                : s.status === "absent"
+                  ? tx(p("Absent from every paper", "हर पेपर में अनुपस्थित"))
+                  : s.status === "pending"
+                    ? `${tx(p("Result pending", "परिणाम लंबित"))}: ${names(s.pendingIn ?? [])}${noRemark}`
+                    : s.percent !== null && s.percent !== undefined
+                      ? `${percentText(s.percent, s.decimals ?? 1)}${s.grade ? ` · ${s.grade}` : ""}${place}${s.absent && !s.status ? ` · ${tx(p(`absent in ${s.absent}`, `${s.absent} में अनुपस्थित`))}` : ""}${support}${noRemark}`
+                      : "—";
               return (
                 <Link key={s.id} href={href("preview", `&class=${cards.classId}&student=${s.id}`)} className="tap row xd" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", minHeight: 58, padding: "8px 16px", color: "var(--fg)" }}>
                   {/* No roll numbers set for the class: no column of dashes (smoke 20 Oct). */}
@@ -1280,6 +1318,9 @@ const CARD = {
   principal: "प्रधानाचार्य · Principal",
   notEntered: "Not entered · नहीं भरे",
   absent: "Absent · अनुपस्थित",
+  rank: "कक्षा में स्थान / Rank in class",
+  gradeWord: "ग्रेड / Grade",
+  apart: "कुल में नहीं जुड़ता · Shown apart, not in the total",
 } as const;
 
 function Preview(props: ExamsProps & { href: Href }) {
@@ -1295,9 +1336,15 @@ function Preview(props: ExamsProps & { href: Href }) {
   const go = (id: string | null) => (id ? href("preview", `&class=${cards?.classId ?? ""}&student=${id}`) : undefined);
   const [en, hi] = (c.remark ?? "").split("\n");
   const pending = c.rows.some((r) => r.state === "missing");
-  // A failed or missed paper decides it even while another mark is still coming (`cardResult`).
-  const result =
-    c.passed === false
+  const TONE = { ok: "var(--ok)", bad: "var(--bad)", warn: "var(--warnfg)", plain: "var(--fg)" } as const;
+  // The class group's rule decides the line when there is one (D-611); otherwise a failed or
+  // missed paper decides it even while another mark is still coming (`cardResult`).
+  const ruled = ruledResult({ rule: c.rule, status: c.status, passed: c.passed, shortIn: c.shortIn ?? [], pendingIn: c.pendingIn ?? [], division: c.division });
+  const result = c.rule
+    ? ruled
+      ? { t: ruled.text, c: TONE[ruled.tone] }
+      : null
+    : c.passed === false
       ? { t: supportLine(c.shortIn ?? []), c: "var(--bad)" }
       : pending
         ? { t: CARD.pending, c: "var(--warnfg)" }
@@ -1305,9 +1352,13 @@ function Preview(props: ExamsProps & { href: Href }) {
           ? null
           : { t: CARD.pass, c: "var(--ok)" };
   const weights = weightsLine(c.weights ?? []);
+  const place = rankLine(c.rank, c.rankOf);
+  const words = c.rule?.key === "pre_primary" && c.gradeWords && c.grade ? `${c.gradeWords.en} · ${c.gradeWords.hi}` : null;
   const tiles = [
-    { k: c.weighted ? `${CARD.percent} · ${CARD.weighted}` : CARD.percent, v: c.percent === null ? "—" : `${c.percent.toFixed(1)}%`, c: "var(--fg)" },
+    { k: c.weighted ? `${CARD.percent} · ${CARD.weighted}` : CARD.percent, v: percentText(c.percent, c.rule?.decimals ?? 1), c: "var(--fg)" },
+    ...(words ? [{ k: CARD.gradeWord, v: words, c: "var(--ok)" }] : []),
     ...(result ? [{ k: CARD.result, v: result.t, c: result.c }] : []),
+    ...(place ? [{ k: CARD.rank, v: place, c: "var(--fg)" }] : []),
     { k: CARD.attendance, v: c.attendance === null ? "—" : `${c.attendance}%${c.present !== null && c.present !== undefined && c.counted ? ` · ${c.present}/${c.counted}` : ""}`, c: "var(--fg)" },
   ];
   const signs = [
@@ -1402,6 +1453,24 @@ function Preview(props: ExamsProps & { href: Href }) {
             <span className="num" style={{ textAlign: "center" }}>{c.total}</span>
             <span style={{ textAlign: "center" }}>{c.grade ?? "—"}</span>
           </div>
+          {c.apart?.length ? (
+            <>
+              <div style={{ padding: "8px 12px 4px", borderTop: "1px solid var(--bds)", fontSize: 11, fontWeight: 700, color: "var(--mut)" }} lang="hi">
+                {CARD.apart}
+              </div>
+              {c.apart.map((r) => (
+                <div key={r.subject.en} style={{ ...CARD_ROW, borderTop: "1px solid var(--bd)" }}>
+                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <span style={{ fontWeight: 600 }}>{r.subject.en}</span>
+                    {r.subject.hi ? <span lang="hi" style={{ fontSize: 11, color: "var(--mut)" }}>{r.subject.hi}</span> : null}
+                  </span>
+                  <span className="num" style={{ textAlign: "center", color: "var(--mut)" }}>{r.outOf}</span>
+                  <span className="num" style={{ textAlign: "center", fontWeight: 700 }}>{r.state === "value" ? r.scored : "—"}</span>
+                  <span style={{ textAlign: "center", fontSize: 13, color: "var(--mut)" }}>{r.state === "absent" ? CARD.absent : r.state === "missing" ? CARD.notEntered : ""}</span>
+                </div>
+              ))}
+            </>
+          ) : null}
         </div>
         {c.notes?.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11, color: "var(--mut)" }}>
@@ -1442,7 +1511,8 @@ function Preview(props: ExamsProps & { href: Href }) {
   );
 }
 
-const CARD_ROW: CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0,1fr) 58px 66px 60px", gap: 8, alignItems: "center", padding: "8px 12px" };
+// The grade column fits Nursery's word grades ("Outstanding") as well as A1–E (D-611).
+const CARD_ROW: CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0,1fr) 52px 62px 86px", gap: 8, alignItems: "center", padding: "8px 12px" };
 
 /* ------------------------------------------------------------- analysis */
 

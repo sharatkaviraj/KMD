@@ -1,5 +1,20 @@
 # VPPS One — progress
 
+## Exams and marks rethink — 14 November 2026
+
+Owner asked (14 Nov) to rethink exams and marks from his Half Yearly 2026-27
+register (Nursery–8; 5 and 8 board classes; 9–12 by RBSE). Ideas doc with
+mock-ups shared; he said build the recommended set in safe steps. His answers
+(14 Nov 04:44 UTC): Term 1 + Term 2 added for the year, rank in class, 33% per
+subject, load the real Half Yearly marks into One, effort analysis and a far
+richer report card with teacher remarks from notes.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Step 1, class tests (D-609): New test in three taps, the shared sheet with finish wording, "Count in" a formative exam, "Fill from N class tests" on that exam's sheet | **in review** | `claude/project-thread-fwf1me` | Migration applied to One 14 Nov. "Count in" offers only an exam whose paper is still open (the real Test I and II are sent). The Sampark link does not list class tests yet. |
+| Step 2, result rules per class group (D-611): Nursery–SKG word grades and no pass or fail; Classes 1–4, 6, 7 A1–E, 33% in every subject, rank; 5 and 8 the same but the board declares the result; 9–12 RBSE with a division. Robotics shown apart. A missing paper makes the result pending | **in review** | `claude/project-thread-fwf1me` | Checked against every row of the real register: 0 grade and 0 rank mismatches, complete and pending counts equal per class. Per-paper pass marks stay empty; the 33% is per subject (Test I + II + Half Yearly) with grace counted. The 9–12 divisions follow RBSE and are not yet checked against a school register. |
+| Real Half Yearly 2026-27 marks loaded (D-610): Test I, Test II and Half Yearly for Nursery–Class 8, 384 children, every total equal to the register | **done** (data, 14 Nov) | SQL from the register, never a repo file (rule 6) | Exam dates left empty on purpose: every 2026-27 enrolment says it began 22 Sep (a load artefact), so a real date would empty the roll. 6 register rows are not in One (one sits in another class in Fees, five are not in Fees). 11 children on One's roll have no row in the register. The real JKG and Class 4 rolls will not open until 5 stale enrolments are marked left (asked the owner). |
+
 ## Sign in with a WhatsApp code — 12 November 2026
 
 Owner asked (12 Nov) for "phone number and OTP on WhatsApp via the hub" as the

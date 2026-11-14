@@ -14,10 +14,12 @@ import { subjectPair } from "./groups";
  * (D-319), so without this a subject read "15.5/100" as if the child had
  * written 15.5 (verification 21 Oct). Empty when the child sat every paper.
  */
-export function absentLine(exams: readonly CardExam[]): string {
+export function absentLine(exams: readonly CardExam[], held = false): string {
   if (exams.length === 0) return "";
   const en = exams.map((e) => e.en || e.code).join(", ");
   const hi = exams.map((e) => e.hi || e.en || e.code).join(", ");
+  // Under a class group's rule (D-611) a missed paper holds the result instead of counting as 0.
+  if (held) return [`Absent in ${en} (result pending)`, `${hi} में अनुपस्थित (परिणाम लंबित)`].join(" · ");
   return `Absent in ${en} (counted as 0) · ${hi} में अनुपस्थित (0 गिना गया)`;
 }
 
@@ -27,10 +29,17 @@ export function absentLine(exams: readonly CardExam[]): string {
  * smaller total (ELGA is set only in SA1, so it is out of 80 where the others
  * are out of 100 — the paper plan, not a slip in the sums).
  */
-export function cardNotes(rows: readonly Pick<ReportRow, "subjectCode" | "marks">[]): { en: string; hi: string }[] {
+export function cardNotes(rows: readonly Pick<ReportRow, "subjectCode" | "marks">[], held = false): { en: string; hi: string }[] {
   const notes: { en: string; hi: string }[] = [];
   if (rows.some((row) => absentExams(row).length > 0)) {
-    notes.push({ en: "* Absent from a paper: it counts as 0 out of that paper's marks.", hi: "पेपर में अनुपस्थित: उस पेपर के अंक 0 गिने गए।" });
+    notes.push(
+      held
+        ? {
+            en: "* Absent from a paper: the result is pending until the child sits it, as on the school's register. The total shows the marks so far.",
+            hi: "पेपर में अनुपस्थित: बच्चा पेपर देगा तब तक परिणाम लंबित है, जैसा विद्यालय के रजिस्टर में होता है। कुल में अब तक के अंक हैं।",
+          }
+        : { en: "* Absent from a paper: it counts as 0 out of that paper's marks.", hi: "पेपर में अनुपस्थित: उस पेपर के अंक 0 गिने गए।" },
+    );
   }
   for (const s of partialSubjects([...rows])) {
     const name = subjectPair(s.subjectCode);

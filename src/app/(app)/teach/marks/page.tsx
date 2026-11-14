@@ -19,6 +19,7 @@ import {
   currentExam,
   enrolmentsFor,
   listExams,
+  type Exam,
   marksOf,
   openExamsForMarks,
   paperById,
@@ -40,11 +41,16 @@ import { TeacherPick, TeacherRemarks, type PickCard, type RemarkChild, type Rema
 import { orderPapersToFill, tellApart } from "@/vx/screens/teach/domain/teach";
 import { LangSeg } from "@/vx/screens/teach/ui/shared";
 
+import { classTestById, countedTestsFor, loadClassTestSheet, progressOf, recentClassTests, testOptions } from "@/vx/screens/exams/class-tests-data";
+import { ClassTestsStrip, CountInCard, NewClassTest, type TestCard } from "@/vx/screens/exams/class-tests";
+import { classSubjectTargets, fillAll, fillButton, testTitle, type ClassTest, type CountTarget } from "@/vx/screens/exams/domain/class-tests";
+
 import { saveRemarkAction, saveTeacherMarksAction, withdrawTeacherMarksAction } from "./actions";
+import { createClassTestAction, removeClassTestAction, saveClassTestMarksAction, setClassTestCountAction } from "./class-test-actions";
 
 export const runtime = "nodejs";
 
-const VIEWS = ["pick", "entry", "keypad", "check", "submitted", "remarks", "photo"] as const;
+const VIEWS = ["pick", "entry", "keypad", "check", "submitted", "remarks", "photo", "newtest"] as const;
 type View = (typeof VIEWS)[number];
 
 /**
@@ -59,7 +65,7 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   const lang = staff.language;
   const sp = await props.searchParams;
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
-  const view: View = (VIEWS as readonly string[]).includes(one("view") ?? "") ? (one("view") as View) : one("paper") ? "entry" : "pick";
+  const view: View = (VIEWS as readonly string[]).includes(one("view") ?? "") ? (one("view") as View) : one("paper") || one("test") ? "entry" : "pick";
 
   if (view === "photo") return <MarksPhotoView staff={staff} paperId={one("paper")} />;
 
@@ -76,6 +82,56 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   const exams = await listExams(sessionLabel);
   const exam = currentExam(exams, today, one("exam"));
   const crumb = `${lead(p("Marks", "अंक"), lang)} · ${exam ? lead({ en: exam.labelEn, hi: exam.labelHi }, lang) : ""} ${sessionLabel}`;
+
+  /* ----------------------------------------------------- a class test */
+  const testId = one("test");
+  if (testId) {
+    const test = await classTestById(testId);
+    if (!test || test.sessionLabel !== sessionLabel || !(await mayEnterTest(staff, test))) notFound();
+    const [sheet, targets] = await Promise.all([loadClassTestSheet(test), countTargetsFor(exams, test)]);
+    const testCrumb = `${lead(p("Marks", "अंक"), lang)} · ${lead(p("Class test", "कक्षा टेस्ट"), lang)} ${sessionLabel}`;
+    const phase: SheetPhase = view === "check" ? "check" : view === "submitted" ? "sent" : "entry";
+    return (
+      <MarksSheet
+        key={`${staff.id}/${sessionLabel}/test/${test.id}`}
+        ownerId={staff.id}
+        sessionLabel={sessionLabel}
+        paper={{ ...sheet.paper, examLabel: testTitle(test) }}
+        students={sheet.students}
+        saved={sheet.saved}
+        coordinatorName={null}
+        onSave={saveClassTestMarksAction}
+        canReopen
+        viewerStaffId={staff.id}
+        initialPhase={phase}
+        initialMode={view === "keypad" ? "pad" : "list"}
+        crumb={testCrumb}
+        backHref="/teach/marks"
+        doneHref="/teach/marks"
+        noteHref="/teach/notes?student="
+        langSwitch={<LangSeg pill />}
+        flavour="classTest"
+        intro={<CountInCard testId={test.id} countsIn={test.countsIn} targets={targets} canRemove={test.createdBy === staff.id || isManager(staff)} setCount={setClassTestCountAction} remove={removeClassTestAction} />}
+      />
+    );
+  }
+
+  /* ------------------------------------------------------- a new test */
+  if (view === "newtest") {
+    const options = await testOptions(sessionLabel, isManager(staff) ? null : staff.id);
+    const examPapers = await papersOf(exams.map((e) => e.id));
+    const targets: Record<string, CountTarget[]> = {};
+    for (const o of options) targets[`${o.classId}|${o.subjectId}`] = classSubjectTargets(exams, examPapers, o.classId, o.subjectId);
+    return (
+      <NewClassTest
+        options={options}
+        targets={targets}
+        today={today}
+        crumb={`${lead(p("Marks", "अंक"), lang)} · ${lead(p("New test", "नया टेस्ट"), lang)} ${sessionLabel}`}
+        create={createClassTestAction}
+      />
+    );
+  }
 
   /* ---------------------------------------------------------- a sheet */
   const paperId = one("paper");
@@ -102,6 +158,10 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     const phase: SheetPhase = view === "check" ? "check" : view === "submitted" ? "sent" : "entry";
     const photoHref = phase === "entry" && builtinAiPilot() && await marksPhotoContext(staff, paperId)
       ? "/teach/marks?paper=" + paperId + "&view=photo" : undefined;
+    // Class tests that count in this paper fill its blank boxes on a tap (D-609).
+    const counted = own?.kind === "formative" && sheet.paper.entryStatus === "open" ? await countedTestsFor(paper).catch(() => []) : [];
+    const fillValues = counted.length ? fillAll(sheet.students.map((s) => s.id), counted.map((t) => t.counted), sheet.paper.maxMarks, sheet.paper.markStep) : {};
+    const fill = Object.keys(fillValues).length ? { values: fillValues, label: fillButton(counted.length) } : null;
     return (
       <MarksSheet
         key={`${staff.id}/${sessionLabel}/${sheet.paper.id}`}
@@ -126,6 +186,7 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
         doneHref="/teach/marks"
         noteHref="/teach/notes?student="
         langSwitch={<LangSeg pill />}
+        fill={fill}
       />
     );
   }
@@ -257,7 +318,40 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   // Exams are open but none of their papers is hers and she holds no class: the
   // empty page says so instead of "when an exam opens" (smoke 6 Nov, teacher 20).
   const noSubjects = openExams.length > 0 && mine.size === 0 && myClasses.length === 0;
-  return <TeacherPick cards={cards} remarks={remarksCards} due={due} crumb={pickCrumb} noSubjects={noSubjects} />;
+  const manager = isManager(staff);
+  const recent = await recentClassTests(sessionLabel, { staffId: staff.id, pairs: manager ? null : mine, limit: 6 }).catch(() => []);
+  const progress = await progressOf(recent).catch(() => new Map<string, { entered: number; total: number }>());
+  const examById = new Map(exams.map((e) => [e.id, e]));
+  const testCards: TestCard[] = recent.map((t) => {
+    const target = t.countsIn ? examById.get(t.countsIn) : null;
+    return {
+      id: t.id,
+      title: testTitle(t),
+      classLabel: t.classLabel,
+      subjectCode: t.subjectCode,
+      heldOn: t.heldOn,
+      maxMarks: t.maxMarks,
+      status: t.status,
+      entered: progress.get(t.id)?.entered ?? 0,
+      total: progress.get(t.id)?.total ?? 0,
+      countsIn: target ? { en: target.labelEn, hi: target.labelHi } : null,
+    };
+  });
+  const tests = <ClassTestsStrip tests={testCards} canCreate={manager || mine.size > 0} />;
+  return <TeacherPick cards={cards} remarks={remarksCards} due={due} crumb={pickCrumb} noSubjects={noSubjects} tests={tests} />;
+}
+
+/** The exams a class-subject's tests may count in. */
+async function countTargetsFor(exams: Exam[], test: ClassTest): Promise<CountTarget[]> {
+  const papers = await papersOf(exams.map((e) => e.id));
+  return classSubjectTargets(exams, papers, test.classId, test.subjectId, test.countsIn);
+}
+
+/** Whoever made the test, a teacher of its class and subject, or the exam office. */
+async function mayEnterTest(staff: Awaited<ReturnType<typeof getViewer>>["staff"], test: ClassTest): Promise<boolean> {
+  if (isManager(staff) || test.createdBy === staff.id) return true;
+  const mine = await assignmentsFor(test.sessionLabel, staff.id);
+  return mine.some((a) => a.classId === test.classId && a.subjectId === test.subjectId);
 }
 
 /** "classId|subjectId" for each paper the timetable gives this person in an exam's session. */

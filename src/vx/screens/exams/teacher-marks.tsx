@@ -2,7 +2,7 @@
 
 import { Face } from "@/vx/ui/face";
 import Link from "@/ui/link";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 
 import { cue } from "@/ui/feedback/cue";
 import { useVx } from "@/vx/i18n";
@@ -97,6 +97,7 @@ export function TeacherPick({
   due,
   crumb,
   noSubjects = false,
+  tests = null,
 }: {
   cards: PickCard[];
   remarks: RemarksCard[];
@@ -104,6 +105,8 @@ export function TeacherPick({
   crumb: string;
   /** Exams are open, but no paper is hers: she has no subjects yet. */
   noSubjects?: boolean;
+  /** Her class tests (D-609): a "New test" button and the last few. */
+  tests?: ReactNode;
 }) {
   const { tx, sub } = useVx();
   const [help, setHelp] = useState(false);
@@ -137,10 +140,11 @@ export function TeacherPick({
               <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p("All your papers are sent. Nothing is waiting for you here.", "आपके सभी पेपर भेजे जा चुके हैं। यहाँ आपके लिए कुछ बाकी नहीं।"))}</span>
             </div>
           ) : null}
+          {tests}
           {cards.length === 0 && remarks.length === 0 ? (
             <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
               <span className="tc-av" style={{ width: 64, height: 64, background: "var(--s2)", color: "var(--mut)" }}><Ic n="clipboard" size={28} /></span>
-              <span className="tc-h2">{tx(p("Nothing to fill right now", "अभी भरने को कुछ नहीं"))}</span>
+              <span className="tc-h2">{tx(p("No exam marks to fill right now", "अभी परीक्षा के अंक भरने को नहीं"))}</span>
               <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(noSubjects ? p("No subjects are in your name yet, so there are no marks to enter. The office adds you to the timetable.", "आपके नाम पर अभी कोई विषय नहीं, इसलिए भरने को अंक नहीं हैं। ऑफ़िस आपको समय-सारणी में जोड़ेगा।") : p("When an exam is open for marks, your class-subjects appear here.", "जब कोई परीक्षा अंकों के लिए खुलेगी, आपकी कक्षा-विषय यहाँ दिखेंगे।"))}</span>
             </div>
           ) : null}

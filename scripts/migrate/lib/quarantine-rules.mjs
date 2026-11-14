@@ -108,6 +108,9 @@ export const TABLES = {
   transport_drivers: { bucket: "K", why: "post go-live drivers per session" },
   transport_trips: { bucket: "K", why: "post go-live bus runs per session" },
   transport_trip_stops: { bucket: "K", why: "post go-live bus run stops, with their trip" },
+  // Class tests (D-609): post go-live, every test carries its own session label.
+  class_tests: { bucket: "K", why: "post go-live class tests per session" },
+  class_test_marks: { bucket: "K", why: "post go-live class test marks, with their test" },
   // ---------------------------------------------------------------- A
   subjects: { bucket: "A", why: "subject master" },
   class_aliases: { bucket: "A", why: "timetable labels of the real classes" },

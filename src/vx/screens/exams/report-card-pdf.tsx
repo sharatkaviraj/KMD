@@ -7,6 +7,7 @@ import { absentExams, cardWeights, markIn, reportColumns, type ReportCard } from
 import { ensurePdfFontsRegistered, HI_FONT, loadLogoImage, loadSignatureImage, ParentDocumentLetterhead, pdfTokens, sharedStyles, SignatureBlock, type PdfImage } from "@/platform/pdf/document-kit";
 
 import { cardNotes } from "./domain/card-notes";
+import { percentText, rankWords, ruledResult } from "./domain/card-words";
 import { subjectPair } from "./domain/groups";
 
 /*
@@ -61,12 +62,23 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
   const result = short.length
     ? { en: `Needs support in ${short.map((x) => x.en).join(", ")}`, hi: `${short.map((x) => x.hi ?? x.en).join(", ")} में सहायता चाहिए` }
     : { en: "Needs support", hi: "पूरक कक्षाएँ" };
+  // The class group's rule (D-611): Result pending, the board classes, the place in class.
+  const ruled = ruledResult({
+    rule: card.rule,
+    status: card.status,
+    passed: card.passed,
+    shortIn: (card.shortIn ?? []).map(subjectPair),
+    pendingIn: (card.pendingIn ?? []).map(subjectPair),
+    division: card.division,
+  });
+  const place = rankWords(card.rank, card.rankOf);
+  const decimals = card.rule?.percentDecimals ?? 1;
   const weighted = cardWeights(card);
   const weights = weighted.length
     ? { en: `Each exam's marks count: ${weighted.map((w) => `${w.en} ×${w.weight}`).join(", ")}`, hi: `हर परीक्षा का भार: ${weighted.map((w) => `${w.hi || w.en} ×${w.weight}`).join(", ")}` }
     : { en: "", hi: "" };
   // Under the table: why an absent paper's subject reads low, and why one subject is out of less.
-  const notes = cardNotes(card.rows);
+  const notes = cardNotes(card.rows, Boolean(card.rule));
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ParentDocumentLetterhead docTitleEn={title.en.toUpperCase()} docTitleHi={title.hi} logo={logo} />
@@ -114,12 +126,13 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
               </View>
               {exams.map((e) => {
                 const m = markIn(row, e.code);
-                // Absent counts as 0 (D-319); the cell says so in both languages, never a bare "AB".
+                // Absent counts as 0 (D-319) unless the class's rule holds the result instead (D-611);
+                // the cell says which in both languages, never a bare "AB".
                 if (m?.absent && !m.exempt) {
                   return (
                     <View key={e.code} style={{ flex: 1, alignItems: "flex-end" }}>
                       <Text style={{ color: pdfTokens.warning, fontFamily: "Helvetica-Bold" }}>Absent</Text>
-                      <Text style={[s.cellHi, { color: pdfTokens.warning }]}>अनुपस्थित · 0/{m.maxMarks}</Text>
+                      <Text style={[s.cellHi, { color: pdfTokens.warning }]}>{card.rule ? "अनुपस्थित" : `अनुपस्थित · 0/${m.maxMarks}`}</Text>
                     </View>
                   );
                 }
@@ -147,16 +160,49 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
           </Text>
           <Text style={{ flex: 0.8, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{card.grade ?? "—"}</Text>
         </View>
+        {card.apart?.length ? (
+          <View>
+            <Text style={[s.labelHi, { paddingHorizontal: 6, paddingTop: 5 }]}>
+              कुल में नहीं जुड़ता <Text style={s.label}>/ Shown apart, not in the total</Text>
+            </Text>
+            {card.apart.map((row) => {
+              const name = subjectPair(row.subjectCode);
+              const missed = row.marks.every((m) => m.absent || m.exempt);
+              return (
+                <View key={row.subjectCode} style={[sharedStyles.tableRow, { paddingVertical: 4 }]} wrap={false}>
+                  <Text style={{ flex: 2.2 + exams.length, fontFamily: "Helvetica-Bold" }}>
+                    {name.en}
+                    {name.hi ? <Text style={s.cellHi}> · {name.hi}</Text> : null}
+                  </Text>
+                  <Text style={{ flex: 1.2, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{missed ? "Absent" : `${row.scored}/${row.outOf}`}</Text>
+                  <Text style={{ flex: 0.8 }} />
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
 
       <View style={{ flexDirection: "row", marginTop: 10, gap: 12 }}>
         <View style={{ flex: 1, backgroundColor: pdfTokens.panel, padding: 8 }}>
           <Text style={s.labelHi}>प्रतिशत / Percentage</Text>
-          <Text style={s.value}>
-            {card.totals.percent === null ? "—" : `${card.totals.percent}%`}
-            {card.passed === null ? "" : card.passed ? " · Pass" : ` · ${result.en}`}
-          </Text>
-          {card.passed === false && result.hi ? <Text style={s.cellHi}>{result.hi}</Text> : card.passed ? <Text style={s.cellHi}>उत्तीर्ण</Text> : null}
+          {card.rule ? (
+            <>
+              <Text style={s.value}>
+                {percentText(card.totals.percent, decimals)}
+                {ruled ? ` · ${ruled.en}` : ""}
+              </Text>
+              {ruled ? <Text style={s.cellHi}>{ruled.hi}</Text> : null}
+            </>
+          ) : (
+            <>
+              <Text style={s.value}>
+                {card.totals.percent === null ? "—" : `${card.totals.percent}%`}
+                {card.passed === null ? "" : card.passed ? " · Pass" : ` · ${result.en}`}
+              </Text>
+              {card.passed === false && result.hi ? <Text style={s.cellHi}>{result.hi}</Text> : card.passed ? <Text style={s.cellHi}>उत्तीर्ण</Text> : null}
+            </>
+          )}
           {card.gradeDescription ? <Text style={s.cellHi}>{card.gradeDescription.hi}</Text> : null}
           {/* The exams count differently, so the percentage is not the total divided by the maximum: say by how much. */}
           {weights.en ? (
@@ -165,6 +211,13 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
             </Text>
           ) : null}
         </View>
+        {place ? (
+          <View style={{ flex: 1, backgroundColor: pdfTokens.panel, padding: 8 }}>
+            <Text style={s.labelHi}>कक्षा में स्थान / Rank in class</Text>
+            <Text style={s.value}>{place.en}</Text>
+            <Text style={s.cellHi}>{place.hi}</Text>
+          </View>
+        ) : null}
         <View style={{ flex: 1, backgroundColor: pdfTokens.panel, padding: 8 }}>
           <Text style={s.labelHi}>उपस्थिति / Attendance</Text>
           <Text style={s.value}>{card.attendance ? `${card.attendance.present} / ${card.attendance.counted}${card.attendance.percent === null ? "" : ` · ${card.attendance.percent}%`}` : "—"}</Text>

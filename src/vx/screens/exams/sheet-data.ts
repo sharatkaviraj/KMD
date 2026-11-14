@@ -60,7 +60,7 @@ async function rosterIds(paperId: string): Promise<string[]> {
   return ((data ?? []) as string[]).filter(Boolean);
 }
 
-function rollOrder(a: SheetStudent, b: SheetStudent): number {
+export function rollOrder(a: SheetStudent, b: SheetStudent): number {
   const ra = Number(a.roll ?? NaN);
   const rb = Number(b.roll ?? NaN);
   if (Number.isFinite(ra) && Number.isFinite(rb) && ra !== rb) return ra - rb;

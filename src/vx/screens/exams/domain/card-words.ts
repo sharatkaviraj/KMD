@@ -49,3 +49,71 @@ export function attendanceNote(leave = 0, unmarked = 0): string {
   }
   return en.length ? `${en.join(" · ")} · ${hi.join(" · ")}` : "";
 }
+
+/* ------------------------------------------------- the class group's rule */
+
+export type RuledCard = {
+  rule: { key: string; verdict: boolean } | null | undefined;
+  status: "complete" | "pending" | "absent" | null | undefined;
+  passed: boolean | null;
+  shortIn: Pair[];
+  pendingIn: Pair[];
+  division?: { en: string; hi: string } | null;
+};
+
+/**
+ * The result line a card prints under its class group's rule (D-611), or
+ * null when the class has no rule (the line is then worked out as before) or
+ * nothing is to be said (Nursery to SKG, whose grade is the result).
+ *
+ *  - missed every paper: "Absent";
+ *  - a paper still to come or missed: "Result pending", naming the subjects,
+ *    as the register prints it;
+ *  - the board classes never print Pass: "Board class: the board declares the
+ *    result", or the subjects needing support;
+ *  - otherwise Pass (with the division for 9–12) or the subjects needing support.
+ */
+export function ruledResult(card: RuledCard): { text: string; en: string; hi: string; tone: "ok" | "bad" | "warn" | "plain" } | null {
+  const say = (en: string, hi: string, tone: "ok" | "bad" | "warn" | "plain") => ({ text: `${en} · ${hi}`, en, hi, tone });
+  const list = (subjects: Pair[]) => ({ en: subjects.map((s) => s.en).join(", "), hi: subjects.map((s) => s.hi ?? s.en).join(", ") });
+  if (!card.rule) return null;
+  if (card.status === "absent") return say("Absent", "अनुपस्थित", "bad");
+  if (card.status === "pending") {
+    if (card.pendingIn.length === 0) return say("Result pending", "परिणाम लंबित", "warn");
+    const named = list(card.pendingIn);
+    return say(`Result pending: ${named.en}`, `परिणाम लंबित: ${named.hi}`, "warn");
+  }
+  if (card.rule.key === "pre_primary") return null;
+  const support = () => {
+    const named = list(card.shortIn);
+    return say(`Needs support in ${named.en}`, `${named.hi} में सहायता चाहिए`, "bad");
+  };
+  if (!card.rule.verdict) {
+    if (card.shortIn.length) return support();
+    return say("Board class: the board declares the result", "बोर्ड कक्षा: परिणाम बोर्ड घोषित करेगा", "plain");
+  }
+  if (card.passed === false) return card.shortIn.length ? support() : say("Needs support", "पूरक कक्षाएँ", "bad");
+  if (card.passed === true) {
+    return card.division ? say(`Pass · ${card.division.en}`, `उत्तीर्ण · ${card.division.hi}`, "ok") : say("Pass", "उत्तीर्ण", "ok");
+  }
+  return null;
+}
+
+/** "3rd of 32" / "कक्षा में 3वाँ स्थान (32 में)", or null with no place. */
+export function rankWords(rank: number | null | undefined, of: number | null | undefined): { en: string; hi: string } | null {
+  if (!rank || !of) return null;
+  const tens = rank % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : (({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[rank % 10] ?? "th");
+  return { en: `${rank}${suffix} of ${of}`, hi: `कक्षा में ${rank}वाँ स्थान (${of} में)` };
+}
+
+/** Both halves of `rankWords` on one line, or "" with no place. */
+export function rankLine(rank: number | null | undefined, of: number | null | undefined): string {
+  const words = rankWords(rank, of);
+  return words ? `${words.en} · ${words.hi}` : "";
+}
+
+/** The percentage at the decimals its rule prints, "—" when there is none. */
+export function percentText(percent: number | null | undefined, decimals = 1): string {
+  return percent === null || percent === undefined ? "—" : `${percent.toFixed(decimals)}%`;
+}
