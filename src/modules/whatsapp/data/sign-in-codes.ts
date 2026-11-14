@@ -137,7 +137,7 @@ export type RequestedCode = {
 
 /** Somebody typed a number and pressed Send code. */
 export async function requestSignInCode(
-  input: { phone: string; language: SignInLanguage; clientKey: string },
+  input: { phone: string; language: SignInLanguage; clientKey: string; /** The mode the page read, for what it may say (`requestAnswer`). */ mode?: SignInMode },
   db: Db = whatsappDb(),
 ): Promise<RequestedCode> {
   const key = signInPhoneKey(input.phone);
@@ -158,7 +158,7 @@ export async function requestSignInCode(
   const row = (Array.isArray(data) ? data[0] : data) as
     | { outcome: string; staff_profile_id: string | null; phone_key: string | null; retry_after_seconds: number | null }
     | undefined;
-  const answer = requestAnswer(row?.outcome);
+  const answer = requestAnswer(row?.outcome, input.mode);
   logInfo("sign_in_code.requested", { outcome: row?.outcome ?? null });
   return {
     answer,

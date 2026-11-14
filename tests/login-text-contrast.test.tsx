@@ -93,7 +93,10 @@ describe("login essential secondary text contrast", () => {
     expectBilingual(html, { hi: CODE_TEXT.welcome.hi ?? "(no Hindi)", en: CODE_TEXT.welcome.en.replace("'", "&#x27;") });
     expect(html).toContain('for="phone"');
     expect(html).toContain('autoComplete="tel-national"');
-    expect(html).toContain(CODE_TEXT.usePassword.en);
+    // Password sits beside the code, in both languages (D-608).
+    expect(html).toContain('role="radiogroup"');
+    expectBilingual(html, LOGIN_TEXT.byCode as { hi: string; en: string });
+    expectBilingual(html, LOGIN_TEXT.byPassword as { hi: string; en: string });
     expect(html).not.toContain('for="password"');
     expectFullTextStrength(html);
   });
@@ -102,20 +105,22 @@ describe("login essential secondary text contrast", () => {
     const source = readFileSync("src/app/login/code-form.tsx", "utf8");
     expect(source).toContain("under(extra, language)");
     // The paste steps are now said once, under "Code sent", in both languages (12 Nov redraw).
-    expect(source).toContain("<Two pair={T.sentBody} language={language} small />");
+    expect(source).toContain("<Two pair={auto ? T.sentBodyAuto : T.sentBody} language={language} small />");
     expect(source).toContain("<Two pair={T.phoneHint} language={language} small />");
   });
 
-  it("keeps email and password first, with the code one tap away, until the setting says all staff", () => {
+  it("opens on the mobile number whenever the code is on, owner only too, and on email and password when it is off (D-608)", () => {
     const off = renderToStaticMarkup(<LoginForm language="en" codeSignIn="none" />);
     expect(off).toContain('for="password"');
     expect(off).not.toContain("WhatsApp code");
-    // Owner only: the code waits behind ?with=code, so staff are not offered a code that cannot come.
-    const ownerOnly = renderToStaticMarkup(<LoginForm language="en" codeSignIn="offered" />);
-    expect(ownerOnly).toContain('for="password"');
-    expect(ownerOnly).not.toContain("WhatsApp code");
-    const allStaff = renderToStaticMarkup(<LoginForm language="en" codeSignIn="default" />);
-    expect(allStaff).not.toContain('for="password"');
+    expect(off).not.toContain('role="radiogroup"');
+    // Owner only: the number first as well; other numbers are told codes are not on for them yet.
+    for (const offer of ["offered", "default"] as const) {
+      const html = renderToStaticMarkup(<LoginForm language="en" codeSignIn={offer} />);
+      expect(html).toContain('for="phone"');
+      expect(html).not.toContain('for="password"');
+      expect(html).toContain(LOGIN_TEXT.byPassword.en);
+    }
   });
 
   it("keeps the login page wrapper free of inherited text opacity", () => {

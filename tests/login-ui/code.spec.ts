@@ -103,7 +103,141 @@ test.describe("on a touch screen", () => {
     // A press and release sent separately, as BrowserStack's driver sends
     // them, which is how the Galaxy M32 check met it: the box keeps focus.
     await page.locator("#phone").focus();
-    await page.getByRole("button", { name: "Use email and password instead" }).click();
+    await page.getByRole("radio", { name: "Password" }).click();
     expect(await focusAtClick()).toBe("phone");
+    await expect(page.locator("#password")).toBeVisible();
+  });
+});
+
+// D-608 (the owner, 14 Nov): "by default the main method should be by phone
+// only, phone and OTP", with email and password still there. His phone had
+// opened on the password for good after one tap on Email and password.
+test.describe("phone first, password beside it", () => {
+  for (const code of ["1", "owner"]) {
+    test(`the page opens on the mobile number with Password one tap away (code=${code})`, async ({ page }) => {
+      await page.setViewportSize({ width: 360, height: 640 });
+      // What a phone kept from before D-608 no longer decides anything.
+      await page.addInitScript(() => localStorage.setItem("vx:login:way", "password"));
+      await page.goto(`/?code=${code}&lang=en`);
+      await expect(page.locator("#phone")).toBeVisible();
+      await expect(page.getByRole("radio", { name: "WhatsApp code" })).toHaveAttribute("aria-checked", "true");
+      await expect(page.getByRole("radio", { name: "Password" })).toHaveAttribute("aria-checked", "false");
+      expect(await page.evaluate(() => localStorage.getItem("vx:login:way"))).toBeNull();
+
+      await page.getByRole("radio", { name: "Password" }).click();
+      await expect(page.locator("#password")).toBeVisible();
+      await expect(page.getByRole("radio", { name: "Password" })).toHaveAttribute("aria-checked", "true");
+      await page.getByRole("radio", { name: "WhatsApp code" }).click();
+      await expect(page.locator("#phone")).toBeVisible();
+
+      // A tap is for this visit only: the next visit opens on the number again.
+      await page.getByRole("radio", { name: "Password" }).click();
+      await page.reload();
+      await expect(page.locator("#phone")).toBeVisible();
+    });
+  }
+
+  for (const lang of ["en", "hi", "both"]) {
+    test(`each way's label fits on one line in its half at 360px: ${lang}`, async ({ page }) => {
+      await page.setViewportSize({ width: 360, height: 640 });
+      await page.goto(`/?code=1&lang=${lang}`);
+      await settle(page);
+      const lines = await page.locator('[role="radio"]').evaluateAll(radios => radios.map(radio => {
+        const first = radio.querySelector("span > span");
+        const height = first ? first.getBoundingClientRect().height : 0;
+        const size = first ? parseFloat(getComputedStyle(first).lineHeight) || 18 : 18;
+        return { lines: Math.round(height / size), overflow: radio.scrollWidth > radio.clientWidth + 1 };
+      }));
+      expect(lines).toEqual([{ lines: 1, overflow: false }, { lines: 1, overflow: false }]);
+    });
+  }
+
+  test("with the code off there is no switch, only email and password", async ({ page }) => {
+    await page.goto("/?lang=en");
+    await expect(page.locator("#password")).toBeVisible();
+    await expect(page.getByRole("radiogroup")).toHaveCount(0);
+  });
+
+  test("a number without codes yet is told so, Password is the next step, and that phone opens there next time", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.goto("/?code=owner&sent=notyet&lang=en");
+    await page.locator("#phone").fill("9876543210");
+    await page.getByRole("button", { name: "Send code on WhatsApp" }).click();
+    await expect(page.getByRole("alert")).toContainText("not on for this number yet");
+    const next = page.getByRole("button", { name: "Use email and password instead" });
+    await expect(next).toHaveClass(/\bpri\b/);
+    await expect(page.getByRole("button", { name: "Send code on WhatsApp" })).toHaveClass(/\bsec\b/);
+    await settle(page);
+    expect(await bottomOf(page, "button.pri")).toBeLessThanOrEqual(640);
+
+    await next.click();
+    await expect(page.locator("#password")).toBeVisible();
+    // Only once the person signs in that way does the phone remember.
+    expect(await page.evaluate(() => localStorage.getItem("vx:login:no-code"))).toBeNull();
+    await page.locator("#email").fill("staff@example.com");
+    await page.locator("#password").fill("not-a-real-password");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("vx:login:no-code"))).toBe("1");
+
+    await page.reload();
+    await expect(page.locator("#password")).toBeVisible();
+    await expect(page.getByRole("radio", { name: "WhatsApp code" })).toBeVisible();
+    // With codes on for all staff, that memory no longer holds the phone back.
+    await page.goto("/?code=1&lang=en");
+    await expect(page.locator("#phone")).toBeVisible();
+  });
+});
+
+// D-608: back from WhatsApp with the code copied, it goes in by itself where
+// the browser lets the page read the clipboard, and Paste code lights up where
+// it does not. Chromium's clipboard permission stands in for the person's Allow.
+test.describe("the code from WhatsApp", () => {
+  async function toCodeStep(page: Page) {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.goto("/?code=1&sent=1&lang=en");
+    await page.locator("#phone").fill("9876543210");
+    await page.getByRole("button", { name: "Send code on WhatsApp" }).click();
+    await expect(page.locator("#code")).toBeVisible();
+  }
+  const copy = (page: Page, text: string) => page.evaluate((value) => navigator.clipboard.writeText(value), text);
+  const comeBack = (page: Page) => page.evaluate(() => window.dispatchEvent(new Event("focus")));
+
+  test("goes in and signs in by itself once the page may read what was copied", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await toCodeStep(page);
+    await expect(page.locator("#code-paste-hint")).toContainText("the code goes in by itself");
+    await copy(page, "Your VPPS One code is 482913");
+    await comeBack(page);
+    await expect(page.locator("#code")).toHaveValue("482913");
+    await expect.poll(() => page.evaluate(() => window.codeChecks)).toEqual(["482913"]);
+    // A code already tried is not tried again on the next return.
+    await comeBack(page);
+    await page.waitForTimeout(1500);
+    expect(await page.evaluate(() => window.codeChecks)).toEqual(["482913"]);
+  });
+
+  test("never uses what was already copied before the code step, or a longer number", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/?code=1&sent=1&lang=en");
+    await copy(page, "111111");
+    await toCodeStep(page);
+    await page.waitForTimeout(300);
+    await comeBack(page);
+    await page.waitForTimeout(1500);
+    await copy(page, "9680312345");
+    await comeBack(page);
+    await page.waitForTimeout(1500);
+    await expect(page.locator("#code")).toHaveValue("");
+    expect(await page.evaluate(() => window.codeChecks)).toEqual([]);
+  });
+
+  test("where the page may not read it, Paste code becomes the next step on coming back", async ({ page }) => {
+    await toCodeStep(page);
+    const paste = page.getByRole("button", { name: "Paste code" });
+    await expect(paste).toHaveClass(/\bsec\b/);
+    await expect(page.locator("#code-paste-hint")).toContainText("tap Paste code");
+    await comeBack(page);
+    await expect(paste).toHaveClass(/\bpri\b/);
+    expect(await page.evaluate(() => window.codeChecks)).toEqual([]);
   });
 });

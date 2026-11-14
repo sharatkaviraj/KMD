@@ -26,6 +26,16 @@ top on a phone, and Send code / Sign in stay above the keyboard; checked by
 every step but one: with the keyboard up, the first tap on Send code or Change
 only closed the keyboard; the box now keeps focus through a tap (PR after 367).
 
+**Phone first, 14 Nov (D-608):** the owner still saw email and password on
+his phone and asked for phone + WhatsApp code as the default, password kept,
+and the code filled from WhatsApp if possible. `/login` now opens on the
+number under a *WhatsApp code / Password* switch whenever codes are on; other
+numbers are told codes are not on for them yet (codes still reach the owner
+only); back from WhatsApp, the copied code goes in and signs in by itself
+where the browser allows the page to read the clipboard (Chrome/Edge after
+one Allow), otherwise Paste code lights up. WhatsApp's own autofill needs an
+Android app, so a website cannot have it.
+
 ## Veer Patta AI, the WhatsApp helper for parents — 12 November 2026
 
 Owner asked (12 Nov) for a helper on the school's WhatsApp number that answers

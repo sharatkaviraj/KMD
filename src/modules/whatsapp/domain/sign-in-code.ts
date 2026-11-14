@@ -68,19 +68,27 @@ export function newSignInCode(randomBelow: (max: number) => number): string {
 export type RequestOutcome = "bad_number" | "off" | "limited" | "busy" | "no_match" | "shared_number" | "not_allowed" | "send";
 
 /**
- * What the page is told. Every outcome that writes a row — a code went, or
- * the number is on no record, on two, or not allowed yet — reads "sent", so
- * nobody can use the page to find out whose number is on file.
+ * What the page is told. With codes on for all staff, every outcome that
+ * writes a row — a code went, or the number is on no record, on two, or not
+ * allowed — reads "sent", so nobody can use the page to find out whose
+ * number is on file.
+ *
+ * While codes go to the owner's number only (`owner_only`), a number that
+ * got no code is told so instead ("not_yet", D-608): the page opens on the
+ * number for everybody now, and staff must not wait for a code that cannot
+ * come. It gives nothing away either — then every number but the owner's
+ * gets that answer, on a staff record or not.
  */
-export type RequestAnswer = "sent" | "bad_number" | "off" | "limited" | "busy" | "unavailable";
+export type RequestAnswer = "sent" | "not_yet" | "bad_number" | "off" | "limited" | "busy" | "unavailable";
 
-export function requestAnswer(outcome: string | null | undefined): RequestAnswer {
+export function requestAnswer(outcome: string | null | undefined, mode: SignInMode = "all_staff"): RequestAnswer {
   switch (outcome) {
     case "send":
+      return "sent";
     case "no_match":
     case "shared_number":
     case "not_allowed":
-      return "sent";
+      return mode === "owner_only" ? "not_yet" : "sent";
     case "bad_number":
     case "off":
     case "limited":

@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useActionState, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { preservePasswordViewport } from "@/ui/auth/preserve-password-viewport";
 import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
-import { CodeSignInForm } from "@/app/login/code-form";
+import { CodeSignInForm, NO_CODE_KEY } from "@/app/login/code-form";
 import type { Language } from "@/platform/i18n/language";
+import { cue } from "@/ui/feedback/cue";
 import { ArrowRight, Eye, EyeOff, Info, KeyRound, MessageCircle, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { lead, p, under, type Pair } from "@/vx/text";
@@ -49,8 +50,9 @@ export const LOGIN_TEXT = {
   ),
   ok: p("OK", "ठीक है"),
   badHelp: p("Try again or ask the admin to reset it. Check that Caps Lock is off.", "फिर से कोशिश करें या प्रशासक से पासवर्ड बदलवाएँ। देखें कि Caps Lock बंद है।"),
-  useCode: p("Sign in with a WhatsApp code", "WhatsApp कोड से साइन इन करें"),
-  useCodeSub: p("No password needed", "पासवर्ड की ज़रूरत नहीं"),
+  how: p("How to sign in", "साइन इन कैसे करें"),
+  byCode: p("WhatsApp code", "WhatsApp कोड"),
+  byPassword: p("Password", "पासवर्ड"),
 } satisfies Record<string, Pair>;
 const T = LOGIN_TEXT;
 
@@ -70,14 +72,20 @@ const BAD_CREDENTIALS_EN = "That email and password do not match an account.";
 
 const REMEMBER_KEY = "vx:login:email";
 const REMEMBER_OFF_KEY = "vx:login:remember-off";
-/** The way this phone last chose: "code" or "password". */
-const WAY_KEY = "vx:login:way";
+/**
+ * Before D-608 the way last tapped ("code" or "password"). A phone that once
+ * tapped Email and password opened there for good, with no way back to the
+ * code on screen (the owner's phone, 14 Nov). Cleared when the page loads.
+ */
+const OLD_WAY_KEY = "vx:login:way";
 
 /**
- * How sign-in by WhatsApp code shows on this page (D-585), from Settings →
- * WhatsApp: `default` (all staff: the page opens on the code), `offered`
- * (owner's number only: reachable with `?with=code`, and remembered on that
- * phone), `none` (off: email and password only).
+ * How sign-in by WhatsApp code shows on this page, from Settings → WhatsApp.
+ * Either way it is on, the page opens on the mobile number with Password one
+ * tap away beside it (D-608, the owner's word 14 Nov): `default` (all staff),
+ * `offered` (the owner's number only: other numbers are told codes are not on
+ * for them yet, and a phone whose person then signs in with a password opens
+ * on Password next time), `none` (off: email and password only, no switch).
  */
 export type CodeSignInOffer = "default" | "offered" | "none";
 
@@ -122,6 +130,49 @@ const noteStyle = { display: "flex", alignItems: "flex-start", gap: 10, padding:
 
 const eyeStyle = { position: "absolute", right: 4, bottom: 2, width: 40, height: 40, padding: 0, border: 0, borderRadius: 10, background: "transparent", color: "var(--mut)", display: "flex", alignItems: "center", justifyContent: "center" } as const;
 
+/**
+ * WhatsApp code | Password, side by side under "Sign in": both ways in sight,
+ * the code first (D-608). The design's segmented control, drawn here rather
+ * than taken from `@/vx/ui/controls`, which would bring its icon set into
+ * the sign-in page's bundle.
+ */
+function WaySwitch({ way, language, onPick }: { way: Way; language: Language; onPick: (way: Way) => void }) {
+  const options = [
+    { value: "code" as const, pair: T.byCode, Icon: MessageCircle },
+    { value: "password" as const, pair: T.byPassword, Icon: KeyRound },
+  ];
+  return (
+    <div
+      className="seg lg-ways"
+      role="radiogroup"
+      aria-label={lead(T.how, language)}
+      style={{ gridTemplateColumns: "repeat(2, minmax(0,1fr))", borderRadius: 14, ["--seg-h" as string]: language === "both" ? "54px" : "48px" }}
+    >
+      <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 2)", borderRadius: 11, transform: `translateX(${way === "code" ? 0 : 100}%)` }} />
+      {options.map(({ value, pair, Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={way === value}
+          className={way === value ? "on" : ""}
+          onClick={() => {
+            if (way === value) return;
+            cue("tap");
+            onPick(value);
+          }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 6px", fontSize: 14.5, lineHeight: 1.15, whiteSpace: "nowrap" }}
+        >
+          <Icon size={18} aria-hidden style={{ flexShrink: 0, color: way === value ? "var(--acc)" : undefined }} />
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0, textAlign: "left" }}>
+            <Two pair={pair} language={language} small />
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function LoginForm({
   language,
   initial = initialLoginState,
@@ -134,29 +185,63 @@ export function LoginForm({
 }) {
   const searchParams = useSearchParams();
   const asked = searchParams.get("with");
-  const storedWay = useSyncExternalStore(noSubscribe, () => readStore(WAY_KEY), () => "");
+  const noCodeHere = useSyncExternalStore(noSubscribe, () => readStore(NO_CODE_KEY) === "1", () => false);
   const [picked, setPicked] = useState<Way | null>(null);
+  // Set when Send code answered "not on for this number yet" and the person
+  // took Email and password from there: if they sign in, this phone remembers.
+  const toldNoCode = useRef(false);
+  useEffect(() => writeStore(OLD_WAY_KEY, null), []);
 
-  // The person's own tap wins, then the link, then what this phone chose last,
-  // then the school's setting.
-  const chosen: Way = picked ?? (isWay(asked) ? asked : null) ?? (isWay(storedWay) ? storedWay : null) ?? (codeSignIn === "default" ? "code" : "password");
-  const way: Way = codeSignIn === "none" ? "password" : chosen;
-  const codeOffered = codeSignIn === "default" || (codeSignIn === "offered" && (asked === "code" || storedWay === "code" || picked !== null));
+  // The person's own tap wins, then the link (`?with=`). Then, while codes go
+  // to the owner only, a phone whose number has none opens on Password.
+  // Otherwise the mobile number and a WhatsApp code (D-608).
+  const way: Way =
+    codeSignIn === "none"
+      ? "password"
+      : picked ?? (isWay(asked) ? asked : null) ?? (codeSignIn === "offered" && noCodeHere ? "password" : "code");
 
-  const pick = (next: Way) => {
-    writeStore(WAY_KEY, next);
-    setPicked(next);
-  };
+  const switcher = codeSignIn === "none" ? null : <WaySwitch way={way} language={language} onPick={setPicked} />;
 
   const next = searchParams.get("next") ?? "";
   const reason = REASONS[searchParams.get("reason") ?? ""];
   if (way === "code") {
-    return <CodeSignInForm language={language} next={next} notice={reason ?? null} onUsePassword={() => pick("password")} />;
+    return (
+      <CodeSignInForm
+        language={language}
+        next={next}
+        notice={reason ?? null}
+        switcher={switcher}
+        onUsePassword={(noCode) => {
+          toldNoCode.current = noCode;
+          setPicked("password");
+        }}
+      />
+    );
   }
-  return <PasswordSignInForm language={language} initial={initial} onUseCode={codeOffered ? () => pick("code") : null} />;
+  return (
+    <PasswordSignInForm
+      language={language}
+      initial={initial}
+      switcher={switcher}
+      onSubmitted={() => {
+        if (toldNoCode.current && codeSignIn === "offered") writeStore(NO_CODE_KEY, "1");
+      }}
+    />
+  );
 }
 
-function PasswordSignInForm({ language, initial, onUseCode }: { language: Language; initial: LoginActionState; onUseCode: (() => void) | null }) {
+function PasswordSignInForm({
+  language,
+  initial,
+  switcher,
+  onSubmitted,
+}: {
+  language: Language;
+  initial: LoginActionState;
+  /** WhatsApp code | Password, when the code is on at all. */
+  switcher: ReactNode;
+  onSubmitted: () => void;
+}) {
   const searchParams = useSearchParams();
   const [state, formAction, isPending] = useActionState<LoginActionState, FormData>(loginAction, initial);
 
@@ -198,16 +283,25 @@ function PasswordSignInForm({ language, initial, onUseCode }: { language: Langua
   const keepChoice = () => {
     writeStore(REMEMBER_OFF_KEY, remember ? null : "1");
     writeStore(REMEMBER_KEY, remember && email.trim() ? email.trim() : null);
+    onSubmitted();
   };
 
   return (
     <form action={formAction} onSubmit={keepChoice} style={{ display: "flex", flexDirection: "column", gap: 18 }} aria-busy={isPending || undefined}>
       <input type="hidden" name="next" value={next} />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
-        <span style={{ fontSize: 13, color: "var(--mut)" }}><Two pair={T.welcome} language={language} small /></span>
-      </div>
+      {switcher ? (
+        <>
+          <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
+          {switcher}
+          <span style={{ fontSize: 13, color: "var(--mut)", marginTop: -4 }}><Two pair={T.welcome} language={language} small /></span>
+        </>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}><Two pair={T.welcome} language={language} small /></span>
+        </div>
+      )}
 
       {reason && !failed ? (
         <div role="status" style={{ ...noteStyle, background: "var(--warns)", color: "var(--warnfg)" }}>
@@ -304,16 +398,6 @@ function PasswordSignInForm({ language, initial, onUseCode }: { language: Langua
         {isPending ? <RefreshCw size={20} className="spin" aria-hidden /> : <ArrowRight size={20} aria-hidden />}
         {lead(isPending ? T.signingIn : T.signIn, language)}
       </button>
-
-      {onUseCode ? (
-        <button type="button" className="tap btn sec" onClick={onUseCode} style={{ height: 52, fontSize: 15, borderRadius: 14, flexDirection: "column", gap: 0, lineHeight: 1.2 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <MessageCircle size={18} aria-hidden />
-            {lead(T.useCode, language)}
-          </span>
-          <span style={{ fontSize: 12, color: "var(--mut)", fontWeight: 500 }}>{lead(T.useCodeSub, language)}</span>
-        </button>
-      ) : null}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <button type="button" className="tap btn ghost" onClick={() => setForgot((v) => !v)} aria-expanded={forgot} aria-controls="login-forgot" style={{ padding: "0 8px", marginLeft: -8, color: "var(--accfg)" }}>

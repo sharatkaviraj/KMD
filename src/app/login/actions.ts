@@ -187,6 +187,7 @@ const SIGN_IN_CHALLENGE_COOKIE = "vx_sign_in_code";
 /** Why the code card says what it says. The form has the words. */
 export type CodeProblem =
   | "bad_number"
+  | "not_yet"
   | "off"
   | "limited"
   | "busy"
@@ -228,7 +229,9 @@ async function browserAddress(): Promise<string> {
  * Send code. Whether or not the number is on a staff record, the answer is
  * the same "sent" (`requestAnswer`), the cookie is set the same way, and the
  * send itself happens after the answer (`after`), so neither the words nor
- * the time it takes tell anybody whose number is on file.
+ * the time it takes tell anybody whose number is on file. While codes go to
+ * the owner's number only, every other number hears "not yet" instead
+ * (D-608), which says no more than "this is not the owner's number".
  */
 export async function requestCodeAction(previous: CodeActionState, formData: FormData): Promise<CodeActionState> {
   const phone = (formData.get("phone") ?? "").toString();
@@ -237,9 +240,10 @@ export async function requestCodeAction(previous: CodeActionState, formData: For
   if (!key) return codeState(previous, { problem: "bad_number", masked: null });
 
   const { readSignInMode, requestSignInCode, signInClientKey } = await import("@/modules/whatsapp/data/sign-in-codes");
-  if ((await readSignInMode()) === "off") return codeState(previous, { problem: "off" });
+  const mode = await readSignInMode();
+  if (mode === "off") return codeState(previous, { problem: "off" });
 
-  const asked = await requestSignInCode({ phone: key, language, clientKey: signInClientKey(await browserAddress()) });
+  const asked = await requestSignInCode({ phone: key, language, clientKey: signInClientKey(await browserAddress()), mode });
   if (asked.answer === "limited") {
     const seconds = Math.max(1, asked.retryAfterSeconds ?? SIGN_IN_RESEND_SECONDS);
     return codeState(previous, {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { ArrowRight, ClipboardPaste, Info, KeyRound, MessageCircle, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { requestCodeAction, verifyCodeAction, type CodeActionState, type CodeProblem } from "@/app/login/actions";
@@ -13,11 +13,17 @@ import { lead, p, under, type Pair } from "@/vx/text";
  * Sign in with a WhatsApp code (D-585): type your mobile number, get a
  * six-digit code on WhatsApp from the school's number, type it here. Two
  * steps on one card, each with one big button and the next step spelled
- * out, and "Use email and password" always one tap away.
+ * out, and Password always one tap away. Since D-608 it is what the sign-in
+ * page opens on.
  *
  * What the page says after Send code is the same whoever's number it is
  * ("if this number is on your staff record…"): the server gives it nothing
- * else to say (`requestAnswer`).
+ * else to say (`requestAnswer`). While codes go to the owner's number only,
+ * every other number is told so ("not yet"), with Password as the next step.
+ *
+ * Back from WhatsApp with the code copied, the code goes in by itself where
+ * the browser lets the page read what was copied (`useCodeFromClipboard`),
+ * and Paste code lights up as the next step where it does not.
  */
 
 export const CODE_TEXT = {
@@ -33,6 +39,11 @@ export const CODE_TEXT = {
     `If this number is on your staff record, the code arrives in a few seconds. In WhatsApp tap Copy code, come back, tap Paste code. It works for ${SIGN_IN_CODE_MINUTES} minutes.`,
     `अगर यह नंबर आपके स्टाफ़ रिकॉर्ड में है, तो कोड कुछ ही सेकंड में आएगा। WhatsApp में 'कोड कॉपी करें' दबाएँ, यहाँ आकर 'कोड चिपकाएँ' दबाएँ। यह ${SIGN_IN_CODE_MINUTES} मिनट तक चलेगा।`,
   ),
+  sentBodyAuto: p(
+    `If this number is on your staff record, the code arrives in a few seconds. In WhatsApp tap Copy code and come back: the code goes in by itself. It works for ${SIGN_IN_CODE_MINUTES} minutes.`,
+    `अगर यह नंबर आपके स्टाफ़ रिकॉर्ड में है, तो कोड कुछ ही सेकंड में आएगा। WhatsApp में 'कोड कॉपी करें' दबाकर यहाँ लौटें: कोड अपने-आप भर जाएगा। यह ${SIGN_IN_CODE_MINUTES} मिनट तक चलेगा।`,
+  ),
+  found: p("Code found. Signing you in…", "कोड मिल गया। साइन इन कर रहे हैं…"),
   openWhatsApp: p("Open WhatsApp", "WhatsApp खोलें"),
   code: p("The code from WhatsApp", "WhatsApp वाला कोड"),
   paste: p("Paste code", "कोड चिपकाएँ"),
@@ -57,6 +68,7 @@ const T = CODE_TEXT;
 
 const PROBLEM: Record<Exclude<CodeProblem, "admission">, Pair> = {
   bad_number: p("That is not a 10-digit mobile number. Check it and try again.", "यह 10 अंकों का मोबाइल नंबर नहीं है। जाँचकर फिर से लिखें।"),
+  not_yet: p("WhatsApp codes are not on for this number yet. Use your email and password.", "इस नंबर पर WhatsApp कोड अभी चालू नहीं है। ईमेल और पासवर्ड से साइन इन करें।"),
   off: p("Sign-in by WhatsApp code is off right now. Use your email and password.", "WhatsApp कोड से साइन इन अभी बंद है। ईमेल और पासवर्ड से साइन इन करें।"),
   limited: p("Too many codes for this number. Wait a little, or use your email and password.", "इस नंबर पर बहुत कोड भेजे जा चुके हैं। थोड़ी देर रुकें, या ईमेल और पासवर्ड से साइन इन करें।"),
   busy: p("WhatsApp sign-in is busy. Try again in a few minutes, or use your email and password.", "WhatsApp साइन इन अभी व्यस्त है। कुछ मिनट बाद फिर कोशिश करें, या ईमेल और पासवर्ड से साइन इन करें।"),
@@ -69,6 +81,8 @@ const PROBLEM: Record<Exclude<CodeProblem, "admission">, Pair> = {
 
 /** Refusals after which the code on screen can never work: the card goes back to the number. */
 const ENDS_CODE: ReadonlySet<CodeProblem> = new Set<CodeProblem>(["start_again", "not_staff", "off", "admission"]);
+/** Refusals where the next step is email and password, so that is the big button. */
+const PASSWORD_NEXT: ReadonlySet<CodeProblem> = new Set<CodeProblem>(["not_yet", "off", "unavailable", "not_staff"]);
 
 const triesPair = (left: number) => p(`${left} ${left === 1 ? "try" : "tries"} left.`, `${left} बार और कोशिश कर सकते हैं।`);
 const waitPair = (minutes: number) => p(`Wait about ${minutes} minute${minutes === 1 ? "" : "s"}.`, `लगभग ${minutes} मिनट रुकें।`);
@@ -78,6 +92,15 @@ const SCHOOL_CHAT = "https://wa.me/918302207823";
 
 const PHONE_KEY = "vx:login:phone";
 const PHONE_OFF_KEY = "vx:login:phone-off";
+/**
+ * "1": codes went to the owner only, this phone's number got none, and its
+ * person signed in with a password instead. The page then opens on Password
+ * here (`LoginForm`); a code sent to this phone clears it (D-608).
+ */
+export const NO_CODE_KEY = "vx:login:no-code";
+
+/** Six digits standing on their own in what was copied: the code, not part of a longer number. */
+const CODE_IN_TEXT = new RegExp(`(?<!\\d)\\d{${SIGN_IN_CODE_LENGTH}}(?!\\d)`);
 
 function readStore(key: string): string {
   try {
@@ -208,6 +231,87 @@ function keepTypingThroughTap(event: ReactPointerEvent<HTMLElement>) {
   event.preventDefault();
 }
 
+/**
+ * The code goes in by itself (D-608, the owner's ask 14 Nov). WhatsApp's own
+ * one-tap and zero-tap fill only reach an Android *app*, and the browser's
+ * code fill (WebOTP, iPhone's "From Messages") only reads SMS, so for a web
+ * page the code's way in is the clipboard: WhatsApp's Copy code button, then
+ * this page reading what was copied as the person comes back to it.
+ *
+ * A page may read the clipboard unasked only where the browser already
+ * allows it (Chrome and Edge, once the person has said Allow; the first Paste
+ * code tap asks). There it reads on coming back — when the page is shown
+ * again or the window takes focus — and a fresh six-digit code is typed in,
+ * which signs in. It never asks unprompted: where reading would mean a
+ * prompt, or is not offered at all (Safari, Firefox), it only says the person
+ * is back, and Paste code lights up as the next step.
+ *
+ * What was on the clipboard when the code step opened is never used: that is
+ * an old code, never this one. Nor is a code it already tried.
+ */
+function useCodeFromClipboard(active: boolean, round: number, fill: (code: string) => void): { auto: boolean; back: boolean } {
+  const [auto, setAuto] = useState(false);
+  const [back, setBack] = useState(false);
+  const fillRef = useRef(fill);
+  useEffect(() => {
+    fillRef.current = fill;
+  });
+  useEffect(() => {
+    if (!active) return;
+    let stopped = false;
+    let status: PermissionStatus | null = null;
+    let baseline: string | null = null;
+    const tried = new Set<string>();
+    const timers: number[] = [];
+    const allowed = () => status?.state === "granted";
+    const copiedCode = async (): Promise<string | null> => {
+      try {
+        return (await navigator.clipboard.readText()).match(CODE_IN_TEXT)?.[0] ?? null;
+      } catch {
+        return null;
+      }
+    };
+    const look = async () => {
+      if (stopped || !allowed() || !document.hasFocus()) return;
+      const found = await copiedCode();
+      if (stopped || !found || found === baseline || tried.has(found)) return;
+      tried.add(found);
+      fillRef.current(found);
+    };
+    const onBack = () => {
+      if (stopped || document.visibilityState !== "visible") return;
+      setBack(true);
+      // Coming back from another app the page is shown before it has focus,
+      // and a read before focus is refused: look again a moment later.
+      for (const wait of [0, 400, 1200]) timers.push(window.setTimeout(() => void look(), wait));
+    };
+    const onChange = () => {
+      if (!stopped) setAuto(allowed());
+    };
+    void (async () => {
+      try {
+        status = await navigator.permissions.query({ name: "clipboard-read" as PermissionName });
+      } catch {
+        status = null;
+      }
+      if (stopped) return;
+      status?.addEventListener("change", onChange);
+      setAuto(allowed());
+      if (allowed() && document.hasFocus()) baseline = await copiedCode();
+    })();
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("focus", onBack);
+    return () => {
+      stopped = true;
+      status?.removeEventListener("change", onChange);
+      document.removeEventListener("visibilitychange", onBack);
+      window.removeEventListener("focus", onBack);
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+  }, [active, round]);
+  return { auto, back };
+}
+
 /** A tick that draws itself: the code has gone. */
 function SentTick() {
   return (
@@ -222,15 +326,21 @@ export function CodeSignInForm({
   language,
   next,
   notice = null,
+  switcher = null,
   onUsePassword,
 }: {
   language: Language;
   next: string;
   /** Why the visitor is here (`?reason=`), as the password form shows it. */
   notice?: Pair | null;
-  onUsePassword: () => void;
+  /** WhatsApp code | Password, under the title of the number step. */
+  switcher?: ReactNode;
+  /** `noCode`: the server said codes are not on for this number yet. */
+  onUsePassword: (noCode: boolean) => void;
 }) {
   const [code, setCode] = useState("");
+  // The code went in by itself (`useCodeFromClipboard`), so Sign in says it found it.
+  const [filled, setFilled] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
   const verifyForm = useRef<HTMLFormElement>(null);
   // Whichever step is showing: its card, and the one button that finishes it.
@@ -244,6 +354,7 @@ export function CodeSignInForm({
     const answer = await requestCodeAction(previous, data);
     if (answer.status === "sent" && answer.sends !== previous.sends) {
       setCode("");
+      writeStore(NO_CODE_KEY, null);
       cue("success");
       window.setTimeout(() => codeRef.current?.focus(), 350);
     } else if (answer.problem) {
@@ -254,6 +365,7 @@ export function CodeSignInForm({
   const [checked, verifyAction, verifying] = useActionState<CodeActionState, FormData>(async (previous, data) => {
     const answer = await verifyCodeAction(previous, data);
     if (answer.problem) {
+      setFilled(false);
       cue(answer.problem === "type_code" ? "warn" : "error");
       if (answer.problem === "wrong") setCode("");
     }
@@ -294,10 +406,18 @@ export function CodeSignInForm({
     if (signInCodeIn(digits) && digits !== code && !verifying) window.setTimeout(() => verifyForm.current?.requestSubmit(), 120);
   };
 
+  // Back from WhatsApp with the code copied: in it goes, and sign-in starts.
+  const { auto, back } = useCodeFromClipboard(onCodeStep, sent.sends, (found) => {
+    if (code !== "" || verifying) return;
+    setFilled(true);
+    cue("tap");
+    typeCode(found);
+  });
+
   const pasteCode = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      const found = text.match(new RegExp(`\\d{${SIGN_IN_CODE_LENGTH}}`))?.[0];
+      const found = text.match(CODE_IN_TEXT)?.[0];
       if (found) {
         cue("tap");
         typeCode(found);
@@ -310,14 +430,15 @@ export function CodeSignInForm({
   };
 
   if (!onCodeStep) {
+    const shown = finished === sent.sends && sent.sends > 0 && sent.status === "sent" ? checked : sent;
+    const passwordNext = shown.problem !== null && PASSWORD_NEXT.has(shown.problem);
     return (
       <div ref={stepRef} onPointerDown={keepTypingThroughTap} className="fadein lg-code" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <form action={requestAction} onSubmit={keepPhone} style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-busy={requesting || undefined}>
         <input type="hidden" name="language" value={language === "en" ? "en" : "hi"} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}><Two pair={T.welcome} language={language} small /></span>
-        </div>
+        <h1 id="login-heading" className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{lead(T.title, language)}</h1>
+        {switcher}
+        <span style={{ fontSize: 13, color: "var(--mut)", marginTop: switcher ? -4 : -12 }}><Two pair={T.welcome} language={language} small /></span>
 
         {notice && !sent.problem ? (
           <div role="status" style={{ ...noteStyle, background: "var(--warns)", color: "var(--warnfg)" }}>
@@ -352,18 +473,20 @@ export function CodeSignInForm({
           </span>
         </label>
 
-        <Problem state={finished === sent.sends && sent.sends > 0 && sent.status === "sent" ? checked : sent} language={language} id="code-request-error" />
+        <Problem state={shown} language={language} id="code-request-error" />
 
-        <button ref={finishRef} type="submit" className="tap btn pri" disabled={requesting} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
+        {passwordNext ? (
+          <button type="button" className="tap btn pri fadein" onClick={() => onUsePassword(shown.problem === "not_yet")} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
+            <KeyRound size={20} aria-hidden />
+            {lead(T.usePassword, language)}
+          </button>
+        ) : null}
+
+        <button ref={finishRef} type="submit" className={`tap btn ${passwordNext ? "sec" : "pri"}`} disabled={requesting} style={{ height: passwordNext ? 48 : 56, fontSize: passwordNext ? 15 : 17, borderRadius: 14 }}>
           {requesting ? <RefreshCw size={20} className="spin" aria-hidden /> : <MessageCircle size={22} aria-hidden />}
           {lead(requesting ? T.sending : T.send, language)}
         </button>
       </form>
-
-        <button type="button" className="tap btn sec" onClick={onUsePassword} style={{ height: 48, fontSize: 15, borderRadius: 14 }}>
-          <KeyRound size={18} aria-hidden />
-          {lead(T.usePassword, language)}
-        </button>
 
         <button
           type="button"
@@ -384,6 +507,9 @@ export function CodeSignInForm({
   }
 
   const masked = sent.masked ?? (phoneKey ? maskSignInPhone(phoneKey) : "");
+  // Back from WhatsApp, the box still empty, and the page may not read the
+  // clipboard by itself: Paste code becomes the big next step.
+  const nudge = back && code === "" && !verifying;
   // One screen on a phone, keyboard up (12 Nov): what happened and to which
   // number, what to do, the two buttons that do it, the box, Sign in. The
   // rest waits below, and "no code?" only once a new code could be asked for.
@@ -403,7 +529,7 @@ export function CodeSignInForm({
       </div>
 
       <span id="code-paste-hint" style={{ fontSize: 13, color: "var(--mut)", lineHeight: 1.45 }}>
-        <Two pair={T.sentBody} language={language} small />
+        <Two pair={auto ? T.sentBodyAuto : T.sentBody} language={language} small />
       </span>
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10 }}>
@@ -411,7 +537,13 @@ export function CodeSignInForm({
           <MessageCircle size={20} style={{ flexShrink: 0 }} aria-hidden />
           {lead(T.openWhatsApp, language)}
         </a>
-        <button type="button" className="tap btn sec wrap" onClick={pasteCode} disabled={verifying} style={{ height: 52, fontSize: 15, borderRadius: 14, padding: "0 10px", lineHeight: 1.2, color: "var(--accfg)" }}>
+        <button
+          type="button"
+          className={`tap btn ${nudge ? "pri" : "sec"} wrap`}
+          onClick={pasteCode}
+          disabled={verifying}
+          style={{ height: 52, fontSize: 15, borderRadius: 14, padding: "0 10px", lineHeight: 1.2, color: nudge ? undefined : "var(--accfg)", animation: nudge ? "xTick .45s var(--spring) both" : undefined }}
+        >
           <ClipboardPaste size={20} style={{ flexShrink: 0 }} aria-hidden />
           {lead(T.paste, language)}
         </button>
@@ -445,7 +577,7 @@ export function CodeSignInForm({
 
         <button ref={finishRef} type="submit" className="tap btn pri" disabled={verifying} style={{ height: 56, fontSize: 17, borderRadius: 14 }}>
           {verifying ? <RefreshCw size={20} className="spin" aria-hidden /> : <ArrowRight size={22} aria-hidden />}
-          {lead(verifying ? T.checking : T.signIn, language)}
+          {lead(verifying ? (filled ? T.found : T.checking) : T.signIn, language)}
         </button>
       </form>
 
@@ -460,7 +592,7 @@ export function CodeSignInForm({
             {countdown > 0 ? `${lead(T.againShort, language)} (${countdown}${lead(T.seconds, language)})` : lead(T.againShort, language)}
           </button>
         </form>
-        <button type="button" className="tap btn sec wrap" onClick={onUsePassword} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
+        <button type="button" className="tap btn sec wrap" onClick={() => onUsePassword(false)} style={{ height: 48, fontSize: 14, borderRadius: 14, padding: "0 8px", lineHeight: 1.2 }}>
           <KeyRound size={18} style={{ flexShrink: 0 }} aria-hidden />
           {lead(T.usePasswordShort, language)}
         </button>

@@ -134,6 +134,15 @@ describe("what the page may say", () => {
     expect(requestAnswer(null)).toBe("unavailable");
   });
 
+  it("while codes go to the owner only, tells every other number 'not yet', on a record or not (D-608)", () => {
+    for (const outcome of ["no_match", "shared_number", "not_allowed"]) {
+      expect(requestAnswer(outcome, "owner_only")).toBe("not_yet");
+      expect(requestAnswer(outcome, "all_staff")).toBe("sent");
+    }
+    expect(requestAnswer("send", "owner_only")).toBe("sent");
+    expect(requestAnswer("limited", "owner_only")).toBe("limited");
+  });
+
   it("folds every finished code into one 'start again'", () => {
     for (const outcome of ["locked", "expired", "used", "no_code"]) expect(verifyAnswer(outcome)).toBe("start_again");
     expect(verifyAnswer("ok")).toBe("ok");
@@ -180,6 +189,12 @@ describe("asking for a code", () => {
     expect(args.p_code_hash).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.values(args).some((value) => typeof value === "string" && /^\d{6}$/.test(value))).toBe(false);
     expect(asked.deliver).toBeTypeOf("function");
+  });
+
+  it("says 'not yet', with no code and no cookie to set, when the page read owner only (D-608)", async () => {
+    const { db } = fakeDb(() => ({ data: [{ outcome: "not_allowed", staff_profile_id: null, phone_key: null, retry_after_seconds: null }], error: null }));
+    const asked = await requestSignInCode({ phone: "9000000003", language: "hi", clientKey: "c".repeat(32), mode: "owner_only" }, db);
+    expect(asked).toMatchObject({ answer: "not_yet", challengeId: null, deliver: null });
   });
 
   it("answers a number on no record exactly like one that got a code, and sends nothing", async () => {
@@ -308,6 +323,10 @@ describe("the sign-in page", () => {
     expect(actions).toMatch(/if \(asked\.deliver\) after\(asked\.deliver\)/);
   });
 
+  it("tells the request which mode it read, so only owner-only can answer 'not yet' (D-608)", () => {
+    expect(actions).toMatch(/requestSignInCode\(\{[^}]*mode \}\)/);
+  });
+
   it("signs in only through the admission check every door runs, held to the code's profile", () => {
     expect(actions).toMatch(/admitSignedInUser\(supabase, userId, \{ signOutScope: "local", expectedStaffProfileId: checked\.staffProfileId \}\)/);
   });
@@ -316,5 +335,11 @@ describe("the sign-in page", () => {
     expect(form).toContain("If this number is on your staff record");
     expect(form).toContain("Use email and password instead");
     expect(form).toContain('autoComplete="one-time-code"');
+  });
+
+  it("reads the clipboard by itself only where the browser already allows it (D-608)", () => {
+    expect(form).toContain('navigator.permissions.query({ name: "clipboard-read" as PermissionName })');
+    expect(form).toMatch(/if \(stopped \|\| !allowed\(\) \|\| !document\.hasFocus\(\)\) return;/);
+    expect(form).toContain("found === baseline || tried.has(found)");
   });
 });
