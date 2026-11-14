@@ -1193,6 +1193,7 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
   const [editAt, setEditAt] = useState(false);
   const unlocked = classes.filter((c) => !c.locked).length;
   const lockedKids = classes.filter((c) => c.locked).reduce((a, c) => a + c.children, 0);
+  const tellParents = props.notice ? <TellParents notice={props.notice} examId={exam.id} pending={pending} run={props.run} tell={props.actions.tellParents} /> : null;
   const whenS =
     when === "now"
       ? lockedKids
@@ -1213,6 +1214,8 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
             <span className="xs" style={{ color: "var(--ok)" }}>{tx(agoP(exam.publishedAt))}</span>
           </div>
         ) : null}
+        {/* Once released, telling parents is the next step, so it comes first. */}
+        {props.notice && exam.publishedAt ? tellParents : null}
         <div className="card xc x10 xp2">
           <b className="xt">{tx(p("When should parents get it?", "अभिभावकों को कब मिले?"))}</b>
           <div className="xr xw x8">
@@ -1269,7 +1272,7 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
             {when === "now" ? tx(p("Release results now", "परिणाम अभी जारी करें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
           </button>
         )}
-        {props.notice ? <TellParents notice={props.notice} examId={exam.id} pending={pending} run={props.run} tell={props.actions.tellParents} /> : null}
+        {props.notice && !exam.publishedAt ? tellParents : null}
       </div>
       <div className="xc x10">
         <NoticePreview notice={props.notice ?? null} />
@@ -1299,11 +1302,13 @@ function TellParents({ notice, examId, pending, run, tell }: { notice: Notice; e
         <span className="xi" style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--wabg)", color: "var(--wafg)" }}>
           <Ic n="message" size={20} />
         </span>
-        <span className="xc xf" style={{ minWidth: 0 }}>
-          <b className="xt">{tx(p("Tell parents on WhatsApp", "WhatsApp पर अभिभावकों को बताएँ"))}</b>
+        <span className="xc xf x4" style={{ minWidth: 0 }}>
+          <span className="xr xw x8">
+            <b className="xt">{tx(p("Tell parents on WhatsApp", "WhatsApp पर अभिभावकों को बताएँ"))}</b>
+            <Tag tone={state.tone}>{tx(state.label)}</Tag>
+          </span>
           <span className="xm">{tx(p("“Results are out”, one message per child, with a Get report card button.", "“परिणाम घोषित”, हर बच्चे का एक संदेश, रिपोर्ट कार्ड भेजें बटन के साथ।"))}</span>
         </span>
-        <Tag tone={state.tone} style={{ flex: "none" }}>{tx(state.label)}</Tag>
       </div>
       {state.line ? <span className="xm" style={{ lineHeight: 1.5 }}>{tx(state.line)}</span> : null}
       {!notice.practice ? (
