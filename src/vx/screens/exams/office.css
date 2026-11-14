@@ -230,6 +230,9 @@
 .vx.eor .xsc{padding:16px 28px 40px;display:flex;flex-direction:column;gap:14px}
 .vx.eor .xwa{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:16px;background:var(--wabg)}
 .vx.eor .xwb{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;white-space:pre-line;font-size:13px;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}
+.vx.eor .xwq{align-self:flex-start;width:min(94%,340px);margin-top:-3px;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;border-radius:12px;background:var(--wab);color:var(--info);font-weight:600;font-size:13px;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s .15s var(--spring) both}
+.vx.eor .xwo{align-self:flex-end;border-radius:14px 4px 14px 14px;background:var(--card);animation-delay:.3s}
+.vx.eor .xwp{animation-delay:.45s}
 .vx.eor .xside{position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto;border-left:1px solid var(--bd);background:var(--bg)}
 .vx.eor .xmbar{position:sticky;bottom:0;z-index:4;padding:10px 16px 12px;border-top:1px solid var(--bd)}
 .vx.eor .xbig{height:48px;font-size:15px}

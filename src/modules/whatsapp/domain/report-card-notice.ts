@@ -104,3 +104,26 @@ export const REPORT_CARD_NOTICE_HUB_SUBMISSIONS: readonly TemplateSubmission[] =
   examples: [...SAMPLES[language]],
   buttons: [{ type: "QUICK_REPLY" as const, text: REPORT_CARD_BUTTON[language] }],
 }));
+
+/**
+ * Which copy a family gets (D-615): English for a family that writes
+ * English, Hindi for everyone else. A family writing Hinglish reads Hindi,
+ * only typed in Roman letters; there is no Roman-letter copy at Meta.
+ */
+export function reportCardNoticeLanguage(chatLanguage: string | null | undefined): StaffLanguage {
+  return chatLanguage === "en" ? "en" : "hi";
+}
+
+/** The notice as the parent sees it, blanks filled, for the office's preview (D-615). */
+export function reportCardNoticeText(language: StaffLanguage, params: readonly string[]): string {
+  return BODY[language].replace(/\{\{(\d+)\}\}/g, (_, n: string) => params[Number(n) - 1] ?? "-");
+}
+
+/**
+ * The idempotency key of one notice (D-615): one child, one term, one issued
+ * revision, one number. Pressing "Tell parents" twice tells nobody twice; a
+ * card reissued after a correction may be told again.
+ */
+export function reportCardNoticeKey(input: { studentId: string; term: string; revision: number; to: string }): string {
+  return `results-out:${input.studentId}:${input.term.replace(/\s+/g, "_").slice(0, 24)}:${input.revision}:${input.to}`;
+}

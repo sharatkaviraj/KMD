@@ -17,6 +17,8 @@ import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
 import { absentExams } from "@/modules/assessments/domain/report-card";
 import { absentLine } from "@/vx/screens/exams/domain/card-notes";
 import { ResultsBoard, type ResultsView, type ResultsProps } from "@/vx/screens/exams/results-board";
+import { readResultsNoticeBoard } from "@/modules/whatsapp/data/report-card-notice-send";
+import { REPORT_CARD_BUTTON, reportCardNoticeParams, reportCardNoticeText } from "@/modules/whatsapp/domain/report-card-notice";
 
 import {
   addRecheckAction,
@@ -26,6 +28,7 @@ import {
   moderateAction,
   publishResultsAction,
   recheckWithTeacherAction,
+  tellParentsAction,
   removeGraceAction,
   resolveRecheckAction,
   saveGraceRuleAction,
@@ -241,6 +244,38 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
     }
   }
 
+  /* "Results are out" on WhatsApp (D-615), only for the Publish step */
+  let notice: ResultsProps["notice"] = null;
+  if (view === "publish") {
+    const board = await readResultsNoticeBoard(sessionLabel);
+    const practice = new Set(board.practiceIds);
+    const told = new Set(board.toldIds);
+    const releaseAt = exam.plan?.resultsPublishedAt ?? exam.plan?.resultsPublishAt ?? null;
+    const params = (language: "hi" | "en") =>
+      reportCardNoticeParams({
+        studentName: sample?.name ?? (language === "hi" ? "आरव" : "Aarav"),
+        className: sample?.classLabel ?? (language === "hi" ? "कक्षा 6" : "Class 6"),
+        exam: language === "hi" ? exam.labelHi || exam.labelEn : exam.labelEn,
+      });
+    notice = {
+      template: board.template,
+      practice: board.practice,
+      ownerSet: board.ownerSet,
+      released: Boolean(releaseAt && Date.parse(releaseAt) <= now.getTime()),
+      classes: classes
+        .filter((c) => c.locked && c.issued > 0)
+        .map((c) => ({
+          id: c.id,
+          label: c.label,
+          issued: c.issued,
+          children: c.children,
+          kids: (progress.roll.get(c.id) ?? []).filter((k) => practice.has(k.studentId) && issued.has(k.studentId)).map((k) => ({ name: nameOf(k.studentId), told: told.has(k.studentId) })),
+        })),
+      preview: { hi: reportCardNoticeText("hi", params("hi")), en: reportCardNoticeText("en", params("en")) },
+      button: { hi: REPORT_CARD_BUTTON.hi, en: REPORT_CARD_BUTTON.en },
+    };
+  }
+
   /* re-checks */
   const recheckRows: ResultsProps["rechecks"] = rechecks.map((r) => {
     const paper = progress.rows.find((x) => x.id === r.paper_id);
@@ -322,6 +357,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
     grace: { max: rule.maxPerPaper, subjects: rule.maxSubjects, rows: graceRows.slice(0, 200), open: graceOpen },
     cards: { sample, issuedTotal: [...issuedBy.values()].reduce((a, b) => a + b, 0) },
     rechecks: recheckRows,
+    notice,
     paperChoices: progress.rows.map((r) => ({ id: r.id, classId: r.class_id, label: `${r.class_label} · ${r.subject_code}` })),
     rollChoices: Object.fromEntries([...progress.roll].map(([classId, kids]) => [classId, kids.map((k) => ({ id: k.studentId, name: nameOf(k.studentId), roll: k.roll ?? null }))])),
     actions: {
@@ -333,6 +369,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
       unlock: unlockClassAction,
       issueClass: issueClassCardsAction,
       publish: publishResultsAction,
+      tellParents: tellParentsAction,
       addRecheck: addRecheckAction,
       recheckWithTeacher: recheckWithTeacherAction,
       resolveRecheck: resolveRecheckAction,

@@ -13,8 +13,11 @@ import {
   REPORT_CARD_NOTICE_HUB_SUBMISSIONS,
   REPORT_CARD_NOTICE_PARAMS,
   REPORT_CARD_NOTICE_TEMPLATE,
+  reportCardNoticeKey,
+  reportCardNoticeLanguage,
   reportCardNoticeParams,
   reportCardNoticePayloads,
+  reportCardNoticeText,
 } from "@/modules/whatsapp/domain/report-card-notice";
 import { readStaffAsk } from "@/modules/whatsapp/domain/staff-words";
 
@@ -125,5 +128,43 @@ describe("a parent's tap on Get report card (D-614)", () => {
   it("goes to the parents' helper whatever role the number is in, while other quick replies stay words for staff", () => {
     expect(readStaffAsk({ type: "button", text: "Get report card", raw: quickReply(payload!, "Get report card") })).toEqual({ kind: "foreign" });
     expect(readStaffAsk({ type: "button", text: "Get report card", raw: quickReply("", "Get report card") }).kind).not.toBe("foreign");
+  });
+});
+
+describe("the office's Tell parents (D-615)", () => {
+  it("writes English to a family that writes English, and Hindi to everyone else", () => {
+    expect(reportCardNoticeLanguage("en")).toBe("en");
+    for (const language of ["hi", "hx", null, undefined, "xx"]) expect(reportCardNoticeLanguage(language)).toBe("hi");
+  });
+
+  it("previews the very words Meta was asked to approve, blanks filled", () => {
+    for (const submission of REPORT_CARD_NOTICE_HUB_SUBMISSIONS) {
+      const language = submission.language as "hi" | "en";
+      const text = reportCardNoticeText(language, ["Aarav Test", "Class 6", "Half Yearly"]);
+      expect(text).toBe(submission.body.replace("{{1}}", "Aarav Test").replace("{{2}}", "Class 6").replace("{{3}}", "Half Yearly"));
+      expect(text).not.toMatch(/\{\{\d+\}\}/);
+    }
+  });
+
+  it("tells a child once per issued card, and again after a reissue", () => {
+    const key = reportCardNoticeKey({ studentId: STUDENT, term: "Term 1", revision: 2, to: "+919999900001" });
+    expect(key).toBe(`results-out:${STUDENT}:Term_1:2:+919999900001`);
+    expect(reportCardNoticeKey({ studentId: STUDENT, term: "Term 1", revision: 3, to: "+919999900001" })).not.toBe(key);
+    // The board reads the child back out of the key.
+    expect(key.split(":")[1]).toBe(STUDENT);
+  });
+
+  it("is a button under Exam office → Results, wired to its action", () => {
+    const page = readFileSync(join(process.cwd(), "src/app/(app)/exam-office/results/page.tsx"), "utf8");
+    const board = readFileSync(join(process.cwd(), "src/vx/screens/exams/results-board.tsx"), "utf8");
+    const actions = readFileSync(join(process.cwd(), "src/app/(app)/exam-office/results/actions.ts"), "utf8");
+    expect(page).toMatch(/tellParents: tellParentsAction/);
+    expect(page).toMatch(/readResultsNoticeBoard\(sessionLabel\)/);
+    expect(board).toMatch(/function TellParents\(/);
+    expect(board).toMatch(/<TellParents /);
+    // The old made-up preview ("… result is attached") is gone: the preview is the approved message.
+    expect(board).not.toMatch(/result is attached/);
+    expect(actions).toMatch(/export async function tellParentsAction/);
+    expect(actions).toMatch(/assertPermission\("assessments:manage"\)[\s\S]*previewRefusal\(\)[\s\S]*sendResultsOutNotices/);
   });
 });

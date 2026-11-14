@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { sendResultsOutNotices } from "@/modules/whatsapp/data/report-card-notice-send";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { assertClassVisible, assertSessionVisible, assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { schoolToday } from "@/platform/dates";
@@ -280,6 +281,66 @@ export async function publishResultsAction(input: { examId: string; when: "now" 
   await logActivity({ assessmentId: input.examId, kind: "results", en: `${staff.displayName} ${input.when === "now" ? "released the results" : "scheduled the results"}`, hi: `${staff.displayName} ने परिणाम ${input.when === "now" ? "जारी किए" : "तय किए"}`, actorId: staff.id }).catch(() => undefined);
   refresh();
   return { ok: true, message: input.when === "now" ? p("Results released", "परिणाम जारी") : p("Results scheduled", "परिणाम का समय तय") };
+}
+
+/**
+ * "Results are out" on WhatsApp for one released class (D-615): one message
+ * per child with a Get report card button, whose tap sends the card. Only a
+ * locked class of a released exam. Practice only for now: in the test year
+ * it goes to the owner's number for the practice children; a real year sends
+ * nothing until real families are switched on.
+ */
+export async function tellParentsAction(input: { examId: string; classId: string }): Promise<ActionResult> {
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
+  if (preview) return { ok: false, message: preview };
+  if (!UUID.test(input.examId) || !UUID.test(input.classId)) return { ok: false, message: RELOAD };
+  if (!(await passesFence(() => assertClassVisible(staff, input.classId)))) return { ok: false, message: RELOAD };
+  const found = await examOf(input.examId);
+  if (!found || !(await passesFence(() => assertSessionVisible(staff, found.sessionLabel)))) return { ok: false, message: RELOAD };
+  const { exam, sessionLabel } = found;
+  const publishAt = exam.plan?.resultsPublishedAt ?? exam.plan?.resultsPublishAt ?? null;
+  if (!publishAt || Date.parse(publishAt) > Date.now()) {
+    return { ok: false, message: p("Release the results first. Parents are told only after that.", "पहले परिणाम जारी करें। उसके बाद ही अभिभावकों को बताया जाता है।") };
+  }
+  const locks = await locksFor(exam.id);
+  if (!locks.has(input.classId)) return { ok: false, message: p("This class is not locked, so its results are not out.", "यह कक्षा बंद नहीं है, इसलिए इसका परिणाम जारी नहीं हुआ।") };
+  const today = schoolToday();
+  const roll = (await enrolmentsFor(sessionLabel, [input.classId])).filter((e) => onRoll(e, { startsOn: today, endsOn: today }, today));
+  const run = await sendResultsOutNotices({
+    sessionLabel,
+    term: exam.term,
+    exam: { en: exam.labelEn, hi: exam.labelHi },
+    studentIds: roll.map((e) => e.studentId),
+    requestedBy: staff.userId,
+  });
+  if (!run.ok) {
+    const why: Record<typeof run.why, Pair> = {
+      real_year: p("Real families are not switched on for WhatsApp yet. Nothing was sent.", "असली परिवारों के लिए WhatsApp अभी चालू नहीं है। कुछ नहीं भेजा।"),
+      no_practice_child: p("No practice child is in this class. Nothing was sent.", "इस कक्षा में कोई अभ्यास वाला बच्चा नहीं। कुछ नहीं भेजा।"),
+      no_owner: p("The owner's test number is not set. Nothing was sent.", "मालिक का टेस्ट नंबर नहीं है। कुछ नहीं भेजा।"),
+      read_failed: NOT_SAVED,
+    };
+    return { ok: false, message: why[run.why] };
+  }
+  if (run.sent || run.logged) {
+    await logActivity({ assessmentId: exam.id, kind: "results", en: `${staff.displayName} told parents on WhatsApp (practice): ${run.sent + run.logged}`, hi: `${staff.displayName} ने WhatsApp पर अभिभावकों को बताया (अभ्यास): ${run.sent + run.logged}`, actorId: staff.id }).catch(() => undefined);
+  }
+  refresh();
+  if (run.sent) return { ok: true, message: p(`Sent to ${run.sent === 1 ? "1 family" : `${run.sent} families`} on WhatsApp (practice: the owner's number)`, `WhatsApp पर ${run.sent} परिवार को भेजा (अभ्यास: मालिक का नंबर)`) };
+  if (run.logged) return { ok: true, message: p("Practice mode is on: written to the WhatsApp log, not sent.", "अभ्यास मोड चालू है: WhatsApp लॉग में लिखा, भेजा नहीं।") };
+  if (run.already) return { ok: true, message: p("Already told about this card. Nobody is told twice.", "इस कार्ड के बारे में पहले ही बता दिया। किसी को दो बार नहीं।") };
+  if (run.stopped.count) {
+    const reason: Pair =
+      run.stopped.code === "template_not_approved"
+        ? p("Meta has not approved the message yet. Nothing was sent.", "Meta ने संदेश अभी मंज़ूर नहीं किया। कुछ नहीं भेजा।")
+        : run.stopped.code === "feature_off"
+          ? p("Report cards on WhatsApp are switched off in Settings. Nothing was sent.", "सेटिंग में WhatsApp पर रिपोर्ट कार्ड बंद है। कुछ नहीं भेजा।")
+          : p(`Not sent: ${run.stopped.reason ?? "a WhatsApp check stopped it"}`, `नहीं भेजा: ${run.stopped.reason ?? "WhatsApp की जाँच ने रोका"}`);
+    return { ok: false, message: reason };
+  }
+  if (run.failed) return { ok: false, message: p("WhatsApp did not take it. Try again in a few minutes.", "WhatsApp ने नहीं लिया। कुछ मिनट बाद फिर कोशिश करें।") };
+  return { ok: false, message: p("No issued report card to send for this class yet. Issue the cards first.", "इस कक्षा का कोई जारी प्रगति पत्र नहीं। पहले कार्ड जारी करें।") };
 }
 
 /** A parent asked for a paper to be checked again. */

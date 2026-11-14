@@ -192,6 +192,22 @@ export type ResultsProps = {
     teacherPhone: string | null;
     locked: boolean;
   }[];
+  /**
+   * "Results are out" on WhatsApp (D-615), read only for the Publish step.
+   * Practice in a test year: the owner's number for the practice children.
+   */
+  notice?: {
+    template: "approved" | "pending" | "rejected" | "marketing" | "missing";
+    practice: boolean;
+    ownerSet: boolean;
+    /** The exam is released (now, or its set time has passed). */
+    released: boolean;
+    /** Locked classes, each with the practice children on its roll who have an issued card. */
+    classes: { id: string; label: string; issued: number; children: number; kids: { name: string; told: boolean }[] }[];
+    /** The message as a parent sees it, in each language, and its one button. */
+    preview: { hi: string; en: string };
+    button: { hi: string; en: string };
+  } | null;
   paperChoices: { id: string; classId: string; label: string }[];
   rollChoices: Record<string, { id: string; name: string; roll: string | null }[]>;
   recheckId: string | null;
@@ -204,6 +220,7 @@ export type ResultsProps = {
     unlock: Act<{ examId: string; classId: string }>;
     issueClass: Act<{ examId: string; classId: string; reissue?: boolean }>;
     publish: Act<{ examId: string; when: "now" | "scheduled"; at: string | null; ptm: boolean }>;
+    tellParents?: Act<{ examId: string; classId: string }>;
     addRecheck: Act<{ paperId: string; studentId: string; askedBy: string; note: string }>;
     recheckWithTeacher: Act<{ recheckId: string }>;
     resolveRecheck: Act<{ recheckId: string; delta: number }>;
@@ -358,7 +375,7 @@ export function ResultsBoard(props: ResultsProps) {
       body = <Cards {...props} pending={pending} run={run} />;
       break;
     case "publish":
-      body = <Publish {...props} pending={pending} when={when} setWhen={setWhen} at={at} setAt={setAt} atLabel={atLabel} ptm={ptm} setPtm={setPtm} onPublish={publishNow} />;
+      body = <Publish {...props} pending={pending} run={run} when={when} setWhen={setWhen} at={at} setAt={setAt} atLabel={atLabel} ptm={ptm} setPtm={setPtm} onPublish={publishNow} />;
       break;
     case "recheck":
       body = null;
@@ -378,7 +395,7 @@ export function ResultsBoard(props: ResultsProps) {
       </button>
     ) : view === "publish" && !exam.publishedAt ? (
       <button type="button" className="tap btn pri xbig" disabled={pending || (when === "scheduled" && !at) || (when === "now" && lockedNow === 0)} onClick={publishNow}>
-        {when === "now" ? tx(p("Send results now", "परिणाम अभी भेजें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
+        {when === "now" ? tx(p("Release results now", "परिणाम अभी जारी करें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
       </button>
     ) : null;
 
@@ -1170,15 +1187,12 @@ const SCHOOL = p("Shri Veer Patta Sr. Sec. School", "श्री वीर प�
 
 /* ---------------------------------------------------------- publish */
 
-function Publish(props: ResultsProps & { pending: boolean; when: "now" | "scheduled"; setWhen: (w: "now" | "scheduled") => void; at: string; setAt: (v: string) => void; atLabel: string; ptm: boolean; setPtm: (v: boolean) => void; onPublish: () => void }) {
+function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now" | "scheduled"; setWhen: (w: "now" | "scheduled") => void; at: string; setAt: (v: string) => void; atLabel: string; ptm: boolean; setPtm: (v: boolean) => void; onPublish: () => void }) {
   const { tx } = useVx();
   const { exam, classes, pending, when, setWhen, at, setAt, atLabel, ptm, setPtm } = props;
   const [editAt, setEditAt] = useState(false);
   const unlocked = classes.filter((c) => !c.locked).length;
   const lockedKids = classes.filter((c) => c.locked).reduce((a, c) => a + c.children, 0);
-  const sample = props.cards.sample;
-  const hi = `प्रिय अभिभावक,\n${sample ? `${sample.name} (${sample.classLabel}) का ` : ""}${exam.name.hi ?? exam.name.en} परीक्षा परिणाम संलग्न है।${sample?.percent != null ? ` प्रतिशत: ${sample.percent}%${sample.passed === null ? "" : `, परिणाम: ${sample.passed ? "उत्तीर्ण" : "अनुत्तीर्ण"}`}।` : ""}${ptm && exam.ptmAt ? `\nPTM ${exam.resultsLabel ?? ""}, ${ampm(exam.ptmAt)} पर कक्षा अध्यापक कार्ड दिखाएँगे।` : ""}`;
-  const en = `Dear parent, the ${exam.name.en} result${sample ? ` of ${sample.name}` : ""} is attached.${ptm && exam.ptmAt ? ` The class teacher will show the card at the PTM (${exam.resultsLabel ?? ""}, ${ampm(exam.ptmAt)}).` : ""}`;
   const whenS =
     when === "now"
       ? lockedKids
@@ -1241,7 +1255,7 @@ function Publish(props: ResultsProps & { pending: boolean; when: "now" | "schedu
           {[
             { k: p("To", "किसे"), v: tx(p(`${props.childrenTotal} parents · one card per child`, `${props.childrenTotal} अभिभावक · हर बच्चे का एक कार्ड`)) },
             { k: p("Cards issued", "कार्ड जारी"), v: `${props.cards.issuedTotal} / ${props.childrenTotal}` },
-            { k: p("Sent through", "किससे"), v: tx(p("Notices · approved before it leaves", "सूचनाएँ · भेजने से पहले मंज़ूरी")) },
+            { k: p("Sent through", "किससे"), v: tx(p("WhatsApp · the card on a tap", "WhatsApp · टैप पर कार्ड")) },
           ].map((f) => (
             <div key={f.k.en} className="xfa xd">
               <span className="xmu">{tx(f.k)}</span>
@@ -1252,32 +1266,128 @@ function Publish(props: ResultsProps & { pending: boolean; when: "now" | "schedu
         {exam.publishedAt ? null : (
           <button type="button" className="tap btn pri xbig hide-m" disabled={pending || (when === "scheduled" && !at) || (when === "now" && !lockedKids)} onClick={props.onPublish}>
             <Ic n={when === "now" ? "send" : "clock"} size={18} />
-            {when === "now" ? tx(p("Send results now", "परिणाम अभी भेजें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
+            {when === "now" ? tx(p("Release results now", "परिणाम अभी जारी करें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
           </button>
         )}
+        {props.notice ? <TellParents notice={props.notice} examId={exam.id} pending={pending} run={props.run} tell={props.actions.tellParents} /> : null}
       </div>
       <div className="xc x10">
-        <div className="xwa">
-          <span className="xb x11" style={{ color: "var(--wafg)", opacity: 0.7 }}>
-            {tx(p("Preview · each parent gets only their child’s card", "झलक · हर अभिभावक को केवल अपने बच्चे का कार्ड"))}
-          </span>
-          <div className="xwb">
-            <div className="xr x8 xs x6w" style={{ padding: "8px 10px", marginBottom: 6, borderRadius: 8, background: "rgba(0,0,0,.06)" }}>
-              <Ic n="file" size={18} />
-              {tx(p("Report card", "प्रगति पत्र"))}
-              {sample ? ` · ${sample.name}` : ""}.pdf · 1 page
-            </div>
-            {hi}
-            <div style={{ marginTop: 6, opacity: 0.78 }}>{en}</div>
-          </div>
-        </div>
-        <span className="xm">{tx(p("This screen records when results are released. The WhatsApp to families goes from Notices, where the count and cost are shown and each send is approved.", "यह स्क्रीन जारी करने का समय दर्ज करती है। परिवारों को WhatsApp सूचनाओं से जाता है, जहाँ गिनती और खर्च दिखता है और हर भेजना मंज़ूर होता है।"))}</span>
-        <Link href="/messages" className="tap btn sec">
-          <Ic n="megaphone" size={18} />
-          {tx(p("Open Notices", "सूचनाएँ खोलें"))}
-        </Link>
+        <NoticePreview notice={props.notice ?? null} />
       </div>
     </div>
+  );
+}
+
+type Notice = NonNullable<ResultsProps["notice"]>;
+
+const NOTICE_STATE: Record<Notice["template"], { tone: ToneKey; label: Pair; line: Pair | null }> = {
+  approved: { tone: "ok", label: p("Approved by Meta", "Meta ने मंज़ूर किया"), line: null },
+  pending: { tone: "warn", label: p("Waiting for Meta", "Meta की मंज़ूरी बाकी"), line: p("Meta is checking the message. The button works once Meta approves it, usually within a day.", "Meta संदेश जाँच रहा है। मंज़ूरी के बाद बटन चलेगा, आमतौर पर एक दिन में।") },
+  rejected: { tone: "bad", label: p("Meta said no", "Meta ने मना किया"), line: p("Meta did not approve the message. We will reword it and send it again.", "Meta ने संदेश मंज़ूर नहीं किया। हम शब्द बदलकर फिर भेजेंगे।") },
+  marketing: { tone: "bad", label: p("Filed as marketing", "मार्केटिंग में डाला"), line: p("Meta filed it as marketing, which costs about 7 times more. We will reword it so it goes as a school message.", "Meta ने इसे मार्केटिंग में डाला, जो लगभग 7 गुना महँगा है। हम शब्द बदलेंगे ताकि यह स्कूल संदेश बने।") },
+  missing: { tone: "s3", label: p("Not set up", "तैयार नहीं"), line: p("The WhatsApp message could not be read. Reload the page.", "WhatsApp संदेश पढ़ा नहीं गया। पेज फिर खोलें।") },
+};
+
+/** "Results are out" for each released class (D-615): practice only, to the owner's number. */
+function TellParents({ notice, examId, pending, run, tell }: { notice: Notice; examId: string; pending: boolean; run: Run; tell?: ResultsProps["actions"]["tellParents"] }) {
+  const { tx } = useVx();
+  const state = NOTICE_STATE[notice.template];
+  const ready = notice.template === "approved" && notice.released && notice.ownerSet && Boolean(tell);
+  return (
+    <div className="card xc x10 xp2">
+      <div className="xr x10">
+        <span className="xi" style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--wabg)", color: "var(--wafg)" }}>
+          <Ic n="message" size={20} />
+        </span>
+        <span className="xc xf" style={{ minWidth: 0 }}>
+          <b className="xt">{tx(p("Tell parents on WhatsApp", "WhatsApp पर अभिभावकों को बताएँ"))}</b>
+          <span className="xm">{tx(p("“Results are out”, one message per child, with a Get report card button.", "“परिणाम घोषित”, हर बच्चे का एक संदेश, रिपोर्ट कार्ड भेजें बटन के साथ।"))}</span>
+        </span>
+        <Tag tone={state.tone} style={{ flex: "none" }}>{tx(state.label)}</Tag>
+      </div>
+      {state.line ? <span className="xm" style={{ lineHeight: 1.5 }}>{tx(state.line)}</span> : null}
+      {!notice.practice ? (
+        <span className="xm" style={{ lineHeight: 1.5 }}>{tx(p("Real families are not switched on yet, so nothing goes from here. When the owner switches them on, this tells every family of a released class.", "असली परिवारों के लिए अभी चालू नहीं, इसलिए यहाँ से कुछ नहीं जाता। मालिक के चालू करने पर यह जारी कक्षा के हर परिवार को बताएगा।"))}</span>
+      ) : (
+        <>
+          <span className="xr x8 xs" style={{ padding: "8px 10px", borderRadius: 10, background: "var(--s2)", lineHeight: 1.45 }}>
+            <Ic n="flask" size={16} />
+            {tx(p("Practice: it goes only to the owner’s number, for the practice children.", "अभ्यास: यह केवल मालिक के नंबर पर जाता है, अभ्यास वाले बच्चों के लिए।"))}
+          </span>
+          {!notice.released ? <span className="xm">{tx(p("Release the results first. Then each locked class can be told.", "पहले परिणाम जारी करें। फिर हर बंद कक्षा को बताया जा सकता है।"))}</span> : null}
+          {notice.classes.length === 0 ? (
+            <span className="xm">{tx(p("No class is locked with issued cards yet.", "अभी कोई कक्षा जारी कार्ड के साथ बंद नहीं।"))}</span>
+          ) : (
+            <div className="card xc xoh">
+              {notice.classes.map((c) => {
+                const told = c.kids.length > 0 && c.kids.every((k) => k.told);
+                return (
+                  <div key={c.id} className="xr x10 xd" style={{ padding: "9px 12px" }}>
+                    <span className="xc xf" style={{ minWidth: 0 }}>
+                      <b className="xe">{c.label}</b>
+                      <span className="xm">
+                        {c.kids.length
+                          ? c.kids.map((k) => `${k.name}${k.told ? " ✓" : ""}`).join(", ")
+                          : tx(p("No practice child in this class", "इस कक्षा में अभ्यास वाला बच्चा नहीं"))}
+                      </span>
+                    </span>
+                    {c.kids.length ? (
+                      told ? (
+                        <Tag tone="ok" style={{ flex: "none" }}>
+                          <Ic n="check" size={14} />
+                          {tx(p("Told", "बताया"))}
+                        </Tag>
+                      ) : (
+                        <button type="button" className="tap btn pri" disabled={pending || !ready} onClick={() => tell && run(() => tell({ examId, classId: c.id }))} style={{ flex: "none", height: 40, padding: "0 14px" }}>
+                          <Ic n="send" size={16} />
+                          {tx(p("Tell parents", "बताएँ"))}
+                        </button>
+                      )
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The message as a parent sees it in WhatsApp, with its button and what a tap does. */
+function NoticePreview({ notice }: { notice: Notice | null }) {
+  const { tx } = useVx();
+  const [lang, setLang] = useState<"hi" | "en">("hi");
+  if (!notice) return null;
+  const lines = notice.preview[lang].split("\n");
+  return (
+    <>
+      <div className="xr xj x8">
+        <span className="xb x11 xm">{tx(p("Preview · each parent gets only their own child’s", "झलक · हर अभिभावक को केवल अपने बच्चे का"))}</span>
+        <Seg value={lang} onChange={setLang} label={tx(p("Preview language", "झलक की भाषा"))} style={{ width: 170, flex: "none" }} options={[{ value: "hi", label: "हिंदी" }, { value: "en", label: "English" }]} />
+      </div>
+      <div className="xwa">
+        <div className="xwb" style={{ whiteSpace: "normal" }}>
+          {lines.map((line, i) => {
+            const bold = /^\*(.+)\*$/.exec(line);
+            return <div key={i} style={{ minHeight: line ? undefined : 8 }}>{bold ? <b>{bold[1]}</b> : line}</div>;
+          })}
+        </div>
+        <div className="xwq">
+          <Ic n="undo" size={14} />
+          {notice.button[lang]}
+        </div>
+        <div className="xwb xwo">{notice.button[lang]}</div>
+        <div className="xwb xwp">
+          <span className="xr x8 x6w">
+            <Ic n="file" size={18} />
+            {tx(p("Report card.pdf · 1 page", "प्रगति पत्र.pdf · 1 पेज"))}
+          </span>
+        </div>
+      </div>
+      <span className="xm" style={{ lineHeight: 1.5 }}>{tx(p("A tap on the button sends that child’s issued report card as a PDF, at once, and only once its results are out.", "बटन दबाते ही उस बच्चे का जारी प्रगति पत्र PDF में तुरंत आता है, और केवल परिणाम जारी होने के बाद।"))}</span>
+    </>
   );
 }
 

@@ -78,6 +78,14 @@ export type SendOptions = {
    */
   maxAttempts?: number;
   retryOf?: string | null;
+  /**
+   * What each quick-reply button says back when tapped, in the buttons' order
+   * (D-615): "Results are out" carries its child's Get report card. A message
+   * with them goes now and is tried once: the queue and Retry rebuild a
+   * message from its log row, which keeps a URL button's link and nothing
+   * else, so they would send it without the payloads.
+   */
+  quickReplies?: readonly string[] | null;
 };
 
 export type SendOutcome =
@@ -283,8 +291,10 @@ export async function sendTemplate(
   templateName: string,
   language: string | null,
   variables: readonly string[],
-  options: SendOptions,
+  given: SendOptions,
 ): Promise<SendOutcome> {
+  const quickReplies = given.quickReplies?.length ? [...given.quickReplies] : null;
+  const options: SendOptions = quickReplies ? { ...given, delivery: "now", maxAttempts: 1 } : given;
   const config = readWhatsAppConfig();
   const [switches, template] = await Promise.all([readSwitches(), readTemplateRow(templateName).catch(() => null)]);
   const verdict = checkWhatsAppSend({
@@ -312,6 +322,7 @@ export async function sendTemplate(
       bodyParams: variables,
       document: options.document ?? null,
       urlButtonSuffix: options.urlButton ?? null,
+      quickReplies,
     }),
     log: {
       ...logFields(to, options),
