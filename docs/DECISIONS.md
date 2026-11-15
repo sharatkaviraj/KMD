@@ -1,5 +1,17 @@
 # Decisions
 
+## Chats always in reach: the chat bubble — 15 November 2026
+
+The owner (15 Nov, 18:01 UTC), after looking at One as a teacher: a parent's
+message did not come up as a pop-up, and Chats was hidden under Menu. Chats
+should always be reachable as a pop-up "in the bottom right corner or
+anywhere", open properly in it, and staff should be told that parents are
+waiting whenever they open One.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-641 | **A chat bubble on every screen replaces the strip and the card of D-618. One round green button floats over every screen for anyone who answers parents (`chats:reply` or `chats:all`): bottom right, above the phone's tab bar (unchanged), a pill named "Chats" on a computer. Its red number is the parents waiting for this person's reply (99+ past 99), a ring goes round it when the number grows, and an installed One carries the same number on its icon. It speaks up in a card above itself when One opens with parents waiting (once a visit, or after 30 minutes away) and whenever a parent writes after the screen was drawn: who, which child, the first words, and Reply (Open chats when several wait). A tap opens the chats over the screen (`src/vx/shell/chat-panel.tsx`): Chats' own rows, then a chat with its reply box. A phone gets a sheet whose Back goes from a chat to the list and then closes it; a computer gets a window in the corner and the page stays usable. On a phone it can be dragged up either edge and stays where it was put (`localStorage` `vx.chats.bubble`); it rises by itself over a bar fixed or stuck at the bottom of a screen (Save attendance) and never goes above the top bar. It is drawn while an administrator looks at One as somebody else (D-544), look-only: that person's chats, nothing marked read, nothing sent. Never in a role preview. A person with no desk of their own sees it only while a parent waits for them.** `/chats/panel` serves the panel's list (30 rows, the number waiting, who is reading). `/chats/pulse` now also says whether chats are on. Opening a chat on Chats or in the panel while looking as somebody else no longer marks it read. | D-618's strip and card were mounted only when `!previewing`, so neither appeared while the owner looked as a teacher, although `getCurrentStaff()` already returns the viewed person and `/chats/pulse` would have served the teacher's number. The strip also sat on top of every screen, and Chats itself was a Menu or More entry a teacher may never open. A floating chat head is the pattern staff already know from WhatsApp and Messenger: always there, out of the way, one tap to answer without losing the page they were on. The bubble is drawn on the server, so its number is there at first paint; the panel's code (`next/dynamic`, `ssr: false`) comes only on a press or a hover, or 3 s after a parent starts waiting. `tests/chat-bubble-logic.test.ts` pins the rules and the wiring, and `tests/chat-bubble-ui.test.tsx` the card, Reply, the phone's Back, links, Escape, the drag and look-only. |
+
 ## PDFs on WhatsApp opening blank — 15 November 2026
 
 The owner (15 Nov, about 17:57 UTC, screenshot from his Android phone): every

@@ -50,16 +50,18 @@ export type PulseChat = { chatId: string; fromName: string; studentLabel: string
 
 /**
  * Parents waiting for this person: how many (the menu's number, at most
- * `PULSE_LIMIT`), and the one who wrote last. Zero while chats are off.
+ * `PULSE_LIMIT`), and the one who wrote last. Zero while chats are off, and
+ * `enabled` false then, so the chat bubble (D-641) goes away instead of
+ * offering an empty list.
  */
-export type ChatPulse = { waiting: number; latest: PulseChat | null };
+export type ChatPulse = { waiting: number; latest: PulseChat | null; enabled: boolean };
 
 export const PULSE_LIMIT = 99;
 
 type PulseRow = { id: string; from_name: string; student_label: string | null; last_preview: string | null; last_parent_at: string | null; last_message_at: string };
 
 export async function readChatPulse(viewer: ChatViewer, db: Db = whatsappDb()): Promise<ChatPulse> {
-  const none: ChatPulse = { waiting: 0, latest: null };
+  const none: ChatPulse = { waiting: 0, latest: null, enabled: false };
   if (!viewer.replies && !viewer.seesAll) return none;
   const filter = forYouFilter(viewer);
   if (!filter) return none;
@@ -82,18 +84,20 @@ export async function readChatPulse(viewer: ChatViewer, db: Db = whatsappDb()): 
     latest: first
       ? { chatId: first.id, fromName: first.from_name, studentLabel: first.student_label, preview: first.last_preview, at: first.last_parent_at ?? first.last_message_at }
       : null,
+    enabled: true,
   };
 }
 
 /**
  * How many parents wait for this person, and since when the longest has: no
  * names and no words, for a card elsewhere in One (Needs you) that opens
- * Chats. The same "for you" rule as the menu's number; zero while chats are off.
+ * Chats. The same "for you" rule as the menu's number; zero while chats are
+ * off, with `enabled` false (the chat bubble is not drawn then, D-641).
  */
-export type WaitingChats = { count: number; oldestWaitingSince: string | null };
+export type WaitingChats = { count: number; oldestWaitingSince: string | null; enabled: boolean };
 
 export async function waitingChatsFor(viewer: ChatViewer, db: Db = whatsappDb()): Promise<WaitingChats> {
-  const none: WaitingChats = { count: 0, oldestWaitingSince: null };
+  const none: WaitingChats = { count: 0, oldestWaitingSince: null, enabled: false };
   if (!viewer.replies && !viewer.seesAll) return none;
   const filter = forYouFilter(viewer);
   if (!filter) return none;
@@ -110,5 +114,5 @@ export async function waitingChatsFor(viewer: ChatViewer, db: Db = whatsappDb())
     .limit(PULSE_LIMIT)
     .returns<Array<{ waiting_since: string | null }>>();
   if (error || !data) throw new ChatStoreError("count the parents waiting");
-  return { count: data.length, oldestWaitingSince: data.find((row) => row.waiting_since)?.waiting_since ?? null };
+  return { count: data.length, oldestWaitingSince: data.find((row) => row.waiting_since)?.waiting_since ?? null, enabled: true };
 }

@@ -29,7 +29,7 @@ answer goes back from the school's number, saying who wrote it.
 | `data/send.ts` | a message from school: kept, sent, or waiting for the parent's next message |
 | `data/manage.ts` | take over, hand back, pass to another desk (merging into the family's chat there), finish, reopen |
 | `data/nudges.ts` | the job behind `/api/jobs/parent-chats` (pg_cron, every 2 minutes) |
-| `src/vx/screens/chats/` | the screens; `src/vx/shell/chats-nudge.tsx` the strip and pop-up on every screen |
+| `src/vx/screens/chats/` | the screens; `src/vx/shell/chat-bubble.tsx` the chat bubble on every screen and `chat-panel.tsx` its quick chat panel (D-641) |
 | `data/list.ts#waitingChatsFor` | how many parents wait on a person: the menu badge, the strip, the teacher's More tile and Needs you's "N parents are waiting" job (`needs-you/data/chats.ts`, D-634) all read this one count |
 | `supabase/migrations/20261115034215_parent_chats.sql`, `…044716_parent_chats_pass.sql` | the tables, functions and permissions |
 

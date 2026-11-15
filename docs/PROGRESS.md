@@ -1,5 +1,14 @@
 # VPPS One — progress
 
+## Chats always in reach: the chat bubble — 15 November 2026
+
+The owner, looking at One as a teacher, saw no pop-up when a parent wrote, and
+found Chats hidden under Menu.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| A chat bubble on every screen with a quick chat panel, replacing the strip and the card (D-641) | **in review** | `claude/project-thread-tic9k5` | Surprised: the D-618 pop-up was switched off while an admin looked as somebody else, which is how the owner tries One as a teacher. Remaining: CI, live, and a BrowserStack check on a phone and a computer with practice chats. |
+
 ## PDFs on WhatsApp opening blank — 15 November 2026
 
 The owner's phone opened every report card and receipt PDF from the school's

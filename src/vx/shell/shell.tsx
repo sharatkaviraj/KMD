@@ -3,7 +3,7 @@ import { assistFeaturesFor } from "@/modules/assist/data/settings";
 import { Suspense, type ReactNode } from "react";
 
 import { getDuesBadgeCount } from "@/modules/dashboard/data/shell-metrics";
-import { waitingChatsFor } from "@/modules/chats/data/list";
+import { waitingChatsFor, type WaitingChats } from "@/modules/chats/data/list";
 import { viewerFor } from "@/modules/chats/data/people";
 import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
@@ -39,7 +39,8 @@ import { homeHintFor } from "@/vx/home-redirect";
 
 import { VxBottomBar } from "./bottom-bar";
 import { HomeHint } from "./home-hint";
-import { LazyChatsNudge, LazyPersonBanner, LazyPreviewBanner, LazyPreviewLinks, LazySearchPalette } from "./lazy";
+import type { BubbleState } from "./chat-bubble-logic";
+import { LazyChatBubble, LazyPersonBanner, LazyPreviewBanner, LazyPreviewLinks, LazySearchPalette } from "./lazy";
 import { OpeningNote } from "./opening-note";
 import type { PaletteItem } from "./palette";
 import { SessionBar } from "./session-bar";
@@ -66,7 +67,7 @@ function meHref(role: StaffRole, settings: boolean): string {
 /** The menus with a Needs you list of their own; the admin's and coordinators' is the inbox. */
 const NEEDS_MENUS: ReadonlySet<string> = new Set(["teacher", "accountant", "exam"]);
 
-async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges> {
+async function loadBadges(viewer: Viewer, sessionLabel: string, waitingChats: Promise<WaitingChats | null>): Promise<Badges> {
   const out: Badges = {};
   const [dues, inbox, needs, chats] = await Promise.all([
     can(viewer.staff, "fees:view") && sessionLabel ? getDuesBadgeCount(sessionLabel) : null,
@@ -88,13 +89,8 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
           .catch(() => null)
       : null,
     // Parents waiting for this person's reply (D-618), the same count the
-    // pop-up keeps fresh. A role preview has no chats of its own.
-    !rolePreviewOf(viewer) && (can(viewer.staff, "chats:reply") || can(viewer.staff, "chats:all"))
-      ? viewingTestSession()
-          .then((test) => waitingChatsFor(viewerFor(viewer.staff, test)))
-          .then((w) => w.count)
-          .catch(() => null)
-      : null,
+    // chat bubble keeps fresh (one read for both, D-641).
+    waitingChats.then((w) => w?.count ?? null),
   ]);
   if (dues !== null) out.dues = dues;
   if (inbox !== null) out.inbox = inbox;
@@ -176,6 +172,24 @@ export async function VxShell({
   // Every read at once: every full page load waits on this frame, and these
   // four used to run as three waves (6 Nov 2026, docs/ui/PERFORMANCE.md).
   const previewPermsRead = rolePreview ? previewPermissions(rolePreview) : Promise.resolve(null);
+  // Parents waiting (D-618, D-641): the chat bubble on every screen, for the
+  // people who answer them. Seeing One as a person shows theirs, look-only
+  // (the owner, 15 Nov: "viewing as a teacher… it doesn't appear as a
+  // pop-up"); a role preview has no chats of its own.
+  const chatsBubble = !rolePreview && (can(staff, "chats:reply") || can(staff, "chats:all"));
+  const waitingChats: Promise<WaitingChats | null> = chatsBubble
+    ? viewingTestSession()
+        .then((test) => waitingChatsFor(viewerFor(staff, test)))
+        .catch(() => null)
+    : Promise.resolve(null);
+  // Whether a chat can land on this person's own desk: the admins, the fee
+  // desk, the office, and a class teacher. Anybody else (a subject teacher, a
+  // coordinator without a class) gets the bubble only while a parent is
+  // actually waiting for them, never as an empty bubble on every screen.
+  const ownDesk = can(staff, "chats:all") || can(staff, "fees:collect") || staff.role === "office";
+  // A failed read keeps the attendance button and the bubble: the old behaviour, never a missing one.
+  const classTeacher: Promise<boolean> =
+    !rolePreview && sessionLabel && (menu === "teacher" || (chatsBubble && !ownDesk)) ? teachesAClass(staff.id, sessionLabel).catch(() => true) : Promise.resolve(true);
   const [previewPerms, large, assist, portrait, teacherHasClass] = await Promise.all([
     previewPermsRead,
     prefersLargeText(staff.id).catch(() => false),
@@ -187,8 +201,7 @@ export async function VxShell({
           .then((perms) => assistFeaturesFor(staff, perms ? (p: StaffPermission) => perms.has(p) : undefined))
           .catch(() => []),
     approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
-    // A failed read keeps the attendance button: the old behaviour, never a missing one.
-    menu === "teacher" && !rolePreview && sessionLabel ? teachesAClass(staff.id, sessionLabel).catch(() => true) : true,
+    menu === "teacher" ? classTeacher : true,
   ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
 
@@ -196,10 +209,15 @@ export async function VxShell({
   const tabs = bottomFor(menu, allowed, { teacherHasClass });
   // The "+" sheet's Quick substitute (photo and Bolo): never while previewing another role.
   const coverAi = !previewing && coverPhotoEnabled(staff, sessionLabel || null);
-  const badges = loadBadges(viewer, sessionLabel);
-  // Parents waiting (D-618): the strip and the new-message card, for the
-  // people who answer them, never while looking at One as somebody else.
-  const chatsNudge = !previewing && (can(staff, "chats:reply") || can(staff, "chats:all"));
+  const badges = loadBadges(viewer, sessionLabel, waitingChats);
+  const bubble: Promise<BubbleState> | null = chatsBubble
+    ? Promise.all([waitingChats, ownDesk || classTeacher]).then(([waiting, desk]) => ({
+        waiting: waiting?.count ?? 0,
+        // A failed count keeps the bubble (it asks again itself); chats switched off take it away.
+        enabled: waiting ? waiting.enabled : true,
+        hasDesk: desk,
+      }))
+    : null;
   const fees = can(staff, "fees:view");
   const homeHint = homeHintFor(viewer);
 
@@ -280,9 +298,9 @@ export async function VxShell({
               {rosterStatus ?? <span className="vx-workspace-label">{flat({ en: "Academic session", hi: "शैक्षणिक सत्र" }, staff.language)}</span>}
               {sessionPill ? <SessionBar label={sessionLabel} isTest={sessionIsTest} showLive={sessionPill.showLive} sessions={sessionPill.sessions} /> : null}
             </div> : null}
-            {chatsNudge ? (
+            {bubble ? (
               <Suspense fallback={null}>
-                <LazyChatsNudge badges={badges} since={new Date().toISOString()} />
+                <LazyChatBubble state={bubble} since={new Date().toISOString()} lookOnly={viewer.person !== null} />
               </Suspense>
             ) : null}
             <main id="vx-main" className="vx-main vx-reset">

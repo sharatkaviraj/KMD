@@ -6,7 +6,6 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { CHAT_VIEWS, type ChatFilter, type ChatView } from "@/modules/chats/domain/filters";
 import { cue } from "@/ui/feedback/cue";
 import Link from "@/ui/link";
-import { rupees } from "@/vx/format";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import type { Pair } from "@/vx/text";
@@ -14,9 +13,10 @@ import { ChildAvatar } from "@/vx/ui/child-avatar";
 import { SearchBox, Seg } from "@/vx/ui/controls";
 import { setLiveChatCount } from "@/vx/shell/chat-live";
 import { HelpButton, useToast } from "@/vx/ui/overlays";
-import { EmptyState, Pill, type Tone } from "@/vx/ui/primitives";
+import { EmptyState, Pill } from "@/vx/ui/primitives";
 
-import { chatsHref, rowTime } from "./logic";
+import { chatsHref } from "./logic";
+import { ChatRowBody } from "./row";
 import { ChatThread } from "./thread";
 import type { ChatListData, ChatListItem, ChatThreadData } from "./view";
 import { T } from "./words";
@@ -49,28 +49,6 @@ const FULL_REFRESH_MS = 120_000;
 
 type Notice = "old_link" | "gone" | null;
 
-function RowTags({ item, dues, seesAll }: { item: ChatListItem; dues: number; seesAll: boolean }) {
-  const { tx } = useVx();
-  const tags: Array<{ key: string; tone: Tone; icon?: IconName; text: string }> = [];
-  if (item.wantsAdmin) tags.push({ key: "principal", tone: "warn", icon: "award", text: tx(T.wantsPrincipal) });
-  if (item.complaint) tags.push({ key: "complaint", tone: "bad", icon: "alert", text: tx(T.complaint) });
-  if (item.passedUp) tags.push({ key: "late", tone: "bad", icon: "clock", text: tx(T.noAnswerDay) });
-  if (item.takenBy) tags.push({ key: "taken", tone: "info", icon: "message", text: tx(item.takenBy) });
-  if (dues > 0) tags.push({ key: "dues", tone: "warn", icon: "rupee", text: tx(T.due(rupees(dues))) });
-  if (seesAll && !item.wantsAdmin) tags.push({ key: "desk", tone: "acc", text: tx(item.deskLabel) });
-  if (item.topic) tags.push({ key: "topic", tone: "mut", text: tx(item.topic) });
-  if (tags.length === 0) return null;
-  return (
-    <span className="chat-row-tags">
-      {tags.slice(0, 3).map((tag) => (
-        <Pill key={tag.key} tone={tag.tone} icon={tag.icon}>
-          {tag.text}
-        </Pill>
-      ))}
-    </span>
-  );
-}
-
 function ChatRowLink({
   item,
   href,
@@ -88,9 +66,7 @@ function ChatRowLink({
   seesAll: boolean;
   onOpen: (item: ChatListItem) => void;
 }) {
-  const { tx } = useVx();
   const waiting = item.status === "waiting";
-  const unread = selected ? 0 : item.unread;
   return (
     <Link
       href={href}
@@ -99,25 +75,7 @@ function ChatRowLink({
       aria-current={selected ? "true" : undefined}
       onClick={() => onOpen(item)}
     >
-      <ChildAvatar text={item.initial} seed={item.id} size={48} student={item.studentId} />
-      <span className="chat-row-main">
-        <span className="chat-row-top">
-          <span className="chat-row-name">{item.name}</span>
-          <span className={`chat-row-time${waiting ? " wait" : ""}`}>{tx(rowTime(item.lastAt, now))}</span>
-        </span>
-        {item.children ? <span className="chat-row-kids">{item.children}</span> : null}
-        <span className="chat-row-last">
-          {waiting ? <Ic n="clock" size={14} style={{ flex: "none", color: "var(--bad)" }} aria-hidden="true" /> : null}
-          {item.previewBy ? <span className="by">{tx(item.previewBy)}:</span> : null}
-          <span className="txt">{tx(item.preview)}</span>
-          {unread > 0 ? (
-            <span className="chat-unread" aria-label={tx(T.unread(unread))}>
-              {unread > 99 ? "99+" : unread}
-            </span>
-          ) : null}
-        </span>
-        <RowTags item={item} dues={dues} seesAll={seesAll} />
-      </span>
+      <ChatRowBody item={item} selected={selected} now={now} dues={dues} seesAll={seesAll} />
     </Link>
   );
 }

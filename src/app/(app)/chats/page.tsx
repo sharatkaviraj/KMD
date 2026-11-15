@@ -36,12 +36,13 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
   };
 
   // The open chat is read first, and read as seen: its row in the list then has nothing unread.
+  // Seeing One as somebody else (D-544) reads it without marking it read for them.
   const asked = one("c");
   const chatId = isUuid(asked) ? asked : null;
   let thread: ChatThreadData | null = null;
   let notice: "old_link" | "gone" | null = one("link") === "old" ? "old_link" : null;
   if (chatId) {
-    const read = await loadChatThread(viewer, chatId, { markRead: true }).catch(() => null);
+    const read = await loadChatThread(viewer, chatId, { markRead: !staff.viewedBy }).catch(() => null);
     if (read?.kind === "moved") redirect(chatsHref(filter, { chat: read.to }));
     if (read?.kind === "chat") thread = read.data;
     else notice = "gone";

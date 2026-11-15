@@ -1,0 +1,73 @@
+/* The chat bubble's panel (D-641). The rows and the chat inside are Chats'
+   own (screens/chats/chats.css); this is the frame around them and the few
+   places they sit differently in a narrow window.
+
+   Phone: a sheet over the whole screen bar a strip at the top, riding the
+   keyboard (--keyboard-offset) the way an open chat on Chats does. Computer:
+   a chat window in the bottom right corner, with the page still in reach. */
+
+.vx-cp{position:fixed;z-index:79;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--fg);font-size:15px;line-height:1.45;outline:none}
+.vx-cp-scrim{position:fixed;inset:0;z-index:78;border:0;padding:0;margin:0;background:var(--scrim);cursor:default;animation:xFade .25s ease both}
+
+@media (max-width:899px){
+  .vx-cp{left:0;right:0;top:calc(env(safe-area-inset-top) + 12px);bottom:var(--keyboard-offset,0px);border-radius:22px 22px 0 0;box-shadow:var(--shl);animation:xUp .34s var(--ease) both}
+  /* Typing: every line of the screen goes to the chat. */
+  :root[data-kb] .vx-cp{top:0;border-radius:0}
+  :root[data-kb] .vx-cp-bar{display:none}
+  .vx-cp-root.closing .vx-cp{animation:xDown .2s var(--ease) forwards}
+  .vx-cp-root.closing .vx-cp-scrim{animation:xOut .2s ease forwards}
+  .vx-cp .btn{height:44px}
+}
+
+@media (min-width:900px){
+  .vx-cp{right:24px;bottom:24px;width:400px;height:min(680px,calc(100dvh - 48px));border-radius:20px;border:1px solid var(--bd);box-shadow:0 30px 80px -24px rgba(8,20,30,.55),0 4px 14px rgba(8,20,30,.12);font-size:14px;transform-origin:calc(100% - 48px) 100%;animation:cpPop .3s var(--spring) both}
+  .vx-cp-scrim{display:none}
+  .vx-cp-root.closing .vx-cp{animation:cpPopOut .18s var(--ease) forwards}
+}
+@keyframes cpPop{from{opacity:0;transform:translateY(18px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes cpPopOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(14px) scale(.95)}}
+
+.vx-cp-bar{flex:none;display:flex;align-items:center;gap:10px;min-height:58px;padding:7px 8px 7px 14px;background:var(--card);border-bottom:1px solid var(--bd)}
+.vx-cp-mark{flex:none;width:36px;height:36px;border-radius:18px;background:linear-gradient(150deg,#00A884,#008069);color:#FFFFFF;display:flex;align-items:center;justify-content:center}
+.vx-cp-titles{flex:1;min-width:0;display:flex;flex-direction:column}
+.vx-cp-title{font-size:16px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-cp-sub{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-cp-sub.wait{color:var(--bad);font-weight:700}
+.vx-cp-x{flex:none;width:44px;height:44px;border:0;border-radius:22px;background:var(--s2);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer}
+
+.vx-cp-list,.vx-cp-chat{flex:1;min-height:0;display:flex;flex-direction:column}
+.vx-cp-chat{animation:xPush .28s var(--ease) both}
+.vx-cp[data-view=list] .vx-cp-list{animation:xIn .26s var(--ease) both}
+.vx-cp-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:12px 12px 18px;display:flex;flex-direction:column;gap:10px}
+.vx-cp-look{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:12px;background:var(--infos);color:var(--info);font-size:13.5px;line-height:1.4}
+.vx-cp-skel{pointer-events:none}
+.vx-cp-skel .chat-row-main{gap:7px}
+.vx-cp-foot{flex:none;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--bd)}
+.vx-cp-all{width:100%;height:48px;justify-content:center;gap:8px;font-size:15px;font-weight:700;text-decoration:none}
+.vx-cp-all>span:first-of-type{flex:none}
+.vx-cp-more{padding:1px 8px;border-radius:9px;background:var(--s3);font-size:12px;font-weight:700;color:var(--mut)}
+
+/* Chats' pieces in the panel: a chat fills it, with its own back arrow on
+   every screen size, and the narrow window keeps buttons to their icons. */
+.vx-cp .chat-threadpane{display:flex;flex:1;min-height:0;position:static}
+.vx-cp .chat-back{display:inline-flex}
+.vx-cp .chat-head{min-height:60px}
+.vx-cp button.chat-row{width:100%;margin:0;border:0;border-top:1px solid var(--bd);border-radius:0;background:var(--card);color:var(--fg);font:inherit;text-align:left;cursor:pointer}
+.vx-cp button.chat-row:first-child{border-top:0}
+.vx-cp button.chat-row:hover{background:var(--s2)}
+.vx-cp button.chat-row:focus-visible{outline:3px solid var(--acc);outline-offset:-3px}
+.vx-cp .chat-sec{margin:2px 4px 0}
+.vx-cp .chat-call{width:44px;padding:0}
+.vx-cp .chat-call .chat-call-w,.vx-cp .chat-send-w,.vx-cp .chat-hide-s{display:none}
+.vx-cp .chat-send{min-width:52px;padding:0}
+.vx-cp .chat-line{max-width:86%}
+.vx-cp .chat-pick{gap:12px}
+.vx-cp .chat-pick strong{font-size:16px;max-width:300px}
+@media (min-width:900px){
+  .vx-cp .chat-compose,.vx-cp .chat-locked{padding-bottom:12px}
+  .vx-cp-foot{padding-bottom:10px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .vx-cp,.vx-cp-scrim,.vx-cp-list,.vx-cp-chat,.vx-cp-root.closing .vx-cp,.vx-cp-root.closing .vx-cp-scrim{animation:none!important}
+}

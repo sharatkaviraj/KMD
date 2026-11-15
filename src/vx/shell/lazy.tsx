@@ -26,8 +26,8 @@ export const LazyPreviewLinks = dynamic(() => import("./preview-links").then((m)
 export const LazyPreviewBanner = dynamic(() => import("./preview-banner").then((m) => m.PreviewBanner));
 
 /**
- * "Parents are waiting for your reply" and the new-message card (D-618): only
- * people who answer parents' chats fetch it. Drawn on the server too, so the
- * strip is there at first paint.
+ * The chat bubble (D-641, after the strip and card of D-618): only people who
+ * answer parents' chats fetch it. Drawn on the server too, so the bubble and
+ * its count are there at first paint; its chat panel loads on the first tap.
  */
-export const LazyChatsNudge = dynamic(() => import("./chats-nudge").then((m) => m.ChatsNudge));
+export const LazyChatBubble = dynamic(() => import("./chat-bubble").then((m) => m.ChatBubble));
