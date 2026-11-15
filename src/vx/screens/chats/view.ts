@@ -357,6 +357,12 @@ export type ChatListData = {
   viewingTest: boolean;
   /** Everything this person may see (open ones), before the tab, search and dues narrowed it: decides whether search is offered. */
   total: number;
+  /**
+   * Parents waiting for this person's own reply, whatever the tab: the
+   * number on the menu and the chat bubble (D-642). A chat an admin took over
+   * stays in a class teacher's list but is not waiting for them.
+   */
+  waitingForYou: number;
 };
 
 /** One chat as the page hands it to the screen (`load.ts#loadChatThread`). */

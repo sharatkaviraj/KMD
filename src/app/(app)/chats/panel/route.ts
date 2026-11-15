@@ -35,7 +35,8 @@ export async function GET() {
       kind: "list",
       enabled: list.enabled,
       items,
-      waiting: list.items.filter((item) => item.status === "waiting").length,
+      // The bubble's own number (`/chats/pulse`): a chat an admin took over is not waiting for a class teacher.
+      waiting: list.waitingForYou,
       more: list.items.length - items.length + list.hidden,
       viewingTest: list.viewingTest,
       me: {

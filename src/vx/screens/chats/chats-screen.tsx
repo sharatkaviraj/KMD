@@ -11,7 +11,7 @@ import { useVx } from "@/vx/i18n";
 import type { Pair } from "@/vx/text";
 import { ChildAvatar } from "@/vx/ui/child-avatar";
 import { SearchBox, Seg } from "@/vx/ui/controls";
-import { setLiveChatCount } from "@/vx/shell/chat-live";
+import { setLiveChatCount, useLiveChatScope } from "@/vx/shell/chat-live";
 import { HelpButton, useToast } from "@/vx/ui/overlays";
 import { EmptyState, Pill } from "@/vx/ui/primitives";
 
@@ -130,6 +130,7 @@ export function ChatsScreen({
   const { tx } = useVx();
   const router = useRouter();
   const toast = useToast();
+  const liveWho = useLiveChatScope();
   const [pending, startTransition] = useTransition();
 
   // The screen's own clock, for "Today", the row times and the WhatsApp day.
@@ -201,7 +202,7 @@ export function ChatsScreen({
           if (!alive) return;
           // A failed read says nothing about who is waiting: no redraw, and the menu's number stays.
           if (response.ok && body && !body.failed) {
-            setLiveChatCount(body.waiting ?? 0);
+            setLiveChatCount(body.waiting ?? 0, liveWho);
             const mark = `${body.waiting ?? 0}|${body.latest?.chatId ?? ""}|${body.latest?.at ?? ""}`;
             const stale = Date.now() - lastRefresh.current > FULL_REFRESH_MS;
             if ((last !== null && mark !== last) || stale) {
@@ -226,7 +227,7 @@ export function ChatsScreen({
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", back);
     };
-  }, [router]);
+  }, [router, liveWho]);
 
   const onQuery = (value: string) => {
     setQuery(value);

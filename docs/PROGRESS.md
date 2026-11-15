@@ -7,7 +7,8 @@ found Chats hidden under Menu.
 
 | What | Status | Branch / commit | Remaining or surprising |
 |---|---|---|---|
-| A chat bubble on every screen with a quick chat panel, replacing the strip and the card (D-641) | **in review** | `claude/project-thread-tic9k5` | Surprised: the D-618 pop-up was switched off while an admin looked as somebody else, which is how the owner tries One as a teacher. Remaining: CI, live, and a BrowserStack check on a phone and a computer with practice chats. |
+| A chat bubble on every screen with a quick chat panel, replacing the strip and the card (D-641) | **done** | PR 396, `d338d72`, live 19:07 UTC 15 Nov | Surprised: the D-618 pop-up was switched off while an admin looked as somebody else, which is how the owner tries One as a teacher. Checked on live in a phone-sized and a computer window with practice chats (QA class teacher and QA admin): number, card at open, the panel's list and chat, phone Back, Escape, rising over the attendance Save bar, dragging. |
+| The bubble starts afresh for each person and year: the number, the card at open, the panel's heading; a mouse drag that starts fast; the panel's waiting line wraps (D-642) | **in review** | `claude/project-thread-tic9k5` | Surprised: right after "See One as" a teacher the bubble showed the admin's own number for up to 30 seconds and never the teacher's card, because a look and the year pill change the person without loading the page. Remaining: CI, live, and the BrowserStack check on a phone and a computer. |
 
 ## PDFs on WhatsApp opening blank — 15 November 2026
 

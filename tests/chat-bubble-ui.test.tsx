@@ -11,8 +11,9 @@ import type { BubbleState } from "@/vx/shell/chat-bubble-logic";
  * The chat bubble and its panel in a browser (D-641): when the bubble speaks
  * up and what its card opens, that it stands aside on Chats and for a person
  * with no desk, that a drag leaves it where it was put, and that the panel's
- * phone Back, links and Escape behave. Test data only (rule 6); the network
- * is mocked and nothing leaves the test.
+ * phone Back, links and Escape behave; and that seeing One as somebody else
+ * starts it afresh with their number and their card (D-642). Test data only
+ * (rule 6); the network is mocked and nothing leaves the test.
  */
 
 const scene = vi.hoisted(() => ({ path: "/teach", push: vi.fn(), cue: vi.fn() }));
@@ -147,6 +148,7 @@ const latest = (over: Record<string, unknown> = {}) => ({
 });
 
 const fetched = (url: string) => fetchMock.mock.calls.some(([asked]) => String(asked) === url);
+const peeked = () => JSON.parse(window.sessionStorage.getItem("vx.chats.peeked") ?? "null") as unknown;
 const bubble = () => document.querySelector<HTMLDivElement>(".vx-cb");
 const card = () => document.querySelector<HTMLDivElement>(".vx-cb-peek");
 const rows = () => [...document.querySelectorAll<HTMLButtonElement>(".vx-cp button.chat-row")];
@@ -190,6 +192,30 @@ async function mountBubble(state: BubbleState, options: { since?: string; lookOn
       <Suspense fallback={null}>
         <ChatBubble state={served} since={options.since ?? "2026-11-15T10:00:00.000Z"} lookOnly={options.lookOnly ?? false} />
       </Suspense>,
+    );
+  });
+}
+
+/** What the menu's badges read: the live number for the shell's person and year. */
+function Probe({ useCount }: { useCount: () => number | null }) {
+  const n = useCount();
+  return <span className="probe">{n === null ? "none" : String(n)}</span>;
+}
+const probe = () => document.querySelector(".probe")?.textContent;
+
+/** The bubble as the shell draws it for one person and year (D-642): a new shell for each. */
+async function mountAs(who: string, state: BubbleState, options: { since?: string; lookOnly?: boolean } = {}) {
+  const { ChatBubble } = await import("@/vx/shell/chat-bubble");
+  const { LiveChatScope, useLiveChatCount } = await import("@/vx/shell/chat-live");
+  const served = Promise.resolve(state);
+  await act(async () => {
+    root.render(
+      <LiveChatScope who={who}>
+        <Probe useCount={useLiveChatCount} />
+        <Suspense fallback={null}>
+          <ChatBubble key={who} state={served} since={options.since ?? "2026-11-15T10:00:00.000Z"} lookOnly={options.lookOnly ?? false} />
+        </Suspense>
+      </LiveChatScope>,
     );
   });
 }
@@ -246,8 +272,8 @@ describe("the bubble speaks up", () => {
     expect(card()?.textContent).toContain("Is there school tomorrow?");
     // Never moved yet: the card says it can be.
     expect(card()?.textContent).toContain("press and drag");
-    // Said once a visit.
-    expect(window.sessionStorage.getItem("vx.chats.peeked")).not.toBeNull();
+    // Said once a visit (outside a shell, to nobody in particular).
+    expect(peeked()).toEqual([""]);
 
     await tap(byText(".vx-cb-peek button", "Reply"), "Reply");
     await waitFor(() => document.querySelector("[data-thread='chat-1']") !== null, "the chat in the panel");
@@ -318,7 +344,7 @@ describe("the bubble speaks up", () => {
     expect(bubble()).toBeNull();
     expect(fetched("/chats/pulse")).toBe(false);
     // The person is looking at the chats already: the "waiting" card is not owed later.
-    expect(window.sessionStorage.getItem("vx.chats.peeked")).not.toBeNull();
+    expect(peeked()).toEqual([""]);
   });
 
   it("for an administrator looking as a teacher: Open, not Reply, and never the app icon's number", async () => {
@@ -337,6 +363,67 @@ describe("the bubble speaks up", () => {
     await waitFor(() => document.querySelector("[data-thread='chat-1']") !== null, "the chat");
     expect(badge.set).not.toHaveBeenCalled();
     expect(badge.clear).not.toHaveBeenCalled();
+  });
+
+  it("seeing One as a teacher starts afresh: the teacher's number at once and the teacher's card, then one's own again (D-642)", async () => {
+    fakeClock();
+    routes = { "/chats/pulse": { body: { waiting: 1, enabled: true, latest: latest({ chatId: "chat-a", name: "Test Parent Office" }) } } };
+    await mountAs("admin-1|2026-27|", { waiting: 1, enabled: true, hasDesk: true });
+    await later(1_300);
+    await waitFor(() => card() !== null, "the administrator's card");
+    expect(card()?.textContent).toContain("Test Parent Office");
+    expect(probe()).toBe("1");
+
+    // The administrator chooses a class teacher: a new shell, without loading the page again.
+    routes = { "/chats/pulse": { body: { waiting: 2, enabled: true, latest: latest({ chatId: "chat-t", name: "Test Parent Class" }) } } };
+    await mountAs("teacher-1|TEST-2026-27|", { waiting: 2, enabled: true, hasDesk: true }, { lookOnly: true, since: "2026-11-15T10:00:06.000Z" });
+    await waitFor(() => bubble() !== null, "the teacher's bubble");
+    // The teacher's number from the first paint: never the administrator's 1 until the next look.
+    expect(document.querySelector(".vx-cb-n")?.textContent).toBe("2");
+    expect(probe()).toBe("none");
+    expect(card()).toBeNull();
+    await later(1_300);
+    await waitFor(() => card() !== null, "the teacher's card");
+    // The administrator saw their own card this visit; the teacher's is still said.
+    expect(card()?.textContent).toContain("2 parents are waiting for your reply");
+    expect(byText(".vx-cb-peek button", "Open chats")).toBeDefined();
+    expect(probe()).toBe("2");
+    expect(peeked()).toEqual(["admin-1|2026-27|", "teacher-1|TEST-2026-27|"]);
+
+    // Back to the administrator's own view: their number again, and their card is not said twice.
+    routes = { "/chats/pulse": { body: { waiting: 1, enabled: true, latest: latest({ chatId: "chat-a", name: "Test Parent Office" }) } } };
+    await mountAs("admin-1|2026-27|", { waiting: 1, enabled: true, hasDesk: true }, { since: "2026-11-15T10:00:09.000Z" });
+    await waitFor(() => bubble() !== null, "the administrator's bubble");
+    expect(document.querySelector(".vx-cb-n")?.textContent).toBe("1");
+    expect(card()).toBeNull();
+    await later(1_300);
+    await waitFor(() => probe() === "1", "the administrator's fresh number");
+    expect(card()).toBeNull();
+  });
+
+  it("a mouse holds the button from the press, so even a quick drag starts; a finger is left to the browser", async () => {
+    const capture = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "setPointerCapture", { value: capture, configurable: true, writable: true });
+    try {
+      routes = { "/chats/pulse": { body: { waiting: 0, enabled: true, latest: null } } };
+      await mountBubble({ waiting: 0, enabled: true, hasDesk: true });
+      await waitFor(() => bubble() !== null, "the bubble");
+      const button = document.querySelector<HTMLButtonElement>(".vx-cb-btn")!;
+      const press = (pointerType: string, pointerId: number) =>
+        act(async () => {
+          const event = new MouseEvent("pointerdown", { bubbles: true, cancelable: true, clientX: 354, clientY: 730, button: 0 });
+          Object.defineProperty(event, "pointerType", { value: pointerType });
+          Object.defineProperty(event, "pointerId", { value: pointerId });
+          button.dispatchEvent(event);
+        });
+      await press("mouse", 7);
+      expect(capture).toHaveBeenCalledWith(7);
+      capture.mockClear();
+      await press("touch", 8);
+      expect(capture).not.toHaveBeenCalled();
+    } finally {
+      delete (HTMLElement.prototype as { setPointerCapture?: unknown }).setPointerCapture;
+    }
   });
 
   it("stays where it was dragged: the left edge of a phone, higher up", async () => {

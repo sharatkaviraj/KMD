@@ -40,6 +40,7 @@ import { homeHintFor } from "@/vx/home-redirect";
 import { VxBottomBar } from "./bottom-bar";
 import { HomeHint } from "./home-hint";
 import type { BubbleState } from "./chat-bubble-logic";
+import { LiveChatScope } from "./chat-live";
 import { LazyChatBubble, LazyPersonBanner, LazyPreviewBanner, LazyPreviewLinks, LazySearchPalette } from "./lazy";
 import { OpeningNote } from "./opening-note";
 import type { PaletteItem } from "./palette";
@@ -218,6 +219,12 @@ export async function VxShell({
         hasDesk: desk,
       }))
     : null;
+  // Whose chat number the bubble, the menus and Chats keep fresh (D-642): the
+  // person (seeing One as somebody else changes it) and the year. Moving
+  // between them draws a new shell without loading the page again; a number
+  // looked up for one is never shown for the other, and the bubble starts
+  // afresh, with that person's card.
+  const chatScope = `${staff.id}|${sessionLabel}|${rolePreview ?? ""}`;
   const fees = can(staff, "fees:view");
   const homeHint = homeHintFor(viewer);
 
@@ -250,6 +257,7 @@ export async function VxShell({
     <SessionSwitchingProvider>
       <ToastProvider>
         <AssistProvider features={assist}>
+        <LiveChatScope who={chatScope}>
         <Suspense fallback={null}>
           <RouteProgress />
           <OpeningNote />
@@ -300,7 +308,7 @@ export async function VxShell({
             </div> : null}
             {bubble ? (
               <Suspense fallback={null}>
-                <LazyChatBubble state={bubble} since={new Date().toISOString()} lookOnly={viewer.person !== null} />
+                <LazyChatBubble key={chatScope} state={bubble} since={new Date().toISOString()} lookOnly={viewer.person !== null} />
               </Suspense>
             ) : null}
             <main id="vx-main" className="vx-main vx-reset">
@@ -313,6 +321,7 @@ export async function VxShell({
         <UpdateBanner />
         <SessionExpiredSheet />
         <div id="vx-layer" className="vxt vx-layer" />
+        </LiveChatScope>
         </AssistProvider>
       </ToastProvider>
     </SessionSwitchingProvider>

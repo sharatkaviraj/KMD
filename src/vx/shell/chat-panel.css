@@ -31,7 +31,8 @@
 .vx-cp-mark{flex:none;width:36px;height:36px;border-radius:18px;background:linear-gradient(150deg,#00A884,#008069);color:#FFFFFF;display:flex;align-items:center;justify-content:center}
 .vx-cp-titles{flex:1;min-width:0;display:flex;flex-direction:column}
 .vx-cp-title{font-size:16px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vx-cp-sub{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* "2 parents waiting for your reply" is read whole on a phone, beside the Practice mark and in Hindi: two lines, not cut off (D-642). */
+.vx-cp-sub{font-size:12.5px;line-height:1.3;color:var(--mut);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
 .vx-cp-sub.wait{color:var(--bad);font-weight:700}
 .vx-cp-x{flex:none;width:44px;height:44px;border:0;border-radius:22px;background:var(--s2);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer}
 

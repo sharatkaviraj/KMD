@@ -12,21 +12,24 @@ import type { Pair } from "@/vx/text";
 import {
   AWAY_MS,
   BUBBLE_WORDS as W,
+  PEEKED_KEY,
   PLACE_KEY,
   bubbleShown,
   countText,
   isChatsPath,
   liftOver,
+  peekedList,
   peekFor,
   readPlace,
   settle,
   timeOf,
+  withPeeked,
   type BubblePlace,
   type BubbleState,
   type Dock,
   type PeekKind,
 } from "./chat-bubble-logic";
-import { setLiveChatCount, useLiveChatCount } from "./chat-live";
+import { setLiveChatCount, useLiveChatCount, useLiveChatScope } from "./chat-live";
 
 import "./chat-bubble.css";
 
@@ -57,6 +60,10 @@ import "./chat-bubble.css";
  * while the screen is in view, never on Chats (which asks for itself). Each
  * fresh number goes to the menu's badges too (`chat-live.ts`) and, on an
  * installed One, to the app icon.
+ *
+ * The shell draws a new bubble for each person and year (D-642): seeing One
+ * as a teacher starts afresh with the teacher's number and the teacher's
+ * card, and coming back does the same for oneself.
  */
 
 const warmPanel = () => {
@@ -71,8 +78,6 @@ const OFF_MS = 5 * 60_000;
 const MAX_BACKOFF_MS = 5 * 60_000;
 /** How long the card stays when nobody touches it. */
 const PEEK_MS = 16_000;
-/** The card for "parents are waiting" is said once a visit (sessionStorage). */
-const PEEKED_KEY = "vx.chats.peeked";
 /** The highest the bubble's middle may be dragged: clear of the top bar. */
 const TOP_LIMIT = 110;
 /** A press that moves less than this is a tap, not a drag. */
@@ -124,17 +129,17 @@ function savePlace(place: BubblePlace): void {
   for (const listener of placeListeners) listener();
 }
 
-function peekedThisVisit(): boolean {
+function peekedThisVisit(who: string): boolean {
   try {
-    return window.sessionStorage.getItem(PEEKED_KEY) !== null;
+    return peekedList(window.sessionStorage.getItem(PEEKED_KEY)).includes(who);
   } catch {
     return false;
   }
 }
 
-function notePeeked(): void {
+function notePeeked(who: string): void {
   try {
-    window.sessionStorage.setItem(PEEKED_KEY, String(Date.now()));
+    window.sessionStorage.setItem(PEEKED_KEY, withPeeked(window.sessionStorage.getItem(PEEKED_KEY), who));
   } catch {
     // Without storage the card may come again on the next opening of One.
   }
@@ -213,6 +218,8 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
   const { tx } = useVx();
   const pathname = usePathname() ?? "";
   const inChats = isChatsPath(pathname);
+  // Whose number this is: the person and the year the shell was drawn for.
+  const who = useLiveChatScope();
   const live = useLiveChatCount();
   const waiting = live ?? served.waiting;
   const [liveEnabled, setLiveEnabled] = useState<boolean | null>(null);
@@ -261,7 +268,7 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
     let delay = PULSE_MS;
     let lastLook = 0;
     let hiddenAt: number | null = null;
-    if (openDue.current === null) openDue.current = !peekedThisVisit();
+    openDue.current = !peekedThisVisit(who);
 
     const schedule = (ms: number) => {
       window.clearTimeout(timer);
@@ -275,7 +282,7 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
         // Chats asks for itself, and the person is looking at the chats already.
         if (openDue.current) {
           openDue.current = false;
-          notePeeked();
+          notePeeked(who);
         }
         schedule(delay);
         return;
@@ -292,7 +299,7 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
         if (body && !body.failed && typeof body.waiting === "number") {
           const on = body.enabled !== false;
           delay = on ? PULSE_MS : OFF_MS;
-          setLiveChatCount(body.waiting);
+          setLiveChatCount(body.waiting, who);
           setLiveEnabled(on);
           const latest = body.latest ?? null;
           const latestAt = latest ? timeOf(latest.at) : null;
@@ -300,7 +307,7 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
           if (latestAt !== null && latestAt > announced.current) announced.current = latestAt;
           if (kind === "open") {
             openDue.current = false;
-            notePeeked();
+            notePeeked(who);
           }
           const now = view.current;
           if (kind && latest && !now.inChats && !now.panelOpen) {
@@ -340,7 +347,7 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("online", online);
     };
-  }, []);
+  }, [who]);
 
   // The card goes by itself, unless a finger or the mouse rests on it.
   useEffect(() => {
@@ -432,7 +439,7 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
     setHold(false);
     if (openDue.current) {
       openDue.current = false;
-      notePeeked();
+      notePeeked(who);
     }
     setPanel({ chat, at: new Date().toISOString() });
     cue("tap");
@@ -444,6 +451,16 @@ export function ChatBubble({ state, since, lookOnly }: { state: Promise<BubbleSt
     const el = wrap.current;
     if (!el) return;
     drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, rect: el.getBoundingClientRect(), offset: up + lift, moved: false };
+    // A finger keeps to the button it pressed; a mouse does not, and a quick
+    // flick can leave the round button before a drag has begun. Held from the
+    // press, so a drag with the mouse starts however fast it moves.
+    if (event.pointerType === "mouse") {
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Not offered here: the drag starts once the pointer moves over the button.
+      }
+    }
     warmPanel();
   };
 

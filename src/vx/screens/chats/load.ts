@@ -1,7 +1,7 @@
 import "server-only";
 
 import { chatAccess, type ChatViewer } from "@/modules/chats/domain/access";
-import { matchesQuery, matchesShow, matchesView, countViews, sortChats, teacherGroups, type ChatFilter } from "@/modules/chats/domain/filters";
+import { badgeCount, matchesQuery, matchesShow, matchesView, countViews, sortChats, teacherGroups, type ChatFilter } from "@/modules/chats/domain/filters";
 import type { ChatRow } from "@/modules/chats/domain/types";
 import { readVisibleChats } from "@/modules/chats/data/list";
 import { passTargetKey, passTargets, type PassTarget } from "@/modules/chats/data/manage";
@@ -87,6 +87,7 @@ export async function loadChatList(staff: CurrentStaff, viewer: ChatViewer, filt
     feesDesk: viewer.feesDesk,
     viewingTest: viewer.viewingTest,
     total: 0,
+    waitingForYou: 0,
   };
 
   const rows = await readVisibleChats(viewer, filter.show === "done");
@@ -139,6 +140,7 @@ export async function loadChatList(staff: CurrentStaff, viewer: ChatViewer, filt
     dues: dues ? Object.fromEntries(drawn.map((chat) => [chat.id, owedBy(chat)])) : {},
     duesFailed,
     total: filter.show === "done" ? rows.length : open.length,
+    waitingForYou: badgeCount(viewer, open),
   };
 }
 

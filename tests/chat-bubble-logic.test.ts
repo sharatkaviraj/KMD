@@ -10,10 +10,12 @@ import {
   countText,
   isChatsPath,
   liftOver,
+  peekedList,
   peekFor,
   readPlace,
   settle,
   timeOf,
+  withPeeked,
 } from "@/vx/shell/chat-bubble-logic";
 
 /*
@@ -142,6 +144,28 @@ describe("when the bubble speaks up", () => {
   });
 });
 
+describe("the card at open, once a visit for each person and year (D-642)", () => {
+  it("starts with nobody, and reads an older visit's mark as nobody", () => {
+    expect(peekedList(null)).toEqual([]);
+    expect(peekedList("")).toEqual([]);
+    expect(peekedList("1731700000000")).toEqual([]);
+    expect(peekedList("{oops")).toEqual([]);
+    expect(peekedList(JSON.stringify(["a", 3, null, "b"]))).toEqual(["a", "b"]);
+  });
+
+  it("remembers each person it was said to, the newest last, and lets the oldest go", () => {
+    const admin = withPeeked(null, "admin|2026-27|");
+    const both = withPeeked(admin, "teacher|TEST-2026-27|");
+    expect(peekedList(both)).toEqual(["admin|2026-27|", "teacher|TEST-2026-27|"]);
+    // Said again to the administrator: still once in the list, now the newest.
+    expect(peekedList(withPeeked(both, "admin|2026-27|"))).toEqual(["teacher|TEST-2026-27|", "admin|2026-27|"]);
+    let many: string | null = null;
+    for (let i = 0; i < 12; i += 1) many = withPeeked(many, `person-${i}`);
+    expect(peekedList(many)).toHaveLength(8);
+    expect(peekedList(many)[0]).toBe("person-4");
+  });
+});
+
 describe("the bubble's words", () => {
   it("puts a short number on the bubble", () => {
     expect(countText(0)).toBe("0");
@@ -171,6 +195,24 @@ describe("how the bubble is wired", () => {
   it("is drawn on the server with its number, and its panel's code comes only when it is wanted", () => {
     expect(source("src/vx/shell/lazy.tsx")).toMatch(/LazyChatBubble = dynamic\(\(\) => import\("\.\/chat-bubble"\)\.then\(\(m\) => m\.ChatBubble\)\);/);
     expect(source("src/vx/shell/chat-bubble.tsx")).toMatch(/dynamic\(\(\) => import\("\.\/chat-panel"\)[^\n]*ssr: false/);
+  });
+
+  it("starts afresh for each person and year: its own number, its own card (D-642)", () => {
+    const shell = source("src/vx/shell/shell.tsx");
+    expect(shell).toContain("const chatScope = `${staff.id}|${sessionLabel}|${rolePreview ?? \"\"}`;");
+    expect(shell).toContain("<LiveChatScope who={chatScope}>");
+    expect(shell).toContain("<LazyChatBubble key={chatScope} ");
+    // The badges, the bubble and Chats all keep the number for the shell's person and year.
+    const live = source("src/vx/shell/chat-live.ts");
+    expect(live).toContain("() => (owner === who ? count : null)");
+    expect(source("src/vx/shell/chat-bubble.tsx")).toContain("setLiveChatCount(body.waiting, who);");
+    expect(source("src/vx/screens/chats/chats-screen.tsx")).toContain("setLiveChatCount(body.waiting ?? 0, liveWho);");
+    for (const file of ["src/vx/shell/sidebar.tsx", "src/vx/shell/bottom-bar.tsx"]) expect(source(file)).toContain("useLiveChatCount()");
+  });
+
+  it("counts in its panel only the parents waiting for this person, as the bubble does", () => {
+    expect(source("src/app/(app)/chats/panel/route.ts")).toContain("waiting: list.waitingForYou,");
+    expect(source("src/vx/screens/chats/load.ts")).toContain("waitingForYou: badgeCount(viewer, open),");
   });
 
   it("never marks a chat read for the person an administrator is looking as", () => {

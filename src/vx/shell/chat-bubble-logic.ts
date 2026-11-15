@@ -113,6 +113,34 @@ export function peekFor(input: { waiting: number; latestAt: number | null; annou
 /** Back after this long away counts as opening One again. */
 export const AWAY_MS = 30 * 60_000;
 
+/**
+ * The "parents are waiting" card is said once a visit to each person in each
+ * year (D-642): an administrator who opens One, then looks at it as a class
+ * teacher, sees the card the teacher would see on opening it. Kept in
+ * sessionStorage as a short list of whose it was said to.
+ */
+export const PEEKED_KEY = "vx.chats.peeked";
+
+const PEEKED_KEPT = 8;
+
+/** Whose the card was said to this visit; anything unreadable (an older visit wrote a time) is nobody's. */
+export function peekedList(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((who): who is string => typeof who === "string").slice(-PEEKED_KEPT) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The list once the card has been said to `who`: newest last, the oldest let go. */
+export function withPeeked(raw: string | null | undefined, who: string): string {
+  const list = peekedList(raw).filter((one) => one !== who);
+  list.push(who);
+  return JSON.stringify(list.slice(-PEEKED_KEPT));
+}
+
 /** The number on the bubble. */
 export function countText(waiting: number): string {
   return waiting > 99 ? "99+" : String(Math.max(0, Math.floor(waiting)));
