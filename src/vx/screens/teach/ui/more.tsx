@@ -190,6 +190,10 @@ export function TeachMore({
     { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${classWord(held[0].classLabel).hi} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },
     { k: "marks", icon: "clipboard", t: p("Marks", "अंक"), info: tx(marksTileLine(firstOpen, data.remarks, unsent)), tone: TW, href: "/teach/marks" },
     { k: "notes", icon: "note", t: p("Notes", "नोट्स"), info: tx(p("Notes on children", "बच्चों के नोट्स")), tone: TS, href: "/teach/notes" },
+    // Parents' WhatsApp messages for the teacher's class (D-616), with how many are waiting.
+    ...(data.chats
+      ? [{ k: "chats", icon: "message" as const, t: p("Chats with parents", "अभिभावकों से चैट"), info: data.chats.waiting ? tx(p(`${data.chats.waiting} ${data.chats.waiting === 1 ? "parent is" : "parents are"} waiting`, `${data.chats.waiting} अभिभावक जवाब की राह में`)) : tx(p("Parents' WhatsApp messages", "अभिभावकों के व्हाट्सऐप संदेश")), tone: TI, href: "/chats", badge: data.chats.waiting ?? 0 }]
+      : []),
     { k: "tasks", icon: "inbox", t: m.teacherTasks, info: data.tasks.length ? tx(p(`${data.tasks.length} waiting for you`, `${data.tasks.length} काम बाकी`)) : tx(p("Work sent by the office", "ऑफ़िस से भेजा गया काम")), tone: TW, href: "/teach/tasks", badge: data.tasks.length },
     { k: "news", icon: "megaphone", t: p("Notices", "सूचनाएँ"), info: unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं")), tone: TA, onClick: () => go("news"), badge: unread.length, wide: true, news: data.notices[0]?.title },
     { k: "links", icon: "link", t: p("Marks links", "अंक लिंक"), info: tx(p(`${data.links.length} ${data.links.length === 1 ? "link" : "links"}`, `${data.links.length} लिंक`)), tone: TI, onClick: () => go("links") },

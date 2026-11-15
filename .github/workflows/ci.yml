@@ -14,16 +14,19 @@ name: CI
 #   - npm download cache (setup-node, unchanged from before): setup-node may
 #     save it on any run, but GitHub scopes a PR's entry to that PR's ref, so
 #     main never restores it.
-#   - TypeScript .tsbuildinfo, ESLint --cache (content strategy), and
-#     .next/cache — each keyed on OS, arch, exact Node version, the lockfile
-#     (which pins next, typescript, eslint and the React Compiler) and the
-#     config files that change their output. restore-keys never cross a
-#     lockfile or config change, so those always start cold. Restored on every
-#     run; saved only by pushes to main and by manual dispatches (both need
-#     write access), so no PR seeds these.
+#   - TypeScript .tsbuildinfo and ESLint --cache (content strategy), each
+#     keyed on OS, arch, exact Node version, the lockfile (which pins
+#     typescript, eslint and the React Compiler) and the config files that
+#     change their output. restore-keys never cross a lockfile or config
+#     change, so those always start cold. Restored on every run; saved only by
+#     pushes to main and by manual dispatches (both need write access), so no
+#     PR seeds these.
+#   - Not .next/cache: the build job compiles cold, with webpack's cache in
+#     memory, because writing it to disk cost the 8 GB runner about 1.5 GB
+#     at the end of the server compilation (D-638).
 # None of them stores credentials, sessions or data; none is a previous
-# commit's result: tsc, eslint and next still check every file of this commit
-# and only skip work whose inputs hash identically.
+# commit's result: tsc and eslint still check every file of this commit and
+# only skip work whose inputs hash identically.
 on:
   pull_request:
   push:
@@ -177,43 +180,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # https://nextjs.org/docs/app/guides/ci-build-caching — webpack's
-      # persistent cache. Next still compiles this commit; it reuses only
-      # modules whose inputs hash identically.
-      # Bounded: one Next cache per lockfile+config per UTC day (~95–155 MiB
-      # compressed), not one per commit, so it cannot crowd npm caches out of
-      # the 10 GB repository quota. The day's first trusted run saves it.
-      - name: Next.js cache bucket
-        id: bucket
-        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+      # What the machine has, printed for the day a build is stopped
+      # mid-compile again ("The runner has received a shutdown signal").
+      - name: Runner size
+        run: nproc && free -m
 
-      - name: Restore Next.js build cache
-        id: next-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .next/cache
-          key: next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-${{ steps.bucket.outputs.day }}
-          restore-keys: |
-            next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-
-
+      # This repository is private, so the runner has 2 CPUs and 8 GB,
+      # not 16. On 15 Nov 2026 the build of Chats with Needs you (PR 390)
+      # peaked at 5.7 GB in one process and GitHub's AWS runners stopped it
+      # mid-compile twice. Now (D-638): webpack compiles in workers, one
+      # compilation at a time (next.config.ts, everywhere); and here only,
+      # VPPSONE_CI_BUILD keeps webpack's cache in memory and skips the build's
+      # own type check, which repeated the types job's `next typegen && tsc`
+      # (the gate) and needed a 6 GB heap. 4 GB is room for one compilation.
       - name: Build
         run: npm run build
         env:
-          # next build type-checks the whole tree again inside one process, and
-          # on 11 Oct 2026 that crossed Node's default ~2 GB heap and died with
-          # "heap out of memory". The runner has 16 GB; the types job is the
-          # standalone gate, this only lets the build's copy finish.
-          NODE_OPTIONS: --max-old-space-size=6144
+          VPPSONE_CI_BUILD: "1"
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Route bundle budgets
         run: npm run check:bundles
-
-      - name: Save Next.js build cache
-        if: steps.next-cache.outputs.cache-hit != 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
-        uses: actions/cache/save@v4
-        with:
-          path: .next/cache
-          key: next-${{ runner.os }}-${{ runner.arch }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.ts', 'tsconfig.json', 'tailwind.config.ts', 'postcss.config.mjs') }}-${{ steps.bucket.outputs.day }}
 
   # The required check. Green only if every child succeeded: a failed,
   # cancelled or skipped child makes this red, so the ruleset cannot be

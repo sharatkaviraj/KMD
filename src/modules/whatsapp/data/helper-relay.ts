@@ -1,5 +1,8 @@
 import "server-only";
 
+import { handoffChildren, liveChatHandoffDeps, openChatForHandoff, type HandoffChatInput } from "@/modules/chats/data/handoff";
+import { answerHandoffInChat, liveChatSendDeps, type SendOutcome } from "@/modules/chats/data/send";
+import type { ChatInboundMessage } from "@/modules/chats/domain/inbound";
 import type { ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import {
   answererFor,
@@ -151,6 +154,16 @@ export type RelayDeps = {
   readHandoffNote: (parentReplyId: string) => Promise<HandoffNote | null>;
   /** A tap under a class teacher's alert, decided as them, as the same button in One decides it (D-602). */
   decideNote: (input: { actorStaffId: string; id: string; choice: NoteChoice }) => Promise<DecideResult>;
+  /**
+   * Parent chats (D-616): the hand-off's message waits in the family's chat
+   * at its desk, and the desk hears from the chats' own nudge, a link to
+   * their whole Chats section, instead of an alert to swipe on. The chat's
+   * id, or null when chats are off or it could not be written: the hand-off
+   * then alerts as before.
+   */
+  openChat?: (input: HandoffChatInput) => Promise<string | null>;
+  /** An answer to a hand-off whose message is in a chat, sent the chat's way; null when it is in none. */
+  answerInChat?: (input: { handoffId: string; staffId: string; text: string }) => Promise<SendOutcome | null>;
 };
 
 /** The real database and the real hub. */
@@ -199,6 +212,8 @@ export function liveRelayDeps(): RelayDeps {
           ? { actorStaffId, ids: [id], decision: "dismiss", via: "whatsapp" }
           : { actorStaffId, ids: [id], decision: "apply", mark: choice, via: "whatsapp" },
       ),
+    openChat: (input) => openChatForHandoff(input, liveChatHandoffDeps()),
+    answerInChat: (input) => answerHandoffInChat(input, liveChatSendDeps()),
   };
 }
 
@@ -505,19 +520,60 @@ export type OpenHandoffInput = {
   aboutName?: string;
   /** A "no" to an answer (D-584): the hand-off whose answer did not help. */
   followUpOf?: string | null;
+  /** For the family's chat (D-616): all the family's children, the one it is about when not `child`. */
+  family?: readonly ChildFacts[];
+  aboutStudentId?: string | null;
+  /** What the parent sent, as a chat line; `body` is what Messages keeps, for when it cannot be one. */
+  said?: ChatInboundMessage | null;
+  body?: string;
+  /** The helper's reply, as the parent read it. */
+  ai?: { text: string; wamid: string | null; at: string } | null;
+  /** A line only staff read: for a "no", what the parent asked and what they were told. */
+  staffNote?: string | null;
 };
+
+/** The hand-off as its chat needs it (D-616). */
+function chatInputOf(input: OpenHandoffInput, handoffId: string, classTeacherId: string | null): HandoffChatInput {
+  const family = input.family ?? (input.child ? [input.child] : []);
+  return {
+    handoffId,
+    parentReplyId: input.parentReplyId,
+    parentE164: input.parentE164,
+    language: input.language,
+    target: input.target,
+    classTeacherId,
+    topic: input.topic,
+    complaint: isComplaint(input.target, input.topic),
+    practice: input.practice,
+    sessionLabel: input.sessionLabel,
+    fromName: input.fromName,
+    children: handoffChildren(family, input.sessionLabel),
+    aboutStudentId: input.aboutStudentId ?? input.child?.studentId ?? null,
+    said: input.said ?? null,
+    body: input.body ?? "",
+    ai: input.ai ?? null,
+    staffNote: input.staffNote ?? null,
+  };
+}
 
 /**
  * The helper passed a parent's message on (it is already in Messages, and the
  * parent has been told). Written down, and the person it is for told now, or
- * at 6 am when it came at night. Never throws.
+ * at 6 am when it came at night. While chats are on (D-616) the message waits
+ * in the family's chat at that desk instead, and the chats' own nudge tells
+ * the desk; the alert stays planned until the chat is written, so a crash in
+ * between still tells somebody. Never throws.
  */
-export async function openHandoff(input: OpenHandoffInput, deps: RelayDeps): Promise<{ handoffId: string | null; step: StepOutcome | null }> {
+export async function openHandoff(
+  input: OpenHandoffInput,
+  deps: RelayDeps,
+): Promise<{ handoffId: string | null; step: StepOutcome | null; chatId: string | null }> {
   try {
     const now = deps.now();
     const first = nextAlertMoment(now);
     const alertNow = first.getTime() <= now.getTime();
     const teacher = input.child?.classTeacher ?? null;
+    const classTeacherId = teacher && staffBelongsToSession(teacher.isTest, input.sessionLabel) ? teacher.staffId : null;
     const id = await deps.createHandoff({
       parentReplyId: input.parentReplyId,
       parentE164: input.parentE164,
@@ -526,19 +582,25 @@ export async function openHandoff(input: OpenHandoffInput, deps: RelayDeps): Pro
       topic: input.topic,
       complaint: isComplaint(input.target, input.topic),
       practice: input.practice,
-      classTeacherId: teacher && staffBelongsToSession(teacher.isTest, input.sessionLabel) ? teacher.staffId : null,
+      classTeacherId,
       aboutName: input.aboutName ?? input.child?.firstName ?? input.fromName,
       followUpOf: input.followUpOf ?? null,
       nextAction: "alert",
       // Told right away is held like a job's step, so the job leaves it alone meanwhile.
       nextActionAt: (alertNow ? new Date(now.getTime() + LEASE_MINUTES * MINUTE) : first).toISOString(),
     });
-    if (!id) return { handoffId: null, step: null };
+    if (!id) return { handoffId: null, step: null, chatId: null };
+    const chatId = deps.openChat ? await deps.openChat(chatInputOf(input, id, classTeacherId)).catch(() => null) : null;
+    if (chatId) {
+      // The chat's nudge tells the desk; the hand-off's own alert never goes.
+      await deps.updateHandoff(id, { nextAction: null });
+      return { handoffId: id, step: null, chatId };
+    }
     const step = alertNow ? await runHandoffStep(id, deps) : null;
-    return { handoffId: id, step };
+    return { handoffId: id, step, chatId: null };
   } catch (caught) {
     logWarn("whatsapp.helper.handoff_open_failed", { error: caught instanceof Error ? caught.message : "unknown" });
-    return { handoffId: null, step: null };
+    return { handoffId: null, step: null, chatId: null };
   }
 }
 
@@ -679,13 +741,28 @@ async function relayAnswer(
   return "waiting";
 }
 
-/** An answer to a hand-off, from WhatsApp or from Messages: saved, the hand-off closed, and sent on. */
+/** Where an answer sent the chat's way stands, as the person who wrote it is told. */
+function chatResult(outcome: Extract<SendOutcome, { ok: true }>): RelayResult {
+  if (outcome.delivery === "waiting") return "waiting";
+  return outcome.delivery === "failed" ? "failed" : "sent";
+}
+
+/**
+ * An answer to a hand-off, from WhatsApp or from Messages: saved, the
+ * hand-off closed, and sent on. When the parent's message is in a chat
+ * (D-616) it goes the chat's way, so the chat shows it and nothing reaches
+ * the parent twice; anything the chat would not take goes the old way.
+ */
 async function answerHandoff(
   input: { handoff: Handoff; staffId: string; person: Person | null; answer: string },
   ctx: Shared,
   deps: RelayDeps,
 ): Promise<RelayResult | "not_saved"> {
   const { handoff, staffId, person, answer } = input;
+  if (deps.answerInChat) {
+    const inChat = await deps.answerInChat({ handoffId: handoff.id, staffId, text: answer }).catch(() => null);
+    if (inChat?.ok) return chatResult(inChat);
+  }
   const answerId = await deps.insertAnswer({ replyId: handoff.parentReplyId, body: answer, answeredBy: staffId });
   if (!answerId) return "not_saved";
   const nowIso = ctx.now.toISOString();

@@ -1,6 +1,9 @@
 import "server-only";
 
 import { getAssistSettings } from "@/modules/assist/data/settings";
+import { liveChatInboundDeps, routeChatInbound } from "@/modules/chats/data/inbound";
+import { deliverHeldMessages, liveChatSendDeps } from "@/modules/chats/data/send";
+import { inboundContent, type ChatInboundMessage } from "@/modules/chats/domain/inbound";
 import type { ChildFacts } from "@/modules/whatsapp/domain/helper-facts";
 import { handoffRegarding, planFromAnswer } from "@/modules/whatsapp/domain/helper-ai";
 import { familyWords, lessonNoteFor, NO_KNOWLEDGE, type LessonNote, type SchoolKnowledge } from "@/modules/whatsapp/domain/helper-lessons";
@@ -132,6 +135,8 @@ export type HelperOutcome =
   | { outcome: "skipped"; reason: string }
   | { outcome: "not_claimed"; reason: string }
   | { outcome: "answered"; route: TurnRoute; intent: string; handoff: HandoffTarget | null }
+  /** Kept in a chat with a person at school (D-616); the helper does not answer it. */
+  | { outcome: "chat"; why: string; duplicate: boolean }
   | { outcome: "failed"; reason: string };
 
 /** Everything the turn reads and writes, so a test can stand in for each. */
@@ -169,6 +174,12 @@ export type HelperDeps = {
    * of the switches, so a parent's message never waits for it twice.
    */
   staffCommand?: (message: WebhookInbound, switches: Promise<WhatsAppSwitches | null>) => Promise<HelperOutcome | null>;
+  /**
+   * A parent writing in a chat with a person at school (D-616): a swiped
+   * reply to it, words to an answer that waited for them, or more while a
+   * person is answering. Kept in the chat; null leaves it to the helper.
+   */
+  chatInbound?: (message: WebhookInbound, switches: Promise<WhatsAppSwitches | null>) => Promise<HelperOutcome | null>;
   /** A tap on "Did this answer help?", kept against this number's own hand-offs (D-584). */
   rateAnswer?: (input: { from: string; key: string; value: RatingValue }) => Promise<RateResult>;
   /**
@@ -227,10 +238,21 @@ export function liveHelperDeps(): HelperDeps {
     pickHandoffStaff: (target, child, sessionLabel) => pickHandoffStaff(target, child, sessionLabel),
     insertHandoff: (row) => insertHandoff(row),
     staffAnswer: (message) => handleStaffAnswer(message, relay),
-    deliverWaiting: (from) => deliverWaitingAnswers(from, relay),
+    // Answers from the old hand-offs, and messages from the parent's chats (D-616), that waited for them to write.
+    deliverWaiting: async (from) => {
+      const [answers, held] = await Promise.all([
+        deliverWaitingAnswers(from, relay).catch(() => 0),
+        deliverHeldMessages({ parentE164: from }, liveChatSendDeps()).catch(() => ({ sent: 0 })),
+      ]);
+      return answers + held.sent;
+    },
     openHandoff: (input) => openHandoff(input, relay),
     staffLink: (message) => handleStaffLink(message, link),
     staffCommand: (message, switches) => handleStaffCommand(message, staff, switches),
+    chatInbound: async (message, switches) => {
+      const kept = await routeChatInbound(message, await switches, liveChatInboundDeps(claimMessage ? (wamid) => claimMessage(wamid) : null));
+      return kept ? { outcome: "chat", why: kept.why, duplicate: kept.duplicate } : null;
+    },
     rateAnswer: (input) => rateAnswer(input, relay),
     suggest: async (draft) => (await addParentSuggestion(draft)) !== null,
     readKnowledge: (practice) => readSchoolKnowledge(practice),
@@ -609,20 +631,52 @@ async function composeRating(input: {
           sessionLabel: first.sessionLabel,
           fromName: first.fromName,
           practice: first.practice,
+          aboutStudentId: first.studentId,
+          body: rated.body,
+          staffNote: rated.body,
         },
       };
     }
   }
 }
 
+/** The parent's message as a line in their chat (D-616); null when it cannot be one. */
+function saidOf(message: WebhookInbound): ChatInboundMessage | null {
+  const content = inboundContent({ type: message.type, text: message.text, raw: message.raw });
+  return content ? { ...content, wamid: message.providerMessageId, at: message.at, replyTo: message.replyTo } : null;
+}
+
+/** What the parent read from the helper, as words (D-616): a card's text with its options, a PDF's caption. */
+function readAs(message: HelperMessage): string {
+  const plain = plainVersion(message);
+  return plain.kind === "text" ? plain.text : "";
+}
+
+/**
+ * The parent's message kept in their chat with a person at school (D-616),
+ * or null when it belongs to no chat. Answers from the old hand-offs that
+ * waited for this parent to write go too, as they would on a helper's turn.
+ */
+async function keepInChat(message: WebhookInbound, deps: HelperDeps, switches: Promise<WhatsAppSwitches | null>): Promise<HelperOutcome | null> {
+  if (!deps.chatInbound) return null;
+  const kept = await deps.chatInbound(message, switches.catch(() => null)).catch(() => null);
+  if (kept?.outcome === "chat" && !kept.duplicate && deps.deliverWaiting) await deps.deliverWaiting(message.from).catch(() => 0);
+  return kept;
+}
+
 export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = liveHelperDeps()): Promise<HelperOutcome> {
   const started = deps.now();
 
-  // 1. Something the helper can read, and still fresh.
+  // 1. Something the helper can read, and still fresh. A sticker, a place or
+  //    a message WhatsApp delivered late is not the helper's to answer, but
+  //    may still belong in a chat with a person at school (D-616).
   const kind: MessageKind = messageKind(message.type, message.raw);
-  if (kind === "ignore") return skip("not_readable");
   const sentAt = Date.parse(message.at);
-  if (!Number.isFinite(sentAt) || started.getTime() - sentAt > MAX_MESSAGE_AGE_MINUTES * 60_000) return skip("too_old");
+  const stale = !Number.isFinite(sentAt) || started.getTime() - sentAt > MAX_MESSAGE_AGE_MINUTES * 60_000;
+  if (kind === "ignore" || stale) {
+    const kept = deps.chatInbound ? await keepInChat(message, deps, Promise.resolve().then(() => deps.readSwitches())) : null;
+    return kept ?? skip(kind === "ignore" ? "not_readable" : "too_old");
+  }
 
   // 1a. A member of staff answering a hand-off, by swiping on the helper's alert (D-578).
   if (message.replyTo && deps.staffAnswer) {
@@ -654,6 +708,16 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
     if (handled) return handled;
   }
 
+  // 1d. A parent writing in a chat with a person at school (D-616): a swiped
+  //     reply to it, words to an answer that waited for them, or more while
+  //     a person is answering. Kept in the chat for that person. A STOP, an
+  //     empty message and a tap on the helper's own buttons stay the helper's.
+  const tap = kind === "tap" ? readTap(message.raw) : null;
+  if (deps.chatInbound && (kind === "tap" ? tap === null : messageSkip({ kind, text: message.text, tap }) === null)) {
+    const kept = await keepInChat(message, deps, switchesRead);
+    if (kept) return kept;
+  }
+
   // 2. A number the helper knows.
   const [switches, settings] = await Promise.all([switchesRead, settingsRead]);
   if (!settings) return skip("settings_unreadable");
@@ -671,7 +735,6 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   // 3a. Nothing to answer in the message itself (a STOP, an empty message, a
   //     tap that is not the helper's): left to the hub before anything is
   //     read or claimed, as before (D-605).
-  const tap = kind === "tap" ? readTap(message.raw) : null;
   const nothing = messageSkip({ kind, text: message.text, tap });
   if (nothing) return skip(nothing);
 
@@ -887,7 +950,10 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
   });
   await deps.saveChat(message.from, reply.chat, finished).catch(() => undefined);
 
-  // The parent knows it was passed on; now the person it is for is told (D-578).
+  // The parent knows it was passed on; now the person it is for is told (D-578),
+  // or, while chats are on, it waits in the family's chat at that desk with
+  // what the parent sent and what the helper told them (D-616).
+  const forChat = { family: children, said: saidOf(message), ai: { text: readAs(reply.message), wamid: sent.messageId, at: finished.toISOString() } };
   if (parentReplyId && handedTo && reply.handoff && deps.openHandoff) {
     const anchor = reply.handoff.child ?? children[0];
     await deps
@@ -901,11 +967,13 @@ export async function runHelperTurn(message: WebhookInbound, deps: HelperDeps = 
         sessionLabel: anchor.sessionLabel,
         fromName: message.fromName ?? "Parent",
         practice: family.practice,
+        ...forChat,
+        body: reply.handoff.body,
       })
       .catch(() => undefined);
   }
   // A "no" to an answer: the office is told the same way (D-584).
-  if (composed.followUp && deps.openHandoff) await deps.openHandoff(composed.followUp).catch(() => undefined);
+  if (composed.followUp && deps.openHandoff) await deps.openHandoff({ ...composed.followUp, ...forChat }).catch(() => undefined);
   return { outcome: "answered", route: reply.route, intent: reply.intent, handoff: handedTo };
 }
 

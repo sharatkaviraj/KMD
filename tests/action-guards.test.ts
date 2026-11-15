@@ -84,6 +84,9 @@ const OPEN_BY_DESIGN = new Set([
 // Keep this capability guard scoped to its exact action file.
 const CAPABILITY_GUARDS: Record<string, string> = {
   "src/app/(app)/collection/photos/profile-actions.ts": "photoAuthority",
+  // Chats with parents (D-616): the signed-in person with `chats:reply` or
+  // `chats:all`, or null; the desk rules then decide per chat.
+  "src/app/(app)/chats/actions.ts": "currentChatViewer",
 };
 
 /** Every `"use server"` file under src/. */

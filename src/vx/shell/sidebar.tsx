@@ -14,6 +14,8 @@ import { useVx } from "@/vx/i18n";
 import { activeKey, type BadgeKey, type NavGroup } from "@/vx/nav";
 import { Avatar } from "@/vx/ui/primitives";
 
+import { useLiveChatCount } from "./chat-live";
+
 import "./shell.css";
 
 export type Me = { photo?: string | null; initials: string; name: string; sub: string; href: string; color: string };
@@ -250,7 +252,9 @@ export function VxSidebar({
 
 function NavBadge({ badges, k, dot }: { badges: Promise<Badges>; k: BadgeKey; dot: boolean }) {
   const all = use(badges);
-  const n = all[k] ?? 0;
+  // Parents waiting (D-618) is kept fresh while the shell stays put.
+  const live = useLiveChatCount();
+  const n = k === "chats" && live !== null ? live : (all[k] ?? 0);
   if (!n) return null;
   if (dot) {
     return (

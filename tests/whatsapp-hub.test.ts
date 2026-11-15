@@ -26,6 +26,7 @@ const store = vi.hoisted(() => ({
   syncDeliveryToSource: vi.fn(async () => undefined),
   runHelperTurns: vi.fn(async () => []),
   copyFilesFromWebhook: vi.fn(async () => null),
+  recordChatStatus: vi.fn(async () => false),
 }));
 
 vi.mock("@/platform/whatsapp/store", () => ({
@@ -39,6 +40,7 @@ vi.mock("@/modules/whatsapp/data/hub-templates", () => ({ syncHubTemplates: stor
 vi.mock("@/modules/whatsapp/data/whatsapp-source-sync", () => ({ syncDeliveryToSource: store.syncDeliveryToSource }));
 vi.mock("@/modules/whatsapp/data/helper-turn", () => ({ runHelperTurns: store.runHelperTurns }));
 vi.mock("@/modules/whatsapp/data/parent-files", () => ({ copyFilesFromWebhook: store.copyFilesFromWebhook }));
+vi.mock("@/modules/chats/data/store", () => ({ recordChatStatus: store.recordChatStatus }));
 vi.mock("@/platform/google/vercel-oidc", () => ({ vercelOidcToken: async (request?: Request) => request?.headers.get("x-vercel-oidc-token") ?? null }));
 vi.mock("@/platform/env", () => ({ getSiteUrl: () => "https://one.vpps.co.in" }));
 vi.mock("@/platform/observability/log", () => ({ logWarn: vi.fn() }));
@@ -366,6 +368,30 @@ describe("the hub's webhook", () => {
     const answer = await post(delivered, sign(delivered, KEY));
     expect(answer.status).toBe(200);
     expect(store.recordStatus).toHaveBeenCalledWith(expect.objectContaining({ providerMessageId: "wamid.HBg1", status: "delivered" }));
+  });
+
+  it("puts a tick the log does not know onto a chat's message (D-616), forward only, and counts it only when it moved", async () => {
+    vi.stubEnv("WHATSAPP_HUB_KEY", KEY);
+    store.recordStatus.mockResolvedValueOnce({ matched: false, changed: false, id: null, previous: null, source_table: null, source_id: null } as never);
+    store.recordChatStatus.mockResolvedValueOnce(true);
+    const answer = await post(delivered, sign(delivered, KEY));
+    expect(answer.status).toBe(200);
+    expect(store.recordChatStatus).toHaveBeenCalledWith("wamid.HBg1", "delivered", expect.any(String), null);
+    expect(await answer.json()).toMatchObject({ statuses: 1 });
+
+    const failed = payload("messages", {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "918302207823", phone_number_id: "1" },
+      statuses: [{ id: "wamid.HBg2", status: "failed", timestamp: "1762650000", recipient_id: OWNER, errors: [{ code: 131047, title: "Re-engagement message" }] }],
+    });
+    store.recordStatus.mockResolvedValueOnce({ matched: false, changed: false, id: null, previous: null, source_table: null, source_id: null } as never);
+    expect((await post(failed, sign(failed, KEY))).status).toBe(200);
+    expect(store.recordChatStatus).toHaveBeenLastCalledWith("wamid.HBg2", "failed", expect.any(String), "meta:131047");
+
+    // A tick on One's own log never touches the chats.
+    store.recordChatStatus.mockClear();
+    await post(delivered, sign(delivered, KEY));
+    expect(store.recordChatStatus).not.toHaveBeenCalled();
   });
 
   it("passes template approvals and category changes to the registry", async () => {

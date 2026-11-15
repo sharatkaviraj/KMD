@@ -24,3 +24,10 @@ export const LazyPersonBanner = dynamic(() => import("./person-banner").then((m)
  */
 export const LazyPreviewLinks = dynamic(() => import("./preview-links").then((m) => m.PreviewLinks));
 export const LazyPreviewBanner = dynamic(() => import("./preview-banner").then((m) => m.PreviewBanner));
+
+/**
+ * "Parents are waiting for your reply" and the new-message card (D-618): only
+ * people who answer parents' chats fetch it. Drawn on the server too, so the
+ * strip is there at first paint.
+ */
+export const LazyChatsNudge = dynamic(() => import("./chats-nudge").then((m) => m.ChatsNudge));

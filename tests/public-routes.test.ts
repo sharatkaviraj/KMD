@@ -212,6 +212,8 @@ describe("a cold request with no cookie", () => {
     "/api/jobs/whatsapp-templates",
     "/api/jobs/parent-helper",
     "/api/jobs/parent-files",
+    // Chats with parents (D-616): the nudges to staff and the closing of quiet chats.
+    "/api/jobs/parent-chats",
     "/api/fees/cron/online-payments",
     "/api/fees/cron/whatsapp-scheduled-runs",
     "/api/fees/cron/auto-day-close",

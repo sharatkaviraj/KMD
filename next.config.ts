@@ -4,6 +4,15 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./src/platform/i18n/request.ts");
 
 /*
+ * Set only by CI's `build` job (D-638). That job exists to prove the app
+ * builds and to measure the route bundles; on a 2-CPU, 8 GB runner it
+ * cannot also afford webpack writing its cache to disk (about 1.5 GB more
+ * at the end of the server compilation) or a second type check (the `types`
+ * job runs `next typegen && tsc` on the same commit, and is the gate).
+ */
+const ciBuild = process.env.VPPSONE_CI_BUILD === "1";
+
+/*
  * Ported from School Fees, minus the parts that belong to that deployment.
  *
  * Every value here is one the fee app measured rather than guessed; its own
@@ -62,7 +71,8 @@ const nextConfig: NextConfig = {
   reactCompiler: { compilationMode: "annotation" },
 
   /*
-   * No type check inside the Vercel build. CI's `types` job is the gate
+   * No type check inside the Vercel build, nor inside CI's build job
+   * (`ciBuild`, above). CI's `types` job is the gate
    * (`tsc --noEmit`, 6 GB heap), and nothing reaches main without it.
    *
    * Inside the build the check does not fit. Next runs it in a worker that
@@ -71,9 +81,9 @@ const nextConfig: NextConfig = {
    * (about 2 GB) sat in "Running TypeScript" until the build timed out
    * (preview, 6 Nov 2026). With a 6 GB heap, the worker and webpack's
    * process together filled the machine, and the build was SIGKILLed
-   * (production a01a427, same night). CI and local builds still type-check.
+   * (production a01a427, same night). Local builds still type-check.
    */
-  typescript: { ignoreBuildErrors: process.env.VERCEL === "1" },
+  typescript: { ignoreBuildErrors: process.env.VERCEL === "1" || ciBuild },
 
   images: {
     formats: ["image/avif", "image/webp"],
@@ -88,6 +98,11 @@ const nextConfig: NextConfig = {
    * builds only; `next dev` and the server bundles are untouched.
    */
   webpack(config, { isServer, dev }) {
+    // CI's build job keeps webpack's cache in memory and never writes it to
+    // disk (D-638). Next's own memory guide gives this exact setting.
+    if (ciBuild && !dev && config.cache) {
+      config.cache = Object.freeze({ type: "memory" as const });
+    }
     const split = config.optimization?.splitChunks;
     if (!isServer && !dev && split && typeof split === "object") {
       split.cacheGroups = {
@@ -144,6 +159,25 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
+    /*
+     * Webpack's three compilations (server, edge, client) each run in a
+     * worker of their own that is closed when it is done, and webpack-sources
+     * stops keeping a second copy of every string. Both lower the build's
+     * peak memory and change nothing that is built: the chunks differ from
+     * the one-process build no more than two one-process builds differ from
+     * each other (D-638). Next turns the worker on by itself only when there
+     * is no `webpack()` below, so this file has to ask for it.
+     *
+     * CI's runner for this private repository has 2 CPUs and 8 GB
+     * (`free -m` reads 7,931 MB).
+     * With every compilation in one process, the build of Chats with Needs
+     * you peaked at 5.7 GB locally, and GitHub's runners stopped it
+     * mid-compile twice ("The runner has received a shutdown signal",
+     * 15 Nov 2026). Vercel's 8 GB build machine gets the same room.
+     */
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
+
     optimizePackageImports: [
       "lucide-react",
       "@radix-ui/react-checkbox",

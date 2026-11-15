@@ -75,6 +75,8 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "fees:view",
     // Notices to staff and families from the redesigned Messages screen.
     "messages:send",
+    // The office's chats with parents (D-616).
+    "chats:reply",
   ],
 
   // The fee desk, and nothing academic. An accountant is not a teacher — the
@@ -91,6 +93,8 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "fees:collect",
     // The back office: day close, reversals, bank books, refunds (D-261).
     "fees:accounts",
+    // The fee desk's chats with parents (D-616).
+    "chats:reply",
   ],
 
   // The follow-up list and the counter: takes money at the Payment Desk
@@ -100,6 +104,7 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "fees:view",
     "fees:reports",
     "fees:collect",
+    "chats:reply",
   ],
 
   academic_coordinator: [
@@ -119,6 +124,7 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "marks:view",
     "reports:view",
     "messages:send",
+    "chats:reply",
   ],
 
   exam_coordinator: [
@@ -135,6 +141,7 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "marks:write",
     "reports:view",
     "messages:send",
+    "chats:reply",
   ],
 
   teacher: [
@@ -151,6 +158,8 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // Asks for a certificate for a child in her own class; an approver
     // signs it (D-542). Never `certificates:issue`.
     "certificates:request",
+    // Their own class's chats with parents only (D-616).
+    "chats:reply",
   ],
 
   // `attendance:view` was here until R1.2. PLAN section 3 gives this role

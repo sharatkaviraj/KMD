@@ -4,8 +4,10 @@
  *
  * Next runs "Running TypeScript" in a worker that inherits NODE_OPTIONS. A cold
  * check of this repo needs about 3.8 GB, more than Node's default heap, so off
- * Vercel (CI, a laptop) this gives the build 6 GB, the same as CI's `types` job,
- * unless the caller set a heap size of their own.
+ * Vercel (a laptop) this gives the build 6 GB, the same as CI's `types` job,
+ * unless the caller set a heap size of their own. CI's build job does: it
+ * skips the check (the `types` job is the gate) and gives webpack's workers
+ * 4 GB (D-638).
  *
  * On Vercel it adds nothing: next.config.ts skips the build's type check there
  * (CI is the gate). The 8 GB build machine cannot hold webpack's process and a

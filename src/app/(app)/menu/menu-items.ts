@@ -51,6 +51,7 @@ const ADMIN: MenuGroup[] = [
       t("collect", "Collect fee", "फीस जमा करें", "rupee", "/payments", "fees:collect", "Take a payment, print the receipt", "फीस लें और रसीद छापें"),
       t("dues", "Dues & calls", "बकाया व कॉल", "phone", "/dues", "fees:view", "Who still owes; call the parents", "किसकी फीस बाकी है; अभिभावकों को कॉल करें"),
       t("approvals", "Needs you", "आपके लिए", "inbox", "/inbox", "attendance:correct", "Approvals, corrections and refunds waiting", "स्वीकृति, सुधार और रिफ़ंड जो आपकी राह देख रहे हैं"),
+      t("chats", "Chats with parents", "अभिभावकों से चैट", "message", "/chats", "chats:reply", "Parents' WhatsApp messages; reply here", "अभिभावकों के व्हाट्सऐप संदेश; यहीं जवाब दें"),
     ],
   },
   {
@@ -150,6 +151,7 @@ const HINTS: Record<string, Pair> = {
   "/timetable?view=subs": { en: "Who takes whose period today", hi: "आज किसका कालांश कौन लेगा" },
   "/inbox": { en: "Approvals and corrections waiting", hi: "स्वीकृति और सुधार जो आपकी राह देख रहे हैं" },
   "/needs": { en: "What is waiting for you, in order", hi: "आपके लिए क्या बाकी है, क्रम से" },
+  "/chats": { en: "Parents' WhatsApp messages; reply here", hi: "अभिभावकों के व्हाट्सऐप संदेश; यहीं जवाब दें" },
   "/academics/progress": { en: "How each class and child is doing", hi: "हर कक्षा और बच्चा कैसा कर रहा है" },
   "/academics/attendance": { en: "Attendance for every class", hi: "हर कक्षा की हाज़िरी" },
   "/notes": { en: "What teachers noticed about a child", hi: "शिक्षकों ने बच्चों के बारे में क्या लिखा" },

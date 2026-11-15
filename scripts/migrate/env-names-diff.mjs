@@ -168,6 +168,7 @@ export const ANNOTATIONS = {
   NODE_ENV: ["Next.js (automatic)", "automatic"],
   NEXT_RUNTIME: ["Next.js (automatic)", "automatic"],
   CI: ["CI runner", "CI only — never set on Vercel"],
+  VPPSONE_CI_BUILD: ["CI runner", "CI's build job only (`ci.yml`) — webpack's cache in memory, no second type check (D-638); never set on Vercel"],
   VITEST: ["test runner", "tests only — never set on Vercel"],
   PLAYWRIGHT_TEST_BASE_URL: ["test runner", "tests only — never set on Vercel"],
   ANALYZE: ["fees build flag", "fees only (bundle analyzer); not needed"],

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { waitingChatsFor } from "@/modules/chats/data/list";
+import { viewerFor } from "@/modules/chats/data/people";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { p } from "@/vx/text";
 
@@ -9,24 +11,20 @@ import type { NeedItem } from "../domain/types";
 /**
  * Parents' chats waiting on this person, as one job on Needs you (D-634).
  *
- * The Chats screen arrives in its own change. Until it does, `CHATS_ROUTE` is
- * null and there is no chat job; that change sets the route and points
- * `waitingChatsForNeeds` at its own count, so the swap is these few lines.
- * The rule it will count by: chats in `waiting`, not merged, practice ones
- * only in the test year, the parent chat switch on, and for each person the
- * chats taken by them or untaken on their desk (their class, the accounts
- * desk for fee collectors, the admin desk for an admin).
+ * The count is Chats' own (D-616..D-618): the same one its badge, strip and
+ * pop-up show, so the three never disagree. Chats in `waiting`, not merged,
+ * practice ones only in the test year, the chat switch on, and for each person
+ * the chats taken by them or untaken on their desk (their class, the accounts
+ * desk for the fee desk, the office's desk for an admin or the office).
  */
-export const CHATS_ROUTE: string | null = null;
+export const CHATS_ROUTE: string | null = "/chats";
 
 export type WaitingChats = { count: number; oldestWaitingSince: string | null };
 
-/** The chats waiting on this person, or null when there is no Chats screen yet or the count could not be read. */
+/** The chats waiting on this person; throws when the count could not be read, so the list knows it is incomplete. */
 export async function waitingChatsForNeeds(staff: CurrentStaff, viewingTest: boolean): Promise<WaitingChats | null> {
-  void staff;
-  void viewingTest;
   if (!CHATS_ROUTE) return null;
-  return null;
+  return waitingChatsFor(viewerFor(staff, viewingTest));
 }
 
 /** "3 parents are waiting for a reply", as a Do now job. */

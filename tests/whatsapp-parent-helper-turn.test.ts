@@ -534,6 +534,11 @@ describe("step 2: hand-offs reach a person, and answers come back (D-578)", () =
       sessionLabel: "TEST-2026-27",
       fromName: "TEST Parent",
       practice: true,
+      // For the family's chat at the desk (D-616): the family, what the parent sent and what they were told.
+      family: [aarav],
+      said: { kind: "text", body: DISPUTE, media: null, meta: {}, wamid: "wamid.TEST1", at: new Date(NOW.getTime() - 3_000).toISOString(), replyTo: null },
+      ai: { text: expect.stringContaining("I am sorry about this."), wamid: "wamid.REPLY1", at: expect.any(String) },
+      body: expect.stringContaining(DISPUTE),
     });
   });
 
@@ -632,6 +637,13 @@ describe("did this answer help? (D-584)", () => {
       sessionLabel: "TEST-2026-27",
       fromName: "TEST Parent",
       practice: true,
+      // For the office's chat (D-616): the tap, the reply, and what was asked and answered, for staff only.
+      aboutStudentId: AARAV_ID,
+      body: NOTE,
+      staffNote: NOTE,
+      family: [aarav],
+      said: { kind: "tap", body: "👎 No", media: null, meta: {}, wamid: "wamid.TEST1", at: new Date(NOW.getTime() - 3_000).toISOString(), replyTo: null },
+      ai: { text: expect.stringContaining("स्कूल ऑफ़िस"), wamid: "wamid.REPLY1", at: expect.any(String) },
     });
     expect(sentWhenOpened).toBe(1);
   });
@@ -1362,5 +1374,103 @@ describe("when Veer Patta AI is quick to show it is answering (D-605)", () => {
     expect(await runHelperTurn(inbound({ text: "fees" }), deps)).toMatchObject({ outcome: "answered", intent: "fees" });
     expect(order).toEqual(["waiting", "reply"]);
     expect(calls.finished[0][1].stages).toMatchObject({ waiting: 700 });
+  });
+});
+
+/* ------------------------------------------- parent chats (D-616) */
+
+describe("a parent writing in a chat with a person at school (D-616)", () => {
+  const KEPT = { outcome: "chat" as const, why: "live", duplicate: false };
+
+  it("keeps the message in the chat: nothing is claimed, read or answered by the helper", async () => {
+    const chatInbound = vi.fn(async () => KEPT);
+    const deliverWaiting = vi.fn(async () => 0);
+    const { deps, calls, askClaude } = fakes({ chatInbound, deliverWaiting });
+    expect(await runHelperTurn(inbound({ text: "Thank you, and one more thing" }), deps)).toEqual(KEPT);
+    expect(chatInbound).toHaveBeenCalledTimes(1);
+    expect(calls.started).toEqual([]);
+    expect(calls.claims).toEqual([]);
+    expect(calls.sent).toEqual([]);
+    expect(askClaude).not.toHaveBeenCalled();
+    // Old answers that waited for this parent go as they would on a helper's turn.
+    expect(deliverWaiting).toHaveBeenCalledWith(OWNER);
+  });
+
+  it("gives the chat the turn's own read of the switches", async () => {
+    const readSwitches = vi.fn(async () => switches());
+    let seen: WhatsAppSwitches | null | undefined;
+    const chatInbound = vi.fn(async (_message: WebhookInbound, read: Promise<WhatsAppSwitches | null>) => {
+      seen = await read;
+      return null;
+    });
+    const { deps } = fakes({ chatInbound, readSwitches });
+    expect(await runHelperTurn(inbound(), deps)).toMatchObject({ outcome: "answered" });
+    expect(seen).toEqual(switches());
+    expect(readSwitches).toHaveBeenCalledTimes(1);
+  });
+
+  it("a message the chat does not take is the helper's, as before", async () => {
+    const chatInbound = vi.fn(async () => null);
+    const { deps, calls } = fakes({ chatInbound });
+    expect(await runHelperTurn(inbound({ text: "fees" }), deps)).toMatchObject({ outcome: "answered", intent: "fees" });
+    expect(chatInbound).toHaveBeenCalledTimes(1);
+    expect(calls.sent).toHaveLength(1);
+  });
+
+  it("a repeat of a message already kept sends nothing waiting a second time", async () => {
+    const deliverWaiting = vi.fn(async () => 0);
+    const { deps } = fakes({ chatInbound: async () => ({ ...KEPT, duplicate: true }), deliverWaiting });
+    expect(await runHelperTurn(inbound(), deps)).toEqual({ ...KEPT, duplicate: true });
+    expect(deliverWaiting).not.toHaveBeenCalled();
+  });
+
+  it("a STOP, an empty message and a tap on the helper's own buttons never go to a chat", async () => {
+    const chatInbound = vi.fn(async () => KEPT);
+    const { deps } = fakes({ chatInbound });
+    await runHelperTurn(inbound({ text: "STOP" }), deps);
+    await runHelperTurn(inbound({ text: "   " }), deps);
+    await runHelperTurn(
+      inbound({ type: "interactive", text: "Fees", raw: { type: "interactive", interactive: { type: "button_reply", button_reply: { id: "vpai:fees", title: "Fees" } } } }),
+      deps,
+    );
+    expect(chatInbound).not.toHaveBeenCalled();
+  });
+
+  it("a tap on a button that is not the helper's (the school's note) goes to the chat", async () => {
+    const chatInbound = vi.fn(async () => ({ ...KEPT, why: "waiting" }));
+    const { deps } = fakes({ chatInbound });
+    const tap = inbound({ type: "button", text: "See the answer", raw: { type: "button", button: { text: "See the answer", payload: "See the answer" } } });
+    expect(await runHelperTurn(tap, deps)).toEqual({ ...KEPT, why: "waiting" });
+  });
+
+  it("a member of staff, or the owner's number in a role, is asked about first", async () => {
+    const chatInbound = vi.fn(async () => KEPT);
+    const staffCommand = vi.fn(async () => ({ outcome: "answered" as const, route: "rule" as const, intent: "staff_menu", handoff: null }));
+    const { deps } = fakes({ chatInbound, staffCommand });
+    expect(await runHelperTurn(inbound({ text: "roles" }), deps)).toMatchObject({ outcome: "answered", intent: "staff_menu" });
+    expect(chatInbound).not.toHaveBeenCalled();
+  });
+
+  it("a sticker, a place or a message delivered late is not the helper's, but may still belong in a chat", async () => {
+    const chatInbound = vi.fn(async () => KEPT);
+    const { deps, calls } = fakes({ chatInbound });
+    const sticker = inbound({ type: "sticker", text: null, raw: { type: "sticker", sticker: { id: "1234567890", mime_type: "image/webp" } } });
+    expect(await runHelperTurn(sticker, deps)).toEqual(KEPT);
+    const late = inbound({ at: new Date(NOW.getTime() - 30 * 60_000).toISOString() });
+    expect(await runHelperTurn(late, deps)).toEqual(KEPT);
+    expect(calls.claims).toEqual([]);
+
+    const none = fakes({ chatInbound: async () => null }).deps;
+    expect(await runHelperTurn(sticker, none)).toEqual({ outcome: "skipped", reason: "not_readable" });
+    expect(await runHelperTurn(late, none)).toEqual({ outcome: "skipped", reason: "too_old" });
+    // Without chats the helper reads nothing at all for them.
+    const readSwitches = vi.fn(async () => switches());
+    expect(await runHelperTurn(sticker, fakes({ readSwitches }).deps)).toEqual({ outcome: "skipped", reason: "not_readable" });
+    expect(readSwitches).not.toHaveBeenCalled();
+  });
+
+  it("a chat that fails to answer leaves the message to the helper", async () => {
+    const { deps } = fakes({ chatInbound: async () => Promise.reject(new Error("boom")) });
+    expect(await runHelperTurn(inbound({ text: "fees" }), deps)).toMatchObject({ outcome: "answered", intent: "fees" });
   });
 });

@@ -21,7 +21,7 @@ describe("menuGroups", () => {
     expect(groups.map((g) => g.title.en)).toEqual(["Daily work", "Children & staff", "Studies & exams", "Fees & money", "Messages", "School records"]);
     expect(groups.map((g) => g.id)).toEqual(["daily", "people", "studies", "money", "messages", "records"]);
     expect(new Set(groups.map((g) => g.tone)).size).toBe(groups.length);
-    expect(groups[0].tiles.map((x) => x.label.en)).toEqual(["Attendance", "Cover for absent teachers", "Collect fee", "Dues & calls", "Needs you"]);
+    expect(groups[0].tiles.map((x) => x.label.en)).toEqual(["Attendance", "Cover for absent teachers", "Collect fee", "Dues & calls", "Needs you", "Chats with parents"]);
   });
 
   it("says, under every admin tile, what it opens, in both languages", () => {

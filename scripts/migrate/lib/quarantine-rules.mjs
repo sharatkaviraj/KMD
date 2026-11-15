@@ -213,6 +213,18 @@ export const TABLES = {
   // belong in a record, waiting for staff to apply or let go. Never the
   // parent's words, which stay in the hand-off (parent_replies).
   parent_suggestions: { bucket: "K", why: "post go-live parent's WhatsApp suggestions for staff to apply or let go (absence, visit, a detail to change); service-role only" },
+  // Chats with parents (D-616..D-618): one chat per parent's number per desk,
+  // with the words both ways. Created after go-live, service-role only.
+  // Practice chats carry their own flag and are shown only in the test
+  // session. Numbers stay whole: a parent's next message is matched on them.
+  parent_chats: { bucket: "K", why: "post go-live chats with parents, one per number per desk (who answers, who took it over, waiting since); service-role only" },
+  parent_chat_messages: { bucket: "K", why: "post go-live words and files of each chat with a parent, both ways, with ticks; service-role only" },
+  parent_chat_reads: { bucket: "K", why: "post go-live how far each member of staff has read a chat; service-role only" },
+  parent_chat_nudges: { bucket: "K", why: "post go-live WhatsApp nudges that told staff a parent is waiting (number, which chats, sent or not); service-role only" },
+  parent_chat_settings: { bucket: "K", why: "post go-live chat switches (on, nudges, minutes); one row" },
+  // One-tap links (D-616): /go/<code> opens a screen after the person signs
+  // in as themselves. Never a sign-in; each runs out.
+  go_links: { bucket: "K", why: "post go-live one-tap links from WhatsApp to a screen in One (code, path, for whom, expiry); service-role only" },
   // Needs you (D-630..D-633): created after go-live, service-role only. A
   // person's own to-dos and put-off times, what their list held on a day,
   // and the AI's suggested order (kinds of job and numbers, never a name).

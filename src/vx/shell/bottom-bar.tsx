@@ -14,6 +14,7 @@ import { Sheet } from "@/vx/ui/overlays";
 
 import { inMarkingWindow } from "./prefetch-window";
 
+import { useLiveChatCount } from "./chat-live";
 import type { Badges } from "./sidebar";
 import { TONE } from "./top-actions";
 
@@ -184,7 +185,10 @@ function CenterBlob({ icon }: { icon: IconName }) {
 }
 
 function TabBadge({ badges, k }: { badges: Promise<Badges>; k: keyof Badges }) {
-  const n = use(badges)[k] ?? 0;
+  const served = use(badges)[k] ?? 0;
+  // Parents waiting (D-618) is kept fresh while the shell stays put.
+  const live = useLiveChatCount();
+  const n = k === "chats" && live !== null ? live : served;
   if (!n) return null;
   return (
     <span className="num" aria-label={`${n} waiting`} style={{ position: "absolute", top: -3, right: 8, minWidth: 19, height: 19, padding: "0 5px", borderRadius: 10, background: "var(--bad)", color: "var(--onsolid)", border: "2px solid var(--card)", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", animation: "xPopIn .45s var(--spring) both" }}>

@@ -1115,3 +1115,112 @@ describe("a child the parent says will be away: decided from the alert (D-602)",
     expect(w.decisions).toEqual([]);
   });
 });
+
+/* ------------------------------------------- parent chats (D-616) */
+
+describe("while parent chats are on (D-616)", () => {
+  const CHAT_ID = "88888888-8888-4888-8888-888888888888";
+  const said = { kind: "text" as const, body: "Please share today's homework", media: null, meta: {}, wamid: "wamid.IN1", at: NOON.toISOString(), replyTo: null };
+  const ai = { text: "I have passed this to Aarav's class teacher.", wamid: "wamid.AI1", at: NOON.toISOString() };
+  const sentOutcome = (delivery: "sent" | "waiting" | "failed") => ({
+    ok: true as const,
+    delivery,
+    duplicate: false,
+    message: {
+      id: "99999999-9999-4999-8999-999999999999",
+      chatId: CHAT_ID,
+      direction: "out" as const,
+      kind: "text" as const,
+      body: "Done.",
+      media: null,
+      meta: {},
+      wamid: null,
+      status: delivery,
+      error: null,
+      staffId: ADMIN_ID,
+      staffName: "TEST Admin",
+      at: NOON.toISOString(),
+    },
+  });
+
+  it("the message waits in the family's chat at the desk, and no alert goes: the chat's own nudge tells the desk", async () => {
+    const { deps, w } = world();
+    const openChat = vi.fn(async () => CHAT_ID);
+    const opened = await openHandoff(openInput({ family: [aarav], said, ai, body: said.body }), { ...deps, openChat });
+    expect(opened).toEqual({ handoffId: "h1", step: null, chatId: CHAT_ID });
+    expect(w.sent).toEqual([]);
+    expect(w.alerts).toEqual([]);
+    expect(w.handoffs.get("h1")).toMatchObject({ nextAction: null });
+    expect(openChat).toHaveBeenCalledWith({
+      handoffId: "h1",
+      parentReplyId: REPLY_ID,
+      parentE164: OWNER,
+      language: "en",
+      target: "class_teacher",
+      classTeacherId: TEACHER_ID,
+      topic: "message_teacher",
+      complaint: false,
+      practice: false,
+      sessionLabel: "TEST-2026-27",
+      fromName: "TEST Parent",
+      children: [{ studentId: aarav.studentId, firstName: "Aarav", className: aarav.className, classTeacherId: TEACHER_ID }],
+      aboutStudentId: aarav.studentId,
+      said,
+      body: said.body,
+      ai,
+      staffNote: null,
+    });
+  });
+
+  it("a chat that could not be written: the person it is for is alerted exactly as before", async () => {
+    const { deps, w } = world();
+    w.chats.set(TEACHER_PHONE, new Date(NOON.getTime() - HOUR).toISOString());
+    const opened = await openHandoff(openInput(), { ...deps, openChat: async () => null });
+    expect(opened.chatId).toBeNull();
+    expect(opened.step?.told).toBe(1);
+    expect(textOf(w.sent[0]!)).toContain("A parent's message for you");
+  });
+
+  it("at night the chat still takes it at once; the desk is nudged by the chat's own rules", async () => {
+    const { deps, w } = world({ now: new Date("2026-11-11T17:30:00Z") });
+    const opened = await openHandoff(openInput(), { ...deps, openChat: async () => CHAT_ID });
+    expect(opened).toMatchObject({ chatId: CHAT_ID, step: null });
+    expect(w.handoffs.get("h1")).toMatchObject({ nextAction: null });
+    expect(w.sent).toEqual([]);
+  });
+
+  it("an answer typed in Messages goes the chat's way, so the chat shows it and nothing reaches the parent twice", async () => {
+    const { deps, w } = world();
+    await openHandoff(openInput(), deps);
+    w.sent.length = 0;
+    const answerInChat = vi.fn(async () => sentOutcome("sent"));
+    expect(await relayFromMessages({ replyId: REPLY_ID, body: "  Done.  ", staffId: ADMIN_ID }, { ...deps, answerInChat })).toEqual({ result: "sent" });
+    expect(answerInChat).toHaveBeenCalledWith({ handoffId: "h1", staffId: ADMIN_ID, text: "Done." });
+    // The chat keeps the answer in Messages and sends it; the relay sends nothing of its own.
+    expect(w.sent).toEqual([]);
+    expect(w.answers).toEqual([]);
+  });
+
+  it("says where a chat answer stands: waiting for the parent to write, or not sent", async () => {
+    const { deps } = world();
+    await openHandoff(openInput(), deps);
+    expect(await relayFromMessages({ replyId: REPLY_ID, body: "Done.", staffId: ADMIN_ID }, { ...deps, answerInChat: async () => sentOutcome("waiting") })).toEqual({
+      result: "waiting",
+    });
+    expect(await relayFromMessages({ replyId: REPLY_ID, body: "Done.", staffId: ADMIN_ID }, { ...deps, answerInChat: async () => sentOutcome("failed") })).toEqual({
+      result: "failed",
+    });
+  });
+
+  it("an answer the chat would not take, or a message in no chat, goes the old way", async () => {
+    for (const answerInChat of [async () => null, async () => ({ ok: false as const, reason: "not_saved" as const, code: null }), async () => Promise.reject(new Error("boom"))]) {
+      const { deps, w } = world();
+      await openHandoff(openInput(), deps);
+      w.sent.length = 0;
+      w.chats.set(OWNER, new Date(NOON.getTime() - HOUR).toISOString());
+      expect(await relayFromMessages({ replyId: REPLY_ID, body: "Done.", staffId: ADMIN_ID }, { ...deps, answerInChat })).toEqual({ result: "sent" });
+      expect(w.answers[0]).toMatchObject({ answeredBy: ADMIN_ID, body: "Done." });
+      expect(textOf(w.sent[0]!)).toContain("Done.");
+    }
+  });
+});

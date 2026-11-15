@@ -115,6 +115,8 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       I("staff:view", "See staff", "स्टाफ़ देखें", "Open the staff list with phone numbers.", "फ़ोन नंबर सहित स्टाफ़ सूची।"),
       I("staff:manage", "Add & edit staff", "स्टाफ़ जोड़ें", "Add staff and correct their details.", "स्टाफ़ जोड़ें और विवरण सुधारें।"),
       I("messages:send", "Send messages", "संदेश भेजें", "Send notices to staff, classes and families.", "स्टाफ़, कक्षाओं व परिवारों को सूचना भेजें।"),
+      I("chats:reply", "Chat with parents", "अभिभावकों से चैट", "Answer parents' WhatsApp messages on their own desk: their class, the fee desk or the office.", "अपनी डेस्क के अभिभावकों के व्हाट्सऐप संदेशों का जवाब: अपनी कक्षा, फीस डेस्क या ऑफ़िस।"),
+      I("chats:all", "See every chat", "सभी चैट देखें", "Every chat with parents, filtered, and take one over to answer it.", "अभिभावकों से हर चैट, छाँटकर, और किसी को अपने हाथ में लेकर जवाब दें।"),
       I("settings:manage", "Settings & roles", "सेटिंग्स व भूमिकाएँ", "School profile, backups and this matrix.", "स्कूल प्रोफ़ाइल, बैकअप और यह तालिका।"),
       I("apps:view", "Other school apps", "अन्य ऐप", "Links to SamPark and the fee app.", "सम्पर्क और फीस ऐप के लिंक।"),
       I("jobs:view", "See background jobs", "जॉब देखें", "Nightly jobs and their results.", "रात के जॉब और नतीजे।"),

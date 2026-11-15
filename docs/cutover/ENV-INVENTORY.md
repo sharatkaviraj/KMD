@@ -110,6 +110,7 @@ Coexistence supersedes the historical C5 provider-copy notes below: Fees retains
 | `VPPSONE_BUILTIN_AI_COVER_AUTO` | `src/lib/ai/cover-photo-service.ts` | — | — | — | owner | leave unset (valid cover-photo rows apply with a 2-minute Undo); `0` = review only |
 | `VPPSONE_BUILTIN_AI_COVER_AUTO_TEST` | `src/lib/ai/cover-photo-service.ts` | — | — | — | owner | leave off outside an approved fictional TEST cover rehearsal |
 | `VPPSONE_BUILTIN_AI_TEST` | `src/lib/ai/config.ts` | — | — | — | owner | leave unset; Preview/local pilot switch only, production ignores it |
+| `VPPSONE_CI_BUILD` | `next.config.ts` | — | — | — | CI runner | CI's build job only (`ci.yml`) — webpack's cache in memory, no second type check (D-638); never set on Vercel |
 | `VPPSONE_CLAUDE_IMAGE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned image extraction model; defaults to Claude Sonnet 5.5 |
 | `VPPSONE_CLAUDE_VOICE_MODEL` | `src/lib/ai/config.ts`, `src/lib/ai/smoke.ts` | — | — | — | owner | pinned voice understanding model; defaults to Claude Haiku 5.5 |
 | `VPPSONE_ENV` | `src/modules/payments/domain/online/key-guard.ts`, `src/platform/auth/dayrun-server.ts` +5 | — | yes | — | owner | set; must be `live` at C5 — the parent gate (D-353) and live Razorpay keys (D-354 (3)) need it |

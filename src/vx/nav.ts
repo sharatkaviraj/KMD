@@ -26,7 +26,7 @@ export type NavEntry = {
 
 export type NavGroup = { title?: Pair; items: NavEntry[] };
 
-export type BadgeKey = "inbox" | "needs" | "notes" | "dues" | "books" | "marks" | "news";
+export type BadgeKey = "inbox" | "needs" | "notes" | "dues" | "books" | "marks" | "news" | "chats";
 
 /** Eight app roles onto the design's five menus (docs/ui/DECISIONS.md UI-7). */
 export function designMenuFor(role: StaffRole): DesignMenu {
@@ -47,12 +47,16 @@ export function designMenuFor(role: StaffRole): DesignMenu {
 
 const L = (en: string, hi?: string): Pair => (hi ? { en, hi } : { en });
 
+/** Parents' WhatsApp messages (D-616): in every menu of someone who answers parents. One object, so the shell carries its words once. */
+const CHATS: NavEntry = { key: "chats", label: L("Chats with parents", "अभिभावकों से चैट"), icon: "message", href: "/chats", permission: "chats:reply", badge: "chats" };
+
 const MENUS: Record<DesignMenu, NavGroup[]> = {
   admin: [
     {
       items: [
         { key: "today", label: L("Today", "आज"), icon: "home", href: "/", permission: "dashboard:view" },
         { key: "inbox", label: L("Needs you", "आपके लिए"), icon: "inbox", href: "/inbox", permission: "attendance:correct", badge: "inbox" },
+        CHATS,
         { key: "students", label: L("Students", "विद्यार्थी"), icon: "users", href: "/students", permission: "students:view" },
         { key: "attendance", label: L("Attendance", "हाज़िरी"), icon: "calCheck", href: "/attendance", permission: "attendance:mark_on_behalf" },
       ],
@@ -114,6 +118,9 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "class", label: L("My class & subjects", "मेरी कक्षा"), icon: "users", href: "/teach/class", permission: "attendance:view" },
         { key: "marks", label: L("Marks", "अंक"), icon: "clipboard", href: "/teach/marks", permission: "marks:write" },
         { key: "notes", label: L("Notes on children", "बच्चों के नोट्स"), icon: "note", href: "/teach/notes", permission: "notes:write", badge: "notes" },
+        // Parents' WhatsApp messages for the teacher's class (D-616); on the phone it is
+        // a tile on More and the "parents waiting" card, not a bar tab.
+        CHATS,
         // Timetable, My tasks, Help and My profile were reachable on a desk
         // only through the More page (teacher day, 6 Nov 2026, teacher 20).
         // The phone bar picks its tabs by key, so it is unchanged.
@@ -134,6 +141,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "collect", label: L("Payment Desk", "फीस जमा"), icon: "rupee", href: "/payments", permission: "fees:collect" },
         { key: "fees", label: L("Receipts & day close", "रसीदें"), icon: "receipt", href: "/receipts", permission: "fees:view" },
         { key: "dues", label: L("Dues & calls", "बकाया"), icon: "phone", href: "/dues", permission: "fees:view", badge: "dues" },
+        CHATS,
         { key: "families", label: L("Families", "परिवार"), icon: "home", href: "/families", permission: "fees:view" },
         { key: "reminders", label: L("Fee reminders", "फीस रिमाइंडर"), icon: "bell", href: "/reminders", permission: "fees:view" },
         { key: "books", label: L("Cheques, UPI & refunds", "चेक व यूपीआई"), icon: "swap", href: "/accounts/books", permission: "fees:view", badge: "books" },
@@ -152,6 +160,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         // a Timetable tab (day-run 6 Nov 2026, AC-02).
         { key: "cover", label: L("Cover for absent teachers", "अनुपस्थित की व्यवस्था"), icon: "swap", href: "/timetable?view=subs", permission: "substitutions:manage" },
         { key: "inbox", label: L("Needs you", "आपके लिए"), icon: "inbox", href: "/inbox", permission: "attendance:correct", badge: "inbox" },
+        CHATS,
         { key: "progress", label: L("Student progress", "प्रगति"), icon: "trend", href: "/academics/progress", permission: "marks:view" },
         { key: "attendance", label: L("Attendance", "हाज़िरी"), icon: "calCheck", href: "/academics/attendance", permission: "attendance:view" },
         { key: "notes", label: L("Notes on children", "बच्चों के नोट्स"), icon: "note", href: "/notes", permission: "notes:view", badge: "notes" },
@@ -175,6 +184,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "board", label: L("Board readiness", "बोर्ड की तैयारी"), icon: "clipboard", href: "/exam-office/board", permission: "outcomes:view" },
         { key: "officialresults", label: L("Official results", "आधिकारिक परिणाम"), icon: "award", href: "/exam-office/official-results", permission: "outcomes:view" },
         { key: "calendar", label: L("Calendar", "कैलेंडर"), icon: "calendar", href: "/calendar", permission: "academics:view" },
+        CHATS,
         { key: "messages", label: L("Notices", "सूचनाएँ"), icon: "megaphone", href: "/messages", permission: "messages:send" },
         { key: "aireport", label: L("AI report", "AI रिपोर्ट"), icon: "database", href: "/reports/ai", permission: "reports:ai" },
       ],

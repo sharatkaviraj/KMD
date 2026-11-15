@@ -667,6 +667,11 @@ function redesign(): RouteExpectation[] {
     row("/exam-office/results", ["admin", "exam_coordinator"], "Publishing results and report cards is the exam coordinator's job."),
     row("/notes", ["admin", "office", "academic_coordinator", "teacher"], "Notes on children, read by the people responsible for them."),
     row("/messages", ["admin", "office", "academic_coordinator", "exam_coordinator"], "Notices go out from the office and the coordinators, never from a single teacher's account."),
+    row(
+      "/chats",
+      ["admin", "office", "accountant", "fee_collector", "academic_coordinator", "exam_coordinator", "teacher"],
+      "Parents' WhatsApp messages are answered by whoever the parent needs: the class teacher, the fee desk or the office, with the admin over all of them (D-616). A viewer answers nobody.",
+    ),
     row("/settings", ["admin"], "School-wide settings and the role matrix are the admin's."),
     row("/settings/builtin-ai", ["admin"], "Built-in photo and voice usage and the daily quota are administered by the school administrator."),
     row("/settings/ai-connection", ["admin"], "The AI connection's school switch and every staff member's connections (owner decision D9) are the admin's."),

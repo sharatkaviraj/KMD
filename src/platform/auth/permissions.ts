@@ -149,6 +149,13 @@ export const staffPermissions = [
   // matrix. Rows in `20261010100247_vx_role_permissions.sql`.
   "messages:send",
   "settings:manage",
+
+  // Chats with parents (D-616). `reply` answers the chats on one's own desk:
+  // a class teacher's own class, the fee desk (with `fees:collect`), the
+  // office. `all` sees every chat, filtered, and may take one over: the
+  // admin's until Staff -> Roles grants it to another role.
+  "chats:reply",
+  "chats:all",
 ] as const;
 
 export type StaffPermission = (typeof staffPermissions)[number];
@@ -214,6 +221,8 @@ const officePermissions: readonly StaffPermission[] = [
   "transport:view",
   "transport:manage",
   "messages:send",
+  // Answers the office's chats with parents (D-616).
+  "chats:reply",
   // Reads the fee screens, cannot take money. Office staff do post
   // payments in the fee app today, so this is a real reduction — and a
   // deliberate one: posting is granted one person at a time through the
@@ -248,6 +257,8 @@ const academicCoordinatorPermissions: readonly StaffPermission[] = [
   "marks:view",
   "reports:view",
   "messages:send",
+  // A class teacher too, often: their class's chats with parents (D-616).
+  "chats:reply",
 ];
 
 /** Exam coordinator: assessments, marks, report cards. */
@@ -265,6 +276,7 @@ const examCoordinatorPermissions: readonly StaffPermission[] = [
   "marks:write",
   "reports:view",
   "messages:send",
+  "chats:reply",
 ];
 
 /**
@@ -287,6 +299,8 @@ const teacherPermissions: readonly StaffPermission[] = [
   // Asks the office for a study, character or date-of-birth certificate for
   // a child in her own classes; never prepares or signs one (D-542).
   "certificates:request",
+  // Their own class's chats with parents, and nobody else's (D-616).
+  "chats:reply",
 ];
 
 /**
@@ -336,6 +350,8 @@ const accountantPermissions: readonly StaffPermission[] = [
   "fees:reports",
   "fees:collect",
   "fees:accounts",
+  // The fee desk's chats with parents (D-616).
+  "chats:reply",
 ];
 
 /**
@@ -350,6 +366,7 @@ const feeCollectorPermissions: readonly StaffPermission[] = [
   "fees:view",
   "fees:reports",
   "fees:collect",
+  "chats:reply",
 ];
 
 export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {

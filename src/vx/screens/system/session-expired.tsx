@@ -1,10 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ExpiredSheet, type ExpiredWho } from "@/vx/screens/system/expired-sheet";
+import type { ExpiredWho } from "@/vx/screens/system/expired-sheet";
 import { expiredLoginHref } from "@/vx/screens/system/logic";
+
+/*
+ * The dialog itself, words in two languages and all, loads only once a
+ * session has lapsed: it was on the first load of every screen for a moment
+ * most people never see (page-size budget, 15 Nov 2026).
+ */
+const ExpiredSheet = dynamic(() => import("@/vx/screens/system/expired-sheet").then((m) => m.ExpiredSheet), { ssr: false });
 
 /*
  * P11 state `expired` (design `Auth` · expired). When the sign-in lapses
@@ -88,7 +96,7 @@ export function SessionExpiredSheet() {
     };
   }, []);
 
-  const href = expiredLoginHref(pathname, typeof window === "undefined" ? "" : window.location.search);
-
-  return <ExpiredSheet open={expired} who={who} href={href} />;
+  if (!expired) return null;
+  const href = expiredLoginHref(pathname, window.location.search);
+  return <ExpiredSheet open who={who} href={href} />;
 }

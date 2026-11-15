@@ -345,6 +345,7 @@ function moreData(): MoreData {
     tasks: [],
     remarks: 0,
     classSizes: { [C6]: 31, [C7]: 27, [C8]: 28 },
+    chats: { waiting: 2 },
   };
 }
 const moreView = (view: MoreView, sheet: string | null = null): DesignView => ({

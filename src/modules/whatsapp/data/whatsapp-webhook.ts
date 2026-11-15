@@ -2,6 +2,7 @@ import "server-only";
 
 import { after, NextResponse } from "next/server";
 
+import { recordChatStatus } from "@/modules/chats/data/store";
 import { syncHubTemplates } from "@/modules/whatsapp/data/hub-templates";
 import { syncDeliveryToSource } from "@/modules/whatsapp/data/whatsapp-source-sync";
 import { isParentFileType } from "@/modules/whatsapp/domain/parent-files";
@@ -25,7 +26,9 @@ import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
  *
  *  - each status goes onto the message log (`whatsapp_record_status`: one row
  *    per message id, never moved backwards, so a repeat or a late "sent"
- *    changes nothing) and from there onto the row that asked for it;
+ *    changes nothing) and from there onto the row that asked for it; one the
+ *    log does not know may be a school message in a chat with a parent
+ *    (D-616, `parent_chat_status`), forward only the same way;
  *  - each reply TO ONE into `vppsone.whatsapp_inbound`, once per message id.
  *    Whatever else people write to the school's number stays in the hub's own
  *    inbox (`isReplyToOne`), and a status for a message One did not send
@@ -127,7 +130,12 @@ export async function handleWhatsAppWebhook(
       failedWrites += 1;
       continue;
     }
-    if (!answer.matched) continue;
+    if (!answer.matched) {
+      // A message from a chat with a parent (D-616) is not on the log: its ticks go onto the chat's line.
+      const error = status.status === "failed" ? `meta:${status.errorCode ?? "unknown"}` : null;
+      if (await recordChatStatus(status.providerMessageId, status.status, status.at, error).catch(() => false)) statuses += 1;
+      continue;
+    }
     statuses += 1;
     if (!answer.changed) continue;
     await syncDeliveryToSource({

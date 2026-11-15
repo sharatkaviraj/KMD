@@ -3,6 +3,9 @@ import { assistFeaturesFor } from "@/modules/assist/data/settings";
 import { Suspense, type ReactNode } from "react";
 
 import { getDuesBadgeCount } from "@/modules/dashboard/data/shell-metrics";
+import { waitingChatsFor } from "@/modules/chats/data/list";
+import { viewerFor } from "@/modules/chats/data/people";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
 import { can, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
 import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
@@ -36,7 +39,7 @@ import { homeHintFor } from "@/vx/home-redirect";
 
 import { VxBottomBar } from "./bottom-bar";
 import { HomeHint } from "./home-hint";
-import { LazyPersonBanner, LazyPreviewBanner, LazyPreviewLinks, LazySearchPalette } from "./lazy";
+import { LazyChatsNudge, LazyPersonBanner, LazyPreviewBanner, LazyPreviewLinks, LazySearchPalette } from "./lazy";
 import { OpeningNote } from "./opening-note";
 import type { PaletteItem } from "./palette";
 import { SessionBar } from "./session-bar";
@@ -65,7 +68,7 @@ const NEEDS_MENUS: ReadonlySet<string> = new Set(["teacher", "accountant", "exam
 
 async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges> {
   const out: Badges = {};
-  const [dues, inbox, needs] = await Promise.all([
+  const [dues, inbox, needs, chats] = await Promise.all([
     can(viewer.staff, "fees:view") && sessionLabel ? getDuesBadgeCount(sessionLabel) : null,
     // The admin queue, counted from the same reads the Needs you page uses —
     // in the same request on Today and Needs you, so it is free there (perf fixes 1, 2).
@@ -84,10 +87,19 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
           .then((now) => needsBadgeCount(viewer.staff.id, sessionLabel, schoolToday(now), now))
           .catch(() => null)
       : null,
+    // Parents waiting for this person's reply (D-618), the same count the
+    // pop-up keeps fresh. A role preview has no chats of its own.
+    !rolePreviewOf(viewer) && (can(viewer.staff, "chats:reply") || can(viewer.staff, "chats:all"))
+      ? viewingTestSession()
+          .then((test) => waitingChatsFor(viewerFor(viewer.staff, test)))
+          .then((w) => w.count)
+          .catch(() => null)
+      : null,
   ]);
   if (dues !== null) out.dues = dues;
   if (inbox !== null) out.inbox = inbox;
   if (needs !== null) out.needs = needs;
+  if (chats !== null) out.chats = chats;
   return out;
 }
 
@@ -185,6 +197,9 @@ export async function VxShell({
   // The "+" sheet's Quick substitute (photo and Bolo): never while previewing another role.
   const coverAi = !previewing && coverPhotoEnabled(staff, sessionLabel || null);
   const badges = loadBadges(viewer, sessionLabel);
+  // Parents waiting (D-618): the strip and the new-message card, for the
+  // people who answer them, never while looking at One as somebody else.
+  const chatsNudge = !previewing && (can(staff, "chats:reply") || can(staff, "chats:all"));
   const fees = can(staff, "fees:view");
   const homeHint = homeHintFor(viewer);
 
@@ -265,6 +280,11 @@ export async function VxShell({
               {rosterStatus ?? <span className="vx-workspace-label">{flat({ en: "Academic session", hi: "शैक्षणिक सत्र" }, staff.language)}</span>}
               {sessionPill ? <SessionBar label={sessionLabel} isTest={sessionIsTest} showLive={sessionPill.showLive} sessions={sessionPill.sessions} /> : null}
             </div> : null}
+            {chatsNudge ? (
+              <Suspense fallback={null}>
+                <LazyChatsNudge badges={badges} since={new Date().toISOString()} />
+              </Suspense>
+            ) : null}
             <main id="vx-main" className="vx-main vx-reset">
               {children}
             </main>

@@ -109,6 +109,8 @@ export type ChatMessage = {
   staffId: string | null;
   staffName: string | null;
   at: string;
+  /** The browser's own id for a message somebody at school sent, so the screen that sent it knows it again. */
+  clientRef?: string | null;
 };
 
 export function isChatDesk(value: unknown): value is ChatDesk {

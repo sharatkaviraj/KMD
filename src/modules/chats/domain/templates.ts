@@ -109,7 +109,7 @@ const LANGUAGES: readonly TemplateLanguage[] = ["hi", "en"];
  * The four, as the hub's `POST /v1/templates` takes them. On the list the hub
  * carries (`HUB_TEMPLATE_SUBMISSIONS`) since the owner said to send them for
  * approval (15 Nov 2026, "Yes, yes, go ahead"), as every new template has
- * gone to Meta only on his word (D-573).
+ * gone to Meta only on the owner's word (D-573).
  */
 export const CHAT_HUB_SUBMISSIONS: readonly TemplateSubmission[] = LANGUAGES.flatMap((language) => [
   {

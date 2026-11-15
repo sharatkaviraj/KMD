@@ -2,6 +2,9 @@ import "server-only";
 import { readParentSwitches } from "@/vx/screens/settings/parent-switches";
 import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 import { loadWhatsappLink, type WhatsappLinkView } from "@/modules/whatsapp/data/staff-link";
+import { waitingChatsFor } from "@/modules/chats/data/list";
+import { viewerFor } from "@/modules/chats/data/people";
+import { viewingTestSession } from "@/platform/auth/staff-scope";
 import { staffLanguage } from "@/modules/whatsapp/domain/helper-handoff";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
@@ -1257,7 +1260,7 @@ export async function loadMore(staff: CurrentStaff) {
   const admin = createAdminClient();
   const labelsP = classLabelMap(sessionLabel);
   const publishedP = getPublishedVersion(sessionLabel);
-  const [labels, held, own, , notices, prefs, leaveRows, bells, subjects, calendar, dayNames, tasks, remarks, slots, linkSet, portrait, whatsapp] = await Promise.all([
+  const [labels, held, own, , notices, prefs, leaveRows, bells, subjects, calendar, dayNames, tasks, remarks, slots, linkSet, portrait, whatsapp, chats] = await Promise.all([
     labelsP,
     heldClassIds(staff.id, sessionLabel),
     ownClassIds(staff.id, sessionLabel),
@@ -1277,6 +1280,8 @@ export async function loadMore(staff: CurrentStaff) {
     approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
     // Link my WhatsApp on My profile (D-582); a failed read leaves the card out.
     loadWhatsappLink(staff.id, staffLanguage(staff.language), Boolean(staff.viewedBy)).catch((): WhatsappLinkView | null => null),
+    // Chats with parents (D-616): the tile, and how many parents wait for her.
+    chatsTile(staff),
   ]);
   const { links, assigned, sizes } = linkSet;
 
@@ -1328,7 +1333,19 @@ export async function loadMore(staff: CurrentStaff) {
     remarks,
     /** Children on each of her classes' rolls, for the menu's lines. */
     classSizes: Object.fromEntries(sizes) as Record<string, number>,
+    /** Chats with parents (D-616): null when they are not hers; `waiting` null when it could not be counted. */
+    chats,
   };
+}
+
+/** The More tile for Chats with parents: whether this teacher has chats at all, and how many parents wait for a reply. */
+async function chatsTile(staff: CurrentStaff): Promise<{ waiting: number | null } | null> {
+  if (!can(staff, "chats:reply") && !can(staff, "chats:all")) return null;
+  const waiting = await viewingTestSession()
+    .then((test) => waitingChatsFor(viewerFor(staff, test)))
+    .then((w) => w.count)
+    .catch(() => null);
+  return { waiting };
 }
 
 export type HomeData = Extract<Awaited<ReturnType<typeof loadHome>>, { periods: unknown }>;

@@ -43,6 +43,7 @@ catalogue; everything else uses One's own.
 | `auth` | Supabase auth callbacks |
 | `cv` | public certificate verification (the QR on a school certificate) |
 | `fonts` | self-hosted fonts used by PDFs and the shell |
+| `go` | — |
 | `lab` | signed-out lab/kiosk screens |
 | `login` | staff sign-in |
 | `mcp` | MCP OAuth authorize screen |
@@ -69,6 +70,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `/assessments` | One (pre-vx) + vx (current) |
 | `/attendance` | vx (current) |
 | `/calendar` | One (pre-vx) + vx (current) |
+| `/chats` | vx (current) |
 | `/collection` | One (pre-vx) |
 | `/dashboard` | redirect |
 | `/documents` | no page |
@@ -117,7 +119,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `assist` | One | domain, data | — |
 | `attendance` | One | domain, data, ui | — |
 | `certificates` | One | domain, data, ui | — |
-| `chats` | One | domain | — |
+| `chats` | One | domain, data | Parents' WhatsApp messages that need a person, answered by staff in One: one chat per parent per desk. |
 | `coexistence` | One | domain, data | — |
 | `collect` | One | domain, data | — |
 | `collection` | One | domain, data, ui | — |
@@ -188,7 +190,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 
 ## vx screens — `src/vx/screens/`
 
-`academics` · `accounts` · `admin` · `admissions` · `board-office` · `calendar` · `collect` · `dues` · `exams` · `families` · `family-contact` · `fee-setup` · `messages` · `notes` · `parents` · `payments` · `receipts` · `reminders` · `reports` · `school-office` · `settings` · `smoke` · `staff` · `student-tools` · `system` · `teach` · `timetable` · `transport` · `view-as`
+`academics` · `accounts` · `admin` · `admissions` · `board-office` · `calendar` · `chats` · `collect` · `dues` · `exams` · `families` · `family-contact` · `fee-setup` · `messages` · `notes` · `parents` · `payments` · `receipts` · `reminders` · `reports` · `school-office` · `settings` · `smoke` · `staff` · `student-tools` · `system` · `teach` · `timetable` · `transport` · `view-as`
 
 ## Test harnesses
 
