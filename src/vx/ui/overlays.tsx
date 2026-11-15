@@ -82,6 +82,7 @@ export function Sheet({
   label,
   dismissable = true,
   backCloses = false,
+  className,
 }: {
   open: boolean;
   onClose: () => void;
@@ -101,6 +102,8 @@ export function Sheet({
    * kit's (src/ui/primitives/sheet.tsx): a marker history entry while open.
    */
   backCloses?: boolean;
+  /** An extra class on the panel, for a sheet with a place of its own (the "+" sheet sits on the bar, D-643). */
+  className?: string;
 }) {
   const layer = useLayer();
   const { tx } = useVx();
@@ -275,7 +278,7 @@ export function Sheet({
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : label}
         tabIndex={-1}
-        className={`sheet${wide ? " wide" : ""} ${closing ? "closing" : "open"}`}
+        className={`sheet${wide ? " wide" : ""}${className ? ` ${className}` : ""} ${closing ? "closing" : "open"}`}
         style={{ outline: "none" }}
         onPointerDown={onDragStart}
         onPointerMove={onDragMove}

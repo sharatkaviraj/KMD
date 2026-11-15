@@ -136,7 +136,8 @@ describe("words that fit a 360 px phone (D-526)", () => {
   it("lets the centre tab's word use its neighbours' empty space", () => {
     const bar = read("src/vx/shell/bottom-bar.tsx");
     expect(bar).toContain('const CENTER_LABEL = { maxWidth: "calc(100% + 24px)"');
-    expect(bar.match(/style=\{CENTER_LABEL\}/g)).toHaveLength(2);
+    // One centre button since the "+" took the middle for every role (D-643).
+    expect(bar.match(/style=\{CENTER_LABEL\}/g)).toHaveLength(1);
   });
 
   it("gives the top bar's line and a child's name two lines before cutting them", () => {

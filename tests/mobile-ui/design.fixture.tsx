@@ -15,7 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { SectionCard } from "@/ui/shell/section-card";
 import { Panel, PanelRow } from "@/ui/panel";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, type DesignMenu } from "@/vx/nav";
+import { quickFor } from "@/vx/quick";
 import { VxBottomBar } from "@/vx/shell/bottom-bar";
+import { openQuick } from "@/vx/shell/quick-state";
 import { VxSidebar } from "@/vx/shell/sidebar";
 import { NavTrail } from "@/vx/ui/back-link";
 import { ToastProvider } from "@/vx/ui/overlays";
@@ -35,6 +37,7 @@ import "../../src/vx/vx.css";
 const params = new URLSearchParams(location.search);
 const language: Language = params.get("locale") === "hi" ? "hi" : params.get("locale") === "hi-en" ? "both" : "en";
 if (params.get("theme") === "dark") document.documentElement.classList.add("dark");
+if (params.get("quick") === "1") openQuick();
 
 const allowAll = () => true;
 const badges = Promise.resolve({ inbox: 6, notes: 3, dues: 18, books: 2, marks: 4, news: 1 });
@@ -50,6 +53,8 @@ const ME: Record<DesignMenu, { initials: string; name: string; sub: string; href
 function Shell({ menu, children }: { menu: DesignMenu; children: ReactNode }) {
   const groups = groupsFor(menu, allowAll);
   const tabs = bottomFor(menu, allowAll);
+  // The "+" (D-643): `?quick=1` draws its sheet open.
+  const quick = quickFor(menu, allowAll, { teacherHasClass: true });
   return (
     <div className="vxt vx-shell">
       <VxSidebar
@@ -60,11 +65,12 @@ function Shell({ menu, children }: { menu: DesignMenu; children: ReactNode }) {
         badges={badges}
         teacherSized={menu === "teacher"}
         previewing={null}
+        quick={quick !== null}
       />
       <div className="vx-content">
         <main id="vx-main" className="vx-main vx-reset">{children}</main>
       </div>
-      <VxBottomBar tabs={tabs} badges={badges} />
+      <VxBottomBar tabs={tabs} badges={badges} quick={quick} />
       {/* Sheets, dialogs and toasts portal here, as in the app's shell. */}
       <div id="vx-layer" className="vxt vx-layer" />
     </div>

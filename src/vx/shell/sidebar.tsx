@@ -9,14 +9,18 @@ import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransi
 import { useTheme } from "next-themes";
 
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
+import { cue } from "@/ui/feedback/cue";
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { activeKey, type BadgeKey, type NavGroup } from "@/vx/nav";
 import { Avatar } from "@/vx/ui/primitives";
 
 import { useLiveChatCount } from "./chat-live";
+import { openQuick } from "./quick-state";
 
 import "./shell.css";
+
+const QUICK = { en: "Quick actions", hi: "झटपट काम" };
 
 export type Me = { photo?: string | null; initials: string; name: string; sub: string; href: string; color: string };
 
@@ -81,6 +85,7 @@ export function VxSidebar({
   teacherSized,
   preview,
   previewing,
+  quick = false,
 }: {
   groups: NavGroup[];
   me: Me;
@@ -94,6 +99,8 @@ export function VxSidebar({
   /** "See the app as", the admin's only (`PreviewLinks`). */
   preview?: ReactNode;
   previewing: string | null;
+  /** This person has a "+" (D-643): Quick actions opens the same sheet at the top of the menu. */
+  quick?: boolean;
 }) {
   const pathname = usePathname() ?? "/";
   const { tx, sub } = useVx();
@@ -176,6 +183,15 @@ export function VxSidebar({
           <Ic n={collapsed ? "chevsRight" : "chevsLeft"} size={14} />
         </button>
       </div>
+
+      {quick ? (
+        <div style={{ flex: "none", padding: collapsed ? "0 15px 8px" : "0 14px 8px" }}>
+          <button type="button" className="tap vx-side-quick" aria-haspopup="dialog" aria-label={collapsed ? tx(QUICK) : undefined} title={collapsed ? tx(QUICK) : undefined} onClick={() => { cue("tap"); openQuick(); }}>
+            <span className="vx-side-quick-ic" aria-hidden="true"><Ic n="plus" size={18} stroke={2.4} /></span>
+            {collapsed ? null : <span className="clip">{tx(QUICK)}</span>}
+          </button>
+        </div>
+      ) : null}
 
       {/* Whether the list runs on past either edge is drawn by CSS from the menu's own scroll (shell.css). */}
       <div className="vx-side-navwrap">

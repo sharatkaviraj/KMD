@@ -5,7 +5,9 @@ import { MenuScreen } from "@/app/(app)/menu/menu-screen";
 import { bottomFor, groupsFor, PREVIEW_LABEL } from "@/vx/nav";
 import { StudentsScreen, type StudentListRow, type StudentsProps } from "@/vx/screens/admin/students";
 import type { StudentFacts } from "@/vx/screens/admin/students-logic";
-import { QuickActions } from "@/vx/shell/bottom-bar";
+import { quickFor } from "@/vx/quick";
+import { QuickSheet } from "@/vx/shell/quick-sheet";
+import { openQuick } from "@/vx/shell/quick-state";
 import { SearchPalette, type PaletteItem } from "@/vx/shell/palette";
 import type { SearchResult } from "@/vx/shell/search-actions";
 import { VxPage } from "@/vx/ui/page";
@@ -142,12 +144,14 @@ function QuickFrame() {
   try {
     window.localStorage.setItem("vx.quick.last", "collect");
   } catch {
-    // No storage: the sheet draws without "Repeat last".
+    // No storage: the sheet draws without "Last time".
   }
+  // The admin's "+" (D-643), open as the frame draws.
+  openQuick();
   return (
     <>
       {adminViews["F01-Today"].render()}
-      <QuickActions open onClose={() => {}} keys={["collect", "mark", "notice", "admit", "cover", "note"]} />
+      <QuickSheet quick={quickFor("admin", () => true)!} badges={Promise.resolve({ dues: 12 })} />
     </>
   );
 }

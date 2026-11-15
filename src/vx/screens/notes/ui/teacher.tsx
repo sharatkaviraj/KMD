@@ -2,7 +2,7 @@
 
 import Link from "@/ui/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -143,12 +143,17 @@ export function TeachNotes(props: NotesProps) {
   // When the URL loses the sheet, the form closes; its draft stays kept.
   const sheetParam = useSearchParams()?.get("sheet") ?? null;
   const [lastSheet, setLastSheet] = useState(sheetParam);
+  const [addAsked, setAddAsked] = useState(0);
   if (lastSheet !== sheetParam) {
     setLastSheet(sheetParam);
     if (lastSheet === "add" && sheetParam !== "add" && adding) {
       setAdding(false);
       setSavedId(null);
     }
+    // The "+" sheet's Write a note (D-643) arrives as `?sheet=add` while this
+    // screen may already be open: the form opens then, as it does on arrival.
+    // Only a change into "add" asks; the form's own close drops it after.
+    if (sheetParam === "add" && lastSheet !== "add" && !adding) setAddAsked((n) => n + 1);
   }
   const [help, setHelp] = useState(false);
   const [ftag, setFtag] = useState<NoteTag | "all">("all");
@@ -200,6 +205,13 @@ export function TeachNotes(props: NotesProps) {
     flow.start(kid ? "write" : "child");
     replaceParams({ sheet: "add", step: null, saved: null });
   };
+  const openAddRef = useRef(openAdd);
+  useEffect(() => {
+    openAddRef.current = openAdd;
+  });
+  useEffect(() => {
+    if (addAsked) openAddRef.current();
+  }, [addAsked]);
   const closeAdd = () => {
     if (composer.speech.listening) composer.speech.stop();
     setAdding(false);

@@ -1,5 +1,14 @@
 # VPPS One — progress
 
+## The "+" in the middle of every phone bar — 15 November 2026
+
+The owner asked for the centre button (a teacher's Attendance) to become a "+"
+for every role, holding each person's daily work, beautifully and simply.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| A "+" for every role with its own quick actions sheet, the register's live line for class teachers, "Opening…" until the page is there, the bar's "×", and Quick actions in the desk side menu (D-643) | **in review** | `claude/project-thread-s6y1l6` | Surprised: the notes form ignored `?sheet=add` when Notes was already open, so "Write a note" from the "+" on that screen did nothing; it now opens on that change. |
+
 ## Chats always in reach: the chat bubble — 15 November 2026
 
 The owner, looking at One as a teacher, saw no pop-up when a parent wrote, and

@@ -192,18 +192,34 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
   ],
 };
 
-/** The phone bottom bar: four tabs and a centre action, per menu (XNav). */
-const BOTTOM: Record<DesignMenu, { tabs: [string, string, string, string]; center: { label: Pair; icon: IconName; href: string; permission: StaffPermission } }> = {
-  admin: { tabs: ["today", "students", "inbox", "menu"], center: { label: L("Quick actions", "जल्दी करें"), icon: "plus", href: "#quick", permission: "dashboard:view" } },
-  teacher: { tabs: ["home", "class", "notes", "more"], center: { label: L("Mark attendance", "हाज़िरी लगाएँ"), icon: "calCheck", href: "/teach/attendance", permission: "attendance:mark" } },
-  accountant: { tabs: ["home", "fees", "dues", "menu"], center: { label: L("Payment Desk", "फीस जमा"), icon: "rupee", href: "/payments", permission: "fees:collect" } },
-  academic: { tabs: ["home", "progress", "notes", "menu"], center: { label: L("Attendance", "हाज़िरी"), icon: "calCheck", href: "/academics/attendance", permission: "attendance:view" } },
-  exam: { tabs: ["home", "plan", "results", "menu"], center: { label: L("Marks tracker", "अंक ट्रैकर"), icon: "clipboard", href: "/exams", permission: "assessments:view" } },
+/**
+ * The phone bottom bar: four tabs and the "+" in the middle, per menu (XNav).
+ *
+ * The middle is a "+" for every role (D-643, the owner, 15 Nov 2026): it
+ * opens the person's own quick actions (`src/vx/quick.ts`), the teacher's
+ * register first. `own` are the screens the middle button used to open
+ * itself: on them no tab is lit, the "+" being their mark, as before.
+ */
+const BOTTOM: Record<DesignMenu, { tabs: [string, string, string, string]; own: string[] }> = {
+  admin: { tabs: ["today", "students", "inbox", "menu"], own: [] },
+  teacher: { tabs: ["home", "class", "notes", "more"], own: ["/teach/attendance"] },
+  accountant: { tabs: ["home", "fees", "dues", "menu"], own: ["/payments"] },
+  academic: { tabs: ["home", "progress", "notes", "menu"], own: ["/academics/attendance"] },
+  exam: { tabs: ["home", "plan", "results", "menu"], own: ["/exams"] },
 };
 
+/** The "+" itself: what it is called, and the word printed under it. */
+const QUICK_CENTER = {
+  label: L("Quick actions", "झटपट काम"),
+  short: L("Quick", "झटपट"),
+  icon: "plus",
+  href: "#quick",
+} as const satisfies { label: Pair; short: Pair; icon: IconName; href: string };
+
 /**
- * The admin's centre "+" sheet (F03), each with the permission its screen is
- * guarded on. The office and view-only readers share the admin menu, and
+ * The admin's desk "+ New" menu (F03) on Today and Students, each with the
+ * permission its screen is guarded on. The phone's "+" has its own, richer
+ * lists per role (`src/vx/quick.ts`, D-643). The office and view-only readers share the admin menu, and
  * before these were filtered they were offered actions that end on
  * "access denied" (smoke test, 10 Oct 2026).
  */
@@ -217,7 +233,7 @@ export const QUICK_ACTIONS: readonly { key: string; label: Pair; sub: Pair; icon
   { key: "note", label: L("Add a note", "नोट लिखें"), sub: L("About a child", "किसी बच्चे के बारे में"), icon: "edit", tone: "plain", href: "/notes?add=1", permission: "notes:view" },
 ];
 
-/** The quick actions this reader may open (the centre "+" sheet and the desktop "New" menu). */
+/** The desk "New" menu's actions this reader may open. */
 export function quickActionsFor(allowed: (p: StaffPermission) => boolean): string[] {
   return QUICK_ACTIONS.filter((q) => allowed(q.permission)).map((q) => q.key);
 }
@@ -270,34 +286,26 @@ export function groupsFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
     .filter((g) => g.items.length > 0);
 }
 
-export type BottomTab = { key: string; label: Pair; icon: IconName; href: string; badge?: BadgeKey; center?: boolean; quick?: string[]; short?: Pair };
-
-/**
- * The word printed under the centre button. It used to be an icon alone (a
- * "+" or a calendar), so the biggest button on the phone said nothing to
- * someone who reads only what is on the screen (UX review, 6 Nov 2026).
- */
-const CENTER_SHORT: Record<string, Pair> = {
-  "#quick": L("Quick", "जल्दी करें"),
-  "/teach/attendance": L("Attendance", "हाज़िरी"),
-  "/teach/marks": L("Marks", "अंक"),
-  "/payments": L("Collect", "फीस जमा"),
-  "/academics/attendance": L("Attendance", "हाज़िरी"),
-  "/exams": L("Marks", "अंक"),
+export type BottomTab = {
+  key: string;
+  label: Pair;
+  icon: IconName;
+  href: string;
+  badge?: BadgeKey;
+  center?: boolean;
+  short?: Pair;
+  /** The "+": screens it stands for, where no tab is lit. */
+  own?: string[];
 };
 
 /**
- * The teacher's centre button when she has no class of her own. "Mark
- * attendance" opened "You do not take attendance" for every subject teacher —
- * the biggest button on the phone led nowhere (UX review, 6 Nov 2026). Marks is
- * the job a subject teacher actually comes back for.
+ * The bar for a menu: two tabs, the "+", two tabs. `quick: false` leaves the
+ * "+" out for a reader it would hold nothing for (view only), as an empty
+ * sheet would be a button that leads nowhere.
  */
-const TEACHER_NO_CLASS_CENTER = { label: L("Marks", "अंक"), icon: "clipboard", href: "/teach/marks", permission: "marks:write" } as const satisfies (typeof BOTTOM)["teacher"]["center"];
-
-export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boolean, opts: { teacherHasClass?: boolean } = {}): BottomTab[] {
+export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boolean, opts: { quick?: boolean } = {}): BottomTab[] {
   const all = MENUS[menu].flatMap((g) => g.items);
-  const base = BOTTOM[menu];
-  const spec = menu === "teacher" && opts.teacherHasClass === false ? { ...base, center: TEACHER_NO_CLASS_CENTER } : base;
+  const spec = BOTTOM[menu];
   const tab = (key: string): BottomTab | null => {
     if (key === "menu") return { key: "menu", label: L("Menu", "मेनू"), icon: "grid", href: "/menu" };
     const item = all.find((i) => i.key === key);
@@ -305,10 +313,9 @@ export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
     return { key, label: SHORT[`${menu}:${key}`] ?? item.label, icon: SHORT_ICON[`${menu}:${key}`] ?? item.icon, href: item.href, badge: item.badge };
   };
   const [a, b, c, d] = spec.tabs.map(tab);
-  const quick = spec.center.href === "#quick" ? quickActionsFor(allowed) : undefined;
   const center: BottomTab | null =
-    allowed(spec.center.permission) && (quick === undefined || quick.length > 0)
-      ? { key: "center", label: spec.center.label, icon: spec.center.icon, href: spec.center.href, center: true, quick, short: CENTER_SHORT[spec.center.href] ?? spec.center.label }
+    opts.quick !== false && allowed("dashboard:view")
+      ? { key: "center", label: QUICK_CENTER.label, icon: QUICK_CENTER.icon, href: QUICK_CENTER.href, center: true, short: QUICK_CENTER.short, own: spec.own }
       : null;
   return [a, b, center, c, d].filter((x): x is BottomTab => Boolean(x));
 }

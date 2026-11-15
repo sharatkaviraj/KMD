@@ -18,6 +18,7 @@ import { inboxCount, moneyRequestsFor } from "@/vx/screens/admin/data";
 import { schoolMinutes } from "@/vx/screens/admin/logic";
 import { schoolNow } from "@/platform/auth/qa-clock";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
+import { quickFor } from "@/vx/quick";
 import { lead } from "@/vx/text";
 import { NavTrail } from "@/vx/ui/back-link";
 import { avatarColor } from "@/vx/ui/primitives";
@@ -207,9 +208,11 @@ export async function VxShell({
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
 
   const groups = groupsFor(menu, allowed);
-  const tabs = bottomFor(menu, allowed, { teacherHasClass });
   // The "+" sheet's Quick substitute (photo and Bolo): never while previewing another role.
   const coverAi = !previewing && coverPhotoEnabled(staff, sessionLabel || null);
+  // What this person's "+" holds (D-643), worked out here so the list never ships with every screen.
+  const quick = quickFor(menu, allowed, { teacherHasClass, coverAi });
+  const tabs = bottomFor(menu, allowed, { quick: quick !== null });
   const badges = loadBadges(viewer, sessionLabel, waitingChats);
   const bubble: Promise<BubbleState> | null = chatsBubble
     ? Promise.all([waitingChats, ownDesk || classTeacher]).then(([waiting, desk]) => ({
@@ -277,6 +280,7 @@ export async function VxShell({
             teacherSized={menu === "teacher"}
             preview={previewMenus.length ? <LazyPreviewLinks menus={previewMenus} previewing={rolePreview} /> : null}
             previewing={rolePreview}
+            quick={quick !== null}
           />
           <div className="vx-content">
             <OfflineBanner />
@@ -315,7 +319,7 @@ export async function VxShell({
               {children}
             </main>
           </div>
-          <VxBottomBar tabs={tabs} badges={badges} coverAi={coverAi} />
+          <VxBottomBar tabs={tabs} badges={badges} quick={quick} />
         </div>
         <LazySearchPalette items={palette} />
         <UpdateBanner />

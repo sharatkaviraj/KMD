@@ -56,22 +56,25 @@ describe("a screen under the accountant's Today but reached from Menu (smoke 20 
   });
 });
 
-describe("the centre button (UX review, 6 Nov 2026)", () => {
-  it("prints a word under the centre button for every role", () => {
+describe("the \"+\" in the middle (UX review, 6 Nov 2026; D-643)", () => {
+  it("is a \"+\" with a word under it for every role", () => {
     for (const menu of ["admin", "teacher", "accountant", "academic", "exam"] as const) {
       const centre = bottomFor(menu, all).find((t) => t.center);
+      expect(centre?.href, menu).toBe("#quick");
+      expect(centre?.icon, menu).toBe("plus");
       expect(centre?.short?.en, menu).toBeTruthy();
       expect(centre?.short?.hi, menu).toBeTruthy();
     }
   });
 
-  it("gives a teacher without a class Marks, not a dead-end Attendance", () => {
-    const centre = (o?: { teacherHasClass?: boolean }) => bottomFor("teacher", all, o).find((t) => t.center);
-    expect(centre()?.href).toBe("/teach/attendance");
-    expect(centre({ teacherHasClass: true })?.href).toBe("/teach/attendance");
-    expect(centre({ teacherHasClass: false })?.href).toBe("/teach/marks");
-    expect(centre({ teacherHasClass: false })?.short?.en).toBe("Marks");
-    // Other roles are untouched by the flag.
-    expect(bottomFor("academic", all, { teacherHasClass: false }).find((t) => t.center)?.href).toBe("/academics/attendance");
+  it("keeps the bar's four tabs where they were, the \"+\" in the middle", () => {
+    expect(bottomFor("teacher", all).map((t) => t.key)).toEqual(["home", "class", "center", "notes", "more"]);
+    expect(bottomFor("admin", all).map((t) => t.key)).toEqual(["today", "students", "center", "inbox", "menu"]);
+    expect(bottomFor("accountant", all).map((t) => t.key)).toEqual(["home", "fees", "center", "dues", "menu"]);
+  });
+
+  it("is left out for a reader whose \"+\" would hold nothing", () => {
+    expect(bottomFor("admin", all, { quick: false }).some((t) => t.center)).toBe(false);
+    expect(bottomFor("admin", all, { quick: false })).toHaveLength(4);
   });
 });

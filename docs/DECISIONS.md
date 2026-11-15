@@ -1,5 +1,16 @@
 # Decisions
 
+## The "+" in the middle of every phone bar — 15 November 2026
+
+The owner (15 Nov, 19:52 UTC): the big centre button (a teacher's Attendance)
+should become a "+" for admins, teachers, the accountant and everyone else,
+holding the things each of them uses every day, the admin's best of all,
+designed to blend in and be easy for non-technical staff.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-643 | **The middle of every phone bar is a "+" labelled Quick (झटपट), and the four tabs around it stay where they were. It opens a sheet of the person's own daily work (`src/vx/quick.ts`): their first job of the day as one big card on top (a class teacher's Mark attendance, a teacher without a class Enter marks, the fee desk's Collect fee, a coordinator's cover for absent teachers, the exam office's Marks tracker), the rest of their day as large labelled tiles with a line on what each does (six in two columns; the admin's nine, three by three), Find a student at the top, Quick substitute with AI where it was on, and a help line for teachers. Under a class teacher's Mark attendance the card says, asked afresh each time the sheet opens, whether today's register is done ("Class 5 · Not marked yet", "Done, saved at 9:12 am", "School is closed today"), and nothing when the read fails. A tapped tile shows "Opening…" with a spinner; the sheet stays until the page has arrived and then slides away, and its history entry becomes the page's, so Back from the page returns to where the "+" was tapped and Back with the sheet open closes it. On a phone the sheet rises from the bar, the bar stays on top with its "+" turned into a "×" (Close · बंद करें), and a tap on the bar closes it; the chat bubble stays under the shade. On a computer, "Quick actions" under the school's name in the side menu opens the same sheet as a dialog. Every entry names the permission its page is guarded on, and the "+" is left off the bar of a reader it would hold nothing for. Listen reads the sheet aloud; the "+" and each tile give the light tap of D-497.** | The old centre button was a different single page per role (Attendance, Payment Desk, Attendance, Marks tracker) and a "+" only for the admin; a person's other daily jobs were two or three taps away under Menu or More. The list is worked out on the server and handed to the bar as data, and the sheet's code (`src/vx/shell/quick-sheet.tsx`, `next/dynamic`, `ssr: false`) is fetched when the phone is idle or on the first "+", so no screen's first-load JavaScript carries it; the register line's server action is fetched only with a register card. The teacher's register is still one tap from the "+" and is warmed in the marking hours as before. `tests/vx-quick.test.ts` holds each role's list against its real permissions and every page's own `requirePermission` guard, and the register line; `tests/vx-quick-cover.test.tsx` the sheet (asked afresh per opening, "Opening…", the history entry, badges, Quick substitute and the photo hand-over) and the bar's "+"/"×". The admin's desk "+ New" menu on Today and Students (`QUICK_ACTIONS`) is unchanged. |
+
 ## Chats always in reach: the chat bubble — 15 November 2026
 
 The owner (15 Nov, 18:01 UTC), after looking at One as a teacher: a parent's
