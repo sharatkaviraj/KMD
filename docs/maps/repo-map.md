@@ -85,6 +85,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `/menu` | One (pre-vx) |
 | `/messages` | vx (current) |
 | `/more` | One (pre-vx) |
+| `/needs` | vx (current) |
 | `/not-in-one` | One (pre-vx) |
 | `/notes` | vx (current) |
 | `/payments` | vx (current) |
@@ -132,6 +133,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `jobs` | One | domain, data, ui | — |
 | `master-data` | ported from Fees | data, ui | The school's own lists: sessions, classes, routes. |
 | `mcp` | One | domain, data, ui | — |
+| `needs-you` | One | domain, data, ui | Needs you (D-630..D-635): one list per person of what is waiting on them |
 | `notes` | One | domain, data, ui | — |
 | `official-results` | One | domain, data | `/exam-office/board` configures an authority/session/attempt and its real existing |
 | `ops-health` | One | domain | — |

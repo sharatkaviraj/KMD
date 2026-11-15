@@ -13,6 +13,12 @@ import { paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { ExamHome, type HomeView, type NextExamView, type ResultsExamView, type TimelineItem } from "@/vx/screens/exams/office-home";
 import { BoardOfficeLinks } from "@/vx/screens/board-office/links";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
+import { Suspense } from "react";
+import { examFactsFrom } from "@/modules/needs-you/data/sources";
+import { examNeeds } from "@/modules/needs-you/domain/office";
+import { NeedsStripSlot, NeedsStripWaiting } from "@/modules/needs-you/ui/strip-slot";
+import type { SetupStep } from "@/vx/screens/exams/domain/office";
+import { schoolMinutes } from "@/vx/screens/admin/logic";
 
 import { logCallAction, markChecklistAction, remindTeachersAction } from "./actions";
 
@@ -54,9 +60,13 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
   /* --------------------------------------------- the results exam */
   let results: ResultsExamView | null = null;
   let teachers: Awaited<ReturnType<typeof examProgress>>["teachers"] = [];
+  // What Needs you's strip is made of (D-630), from these same reads.
+  let needsProgress: { lateCount: number; entered: number; total: number } | null = null;
+  let needsSteps: SetupStep[] | null = null;
   if (current) {
     const progress = await examProgress(ctx, current);
     teachers = progress.teachers;
+    needsProgress = { lateCount: progress.lateCount, entered: progress.overall.entered, total: progress.overall.total };
     const bands = GROUP_KEYS.map((key) => {
       const list = progress.papers.filter((x) => groupOf(x.classLabel) === key);
       const total = list.reduce((a, x) => a + x.total, 0);
@@ -104,6 +114,7 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
       papersReceived: qps.filter((q) => q.status !== "waiting").length,
       ticked: new Set(Object.keys(next.plan?.checklist ?? {})),
     });
+    needsSteps = steps;
     nextView = {
       id: next.id,
       name: { en: next.labelEn, hi: next.labelHi },
@@ -141,6 +152,16 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
   return (
     <ExamHome
       officeLinks={<BoardOfficeLinks />}
+      needs={
+        <Suspense fallback={<NeedsStripWaiting />}>
+          <NeedsStripSlot
+            staff={staff}
+            role="exam"
+            source={{ ...examNeeds(examFactsFrom({ today, nowMinutes: schoolMinutes(now), current, progress: needsProgress, next, steps: needsSteps })), complete: true }}
+            sessionLabel={ctx.sessionLabel}
+          />
+        </Suspense>
+      }
       view={view}
       hello={greeting(now)}
       staffName={staff.displayName}

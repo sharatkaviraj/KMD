@@ -127,6 +127,7 @@ export function TeachHome({
   bolo,
   certificates,
   parents,
+  needs,
   allowed = { attendance: true, marks: true, notes: true },
 }: {
   data: HomeData;
@@ -142,6 +143,8 @@ export function TeachHome({
   certificates?: ReactNode;
   /** Parents' notes (D-598): absences a parent told Veer Patta AI about, to decide; the card hides itself until there is one. */
   parents?: ReactNode;
+  /** Needs you's strip (D-630): the jobs waiting on her, at the very top of Today. */
+  needs?: ReactNode;
   /** Office and coordinators can open this page too; their quick actions stop at what they may open. */
   allowed?: { attendance: boolean; marks: boolean; notes: boolean };
 }) {
@@ -1111,6 +1114,7 @@ export function TeachHome({
             <span className="tc-p hide-m" style={{ color: "var(--mut)" }}>{context}</span>
             {heldLine ? <span className="tc-p only-m" style={{ color: "var(--mut)" }}>{tx(heldLine)}</span> : null}
           </div>
+          {needs}
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
             <div className="tc-col">
               {welcome}

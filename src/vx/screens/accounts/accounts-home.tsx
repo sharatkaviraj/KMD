@@ -4,7 +4,7 @@ import "./accounts.css";
 
 import Link from "@/ui/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, useTransition, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { addToQueueAction, searchFamiliesAction, updateQueueAction } from "@/app/(app)/accounts/actions";
 import { remindAdminAction } from "@/app/(app)/accounts/books/actions";
@@ -99,7 +99,10 @@ export function AccountsHome({
   greet,
   roleName,
   nowIso,
+  needs,
 }: {
+  /** Needs you's strip (D-630), at the very top of Today. */
+  needs?: ReactNode;
   greet: string;
   /**
    * The school clock this page was drawn on: the real time, or a QA/Smoke Lab
@@ -202,6 +205,7 @@ export function AccountsHome({
           </span>
         }
       />
+      {view === "home" && needs ? <div className="pad" style={{ padding: "18px 28px 0" }}>{needs}</div> : null}
       {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} nowIso={nowIso} /> : null}
       {view === "menu" ? <MenuView data={data} staffName={staffName} roleText={role} canCollect={canCollect} canAccounts={canAccounts} canReports={canReports} help={help} helpTitle={helpTitle} /> : null}
       {view === "evening" ? <EveningView data={data} canReports={canReports} /> : null}

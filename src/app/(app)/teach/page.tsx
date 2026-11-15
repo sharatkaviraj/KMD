@@ -11,6 +11,8 @@ import { TeachHome } from "@/vx/screens/teach/ui/home";
 import { previewRefusal } from "@/vx/screens/exams/guards";
 import { MyCertificateRequestsToday } from "@/vx/screens/teach/ui/certificates-today";
 import { ParentNotesToday } from "@/vx/screens/parents/parent-notes";
+import { teacherSource } from "@/modules/needs-you/data/sources";
+import { NeedsStripSlot, NeedsStripWaiting } from "@/modules/needs-you/ui/strip-slot";
 
 export const runtime = "nodejs";
 
@@ -37,6 +39,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       certificates={data.sessionLabel && can(staff, "certificates:request") ? <Suspense fallback={null}><MyCertificateRequestsToday sessionLabel={data.sessionLabel} language={staff.language} /></Suspense> : undefined}
       parents={data.sessionLabel && can(staff, "attendance:mark") ? <Suspense fallback={null}><ParentNotesToday staff={staff} sessionLabel={data.sessionLabel} day={data.today} /></Suspense> : undefined}
       allowed={{ attendance: can(staff, "attendance:mark"), marks: can(staff, "marks:write"), notes: can(staff, "notes:write") }}
+      // Needs you at the very top of Today (D-630); it streams in, Today never waits for it.
+      needs={<Suspense fallback={<NeedsStripWaiting />}><NeedsStripSlot staff={staff} role="teacher" source={teacherSource(staff, data)} sessionLabel={data.sessionLabel} /></Suspense>}
     />
   );
 }

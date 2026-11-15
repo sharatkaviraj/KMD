@@ -1,5 +1,16 @@
 # VPPS One — progress
 
+## Needs you — 15 November 2026
+
+Owner asked (15 Nov 05:07 UTC) for a Needs you for teachers, the admin and
+the accounts office, arranged by the built-in AI, with pending and done and
+reminders, for staff new to apps; then (05:27) not to disturb the current
+setup.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Needs you (D-630..D-635): `/needs` for teachers, the fee office and the exam office; a strip at the top of each Today; the first tile in More and the second item in the menus, with a badge; the admin's `/inbox` with the AI's order, own to-dos and done today; own to-dos and "Remind me later" from spoken or typed times; the AI's order from kinds and numbers only | **in review** | `claude/project-thread-n8btot` | Migration `20261115060835_needs_you` applied to One 15 Nov (three tables and `needs_sync`, service role only; PGlite proof `tests/sql/needs-you.mjs`). The chats job is wired but hidden until Chats is on main (D-634). |
+
 ## Chats with parents — 15 November 2026
 
 Owner asked (15 Nov) for an in-app chat with parents: one chat per parent per

@@ -149,6 +149,7 @@ const HINTS: Record<string, Pair> = {
   "/transport": { en: "Children on each route, bus times, drivers", hi: "हर रूट के बच्चे, बस का समय, ड्राइवर" },
   "/timetable?view=subs": { en: "Who takes whose period today", hi: "आज किसका कालांश कौन लेगा" },
   "/inbox": { en: "Approvals and corrections waiting", hi: "स्वीकृति और सुधार जो आपकी राह देख रहे हैं" },
+  "/needs": { en: "What is waiting for you, in order", hi: "आपके लिए क्या बाकी है, क्रम से" },
   "/academics/progress": { en: "How each class and child is doing", hi: "हर कक्षा और बच्चा कैसा कर रहा है" },
   "/academics/attendance": { en: "Attendance for every class", hi: "हर कक्षा की हाज़िरी" },
   "/notes": { en: "What teachers noticed about a child", hi: "शिक्षकों ने बच्चों के बारे में क्या लिखा" },

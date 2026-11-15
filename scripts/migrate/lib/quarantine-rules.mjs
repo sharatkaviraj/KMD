@@ -213,6 +213,12 @@ export const TABLES = {
   // belong in a record, waiting for staff to apply or let go. Never the
   // parent's words, which stay in the hand-off (parent_replies).
   parent_suggestions: { bucket: "K", why: "post go-live parent's WhatsApp suggestions for staff to apply or let go (absence, visit, a detail to change); service-role only" },
+  // Needs you (D-630..D-633): created after go-live, service-role only. A
+  // person's own to-dos and put-off times, what their list held on a day,
+  // and the AI's suggested order (kinds of job and numbers, never a name).
+  needs_reminders: { bucket: "K", why: "post go-live a person's own to-dos and \"remind me later\" times on their Needs you; service-role only" },
+  needs_seen: { bucket: "K", why: "post go-live the jobs a person's Needs you held on a day, to show what left it; service-role only" },
+  needs_plans: { bucket: "K", why: "post go-live the AI's suggested order of a person's Needs you (kinds of job and numbers only); service-role only" },
   ai_jobs: { bucket: "C", why: "service-only built-in AI ledger (TEST and real sessions) with its own 90-day retention" },
   builtin_ai_settings: { bucket: "C", why: "built-in AI daily quota and last key check; no pupil or staff data" },
   builtin_ai_provider_status: { bucket: "C", why: "built-in AI key status (ok / quota / failing); no pupil or staff data" },

@@ -261,7 +261,7 @@ async function waitingTasks(now: Date): Promise<WaitingTask[]> {
  * marks page's own rule (the current exam's term, children on the roll).
  * More said "Nothing waiting" while 41 were (smoke 20 Oct).
  */
-async function remarksToWrite(staffId: string, sessionLabel: string, today: string): Promise<number> {
+export async function remarksToWrite(staffId: string, sessionLabel: string, today: string): Promise<number> {
   const [mine, exams] = await Promise.all([classTeacherOf(staffId, sessionLabel), listExams(sessionLabel)]);
   const exam = currentExam(exams, today, undefined);
   if (!exam || mine.length === 0) return 0;

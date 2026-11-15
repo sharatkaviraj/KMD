@@ -11,6 +11,10 @@ import { AccountsHome } from "@/vx/screens/accounts/accounts-home";
 import { getViewer } from "@/vx/view-as";
 import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { LiveFinanceHub } from "@/vx/screens/accounts/live-finance-hub";
+import { Suspense } from "react";
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { accountantSource, counterSourceFrom } from "@/modules/needs-you/data/sources";
+import { NeedsStripSlot, NeedsStripWaiting } from "@/modules/needs-you/ui/strip-slot";
 
 export const runtime = "nodejs";
 
@@ -26,7 +30,12 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const { previewing } = await getViewer();
   const sp = await searchParams;
   const bridgeSession=typeof sp.session==="string"?sp.session:await getViewSessionCookie();
-  if(usesCanonicalFees(staff,bridgeSession))return <LiveFinanceHub language={staff.language} reportsHere={can(staff,"fees:reports")}/>;
+  if(usesCanonicalFees(staff,bridgeSession)){
+    // Needs you at the top (D-630): in the real year One knows today's promises; money lives in Fees.
+    const [oneSession,clock]=await Promise.all([resolveSessionLabel(),schoolNow(staff)]);
+    const needs=oneSession?<Suspense fallback={<NeedsStripWaiting/>}><NeedsStripSlot staff={staff} role="accountant" source={accountantSource(staff,{sessionLabel:oneSession,feeSessionLabel:oneSession,canonical:true,now:clock})} sessionLabel={oneSession}/></Suspense>:undefined;
+    return <LiveFinanceHub language={staff.language} reportsHere={can(staff,"fees:reports")} needs={needs}/>;
+  }
   const session = await resolveViewSession({ searchParamSession: sp.session, cookieSession: await getViewSessionCookie() });
   // The school clock: real for everyone, a QA/Smoke Lab account's pretend
   // time where one is set (D-269). It decides what the page says about the
@@ -60,6 +69,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       canManage={can(staff, "fees:manage")}
       roleName={staff.role}
       readOnly={Boolean(previewing)}
+      needs={<Suspense fallback={<NeedsStripWaiting />}><NeedsStripSlot staff={staff} role="accountant" source={counterSourceFrom(staff, data, now)} sessionLabel={await resolveSessionLabel()} /></Suspense>}
     />
   );
 }

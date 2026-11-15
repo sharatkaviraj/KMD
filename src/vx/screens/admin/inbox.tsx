@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode, type RefObj
 
 import { decideParentSuggestionsAction, undoParentSuggestionsAction } from "@/app/(app)/inbox/parent-actions";
 import { decideLeaveAction } from "@/app/(app)/timetable/vx-actions";
+import { useInboxOrder } from "@/modules/needs-you/ui/inbox-order";
 import { SUGGESTION_WORDS as SW, type RegisterMark } from "@/modules/whatsapp/domain/parent-suggestion-words";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 
@@ -80,10 +81,12 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
 type Beacon = InboxBeacon;
 type Held = PendingInboxDecision & { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; sending: boolean; flushing: boolean };
 
-export function InboxScreen({ items, initial, previewing, unavailable, scope, taskPanel, taskActions, taskDetail, views }: {
+export function InboxScreen({ items: queue, initial, previewing, unavailable, scope, taskPanel, taskActions, taskDetail, views, head }: {
   items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean; scope: InboxScope;
   /** The two halves of Needs you (D-520): decisions here, teachers' work beside them. */
   views?: ReactNode;
+  /** Above the queue: the AI's line, the person's own to-dos and what they finished today (D-630). */
+  head?: ReactNode;
   /** Teacher work: below the queue, never above the title. */
   taskPanel?: ReactNode;
   /** The desk's top-bar buttons; the phone carries them in `taskPanel`. */
@@ -95,7 +98,10 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
   const toast = useToast();
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | InboxType>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(initial ?? items[0]?.id ?? null);
+  // The AI's order for the queue, once it has made one (D-630); otherwise the queue's own.
+  const items = useInboxOrder(queue);
+  // Nothing picked yet follows the first item, so it is still the first once the AI has ordered the queue.
+  const [selectedId, setSelectedId] = useState<string | null>(initial);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [picking, setPicking] = useState<InboxItem | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -457,6 +463,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     <div className="only-d" style={{ display: "grid", gridTemplateColumns: "400px minmax(0, 1fr)", minHeight: "calc(100dvh - 64px)" }}>
       <div style={{ minWidth: 0, borderRight: "1px solid var(--bd)", display: "flex", flexDirection: "column" }}>
         {views ? <div style={{ padding: "14px 16px 0" }}>{views}</div> : null}
+        {head ? <div style={{ padding: "14px 16px 0" }}>{head}</div> : null}
         <div className="glass" role="group" aria-label={tx(TO.filterByType)} style={{ position: "sticky", top: 64, zIndex: 2, padding: "16px 16px 12px", display: "flex", flexWrap: "wrap", gap: 6, borderBottom: "1px solid var(--bd)" }}>
           {chips}
           <span style={{ marginLeft: "auto", display: "flex", flexWrap: "wrap", gap: 6 }}>{markAll}{batch}</span>
@@ -518,6 +525,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
         </div>
       </div>
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {head}
         {notices}
         <div style={{ alignSelf: "flex-start", display: "flex", flexWrap: "wrap", gap: 8 }}>{markAll}{batch}</div>
         {shown.length === 0 ? (unavailable ? null : <AllClear />) : shown.map((item, i) => <PhoneCard key={item.id} item={item} on={on} delay={Math.min(i * 40, 400)} />)}

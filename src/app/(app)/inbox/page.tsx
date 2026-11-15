@@ -26,6 +26,10 @@ import { loadTaskDelivery } from "@/modules/teacher-tasks/data/delivery";
 import { TaskDelivery } from "@/modules/teacher-tasks/ui/task-delivery";
 import { CollectScreen } from "@/vx/screens/admin/collect-screen";
 import { ParentsDecidedToday } from "@/vx/screens/parents/parent-notes";
+import { currentBells } from "@/modules/substitutions/data/cover-repo";
+import { needsView } from "@/modules/needs-you/data/board";
+import { adminNeeds } from "@/modules/needs-you/domain/office";
+import { InboxHead, NeedsHeadProvider } from "@/modules/needs-you/ui/inbox-head";
 
 export const runtime = "nodejs";
 
@@ -97,37 +101,56 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
   // The same clock as Today: a lab seat's set time, everyone else's real one (reads only, D-269).
   const now = await schoolNow(staff);
   const day = schoolToday(now);
-  const { items, unavailable } = await loadInbox(staff, sessionLabel, day, {
+  const inbox = loadInbox(staff, sessionLabel, day, {
     refunds: moneyRequestsFor(staff, sessionLabel),
     nowMinutes: schoolMinutes(now),
   });
+  // The queue as jobs (D-630): the AI's order for it, the person's own to-dos and what left it today.
+  // Read beside the queue; if it fails, the queue is drawn exactly as before.
+  const bells = currentBells(sessionLabel).catch(() => null);
+  const needs = needsView(staff, {
+    role: "admin",
+    source: Promise.all([inbox, bells]).then(([read, b]) => ({
+      items: adminNeeds(sortInbox(read.items), now, schoolMinutes(now), b?.periods ?? []),
+      done: [],
+      complete: read.unavailable.length === 0,
+    })),
+    sessionLabel,
+    now,
+  }).catch(() => null);
+  const [{ items, unavailable }, needsNow] = await Promise.all([inbox, needs]);
   const sorted = sortInbox(items);
+
+  const screen = (
+    <InboxScreen
+      items={sorted}
+      initial={item}
+      previewing={previewing !== null}
+      unavailable={unavailable.length > 0}
+      scope={{ accountId: staff.userId, sessionLabel, day }}
+      views={canAssign ? <NeedsYouViews active="decide" decide={sorted.length} collect={counts?.attention ?? 0} language={staff.language} /> : undefined}
+      taskActions={canAssign ? (
+        <>
+          {reviewPhotos ? <Btn icon="camera" href="/collection/review">{lead(photoMessages.review, staff.language)}</Btn> : null}
+          <AssignmentLauncher language={staff.language} variant="pri" label={lead(CW.ask, staff.language)} />
+        </>
+      ) : undefined}
+      taskPanel={(
+        <>
+          {/* A parent's suggestions decided today, each with Undo (D-598). */}
+          <Suspense fallback={null}><ParentsDecidedToday staff={staff} sessionLabel={sessionLabel} day={day} /></Suspense>
+          <Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>
+          {canAssign ? <CollectSummary counts={counts} language={staff.language} /> : null}
+        </>
+      )}
+      taskDetail={taskDetail}
+      head={needsNow ? <InboxHead /> : undefined}
+    />
+  );
 
   return (
     <VxPage label={lead(T.needsYou, staff.language)}>
-      <InboxScreen
-        items={sorted}
-        initial={item}
-        previewing={previewing !== null}
-        unavailable={unavailable.length > 0}
-        scope={{ accountId: staff.userId, sessionLabel, day }}
-        views={canAssign ? <NeedsYouViews active="decide" decide={sorted.length} collect={counts?.attention ?? 0} language={staff.language} /> : undefined}
-        taskActions={canAssign ? (
-          <>
-            {reviewPhotos ? <Btn icon="camera" href="/collection/review">{lead(photoMessages.review, staff.language)}</Btn> : null}
-            <AssignmentLauncher language={staff.language} variant="pri" label={lead(CW.ask, staff.language)} />
-          </>
-        ) : undefined}
-        taskPanel={(
-          <>
-            {/* A parent's suggestions decided today, each with Undo (D-598). */}
-            <Suspense fallback={null}><ParentsDecidedToday staff={staff} sessionLabel={sessionLabel} day={day} /></Suspense>
-            <Suspense fallback={null}><SchoolOfficeAttention sessionLabel={sessionLabel} /></Suspense>
-            {canAssign ? <CollectSummary counts={counts} language={staff.language} /> : null}
-          </>
-        )}
-        taskDetail={taskDetail}
-      />
+      {needsNow ? <NeedsHeadProvider view={needsNow}>{screen}</NeedsHeadProvider> : screen}
     </VxPage>
   );
 }

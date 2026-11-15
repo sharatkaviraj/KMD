@@ -43,6 +43,7 @@ import { SessionBar } from "./session-bar";
 import { menuRoleLabel, ROLE_SUB } from "./role-line";
 import type { PreviewMenu } from "./preview-links";
 import { VxSidebar, type Badges } from "./sidebar";
+import { needsBadgeCount } from "@/modules/needs-you/data/store";
 import { sessionText } from "@/platform/helpers/session-text";
 
 const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", exam: "award" } as const;
@@ -59,9 +60,12 @@ function meHref(role: StaffRole, settings: boolean): string {
   return "/menu";
 }
 
+/** The menus with a Needs you list of their own; the admin's and coordinators' is the inbox. */
+const NEEDS_MENUS: ReadonlySet<string> = new Set(["teacher", "accountant", "exam"]);
+
 async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges> {
   const out: Badges = {};
-  const [dues, inbox] = await Promise.all([
+  const [dues, inbox, needs] = await Promise.all([
     can(viewer.staff, "fees:view") && sessionLabel ? getDuesBadgeCount(sessionLabel) : null,
     // The admin queue, counted from the same reads the Needs you page uses —
     // in the same request on Today and Needs you, so it is free there (perf fixes 1, 2).
@@ -73,9 +77,17 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
           .then((now) => inboxCount(viewer.staff, sessionLabel, schoolToday(now), moneyRequestsFor(viewer.staff, sessionLabel), schoolMinutes(now)))
           .catch(() => null)
       : null,
+    // Needs you's count (D-630): today's jobs in Do now and Today, as the list last saw them.
+    // One indexed count; a role preview has no list of its own.
+    !rolePreviewOf(viewer) && NEEDS_MENUS.has(viewer.menu) && sessionLabel
+      ? schoolNow(viewer.staff)
+          .then((now) => needsBadgeCount(viewer.staff.id, sessionLabel, schoolToday(now), now))
+          .catch(() => null)
+      : null,
   ]);
   if (dues !== null) out.dues = dues;
   if (inbox !== null) out.inbox = inbox;
+  if (needs !== null) out.needs = needs;
   return out;
 }
 

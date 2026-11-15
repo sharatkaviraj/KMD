@@ -52,7 +52,7 @@ with
     'parent_helper_settings','parent_helper_chats','parent_helper_turns',
     'parent_helper_handoffs','parent_helper_alerts','parent_helper_deliveries','staff_whatsapp_links',
     'staff_sign_in_settings','staff_sign_in_codes','parent_absence_notes','parent_helper_lessons',
-    'parent_suggestions'])),
+    'parent_suggestions','needs_reminders','needs_seen','needs_plans'])),
   -- @buckets-end
   -- References with no foreign key that the catalog does not find by name
   -- (lib/quarantine-rules.mjs TABLES: staffRefs, classRefs, staffArrays,

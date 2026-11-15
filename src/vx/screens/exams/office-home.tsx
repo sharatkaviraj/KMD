@@ -192,7 +192,10 @@ export function ExamHome({
   markStep,
   staffPhone,
   officeLinks,
+  needs,
 }: {
+  /** Needs you's strip (D-630), at the very top of Today. */
+  needs?: ReactNode;
   view: HomeView;
   hello: string;
   staffName: string;
@@ -410,7 +413,7 @@ export function ExamHome({
     <VxPage className="eoh">
       <OfficeTop crumb={crumb} title={tx(titles[view])} mSub={mSub[view]} back={back} logo={view === "home" || view === "menu"} lang help={help} actions={actions} />
       {/* Board links below the day's work: above it they sat over the greeting (UX review 6 Nov 2026). */}
-      <main>{body}{officeLinks ? <div style={{ padding: "0 20px 24px" }}>{officeLinks}</div> : null}</main>
+      <main>{view === "home" && needs ? <div className="pad" style={{ padding: "18px 28px 0" }}>{needs}</div> : null}{body}{officeLinks ? <div style={{ padding: "0 20px 24px" }}>{officeLinks}</div> : null}</main>
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} help={help} />
       {results ? (
         <RemindSheet

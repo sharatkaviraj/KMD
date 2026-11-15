@@ -183,6 +183,8 @@ export function TeachMore({
   const asked = data.leave.filter((l) => l.status === "asked").length;
   type Tile = { k: string; icon: IconName; t: Pair; info: string; tone: Tone; href?: string; onClick?: () => void; badge?: number; wide?: boolean; news?: string };
   const tiles: Tile[] = [
+    // Needs you first (D-630): everything waiting on her, in order, with reminders.
+    { k: "needs", icon: "ticks", t: p("Needs you", "आपके लिए"), info: tx(p("What is waiting for you, in order", "आपके लिए क्या बाकी है, क्रम से")), tone: TA, href: "/needs", wide: true },
     { k: "home", icon: "home", t: p("Today", "आज"), info: data.closed ? tx(closedTitle(data.closed)) : nowSlot ? tx(p(`P${nowSlot.number} ${nowSlot.classLabel} ${subj(nowSlot.subjectCode)} now`, `अभी P${nowSlot.number} ${classesWord(nowSlot.classLabel).hi} ${subjectWord(nowSlot.subjectCode, subjectNames).hi}`)) : tx(p("Your day at a glance", "आपका दिन एक नज़र में")), tone: TA, href: "/teach" },
     { k: "att", icon: "calCheck", t: p("Attendance", "हाज़िरी"), info: held[0] ? tx(p(`${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} children` : ""}`, `${classWord(held[0].classLabel).hi}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} बच्चे` : ""}`)) : tx(p("Class registers", "कक्षा हाज़िरी")), tone: TO, href: "/teach/attendance" },
     { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${classWord(held[0].classLabel).hi} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },

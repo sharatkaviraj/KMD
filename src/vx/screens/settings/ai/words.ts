@@ -87,6 +87,7 @@ export const TASK_WORDS: Record<string, { label: Pair; icon: IconName }> = {
   "call.script": { label: p("Call script", "कॉल में क्या कहें"), icon: "phone" },
   "template.draft": { label: p("Message template", "संदेश टेम्पलेट"), icon: "fileText" },
   "brief.today": { label: p("Weekly brief", "हफ़्ते का सार"), icon: "sun" },
+  "needs.arrange": { label: p("Arrange Needs you", "‘आपके लिए’ का क्रम"), icon: "ticks" },
   "marks-photo": { label: p("Marks from a photo", "फ़ोटो से अंक"), icon: "camera" },
   "substitution-photo": { label: p("Substitution from a photo", "फ़ोटो से सब्स्टिट्यूशन"), icon: "camera" },
   voice: { label: p("Voice request", "आवाज़ से अनुरोध"), icon: "mic" },

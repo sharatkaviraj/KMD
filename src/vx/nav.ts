@@ -26,7 +26,7 @@ export type NavEntry = {
 
 export type NavGroup = { title?: Pair; items: NavEntry[] };
 
-export type BadgeKey = "inbox" | "notes" | "dues" | "books" | "marks" | "news";
+export type BadgeKey = "inbox" | "needs" | "notes" | "dues" | "books" | "marks" | "news";
 
 /** Eight app roles onto the design's five menus (docs/ui/DECISIONS.md UI-7). */
 export function designMenuFor(role: StaffRole): DesignMenu {
@@ -108,6 +108,8 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
     {
       items: [
         { key: "home", label: L("Today", "आज"), icon: "home", href: "/teach", permission: "attendance:view" },
+        // Needs you (D-630): what is waiting on this person, in order. Second in every list; the phone bar is unchanged.
+        { key: "needs", label: L("Needs you", "आपके लिए"), icon: "ticks", href: "/needs", permission: "dashboard:view", badge: "needs" },
         { key: "attendance", label: L("Attendance", "हाज़िरी"), icon: "calCheck", href: "/teach/attendance", permission: "attendance:mark" },
         { key: "class", label: L("My class & subjects", "मेरी कक्षा"), icon: "users", href: "/teach/class", permission: "attendance:view" },
         { key: "marks", label: L("Marks", "अंक"), icon: "clipboard", href: "/teach/marks", permission: "marks:write" },
@@ -127,6 +129,8 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
     {
       items: [
         { key: "home", label: L("Today", "आज"), icon: "home", href: "/accounts", permission: "fees:view" },
+        // Needs you (D-630): what is waiting on this person, in order. Second in every list; the phone bar is unchanged.
+        { key: "needs", label: L("Needs you", "आपके लिए"), icon: "ticks", href: "/needs", permission: "dashboard:view", badge: "needs" },
         { key: "collect", label: L("Payment Desk", "फीस जमा"), icon: "rupee", href: "/payments", permission: "fees:collect" },
         { key: "fees", label: L("Receipts & day close", "रसीदें"), icon: "receipt", href: "/receipts", permission: "fees:view" },
         { key: "dues", label: L("Dues & calls", "बकाया"), icon: "phone", href: "/dues", permission: "fees:view", badge: "dues" },
@@ -163,6 +167,8 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
     {
       items: [
         { key: "home", label: L("Today", "आज"), icon: "home", href: "/exam-office", permission: "assessments:manage" },
+        // Needs you (D-630): what is waiting on this person, in order. Second in every list; the phone bar is unchanged.
+        { key: "needs", label: L("Needs you", "आपके लिए"), icon: "ticks", href: "/needs", permission: "dashboard:view", badge: "needs" },
         { key: "plan", label: L("Date sheet & seating", "डेटशीट व बैठक"), icon: "calendar", href: "/exam-office/plan", permission: "assessments:manage" },
         { key: "exams", label: L("Marks tracker", "अंक ट्रैकर"), icon: "clipboard", href: "/exams", permission: "assessments:view", badge: "marks" },
         { key: "results", label: L("Results & report cards", "परिणाम"), icon: "award", href: "/exam-office/results", permission: "assessments:manage" },

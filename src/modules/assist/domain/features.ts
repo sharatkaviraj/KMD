@@ -28,6 +28,7 @@ export const assistFeatures = [
   "summary",
   "calls",
   "brief",
+  "needs",
 ] as const;
 
 export type AssistFeature = (typeof assistFeatures)[number];
@@ -53,6 +54,8 @@ export const FEATURE_PERMISSIONS: Record<AssistFeature, readonly StaffPermission
   calls: ["fees:view", "attendance:mark_on_behalf"],
   // The weekly brief sits on Today for the people who run the school's day.
   brief: ["attendance:correct"],
+  // Everyone's Needs you list (D-633): every role reads its own Today.
+  needs: ["dashboard:view"],
 };
 
 /**
@@ -142,6 +145,11 @@ export const FEATURE_LABELS: Record<AssistFeature, { en: string; hi: string; sub
     hi: "हफ़्ते का सार",
     sub: { en: "This week in plain words on Today; every figure is the app’s", hi: "‘आज’ पर इस हफ़्ते का सार; हर आँकड़ा ऐप का" },
   },
+  needs: {
+    en: "Needs you order",
+    hi: "‘आपके लिए’ का क्रम",
+    sub: { en: "Puts each person’s waiting jobs in the best order; it sees only kinds of job, never names", hi: "हर व्यक्ति के बाकी कामों को सही क्रम में लगाता है; सिर्फ़ काम का प्रकार देखता है, नाम कभी नहीं" },
+  },
 };
 
 const FEATURE_TIER: Record<AssistFeature, AssistTier> = {
@@ -150,6 +158,7 @@ const FEATURE_TIER: Record<AssistFeature, AssistTier> = {
   ask: "quick",
   columns: "quick",
   cover: "quick",
+  needs: "quick",
   message: "writing",
   summary: "writing",
   calls: "writing",

@@ -49,6 +49,7 @@ export const TASK_TIER: Record<AssistTaskId, AssistTier> = {
   "columns.match": "quick",
   "cover.plan": "quick",
   "template.draft": "quick",
+  "needs.arrange": "quick",
   "message.write": "writing",
   "message.polish": "writing",
   "message.reply": "writing",
@@ -81,6 +82,8 @@ export const OPEN_TASKS: ReadonlySet<AssistTaskId> = new Set<AssistTaskId>([
   "results.summary",
   "message.write",
   "message.polish",
+  // Kinds of job and a few numbers under made-up ids, never a title or a name (D-633).
+  "needs.arrange",
 ]);
 
 /** Tasks that send a photograph. Never a free model's, not even for a test account (D-496). */
@@ -109,6 +112,7 @@ export const FREE_JOB: Record<Exclude<AssistTaskId, "form.read">, FreeJob> = {
   "ask.answer": "quick",
   "columns.match": "quick",
   "cover.plan": "quick",
+  "needs.arrange": "quick",
   "note.polish": "writing",
   "text.translate": "writing",
   "template.draft": "writing",

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { PLAN_INSTRUCTIONS } from "@/modules/needs-you/domain/plan";
+import { isNeedReason, NEED_KINDS } from "@/modules/needs-you/domain/types";
+
 import { FACT_KEY, FACT_RULES, numbersComeFrom, usesOnlyFacts } from "./facts";
 import type { AssistFeature } from "./features";
 
@@ -635,6 +638,60 @@ const askAnswer = task({
   },
 });
 
+/* -------------------------------------------------------------- needs you */
+
+/**
+ * The order of a person's Needs you list (D-633). The input is the kind of
+ * each job and a few numbers, under ids "i1".."i25": never a title, a name,
+ * a class or a word anybody wrote, so it may go to the free models. The
+ * answer is only an order and a reason word per id; One keeps every job's
+ * lane, keeps a period that starts within 15 minutes first, and puts back
+ * any job the answer left out (`planFromAnswer`).
+ */
+const needsArrange = task({
+  feature: "needs",
+  effort: "low",
+  maxTokens: 900,
+  input: z.object({
+    role: z.enum(["teacher", "accountant", "exam", "admin"]),
+    time: z.string().regex(/^\d{2}:\d{2}$/),
+    items: z
+      .array(
+        z.object({
+          id: z.string().regex(/^i\d{1,2}$/),
+          kind: z.enum(NEED_KINDS),
+          lane: z.enum(["now", "today"]),
+          late_minutes: z.number().int().min(0).max(14 * 24 * 60),
+          starts_in_minutes: z.number().int().min(0).max(24 * 60).nullable(),
+          people_waiting: z.number().int().min(0).max(999),
+          how_many: z.number().int().min(1).max(999),
+          effort: z.enum(["quick", "medium", "long"]),
+        }),
+      )
+      .min(2)
+      .max(25),
+  }),
+  output: z.object({ order: z.array(z.string()), reasons: z.array(z.object({ id: z.string(), reason: z.string() })) }),
+  instructions: PLAN_INSTRUCTIONS,
+  prompt: (input) => fence(input),
+  finish: (output, input) => {
+    const ids = new Set(input.items.map((item) => item.id));
+    const order = [...new Set(output.order.map((id) => id.trim()).filter((id) => ids.has(id)))];
+    // An answer that places fewer than half the jobs is not an arrangement: the next model may do better.
+    if (order.length < 2 || order.length * 2 < ids.size) return null;
+    const seen = new Set<string>();
+    const reasons: { id: string; reason: string }[] = [];
+    for (const r of output.reasons) {
+      const id = r.id.trim();
+      const reason = r.reason.trim();
+      if (!ids.has(id) || seen.has(id) || !isNeedReason(reason)) continue;
+      seen.add(id);
+      reasons.push({ id, reason });
+    }
+    return { order, reasons };
+  },
+});
+
 export const ASSIST_TASKS = {
   "note.polish": notePolish,
   "note.sort": noteSort,
@@ -653,6 +710,7 @@ export const ASSIST_TASKS = {
   "call.script": callScript,
   "template.draft": templateDraft,
   "brief.today": todayBrief,
+  "needs.arrange": needsArrange,
 } as const;
 
 export type AssistTaskId = keyof typeof ASSIST_TASKS;
