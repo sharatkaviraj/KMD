@@ -2,7 +2,7 @@ import "server-only";
 
 import { classLabelsForJob } from "@/modules/academics/data/academics-repo";
 import { isEffectiveOn } from "@/modules/attendance/domain/class-scope";
-import { toolRuntime } from "@/modules/mcp/data/runtime";
+import { readAsActor, toolRuntime } from "@/modules/mcp/data/runtime";
 import { resolveStaffForUser } from "@/modules/mcp/data/staff";
 import type { StaffLanguage } from "@/modules/whatsapp/domain/helper-handoff";
 import { inNeedsYou, suggestionCard } from "@/modules/whatsapp/domain/parent-suggestions";
@@ -202,6 +202,30 @@ async function actorFor(staff: LinkedStaff): Promise<VerifiedActor | null> {
   const actor = await resolveStaffForUser(staff.userId).catch(() => null);
   if (!actor || !actor.isActive || actor.id !== staff.staffId) return null;
   return actor;
+}
+
+/** One person's actor per turn: the desk makes several reads as the same member of staff. */
+const actorsThisTurn = new WeakMap<LinkedStaff, Promise<VerifiedActor | null>>();
+
+/**
+ * A read made as this member of staff (D-639). Under the fees bridge every
+ * `public` read (the session list, class names, children's names) is a roster
+ * read, and the roster projection refuses one that names no reader. A
+ * WhatsApp message has no cookie, so the desk names the person it answers
+ * as: the owner's practice seat (a TEST account) or the member of staff who
+ * linked this number. A TEST account's reads stay on One's TEST records; a
+ * real member of staff's go where their screens' reads go. Throws when the
+ * person cannot be resolved (no sign-in, inactive, another profile).
+ */
+export async function readAsStaff<T>(staff: LinkedStaff, read: () => Promise<T>): Promise<T> {
+  let pending = actorsThisTurn.get(staff);
+  if (!pending) {
+    pending = actorFor(staff).catch(() => null);
+    actorsThisTurn.set(staff, pending);
+  }
+  const actor = await pending;
+  if (!actor) throw new Error("This member of staff could not be read as themselves.");
+  return readAsActor(actor, read);
 }
 
 export async function readSchoolToday(staff: LinkedStaff, sessionLabel: string, day: string): Promise<SchoolFacts | null> {

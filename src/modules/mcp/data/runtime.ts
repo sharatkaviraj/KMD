@@ -98,6 +98,17 @@ export const toolRuntime: ToolRuntime = {
     }),
 };
 
+/**
+ * Any other read as this actor (D-639). Veer Patta AI's staff desks answer a
+ * WhatsApp message, where no cookie names the reader, and under the fees
+ * bridge the session list, class names and children's names are roster reads
+ * the projection refuses without one. The desk resolves the person afresh for
+ * every message (`resolveStaffForUser`), then reads as them here.
+ */
+export function readAsActor<T>(actor: McpActor, read: () => Promise<T>): Promise<T> {
+  return asActor(actor, () => read());
+}
+
 /** Step 6: the session for this actor, by the server's own rules (never sorted, never from arguments). */
 export function sessionForActor(actor: McpActor): Promise<string | null> {
   return asActor(actor, (verified) => sessionLabelForActor(verified));

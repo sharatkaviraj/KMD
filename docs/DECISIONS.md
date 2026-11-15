@@ -1,5 +1,17 @@
 # Decisions
 
+## Veer Patta AI's staff desks on the live site — 15 November 2026
+
+The owner asked (15 Nov 13:31 UTC) why the school's WhatsApp answered his
+messages with "⚠️ Sorry, that could not be read just now. Please write again
+in a little while, or look in One: …/teach". Every staff-desk turn in
+`vppsone.parent_helper_turns` since the desks went live (5 turns, 14 Nov
+07:59 UTC to 15 Nov 13:30 UTC) carried `reason = session_unreadable`.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-639 | **A staff desk's reads are made as the person it answers as: the owner's practice seat (a TEST account) or the member of staff who linked the number, resolved from their sign-in afresh for every message (`resolveStaffForUser`, as the desk's school, away, cover and leave reads already were). `readAsStaff` (`modules/whatsapp/data/staff-desk.ts`) runs the session read, the desk, the teacher's day, a class's absent children and Needs you inside `withVerifiedActor`, through `readAsActor` in `modules/mcp/data/runtime.ts`. A person who cannot be resolved (no sign-in, inactive, another profile) still gets the sorry reply, and the session failure is now logged with its reason (`whatsapp.staff_helper.session_unreadable`).** | A WhatsApp message arrives on the hub's webhook, with no cookie. Under the fees bridge (`FEES_BRIDGE_ENABLED`), every `public` read through One's clients is a roster read, and the projection (`fees-bridge/projection-fetch.ts`) refuses one that names no reader with a 409. The session list (`public.classes`) is such a read, so `sessionLabelForStaff` threw and every desk said "could not be read". The parents' side was not affected: it reads through `vppsone` RPCs and `withTestRecordRead`. D-591 was checked in the container, where the bridge is off, and D-607 never had a live staff turn before it went out. A TEST seat's reads stay on One's own TEST records (the projection sends a test account's read straight through); a real member of staff's go where their own screens' reads go. Nothing here writes. `tests/whatsapp-staff-desk-reader.test.ts` reproduces the refusal and pins the fix. |
+
 ## School Office card on the admin's inbox — 15 November 2026
 
 Found in the Needs you check on BrowserStack (15 Nov): the test admin's inbox

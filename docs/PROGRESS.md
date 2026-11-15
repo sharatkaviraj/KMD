@@ -1,5 +1,14 @@
 # VPPS One — progress
 
+## Veer Patta AI's staff desks on the live site — 15 November 2026
+
+The owner's WhatsApp got "⚠️ Sorry, that could not be read just now" for every
+staff-desk message (`parent_helper_turns.reason = session_unreadable`).
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| A staff desk reads as the person it answers as, so the fees bridge's roster projection lets its session, class and children's-name reads through (D-639) | **done** | `claude/project-thread-397b0c` | Surprised: no staff desk had ever answered on the live site. Every turn since D-607 went out failed at the session read, because a webhook has no cookie and the bridge refuses a roster read with no reader. The container has the bridge off, so the D-591 and D-607 checks there could not see it. |
+
 ## School Office card on the admin's inbox — 15 November 2026
 
 Found in the Needs you check on BrowserStack: the test admin's inbox said

@@ -79,7 +79,7 @@ import { SCHOOL_UTC_OFFSET_MINUTES, schoolToday } from "@/platform/dates";
 import { FEE_SCHEMA, getSiteUrl } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
-import { logInfo } from "@/platform/observability/log";
+import { describeError, logInfo, logWarn } from "@/platform/observability/log";
 import { readWhatsAppConfig, type WhatsAppConfig } from "@/platform/whatsapp/config";
 import { maskNumber, sameNumber, toE164 } from "@/platform/whatsapp/numbers";
 import { textMessageBody } from "@/platform/whatsapp/payload";
@@ -95,6 +95,7 @@ import { insertAlert, readOpenHandoffsFor, type AlertRecord, type OpenHandoff } 
 import { finishTurn, readBudget, readHelperSettings, saveChat, startTurn, type TurnFinish, type TurnStages } from "./helper-store";
 import { askStaffClaude, type StaffClaudeTurn } from "./staff-claude";
 import {
+  readAsStaff,
   readCoverToday,
   readDesk as readStaffDesk,
   readFeeFigures,
@@ -515,7 +516,7 @@ export type StaffHelperDeps = {
   saveHat: (from: string, hat: StaffHat | null, at: Date) => Promise<void>;
   /** The test account the owner's number answers as in a role (D-607), on the school's day; null when there is none. */
   readSeat: (role: StaffRole, language: StaffLanguage, day: string) => Promise<LinkedStaff | null>;
-  readSession: (staff: Pick<LinkedStaff, "role" | "isTest">) => Promise<string | null>;
+  readSession: (staff: LinkedStaff) => Promise<string | null>;
   /** The classes they hold today, and who they are to parents' suggestions. */
   readDesk: (staff: LinkedStaff, sessionLabel: string, day: string) => Promise<DeskRead | null>;
   readDay: (staff: LinkedStaff, sessionLabel: string, now: Date) => Promise<DayFacts | null>;
@@ -556,12 +557,21 @@ export function liveStaffHelperDeps(config: WhatsAppConfig = readWhatsAppConfig(
     readHat: (from) => readStaffHat(from),
     saveHat: (from, hat, at) => saveStaffHat(from, hat, at),
     readSeat: (role, language, day) => readPracticeSeat(role, language, day),
-    readSession: (staff) => sessionLabelForStaff({ role: staff.role, isTestAccount: staff.isTest }).catch(() => null),
-    readDesk: (staff, sessionLabel, day) => readStaffDesk(staff, sessionLabel, day),
-    readDay: (staff, sessionLabel, now) => readStaffDay(staff, sessionLabel, now),
+    // Each read that touches the roster (the session list, class names,
+    // children's names) is made as the person the desk answers as: a webhook
+    // has no cookie, and under the fees bridge a roster read naming no
+    // reader is refused (D-639). Without this every desk answered "could not
+    // be read" from the day the bridge came on.
+    readSession: (staff) =>
+      readAsStaff(staff, () => sessionLabelForStaff({ role: staff.role, isTestAccount: staff.isTest })).catch((error: unknown) => {
+        logWarn("whatsapp.staff_helper.session_unreadable", { role: staff.role, test: staff.isTest, error: describeError(error) });
+        return null;
+      }),
+    readDesk: (staff, sessionLabel, day) => readAsStaff(staff, () => readStaffDesk(staff, sessionLabel, day)).catch(() => null),
+    readDay: (staff, sessionLabel, now) => readAsStaff(staff, () => readStaffDay(staff, sessionLabel, now)).catch(() => null),
     readQuestions: (staff) => readOpenHandoffsFor(staff.staffId, staff.isTest),
-    readAbsent: (staff, sessionLabel, day) => readStaffAbsent(staff, sessionLabel, day),
-    readNeedsYou: (staff, sessionLabel, day, now, desk) => readStaffNeedsYou(staff, sessionLabel, day, now, desk),
+    readAbsent: (staff, sessionLabel, day) => readAsStaff(staff, () => readStaffAbsent(staff, sessionLabel, day)).catch(() => null),
+    readNeedsYou: (staff, sessionLabel, day, now, desk) => readAsStaff(staff, () => readStaffNeedsYou(staff, sessionLabel, day, now, desk)).catch(() => null),
     readSchool: (staff, sessionLabel, day) => readSchoolToday(staff, sessionLabel, day),
     readAway: (staff, sessionLabel, day) => readStaffAway(staff, sessionLabel, day),
     readCover: (staff, sessionLabel, day) => readCoverToday(staff, sessionLabel, day),
