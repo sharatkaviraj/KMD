@@ -10,6 +10,8 @@ import { buildReportCard, rankClassCards } from "@/modules/assessments/domain/re
 import { ruleForClass } from "@/modules/assessments/domain/result-rules";
 import { renderReportCardsPdf, type CardForPdf } from "@/vx/screens/exams/report-card-pdf";
 
+import { fontsNotEmbedded } from "./support/pdf-fonts";
+
 /*
  * Report card v2 (D-612) is one sheet of A4 per child, whatever the class:
  * nine subjects and Robotics apart, the subject picture, the effort panel and
@@ -117,5 +119,7 @@ describe("report card v2 is one sheet of A4 per child", () => {
     if (out) writeFileSync(`${out}/${name}.pdf`, pdf);
     expect(pages(pdf)).toBe(2);
     expect(cards[0].insight?.classSize).toBe(12);
+    // D-640: the card a parent is sent carries every font it uses.
+    expect(fontsNotEmbedded(pdf)).toEqual([]);
   }, 60_000);
 });

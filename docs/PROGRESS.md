@@ -1,5 +1,14 @@
 # VPPS One — progress
 
+## PDFs on WhatsApp opening blank — 15 November 2026
+
+The owner's phone opened every report card and receipt PDF from the school's
+WhatsApp as a blank white sheet the first time.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Every One PDF embeds all its fonts (D-640): report card, receipt, certificate, fee statement, collection list | **done** | PR 395 (merged with this row), `claude/project-thread-oiqc0e` | Surprised: it did not happen on two BrowserStack phones (Pixel 9, OnePlus 13R, light and dark), so the fix removes the one thing the file left to the phone rather than a cause seen on a screen. Remaining: the owner opening a fresh report card and receipt on his own phone. |
+
 ## Veer Patta AI's staff desks on the live site — 15 November 2026
 
 The owner's WhatsApp got "⚠️ Sorry, that could not be read just now" for every

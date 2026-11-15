@@ -18,27 +18,80 @@ import { schoolProfile } from "@/platform/config/school";
  * which font carries Devanagari.
  */
 
-// Devanagari for the Hindi half of every bilingual label. The built-in
-// Helvetica (English + amounts) has no Devanagari glyphs, and this Noto face has
-// no Latin letters, so each <Text> picks its family by script. The TTFs ship in
-// public/fonts and are traced into every PDF route via
+// Devanagari for the Hindi half of every bilingual label. Helvetica (English +
+// amounts; an embedded face since D-640, see below) has no Devanagari glyphs,
+// and this Noto face has no Latin letters, so each <Text> picks its family by
+// script. The TTFs ship in public/fonts and are traced into every PDF route via
 // `outputFileTracingIncludes` in next.config.ts — miss that and the route works
 // locally and 500s on Vercel.
 export const HI_FONT = "NotoDevanagari";
 
+type EmbeddedFace = { file: string; fontWeight?: "bold"; fontStyle?: "italic" };
+
+const fourFaces = (prefix: string): EmbeddedFace[] => [
+  { file: `${prefix}-Regular.ttf` },
+  { file: `${prefix}-Bold.ttf`, fontWeight: "bold" },
+  { file: `${prefix}-Italic.ttf`, fontStyle: "italic" },
+  { file: `${prefix}-BoldItalic.ttf`, fontWeight: "bold", fontStyle: "italic" },
+];
+
+/**
+ * Every family name a document may ask for that react-pdf would otherwise
+ * leave to the viewer (D-640).
+ *
+ * Helvetica, Times and Courier are the PDF "standard 14" fonts: react-pdf
+ * writes their NAMES into the file and nothing else, trusting the phone to
+ * draw them. The owner's Android phone opened every WhatsApp report card and
+ * receipt as a blank white sheet the first time, and these were the only part
+ * of the file that came from somewhere other than the file. Each name now
+ * resolves to a face embedded from public/fonts — Liberation, renamed and
+ * subset by scripts/build-pdf-fonts.py, with the same letter widths and the
+ * line metrics react-pdf gave the standard fonts, so no line breaks or page
+ * count moves. `tests/pdf-fonts-embedded.test.ts` fails a document that names
+ * a font it does not carry.
+ */
+const EMBEDDED_STANDARD_FAMILIES: Record<string, EmbeddedFace[]> = {
+  Helvetica: fourFaces("VPPSPDFSans"),
+  "Helvetica-Bold": [{ file: "VPPSPDFSans-Bold.ttf" }],
+  "Helvetica-Oblique": [{ file: "VPPSPDFSans-Italic.ttf" }],
+  "Helvetica-BoldOblique": [{ file: "VPPSPDFSans-BoldItalic.ttf" }],
+  "Times-Roman": fourFaces("VPPSPDFSerif"),
+  "Times-Bold": [{ file: "VPPSPDFSerif-Bold.ttf" }],
+  "Times-Italic": [{ file: "VPPSPDFSerif-Italic.ttf" }],
+  "Times-BoldItalic": [{ file: "VPPSPDFSerif-BoldItalic.ttf" }],
+  Courier: fourFaces("VPPSPDFMono"),
+  "Courier-Bold": [{ file: "VPPSPDFMono-Bold.ttf" }],
+  "Courier-Oblique": [{ file: "VPPSPDFMono-Italic.ttf" }],
+  "Courier-BoldOblique": [{ file: "VPPSPDFMono-BoldItalic.ttf" }],
+};
+
 let fontRegistered = false;
 export function ensurePdfFontsRegistered(): void {
   if (fontRegistered) return;
+  const fontsDir = path.join(process.cwd(), "public/fonts");
   Font.register({
     family: HI_FONT,
     fonts: [
-      { src: path.join(process.cwd(), "public/fonts/NotoSansDevanagari-Regular.ttf") },
-      {
-        src: path.join(process.cwd(), "public/fonts/NotoSansDevanagari-Bold.ttf"),
-        fontWeight: "bold",
-      },
+      { src: path.join(fontsDir, "NotoSansDevanagari-Regular.ttf") },
+      { src: path.join(fontsDir, "NotoSansDevanagari-Bold.ttf"), fontWeight: "bold" },
     ],
   });
+  // Font.register() only ADDS faces, and a family resolves to its first exact
+  // match, so registering "Helvetica" again would leave the built-in face in
+  // front. Drop the built-in family first, then register the embedded one
+  // under the same name: every existing style keeps working unchanged.
+  const families = Font.getRegisteredFonts() as Record<string, unknown>;
+  for (const [family, faces] of Object.entries(EMBEDDED_STANDARD_FAMILIES)) {
+    delete families[family];
+    Font.register({
+      family,
+      fonts: faces.map(({ file, fontWeight, fontStyle }) => ({
+        src: path.join(fontsDir, file),
+        fontWeight,
+        fontStyle,
+      })),
+    });
+  }
   fontRegistered = true;
 }
 

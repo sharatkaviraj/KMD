@@ -1,5 +1,15 @@
 # Decisions
 
+## PDFs on WhatsApp opening blank — 15 November 2026
+
+The owner (15 Nov, about 17:57 UTC, screenshot from his Android phone): every
+PDF the school's WhatsApp sends him, report cards and receipts, opens in Drive
+PDF Viewer as a blank white sheet the first time.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-640 | **Every PDF One makes carries every font it uses. Helvetica, Times and Courier (and their bold and italic names) now resolve to embedded faces, "VPPS PDF Sans/Serif/Mono" in `public/fonts`, built from Liberation 2.x by `scripts/build-pdf-fonts.py`: same letter widths, the line metrics react-pdf gave the standard fonts, subset to Latin, renamed because "Liberation" is a Reserved Font Name (OFL text in `public/fonts/OFL-VppsPdf.txt`). `ensurePdfFontsRegistered()` swaps them in under the same family names, so no document's styles changed.** `tests/pdf-fonts-embedded.test.ts` fails a receipt or collection list that names a font it does not carry and any renderer that skips the registration; the report card and certificate tests assert the same. | Not reproduced on a test phone: the live practice report card opened on the first try in Drive PDF Viewer on a Pixel 9 (Android 16) and a OnePlus 13R (Android 15, light and dark mode), and both files were valid and rendered in about 40 ms in pdfium the way Android draws them. The one part of every One PDF that came from outside the file was its Latin fonts: react-pdf writes the "standard 14" fonts by name only and leaves the viewer to supply them (a desktop pdfium searched 133 font paths for one report card; now none). Embedding removes that dependence for every viewer and phone. Page counts and line breaks are unchanged (checked side by side); files grow by about 15 to 19 KB. |
+
 ## Veer Patta AI's staff desks on the live site — 15 November 2026
 
 The owner asked (15 Nov 13:31 UTC) why the school's WhatsApp answered his

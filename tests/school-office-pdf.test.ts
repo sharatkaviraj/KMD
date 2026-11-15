@@ -8,6 +8,8 @@ import { defaultStudyTemplate, type CertificateSchool, type CertificateSnapshot 
 import { defaultTemplates } from "@/modules/certificates/domain/defaults";
 import { DEFAULT_IDENTITY } from "@/modules/certificates/domain/identity";
 
+import { fontsNotEmbedded } from "./support/pdf-fonts";
+
 /** Synthetic children only: nothing here is a real student. */
 const facts: CertificateSnapshot["facts"] = {
   studentId: "00000000-0000-4000-8000-000000000011", enrolmentId: "00000000-0000-4000-8000-000000000012", classId: "00000000-0000-4000-8000-000000000013",
@@ -31,19 +33,79 @@ async function keep(name: string, bytes: Buffer) {
   await writeFile(path.join(directory, name), bytes);
 }
 
-/** The words a PDF shows, read from its compressed content streams (react-pdf writes text as hex runs). */
+/** UTF-16BE hex, as a ToUnicode CMap writes it, to a JS string. */
+function utf16(hex: string, offset = 0): string {
+  const units = (hex.match(/.{4}/g) ?? []).map((unit) => parseInt(unit, 16));
+  if (offset && units.length) units[units.length - 1] += offset;
+  return String.fromCharCode(...units);
+}
+
+/** Glyph code -> text, from a font's ToUnicode CMap (bfchar and bfrange, both forms). */
+function toUnicode(cmap: string): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const block of cmap.matchAll(/beginbfrange([\s\S]*?)endbfrange/g)) {
+    for (const range of block[1].matchAll(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*(\[[^\]]*\]|<[0-9a-fA-F]*>)/g)) {
+      const low = parseInt(range[1], 16);
+      const high = parseInt(range[2], 16);
+      if (range[3].startsWith("[")) {
+        [...range[3].matchAll(/<([0-9a-fA-F]*)>/g)].forEach((item, index) => map.set(low + index, utf16(item[1])));
+      } else {
+        for (let code = low; code <= high; code += 1) map.set(code, utf16(range[3].slice(1, -1), code - low));
+      }
+    }
+  }
+  for (const block of cmap.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)) {
+    for (const pair of block[1].matchAll(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]*)>/g)) map.set(parseInt(pair[1], 16), utf16(pair[2]));
+  }
+  return map;
+}
+
+/**
+ * The words a PDF shows, read from its compressed content streams.
+ *
+ * Since D-640 every font is embedded, so react-pdf writes glyph ids rather
+ * than letters; each run is decoded through its font's ToUnicode map, which is
+ * also what a phone's "find in document" reads. A font without one (none
+ * today) falls back to one byte per letter.
+ */
 function pdfText(pdf: Buffer): string {
   const raw = pdf.toString("latin1");
+  const objects = new Map<string, { dict: string; stream: string | null }>();
+  for (const head of raw.matchAll(/(\d+) 0 obj\b/g)) {
+    const start = (head.index ?? 0) + head[0].length;
+    const endObj = raw.indexOf("endobj", start);
+    const streamAt = raw.indexOf("stream", start);
+    if (streamAt < 0 || streamAt > endObj) {
+      objects.set(head[1], { dict: raw.slice(start, endObj), stream: null });
+      continue;
+    }
+    const from = streamAt + (raw.slice(streamAt, streamAt + 8).match(/stream\r?\n/)?.[0].length ?? 7);
+    const bytes = pdf.subarray(from, raw.indexOf("endstream", from));
+    let stream: string;
+    try { stream = inflateSync(bytes).toString("latin1"); } catch { stream = bytes.toString("latin1"); }
+    objects.set(head[1], { dict: raw.slice(start, streamAt), stream });
+  }
+  const fontMaps = new Map<string, Map<number, string> | null>();
+  for (const { dict } of objects.values()) {
+    for (const fonts of dict.matchAll(/\/Font\s*<<([^>]*)>>/g)) {
+      for (const entry of fonts[1].matchAll(/\/(\S+?)\s+(\d+) 0 R/g)) {
+        const ref = objects.get(entry[2])?.dict.match(/\/ToUnicode (\d+) 0 R/)?.[1];
+        const cmap = ref ? objects.get(ref)?.stream : null;
+        fontMaps.set(entry[1], cmap ? toUnicode(cmap) : null);
+      }
+    }
+  }
   const runs: string[] = [];
-  for (const start of raw.matchAll(/stream\r?\n/g)) {
-    const from = (start.index ?? 0) + start[0].length;
-    const to = raw.indexOf("endstream", from);
-    if (to < 0) break;
-    let body: string;
-    try { body = inflateSync(pdf.subarray(from, to)).toString("latin1"); } catch { continue; }
-    for (const shown of body.matchAll(/\[(.*?)\]\s*TJ|<([0-9a-fA-F]*)>\s*Tj/g)) {
-      const parts = shown[1] !== undefined ? [...shown[1].matchAll(/<([0-9a-fA-F]*)>/g)].map((part) => part[1]) : [shown[2]];
-      runs.push(parts.map((hex) => hex.replace(/../g, (pair) => String.fromCharCode(parseInt(pair, 16)))).join(""));
+  for (const { stream } of objects.values()) {
+    if (!stream || !/\bBT\b/.test(stream)) continue;
+    let font: Map<number, string> | null = null;
+    for (const op of stream.matchAll(/\/(\S+?)\s+[\d.]+\s+Tf|\[(.*?)\]\s*TJ|<([0-9a-fA-F]*)>\s*Tj/g)) {
+      if (op[1] !== undefined) { font = fontMaps.get(op[1]) ?? null; continue; }
+      const parts = op[2] !== undefined ? [...op[2].matchAll(/<([0-9a-fA-F]*)>/g)].map((part) => part[1]) : [op[3]];
+      const map = font;
+      runs.push(parts.map((hex) => map
+        ? (hex.match(/.{4}/g) ?? []).map((code) => map.get(parseInt(code, 16)) ?? "").join("")
+        : hex.replace(/../g, (pair) => String.fromCharCode(parseInt(pair, 16)))).join(""));
     }
   }
   return runs.join(" ");
@@ -51,6 +113,8 @@ function pdfText(pdf: Buffer): string {
 
 function expectPdf(result: Buffer) {
   expect(result.subarray(0, 5).toString()).toBe("%PDF-");
+  // D-640: a certificate carries every font it uses.
+  expect(fontsNotEmbedded(result)).toEqual([]);
   expect(result.byteLength).toBeLessThan(2 * 1024 * 1024);
   expect(result.subarray(-20).toString()).toContain("%%EOF");
 }
