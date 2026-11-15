@@ -1,5 +1,19 @@
 # VPPS One — progress
 
+## Chats with parents — 15 November 2026
+
+Owner asked (15 Nov) for an in-app chat with parents: one chat per parent per
+desk (class teacher, accounts, office), WhatsApp-like and organised, with
+pop-ups, photos and files, replies sent from the school's number through the
+hub, a one-tap WhatsApp link to a member of staff's whole Chats, and an admin
+view that sees and can take over every chat, filtered by teacher, accounts,
+dues and ID, with parents who want the principal shown apart.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| The chats' four templates for Meta (D-616): Open chats for staff, the school's message for parents, Hindi and English | **in review** | `claude/project-thread-tic9k5` | The owner's yes came 15 Nov 05:07 UTC. Registry rows were added to One with the chats' tables (`20261115034215`, applied 15 Nov); once this is live, the hourly template job sends the four (run by hand to start Meta's clock). |
+| Chats in One (D-616, D-617): the database (applied to One 15 Nov), the rules, WhatsApp wiring, one-tap links, the screens | **in progress** | `claude/project-thread-tic9k5` | Follows in its own pull request. |
+
 ## Exams and marks rethink — 14 November 2026
 
 Owner asked (14 Nov) to rethink exams and marks from his Half Yearly 2026-27

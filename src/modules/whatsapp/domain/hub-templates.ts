@@ -9,6 +9,7 @@ import {
 } from "@/modules/whatsapp/domain/campaign-bodies-v6";
 import { AWAY_NOTE_HUB_SUBMISSIONS, HELPER_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/helper-hub-templates";
 import { REPORT_CARD_NOTICE_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/report-card-notice";
+import { CHAT_HUB_SUBMISSIONS } from "@/modules/chats/domain/templates";
 import { SCHOOL_NOTICE_TEMPLATES } from "@/modules/whatsapp/domain/school-notice-bodies";
 import { SIGN_IN_CODE_MINUTES, SIGN_IN_TEMPLATE } from "@/modules/whatsapp/domain/sign-in-code";
 import { STAFF_HUB_SUBMISSIONS } from "@/modules/whatsapp/domain/staff-hub-templates";
@@ -65,10 +66,12 @@ export const SCHOOL_NOTICE_HUB_SUBMISSIONS: readonly TemplateSubmission[] = SCHO
  * Everything One asks the hub to carry: the `_v8` fee set, the parents'
  * school notices, the staff and teacher-task set (`staff-hub-templates.ts`),
  * and Veer Patta AI's (`helper-hub-templates.ts`: the alert and the answer
- * note, D-578, and the away note with its three buttons, D-602), and the
+ * note, D-578, and the away note with its three buttons, D-602), the
  * parents' "results are out" notice with its Get report card button
- * (`report-card-notice.ts`, D-614). "Send for approval" and the hourly check
- * both work from this list.
+ * (`report-card-notice.ts`, D-614), and the chats' two (`chats/domain/templates.ts`,
+ * D-616): parents waiting for a member of staff, with an Open chats button,
+ * and a message from the school for a parent. "Send for approval" and the
+ * hourly check both work from this list.
  */
 export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
   ...V8_HUB_SUBMISSIONS,
@@ -77,6 +80,7 @@ export const HUB_TEMPLATE_SUBMISSIONS: readonly TemplateSubmission[] = [
   ...HELPER_HUB_SUBMISSIONS,
   ...AWAY_NOTE_HUB_SUBMISSIONS,
   ...REPORT_CARD_NOTICE_HUB_SUBMISSIONS,
+  ...CHAT_HUB_SUBMISSIONS,
 ];
 
 /**

@@ -1,5 +1,15 @@
 # Decisions
 
+## Chats with parents — 15 November 2026
+
+The owner asked (15 Nov) for parents' WhatsApp messages that need a person to
+be answered inside One, in an organised chat per parent and per desk, with a
+WhatsApp link that opens a member of staff's whole Chats section in one tap.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-616 | **Chats need two approved messages of their own, Hindi and English, and they go to Meta now, ahead of the screens: `vpps_staff_open_one_<hi|en>_v1` tells a member of staff that parents are waiting for their reply, with an Open chats button (चैट खोलें) to `https://one.vpps.co.in/go/{{1}}`, a one-tap link to their Chats; `vpps_parent_school_message_<hi|en>_v1` tells a parent that the school has sent them a message about their child, to read by replying.** Both UTILITY, two blanks each, shaped like the staff set (a bold title, the school's name, one labelled line per blank). They are on the list the hub carries (`CHAT_HUB_SUBMISSIONS` in `src/modules/chats/domain/templates.ts`), so the hourly template check sends them once and holds each approval to these exact words. Their registry rows (`parent_helper`, not yet submitted) were added to One with the chats' tables (`20261115034215`, applied 15 Nov). Nothing sends either yet. | The owner said "Yes, yes, go ahead" (15 Nov 05:07 UTC) to sending the four for approval. A typed WhatsApp reaches someone only within 24 hours of their own last message; a teacher who has not written to the school's number, or a parent the school writes to first, can only be reached by an approved message, and Meta can take days, so they are asked for before the screens are finished. Until Open chats is approved, the staff nudge carries the link in the approved "Your staff alerts" words. |
+
 ## Exams and marks: report cards on WhatsApp — 14 November 2026
 
 Step 4 of the exams-and-marks plan (Idea 6 of the ideas doc): a parent who asks

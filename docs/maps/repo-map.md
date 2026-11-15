@@ -116,6 +116,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `assist` | One | domain, data | — |
 | `attendance` | One | domain, data, ui | — |
 | `certificates` | One | domain, data, ui | — |
+| `chats` | One | domain | — |
 | `coexistence` | One | domain, data | — |
 | `collect` | One | domain, data | — |
 | `collection` | One | domain, data, ui | — |
