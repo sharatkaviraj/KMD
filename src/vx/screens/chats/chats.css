@@ -127,8 +127,10 @@
 .chat-call{flex:none;height:44px;min-width:44px;padding:0 14px;border-radius:22px;border:0;background:var(--oks);color:var(--ok);display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-size:14px;font-weight:700;text-decoration:none}
 @media (max-width:420px){.chat-call .chat-call-w{display:none}.chat-call{padding:0}}
 
-.chat-actions{flex:none;display:flex;gap:8px;padding:8px 12px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--bd);scrollbar-width:none}
-.chat-actions::-webkit-scrollbar{display:none}
+/* Every action stays in view: on a narrow phone they wrap onto a second row
+   rather than one hiding past the edge. The live check (15 Nov) found "Give it
+   back", the very step the banner asks for, cut off on a Galaxy M32. */
+.chat-actions{flex:none;display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--bd)}
 .chat-act{flex:none;height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--bds);background:var(--card);color:var(--fg);display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:14px;font-weight:600;white-space:nowrap;text-decoration:none;cursor:pointer}
 .chat-act.done{border-color:var(--ok);color:var(--ok)}
 .chat-act:disabled{opacity:.55;cursor:default}
