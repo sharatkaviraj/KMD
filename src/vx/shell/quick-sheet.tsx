@@ -40,6 +40,8 @@ const AFTER_CLOSE_MS = 260;
 
 /** The last quick action tapped on this phone, for "Last time" (a per-device convenience). */
 const LAST_KEY = "vx.quick.last";
+/** The "Last time" row's data-key prefix, so a tap there lights the row and not its tile as well. */
+const AGAIN = "again:";
 const LAST_EVENT = "vx:quick-last";
 
 function readLast(): string | null {
@@ -140,7 +142,7 @@ export function QuickSheet({ quick, badges }: { quick: QuickSet; badges: Promise
   const go = (key: string, href: string) => {
     if (goingNow) return;
     cue("select");
-    rememberLast(key);
+    rememberLast(key.startsWith(AGAIN) ? key.slice(AGAIN.length) : key);
     setGoing({ key, seq });
     // The sheet's history entry becomes the page's own.
     marker.current = null;
@@ -179,7 +181,11 @@ export function QuickSheet({ quick, badges }: { quick: QuickSet; badges: Promise
   const line = quick.live === "register" ? registerLine(register) : null;
   const checking = quick.live === "register" && register === undefined;
 
-  const lastKey = useSyncExternalStore(subscribeLast, readLast, () => null);
+  // The row offers what was tapped before this opening: a tap now must not add or change it mid-way.
+  const storedLast = useSyncExternalStore(subscribeLast, readLast, () => null);
+  const [lastAt, setLastAt] = useState({ seq, key: storedLast });
+  if (lastAt.seq !== seq) setLastAt({ seq, key: storedLast });
+  const lastKey = lastAt.seq === seq ? lastAt.key : storedLast;
   const last = quick.layout === "compact" ? lastAction(quick.tiles, lastKey, quick.hero?.href ?? null) : null;
 
   const hero = quick.hero;
@@ -255,18 +261,18 @@ export function QuickSheet({ quick, badges }: { quick: QuickSet; badges: Promise
           ) : null}
 
           {last ? (
-            <IntentLink href={last.href} data-key={last.key} className="tap vx-qs-row">
+            <IntentLink href={last.href} data-key={AGAIN + last.key} className="tap vx-qs-row" data-on={goingNow === AGAIN + last.key ? "" : undefined}>
               <Ic n="clock" style={{ color: "var(--mut)" }} />
               <span className="vx-qs-row-txt">
                 <span className="vx-qs-row-s">{tx(QS.last)}</span>
                 <span className="vx-qs-row-l">{tx(last.label)}</span>
               </span>
-              {goingNow === last.key ? <span className="vx-qs-spin" aria-hidden="true" /> : <Ic n="chevRight" style={{ color: "var(--mut)" }} />}
+              {goingNow === AGAIN + last.key ? <span className="vx-qs-spin" aria-hidden="true" /> : <Ic n="chevRight" style={{ color: "var(--mut)" }} />}
             </IntentLink>
           ) : null}
 
           {quick.help ? (
-            <IntentLink href={quick.help.href} data-key={quick.help.key} className="tap vx-qs-row vx-qs-help">
+            <IntentLink href={quick.help.href} data-key={quick.help.key} className="tap vx-qs-row vx-qs-help" data-on={goingNow === quick.help.key ? "" : undefined}>
               <Ic n={quick.help.icon} style={{ color: "var(--acc)" }} />
               <span className="vx-qs-row-txt">
                 <span className="vx-qs-row-l">{tx(quick.help.label)}</span>

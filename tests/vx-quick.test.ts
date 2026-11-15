@@ -188,3 +188,12 @@ describe("Last time", () => {
     expect(lastAction(items, null, null)).toBeNull();
   });
 });
+
+describe("the sheet while a page is on its way", () => {
+  it("dims the other entries even though their entry animation fills both ways", () => {
+    const css = readFileSync(path.resolve(process.cwd(), "src/vx/shell/quick-sheet.css"), "utf8");
+    const going = css.split("\n").find((line) => line.startsWith(".vx-qs[data-going]"));
+    // xRise ends at opacity 1 and fills "both": an animation outranks the rule, so it must end first.
+    expect(going).toMatch(/\{animation:none;opacity:\.45/);
+  });
+});

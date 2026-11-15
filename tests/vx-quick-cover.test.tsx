@@ -113,6 +113,38 @@ describe("the + sheet (D-643)", () => {
     expect(layer.textContent).toContain("Opening…");
   });
 
+  it("keeps Last time as it was when the sheet opened, and lights only what was tapped", () => {
+    scene.replace.mockReturnValue(new Promise(() => {}));
+    window.localStorage.setItem("vx.quick.last", "notice");
+    act(() => root.render(<QuickSheet quick={quickFor("admin", all)!} badges={badges} />));
+    act(() => openQuick());
+    const row = () => layer.querySelector<HTMLElement>(".vx-qs-row:not(.vx-qs-help)");
+    expect(row()?.textContent).toContain("Send a notice");
+
+    act(() => named("Collect fee")!.click());
+    expect(scene.replace).toHaveBeenCalledWith("/payments");
+    // The tap itself is remembered for next time, but the open sheet does not change under the finger.
+    expect(window.localStorage.getItem("vx.quick.last")).toBe("collect");
+    expect(row()?.textContent).toContain("Send a notice");
+    expect(row()?.hasAttribute("data-on")).toBe(false);
+    expect(layer.querySelectorAll("[data-on]")).toHaveLength(1);
+    window.localStorage.removeItem("vx.quick.last");
+  });
+
+  it("opens Last time from its own row, without lighting its tile too", () => {
+    scene.replace.mockReturnValue(new Promise(() => {}));
+    window.localStorage.setItem("vx.quick.last", "notice");
+    act(() => root.render(<QuickSheet quick={quickFor("admin", all)!} badges={badges} />));
+    act(() => openQuick());
+    const row = layer.querySelector<HTMLElement>(".vx-qs-row:not(.vx-qs-help)")!;
+    act(() => row.click());
+    expect(scene.replace).toHaveBeenCalledWith("/messages?compose=1");
+    expect(row.hasAttribute("data-on")).toBe(true);
+    expect(named("Send a notice")?.hasAttribute("data-on")).toBe(false);
+    expect(window.localStorage.getItem("vx.quick.last")).toBe("notice");
+    window.localStorage.removeItem("vx.quick.last");
+  });
+
   it("shows the counts the shell already reads beside their tiles", async () => {
     act(() => root.render(<QuickSheet quick={quickFor("admin", all)!} badges={badges} />));
     act(() => openQuick());
