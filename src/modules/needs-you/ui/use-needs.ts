@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { addOwnNeedAction, arrangeNeedsAction, cancelReminderAction, ownDoneAction, snoozeNeedAction } from "@/app/(app)/needs/actions";
+import { addOwnNeedAction, arrangeNeedsAction, bringBackNeedAction, cancelReminderAction, ownDoneAction, snoozeNeedAction } from "@/app/(app)/needs/actions";
 import { useVx } from "@/vx/i18n";
 import { answerCoverVx } from "@/vx/screens/teach/actions";
 import type { Pair } from "@/vx/text";
@@ -10,7 +10,7 @@ import { useToast } from "@/vx/ui/overlays";
 
 import type { NeedsView } from "../data/board";
 import { whenP } from "../domain/format";
-import { arrange, mergeDone, needSignature, ownItem, planFits, wakeDue, type NeedBoard } from "../domain/lanes";
+import { arrange, broughtBack, mergeDone, needSignature, ownItem, planFits, wakeDue, type NeedBoard } from "../domain/lanes";
 import { planFacts } from "../domain/plan";
 import type { DoneItem, NeedItem, NeedPlan } from "../domain/types";
 import { NW } from "../domain/words";
@@ -26,6 +26,8 @@ export type NeedsState = {
   /** Ticks a to-do of their own, or says yes to a cover, right where it is shown. */
   quickDone: (item: NeedItem) => Promise<void>;
   snooze: (item: NeedItem, at: string, heard: string | null) => Promise<boolean>;
+  /** A job put off by mistake, or an own to-do for later, back on today's list (D-636). */
+  bringBack: (item: NeedItem) => Promise<void>;
   add: (title: string, at: string | null, heard: string | null) => Promise<boolean>;
   remove: (item: NeedItem) => Promise<void>;
 };
@@ -162,7 +164,8 @@ export function useNeeds(view: NeedsView, options: { onArranged?: (plan: NeedPla
     async (item: NeedItem, at: string, heard: string | null) => {
       if (readOnly) return false;
       const before = item;
-      setItems((all) => all.map((i) => (i.key === item.key ? { ...i, lane: item.kind === "own" && sameDayAsNow(at, now()) ? "today" : "later", remindAt: at, reminded: false, dueAt: item.kind === "own" ? at : i.dueAt } : i)));
+      // The lane it leaves is kept, so "Bring back" can return it there (D-636).
+      setItems((all) => all.map((i) => (i.key === item.key ? { ...i, lane: item.kind === "own" && sameDayAsNow(at, now()) ? "today" : "later", remindAt: at, reminded: false, dueAt: item.kind === "own" ? at : i.dueAt, baseLane: i.baseLane ?? i.lane } : i)));
       const result = await snoozeNeedAction({ itemKey: item.key, remindAt: at, heard }).catch(() => null);
       if (!result?.ok) {
         setItems((all) => all.map((i) => (i.key === before.key ? before : i)));
@@ -186,6 +189,22 @@ export function useNeeds(view: NeedsView, options: { onArranged?: (plan: NeedPla
       return true;
     },
     [now, readOnly, say, toast],
+  );
+
+  const bringBack = useCallback(
+    async (item: NeedItem) => {
+      if (readOnly) return;
+      const before = item;
+      setItems((all) => all.map((i) => (i.key === item.key ? broughtBack(i) : i)));
+      const result = await bringBackNeedAction({ itemKey: item.key }).catch(() => null);
+      if (!result?.ok) {
+        setItems((all) => all.map((i) => (i.key === before.key ? before : i)));
+        toast.show({ text: say(result && !result.ok ? result.error : NW.failed), tone: "bad" });
+        return;
+      }
+      toast.show({ text: `${say(NW.backNow)} · ${say(item.title)}`, tone: "ok", cue: "undo" });
+    },
+    [readOnly, say, toast],
   );
 
   const add = useCallback(
@@ -220,7 +239,7 @@ export function useNeeds(view: NeedsView, options: { onArranged?: (plan: NeedPla
     [readOnly, restore, say, toast],
   );
 
-  return { board, done, readOnly, arranging, now, quickDone, snooze, add, remove };
+  return { board, done, readOnly, arranging, now, quickDone, snooze, bringBack, add, remove };
 }
 
 /** The same school day as now, in IST. */

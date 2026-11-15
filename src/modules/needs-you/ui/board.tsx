@@ -32,7 +32,7 @@ export function NeedsBoard({ view }: { view: NeedsView }) {
   const total = board.left + done.length;
 
   const row = (item: NeedItem, i: number) => (
-    <NeedRow key={item.key} item={item} now={now} readOnly={readOnly} onQuick={(x) => void s.quickDone(x)} onLater={setLater} delay={Math.min(i * 40, 320)} />
+    <NeedRow key={item.key} item={item} now={now} readOnly={readOnly} onQuick={(x) => void s.quickDone(x)} onLater={setLater} onBack={(x) => void s.bringBack(x)} delay={Math.min(i * 40, 320)} />
   );
   const lane = (key: "now" | "today") => {
     const list = rest(key);

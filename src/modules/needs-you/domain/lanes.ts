@@ -33,7 +33,7 @@ export function withReminders(items: readonly NeedItem[], reminders: readonly Ne
     const s = snoozes.get(item.key);
     if (!s?.remindAt || item.lane === "waiting" || !item.canSnooze) return item;
     const due = Date.parse(s.remindAt) <= now.getTime();
-    return { ...item, lane: due ? "now" : "later", remindAt: s.remindAt, reminded: due };
+    return { ...item, lane: due ? "now" : "later", remindAt: s.remindAt, reminded: due, baseLane: item.lane };
   });
   for (const r of reminders) if (r.kind === "own" && !r.doneAt && r.title) out.push(ownItem(r, now));
   return out;
@@ -200,6 +200,27 @@ export function wakeDue(items: readonly NeedItem[], now: Date): { items: NeedIte
     return back;
   });
   return { items: woke.length ? out : [...items], woke };
+}
+
+/**
+ * A job in Later that the person put there, so "Bring back" is offered: put
+ * off with "Remind me later", or an own to-do with a time on another day
+ * (D-636). A job that is in Later by its own date has no time of theirs.
+ */
+export function canBringBack(item: NeedItem): boolean {
+  return item.lane === "later" && Boolean(item.remindAt) && item.canSnooze;
+}
+
+/**
+ * "Bring back" (D-636): a put-off job returns to the lane it was in before,
+ * and an own to-do goes on today's list without a time. The server does the
+ * same by cancelling the put-off, or clearing the to-do's time, so the next
+ * read of the page agrees.
+ */
+export function broughtBack(item: NeedItem): NeedItem {
+  const { baseLane, ...rest } = item;
+  if (item.kind === "own") return { ...rest, lane: "today", remindAt: null, dueAt: null, reminded: false };
+  return { ...rest, lane: baseLane ?? "today", remindAt: null, reminded: false };
 }
 
 /** Today's done jobs, the source's own and the ones that left the list, once each, the latest first. */

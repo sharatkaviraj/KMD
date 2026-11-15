@@ -5,7 +5,7 @@ import { z } from "zod";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { prepareAssistDraft } from "@/modules/assist/data/run";
 import { FEATURE_PERMISSIONS } from "@/modules/assist/domain/features";
-import { cancelReminder, insertOwn, insertSnooze, mayAskAgain, moveOwn, planState, savePlan, setOwnDone } from "@/modules/needs-you/data/store";
+import { cancelReminder, cancelSnoozes, insertOwn, insertSnooze, mayAskAgain, moveOwn, planState, savePlan, setOwnDone } from "@/modules/needs-you/data/store";
 import { PLAN_MAX_ITEMS, planFromAnswer, type PlanFacts } from "@/modules/needs-you/domain/plan";
 import type { NeedPlan, NeedReminder } from "@/modules/needs-you/domain/types";
 import { NW } from "@/modules/needs-you/domain/words";
@@ -111,6 +111,26 @@ export async function snoozeNeedAction(raw: unknown): Promise<NeedsResult<NeedRe
       ok: true,
       value: await insertSnooze(staff.id, sessionLabel, { itemKey: parsed.data.itemKey, remindAt: parsed.data.remindAt, heard: parsed.data.heard?.trim().slice(0, 200) || null }),
     };
+  } catch {
+    return fail();
+  }
+}
+
+/**
+ * "Bring back" (D-636): a job put off by mistake returns to where its own
+ * screen puts it, and an own to-do for later goes on today's list without a
+ * time. Bringing back a job that is already back changes nothing.
+ */
+export async function bringBackNeedAction(raw: unknown): Promise<NeedsResult<true>> {
+  const parsed = z.object({ itemKey: z.string().min(1).max(160) }).safeParse(raw);
+  if (!parsed.success) return fail();
+  try {
+    const staff = await assertPermission("dashboard:view");
+    const { sessionLabel } = await writerFor(staff);
+    const own = /^own:([0-9a-f-]{36})$/i.exec(parsed.data.itemKey);
+    if (own) return (await moveOwn(staff.id, own[1], null)) ? { ok: true, value: true } : fail();
+    await cancelSnoozes(staff.id, sessionLabel, parsed.data.itemKey);
+    return { ok: true, value: true };
   } catch {
     return fail();
   }

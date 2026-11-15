@@ -96,6 +96,8 @@ export type NeedItem = {
   remindAt?: string | null;
   /** It came back because the time they asked for has come. */
   reminded?: boolean;
+  /** Put off: the lane it sat in before, where "Bring back" returns it (D-636). */
+  baseLane?: NeedLane;
   /** "Remind me later" is offered. Never on the waiting lane, which is not theirs to do. */
   canSnooze: boolean;
 };

@@ -82,8 +82,12 @@ export async function setOwnDone(staffId: string, id: string, done: boolean): Pr
   return (data ?? []).length > 0;
 }
 
-/** Move an own to-do to a new time ("Remind me later" on a to-do of their own). Only the person's own. */
-export async function moveOwn(staffId: string, id: string, remindAt: string): Promise<NeedReminder | null> {
+/**
+ * Move an own to-do to a new time ("Remind me later" on a to-do of their
+ * own), or to no time, which puts it on today's list ("Bring back", D-636).
+ * Only the person's own.
+ */
+export async function moveOwn(staffId: string, id: string, remindAt: string | null): Promise<NeedReminder | null> {
   const { data, error } = await db()
     .from("needs_reminders")
     .update({ remind_at: remindAt })
@@ -99,21 +103,24 @@ export async function moveOwn(staffId: string, id: string, remindAt: string): Pr
   return row ? toReminder(row) : null;
 }
 
-/** Put a job off until `remindAt`. An older put-off of the same job is replaced. */
-export async function insertSnooze(staffId: string, sessionLabel: string, snooze: { itemKey: string; remindAt: string; heard: string | null }): Promise<NeedReminder> {
-  const client = db();
-  const stamp = new Date().toISOString();
-  const old = await client
+/** End every open put-off of one job, so it is back where its own screen puts it ("Bring back", D-636). Only the person's own. */
+export async function cancelSnoozes(staffId: string, sessionLabel: string, itemKey: string): Promise<void> {
+  const { error } = await db()
     .from("needs_reminders")
-    .update({ cancelled_at: stamp })
+    .update({ cancelled_at: new Date().toISOString() })
     .eq("staff_profile_id", staffId)
     .eq("session_label", sessionLabel)
     .eq("kind", "snooze")
-    .eq("item_key", snooze.itemKey)
+    .eq("item_key", itemKey)
     .is("done_at", null)
     .is("cancelled_at", null);
-  if (old.error) throw new Error(`Needs you snooze: ${old.error.message}`);
-  const { data, error } = await client
+  if (error) throw new Error(`Needs you snooze: ${error.message}`);
+}
+
+/** Put a job off until `remindAt`. An older put-off of the same job is replaced. */
+export async function insertSnooze(staffId: string, sessionLabel: string, snooze: { itemKey: string; remindAt: string; heard: string | null }): Promise<NeedReminder> {
+  await cancelSnoozes(staffId, sessionLabel, snooze.itemKey);
+  const { data, error } = await db()
     .from("needs_reminders")
     .insert({ staff_profile_id: staffId, session_label: sessionLabel, kind: "snooze", item_key: snooze.itemKey, remind_at: snooze.remindAt, heard: snooze.heard })
     .select("id, kind, item_key, title, heard, remind_at, done_at, created_at")

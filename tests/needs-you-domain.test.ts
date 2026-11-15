@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { arrange, mergeDone, needSignature, ownItem, planFits, ruleReason, wakeDue, withReminders } from "@/modules/needs-you/domain/lanes";
+import { arrange, broughtBack, canBringBack, mergeDone, needSignature, ownItem, planFits, ruleReason, wakeDue, withReminders } from "@/modules/needs-you/domain/lanes";
 import { remindChoices } from "@/modules/needs-you/domain/choices";
 import { adminNeeds, counterNeeds, examNeeds, promiseNeeds } from "@/modules/needs-you/domain/office";
 import { planFacts, planFromAnswer, planLine } from "@/modules/needs-you/domain/plan";
@@ -372,6 +372,30 @@ describe("remind me later", () => {
     expect(remindChoices(afternoon).map((c) => c.key)).toEqual(["hour", "evening", "morning"]);
     const evening = new Date("2026-11-15T18:00:00+05:30");
     expect(remindChoices(evening).map((c) => c.key)).toEqual(["hour", "morning"]);
+  });
+
+  it("brings a job put off by mistake back to where it was (D-636)", () => {
+    const snooze: NeedReminder = { id: "s1", kind: "snooze", itemKey: "a", title: null, heard: null, remindAt: ist("2026-11-16T08:00:00"), doneAt: null, createdAt: ist("2026-11-15T10:00:00") };
+    const [put] = withReminders([item({ key: "a", lane: "now", lateMinutes: 30 })], [snooze], NOW);
+    expect(put).toMatchObject({ lane: "later", baseLane: "now" });
+    expect(canBringBack(put)).toBe(true);
+    const back = broughtBack(put);
+    expect(back).toMatchObject({ lane: "now", remindAt: null, reminded: false, lateMinutes: 30 });
+    expect("baseLane" in back).toBe(false);
+    expect(canBringBack(back)).toBe(false);
+    // In Later by its own date, with no time of theirs: nothing to bring back.
+    expect(canBringBack(item({ key: "b", lane: "later" }))).toBe(false);
+    // Waiting on somebody else is never theirs to put off or bring back.
+    expect(canBringBack(item({ key: "c", lane: "later", remindAt: ist("2026-11-16T08:00:00"), canSnooze: false }))).toBe(false);
+  });
+
+  it("puts an own to-do for another day on today's list, without a time (D-636)", () => {
+    const mine = ownItem({ id: "o1", kind: "own", itemKey: null, title: "Call the bus driver", heard: "kal subah 9 baje", remindAt: ist("2026-11-16T09:00:00"), doneAt: null, createdAt: NOW.toISOString() }, NOW);
+    expect(canBringBack(mine)).toBe(true);
+    const back = broughtBack(mine);
+    expect(back).toMatchObject({ lane: "today", remindAt: null, dueAt: null, reminded: false });
+    // The same as the server's next read of the to-do once its time is cleared.
+    expect(back).toEqual(ownItem({ id: "o1", kind: "own", itemKey: null, title: "Call the bus driver", heard: null, remindAt: null, doneAt: null, createdAt: NOW.toISOString() }, NOW));
   });
 });
 

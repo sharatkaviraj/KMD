@@ -13,7 +13,7 @@ import { VoiceNote } from "@/vx/ui/voice";
 
 import { remindChoices } from "../domain/choices";
 import { clockP, whenP } from "../domain/format";
-import type { NeedBoard } from "../domain/lanes";
+import { canBringBack, type NeedBoard } from "../domain/lanes";
 import { planLine } from "../domain/plan";
 import type { DoneItem, NeedItem, NeedLane } from "../domain/types";
 import { parseWhen } from "../domain/when";
@@ -34,7 +34,11 @@ export function NeedPill({ item, now }: { item: NeedItem; now: Date }) {
   return null;
 }
 
-/** One job: what it is, why it is here, and its own button (with "Later" beside it). */
+/**
+ * One job: what it is, why it is here, and its own button, with "Later"
+ * beside it. A job they put off shows "Bring back" and "Change time" instead
+ * of "Later", so a tap by mistake is never stuck until tomorrow (D-636).
+ */
 export function NeedRow({
   item,
   now,
@@ -42,6 +46,7 @@ export function NeedRow({
   primary,
   onQuick,
   onLater,
+  onBack,
   delay = 0,
 }: {
   item: NeedItem;
@@ -50,9 +55,11 @@ export function NeedRow({
   primary?: boolean;
   onQuick: (item: NeedItem) => void;
   onLater: (item: NeedItem) => void;
+  onBack?: (item: NeedItem) => void;
   delay?: number;
 }) {
   const { tx } = useVx();
+  const back = onBack && !readOnly && canBringBack(item) ? onBack : null;
   const act = item.quick ? (
     <Btn variant={primary ? "pri" : "sec"} icon={item.quick === "own-done" ? "check" : "checkCircle"} onClick={() => onQuick(item)} disabled={readOnly}>
       {tx(item.act)}
@@ -74,9 +81,14 @@ export function NeedRow({
         {item.lane !== "waiting" ? (
           <div className="ny-acts">
             {act}
+            {back ? (
+              <Btn variant="ghost" icon="undo" onClick={() => back(item)}>
+                {tx(NW.bringBack)}
+              </Btn>
+            ) : null}
             {item.canSnooze && !readOnly ? (
               <Btn variant="ghost" icon="clock" onClick={() => onLater(item)}>
-                {tx(NW.later)}
+                {tx(back ? NW.changeTime : NW.later)}
               </Btn>
             ) : null}
           </div>

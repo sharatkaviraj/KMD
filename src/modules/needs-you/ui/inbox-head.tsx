@@ -88,7 +88,7 @@ export function InboxHead() {
         {own.length ? (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, borderTop: "1px solid var(--bd)" }}>
             {own.map((item, i) => (
-              <NeedRow key={item.key} item={item} now={now} readOnly={readOnly} onQuick={(x) => void h.quickDone(x)} onLater={h.openLater} delay={Math.min(i * 40, 240)} />
+              <NeedRow key={item.key} item={item} now={now} readOnly={readOnly} onQuick={(x) => void h.quickDone(x)} onLater={h.openLater} onBack={(x) => void h.bringBack(x)} delay={Math.min(i * 40, 240)} />
             ))}
           </ul>
         ) : null}

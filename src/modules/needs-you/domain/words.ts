@@ -61,6 +61,8 @@ export const NW = {
   remove: p("Remove this to-do", "यह काम हटाएँ"),
   removed: p("Removed", "हटाया गया"),
   later: p("Later", "बाद में"),
+  bringBack: p("Bring back", "वापस लाएँ"),
+  changeTime: p("Change time", "समय बदलें"),
   remindMe: p("Remind me", "याद दिलाएँ"),
   understood: p("I understood", "मैंने समझा"),
   noTimeFound: p("No time in it: it goes on today's list. Add a time if you like.", "इसमें समय नहीं है: यह आज की सूची में जाएगा। चाहें तो समय जोड़ें।"),

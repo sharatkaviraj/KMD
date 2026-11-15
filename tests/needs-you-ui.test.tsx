@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   toast: vi.fn(),
   arrange: vi.fn(),
   ownDone: vi.fn(),
+  bringBack: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (v: string | { en: string }) => (typeof v === "string" ? v : v.en), sub: () => null, language: "en" }) }));
@@ -42,6 +43,7 @@ vi.mock("@/vx/ui/primitives", () => ({
 vi.mock("@/app/(app)/needs/actions", () => ({
   addOwnNeedAction: vi.fn(),
   arrangeNeedsAction: state.arrange,
+  bringBackNeedAction: state.bringBack,
   cancelReminderAction: vi.fn(),
   ownDoneAction: state.ownDone,
   snoozeNeedAction: vi.fn(),
@@ -53,6 +55,7 @@ vi.mock("@/app/(app)/receipts/office-command-actions", () => ({
   reverseFeesReceiptAction: vi.fn(), decideFeesRefundAction: vi.fn(), processFeesRefundAction: vi.fn(), checkFeesOfficeCommandAction: vi.fn(),
 }));
 
+import { NeedsBoard } from "@/modules/needs-you/ui/board";
 import { InboxHead, NeedsHeadProvider } from "@/modules/needs-you/ui/inbox-head";
 import { NeedsStrip } from "@/modules/needs-you/ui/strip";
 import { InboxScreen } from "@/vx/screens/admin/inbox";
@@ -182,4 +185,20 @@ it("puts the admin's queue in the AI's order only when the AI made one", async (
   expect(text.indexOf("Test Beta")).toBeLessThan(text.indexOf("Test Alpha"));
   expect(text).toContain("Arranged by AI");
   expect(text).toContain("My own to-dos");
+});
+
+it("brings a job put off by mistake back with one tap, and never while only looking (D-636)", async () => {
+  state.bringBack.mockResolvedValue({ ok: true, value: true });
+  const put = job({ key: "marks:9", kind: "marks", title: { en: "Send marks · Class 1" }, lane: "later", remindAt: "2026-11-16T02:30:00.000Z", baseLane: "today", act: { en: "Send marks" } });
+  const items = [job({ key: "att:6A", title: { en: "Register · Class 6A" }, lane: "now" }), put];
+  await render(<NeedsBoard view={view({ items, readOnly: true })} />);
+  expect(button("Bring back")).toBeUndefined();
+  await render(<NeedsBoard view={view({ items })} />);
+  // A put-off job says how to undo it, and its time can still be changed.
+  expect(button("Change time")).toBeDefined();
+  await act(async () => button("Bring back")!.click());
+  expect(state.bringBack).toHaveBeenCalledWith({ itemKey: "marks:9" });
+  expect(button("Bring back")).toBeUndefined();
+  expect(button("Change time")).toBeUndefined();
+  expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ tone: "ok", text: "Back on your list · Send marks · Class 1" }));
 });

@@ -15,7 +15,7 @@ nothing hidden.
 
 - The four lanes and One's own order in them (`domain/lanes.ts`): Do now, Today, Later, Waiting on others.
 - Each role's jobs as mapped from the screens that own them (`domain/teacher.ts`, `domain/office.ts`), read in `data/sources.ts` from what each Today already loaded.
-- A person's own to-dos and "Remind me later", with the time read from their words in Hindi, Hinglish or English (`domain/when.ts`) or picked on a chip (`domain/choices.ts`).
+- A person's own to-dos and "Remind me later", with the time read from their words in Hindi, Hinglish or English (`domain/when.ts`) or picked on a chip (`domain/choices.ts`), and "Bring back" for a job put off by mistake (`canBringBack`, `broughtBack`, D-636).
 - "Done today": a job a complete read no longer finds (`needs_sync`).
 - What the AI is shown and how its answer is checked (`domain/plan.ts`).
 
@@ -26,6 +26,7 @@ nothing hidden.
 - The AI sees only kinds of job and numbers under made-up ids, never a title or a name. It orders only inside Do now and Today, and a period that starts within 15 minutes stays first whatever it says.
 - The AI is asked after the page is drawn, at most every 10 minutes and 12 times a day per person, and an order made for the same list is used again.
 - Previews and seeing One as somebody else are look-only: nothing is written and nothing is asked.
+- A put-off can always be undone where the job now is: Later shows "Bring back" on it, not only a toast that goes after a few seconds.
 
 ## Never
 
