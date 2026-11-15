@@ -1,5 +1,14 @@
 # VPPS One — progress
 
+## School Office card on the admin's inbox — 15 November 2026
+
+Found in the Needs you check on BrowserStack: the test admin's inbox said
+"School Office records are temporarily unavailable. Try again." every time.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| A certificate try logged for a child with no class in One for the session no longer makes the School Office card claim an outage (D-637) | **done** | PR 392 (merged with this row), `claude/project-thread-n8btot` | Surprised: 513 of the 592 active children on the Fees test roster have no One enrolment for `TEST-2026-27`, so a test certificate try for one of them is always blocked with "The current school record is unavailable". The read itself is unchanged; a real outage still shows. |
+
 ## Needs you — 15 November 2026
 
 Owner asked (15 Nov 05:07 UTC) for a Needs you for teachers, the admin and
@@ -10,7 +19,7 @@ setup.
 | What | Status | Branch / commit | Remaining or surprising |
 |---|---|---|---|
 | Needs you (D-630..D-635): `/needs` for teachers, the fee office and the exam office; a strip at the top of each Today; the first tile in More and the second item in the menus, with a badge; the admin's `/inbox` with the AI's order, own to-dos and done today; own to-dos and "Remind me later" from spoken or typed times; the AI's order from kinds and numbers only | **done** | PR 389, `ac5d8e3`; live 15 Nov 07:12 UTC | Migration `20261115060835_needs_you` applied to One 15 Nov (three tables and `needs_sync`, service role only; PGlite proof `tests/sql/needs-you.mjs`). Checked on BrowserStack 15 Nov: Galaxy M32 as a test teacher (strip, list, add with a time in words, tick with Undo, remind later, first tile in More, bottom bar unchanged) and Windows 11 Chrome as the test accountant (strip, sidebar badge, list) and admin (`/needs` → `/inbox` with the AI's order and own to-dos). The chats job is wired but hidden until Chats is on main (D-634). **Surprised:** the badge is blank on the day's very first page, because it counts what the list last saw; it shows from the next page. |
-| "Bring back" for a job put off by mistake (D-636) | **done** | `claude/project-thread-n8btot` (merged with this row) | Undo had lived only in a toast that is gone in about five seconds. |
+| "Bring back" for a job put off by mistake (D-636) | **done** | PR 391, `b1cac6a`; live 15 Nov 07:40 UTC | Undo had lived only in a toast that is gone in about five seconds. Checked on BrowserStack 15 Nov: a Galaxy M32 as a test teacher and Windows 11 Chrome as a test accountant (put off, Bring back, still back after a reload). Surprised: the "Back on your list" toast was too quick to catch in a screenshot on either; the jsdom test covers it. |
 
 ## Chats with parents — 15 November 2026
 

@@ -1,5 +1,15 @@
 # Decisions
 
+## School Office card on the admin's inbox — 15 November 2026
+
+Found in the Needs you check on BrowserStack (15 Nov): the test admin's inbox
+showed "School Office records are temporarily unavailable. Try again." on the
+School Office card, every time.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-637 | **A certificate try logged for a child who is not in a class in One for the session is skipped by the School Office card. It no longer turns the whole card into "records are temporarily unavailable".** The card still says that when the read fails, when the roster copy is too old (`certificate_unavailable`) or when the study format cannot be read, and a blocked child who is in a class still shows by name. The read (`school_office_attention`) is unchanged. | On 15 Nov the read worked: the roster copy was checked at 20:30 UTC the night before and the live study format parses. Both logged children were on the Fees test roster with no One enrolment for `TEST-2026-27` (513 of the 592 active test-roster children have none, by design), tried on 13 Nov. "Temporarily" and "Try again" were both untrue: a log stays until an issue clears it, which cannot happen for a child with no class, and the card named nobody. In the real year all 509 active children on the roster have an enrolment; a logged child who gets a class later is checked again on the next read. |
+
 ## Needs you — 15 November 2026
 
 The owner asked (15 Nov 05:07 UTC) for a Needs you for teachers, the admin

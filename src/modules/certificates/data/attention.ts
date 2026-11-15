@@ -62,7 +62,12 @@ export async function clearCertificateAttention(staff: CurrentStaff, command: Ce
   } catch { /* A stale log is hidden by current preflight on the next read. */ }
 }
 
-/** A log is a candidate, never proof that the student is still blocked. */
+/**
+ * A log is a candidate, never proof that the student is still blocked. A
+ * logged child who is not in a class in One for this session is skipped
+ * (D-637): no certificate for the session can be issued for them, nothing on
+ * this card can change that, and the read itself did not fail.
+ */
 export function certificateAttentionItems(candidates: readonly CertificateCandidate[], template: CertificateTemplate): SchoolOfficeAttentionItem[] {
   return candidates.flatMap(row => {
     if (!row.facts.sourceCurrent) return [];
@@ -102,8 +107,10 @@ export async function loadSchoolOfficeAttention(sessionLabel: string) {
     if (certificates) {
       const template = templateSchema.safeParse(snapshot.template);
       result.unavailable = snapshot.certificate_unavailable || !template.success;
+      // certificateAttentionItems skips a logged child with no class in One this
+      // session. That is not an outage (D-637): "unavailable" means the read or
+      // the roster copy failed.
       if (template.success) result.items.push(...certificateAttentionItems(snapshot.certificate_candidates.filter(row => row.facts.sessionLabel === sessionLabel), template.data));
-      if (snapshot.certificate_candidates.some(row => row.facts.sessionLabel === sessionLabel && !row.facts.sourceCurrent)) result.unavailable = true;
       result.items.push(...snapshot.certificate_artifacts.filter(row => row.session_label === sessionLabel && ["failed", "preparing"].includes(row.artifact_state)).map(row => ({
         id: row.id, kind: "certificate_artifact" as const, href: `/school-office/certificates/${row.id}`, studentName: row.student_name, state: row.artifact_state,
       })));

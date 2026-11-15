@@ -94,6 +94,23 @@ it("does not render a healthy empty queue and keeps source outage distinct from 
   expect(await loadSchoolOfficeAttention(sessionLabel)).toMatchObject({ unavailable: true, items: [] });
 });
 
+it("a logged child who is not in a class in One this session is skipped, not reported as an outage (D-637)", async () => {
+  const zero = "00000000-0000-0000-0000-000000000000";
+  const notInClass = {
+    student_id: "00000000-0000-4000-8000-000000000032",
+    blocker_codes: ["classLabel:missing_field", "identity:identity_unverified", "source:source_unavailable"],
+    facts: { ...facts, studentId: "00000000-0000-4000-8000-000000000032", enrolmentId: zero, classId: zero, classLabel: "", status: "historical" as const, identityVerified: false, sourceCurrent: false },
+  };
+  mocks.rpc.mockResolvedValue({ data: { ...snapshot(), certificate_candidates: [notInClass] }, error: null });
+  expect(await loadSchoolOfficeAttention(sessionLabel)).toMatchObject({ unavailable: false, items: [] });
+  expect(await SchoolOfficeAttention({ sessionLabel })).toBeNull();
+  // A blocked child who is in a class still shows beside it, and a real outage still says so.
+  mocks.rpc.mockResolvedValue({ data: { ...snapshot(), certificate_candidates: [notInClass, candidate] }, error: null });
+  expect(await loadSchoolOfficeAttention(sessionLabel)).toMatchObject({ unavailable: false, items: [{ kind: "certificate_blocked", studentName: "Synthetic Scholar" }] });
+  mocks.rpc.mockResolvedValue({ data: { ...snapshot(), certificate_candidates: [notInClass], certificate_unavailable: true }, error: null });
+  expect(await loadSchoolOfficeAttention(sessionLabel)).toMatchObject({ unavailable: true, items: [] });
+});
+
 it("only persists a known blocker code and never copies certificate fact values into attention", async () => {
   await recordCertificateAttention(staff, command, [{ field: "admissionNo", reason: "missing_field" }]);
   expect(mocks.rpc).toHaveBeenCalledWith("school_certificate_attention_record", { p_actor: staff.id, p_student: studentId, p_session: sessionLabel, p_blockers: ["admissionNo:missing_field"], p_confined: false });
