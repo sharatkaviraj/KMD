@@ -267,10 +267,12 @@ export type PaperRow = {
   entry_revision: number;
   submitted_at: string | null;
   submitted_by: string | null;
+  /** When the paper went to the exam office by itself after the marks due day (D-651); "sent by itself" only while it equals `submitted_at`. */
+  sent_itself_at?: string | null;
 };
 
 const PAPER_COLUMNS =
-  "id, assessment_id, class_id, class_label, subject_id, subject_code, max_marks, pass_marks, sort_order, mark_step, allow_exempt, entry_status, entry_revision, submitted_at, submitted_by";
+  "id, assessment_id, class_id, class_label, subject_id, subject_code, max_marks, pass_marks, sort_order, mark_step, allow_exempt, entry_status, entry_revision, submitted_at, submitted_by, sent_itself_at";
 
 export async function papersOf(assessmentIds: string[]): Promise<PaperRow[]> {
   if (assessmentIds.length === 0) return [];

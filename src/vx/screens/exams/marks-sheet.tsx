@@ -49,6 +49,7 @@ import {
 import { filledLine } from "./domain/class-tests";
 import { subjectPair } from "./domain/groups";
 import { needsCorrectionText } from "./domain/progress";
+import { sendsItselfLine, sentItselfLine } from "./domain/sent-itself";
 import { ExamsTop, Note, XBar } from "./bits";
 import { UNDO_MS, type SaveOutcome, type SavePayload } from "./save-types";
 import type { SheetPaper, SheetStudent } from "./sheet-data";
@@ -998,7 +999,7 @@ export function MarksSheet({
                 <div role="status" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--s2)", borderRadius: 14, padding: "12px 14px", width: "100%", textAlign: "left" }}>
                   <Ic n="checkCircle" size={18} style={{ color: "var(--ok)", flex: "none" }} />
                   <span style={{ flex: 1, fontSize: 14, display: "flex", flexDirection: "column" }}>
-                    <span>{tx(p(`Sent on ${shortDay(submittedAt)}, ${clock(submittedAt)}`, `${shortDay(submittedAt)}, ${clock(submittedAt)} को भेजा`))}</span>
+                    <span>{paper.sentItself && submittedAt === paper.submittedAt ? tx(sentItselfLine(shortDay(submittedAt), clock(submittedAt))) : tx(p(`Sent on ${shortDay(submittedAt)}, ${clock(submittedAt)}`, `${shortDay(submittedAt)}, ${clock(submittedAt)} को भेजा`))}</span>
                     {undoNote ? <span style={{ fontSize: 13, color: "var(--bad)" }}>{tx(undoNote)}</span> : onWithdraw && !canCorrect ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("To change a mark now, ask the exam office.", "अब अंक बदलने के लिए परीक्षा विभाग से कहें।"))}</span> : null}
                   </span>
                 </div>
@@ -1054,6 +1055,8 @@ export function MarksSheet({
     const bins = histogram(order.map((id) => cells[id]).filter((x): x is Cell => Boolean(x && x.state === "value")).map((x) => x.value as number), paper.maxMarks, pass);
     const highestName = summary.highest === null ? "" : (students.find((s) => cells[s.id]?.state === "value" && cells[s.id]?.value === summary.highest)?.name ?? "");
     const fixes = tl.toFix;
+    // What happens if the teacher forgets to send (D-651): never for a class test or the office's own grid.
+    const forgetLine = !ct && variant !== "office" && entryStatus === "open" ? sendsItselfLine(paper.dueLabel, paper.duePassed) : null;
     // The reason the send button is grey, said beside it in one line.
     const waitLine: Pair = summary.blanks.length
       ? noMarkYet(summary.blanks.length)
@@ -1067,6 +1070,7 @@ export function MarksSheet({
         <span style={{ flex: "1 1 220px", minWidth: 0, display: "flex", flexDirection: "column" }}>
           <strong style={{ color: summary.blanks.length || fixes ? "var(--warnfg)" : undefined }}>{tx(waitLine)}</strong>
           <span style={{ fontSize: 12, color: "var(--mut)" }}>{ct ? tx(p("Goes into each child's progress", "हर बच्चे की प्रगति में जाएगा")) : coordinatorName ? tx(p(`Goes to ${coordinatorName}`, `${coordinatorName} को जाएँगे`)) : tx(p("Goes to the exam office", "परीक्षा विभाग को जाएँगे"))}</span>
+          {forgetLine ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(forgetLine)}</span> : null}
         </span>
         <Btn variant="pri" big icon={ct ? "checkCircle" : "send"} style={{ flex: "1 1 200px" }} disabled={busy || summary.blanks.length > 0 || fixes > 0 || !editable} onClick={() => void send("submit")}>
           {two(ew(p("Send marks", "अंक भेजें"), p("Finish test", "टेस्ट पूरा करें")))}

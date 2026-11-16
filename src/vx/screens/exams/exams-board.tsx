@@ -21,6 +21,7 @@ import { waLink } from "./domain/messages";
 import { percentText, rankLine, ruledResult, supportLine, weightsLine } from "./domain/card-words";
 import { paperMix, progressLine, READINESS_LABEL, type ClassReadiness, type PaperReadiness } from "./domain/progress";
 import { RemindSheet, reminderFor, type TeacherRowView } from "./remind";
+import { SENDS_ITSELF_HINT } from "./domain/sent-itself";
 import type { ActionResult } from "./save-types";
 import { useAct } from "./use-act";
 import { when } from "./when";
@@ -1700,7 +1701,7 @@ function CreateSheet(props: ExamsProps & { open: boolean; onClose: () => void })
           <Field label={tx(p("Last paper", "आखिरी पेपर"))}>
             <Input type="date" value={endsOn} min={startsOn || undefined} onChange={(e) => setEndsOn(e.target.value)} />
           </Field>
-          <Field label={tx(p("Marks due", "अंक देय"))}>
+          <Field label={tx(p("Marks due", "अंक देय"))} hint={marksDueOn ? tx(SENDS_ITSELF_HINT) : undefined}>
             <Input type="date" value={marksDueOn} min={endsOn || undefined} onChange={(e) => setMarksDueOn(e.target.value)} />
           </Field>
           <Field label={tx(p("Results day", "परिणाम दिवस"))}>

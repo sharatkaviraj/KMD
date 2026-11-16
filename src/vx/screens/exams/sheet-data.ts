@@ -9,6 +9,7 @@ import type { Pair } from "@/vx/text";
 
 import { listExams, marksOf, paperById, previousExam, studentsByIds, toCell, type Exam, type PaperRow } from "./data";
 import type { Cell } from "./domain/entry";
+import { sentItself } from "./domain/sent-itself";
 import { UNDO_MS } from "./save-types";
 
 /*
@@ -36,6 +37,8 @@ export type SheetPaper = {
   entryRevision: number;
   submittedAt: string | null;
   submittedBy: string | null;
+  /** Sent to the exam office by itself after the marks due day (D-651), not by a person. */
+  sentItself?: boolean;
   /** When the sender's ten minutes to undo end (`withdraw_marks_submission`), from the server's `submitted_at`. */
   undoUntil?: string | null;
   /** Whether those ten minutes were still running when the page was drawn — the server's clock, not the phone's. */
@@ -45,6 +48,8 @@ export type SheetPaper = {
   examOpen: boolean;
   locked: boolean;
   dueLabel: string | null;
+  /** The marks due day is over (school time): a fully entered, quiet paper now goes by itself (D-651). */
+  duePassed?: boolean;
 };
 
 export type Sheet = {
@@ -164,12 +169,14 @@ export async function loadSheet(paperId: string, known?: { exams?: Exam[]; paper
       entryRevision: paper.entry_revision,
       submittedAt: paper.submitted_at,
       submittedBy: paper.submitted_by,
+      sentItself: sentItself(paper),
       undoUntil,
       undoOpen: undoUntil !== null && Date.now() < new Date(undoUntil).getTime(),
       undoLeftMs: undoUntil !== null ? Math.max(0, new Date(undoUntil).getTime() - Date.now()) : 0,
       examOpen: exam.status === "open",
       locked: Boolean(lock.data),
       dueLabel: due ? shortDay(due) : null,
+      duePassed: due !== null && due < schoolToday(),
     },
     students,
     saved,
