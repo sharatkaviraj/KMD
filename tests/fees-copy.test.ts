@@ -198,6 +198,21 @@ describe("the SQL behind the night", () => {
     expect(sql).not.toMatch(/\b(drop|truncate|delete)\b/i);
     expect(sql).not.toMatch(/vgqyilgstjvgohrsiwkb/);
   });
+
+  it("gives each copy job a limit of its own, longer than the database's two minutes, and keeps the night's times", () => {
+    // The first trial of the night's job was stopped at two minutes and undid itself (16 Nov).
+    const sql = statements(sqlOf("supabase/migrations", "_fees_copy_time_limit.sql"));
+    expect(sql).toMatch(
+      /command := 'set statement_timeout = ''20min''; select vppsone\.fees_copy_nightly\(\);'\)\s+from cron\.job j\s+where j\.jobname = 'fees-copy-nightly'/,
+    );
+    expect(sql).toMatch(
+      /command := 'set statement_timeout = ''10min''; select vppsone\.fees_copy_audit\(100000\);'\)\s+from cron\.job j\s+where j\.jobname = 'fees-copy-audit'/,
+    );
+    expect(sql).toMatch(/raise exception 'D-648: the two copy jobs are not both scheduled/);
+    // D-457: the times stay the night's; nothing is scheduled anew.
+    expect(sql).not.toMatch(/cron\.schedule\(|schedule :=/);
+    expect(sql).not.toMatch(/\b(drop|truncate|delete)\b/i);
+  });
 });
 
 describe("Settings → WhatsApp, the Fees app's messages", () => {
