@@ -10,7 +10,7 @@ import { assertPermission, type CurrentStaff } from "@/platform/auth/current-sta
 import { assertNotTestAccount, isSessionAccessDenied } from "@/platform/auth/test-session-access";
 import { getSiteUrl } from "@/platform/env";
 import { rethrowNextSignal } from "@/platform/helpers/next-signals";
-import { isWhatsAppFeature, sentByFeesApp } from "@/platform/whatsapp/policy";
+import { feesAppSendsRealYear, isWhatsAppFeature } from "@/platform/whatsapp/policy";
 import { checkConnection, retryMessage } from "@/platform/whatsapp/service";
 import { readMessage, readSwitches, setFeatureSwitch, setPracticeMode } from "@/platform/whatsapp/store";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -86,10 +86,12 @@ export async function setFeatureAction(formData: FormData): Promise<void> {
   const feature = String(formData.get("feature") ?? "");
   const on = String(formData.get("on") ?? "");
   if (!isWhatsAppFeature(feature) || (on !== "true" && on !== "false")) back("save_bad");
-  // The Fees app's messages are not One's to switch on (policy.ts FEES_APP_FEATURES).
-  if (on === "true" && sentByFeesApp(feature, (await readSwitches())?.feeSender)) back("feature_fees_app", { feature });
   const ok = await setFeatureSwitch(feature, on === "true", actor.id);
-  back(ok ? "feature_saved" : "save_bad", { feature });
+  // The Fees app sends this kind to the real families from its own number, so
+  // switched on here it is One's for the test year only (policy.ts, D-649):
+  // the answer says so in as many words.
+  const testYearOnly = ok && on === "true" && feesAppSendsRealYear(feature, (await readSwitches())?.feeSender);
+  back(ok ? (testYearOnly ? "feature_test_year" : "feature_saved") : "save_bad", { feature });
 }
 
 /**

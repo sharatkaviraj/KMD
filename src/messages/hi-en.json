@@ -1033,6 +1033,8 @@
     "waiveStandaloneCaption": "Alag maafi (har kist par darj, audit hoti hai):",
     "blockingReasonReadOnlyTitle": "Sirf dekh sakte ho.",
     "blockingReasonReadOnlyDetail": "Desk dekh sakte ho, par payment darj nahi kar sakte.",
+    "blockingReasonFeesAppTitle": "Is saal ka payment Fees app mein liya jaata hai.",
+    "blockingReasonFeesAppDetail": "One har raat Fees app ki copy leta hai, isliye aaj wahan liya payment kal yahan dikhega. Jab tak One is saal ka fee record khud nahi rakhta, yahan sirf dikhta hai.",
     "blockingReasonNoPolicyTitle": "Is session ke liye Fee Setup adhoora hai.",
     "blockingReasonNoPolicyDetail": "Payment lene se pehle Fee Setup kholo aur session ki policy publish karo.",
     "blockingReasonNoPolicyAction": "Fee Setup kholo",

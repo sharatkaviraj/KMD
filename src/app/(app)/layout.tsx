@@ -11,7 +11,9 @@ import { getAppMode } from "@/platform/env";
 import { LanguageProvider } from "@/platform/i18n/use-language";
 import { VxShell } from "@/vx/shell/shell";
 import { getViewer, PREVIEW_ROLE, previewPermissions, rolePreviewOf } from "@/vx/view-as";
-import { usesCanonicalFees } from "@/platform/fees-bridge/policy";
+import { showsFeesCopyStatus } from "@/modules/coexistence/domain/fees-copy";
+import { FeesCopyStatus } from "@/modules/coexistence/ui/fees-copy-status";
+import { feesBridgeEnabled, usesCanonicalFees } from "@/platform/fees-bridge/policy";
 import { RosterStatus } from "@/platform/fees-bridge/roster-status";
 
 export const runtime = "nodejs";
@@ -65,6 +67,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   ]);
   const sessionLabel = resolvedSession?.sessionLabel ?? academicSession ?? "";
   const showBridgeStatus = usesCanonicalFees(staff, sessionLabel);
+  // With the Fees link off, the same place says when the night's copy of the
+  // Fees app last landed (D-648).
+  const showCopyStatus = !showBridgeStatus && showsFeesCopyStatus({ bridgeOn: feesBridgeEnabled(), confined: isConfinedDeployment(), viewer: staff, sessionLabel });
 
   const pillViewer = {
     role: previewRole ?? staff.role,
@@ -80,7 +85,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <VxShell
         viewer={viewer}
         sessionLabel={sessionLabel}
-        rosterStatus={showBridgeStatus ? <Suspense fallback={<span className="vx-roster-placeholder" aria-hidden="true" />}><RosterStatus language={staff.language} canRefresh={staff.role === "admin" && !previewing} catchUpPhotos={staff.role === "admin" && !viewer.previewing && staff.isTestAccount !== true} /></Suspense> : null}
+        rosterStatus={showBridgeStatus ? <Suspense fallback={<span className="vx-roster-placeholder" aria-hidden="true" />}><RosterStatus language={staff.language} canRefresh={staff.role === "admin" && !previewing} catchUpPhotos={staff.role === "admin" && !viewer.previewing && staff.isTestAccount !== true} /></Suspense> : showCopyStatus ? <Suspense fallback={<span className="vx-roster-placeholder" aria-hidden="true" />}><FeesCopyStatus language={staff.language} /></Suspense> : null}
         sessionIsTest={resolvedSession?.isTest ?? (isTestSessionLabel(academicSession) || getAppMode() === "test")}
         sessionPill={
           showPill

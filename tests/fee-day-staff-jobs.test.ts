@@ -11,6 +11,9 @@ const state = vi.hoisted(() => ({
   sessions: ["2026-27"] as string[],
   testReceipts: [] as Array<Record<string, unknown>>,
   read: [] as string[],
+  // app_settings.fee_writes_enabled: 'true' once One keeps the real year's fees itself (takeover day).
+  feeWrites: "true" as string | null,
+  feeWritesError: false,
 }));
 
 vi.mock("@/platform/deployment/confinement", () => ({ isConfinedDeployment: () => state.confined }));
@@ -37,13 +40,30 @@ vi.mock("@/platform/supabase/admin", () => {
     builder.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data, error: null }).then(resolve);
     return builder;
   };
+  // app_settings answers by the key asked for: the active session, or the fee-writes switch.
+  const settings = () => {
+    let key = "";
+    const builder: Record<string, unknown> = {};
+    builder.select = () => builder;
+    builder.eq = (_column: string, value: string) => {
+      key = value;
+      return builder;
+    };
+    builder.then = (resolve: (value: unknown) => unknown) =>
+      Promise.resolve(
+        key === "fee_writes_enabled"
+          ? state.feeWritesError
+            ? { data: null, error: { message: "unreadable" } }
+            : { data: state.feeWrites === null ? [] : [{ value: state.feeWrites }], error: null }
+          : { data: [{ value: "2026-27" }], error: null },
+      ).then(resolve);
+    return builder;
+  };
   return {
     createAdminClient: () => ({
       schema: () => ({
         from: (table: string) =>
-          table === "app_settings"
-            ? chain([{ value: "2026-27" }])
-            : chain(state.sessions.map((session_label) => ({ session_label }))),
+          table === "app_settings" ? settings() : chain(state.sessions.map((session_label) => ({ session_label }))),
       }),
       from: (table: string) => (table === "fee_day_close_events" ? chain(state.closeEvents) : chain([])),
     }),
@@ -76,6 +96,8 @@ beforeEach(() => {
   state.sessions = ["2026-27"];
   state.testReceipts = [];
   state.read = [];
+  state.feeWrites = "true";
+  state.feeWritesError = false;
 });
 
 describe("fee-day-summary (19:00)", () => {
@@ -172,5 +194,39 @@ describe("the TEST pass (review of PR #148): both kinds can be rehearsed under T
     state.receipts = [receipt("cash", 3000)];
     expect(await feeDaySummary("2026-11-02")).toMatchObject({ queued: 2, test_receipts: 0, test_queued: 0 });
     expect(state.queued).toHaveLength(1);
+  });
+});
+
+describe("while One's real year is the night's copy of the Fees app (D-648)", () => {
+  // The office takes the money and closes its day in Fees; the copy is a night
+  // behind (or part of a day, after a copy by hand), so the real year's fee day
+  // stays the Fees app's until real fee writes are open in One.
+  it("tells staff nothing about the real year, never even reads its receipts, and still rehearses TEST", async () => {
+    state.feeWrites = "false";
+    state.sessions = ["2026-27", "TEST-2026-27"];
+    state.receipts = [receipt("cash", 3000)];
+    state.testReceipts = [receipt("upi", 700)];
+
+    const summary = await feeDaySummary("2026-11-02");
+    expect(summary).toMatchObject({ queued: 0, note: expect.stringMatching(/copy of the Fees app/), test_receipts: 1, test_queued: 2 });
+    expect(state.read).toEqual(["TEST-2026-27"]);
+    expect(state.queued.map((q) => q.sessionLabel)).toEqual(["TEST-2026-27"]);
+
+    state.queued = [];
+    state.read = [];
+    const notClosed = await feeDayNotClosed("2026-11-02");
+    expect(notClosed).toMatchObject({ test_queued: 2 });
+    expect(notClosed.closed).toBeUndefined();
+    expect(state.queued.map((q) => q.sessionLabel)).toEqual(["TEST-2026-27"]);
+  });
+
+  it("an unset or unreadable switch is not One's either", async () => {
+    state.receipts = [receipt("cash", 3000)];
+    state.feeWrites = null;
+    expect(await feeDaySummary("2026-11-02")).toMatchObject({ queued: 0, note: expect.stringMatching(/copy of the Fees app/) });
+    state.feeWritesError = true;
+    expect(await feeDayNotClosed("2026-11-02")).toMatchObject({ queued: 0, note: expect.stringMatching(/copy of the Fees app/) });
+    expect(state.queued).toHaveLength(0);
+    expect(state.read).toEqual([]);
   });
 });

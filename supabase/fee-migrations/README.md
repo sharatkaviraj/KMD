@@ -206,3 +206,23 @@ read `whatsapp_send_attempts` or execute `staff_payment_alert_claim` /
 tables. The app code behind them (the failure desk's Fix tab; the staff
 payment alerts' push and WhatsApp sender, go-live Phase 8, plan §8.4) is not ported yet — until
 it is, the tables fill from their triggers alone.
+
+## Added by the delink from Fees (16 Nov), applied to `wtgxcptmucjerhufzjcf`
+
+All One-only, for the night's copy of the Fees app into One (D-644, D-648):
+One's real year is now a copy of Fees taken once a night, and the Fees link
+is off. The copy itself lives in `supabase/migrations/` (`vppsone` functions
+only); these four change the fee schema it writes into.
+
+| File | What | Ledger name | Ledger version |
+|---|---|---|---|
+| `20261116033500_fees_copy_structure_catchup.sql` | the shape the copy needs from the fees app's household-communications work (31 Oct to 9 Nov): `payment_mode` 'split' and `receipt_tenders`, `household_communication_preferences`, `whatsapp_run_households` and the new columns on the message, online-payment and family tables. None of that work's sending functions or triggers | `fee_20261116033500_fees_copy_structure_catchup` | 20261116033311 |
+| `20261116034500_message_log_rules_match_fees.sql` | the two message logs take the fees app's looser rules ('uncertain', third numbers, once per role). Applied with the CLI from the owner's PC (it removes two indexes) | `fee_20261116034500_message_log_rules_match_fees` | 20261116034708 |
+| `20261116050500_practice_rows_out_of_real_year.sql` | One's 153 old practice rows leave the real year before the copy, each kept whole in `vppsone.fees_copy_quarantine`. Applied with the CLI from the owner's PC. The header asks whether the two receipts on the owner's account were real money; the owner's answer, 16 Nov: no, so they stay out | `fee_20261116050500_practice_rows_out_of_real_year` | 20261116052227 |
+| `20261116055000_message_logs_fee_staff_only.sql` | the eight message and follow-up logs are read by fee staff (`defaulters:view`, `dashboard:view` for the activity log), not by every signed-in account: in One every teacher is signed in, and the copy now brings parents' real numbers (`docs/cutover/SCHEMA-PARITY.md`) | `fee_20261116055000_message_logs_fee_staff_only` | 20261116055112 |
+
+Checked after applying: `cron.job` still calls nothing on `schoolfees-two` or
+`vercel.app` (0); the first applied copy (run 5) matches Fees on every money
+total and all 19 classes; `receipt_tenders` carries the fee-writes guard;
+`anon` reads none of the new tables; the eight policies answer a fee role and
+refuse an account without one.

@@ -7,6 +7,8 @@ import { getFeePolicyForSession, getFeePolicySummary } from "@/modules/fees/doma
 import { createFeeAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { cacheSafeUnstableCache, getCacheSafeClient } from "@/modules/fees/platform/supabase/cache-safe";
+import { currentFeeWritesMode } from "@/modules/fees/platform/supabase/write-guard";
+import { isTestAcademicSessionLabel } from "@/platform/config/fee-rules";
 import { getStudentDetail } from "@/modules/students-fees/data/queries";
 import { calculateOverdueBaseAmount } from "@/modules/fees/domain/due-amounts";
 import {
@@ -45,6 +47,7 @@ import type {
  */
 export type PaymentDeskBlockingReasonKey =
   | "read_only"
+  | "fees_app_takes_payments"
   | "no_policy"
   | "no_active_class"
   | "selected_student_missing"
@@ -467,9 +470,10 @@ async function getPaymentDeskReadinessUncached(payload: {
   canWritePayments: boolean;
   policy: Awaited<ReturnType<typeof getFeePolicyForSession>>;
   hasActiveClass: boolean;
+  feeWritesOpen: boolean;
 }): Promise<PaymentDeskReadiness> {
   const { policy } = payload;
-  const { hasActiveClass } = payload;
+  const { hasActiveClass, feeWritesOpen } = payload;
   const policyExists =
     Boolean(policy.id) &&
     policy.academicSessionLabel.trim().toLowerCase() ===
@@ -481,6 +485,16 @@ async function getPaymentDeskReadinessUncached(payload: {
       key: "read_only",
       title: "Read-only access.",
       detail: "You can review the desk but cannot post payments.",
+      actionLabel: null,
+      actionHref: null,
+    };
+  } else if (!feeWritesOpen) {
+    // No link to Fees: One never sends staff there (owner, 6 Nov).
+    blockingReason = {
+      key: "fees_app_takes_payments",
+      title: "This year's payments are taken in the Fees app.",
+      detail:
+        "One copies the Fees app each night, so a payment taken there today shows here tomorrow. Until One keeps this year's fee records itself, it only shows them.",
       actionLabel: null,
       actionHref: null,
     };
@@ -504,14 +518,31 @@ async function getPaymentDeskReadinessUncached(payload: {
   }
 
   return {
-    canPostPayments: payload.canWritePayments && policyExists && hasActiveClass,
+    canPostPayments: payload.canWritePayments && feeWritesOpen && policyExists && hasActiveClass,
     blockingReason,
     canRepairOrPrepareDues:
       payload.canWritePayments &&
+      feeWritesOpen &&
       payload.staffAppRole === "admin" &&
       policyExists &&
       hasActiveClass,
   };
+}
+
+/**
+ * Whether a fee write for this year can land at all (D-345, D-648). A TEST
+ * year always can. A real year only once `fee_writes_enabled` is open: until
+ * then One's real year is the night's copy of the Fees app, the write guard
+ * refuses every save, and the desk says so before anyone types an amount
+ * rather than after. Never throws; an unreadable answer is closed.
+ */
+async function paymentDeskFeeWritesOpen(sessionLabel: string): Promise<boolean> {
+  if (isTestAcademicSessionLabel(sessionLabel)) return true;
+  try {
+    return (await currentFeeWritesMode()) === "open";
+  } catch {
+    return false;
+  }
 }
 
 async function getPaymentDeskHasActiveClassUncached(sessionLabel: string) {
@@ -543,12 +574,14 @@ export async function getPaymentDeskReadiness(payload: {
   staffAppRole: StaffRole;
   canWritePayments: boolean;
 }): Promise<PaymentDeskReadiness> {
+  const writesOpen = paymentDeskFeeWritesOpen(payload.sessionLabel);
   try {
-    const [policy, hasActiveClass] = await Promise.all([
+    const [policy, hasActiveClass, feeWritesOpen] = await Promise.all([
       getFeePolicyForSession(payload.sessionLabel),
       getPaymentDeskHasActiveClass(payload.sessionLabel),
+      writesOpen,
     ]);
-    return await getPaymentDeskReadinessUncached({ ...payload, policy, hasActiveClass });
+    return await getPaymentDeskReadinessUncached({ ...payload, policy, hasActiveClass, feeWritesOpen });
   } catch (error) {
     // Audit 1.11 — fail safe. Previously the catch returned
     // `canPostPayments: payload.canWritePayments, blockingReason: null` which
@@ -571,7 +604,7 @@ export async function getPaymentDeskReadiness(payload: {
         actionHref: null,
       },
       canRepairOrPrepareDues:
-        payload.canWritePayments && payload.staffAppRole === "admin",
+        payload.canWritePayments && payload.staffAppRole === "admin" && (await writesOpen),
     };
   }
 }

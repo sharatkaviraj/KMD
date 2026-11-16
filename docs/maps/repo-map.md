@@ -120,7 +120,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `attendance` | One | domain, data, ui | — |
 | `certificates` | One | domain, data, ui | — |
 | `chats` | One | domain, data | Parents' WhatsApp messages that need a person, answered by staff in One: one chat per parent per desk. |
-| `coexistence` | One | domain, data | — |
+| `coexistence` | One | domain, data, ui | — |
 | `collect` | One | domain, data | — |
 | `collection` | One | domain, data, ui | — |
 | `dashboard` | ported from Fees | domain, data, ui, vx | Five read-only boards over one money band. Analytics, never a write. |

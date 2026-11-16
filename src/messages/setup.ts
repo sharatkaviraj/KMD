@@ -60,6 +60,14 @@ export const ms = {
   bridgeRosterStale: t("कल रात स्कूल की सूची अपडेट नहीं हुई। एडमिन को बताएँ।", "Last night's school roster update did not run. Tell the admin."),
   bridgeRosterError: t("स्कूल की सूची अपडेट नहीं हो सकी। वर्तमान शुल्क के लिए Fees ऐप खोलें।", "The school roster could not be updated. Open Fees for current financial records."),
   bridgeRosterPending: t("स्कूल की सूची तैयार हो रही है।", "The school roster is being prepared."),
+  // The night's copy of the Fees app, while the Fees link is off (D-648).
+  feesCopyFresh: t("Fees से अपडेट", "Updated from Fees"),
+  feesCopyFreshHelp: t(
+    "यहाँ बच्चे, कक्षाएँ और फ़ीस हर रात Fees ऐप से कॉपी होते हैं। आज Fees में किया गया बदलाव यहाँ कल दिखेगा।",
+    "Children, classes and fees here are copied from the Fees app each night. A change made in Fees today shows here tomorrow.",
+  ),
+  feesCopyStale: t("कल रात Fees से कॉपी नहीं हुई, इसलिए यहाँ की फ़ीस पुरानी हो सकती है। एडमिन को बताएँ।", "Last night's copy from Fees did not run, so fees here may be out of date. Tell the admin."),
+  feesCopyUnread: t("पता नहीं चल सका कि Fees से आख़िरी कॉपी कब हुई। एडमिन को बताएँ।", "Could not tell when One last copied from Fees. Tell the admin."),
   bridgeRetry: t("इसी भुगतान को फिर भेजें", "Retry this same payment"),
   bridgeNotFound: t("यह भुगतान अभी दर्ज नहीं मिला। इसी पहचान से दोबारा भेजना सुरक्षित है।", "This payment has not been found. It can be retried with the same identifier."),
   bridgeNew: t("अगला भुगतान", "Next payment"),

@@ -65,10 +65,11 @@ export const waMessages = {
   off: t("बंद", "Off"),
   turnOn: t("चालू करें", "Switch on"),
   turnOff: t("बंद करें", "Switch off"),
-  feesAppSends: t("फ़ीस ऐप", "Fees app"),
-  feesAppSendsHelp: t(
-    "यह संदेश फ़ीस ऐप अपने नंबर से भेजता है, इसलिए One नहीं भेजता। अभिभावकों को दो बार नहीं मिलेगा।",
-    "The Fees app sends this from its own number, so One does not. Parents never get it twice.",
+  // A fee message the Fees app sends to the real families (D-649).
+  onTestYear: t("टेस्ट साल में चालू", "On, test year only"),
+  testYearOnlyHelp: t(
+    "असली साल में यह संदेश फ़ीस ऐप अपने नंबर से भेजता है, इसलिए One नहीं भेजता और अभिभावकों को दो बार नहीं मिलता। यहाँ चालू करने पर One इसे सिर्फ़ टेस्ट साल के लिए, जाँच के नंबरों पर भेजता है।",
+    "For the real year the Fees app sends this from its own number, so One does not, and parents never get it twice. Switched on here, One sends it for the test year only, to test numbers.",
   ),
   helperOpen: t("Veer Patta AI खोलें: इस हफ़्ते के आँकड़े और एक बार सिखाए जवाब", "Open Veer Patta AI: this week's numbers and the answers taught once"),
   helperHelp: (approved: number, total: number) =>
@@ -199,8 +200,14 @@ export function noteFor(note: string, params: Record<string, string | undefined>
     case "save_bad":
     case "signin_bad":
       return { tone: "bad", text: waMessages.failedToSave };
-    case "feature_fees_app":
-      return { tone: "info", text: waMessages.feesAppSendsHelp };
+    case "feature_test_year":
+      return {
+        tone: "ok",
+        text: t(
+          "सहेज लिया। One यह संदेश सिर्फ़ टेस्ट साल के लिए भेजेगा; असली साल का संदेश फ़ीस ऐप ही भेजता रहेगा।",
+          "Saved. One sends this for the test year only; the Fees app keeps sending the real year's.",
+        ),
+      };
     case "templates_ok":
       return {
         tone: "ok",

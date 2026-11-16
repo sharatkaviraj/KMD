@@ -357,9 +357,15 @@ export function classifyFeeRequest(request: { method: string; url: string; body:
   return { kind: "write", resource, rpc: false, scope, unscoped };
 }
 
-/** The message a refused write carries, said the same way as the database's VPP01. */
+/**
+ * The message a refused write carries: the database's VPP01, in the words the
+ * office reads. Since D-648 One's real year is the night's copy of the Fees
+ * app, which keeps the real records until takeover day (`fee_writes_enabled`
+ * then opens), so the sentence says where the change is made instead of
+ * naming the switch. The switch and the reason stay in `details` and `hint`.
+ */
 export const FEE_WRITES_REFUSED_MESSAGE =
-  "Fee changes are switched off here until go-live (fee_writes_enabled). Only TEST-session students can be changed.";
+  "This year's fee records are kept in the Fees app for now, so One cannot change them. Only TEST-session students can be changed.";
 
 export function feeWriteRefusal(resource: string, why: string) {
   return {

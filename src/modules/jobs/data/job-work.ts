@@ -741,6 +741,24 @@ async function feeDayFigures(sessionLabel: string, day: string): Promise<DayFigu
 }
 
 /**
+ * Whether the real year's fee day is One's to tell staff about (D-648). Not
+ * while One's real year is the night's copy of the Fees app: the office takes
+ * the money and closes its day in Fees, and the copy is a night behind, so a
+ * summary from it would be part of a day, or a day "not closed" that was. The
+ * Fees app keeps the real year's fee day until real fee writes are open in
+ * One (takeover day). An unreadable setting is not One's.
+ */
+async function realFeeDayIsOnes(): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .schema("public")
+    .from("app_settings")
+    .select("value")
+    .eq("key", "fee_writes_enabled");
+  if (error) return false;
+  return (data as { value: string | null }[] | null)?.[0]?.value === "true";
+}
+
+/**
  * Run one fee-day pass per session and say what happened: the real session's
  * numbers as before, and the TEST pass's under `test_…` keys. One dispatch at
  * the end sends whatever was queued.
@@ -753,7 +771,9 @@ async function feeDayPasses(
   const sessions = await feeDaySessions();
   let summary: Summary = {};
   let queuedTotal = 0;
-  if (sessions.real) {
+  if (sessions.real && !(await realFeeDayIsOnes())) {
+    summary = { queued: 0, note: "the real year is the night's copy of the Fees app, which keeps its fee day" };
+  } else if (sessions.real) {
     const figures = await feeDayFigures(sessions.real, day);
     // A day with no receipts says nothing worth a message.
     const result = figures.count === 0 ? { receipts: 0, queued: 0, note: "no receipts today" } : await pass(figures);

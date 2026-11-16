@@ -275,6 +275,22 @@ describe("the two message catalogues do not mix", () => {
   );
 });
 
+/**
+ * The night's copy of the Fees app into One (D-644, D-648; the owner's
+ * decision of 16 Nov that One becomes an app of its own). Two native
+ * functions, `vppsone.fees_copy_run` and `vppsone.fees_copy_audit`, write
+ * One's copy of the fee tables, holding the copied tables' own triggers while
+ * they do, each night from pg_cron: never while a migration runs. Only those
+ * two bodies, in that one file, are set aside; every statement around them is
+ * still checked, and a body of any other name is not set aside.
+ */
+const FEES_COPY_MIGRATION = "20261116042616_fees_copy_run.sql";
+const withoutFeesCopyBodies = (sql: string) => sql.replace(
+  /(create\s+or\s+replace\s+function\s+vppsone\.fees_copy_(?:run|audit)\s*\([\s\S]*?\bas\s+)(\$[a-z_]*\$)[\s\S]*?\2/gi,
+  "$1''",
+);
+const migrationStatementsOf = (file: string, sql: string) => (file === FEES_COPY_MIGRATION ? withoutFeesCopyBodies(sql) : sql);
+
 describe("migrations", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrations = readdirSync(migrationsDir).filter((file) =>
@@ -294,9 +310,9 @@ describe("migrations", () => {
   });
 
   it.each(migrations)("%s creates nothing in public", (file) => {
-    const sql = readFileSync(path.join(migrationsDir, file), "utf8")
+    const sql = migrationStatementsOf(file, readFileSync(path.join(migrationsDir, file), "utf8")
       // Comments explain the rule; only statements can break it.
-      .replace(/--[^\n]*/g, "");
+      .replace(/--[^\n]*/g, ""));
 
     expect(
       /\bcreate\s+(or\s+replace\s+)?(table|view|function|type|index|trigger|policy|materialized\s+view)\s+(if\s+not\s+exists\s+)?public\./i.test(
@@ -360,7 +376,7 @@ describe("no migration changes the fee app's code or rows", () => {
   it.each(migrations.filter((file) => !APPROVED.has(file)))("%s leaves the fee app's functions, triggers and rows alone", (file) => {
     const sql = readFileSync(path.join(migrationsDir, file), "utf8").replace(/--[^\n]*/g, "");
     expect(TOUCHES_FEE_CODE.test(sql), `${file} changes a fee object; that needs its own approval (P12)`).toBe(false);
-    const migrationStatements = file === RUNTIME_COUNTER_REFRESH ? withoutCounterFunctionBody(sql) : sql;
+    const migrationStatements = file === RUNTIME_COUNTER_REFRESH ? withoutCounterFunctionBody(sql) : migrationStatementsOf(file, sql);
     expect(WRITES_FEE_ROWS.test(migrationStatements), `${file} writes fee rows during migration (P12)`).toBe(false);
   });
 
@@ -378,6 +394,21 @@ describe("no migration changes the fee app's code or rows", () => {
 
   it("still has its one approved exception, so the allowlist cannot quietly go stale", () => {
     expect(migrations).toContain("20260922100000_current_staff_role_reads_vppsone.sql");
+  });
+
+  it("sets aside only the two copy bodies, and still sees a write beside them (D-648)", () => {
+    expect(migrations).toContain(FEES_COPY_MIGRATION);
+    const body = "create or replace function vppsone.fees_copy_run(p_mode text default 'plan') returns jsonb language plpgsql as $fn$ begin execute format('alter table public.%I disable trigger %I', 'students', 't'); insert into public.students values ('x'); end; $fn$;";
+    expect(WRITES_FEE_ROWS.test(withoutFeesCopyBodies(body))).toBe(false);
+    expect(/\balter\s+table\s+(only\s+)?public\./i.test(withoutFeesCopyBodies(body))).toBe(false);
+    for (const beside of ["update public.students set status = 'left';", "alter table public.students disable trigger all;"]) {
+      const sql = withoutFeesCopyBodies(`${body} ${beside}`);
+      expect(WRITES_FEE_ROWS.test(sql) || /\balter\s+table\s+(only\s+)?public\./i.test(sql), beside).toBe(true);
+    }
+    const otherName = body.replace("vppsone.fees_copy_run", "vppsone.fees_copy_more");
+    expect(WRITES_FEE_ROWS.test(withoutFeesCopyBodies(otherName))).toBe(true);
+    // Only in that one file.
+    expect(migrationStatementsOf("20261116064000_other.sql", body)).toBe(body);
   });
 });
 

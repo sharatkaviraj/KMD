@@ -1033,6 +1033,8 @@
     "waiveStandaloneCaption": "Standalone waiver (recorded per installment, audited):",
     "blockingReasonReadOnlyTitle": "Read-only access.",
     "blockingReasonReadOnlyDetail": "You can review the desk but cannot post payments.",
+    "blockingReasonFeesAppTitle": "This year's payments are taken in the Fees app.",
+    "blockingReasonFeesAppDetail": "One copies the Fees app each night, so a payment taken there today shows here tomorrow. Until One keeps this year's fee records itself, it only shows them.",
     "blockingReasonNoPolicyTitle": "Fee Setup is incomplete for this year.",
     "blockingReasonNoPolicyDetail": "Open Fee Setup and publish the academic year policy before collecting payments.",
     "blockingReasonNoPolicyAction": "Open Fee Setup",

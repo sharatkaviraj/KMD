@@ -214,6 +214,8 @@ describe("a cold request with no cookie", () => {
     "/api/jobs/parent-files",
     // Chats with parents (D-616): the nudges to staff and the closing of quiet chats.
     "/api/jobs/parent-chats",
+    // The night's copy of the Fees app asks One to clear its saved screens (D-648).
+    "/api/jobs/fees-copy-done",
     "/api/fees/cron/online-payments",
     "/api/fees/cron/whatsapp-scheduled-runs",
     "/api/fees/cron/auto-day-close",

@@ -1,3 +1,4 @@
+import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import type { WhatsAppConfig } from "@/platform/whatsapp/config";
 import { FEES_AISENSY_NUMBER, SCHOOL_WHATSAPP_NUMBER, toE164 } from "@/platform/whatsapp/numbers";
 
@@ -13,7 +14,8 @@ import { FEES_AISENSY_NUMBER, SCHOOL_WHATSAPP_NUMBER, toE164 } from "@/platform/
  *     is not the school's own.
  *  2. Every switch could be read.
  *  2a. This kind of message is One's to send, not the Fees app's
- *     (`FEES_APP_FEATURES`, `whatsapp_fee_sender`).
+ *     (`FEES_APP_FEATURES`, `whatsapp_fee_sender`). One about a practice
+ *     year always is (D-649).
  *  3. This feature is switched on (`whatsapp_features`).
  *  4. A template message names a registry row that is APPROVED, with the same
  *     number of blanks, the same PDF header and the same button. A typed
@@ -66,9 +68,27 @@ export const FEES_APP_FEATURES: ReadonlySet<WhatsAppFeature> = new Set<WhatsAppF
 
 export type FeeSender = "fees" | "one";
 
-/** Is this kind of message the Fees app's to send while `sender` says so? */
-export function sentByFeesApp(feature: WhatsAppFeature, sender: FeeSender | undefined): boolean {
+/**
+ * Does the Fees app send this kind of message to the real families while
+ * `sender` says so? Settings shows these as "test year only" (D-649).
+ */
+export function feesAppSendsRealYear(feature: WhatsAppFeature, sender: FeeSender | undefined): boolean {
   return FEES_APP_FEATURES.has(feature) && sender !== "one";
+}
+
+/**
+ * Is THIS message the Fees app's to send while `sender` says so?
+ *
+ * A message about a practice year (TEST-/UAT-/DEMO-) is One's own, whatever
+ * `sender` says (D-649): the Fees app never hears of One's test year, since
+ * the night's copy never brings a practice row either way (D-644), so nobody
+ * else would send it. It still passes every other check here, and the
+ * parent-send gate holds every practice-year message to the test-recipient
+ * list. A message with no year, or about a real one, stays the Fees app's
+ * until `whatsapp_fee_sender` says `one`.
+ */
+export function sentByFeesApp(feature: WhatsAppFeature, sender: FeeSender | undefined, sessionLabel?: string | null): boolean {
+  return feesAppSendsRealYear(feature, sender) && !isTestSessionLabel(sessionLabel);
 }
 
 export function isWhatsAppFeature(value: unknown): value is WhatsAppFeature {
@@ -124,6 +144,8 @@ export type PolicyInput = {
   /** null when the switches could not be read. */
   switches: WhatsAppSwitches | null;
   config: WhatsAppConfig;
+  /** The year the message is about, when the sender knows it (a practice year's fee messages are One's, D-649). */
+  sessionLabel?: string | null;
 } & (
   | {
       kind: "template";
@@ -159,7 +181,7 @@ export function checkWhatsAppSend(input: PolicyInput): PolicyVerdict {
   const switches = input.switches;
   if (!switches) return refuse("read_failed", "Could not read the WhatsApp switches. Not sent.", to);
 
-  if (sentByFeesApp(input.feature, switches.feeSender)) {
+  if (sentByFeesApp(input.feature, switches.feeSender, input.sessionLabel)) {
     return refuse("fees_app_sends", "The Fees app sends this message from its own number. One does not send it too.", to);
   }
 

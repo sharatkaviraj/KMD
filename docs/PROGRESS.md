@@ -1,5 +1,18 @@
 # VPPS One — progress
 
+## One stands on its own: the night's copy of the Fees app — 16 November 2026
+
+The owner asked that One be delinked from the Fees app and become an app of
+its own, with all the data kept, working end to end, and live. The office
+keeps using the Fees app until One is complete; then all of Fees' data comes
+across.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| The copy of Fees into One through a read-only login, checked against Fees: every money total and all 19 classes match; the audit trail caught up (D-644) | **live** 16 Nov (run 5, 05:43 UTC) | `claude/project-thread-ladvx2` | Surprised: One still held 153 practice rows in the real year from before the test fences (29 receipts, 6 practice children); they were moved out and archived first. The Fees app had loosened two message-log rules and added a household shape One lacked, so the copy could not fit until fee-migrations `20261116033500` and `20261116034500`. The read-only login expires 30 Jun 2027. |
+| The Fees link off in One; the copy each night at 02:00 IST with class lists, money views and cleared screens; "Updated from Fees" in the top bar; message logs for fee staff only; the real-year Payment Desk says the Fees app takes this year's payments (D-648) | in progress | `claude/project-thread-ladvx2` | A photo added in Fees from now on does not come across (all 483 current ones have). A test account with a fee role can still read real fee rows straight through the API (plan §3.4); the app keeps it to the test year. |
+| Fee reminders, receipts, reversal and statement messages switchable in One for the test year, the real year staying the Fees app's (D-649) | in progress | `claude/project-thread-ladvx2` | Nothing reaches a real parent: `whatsapp_real_recipients` stays off and `whatsapp_fee_sender` stays `fees`. |
+
 ## Things that finish by themselves — 16 November 2026
 
 The owner asked that chats with parents stop reminding teachers who forget to

@@ -302,6 +302,7 @@ export async function sendTemplate(
     to: phone,
     switches,
     config,
+    sessionLabel: options.sessionLabel ?? null,
     kind: "template",
     template,
     language,
@@ -344,7 +345,15 @@ export async function sendText(phone: string, text: string, options: SendOptions
   const config = readWhatsAppConfig();
   const to = toE164(phone);
   const [switches, wrote] = await Promise.all([readSwitches(), to ? wroteWithin24h(to).catch(() => null) : Promise.resolve(null)]);
-  const verdict = checkWhatsAppSend({ feature: options.feature, to: phone, switches, config, kind: "text", wroteInLast24h: wrote });
+  const verdict = checkWhatsAppSend({
+    feature: options.feature,
+    to: phone,
+    switches,
+    config,
+    sessionLabel: options.sessionLabel ?? null,
+    kind: "text",
+    wroteInLast24h: wrote,
+  });
   const body = text.trim().slice(0, 4096);
   const prepared: Prepared = {
     kind: "text",
@@ -426,6 +435,7 @@ export async function drainQueue(limit = 20): Promise<{ taken: number; settled: 
             to: row.to_e164,
             switches,
             config,
+            sessionLabel: row.session_label,
             kind: "template",
             template,
             language: row.language_code,
@@ -438,6 +448,7 @@ export async function drainQueue(limit = 20): Promise<{ taken: number; settled: 
             to: row.to_e164,
             switches,
             config,
+            sessionLabel: row.session_label,
             kind: "text",
             wroteInLast24h: await wroteWithin24h(row.to_e164, db).catch(() => null),
           });

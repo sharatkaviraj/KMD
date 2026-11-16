@@ -103,6 +103,15 @@ export const TABLES = {
   fees_bridge_retired_classes: { bucket: "K", why: "canonical retired class for academic history" },
   fees_bridge_routes: { bucket: "K", why: "canonical transport route names copied from Fees (D-550)" },
   fees_bridge_route_sync: { bucket: "K", why: "when the transport route names were last copied from Fees" },
+  // The night's copy of the Fees app (D-644, D-648) keeps its own books: what
+  // it ran, what it set aside and what it moved out of the real year. Not
+  // academic activity; never relabelled.
+  fees_copy_settings: { bucket: "K", why: "the copy's one row: the day it is retired (D-644)" },
+  fees_copy_runs: { bucket: "K", why: "each copy of the Fees app and its report (D-644)" },
+  fees_copy_nulled_refs: { bucket: "K", why: "references the copy left empty, with the value Fees had (D-644)" },
+  fees_copy_test_ids: { bucket: "K", why: "TEST rows the copy never overwrites (D-644)" },
+  fees_copy_audit_state: { bucket: "K", why: "where the copy of the Fees audit trail last stopped (D-644)" },
+  fees_copy_quarantine: { bucket: "K", why: "the practice rows moved out of the real year, kept whole (D-644)" },
   // Transport (D-550): post go-live, every row carries its own session label,
   // so a TEST bus or driver is already in TEST-2026-27. Never relabelled.
   transport_drivers: { bucket: "K", why: "post go-live drivers per session" },

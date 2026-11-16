@@ -1033,6 +1033,8 @@
     "waiveStandaloneCaption": "अलग माफी (हर किस्त पर दर्ज, ऑडिट होती है):",
     "blockingReasonReadOnlyTitle": "सिर्फ देख सकते हैं।",
     "blockingReasonReadOnlyDetail": "डेस्क देख सकते हैं, पर भुगतान दर्ज नहीं कर सकते।",
+    "blockingReasonFeesAppTitle": "इस साल का भुगतान Fees ऐप में लिया जाता है।",
+    "blockingReasonFeesAppDetail": "One हर रात Fees ऐप की कॉपी लेता है, इसलिए आज वहाँ लिया भुगतान कल यहाँ दिखेगा। जब तक One इस साल का फीस रिकॉर्ड खुद नहीं रखता, यहाँ सिर्फ दिखता है।",
     "blockingReasonNoPolicyTitle": "इस सत्र के लिए फीस सेटअप अधूरा है।",
     "blockingReasonNoPolicyDetail": "भुगतान लेने से पहले फीस सेटअप खोलें और सत्र की नीति प्रकाशित करें।",
     "blockingReasonNoPolicyAction": "फीस सेटअप खोलें",

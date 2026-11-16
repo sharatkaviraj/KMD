@@ -6,7 +6,7 @@ import { DEFAULT_HUB_URL, hubWebhookSecrets, readWhatsAppConfig, webhookSecrets,
 import { describeError, isRetryableCode } from "@/platform/whatsapp/errors";
 import { FEES_AISENSY_NUMBER, maskNumber, SCHOOL_WHATSAPP_NUMBER } from "@/platform/whatsapp/numbers";
 import { acceptedMessageId, cleanParam, graphError, templateMessageBody, textMessageBody } from "@/platform/whatsapp/payload";
-import { checkWhatsAppSend, FEES_APP_FEATURES, switchesFromFlags, type PolicyInput, type TemplateRow, type WhatsAppSwitches } from "@/platform/whatsapp/policy";
+import { checkWhatsAppSend, FEES_APP_FEATURES, feesAppSendsRealYear, switchesFromFlags, type PolicyInput, type TemplateRow, type WhatsAppSwitches } from "@/platform/whatsapp/policy";
 import { parseWebhook, verifySignature } from "@/platform/whatsapp/webhook";
 
 /**
@@ -149,6 +149,30 @@ describe("may this message go", () => {
       checkWhatsAppSend(input({ feature: "school_notice", template: notice, switches: { ...switches, feeSender: "fees", features: { school_notice: true } } })),
     ).toEqual({ decision: "send", to: OWNER });
     expect(FEES_APP_FEATURES.has("collection_request")).toBe(false);
+  });
+
+  it("sends a practice year's fee messages itself, every other check still on (D-649)", () => {
+    // 16 Nov 2026: One is delinked from Fees. The Fees app keeps the real families' fee
+    // messages; nobody else ever sends One's test year, whose rows the copy never touches.
+    const feesSends = { ...switches, feeSender: "fees" as const };
+    for (const feature of ["fee_reminder", "receipt", "reversal", "fee_statement"] as const) {
+      const on = { ...feesSends, features: { [feature]: true } };
+      expect(feesAppSendsRealYear(feature, "fees")).toBe(true);
+      expect(checkWhatsAppSend(input({ feature, switches: on, sessionLabel: "TEST-2026-27" }))).toEqual({ decision: "send", to: OWNER });
+      expect(checkWhatsAppSend(input({ feature, switches: on, sessionLabel: "UAT-2026-27" }))).toEqual({ decision: "send", to: OWNER });
+      // The real year, no year, or a label that only looks like a practice one: the Fees app's.
+      for (const sessionLabel of ["2026-27", null, undefined, "TEST-2026", " test-2026-27x"]) {
+        expect(checkWhatsAppSend(input({ feature, switches: on, sessionLabel }))).toMatchObject({ decision: "refuse", code: "fees_app_sends" });
+      }
+      // Still its own switch, still only the owner's number while real recipients are off.
+      expect(checkWhatsAppSend(input({ feature, switches: { ...feesSends, features: {} }, sessionLabel: "TEST-2026-27" }))).toMatchObject({ code: "feature_off" });
+      expect(checkWhatsAppSend(input({ feature, to: PARENT, switches: on, sessionLabel: "TEST-2026-27" }))).toMatchObject({ code: "not_owner_test_number" });
+      expect(checkWhatsAppSend(input({ feature, switches: { ...on, dryRun: true }, sessionLabel: "TEST-2026-27" }))).toEqual({ decision: "dry_run", to: OWNER });
+    }
+    // Once the owner moves them to One, every year is One's.
+    expect(feesAppSendsRealYear("receipt", "one")).toBe(false);
+    expect(checkWhatsAppSend(input({ feature: "receipt", switches: { ...switches, feeSender: "one", features: { receipt: true } }, sessionLabel: "2026-27" }))).toEqual({ decision: "send", to: OWNER });
+    expect(feesAppSendsRealYear("school_notice", "fees")).toBe(false);
   });
 
   it("reads the switches from runtime_flags, practice mode on unless it says off", () => {

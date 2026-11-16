@@ -24,6 +24,7 @@ type TranslatedIssue = {
 
 const TITLE_KEYS: Record<PaymentDeskBlockingReasonKey, string> = {
   read_only: "blockingReasonReadOnlyTitle",
+  fees_app_takes_payments: "blockingReasonFeesAppTitle",
   no_policy: "blockingReasonNoPolicyTitle",
   no_active_class: "blockingReasonNoClassTitle",
   selected_student_missing: "blockingReasonNoStudentTitle",
@@ -37,6 +38,7 @@ const TITLE_KEYS: Record<PaymentDeskBlockingReasonKey, string> = {
 
 const DETAIL_KEYS: Partial<Record<PaymentDeskBlockingReasonKey, string>> = {
   read_only: "blockingReasonReadOnlyDetail",
+  fees_app_takes_payments: "blockingReasonFeesAppDetail",
   no_policy: "blockingReasonNoPolicyDetail",
   no_active_class: "blockingReasonNoClassDetail",
   selected_student_missing: "blockingReasonNoStudentDetail",
