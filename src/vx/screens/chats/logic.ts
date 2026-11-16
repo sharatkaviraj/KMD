@@ -243,3 +243,15 @@ export function speechLang(language: ChatLanguage): "hi-IN" | "en-IN" {
 export function telHref(e164: string): string {
   return `tel:${e164.replace(/[^\d+]/g, "")}`;
 }
+
+/** How long after tapping Call the chat still asks whether the call settled it (D-645). */
+export const CALL_ASK_MS = 2 * 60 * 60 * 1000;
+
+/** Whether a Call tapped at `calledAt` still asks "Did the call settle it?" at `now`: within two hours, never from the future. */
+export function callAskOpen(calledAt: string | null, now: string): boolean {
+  if (!calledAt) return false;
+  const at = Date.parse(calledAt);
+  const clock = Date.parse(now);
+  if (!Number.isFinite(at) || !Number.isFinite(clock)) return false;
+  return at <= clock + 60_000 && clock - at < CALL_ASK_MS;
+}

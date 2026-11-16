@@ -13,7 +13,7 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { p, type Pair } from "@/vx/text";
 import { enrolmentsFor, graceFor, issuedStudents, listExams, locksFor, logActivity, marksOf, paperById, papersOf, trackerFor } from "@/vx/screens/exams/data";
 import { issueOne } from "@/vx/screens/exams/cards-data";
-import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
+import { canFinaliseMarks, canReopenMarks, canShowResultsToParents } from "@/vx/screens/exams/domain/finalise";
 import { lockRefusal, lockRefusalText } from "@/vx/screens/exams/domain/progress";
 import { graceVerdict } from "@/vx/screens/exams/domain/results";
 import { onRoll } from "@/vx/screens/exams/domain/tracker";
@@ -32,6 +32,8 @@ import type { ActionResult } from "@/vx/screens/exams/save-types";
 const UUID = /^[0-9a-f-]{36}$/i;
 const RELOAD: Pair = p("Something was missing. Reload the page.", "कुछ अधूरा था। पेज फिर खोलें।");
 const NOT_SAVED: Pair = p("Not saved. Try again.", "सहेजा नहीं गया। फिर से कोशिश करें।");
+/** `RESULT_RELEASERS` (D-647): showing marks to parents is the admin's decision. */
+const ADMIN_SHOWS_PARENTS: Pair = p("Only the admin decides when parents see the marks. Ask the admin to release them.", "अभिभावक अंक कब देखें, यह केवल प्रशासक तय करते हैं। जारी करने के लिए प्रशासक से कहें।");
 const db = () => createAdminClient();
 
 function refresh() {
@@ -249,6 +251,7 @@ export async function publishResultsAction(input: { examId: string; when: "now" 
   const staff = await assertPermission("assessments:manage");
   const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
+  if (!canShowResultsToParents(staff)) return { ok: false, message: ADMIN_SHOWS_PARENTS };
   if (!UUID.test(input.examId) || !["now", "scheduled"].includes(input.when) || (input.when === "scheduled" && (!input.at || Number.isNaN(Date.parse(input.at))))) {
     return { ok: false, message: RELOAD };
   }
@@ -294,6 +297,7 @@ export async function tellParentsAction(input: { examId: string; classId: string
   const staff = await assertPermission("assessments:manage");
   const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
+  if (!canShowResultsToParents(staff)) return { ok: false, message: ADMIN_SHOWS_PARENTS };
   if (!UUID.test(input.examId) || !UUID.test(input.classId)) return { ok: false, message: RELOAD };
   if (!(await passesFence(() => assertClassVisible(staff, input.classId)))) return { ok: false, message: RELOAD };
   const found = await examOf(input.examId);

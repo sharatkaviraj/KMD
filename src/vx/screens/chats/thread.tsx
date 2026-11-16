@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { cue } from "@/ui/feedback/cue";
 import Link from "@/ui/link";
@@ -15,7 +15,7 @@ import { manageChatAction, resendChatAction } from "@/app/(app)/chats/actions";
 
 import { Composer } from "./composer";
 import { ChatLine, DayLine } from "./lines";
-import { drawLines, isLocal, mergeLines, newRef, telHref } from "./logic";
+import { callAskOpen, drawLines, isLocal, mergeLines, newRef, telHref } from "./logic";
 import { PassSheet } from "./pass-sheet";
 import type { ChatFileView, ChatHeadView, ChatMessageView, ChatThreadData } from "./view";
 import { T } from "./words";
@@ -25,6 +25,8 @@ import { T } from "./words";
  * Call button, the messages, and the box to write in at the bottom. Above the
  * messages, the few things a person can do with the chat, each a plainly
  * named button: Finished, Give to someone else (D-617), the child's page.
+ * Tapping Call notes the call in the chat, and when the person is back a big
+ * card asks whether the call settled it (D-645): one tap finishes the chat.
  *
  * New messages come on their own: the screen asks every few seconds while it
  * is in view (slower when nothing happens, never while the phone is locked),
@@ -33,6 +35,40 @@ import { T } from "./words";
  */
 
 type Step = "take" | "give_back" | "finish" | "reopen";
+
+/*
+ * "Did the call settle it?" (D-645): the moment Call was tapped in a chat,
+ * kept for this tab (sessionStorage) so the question is still there when the
+ * person comes back from the phone call, even if the page was reloaded.
+ */
+const calledKey = (chatId: string) => `vx.chats.called.${chatId}`;
+const calledInMemory = new Map<string, string>();
+const calledListeners = new Set<() => void>();
+
+function readCalled(chatId: string): string | null {
+  try {
+    return window.sessionStorage.getItem(calledKey(chatId));
+  } catch {
+    return calledInMemory.get(chatId) ?? null;
+  }
+}
+
+function writeCalled(chatId: string, at: string | null): void {
+  if (at) calledInMemory.set(chatId, at);
+  else calledInMemory.delete(chatId);
+  try {
+    if (at) window.sessionStorage.setItem(calledKey(chatId), at);
+    else window.sessionStorage.removeItem(calledKey(chatId));
+  } catch {
+    // Storage refused: the question lasts while the page is open.
+  }
+  for (const listener of calledListeners) listener();
+}
+
+function onCalledChange(listener: () => void): () => void {
+  calledListeners.add(listener);
+  return () => calledListeners.delete(listener);
+}
 
 type PollBody =
   | { kind: "update"; messages: ChatMessageView[]; head: ChatHeadView | null; stamp: string; cursor: string }
@@ -101,6 +137,11 @@ export function ChatThread({
   const [state, setState] = useState<"live" | "gone" | "signed_out">("live");
   const [newBelow, setNewBelow] = useState(0);
   const [againId, setAgainId] = useState<string | null>(null);
+  const calledAt = useSyncExternalStore(
+    onCalledChange,
+    () => readCalled(chatId),
+    () => null,
+  );
 
   // A fresh render of the page (after an action, or the list's own refresh)
   // brings this chat again: take its heading, and any lines it has that the
@@ -393,7 +434,10 @@ export function ChatThread({
       if (step === "take") toast.show({ text: tx(T.takenOver), cue: "done" });
       else if (step === "give_back") toast.show({ text: tx(T.handedBack) });
       else if (step === "reopen") toast.show({ text: tx(T.reopened) });
-      else toast.show({ text: tx(T.markedDone), cue: "done", undo: () => act("reopen"), undoLabel: tx(T.reopen) });
+      else {
+        writeCalled(chatId, null);
+        toast.show({ text: tx(T.markedDone), cue: "done", undo: () => act("reopen"), undoLabel: tx(T.reopen) });
+      }
       callbacks.current.onChanged();
     } catch {
       toast.show({ tone: "bad", text: tx(T.failed) });
@@ -423,10 +467,24 @@ export function ChatThread({
   const showPass = live && !previewing && head.mayPass && head.passTargets.length > 0;
   const showHandBack = live && !previewing && head.mayHandBack;
   const showFinish = live && !previewing && head.mayFinish;
+  const askCall = showFinish && head.status !== "done" && callAskOpen(calledAt, now);
+
+  // Call opens the phone; the chat notes it, and the question waits for the person's return.
+  const called = () => {
+    cue("tap");
+    if (!showFinish || head.status === "done") return;
+    writeCalled(chatId, new Date().toISOString());
+    void manageChatAction({ chatId, step: "called" })
+      .then(() => settled())
+      .catch(() => undefined);
+  };
   const childLinks = canOpenChild ? head.children : [];
 
   const banners: Array<{ key: string; tone: "info" | "warn" | "ok" | "acc"; icon: "alert" | "checkCircle" | "award" | "info" | "message"; text: string }> = [];
-  if (head.status === "done") banners.push({ key: "done", tone: "ok", icon: "checkCircle", text: tx(T.doneBanner(head.doneByName)) });
+  if (head.status === "done") {
+    const text = head.doneReason ? T.doneItselfBanner(head.doneReason) : T.doneBanner(head.doneByName);
+    banners.push({ key: "done", tone: "ok", icon: "checkCircle", text: tx(text) });
+  }
   if (head.takenByMe && head.access === "reply" && head.mayHandBack) banners.push({ key: "took", tone: "acc", icon: "message", text: tx(T.youTook(head.deskFor)) });
   if (head.wantsAdmin) banners.push({ key: "principal", tone: "acc", icon: "award", text: tx(T.wantsAdminBanner) });
   else if (head.complaint) banners.push({ key: "complaint", tone: "warn", icon: "alert", text: tx(T.complaintBanner) });
@@ -498,7 +556,7 @@ export function ChatThread({
           </span>
           <span className="chat-head-sub">{sub}</span>
         </div>
-        <a className="chat-call tap" href={telHref(head.phone)} aria-label={`${tx(T.call)} ${head.phoneLabel}`} onClick={() => cue("tap")}>
+        <a className="chat-call tap" href={telHref(head.phone)} aria-label={`${tx(T.call)} ${head.phoneLabel}`} onClick={called}>
           <Ic n="phone" size={18} />
           <span className="chat-call-w">{tx(T.call)}</span>
         </a>
@@ -546,6 +604,42 @@ export function ChatThread({
           <span>{banner.text}</span>
         </div>
       ))}
+
+      {askCall ? (
+        <div className="chat-callask" role="group" aria-labelledby={`callask-${chatId}`}>
+          <div className="chat-callask-top">
+            <span className="chat-callask-ic" aria-hidden="true">
+              <Ic n="phone" size={22} />
+            </span>
+            <span className="chat-callask-words">
+              <strong id={`callask-${chatId}`}>{tx(T.callAsk)}</strong>
+              <span>{tx(T.callAskBody)}</span>
+            </span>
+          </div>
+          <div className="chat-callask-btns">
+            <button
+              type="button"
+              className="tap btn pri big"
+              disabled={acting !== null}
+              onClick={() => void act("finish")}
+            >
+              <Ic n={acting === "finish" ? "refresh" : "checkCircle"} size={20} className={acting === "finish" ? "spin" : undefined} />
+              {tx(T.callYes)}
+            </button>
+            <button
+              type="button"
+              className="tap btn sec big"
+              disabled={acting !== null}
+              onClick={() => {
+                cue("tap");
+                writeCalled(chatId, null);
+              }}
+            >
+              {tx(T.callNo)}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="chat-msgwrap">
         <div className="chat-msgs" ref={scroller} onScroll={onScroll} role="log" aria-live="polite" aria-label={tx(T.title)}>

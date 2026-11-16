@@ -65,7 +65,7 @@ export type ManageOutcome = { ok: true; chatId: string } | { ok: false; reason: 
 
 const refuse = (reason: ManageRefusal): ManageOutcome => ({ ok: false, reason });
 
-export type ChatEvent = "taken" | "handed_back" | "done" | "reopened";
+export type ChatEvent = "taken" | "handed_back" | "done" | "reopened" | "called";
 
 async function readFor(chatId: string, actor: ChatActor, deps: ChatManageDeps): Promise<ChatRow | null> {
   if (!isUuid(chatId)) return null;
@@ -138,7 +138,16 @@ export async function markChatDone(chatId: string, actor: ChatActor, deps: ChatM
   const now = deps.now().toISOString();
   const done = await deps.updateChat(
     chat.id,
-    { status: "done", waiting_since: null, nudge_step: null, next_nudge_at: null, live_until: null, done_at: now, done_by: actor.viewer.staffId },
+    {
+      status: "done",
+      waiting_since: null,
+      nudge_step: null,
+      next_nudge_at: null,
+      live_until: null,
+      done_at: now,
+      done_by: actor.viewer.staffId,
+      done_reason: null,
+    },
     { status: chat.status },
   );
   if (!done) return refuse("changed");
@@ -152,9 +161,25 @@ export async function reopenChat(chatId: string, actor: ChatActor, deps: ChatMan
   if (!chat) return refuse("not_found");
   if (chat.status !== "done") return { ok: true, chatId: chat.id };
   if (!mayFinish(actor.viewer, chat)) return refuse("not_allowed");
-  const opened = await deps.updateChat(chat.id, { status: "open", done_at: null, done_by: null }, { status: "done" });
+  const opened = await deps.updateChat(chat.id, { status: "open", done_at: null, done_by: null, done_reason: null }, { status: "done" });
   if (!opened) return refuse("changed");
   await note(chat, "reopened", actor, deps);
+  return { ok: true, chatId: chat.id };
+}
+
+/**
+ * The person tapped Call in a chat that waits for them (D-645): a line only
+ * staff read says so ("Rekha called the parent"), so the next person knows a
+ * phone call happened, and the screen then asks whether the call settled it.
+ * Nothing else changes; only a person's Finished closes the chat.
+ */
+export async function noteChatCall(chatId: string, actor: ChatActor, deps: ChatManageDeps): Promise<ManageOutcome> {
+  const chat = await readFor(chatId, actor, deps);
+  if (!chat) return refuse("not_found");
+  if (!mayFinish(actor.viewer, chat)) return refuse("not_allowed");
+  if (chat.status === "done") return { ok: true, chatId: chat.id };
+  await note(chat, "called", actor, deps);
+  logInfo("chats.called", { desk: chat.desk, practice: chat.practice, waiting: chat.status === "waiting" });
   return { ok: true, chatId: chat.id };
 }
 

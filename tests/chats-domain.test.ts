@@ -72,6 +72,7 @@ function chat(over: Partial<ChatRow> = {}): ChatRow {
     passedUpAt: null,
     doneAt: null,
     doneBy: null,
+    doneReason: null,
     mergedInto: null,
     createdAt: "2026-11-15T05:00:00.000Z",
     ...over,

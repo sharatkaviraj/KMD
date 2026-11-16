@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
+import { assertStudentVisible, passesFence } from "@/platform/auth/test-session-access";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { isTestSessionLabel } from "@/platform/auth/test-session-policy";
 import { schoolProfile } from "@/platform/config/school";
@@ -33,6 +34,9 @@ import {
   type FollowOwner,
   type PlanSourceRefusal,
   followOwnerAllowed,
+  followUpsSettledBy,
+  type NoteStatus,
+  type SettledFollowUp,
 } from "./domain/notes";
 
 /*
@@ -42,7 +46,8 @@ import {
  * ever queued in `vppsone.parent_message_queue`; nothing here sends one.
  */
 
-export type NoteResult = { ok: true; id?: string } | { ok: false; error: Pair };
+/** `settled`: the writer's own due follow-ups for the same child that a new note closed by itself (D-646). */
+export type NoteResult = { ok: true; id?: string; settled?: SettledFollowUp[] } | { ok: false; error: Pair };
 
 const fail = (en: string, hi: string): NoteResult => ({ ok: false, error: p(en, hi) });
 const NOT_SAVED = (): NoteResult => fail("Not saved. Try again.", "सहेजा नहीं गया। फिर से कोशिश करें।");
@@ -176,6 +181,10 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
   const staff = await writer(await assertPermission("notes:view"));
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) return fail("Write the note and pick a child.", "नोट लिखें और बच्चा चुनें।");
+  // The child's own session, before anything is written about them or closed for them (D-646).
+  if (!(await passesFence(() => assertStudentVisible(staff, parsed.data.studentId)))) {
+    return fail("This child is not in your classes.", "यह बच्चा आपकी कक्षा में नहीं है।");
+  }
   const ctx = await context(staff);
   if (!ctx) return NOT_SAVED();
   // Settings → Parent messages: with "Tell parents" turned off by the admin
@@ -253,8 +262,68 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
     if (queued.error) await admin.from("notes").update({ tell_parents: false }).eq("id", data.id);
   }
 
+  // The follow-up the teacher wrote as a new note instead of closing the old one (D-646).
+  const settled = await settleFollowUps({ staffId: staff.id, studentId: v.studentId, sessionLabel: ctx.sessionLabel, newNoteId: data.id, today });
+
   revalidateNotes();
-  return { ok: true, id: data.id };
+  return { ok: true, id: data.id, ...(settled.length ? { settled } : {}) };
+}
+
+/** The line a follow-up closed by a newer note gets in its history (detail.tsx says it in both languages). */
+const SETTLED_REPLY = "Closed by a newer note";
+
+/**
+ * Close the writer's own due follow-ups for this child, now that they wrote a
+ * new note about the child (D-646, `followUpsSettledBy`). Each is guarded on
+ * the status it had, so a change somebody made in between is never undone,
+ * and each gets a line in its history. A failure closes nothing more and
+ * never fails the save: the note is what the teacher asked for.
+ */
+async function settleFollowUps(scope: { staffId: string; studentId: string; sessionLabel: string; newNoteId: string; today: string }): Promise<SettledFollowUp[]> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("notes")
+      .select("id, student_id, status, needs_follow_up, follow_up_on, follow_up_staff_id, written_by")
+      .eq("session_label", scope.sessionLabel)
+      .eq("student_id", scope.studentId)
+      .eq("needs_follow_up", true)
+      .neq("status", "done")
+      .lte("follow_up_on", scope.today)
+      .limit(20)
+      .returns<
+        { id: string; student_id: string | null; status: NoteStatus; needs_follow_up: boolean; follow_up_on: string | null; follow_up_staff_id: string | null; written_by: string }[]
+      >();
+    if (error || !data?.length) return [];
+    const due = followUpsSettledBy(
+      scope,
+      data.map((row) => ({
+        id: row.id,
+        studentId: row.student_id,
+        status: row.status,
+        needsFollowUp: row.needs_follow_up,
+        followUpOn: row.follow_up_on,
+        followUpStaffId: row.follow_up_staff_id,
+        writtenBy: row.written_by,
+      })),
+    );
+    const settled: SettledFollowUp[] = [];
+    for (const item of due) {
+      const { data: moved, error: moveError } = await admin
+        .from("notes")
+        .update({ status: "done", status_changed_at: new Date().toISOString(), status_changed_by: scope.staffId })
+        .eq("id", item.id)
+        .eq("status", item.previous)
+        .select("id")
+        .returns<{ id: string }[]>();
+      if (moveError || !moved?.length) continue;
+      await admin.from("note_replies").insert({ note_id: item.id, body: SETTLED_REPLY, source: "system", written_by: scope.staffId });
+      settled.push(item);
+    }
+    return settled;
+  } catch {
+    return [];
+  }
 }
 
 /** Undo straight after saving: the author's own note, and any message to parents it queued. */

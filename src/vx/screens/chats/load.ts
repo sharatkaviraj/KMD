@@ -77,6 +77,8 @@ export async function loadChatList(staff: CurrentStaff, viewer: ChatViewer, filt
   const settings = await readChatSettings().catch(() => null);
   const base: ChatListData = {
     enabled: settings?.enabled === true,
+    finishesItself: settings?.finishByItself === true,
+    quietHours: settings?.quietHours ?? 12,
     items: [],
     hidden: 0,
     counts: null,

@@ -160,6 +160,8 @@ const SYSTEM_WORDS: Record<string, Pair> = {
   "Working on it": p("Working on it", "काम चल रहा है"),
   "Marked done": p("Marked done", "पूरा किया"),
   "Note changed": p("The note’s words were changed", "नोट के शब्द बदले गए"),
+  // D-646: the writer wrote a new note about the child instead of closing this one.
+  "Closed by a newer note": p("Done by itself: a newer note about this child answered it", "अपने आप पूरा: इस बच्चे के बारे में नए नोट ने इसका जवाब दिया"),
 };
 
 /**

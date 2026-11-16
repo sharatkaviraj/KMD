@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isFinishedReason } from "@/modules/chats/domain/finish";
 import {
   isChatDesk,
   isChatKind,
@@ -45,7 +46,7 @@ export const isUuid = (value: unknown): value is string => typeof value === "str
 const CHAT_COLUMNS =
   "id, parent_e164, desk, class_teacher_id, practice, session_label, from_name, student_ids, student_label, language, status, " +
   "waiting_since, topic, complaint, wants_admin, taken_by, taken_at, live_until, last_parent_at, last_staff_at, last_message_at, " +
-  "last_preview, last_direction, nudge_step, next_nudge_at, passed_up_at, done_at, done_by, merged_into, created_at";
+  "last_preview, last_direction, nudge_step, next_nudge_at, passed_up_at, done_at, done_by, done_reason, merged_into, created_at";
 
 type DbChat = {
   id: string;
@@ -76,6 +77,7 @@ type DbChat = {
   passed_up_at: string | null;
   done_at: string | null;
   done_by: string | null;
+  done_reason?: string | null;
   merged_into: string | null;
   created_at: string;
 };
@@ -121,6 +123,8 @@ export function chatFromRow(row: DbChat): ChatRow | null {
     passedUpAt: row.passed_up_at,
     doneAt: row.done_at,
     doneBy: status === "done" && isUuid(row.done_by) ? row.done_by : null,
+    // Only while it is finished and nobody finished it: a person's Finished always names them.
+    doneReason: status === "done" && !isUuid(row.done_by) && isFinishedReason(row.done_reason) ? row.done_reason : null,
     mergedInto: isUuid(row.merged_into) ? row.merged_into : null,
     createdAt: row.created_at,
   };
@@ -505,6 +509,7 @@ export type ChatRowPatch = Partial<{
   passed_up_at: string | null;
   done_at: string | null;
   done_by: string | null;
+  done_reason: "thanks" | "quiet" | null;
 }>;
 
 /** The columns a change may insist on: the chat is changed only while each still reads as given. */
@@ -584,18 +589,40 @@ export async function readReads(chatIds: readonly string[], db: Db = whatsappDb(
 
 /* ------------------------------------------------------------ settings */
 
-export type ChatSettings = { enabled: boolean; nudges: boolean; liveMinutes: number; firstNudgeMinutes: number };
+export type ChatSettings = {
+  enabled: boolean;
+  nudges: boolean;
+  liveMinutes: number;
+  firstNudgeMinutes: number;
+  /** A chat the school answered finishes by itself on a thank-you, or after `quietHours` (D-645). */
+  finishByItself: boolean;
+  quietHours: number;
+};
 
 /** The chats' switches; null when they could not be read (the WhatsApp side then leaves chats alone). */
 export async function readChatSettings(db: Db = whatsappDb()): Promise<ChatSettings | null> {
   try {
     const { data, error } = await db
       .from("parent_chat_settings")
-      .select("enabled, nudges, live_minutes, first_nudge_minutes")
+      .select("enabled, nudges, live_minutes, first_nudge_minutes, finish_by_itself, quiet_hours")
       .eq("id", 1)
-      .maybeSingle<{ enabled: boolean; nudges: boolean; live_minutes: number; first_nudge_minutes: number }>();
+      .maybeSingle<{
+        enabled: boolean;
+        nudges: boolean;
+        live_minutes: number;
+        first_nudge_minutes: number;
+        finish_by_itself: boolean | null;
+        quiet_hours: number | null;
+      }>();
     if (error || !data) return null;
-    return { enabled: data.enabled === true, nudges: data.nudges === true, liveMinutes: data.live_minutes, firstNudgeMinutes: data.first_nudge_minutes };
+    return {
+      enabled: data.enabled === true,
+      nudges: data.nudges === true,
+      liveMinutes: data.live_minutes,
+      firstNudgeMinutes: data.first_nudge_minutes,
+      finishByItself: data.finish_by_itself === true,
+      quietHours: typeof data.quiet_hours === "number" ? data.quiet_hours : 12,
+    };
   } catch {
     return null;
   }

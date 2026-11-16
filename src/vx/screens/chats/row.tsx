@@ -19,6 +19,7 @@ import { T } from "./words";
 function RowTags({ item, dues, seesAll }: { item: ChatListItem; dues: number; seesAll: boolean }) {
   const { tx } = useVx();
   const tags: Array<{ key: string; tone: Tone; icon?: IconName; text: string }> = [];
+  if (item.finishedItself) tags.push({ key: "itself", tone: "ok", icon: "checkCircle", text: tx(T.finishedItself) });
   if (item.wantsAdmin) tags.push({ key: "principal", tone: "warn", icon: "award", text: tx(T.wantsPrincipal) });
   if (item.complaint) tags.push({ key: "complaint", tone: "bad", icon: "alert", text: tx(T.complaint) });
   if (item.passedUp) tags.push({ key: "late", tone: "bad", icon: "clock", text: tx(T.noAnswerDay) });

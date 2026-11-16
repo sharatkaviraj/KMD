@@ -64,6 +64,7 @@ export const T = {
   rowWaiting: p("Waiting for a reply", "जवाब की प्रतीक्षा"),
   rowOpen: p("Replied", "जवाब दिया"),
   rowDone: p("Finished", "पूरी"),
+  finishedItself: p("Finished by itself", "अपने आप पूरी"),
   secWaiting: p("Waiting for a reply", "जवाब की प्रतीक्षा में"),
   secOthers: p("Other chats", "बाकी बातचीत"),
   secDone: p("Finished talks", "पूरी हुई बातचीत"),
@@ -147,6 +148,21 @@ export const T = {
     "When the talk is over, tap Finished. Not your question? Tap Give to someone else, and the right person gets it.",
     "बात ख़त्म होने पर बात पूरी दबाएँ। सवाल आपका नहीं है? किसी और को दें दबाएँ, सही व्यक्ति को मिल जाएगा।",
   ),
+  // When chats finish by themselves (D-645): nobody has to remember Finished.
+  help3Itself: p("No need to tap Finished", "बात पूरी दबाना ज़रूरी नहीं"),
+  help3ItselfBody: (hours: number) =>
+    p(
+      `A chat finishes by itself when the parent says thanks or ok after your answer, or when nobody writes for ${hours} hours. If you settled it on a phone call, tap Finished. Not your question? Tap Give to someone else.`,
+      `आपके जवाब के बाद अभिभावक धन्यवाद या ठीक है लिखें, या ${hours} घंटे तक कोई न लिखे, तो बातचीत अपने आप पूरी हो जाती है। फ़ोन पर बात हो गई हो तो बात पूरी दबाएँ। सवाल आपका नहीं है? किसी और को दें दबाएँ।`,
+    ),
+  // After a phone call (D-645).
+  callAsk: p("Did the call settle it?", "क्या फ़ोन पर बात पूरी हो गई?"),
+  callAskBody: p(
+    "If it did, tap Yes. The chat is finished and nobody is reminded about it.",
+    "हो गई हो तो हाँ दबाएँ। बातचीत पूरी हो जाएगी और किसी को याद नहीं दिलाया जाएगा।",
+  ),
+  callYes: p("Yes, finished", "हाँ, पूरी हुई"),
+  callNo: p("Not yet", "अभी नहीं"),
   listening: p("Listening… speak now", "सुन रहे हैं… अब बोलें"),
   stop: p("Stop", "रोकें"),
   fileTooBig: p("This file is too big. Send a file under 16 MB, or a photo.", "यह फ़ाइल बहुत बड़ी है। 16 MB से छोटी फ़ाइल या फ़ोटो भेजें।"),
@@ -185,6 +201,16 @@ export const T = {
     ),
   youTook: (desk: Pair) =>
     p(`You are replying to this parent. When you are done, give it back to ${desk.en}.`, `आप इस अभिभावक को जवाब दे रहे हैं। काम हो जाए तो इसे ${desk.hi ?? desk.en} को वापस करें।`),
+  doneItselfBanner: (reason: "thanks" | "quiet") =>
+    reason === "thanks"
+      ? p(
+          "This talk finished by itself: the parent only said thanks after the answer. If they write again, it comes back.",
+          "यह बात अपने आप पूरी हुई: जवाब के बाद अभिभावक ने सिर्फ़ धन्यवाद कहा। वे फिर लिखें तो यह वापस आ जाएगी।",
+        )
+      : p(
+          "This talk finished by itself: nobody wrote for a long time after the answer. If the parent writes again, it comes back.",
+          "यह बात अपने आप पूरी हुई: जवाब के बाद काफ़ी देर तक किसी ने नहीं लिखा। अभिभावक फिर लिखें तो यह वापस आ जाएगी।",
+        ),
   doneBanner: (name: string | null) =>
     name
       ? p(`${name} marked this talk finished. If the parent writes again, it comes back.`, `${name} ने यह बात पूरी की। अभिभावक फिर लिखें तो यह वापस आ जाएगी।`)

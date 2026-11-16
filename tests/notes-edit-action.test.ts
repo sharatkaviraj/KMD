@@ -13,12 +13,20 @@ const scene = vi.hoisted(() => ({
   plans: [] as unknown[],
   source: { visibility: "team", body: "" } as { visibility: string; body: string },
   writes: [] as { table: string; op: string; row?: unknown }[],
+  fencedStudent: null as string | null,
+  due: [] as unknown[],
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/vx/screens/settings/parent-switches", () => ({ readParentSwitches: async () => ({ absentAlert: "ask_on", note: true, supportPlan: true, birthday: true }) }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: async () => scene.staff }));
 vi.mock("@/platform/auth/permissions", () => ({ can: () => true, readsEveryClass: () => false }));
+vi.mock("@/platform/auth/test-session-access", () => ({
+  assertStudentVisible: async (_staff: unknown, studentId: string) => {
+    if (studentId === scene.fencedStudent) throw new Error("not this session");
+  },
+  passesFence: async (check: () => Promise<void>) => check().then(() => true, () => false),
+}));
 vi.mock("@/platform/config/school", () => ({ schoolProfile: { shortName: "QA School" } }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "QA-2026-27" }));
 vi.mock("@/modules/students/data/student-repo", () => ({ enrolmentForStudent: async () => ({ classId: "class-1" }) }));
@@ -34,13 +42,21 @@ vi.mock("@/platform/supabase/admin", () => ({
     from(table: string) {
       const chain: Record<string, unknown> = {};
       const done = (data: unknown) => Promise.resolve({ data, error: null });
+      // A read of due follow-ups (`lte`), or an update that reports the rows it moved.
+      let dueRead = false;
+      let updating = false;
       for (const m of ["select", "eq", "neq", "order", "limit", "in", "is", "returns"]) chain[m] = () => chain;
+      chain.lte = () => {
+        dueRead = true;
+        return chain;
+      };
       chain.insert = (row: unknown) => {
         scene.writes.push({ table, op: "insert", row });
         return { ...chain, select: () => ({ single: () => done({ id: "new-id" }) }), then: (r: (v: unknown) => unknown) => done(null).then(r) };
       };
       chain.update = (row: unknown) => {
         scene.writes.push({ table, op: "update", row });
+        updating = true;
         return chain;
       };
       chain.maybeSingle = () => done(table === "notes" ? scene.source : null);
@@ -48,6 +64,8 @@ vi.mock("@/platform/supabase/admin", () => ({
       chain.then = (r: (v: unknown) => unknown) => {
         // note_kinds: one kind so a note can be filed.
         if (table === "note_kinds") return done([{ id: "kind-1", code: "other" }]).then(r);
+        if (table === "notes" && updating) return done([{ id: "moved" }]).then(r);
+        if (table === "notes" && dueRead) return done(scene.due).then(r);
         return done(null).then(r);
       };
       return chain;
@@ -78,6 +96,8 @@ beforeEach(() => {
   scene.plans = [];
   scene.staff = { id: "teacher-a", role: "teacher", displayName: "Synthetic teacher A" };
   scene.source = { visibility: "team", body: "" };
+  scene.fencedStudent = null;
+  scene.due = [];
 });
 
 describe("changing a saved note's words", () => {
@@ -121,6 +141,42 @@ describe("a follow-up date picked by hand", () => {
     const res = await createNoteAction({ ...base, followOn: addDays(schoolToday(), -3) });
     expect(res.ok).toBe(false);
     expect(writes("notes", "insert")).toHaveLength(0);
+  });
+});
+
+describe("a new note about a child (D-646)", () => {
+  const base = { studentId: CHILD, body: "Spoke to the family, reading is better", tags: ["studies" as const], source: "typed" as const, needsFollowUp: false, followWhen: null, followOwner: null, visibility: "team" as const, tellParents: false };
+  const dueRow = (over: Record<string, unknown> = {}) => ({
+    id: "00000000-0000-4000-8000-0000000000d1",
+    student_id: CHILD,
+    status: "working",
+    needs_follow_up: true,
+    follow_up_on: addDays(schoolToday(), -2),
+    follow_up_staff_id: "teacher-a",
+    written_by: "teacher-a",
+    ...over,
+  });
+
+  it("closes the writer's own late follow-up for that child, with a line in its history", async () => {
+    scene.due = [dueRow(), dueRow({ id: "00000000-0000-4000-8000-0000000000d2", follow_up_staff_id: "teacher-b" })];
+    const res = await createNoteAction(base);
+    expect(res).toEqual({ ok: true, id: "new-id", settled: [{ id: "00000000-0000-4000-8000-0000000000d1", previous: "working" }] });
+    expect(writes("notes", "update").map((w) => w.row)).toEqual([expect.objectContaining({ status: "done", status_changed_by: "teacher-a" })]);
+    expect(writes("note_replies", "insert")[0]?.row).toMatchObject({ note_id: "00000000-0000-4000-8000-0000000000d1", body: "Closed by a newer note", source: "system" });
+  });
+
+  it("closes nothing when no follow-up is due", async () => {
+    const res = await createNoteAction(base);
+    expect(res).toEqual({ ok: true, id: "new-id" });
+    expect(writes("notes", "update")).toHaveLength(0);
+  });
+
+  it("refuses a child outside the writer's session and writes nothing", async () => {
+    scene.fencedStudent = CHILD;
+    scene.due = [dueRow()];
+    const res = await createNoteAction(base);
+    expect(res.ok).toBe(false);
+    expect(scene.writes).toHaveLength(0);
   });
 });
 

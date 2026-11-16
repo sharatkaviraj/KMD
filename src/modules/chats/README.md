@@ -22,6 +22,7 @@ answer goes back from the school's number, saying who wrote it.
 | `domain/routing.ts` | which desk a parent's message goes to |
 | `domain/words.ts` | the head that says who writes, previews, the parent-facing words |
 | `domain/nudges.ts` | when a waiting chat nudges its desk on WhatsApp, and when it is passed up to the admins |
+| `domain/finish.ts` | when a parent's message after the answer finishes the chat by itself (D-645): only thanks, or a few words for Veer Patta AI's quick read (`data/finish-ai.ts`) |
 | `domain/go-links.ts` | the one-tap `/go/<code>` link that opens a person's Chats |
 | `domain/templates.ts` | the two Meta templates the chats own (`vpps_staff_open_one_*`, `vpps_parent_school_message_*`) |
 | `data/inbound.ts` | a parent's message into its chat, from Veer Patta AI's turn (`whatsapp/data/helper-turn.ts`) |
@@ -32,6 +33,7 @@ answer goes back from the school's number, saying who wrote it.
 | `src/vx/screens/chats/` | the screens; `src/vx/shell/chat-bubble.tsx` the chat bubble on every screen and `chat-panel.tsx` its quick chat panel (D-641) |
 | `data/list.ts#waitingChatsFor` | how many parents wait on a person: the menu badge, the strip, the teacher's More tile and Needs you's "N parents are waiting" job (`needs-you/data/chats.ts`, D-634) all read this one count |
 | `supabase/migrations/20261115034215_parent_chats.sql`, `…044716_parent_chats_pass.sql` | the tables, functions and permissions |
+| `supabase/migrations/20261116050127_parent_chats_finish_by_itself.sql` | `done_reason`, the switch and the hours, and `parent_chat_close_quiet` (pg_cron `parent-chats-quiet`, every 10 minutes): an answered chat quiet for 12 hours finishes, a forgotten take-over goes back to its desk |
 
 ## What must hold
 
@@ -50,6 +52,11 @@ answer goes back from the school's number, saying who wrote it.
   year**, whoever is looking (the owner's rule for test accounts).
 - **"For you" is one rule in two places**: `isForYou` and `forYouFilter`.
   `tests/chats-domain.test.ts` checks them against each other.
+- **A chat finishes by itself only when nobody is owed anything** (D-645):
+  never a waiting chat, never one whose answer from school still waits for
+  the parent, and the parent writing again opens it again. Only a clear
+  "no reply needed" from the quick read finishes one; any doubt leaves it
+  waiting.
 
 ## What must never happen
 

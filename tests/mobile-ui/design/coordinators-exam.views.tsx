@@ -325,6 +325,7 @@ const resultsProps: ResultsProps = {
   isAdmin: false,
   canFinalise: true,
   canReopen: false,
+  canShowParents: false,
   fromName: "Mr. Hemant Trivedi",
   exam: {
     id: "exam-hy",

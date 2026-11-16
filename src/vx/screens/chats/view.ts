@@ -40,6 +40,8 @@ export type ChatListItem = {
   takenBy: Pair | null;
   /** Nobody on the desk answered in a day (an admin's "For you"). */
   passedUp: boolean;
+  /** It finished with nobody tapping Finished (D-645). */
+  finishedItself: boolean;
   practice: boolean;
 };
 
@@ -80,6 +82,7 @@ export function chatListItem(
     unread: input.unread,
     takenBy: chat.takenBy ? (chat.takenBy === viewer.staffId ? T.youAnswering : T.takenBy(takenName ?? "—")) : null,
     passedUp: chat.passedUpAt !== null && chat.status === "waiting",
+    finishedItself: chat.status === "done" && chat.doneReason !== null,
     practice: chat.practice,
   };
 }
@@ -199,6 +202,25 @@ export function eventWords(message: Pick<ChatMessage, "meta" | "staffName">, nam
       return p(`${by.en} marked it done`, `${by.hi} ने इसे पूरा किया`);
     case "reopened":
       return p(`${by.en} opened it again`, `${by.hi} ने इसे फिर खोला`);
+    case "called":
+      return p(`${by.en} called the parent`, `${by.hi} ने अभिभावक को फ़ोन किया`);
+    case "finished_itself": {
+      if (meta.reason === "quiet") {
+        const hours = typeof meta.hours === "number" && meta.hours > 0 ? meta.hours : 12;
+        const back = meta.handed_back === true;
+        return p(
+          `Finished by itself: nobody wrote for ${hours} hours${back ? ". It is back with its desk" : ""}`,
+          `अपने आप पूरी हुई: ${hours} घंटे तक किसी ने नहीं लिखा${back ? "। यह अपनी डेस्क पर वापस है" : ""}`,
+        );
+      }
+      return meta.by === "ai"
+        ? p("Finished by itself: Veer Patta AI read the parent's message as needing no reply", "अपने आप पूरी हुई: Veer Patta AI के अनुसार अभिभावक के संदेश का जवाब ज़रूरी नहीं")
+        : p("Finished by itself: the parent only said thanks", "अपने आप पूरी हुई: अभिभावक ने सिर्फ़ धन्यवाद कहा");
+    }
+    case "handed_back_itself": {
+      const hours = typeof meta.hours === "number" && meta.hours > 0 ? meta.hours : 12;
+      return p(`Back with its desk by itself after ${hours} quiet hours`, `${hours} घंटे शांत रहने के बाद अपने आप अपनी डेस्क पर वापस`);
+    }
     case "passed": {
       const desk = typeof meta.to === "string" && (meta.to === "class" || meta.to === "accounts" || meta.to === "admin") ? meta.to : null;
       const teacher = typeof meta.to_teacher === "string" ? names.get(meta.to_teacher) ?? null : null;
@@ -281,6 +303,8 @@ export type ChatHeadView = {
   takenByName: string | null;
   takenByMe: boolean;
   doneByName: string | null;
+  /** Finished with nobody tapping Finished, and why (D-645). */
+  doneReason: "thanks" | "quiet" | null;
   mayPass: boolean;
   mayHandBack: boolean;
   /** Mark done or open again: anyone who may write in it, and an admin always. */
@@ -329,6 +353,7 @@ export function chatHeadView(
     takenByName: chat.takenBy ? input.names.get(chat.takenBy) ?? "—" : null,
     takenByMe: chat.takenBy !== null && chat.takenBy === viewer.staffId,
     doneByName: chat.doneBy ? input.names.get(chat.doneBy) ?? null : null,
+    doneReason: chat.status === "done" ? chat.doneReason : null,
     mayPass: (mayPass(viewer, chat) || viewer.seesAll) && chat.status !== "done",
     mayHandBack: mayHandBack(viewer, chat),
     mayFinish: viewer.seesAll || mayWrite,
@@ -357,6 +382,9 @@ export type ChatListData = {
   viewingTest: boolean;
   /** Everything this person may see (open ones), before the tab, search and dues narrowed it: decides whether search is offered. */
   total: number;
+  /** Chats finish by themselves (D-645), after this many quiet hours: what the help card says. */
+  finishesItself?: boolean;
+  quietHours?: number;
   /**
    * Parents waiting for this person's own reply, whatever the tab: the
    * number on the menu and the chat bubble (D-642). A chat an admin took over

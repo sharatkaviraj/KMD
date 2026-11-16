@@ -9,7 +9,7 @@ import { getViewer } from "@/vx/view-as";
 import { currentExam, graceFor, issuedStudents, locksFor, marksOf, moderationFor, papersOf, previousExam, rechecksFor, studentsByIds } from "@/vx/screens/exams/data";
 import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { histogram } from "@/vx/screens/exams/domain/analysis";
-import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
+import { canFinaliseMarks, canReopenMarks, canShowResultsToParents } from "@/vx/screens/exams/domain/finalise";
 import { averagePct, graceVerdict, pipelineStates, sameNameHints, unusualAverages, type PaperAverage } from "@/vx/screens/exams/domain/results";
 import { classReadiness } from "@/vx/screens/exams/domain/progress";
 import { isLate } from "@/vx/screens/exams/domain/tracker";
@@ -321,6 +321,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
     view,
     isAdmin: staff.role === "admin",
     canFinalise: canFinaliseMarks(staff),
+    canShowParents: canShowResultsToParents(staff),
     canReopen: canReopenMarks(staff),
     fromName: staff.displayName,
     exam: {

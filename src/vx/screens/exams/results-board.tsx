@@ -79,6 +79,8 @@ export type ResultsProps = {
   /** `MARKS_FINALISERS` / `MARKS_REOPENERS` (D-262). */
   canFinalise: boolean;
   canReopen: boolean;
+  /** `RESULT_RELEASERS` (D-647): releasing results and "Results are out" are the admin's. */
+  canShowParents: boolean;
   fromName: string;
   exam: {
     id: string;
@@ -393,7 +395,7 @@ export function ResultsBoard(props: ResultsProps) {
       <button type="button" className="tap btn pri xbig" disabled={pending} onClick={() => setLockConfirm(true)}>
         {tx(p(`Lock ${lockChosen.length} ${lockChosen.length === 1 ? "class" : "classes"}`, `${lockChosen.length} कक्षाएँ बंद करें`))}
       </button>
-    ) : view === "publish" && !exam.publishedAt ? (
+    ) : view === "publish" && !exam.publishedAt && props.canShowParents ? (
       <button type="button" className="tap btn pri xbig" disabled={pending || (when === "scheduled" && !at) || (when === "now" && lockedNow === 0)} onClick={publishNow}>
         {when === "now" ? tx(p("Release results now", "परिणाम अभी जारी करें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
       </button>
@@ -1193,7 +1195,7 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
   const [editAt, setEditAt] = useState(false);
   const unlocked = classes.filter((c) => !c.locked).length;
   const lockedKids = classes.filter((c) => c.locked).reduce((a, c) => a + c.children, 0);
-  const tellParents = props.notice ? <TellParents notice={props.notice} examId={exam.id} pending={pending} run={props.run} tell={props.actions.tellParents} /> : null;
+  const tellParents = props.notice && props.canShowParents ? <TellParents notice={props.notice} examId={exam.id} pending={pending} run={props.run} tell={props.actions.tellParents} /> : null;
   const whenS =
     when === "now"
       ? lockedKids
@@ -1216,6 +1218,9 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
         ) : null}
         {/* Once released, telling parents is the next step, so it comes first. */}
         {props.notice && exam.publishedAt ? tellParents : null}
+        {props.canShowParents ? null : <AdminShowsParents released={Boolean(exam.publishedAt)} />}
+        {props.canShowParents ? (
+        <>
         <div className="card xc x10 xp2">
           <b className="xt">{tx(p("When should parents get it?", "अभिभावकों को कब मिले?"))}</b>
           <div className="xr xw x8">
@@ -1254,6 +1259,8 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
             <span />
           </span>
         </button>
+        </>
+        ) : null}
         <div className="card xc" style={{ padding: "4px 16px" }}>
           {[
             { k: p("To", "किसे"), v: tx(p(`${props.childrenTotal} parents · one card per child`, `${props.childrenTotal} अभिभावक · हर बच्चे का एक कार्ड`)) },
@@ -1266,7 +1273,7 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
             </div>
           ))}
         </div>
-        {exam.publishedAt ? null : (
+        {exam.publishedAt || !props.canShowParents ? null : (
           <button type="button" className="tap btn pri xbig hide-m" disabled={pending || (when === "scheduled" && !at) || (when === "now" && !lockedKids)} onClick={props.onPublish}>
             <Ic n={when === "now" ? "send" : "clock"} size={18} />
             {when === "now" ? tx(p("Release results now", "परिणाम अभी जारी करें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
@@ -1277,6 +1284,24 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run; when: "now"
       <div className="xc x10">
         <NoticePreview notice={props.notice ?? null} />
       </div>
+    </div>
+  );
+}
+
+/** For the exam office (D-647): the marks are theirs to check and lock; parents see them when the admin says. */
+function AdminShowsParents({ released }: { released: boolean }) {
+  const { tx } = useVx();
+  return (
+    <div className="card xc x8 xp2" role="note" style={{ borderColor: "var(--pri)", borderWidth: 2 }}>
+      <span className="xr x8" style={{ alignItems: "center" }}>
+        <Ic n="lock" size={20} />
+        <b className="xt">{tx(p("The admin decides when parents see these marks", "अभिभावक ये अंक कब देखें, यह प्रशासक तय करते हैं"))}</b>
+      </span>
+      <span className="xm" style={{ lineHeight: 1.5 }}>
+        {released
+          ? tx(p("The admin has released these results. Parents see only the school's exams on the report card, never class tests.", "प्रशासक ने ये परिणाम जारी कर दिए हैं। अभिभावक सिर्फ़ प्रगति पत्र वाली स्कूल की परीक्षाएँ देखते हैं, कक्षा टेस्ट कभी नहीं।"))
+          : tx(p("Teachers send their marks, and you check and lock them. Releasing them to parents, and telling parents on WhatsApp, is the admin's step. Parents see only the school's exams on the report card, never class tests.", "अध्यापक अंक भेजते हैं, आप जाँचकर बंद करते हैं। अभिभावकों के लिए जारी करना और WhatsApp पर बताना प्रशासक का काम है। अभिभावक सिर्फ़ प्रगति पत्र वाली स्कूल की परीक्षाएँ देखते हैं, कक्षा टेस्ट कभी नहीं।"))}
+      </span>
     </div>
   );
 }

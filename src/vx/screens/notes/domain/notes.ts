@@ -357,6 +357,37 @@ export function isDue(note: Pick<BoardNote, "status" | "needsFollowUp" | "follow
   return note.status !== "done" && note.needsFollowUp && note.followUpOn !== null && note.followUpOn <= today;
 }
 
+/** A follow-up a new note closed by itself, and how it was before, for Undo (D-646). */
+export type SettledFollowUp = { id: string; previous: "open" | "working" };
+
+/**
+ * The follow-ups a new note about a child settles by itself (D-646).
+ *
+ * Teachers write the follow-up as a new note about the same child ("Spoke to
+ * her mother, homework is fine now") and never open the old one to tap Done,
+ * so "Follow up" stays late in Do now. A new note closes the writer's own
+ * follow-ups for that child that are due today or late: theirs to follow up,
+ * or written by them with nobody else named, the same "mine" as Do now.
+ * Nobody else's, never one for a later day, never the new note itself, and
+ * the saved message offers to keep them open.
+ */
+export function followUpsSettledBy(
+  input: { studentId: string; staffId: string; newNoteId: string; today: string },
+  notes: readonly Pick<BoardNote, "id" | "studentId" | "status" | "needsFollowUp" | "followUpOn" | "followUpStaffId" | "writtenBy">[],
+): SettledFollowUp[] {
+  return notes
+    .filter((note) => note.id !== input.newNoteId && note.studentId === input.studentId && isDue(note, input.today))
+    .filter((note) => note.followUpStaffId === input.staffId || (note.followUpStaffId === null && note.writtenBy === input.staffId))
+    .map((note) => ({ id: note.id, previous: note.status === "working" ? "working" : "open" }));
+}
+
+/** "This also finished your follow-up for Riya", said with the saved note (D-646). */
+export function settledWords(count: number, name: string): Pair {
+  return count === 1
+    ? p(`This also finished your follow-up for ${name}.`, `इससे ${name} का आपका फ़ॉलो-अप भी पूरा हो गया।`)
+    : p(`This also finished your ${count} follow-ups for ${name}.`, `इससे ${name} के आपके ${count} फ़ॉलो-अप भी पूरे हो गए।`);
+}
+
 /**
  * Needs action: a follow-up that is due, or an open note about health or
  * family that nobody has picked up yet.

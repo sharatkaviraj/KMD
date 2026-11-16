@@ -8,6 +8,7 @@ import {
   handBackChat,
   liveChatManageDeps,
   markChatDone,
+  noteChatCall,
   passChatOn,
   reopenChat,
   takeOverChat,
@@ -27,7 +28,7 @@ import { T } from "@/vx/screens/chats/words";
 /*
  * What a person does in Chats (D-616, D-617): write to a parent, send a
  * photo or a file, send a failed message again, reply to a chat that is
- * another desk's, give it back, pass it on, finish it. Every action reads the
+ * another desk's, give it back, pass it on, finish it, note a phone call. Every action reads the
  * person again (their permissions, the session they are looking at) and the
  * chat again; the desk rules decide, never the screen. While an administrator
  * looks at One as somebody else nothing changes (D-544).
@@ -158,7 +159,8 @@ function manageWords(outcome: ManageOutcome): ManageResult {
   }
 }
 
-type Manage = "take" | "give_back" | "finish" | "reopen";
+/** `called`: the person tapped Call in the chat, so the chat says so (D-645). */
+type Manage = "take" | "give_back" | "finish" | "reopen" | "called";
 
 export async function manageChatAction(input: { chatId: string; step: Manage }): Promise<ManageResult> {
   const checked = await guard(currentChatViewer().catch(() => null));
@@ -177,6 +179,8 @@ export async function manageChatAction(input: { chatId: string; step: Manage }):
         return manageWords(await markChatDone(input.chatId, actor, deps));
       case "reopen":
         return manageWords(await reopenChat(input.chatId, actor, deps));
+      case "called":
+        return manageWords(await noteChatCall(input.chatId, actor, deps));
       default:
         return { ok: false, words: T.failed };
     }

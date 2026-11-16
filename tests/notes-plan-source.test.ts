@@ -21,6 +21,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/vx/screens/settings/parent-switches", () => ({ readParentSwitches: async () => ({ absentAlert: "ask_on", note: true, supportPlan: true, birthday: true }) }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: async () => scene.staff }));
 vi.mock("@/platform/auth/permissions", () => ({ can: () => true, readsEveryClass: () => false }));
+vi.mock("@/platform/auth/test-session-access", () => ({
+  assertStudentVisible: async () => undefined,
+  passesFence: async (check: () => Promise<void>) => check().then(() => true, () => false),
+}));
 vi.mock("@/platform/config/school", () => ({ schoolProfile: { shortName: "QA School" } }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "QA-2026-27" }));
 vi.mock("@/modules/students/data/student-repo", () => ({ enrolmentForStudent: async () => ({ classId: "class-1" }) }));

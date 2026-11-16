@@ -402,7 +402,9 @@ export function ChatsScreen({
           steps={[
             { icon: "message", title: tx(T.help1), body: tx(T.help1Body) },
             { icon: "send", title: tx(T.help2), body: tx(T.help2Body) },
-            { icon: "checkCircle", title: tx(T.help3), body: tx(T.help3Body) },
+            list?.finishesItself
+              ? { icon: "checkCircle", title: tx(T.help3Itself), body: tx(T.help3ItselfBody(list.quietHours ?? 12)) }
+              : { icon: "checkCircle", title: tx(T.help3), body: tx(T.help3Body) },
           ]}
         />
       </header>

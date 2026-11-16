@@ -11,7 +11,7 @@ import { SAVE_IDLE, SaveStatus, useSlowSave, type SaveState } from "@/vx/ui/save
 import { appendSpoken, useSpeech } from "@/vx/ui/voice";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
 
-import { createNoteAction, undoNoteAction } from "../actions";
+import { createNoteAction, setNoteStatusAction, undoNoteAction } from "../actions";
 import type { ChildChoice, NotesPeople } from "../data";
 import {
   FOLLOW_ON_MAX_DAYS,
@@ -20,11 +20,13 @@ import {
   nextOpenAction,
   NOTE_TAGS,
   pickedFollowOn,
+  settledWords,
   suggestTags,
   type BoardNote,
   type FollowOwner,
   type FollowWhen,
   type NoteTag,
+  type SettledFollowUp,
   type Visibility,
 } from "../domain/notes";
 import { day, replaceParams } from "./look";
@@ -117,10 +119,24 @@ const NOTE_KEPT = p("Your note, child and choices are still here.", "आपक�
 /** A follow-up choice: one of the three ready days, or a date picked by hand. */
 export type FollowChoice = FollowWhen | "pick";
 
+/**
+ * The follow-ups each note saved here closed by itself (D-646), so taking the
+ * note back with Undo opens them again. Kept for this page only: after a
+ * reload Undo is gone too.
+ */
+const settledBy = new Map<string, readonly SettledFollowUp[]>();
+
+/** Open again the follow-ups a note closed; true when every one opened. */
+async function reopenSettled(settled: readonly SettledFollowUp[]): Promise<boolean> {
+  const results = await Promise.all(settled.map((item) => setNoteStatusAction(item.id, item.previous).catch(() => null)));
+  return results.every((result) => result?.ok === true);
+}
+
 /** The composer's state and its two writes (save, undo). */
 export function useComposer(init: ComposerInit) {
   const { tx } = useVx();
   const toast = useToast();
+  const router = useRouter();
   const first = init.initialStep === "saved" ? "add" : init.initialStep;
   const [step, setStepState] = useState<AddStep>(first);
   const [studentId, setStudentId] = useState<string>(init.initialStudent && init.kids.some((k) => k.id === init.initialStudent) ? init.initialStudent : "");
@@ -451,6 +467,28 @@ export function useComposer(init: ComposerInit) {
           // so Undo returns to the check card as it was: the AI's note still ticked beside them.
           setSaved(text);
           onSaved(res.id, child);
+          // The old follow-up this note answers is done too (D-646), with a way to keep it open.
+          const settled = res.settled ?? [];
+          if (settled.length > 0) {
+            const noteId = res.id;
+            settledBy.set(noteId, settled);
+            toast.show({
+              text: tx(settledWords(settled.length, child.name)),
+              tone: "ok",
+              ms: 10_000,
+              undoLabel: tx(settled.length === 1 ? p("Keep it open", "खुला रखें") : p("Keep them open", "खुले रखें")),
+              undo: async () => {
+                settledBy.delete(noteId);
+                const opened = await reopenSettled(settled);
+                toast.show(
+                  opened
+                    ? { text: tx(p("Your follow-up is open again.", "आपका फ़ॉलो-अप फिर से खुला है।")), tone: "info" }
+                    : { text: tx(p("Could not open it again. Open the old note and tap Open.", "फिर से नहीं खुला। पुराना नोट खोलें और खुला दबाएँ।")), tone: "bad" },
+                );
+                router.refresh();
+              },
+            });
+          }
         } else if (!res.ok) setRefused(res.error);
       } catch {
         // A rejected response may follow a committed save. Keep the text and
@@ -551,6 +589,10 @@ export function useUndo() {
     start(async () => {
       const res = await undoNoteAction(noteId);
       if (res.ok) {
+        // A follow-up this note closed by itself opens again with it (D-646).
+        const settled = settledBy.get(noteId);
+        settledBy.delete(noteId);
+        if (settled?.length) await reopenSettled(settled);
         toast.show({ text: tx(p("Note taken back — nothing was saved", "नोट वापस लिया — कुछ नहीं सहेजा गया")) });
         after();
         router.refresh();

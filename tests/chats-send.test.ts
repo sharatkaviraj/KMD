@@ -97,6 +97,7 @@ function makeChat(over: Partial<ChatRow> = {}): ChatRow {
     passedUpAt: null,
     doneAt: null,
     doneBy: null,
+    doneReason: null,
     mergedInto: null,
     createdAt: ago(1),
     ...over,
@@ -142,7 +143,7 @@ function world(options: WorldOptions = {}) {
       sent.push(body);
       return (options.send ?? accepted)(body);
     },
-    readSettings: async () => ({ enabled: options.chatsEnabled ?? true, nudges: true, liveMinutes: 30, firstNudgeMinutes: 2 }),
+    readSettings: async () => ({ enabled: options.chatsEnabled ?? true, nudges: true, liveMinutes: 30, firstNudgeMinutes: 2, finishByItself: true, quietHours: 12 }),
     readChat: async (id) => (id === chat.id ? chat : null),
     readChatsForParent: async (e164) => (e164 === chat.parentE164 ? [chat] : []),
     readMessage: async (id) => messages.get(id) ?? null,

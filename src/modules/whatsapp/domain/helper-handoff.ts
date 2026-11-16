@@ -431,8 +431,8 @@ export function staffConfirmText(result: RelayResult | "not_text" | "not_saved",
   return words[result][language];
 }
 
-/** Words that only acknowledge, in English, Hindi and Hinglish. "fees" is not one: a single word can be a question. */
-const ACKNOWLEDGING = new Set(
+/** Words that only acknowledge, in English, Hindi and Hinglish. "fees" is not one: a single word can be a question. Chats widen it (`chats/domain/finish.ts`). */
+export const ACKNOWLEDGING: ReadonlySet<string> = new Set(
   [
     "ok okay okk k kk fine done noted sure yes yeah yep alright great good nice received welcome",
     "thanks thank thanku thankyou thx ty tq you u very much so got it sir mam maam madam ji jee",

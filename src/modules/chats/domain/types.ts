@@ -11,7 +11,7 @@
 export const CHAT_DESKS = ["class", "accounts", "admin"] as const;
 export type ChatDesk = (typeof CHAT_DESKS)[number];
 
-/** `waiting`: the parent wrote last and nobody has answered. `open`: answered, still going. `done`: closed by a person. */
+/** `waiting`: the parent wrote last and nobody has answered. `open`: answered, still going. `done`: closed by a person, or by itself (D-645). */
 export type ChatStatus = "waiting" | "open" | "done";
 
 /** `in` the parent, `out` a person at school, `ai` Veer Patta AI, `note` a line only staff see. */
@@ -90,6 +90,8 @@ export type ChatRow = {
   doneAt: string | null;
   /** Who closed it, while it is closed. */
   doneBy: string | null;
+  /** Why it closed with nobody tapping Finished (D-645): the parent only said thanks, or nobody wrote for hours. */
+  doneReason: "thanks" | "quiet" | null;
   /** The chat this one joined when it was passed to a desk where the family already had one (D-617). */
   mergedInto: string | null;
   createdAt: string;

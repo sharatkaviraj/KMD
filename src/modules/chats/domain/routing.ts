@@ -12,6 +12,9 @@ import type { ChatStatus } from "./types";
  *     parent writing back is the moment it goes, and their words belong there.
  *  3. A chat a person is answering right now (`live_until`, extended by every
  *     message from school): the conversation carries on with that person.
+ *     That holds for a chat that finished by itself on the parent's thank-you
+ *     (D-645) too, so their next words open it again with the same person.
+ *     A chat a person finished, or one closed for being quiet, is not live.
  *  4. Anything else is Veer Patta AI's, which answers or hands it on again,
  *     into the same desk's chat.
  */
@@ -21,6 +24,8 @@ export type RouteCandidate = {
   status: ChatStatus;
   liveUntil: string | null;
   lastStaffAt: string | null;
+  /** Why it finished without a person (D-645); only `thanks` keeps a finished chat live. */
+  doneReason?: "thanks" | "quiet" | null;
   /** Messages from school in this chat still waiting for the parent to write. */
   waitingOut: number;
 };
@@ -37,6 +42,6 @@ export function routeInbound(input: { quotedChatId: string | null; candidates: r
   const byStaff = [...input.candidates].sort((a, b) => time(b.lastStaffAt) - time(a.lastStaffAt));
   const waiting = byStaff.find((chat) => chat.waitingOut > 0);
   if (waiting) return { chatId: waiting.id, why: "waiting" };
-  const live = byStaff.find((chat) => chat.status !== "done" && time(chat.liveUntil) > input.now.getTime());
+  const live = byStaff.find((chat) => (chat.status !== "done" || chat.doneReason === "thanks") && time(chat.liveUntil) > input.now.getTime());
   return live ? { chatId: live.id, why: "live" } : null;
 }
