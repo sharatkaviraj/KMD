@@ -248,7 +248,9 @@ function GapLine({ tone, text, action }: { tone: "bad" | "warn"; text: string; a
   );
 }
 
-const rowLine: CSSProperties = { fontSize: 14, color: "var(--mut)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" };
+/* The icon stays beside the words: the words are one span, so a narrow card wraps them, never the icon onto a line of its own. */
+const rowLine: CSSProperties = { fontSize: 14, color: "var(--mut)", display: "flex", alignItems: "flex-start", gap: 6 };
+const rowIcon: CSSProperties = { flex: "none", display: "inline-flex", marginTop: 2 };
 
 function ToiletCard({ row, delay, canUpload, onUpload, onPhoto }: { row: WeekRow; delay: number; canUpload: boolean; onUpload: () => void; onPhoto: () => void }) {
   const { tx } = useVx();
@@ -273,9 +275,9 @@ function ToiletCard({ row, delay, canUpload, onUpload, onPhoto }: { row: WeekRow
 
       {chart && when ? (
         <>
-          <span style={rowLine}><Ic n="user" size={15} /> {tx(W.uploadedBy(chart.uploadedByName, when))} · {tx(W.pages(chart.pages))}</span>
+          <span style={rowLine}><span style={rowIcon}><Ic n="user" size={15} /></span><span>{tx(W.uploadedBy(chart.uploadedByName, when))} · {tx(W.pages(chart.pages))}</span></span>
           <span style={{ ...rowLine, color: row.missed.length ? "var(--bad)" : "var(--ok)", fontWeight: 600 }}>
-            <Ic n={row.missed.length ? "alert" : "checkCircle"} size={15} /> {tx(W.missedLine(row.missed.length))}
+            <span style={rowIcon}><Ic n={row.missed.length ? "alert" : "checkCircle"} size={15} /></span><span>{tx(W.missedLine(row.missed.length))}</span>
           </span>
           {row.missed.length ? (
             <span style={{ fontSize: 13, color: "var(--mut)" }}>
@@ -284,10 +286,10 @@ function ToiletCard({ row, delay, canUpload, onUpload, onPhoto }: { row: WeekRow
           ) : null}
         </>
       ) : row.state === "this_week" ? (
-        <span style={rowLine}><Ic n="clock" size={15} /> {tx(W.checksSoFar(row.checks))} · {tx(W.dueBy(dayLabel(nextMonday)))}</span>
+        <span style={rowLine}><span style={rowIcon}><Ic n="clock" size={15} /></span><span>{tx(W.checksSoFar(row.checks))} · {tx(W.dueBy(dayLabel(nextMonday)))}</span></span>
       ) : row.state === "due_today" || row.state === "late" ? (
         <span style={{ ...rowLine, color: row.state === "late" ? "var(--bad)" : "var(--warnfg)", fontWeight: 600 }}>
-          <Ic n="alert" size={15} /> {tx(W.dueBy(dayLabel(nextMonday)))}
+          <span style={rowIcon}><Ic n="alert" size={15} /></span><span>{tx(W.dueBy(dayLabel(nextMonday)))}</span>
         </span>
       ) : null}
 

@@ -7,7 +7,7 @@ uploaded to One.
 
 | What | Status | Branch / commit | Remaining or surprising |
 |---|---|---|---|
-| Toilet checks: print each toilet's weekly chart (QR to upload), upload its photo with the missed checks, see what is missing; Needs you card; Toilets & check times (D-652) | **in review** 17 Nov | `claude/project-thread-vnizrq` | The owner's list of toilets, who checks and the times are still to come; defaults until then. Migrations `20261117112752` and `20261117112806` applied to One's database 17 Nov (additive; the screen said "being set up" until then). |
+| Toilet checks: print each toilet's weekly chart (QR to upload), upload its photo with the missed checks, see what is missing; Needs you card; Toilets & check times (D-652) | **live** 17 Nov (PR 407, 9f9343e) | `claude/project-thread-vnizrq` | Migrations `20261117112752` and `20261117112806` applied to One's database. Live run as QA admin in TEST-2026-27: add toilet, chart PDF, photo upload with a missed check, photo view, Needs you item. BrowserStack passed on Galaxy M32 (office, Hindi) and Windows 11 Chrome (admin, desk layout + PDF). Follow-up: the card's icon no longer wraps onto its own line in a narrow desk card. Still to come from the owner: the toilet list, who checks, the times (defaults until then). |
 
 ## One stands on its own: the night's copy of the Fees app — 16 November 2026
 
