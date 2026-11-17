@@ -114,6 +114,14 @@ export const staffPermissions = [
   "transport:view",
   "transport:manage",
 
+  // Toilet checks (owner, 17 Nov 2026, D-652): the weekly paper chart for each
+  // toilet, printed from One, ticked twice a day on the wall and uploaded as a
+  // photo. `upload` sends a photographed chart; `manage` keeps the list of
+  // toilets, the check times and the tick list, and takes off a wrong photo.
+  "toilets:view",
+  "toilets:upload",
+  "toilets:manage",
+
   // The other two apps (R1.1).
   //
   // Not "may open School Fees" — nothing here can grant that, and the fee app
@@ -220,6 +228,10 @@ const officePermissions: readonly StaffPermission[] = [
   "students:view",
   "transport:view",
   "transport:manage",
+  // The office prints, collects and uploads the toilet charts (D-652).
+  "toilets:view",
+  "toilets:upload",
+  "toilets:manage",
   "messages:send",
   // Answers the office's chats with parents (D-616).
   "chats:reply",

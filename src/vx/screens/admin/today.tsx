@@ -113,6 +113,7 @@ const KIND_LOOK: Record<InboxItem["kind"], { icon: IconName; bg: string; fg: str
   job: { icon: "alert", bg: "var(--bads)", fg: "var(--bad)" },
   leave: { icon: "calendar", bg: "var(--infos)", fg: "var(--info)" },
   parent: { icon: "message", bg: "var(--oks)", fg: "var(--ok)" },
+  toilets: { icon: "toilet", bg: "var(--warns)", fg: "var(--warnfg)" },
 };
 
 /**

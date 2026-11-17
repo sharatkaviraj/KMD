@@ -1,5 +1,15 @@
 # Decisions
 
+## Toilet checks — 17 November 2026
+
+The owner (17 Nov, 10:52 UTC): "I want to add a toilet maintenance module in
+which toilets will be checked twice a day, maintenance chart will be printed,
+that chart will be uploaded on the application."
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-652 | **Toilet checks: a printed weekly chart per toilet, its photo uploaded to One, and what is missing shown first.** `/toilets` (`toilets:view`, admin and office) lists each toilet's chart for the week chosen: uploaded (by whom, when, how many checks missed), being filled, upload today (the Sunday and Monday after), or not uploaded. Print chart / Print all make an A4 landscape PDF per toilet: Monday to Saturday, a morning and an afternoon row for each open day, a tick box per check-list line, Time, Remarks, Name & sign, closed days shaded from the school calendar, and a QR code to `/toilets?upload=<toilet>&week=<Monday>`. Upload photo (`toilets:upload`): up to four pages, compressed on the phone, each sent to the private `toilet-charts` bucket through a signed link, checked on the server as a JPEG under 5 MB, then `vppsone.toilet_chart_store` makes it the week's chart; the uploader taps only the checks left empty on the paper. A second upload for a week replaces the first and keeps it. Toilets & check times (`toilets:manage`): add, change, reorder, remove (soft) toilets; the two check times (09:00 and 13:00 by default) and the check list (six default lines, up to eight). Needs you shows one card while any chart of the last eight weeks is due today or not uploaded (urgent when a week is late) or last week's chart has missed checks; Needs you's AI sees the kind `toilets` and its numbers only. | Defaults chosen while the owner's answers are awaited (which toilets, who checks, the times): the office runs it beside Transport, the times and the check list are editable on the screen, and nobody needs a new role. A weekly sheet rather than a daily one, because one photo a week per toilet is what an office can keep up with, and a missed check is still visible to the half day. Only exceptions are entered on the phone (the empty boxes), never all twelve checks. Migrations `20261117112752_toilet_checks.sql` (three `vppsone` tables with the TEST fence, the store function, the bucket) and `20261117112806_toilet_role_permissions.sql`; `tests/sql/toilet-checks.mjs` (PGlite), `tests/toilets-domain.test.ts`, `tests/toilets-actions.test.ts`, `tests/toilets-chart-pdf.test.ts`. |
+
 ## One stands on its own: the night's copy of the Fees app — 16 November 2026
 
 The owner (16 Nov, 02:27 UTC): delink One from the Fees app, so that One is an

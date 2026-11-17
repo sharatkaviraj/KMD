@@ -97,6 +97,7 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
         { key: "studenttools", label: L("Promote & import", "प्रमोशन व इम्पोर्ट"), icon: "upload", href: "/student-tools", permission: "fees:manage" },
         // Children on each bus route, the bus times and the drivers (D-550).
         { key: "transport", label: L("Transport", "परिवहन"), icon: "bus", href: "/transport", permission: "transport:view" },
+        { key: "toilets", label: L("Toilet checks", "शौचालय जाँच"), icon: "toilet", href: "/toilets", permission: "toilets:view" },
         { key: "staff", label: L("Staff & roles", "स्टाफ़"), icon: "shield", href: "/staff", permission: "staff:view" },
       ],
     },

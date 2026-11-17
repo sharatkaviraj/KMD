@@ -170,6 +170,20 @@ export const T = {
   refundFootnote: p("Refunds are approved on the finance controls screen, where the money rules live.", "रिफ़ंड वित्त नियंत्रण स्क्रीन पर मंज़ूर होते हैं।"),
   jobTitle: (job: string): Pair => p(`${job} did not finish`, `${job} पूरा नहीं हुआ`),
   openJobs: p("Open jobs", "जॉब खोलें"),
+  openToilets: p("Open toilet checks", "शौचालय जाँच खोलें"),
+  bToilets: p("Toilets", "शौचालय"),
+  toiletsTitle: (late: number, due: number, missed: number) => {
+    const en: string[] = [];
+    const hi: string[] = [];
+    if (due) { en.push(`${due} to upload today`); hi.push(`${due} आज अपलोड करने हैं`); }
+    if (late) { en.push(`${late} not uploaded`); hi.push(`${late} अपलोड नहीं हुए`); }
+    if (missed) { en.push(`${missed} with missed checks`); hi.push(`${missed} में जाँच छूटी`); }
+    return p(`Toilet charts: ${en.join(", ")}`, `शौचालय चार्ट: ${hi.join(", ")}`);
+  },
+  toiletsSub: p("Each toilet's weekly chart should be photographed and uploaded after Saturday.", "हर शौचालय का साप्ताहिक चार्ट शनिवार के बाद फ़ोटो लेकर अपलोड होना चाहिए।"),
+  toiletsLate: p("Not uploaded", "अपलोड नहीं हुए"),
+  toiletsDue: p("Upload today", "आज अपलोड करें"),
+  toiletsMissed: p("Checks missed last week", "पिछले हफ़्ते छूटी जाँच"),
   emptyInbox: p("Nothing needs you", "आपके लिए कुछ नहीं"),
   emptyInboxSub: p("Corrections, cover, answers to check and refunds will appear here.", "सुधार, व्यवस्था, जाँचने वाले जवाब और रिफ़ंड यहाँ दिखेंगे।"),
   emptyType: p("Nothing of this kind is waiting.", "इस तरह का कुछ बाकी नहीं।"),

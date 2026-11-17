@@ -104,6 +104,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `/substitutions` | One (pre-vx) + vx (current) |
 | `/teach` | One (pre-vx) + vx (current) |
 | `/timetable` | One (pre-vx) + vx (current) |
+| `/toilets` | vx (current) |
 | `/transport` | vx (current) |
 | `/view-as` | vx (current) |
 
@@ -157,6 +158,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 | `system-sync` | ported from Fees | domain, data | Cache invalidation and financial revalidation. Small, and every money path depends on it. |
 | `teacher-tasks` | One | domain, data, ui | — |
 | `timetable` | One | domain, data, ui | — |
+| `toilets` | One | domain, data, ui | Toilet checks (`/toilets`, owner, 17 Nov 2026, D-652): every toilet is checked |
 | `transactions` | ported from Fees | domain, data, ui | The read-only financial record centre. |
 | `transport` | One | domain, data | Which children ride each bus route, when each bus leaves, and who drives it. |
 | `whatsapp` | ported from Fees | domain, data, ui, vx | Fee reminders and the message templates behind them. |
@@ -190,7 +192,7 @@ classic desks ported from School Fees. *One (pre-vx)*: One's own older screens.
 
 ## vx screens — `src/vx/screens/`
 
-`academics` · `accounts` · `admin` · `admissions` · `board-office` · `calendar` · `chats` · `collect` · `dues` · `exams` · `families` · `family-contact` · `fee-setup` · `messages` · `notes` · `parents` · `payments` · `receipts` · `reminders` · `reports` · `school-office` · `settings` · `smoke` · `staff` · `student-tools` · `system` · `teach` · `timetable` · `transport` · `view-as`
+`academics` · `accounts` · `admin` · `admissions` · `board-office` · `calendar` · `chats` · `collect` · `dues` · `exams` · `families` · `family-contact` · `fee-setup` · `messages` · `notes` · `parents` · `payments` · `receipts` · `reminders` · `reports` · `school-office` · `settings` · `smoke` · `staff` · `student-tools` · `system` · `teach` · `timetable` · `toilets` · `transport` · `view-as`
 
 ## Test harnesses
 
@@ -254,4 +256,5 @@ Test folders:
 | `provider-claim.yml` | Provider claim concurrency | PR, push main, manual |
 | `staff-session-sql.yml` | Staff session SQL | PR, push main, manual |
 | `teacher-task-sql.yml` | Teacher task SQL scope | PR, push main, manual |
+| `toilet-checks-sql.yml` | Toilet checks SQL | PR, push main, manual |
 | `transport-sql.yml` | Transport SQL | PR, push main, manual |

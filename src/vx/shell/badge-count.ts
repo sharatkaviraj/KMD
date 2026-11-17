@@ -24,6 +24,8 @@ export function inboxBadgeCount(parts: {
   leave?: number;
   /** A parent's suggestions this reader decides here (one item each, D-598). */
   parents?: number;
+  /** Toilet charts not uploaded or checks missed: one item for all of them (D-652). */
+  toilets?: boolean;
 }): number {
   return (
     (parts.notMarked ? 1 : 0) +
@@ -33,6 +35,7 @@ export function inboxBadgeCount(parts: {
     parts.refunds +
     parts.failedJobs +
     (parts.leave ?? 0) +
-    (parts.parents ?? 0)
+    (parts.parents ?? 0) +
+    (parts.toilets ? 1 : 0)
   );
 }

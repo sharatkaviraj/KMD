@@ -69,6 +69,10 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // The office runs the buses with the admin, so it reads and edits them.
     "transport:view",
     "transport:manage",
+    // Toilet checks (D-652): the office prints, collects and uploads the charts.
+    "toilets:view",
+    "toilets:upload",
+    "toilets:manage",
     // Reads the fee screens. Deliberately NOT `fees:collect`: office staff
     // post payments in the fee app today, and folding that app in is the
     // moment to stop granting the power to take money by job title.

@@ -40,6 +40,7 @@ with
     'fees_bridge_state','fees_bridge_sessions','fees_bridge_classes','fees_bridge_students','fees_bridge_households',
     'fees_bridge_runs','fees_bridge_retired_students','fees_bridge_retired_classes',
     'fees_bridge_routes','fees_bridge_route_sync','transport_drivers','transport_trips','transport_trip_stops',
+    'toilets','toilet_settings','toilet_charts',
     'fees_copy_settings','fees_copy_runs','fees_copy_nulled_refs','fees_copy_test_ids','fees_copy_audit_state','fees_copy_quarantine',
     'class_tests','class_test_marks',
     'message_test_recipients','migration_id_map','migration_runs','migration_watermarks','one_owned_fee_settings',

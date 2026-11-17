@@ -121,6 +121,7 @@ export const KIND_ICON: Record<NeedKind, IconName> = {
   refund: "rupee",
   job: "alert",
   parent: "message",
+  toilets: "toilet",
   chat: "message",
   own: "notePen",
 };

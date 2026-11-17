@@ -628,6 +628,7 @@ function redesign(): RouteExpectation[] {
     row("/", EVERYONE, "The doorway: the admin menu's Today, filtered by permission; every other menu is sent on to its own home."),
     row("/students/[id]", ["admin", "office"], "Student 360 is the Students list's detail, so it follows the list: admin and office (PLAN section 3)."),
     row("/transport", ["admin", "office"], "Which children ride each bus route, the bus times and the drivers: the office runs the buses beside the roster (owner, 7 Nov 2026, D-550). Staff → Roles can give it to anyone else."),
+    row("/toilets", ["admin", "office"], "Toilet checks: print each toilet's weekly chart, upload the filled chart's photo, see which charts or checks are missing (owner, 17 Nov 2026, D-652). Staff → Roles can give it to anyone else."),
     row("/inbox", ["admin", "office", "academic_coordinator"], "Needs you: the admin's queue of corrections, leave and approvals (design F01/D02)."),
     row("/needs", EVERYONE, "Needs you for everyone else (D-630): what is waiting on this person today, in order, with their own to-dos and what they finished. Whoever decides the school's queue is sent on to /inbox, which is theirs."),
     row("/attendance", ["admin", "office", "academic_coordinator"], "Whole-school attendance and marking on a teacher's behalf: the office's act, and the academic coordinator's attendance oversight (design AcadAttendance)."),

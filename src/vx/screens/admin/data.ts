@@ -52,6 +52,7 @@ import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitution
 import { currentBells, dutiesOn, liveOnly } from "@/modules/substitutions/data/cover-repo";
 import { coverEligibleIds, distinctNames } from "@/modules/substitutions/domain/cover-view";
 import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
+import { toiletGaps } from "@/modules/toilets/data/read";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 
@@ -801,6 +802,8 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
     can(staff, "jobs:view") ? guard(missing, "jobs", () => jobsNow()) : Promise.resolve(null),
     can(staff, "substitutions:manage") ? guard(missing, "leave", () => askedLeave(sessionLabel)) : Promise.resolve(null),
     parents ? guard(missing, "parents", async () => (await waitingParents(sessionLabel)).filter((row) => inNeedsYou(row, parents))) : Promise.resolve(null),
+    // Toilet charts not uploaded, or checks missed last week (D-652): one item for all of them.
+    can(staff, "toilets:view") ? guard(missing, "toilets", () => toiletGaps(sessionLabel, day)) : Promise.resolve(null),
   ] as const);
 }
 
@@ -814,7 +817,7 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
  */
 export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests, nowMinutes?: number) => Promise<number> = cache(
   async (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests, nowMinutes?: number): Promise<number> => {
-    const [board, needing, pending, money, jobs, leave, parents] = await inboxSources(staff, sessionLabel, day, refunds, []);
+    const [board, needing, pending, money, jobs, leave, parents, toilets] = await inboxSources(staff, sessionLabel, day, refunds, []);
     const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending.filter(s=>s.fieldKey!=="student_photo"&&(staff.role==="admin"||!s.requiresAdmin))) : { changes: [], confirmations: [] };
     return inboxBadgeCount({
       notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded) && registerLate(board.bells, nowMinutes ?? schoolMinutes(new Date()))),
@@ -825,6 +828,7 @@ export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string
       failedJobs: [...(jobs?.latest.values() ?? [])].filter((entry) => entry.status === "failed").length,
       leave: leave?.length ?? 0,
       parents: parents?.length ?? 0,
+      toilets: Boolean(toilets),
     });
   },
 );
@@ -852,7 +856,7 @@ async function readInbox(
   const items: InboxItem[] = [];
   const nowIso = new Date().toISOString();
 
-  const [board, needing, pending, refunds, jobs, leave, parents] = await inboxSources(staff, sessionLabel, day, refundsReader, missing);
+  const [board, needing, pending, refunds, jobs, leave, parents, toilets] = await inboxSources(staff, sessionLabel, day, refundsReader, missing);
 
   /* attendance not marked */
   if (board && board.schoolOpen) {
@@ -1071,6 +1075,27 @@ async function readInbox(
         },
       });
     }
+  }
+
+  /* toilet charts not uploaded, or checks missed (D-652) */
+  if (toilets) {
+    items.push({
+      id: `toilets:${day}`,
+      type: "system",
+      kind: "toilets",
+      at: toilets.oldestLate ? `${toilets.oldestLate}T09:00:00+05:30` : nowIso,
+      // A chart a whole week late is urgent; today's upload and missed checks are not.
+      urgent: toilets.late > 0,
+      badge: T.bToilets,
+      title: T.toiletsTitle(toilets.late, toilets.dueToday, toilets.missed),
+      sub: T.toiletsSub,
+      facts: [
+        ...(toilets.dueToday ? [{ label: T.toiletsDue, value: String(toilets.dueToday) }] : []),
+        ...(toilets.late ? [{ label: T.toiletsLate, value: String(toilets.late) }] : []),
+        ...(toilets.missed ? [{ label: T.toiletsMissed, value: String(toilets.missed) }] : []),
+      ],
+      href: "/toilets",
+    });
   }
 
   /* jobs that failed */

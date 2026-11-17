@@ -296,7 +296,7 @@ export function examNeeds(f: ExamFacts): { items: NeedItem[]; done: DoneItem[] }
 
 export type AdminInboxFacts = readonly {
   id: string;
-  kind: "not_marked" | "cover" | "submission" | "confirmations" | "refund" | "job" | "leave" | "parent";
+  kind: "not_marked" | "cover" | "submission" | "confirmations" | "refund" | "job" | "leave" | "parent" | "toilets";
   at: string | null;
   urgent: boolean;
   title: Pair;
@@ -314,6 +314,7 @@ const ADMIN_KIND: Record<AdminInboxFacts[number]["kind"], NeedItem["kind"]> = {
   job: "job",
   leave: "leave",
   parent: "parent",
+  toilets: "toilets",
 };
 
 /**

@@ -1,5 +1,14 @@
 # VPPS One — progress
 
+## Toilet checks — 17 November 2026
+
+The owner asked for toilets checked twice a day on a printed chart that is then
+uploaded to One.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Toilet checks: print each toilet's weekly chart (QR to upload), upload its photo with the missed checks, see what is missing; Needs you card; Toilets & check times (D-652) | **in review** 17 Nov | `claude/project-thread-vnizrq` | The owner's list of toilets, who checks and the times are still to come; defaults until then. Migrations `20261117112752` and `20261117112806` applied to One's database 17 Nov (additive; the screen said "being set up" until then). |
+
 ## One stands on its own: the night's copy of the Fees app — 16 November 2026
 
 The owner asked that One be delinked from the Fees app and become an app of

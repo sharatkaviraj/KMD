@@ -48,6 +48,8 @@ export const NEED_KINDS = [
   "refund",
   "job",
   "parent",
+  // toilet charts not uploaded, or checks missed (D-652)
+  "toilets",
   // everyone
   "chat",
   "own",

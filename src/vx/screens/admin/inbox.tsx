@@ -75,6 +75,7 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
   job: { icon: "alert", tone: "bad" },
   leave: { icon: "calendar", tone: "info" },
   parent: { icon: "message", tone: "ok" },
+  toilets: { icon: "toilet", tone: "warn" },
 };
 
 /** What `/api/inbox` needs to send a held decision after the page has gone. */
@@ -733,6 +734,9 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
     case "job":
       actions = <Btn variant="pri" href={item.href}>{tx(T.openJobs)}</Btn>;
       break;
+    case "toilets":
+      actions = <Btn variant="pri" icon="toilet" href={item.href}>{tx(T.openToilets)}</Btn>;
+      break;
     case "leave":
       actions = <LeaveButtons item={item} on={on} />;
       break;
@@ -813,6 +817,9 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
       break;
     case "job":
       actions = <Btn variant="pri" style={BIG} href={item.href}>{tx(T.openJobs)}</Btn>;
+      break;
+    case "toilets":
+      actions = <Btn variant="pri" icon="toilet" style={BIG} href={item.href}>{tx(T.openToilets)}</Btn>;
       break;
     case "leave":
       actions = <LeaveButtons item={item} on={on} big />;
